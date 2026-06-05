@@ -38,6 +38,32 @@ function Collection() {
 }
 
 /* ---------- folkfördelning (streck %) som 3-segmentsstapel ---------- */
+function Legend() {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="legendbox">
+      <button className="legend-toggle" onClick={() => setOpen(!open)}>
+        ℹ Vad betyder färgerna & symbolerna? {open ? '▲' : '▼'}
+      </button>
+      {open && (
+        <div className="legend">
+          <div><b>Färgad kvot</b> (under oddset) = <b>värde</b> = oddsens sannolikhet ÷ folkets streck.
+            {' '}<span className="vpill v-green">≥1.08</span> marknaden tror mer än folket (köpläge) ·
+            {' '}<span className="vpill v-yellow">~1.0</span> rätt streckad ·
+            {' '}<span className="vpill v-red">≤0.92</span> överspelad.</div>
+          <div><b>P</b> = Pinnacle (sharp bookmaker) odds · <b>P~</b> = härlett från handikapp när 1X2 inte öppnats.</div>
+          <div><b>Förslag:</b> <span className="badge b-spik">Spik</span> stark favorit ·
+            {' '}<span className="badge b-half">Värdespik</span> kort odds men lågt streck (undervärderad) ·
+            {' '}<span className="badge b-open">Gardera</span> öppen match.</div>
+          <div>Märken: <b className="m-sharp">S</b> sharp ser värde folket missat ·
+            {' '}<b className="m-edge">▲</b> Svenska Spels odds högre än Pinnacle (felprisat) ·
+            {' '}<b className="m-move-down">⇊</b> oddset har stärkts i våra mätningar · ↓ fallande mot startodds.</div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function StreckBar({ outcomes }) {
   const signs = ['1', 'X', '2']
   const segs = signs.map((s) => outcomes[s].streck || 0)
@@ -68,9 +94,18 @@ function Forslag({ m }) {
     avvakta: ['b-lean', 'Avvakta'],
   }
   const [cls, txt] = map[m.speltyp] || ['b-lean', `Lutar ${fav}`]
+  const tips = {
+    spik: 'Stark favorit – kan singlas.',
+    halvspik: 'Halvfavorit – singla djärvt eller halvgardera.',
+    värdespik: 'Kort odds men lågt streck – undervärderad av folket, bra att singla.',
+    gardera: 'Öppen match utan klar favorit – ta flera tecken.',
+    lutar: 'Svag favorit – luta hit men gardera gärna.',
+    avvakta: 'Odds saknas än – avvakta.',
+  }
+  const badgeTitle = `${tips[m.speltyp] || ''} (favorit ${Math.round((m.favourite_prob || 0) * 100)}%, spik-styrka ${Math.round(m.spik_score)}/100)`
   return (
-    <div className="forslag" title={`favorit ${Math.round((m.favourite_prob || 0) * 100)}% · spik-styrka ${Math.round(m.spik_score)}/100 · öppenhet ${Math.round(m.open_score)}/100`}>
-      <span className={`badge ${cls}`}>{txt}</span>
+    <div className="forslag" title={`spik-styrka ${Math.round(m.spik_score)}/100 · öppenhet ${Math.round(m.open_score)}/100`}>
+      <span className={`badge ${cls}`} title={badgeTitle}>{txt}</span>
       <div className="rec">{m.recommendation}</div>
     </div>
   )
@@ -84,6 +119,10 @@ function OddsCell({ o, derived, picked, onToggle, valueOk }) {
   // Värde-kvot = fair-sannolikhet / streck. >1 = marknaden tror mer än folket.
   const ratio = (valueOk && o.fair_prob != null && o.streck) ? o.fair_prob / (o.streck / 100) : null
   const rcls = ratio == null ? '' : ratio >= 1.08 ? 'v-green' : ratio <= 0.92 ? 'v-red' : 'v-yellow'
+  const ratioTitle = ratio == null ? '' : `Värde ${ratio.toFixed(2)}: oddsens sannolikhet ${Math.round((o.fair_prob || 0) * 100)}% mot folkets ${o.streck}% streck. ` +
+    (ratio >= 1.08 ? `Marknaden tror ~${Math.round((ratio - 1) * 100)}% mer än folket — köpläge.`
+      : ratio <= 0.92 ? `Folket överspelar (${Math.round((1 - ratio) * 100)}% mindre sannolik än streckad).`
+        : 'Ungefär rätt streckad.')
   return (
     <td className={cls.join(' ')} onClick={onToggle} title="klicka för att lägga till/ta bort i kupongen">
       <div className="odds">{fmt(o.odds)}</div>
@@ -92,7 +131,7 @@ function OddsCell({ o, derived, picked, onToggle, valueOk }) {
           {derived ? 'P~' : 'P'} {fmt(o.sharp_odds)}
         </div>
       )}
-      {ratio != null && <div className={`vpill ${rcls}`} title="värde = sannolikhet ÷ streck">{ratio.toFixed(2)}</div>}
+      {ratio != null && <div className={`vpill ${rcls}`} title={ratioTitle}>{ratio.toFixed(2)}</div>}
       <div className="marks">
         {o.tags?.includes('värdestreck') && <span title="värdestreck (SS)">★</span>}
         {o.tags?.includes('sharp_värde') && <span className="m-sharp" title="sharp ser värde vs folket">S</span>}
@@ -618,20 +657,11 @@ export default function App() {
       {loading && <div className="loading">Hämtar…</div>}
 
       <section>
-        <h2>Analys</h2>
-        <div className="legend">
-          <div><b>Färgad kvot</b> (under oddset) = <b>värde</b> = oddsens sannolikhet ÷ folkets streck.
-            {' '}<span className="vpill v-green">≥1.08</span> marknaden tror mer än folket (köpläge) ·
-            {' '}<span className="vpill v-yellow">~1.0</span> rätt streckad ·
-            {' '}<span className="vpill v-red">≤0.92</span> överspelad.</div>
-          <div><b>P</b> = Pinnacle (sharp bookmaker) odds · <b>P~</b> = härlett från handikapp när 1X2 inte öppnats.</div>
-          <div><b>Förslag:</b> <span className="badge b-spik">Spik</span> stark favorit ·
-            {' '}<span className="badge b-half">Värdespik</span> kort odds men lågt streck (undervärderad) ·
-            {' '}<span className="badge b-open">Gardera</span> öppen match.</div>
-          <div>Märken: <b className="m-sharp">S</b> sharp ser värde folket missat ·
-            {' '}<b className="m-edge">▲</b> Svenska Spels odds högre än Pinnacle (felprisat) ·
-            {' '}<b className="m-move-down">⇊</b> oddset har stärkts i våra mätningar · ↓ fallande mot startodds.</div>
+        <div className="analys-head">
+          <h2>Analys</h2>
+          <span className="hovertip">💡 håll muspekaren över en siffra eller badge för förklaring</span>
         </div>
+        <Legend />
         {analysis && (
           <AnalysisTable matches={analysis.matches} product={product} drawNumber={analysis.draw_number}
             selected={selected} onSelect={setSelected} picks={picks} onToggleSign={toggleSign} />

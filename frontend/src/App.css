@@ -39,10 +39,18 @@ button:hover { border-color: var(--green); }
 button.primary { background: var(--green); border-color: var(--green); font-weight: 600; }
 
 h2 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
-.legend { color: var(--muted); margin-top: -6px; font-size: 12px; background: var(--panel);
+.analys-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.hovertip { color: var(--muted); font-size: 12px; }
+.legendbox { margin-bottom: 10px; }
+.legend-toggle { background: none; border: none; color: var(--muted); font-size: 12px;
+  cursor: pointer; padding: 2px 0; }
+.legend-toggle:hover { color: var(--text); border: none; }
+.legend { color: var(--muted); margin-top: 6px; font-size: 12px; background: var(--panel);
   border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
-.legend > div { margin: 3px 0; }
+.legend > div { margin: 4px 0; line-height: 1.5; }
 .legend .vpill, .legend .badge { vertical-align: middle; }
+[title] { cursor: help; }
+.pickcell[title], .clickable[title] { cursor: pointer; }
 
 .grid { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 8px; overflow: hidden; }
 .grid th, .grid td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
