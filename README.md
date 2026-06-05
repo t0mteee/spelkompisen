@@ -148,6 +148,9 @@ Alla tar `?product=stryktipset` (även `europatipset`, `topptipset`).
 - **Värdestreck (★)**: `fair% − streck% ≥ 6` — marknaden tror mer än folket.
 - **Fallande odds (↓)**: oddset ned ≥ 4 % mot startodds — pengar flödar in.
 - **Spik**: stark favorit (hög `fair_prob`), bonus vid fallande odds/brett folkstöd.
+- **Värde-kvot** (färgad pill per tecken): sannolikhet ÷ streck. ≥1.08 (grön) =
+  marknaden tror mer än folket (värde); <0.92 (röd) = överspelat. Som gamblingcabins
+  "Värde"-vy, men sannolikheten väger även in sharp-odds.
 - **Sharp-värde (S)**: Pinnacle-sannolikhet − streck% ≥ 6 — sharp ser värde folket missat.
 - **SS felprisat (▲/▽)**: sharp-sannolikhet vs SS-sannolikhet skiljer ≥ 6 pe.
   ▲ = SS-odds för höga (back-läge), ▽ = för låga. Sharp = sanningskälla.
@@ -176,7 +179,13 @@ analysens speltyp. Live-beräkningar:
   - Prispott per nivå = omsättning × andel. Antal vinnare (och därmed kr/vinnare)
     uppskattas från **nuvarande streck** (Poisson-binomial per rad), så en
     favorit-rad som folket överspelar ger låg utdelning och en undervärderad rad
-    hög — EV speglar verkligt värde.
+    hög.
+- Två skilda tal: **Utdelning om rätt** (vad du får *om* raden vinner nivån — hög
+  för skräll, låg för chalk) och **EV (netto)** (sannolikhetsviktat − insats).
+  Skräll = hög utdelning men starkt negativ EV; chalk = låg utdelning, EV nära noll.
+- **Utdelningsreducering**: ta bort rader vars utdelning (om de vinner) understiger
+  ett tröskelvärde — skär bort överspelade favorit-rader och behåller värde
+  (motsvarar gamblingcabins funktion). Allt räknas om på de behållna raderna.
 
 EV är en uppskattning — verklig utdelning beror på slutlig omsättning och utfall
 (ev. jackpot/garantifond ingår ej).

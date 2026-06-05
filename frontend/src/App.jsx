@@ -72,11 +72,14 @@ function Forslag({ m }) {
   )
 }
 
-function OddsCell({ o, derived, picked, onToggle }) {
+function OddsCell({ o, derived, picked, onToggle, valueOk }) {
   const cls = ['cell', 'pickcell']
   if (o.tags?.includes('värdestreck') || o.tags?.includes('sharp_värde')) cls.push('value')
   if (o.tags?.includes('ss_undervärderad')) cls.push('edge')
   if (picked) cls.push('picked')
+  // Värde-kvot = fair-sannolikhet / streck. >1 = marknaden tror mer än folket.
+  const ratio = (valueOk && o.fair_prob != null && o.streck) ? o.fair_prob / (o.streck / 100) : null
+  const rcls = ratio == null ? '' : ratio >= 1.08 ? 'v-green' : ratio <= 0.92 ? 'v-red' : 'v-yellow'
   return (
     <td className={cls.join(' ')} onClick={onToggle} title="klicka för att lägga till/ta bort i kupongen">
       <div className="odds">{fmt(o.odds)}</div>
@@ -86,6 +89,7 @@ function OddsCell({ o, derived, picked, onToggle }) {
           {derived ? 'P~' : 'P'} {fmt(o.sharp_odds)}
         </div>
       )}
+      {ratio != null && <div className={`vpill ${rcls}`} title="värde = sannolikhet ÷ streck">{ratio.toFixed(2)}</div>}
       <div className="marks">
         {o.tags?.includes('värdestreck') && <span title="värdestreck (SS)">★</span>}
         {o.tags?.includes('sharp_värde') && <span className="m-sharp" title="sharp ser värde vs folket">S</span>}
@@ -108,6 +112,7 @@ function AnalysisTable({ matches, product, drawNumber, selected, onSelect, picks
       <tbody>
         {matches.map((m) => {
           const derived = (m.sharp_bookmaker || '').includes('härledd')
+          const valueOk = m.prob_source === 'odds' || m.prob_source === 'sharp'
           return (
             <Fragment key={m.event_number}>
               <tr className={selected === m.event_number ? 'sel' : ''}>
@@ -117,7 +122,7 @@ function AnalysisTable({ matches, product, drawNumber, selected, onSelect, picks
                   <div className="league">{m.league}{derived ? ' · sharp härledd' : ''} · klicka för graf</div>
                 </td>
                 {['1', 'X', '2'].map((s) => (
-                  <OddsCell key={s} o={m.outcomes[s]} derived={derived}
+                  <OddsCell key={s} o={m.outcomes[s]} derived={derived} valueOk={valueOk}
                     picked={isPicked(m.event_number, s)}
                     onToggle={() => onToggleSign(m.event_number, s)} />
                 ))}
@@ -306,9 +311,11 @@ function poissonBinomial(probs) {
   return d
 }
 
-function couponStats(matches, picks, payouts) {
+function couponStats(matches, picks, payouts, minDividend = 0, turnoverOverride = null, jackpot = 0) {
   const N = matches.length
   const rowPrice = payouts?.row_price || 1
+  const ratio = payouts?.ratio || 0
+  const turnover = turnoverOverride != null ? turnoverOverride : (payouts?.turnover || 0)
   const ps = [], counts = []
   let complete = true
   for (const m of matches) {
@@ -317,45 +324,51 @@ function couponStats(matches, picks, payouts) {
     ps.push(sel.reduce((a, s) => a + (m.outcomes[s]?.fair_prob || 0), 0))
     counts.push(sel.length)
   }
-  // dp = bästa radens antal-rätt-fördelning; poly = förv. antal vinstrader/nivå
-  let dp = [1], poly = [1]
+  // Generating-function-poly för fulla systemet (fallback om vi inte enumererar)
+  let gpoly = [1]
   for (let i = 0; i < N; i++) {
     const p = ps[i], c = counts[i]
-    const nd = Array(dp.length + 1).fill(0)
-    for (let j = 0; j < dp.length; j++) { nd[j] += dp[j] * (1 - p); nd[j + 1] += dp[j] * p }
-    dp = nd
-    const np = Array(poly.length + 1).fill(0)
-    for (let j = 0; j < poly.length; j++) { np[j] += poly[j] * (c - p); np[j + 1] += poly[j] * p }
-    poly = np
+    const np = Array(gpoly.length + 1).fill(0)
+    for (let j = 0; j < gpoly.length; j++) { np[j] += gpoly[j] * (c - p); np[j + 1] += gpoly[j] * p }
+    gpoly = np
   }
-  const rows = complete ? counts.reduce((a, c) => a * c, 1) : 0
-  const cost = rows * rowPrice
+  const fullRows = complete ? counts.reduce((a, c) => a * c, 1) : 0
   const expectedCorrect = ps.reduce((a, b) => a + b, 0)
   const selectedCount = counts.filter((c) => c > 0).length
+  // potter räknas från (ev. överstyrd) omsättning × andel; jackpot läggs på toppnivån
+  const tiers = (payouts?.tiers || []).map((t) => ({
+    correct: t.correct,
+    pool: turnover * ratio * (t.share || 0) + (t.correct === N ? jackpot : 0),
+  }))
+  const poolMap = {}; tiers.forEach((t) => { poolMap[t.correct] = t.pool })
+  const field = turnover / rowPrice
 
-  // Förväntad utdelning från AKTUELL omsättning (pott/nivå) + NUVARANDE streck.
-  // Enumerera kupongens rader; för varje rad ger Poisson-binomial över odds
-  // sannolikheten att raden får k rätt, och Poisson-binomial över folkets
-  // streck antalet medvinnare på den nivån. kr/vinnare = pott_k / vinnare_k.
-  const poolMap = {}; (payouts?.tiers || []).forEach((t) => { poolMap[t.correct] = t.pool })
-  const field = (payouts?.turnover || 0) / rowPrice
-  const evTiers = {}
-  let evPayout = 0, modelOk = false
-  if (complete && field > 0 && rows > 0 && rows <= 30000) {
+  // Enumerera kupongens rader. Per rad: Poisson-binomial över odds (P att raden
+  // får k rätt) och över folkets streck (medvinnartäthet). kr/vinnare =
+  // pott_k / (förv. medvinnare + dig själv). Utdelningsreducering: hoppa över
+  // rader vars toppvinst-utdelning understiger minDividend.
+  const poly = {}, evTiers = {}
+  let kept = 0, evPayout = 0, modelOk = false
+  if (complete && field > 0 && fullRows > 0 && fullRows <= 20000 && tiers.length) {
     const sel = matches.map((m) => (picks[m.event_number] || []).map((s) => ({
       fair: m.outcomes[s]?.fair_prob || 0,
       folk: m.outcomes[s]?.streck != null ? m.outcomes[s].streck / 100 : (m.outcomes[s]?.fair_prob || 0),
     })))
-    const tiers = payouts.tiers || []
     const rec = (i, fairArr, folkArr) => {
       if (i === N) {
-        const pf = poissonBinomial(fairArr)   // P(raden får k rätt)
-        const pk = poissonBinomial(folkArr)   // medvinnar-täthet per nivå
+        const pf = poissonBinomial(fairArr)
+        const pk = poissonBinomial(folkArr)
+        const div = {}
         for (const t of tiers) {
           const c = t.correct
-          const winners = field * (pk[c] || 0) + (c === N ? 1 : 0)
-          const perWinner = winners > 0 ? t.pool / winners : 0
-          const contrib = (pf[c] || 0) * perWinner
+          div[c] = Math.min(t.pool, t.pool / (field * (pk[c] || 0) + 1))
+        }
+        if (minDividend > 0 && (div[N] || 0) < minDividend) return   // bort med raden
+        kept++
+        for (const t of tiers) {
+          const c = t.correct
+          poly[c] = (poly[c] || 0) + (pf[c] || 0)
+          const contrib = (pf[c] || 0) * div[c]
           evPayout += contrib
           evTiers[c] = (evTiers[c] || 0) + contrib
         }
@@ -367,13 +380,26 @@ function couponStats(matches, picks, payouts) {
     modelOk = true
   }
 
-  return { N, complete, selectedCount, rows, cost, dp, poly, poolMap, evTiers, modelOk,
-    expectedCorrect, evPayout, ev: evPayout - cost,
-    roi: cost ? (evPayout - cost) / cost : null, pAll: dp[N] }
+  const rows = modelOk ? kept : fullRows
+  const cost = rows * rowPrice
+  // Utdelning OM raden vinner nivån = EV-bidrag / förv. antal vinstrader på nivån.
+  const dividend = {}
+  for (const c in evTiers) dividend[c] = poly[c] ? evTiers[c] / poly[c] : null
+  const polyOut = modelOk ? poly : gpoly.reduce((o, v, i) => { o[i] = v; return o }, {})
+  const pAll = modelOk ? (poly[N] || 0) : (gpoly[N] || 0)
+  return { N, complete, selectedCount, fullRows, kept, rows, cost, poly: polyOut, evTiers,
+    dividend, topDividend: dividend[N] ?? null, modelOk, reduced: minDividend > 0,
+    poolMap, turnover, expectedCorrect, evPayout, ev: evPayout - cost,
+    roi: cost ? (evPayout - cost) / cost : null, pAll }
 }
 
 function CouponPanel({ matches, picks, payouts, onFill, onClear }) {
-  const s = couponStats(matches, picks, payouts)
+  const [redOn, setRedOn] = useState(false)
+  const [minDiv, setMinDiv] = useState(50)
+  const [turnover, setTurnover] = useState(null)   // null = använd live-omsättning
+  const [jackpot, setJackpot] = useState(0)
+  const effTurnover = turnover != null ? turnover : (payouts?.turnover || 0)
+  const s = couponStats(matches, picks, payouts, redOn ? minDiv : 0, turnover, jackpot)
   const payTiers = (payouts?.tiers || []).filter((t) => t.correct != null).sort((a, b) => b.correct - a.correct)
   return (
     <div className="coupon">
@@ -384,33 +410,56 @@ function CouponPanel({ matches, picks, payouts, onFill, onClear }) {
       </div>
       {s.complete && (
         <>
+          {payouts?.available && (
+            <>
+              <div className="reducer">
+                <label>Omsättning (mkr)
+                  <input type="number" min="0" step="0.5" value={(effTurnover / 1e6).toFixed(2)}
+                    onChange={(e) => setTurnover(Number(e.target.value) * 1e6)} />
+                </label>
+                <label>Jackpot (mkr)
+                  <input type="number" min="0" step="0.5" value={(jackpot / 1e6)}
+                    onChange={(e) => setJackpot(Number(e.target.value) * 1e6)} />
+                </label>
+                {turnover != null && <button onClick={() => setTurnover(null)}>↺ live</button>}
+              </div>
+              <label className="reducer">
+                <input type="checkbox" checked={redOn} onChange={(e) => setRedOn(e.target.checked)} />
+                Utdelningsreducering: ta bort rader med utdelning under
+                <input type="number" min="0" step="10" value={minDiv} disabled={!redOn}
+                  onChange={(e) => setMinDiv(Number(e.target.value))} /> kr
+                {redOn && s.modelOk && <span className="cstatus"> · behåller {s.kept} av {s.fullRows} rader</span>}
+              </label>
+            </>
+          )}
           <div className="coupon-kpis">
-            <div className="kpi"><span>{s.rows}</span>rader</div>
+            <div className="kpi"><span>{s.rows}</span>rader{s.reduced ? ` (av ${s.fullRows})` : ''}</div>
             <div className="kpi"><span>{kr(s.cost)}</span>insats</div>
             <div className="kpi"><span>{s.expectedCorrect.toFixed(2)}</span>förv. antal rätt</div>
             <div className="kpi"><span>{pct(s.pAll)}</span>chans alla rätt</div>
-            <div className="kpi"><span className={s.ev >= 0 ? 'pos' : 'neg'}>{kr(s.evPayout)}</span>förv. utdelning</div>
+            <div className="kpi"><span>{kr(s.topDividend)}</span>utdelning om alla rätt</div>
             <div className="kpi"><span className={s.ev >= 0 ? 'pos' : 'neg'}>{s.ev >= 0 ? '+' : ''}{kr(s.ev)}</span>EV (netto)</div>
             <div className="kpi"><span className={s.roi >= 0 ? 'pos' : 'neg'}>{s.roi == null ? '–' : (s.roi * 100).toFixed(0) + ' %'}</span>ROI</div>
           </div>
           {payouts?.available && (
             <table className="grid compact paytable">
-              <thead><tr><th>Nivå</th><th>Prispott*</th><th>Chans (bästa rad)</th><th>Förv. utdelning</th></tr></thead>
+              <thead><tr><th>Nivå</th><th>Prispott*</th><th>Förv. vinstrader</th><th>Utdelning om rätt</th><th>EV-bidrag</th></tr></thead>
               <tbody>
                 {payTiers.map((t) => (
                   <tr key={t.correct}>
                     <td>{t.correct} rätt</td>
-                    <td>{kr(t.pool)}</td>
-                    <td>{pct(s.dp[t.correct] || 0)}</td>
+                    <td>{kr(s.poolMap?.[t.correct])}</td>
+                    <td>{(s.poly[t.correct] || 0).toFixed(3)}</td>
+                    <td>{kr(s.dividend?.[t.correct])}</td>
                     <td>{kr(s.evTiers[t.correct] || 0)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
-          <p className="hint">*Prispott beräknad från aktuell omsättning ({kr(payouts?.turnover)}) ×
-            Svenska Spels vinstplan. Antal vinnare uppskattas från nuvarande streck.
-            EV är en uppskattning — verklig utdelning beror på slutlig omsättning och utfall.</p>
+          <p className="hint">*Prispott = omsättning ({kr(effTurnover)}{turnover != null ? ', justerad' : ', live'})
+            × Svenska Spels vinstplan{jackpot ? ` + jackpot ${kr(jackpot)}` : ''}. Antal vinnare uppskattas
+            från nuvarande streck. "Utdelning om rätt" = vad du får om raden vinner nivån; EV är sannolikhetsviktat.</p>
         </>
       )}
     </div>
@@ -535,7 +584,7 @@ export default function App() {
           <span className="badge b-open">Gardera</span> öppen match ·&nbsp;
           <b>★</b> värdestreck · <b className="m-sharp">S</b> sharp ser värde ·
           <b className="m-edge">▲</b> SS-odds höga vs sharp · <b className="m-move-down">⇊</b> stärks i snapshots ·
-          P = sharp-odds, P~ = härledd
+          P = sharp-odds · färgad kvot = <b>värde</b> (sannolikhet ÷ streck, <span className="vpill v-green">≥1.08</span> bra)
         </p>
         {analysis && (
           <AnalysisTable matches={analysis.matches} product={product} drawNumber={analysis.draw_number}
