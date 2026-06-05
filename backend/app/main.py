@@ -110,6 +110,33 @@ def draw(product: str = "stryktipset", draw: int | None = None):
     return draw_to_dict(_get_draw(product, draw))
 
 
+# Svenska Spels officiella vinstplaner: återbetalningsandel + andel per nivå.
+# (Validerat mot faktiska utfall.) Topptipset: bara 8 rätt delar potten.
+PRIZE_PLANS = {
+    "stryktipset":  {"ratio": 0.65, "splits": {13: 0.40, 12: 0.15, 11: 0.12, 10: 0.25}},
+    "europatipset": {"ratio": 0.65, "splits": {13: 0.40, 12: 0.15, 11: 0.12, 10: 0.25}},
+    "topptipset":   {"ratio": 0.70, "splits": {8: 1.00}},
+}
+
+
+@app.get("/api/payouts")
+def payouts(product: str = "stryktipset", draw: int | None = None):
+    """Prispott per vinstnivå beräknad från AKTUELL omsättning och Svenska Spels
+    officiella vinstplan. Antal vinnare (och därmed kr/vinnare) räknar frontend
+    ut från nuvarande streck. EV blir då rätt — inte baserat på förra omgången."""
+    plan = PRIZE_PLANS.get(product)
+    if not plan:
+        return {"available": False}
+    d = _get_draw(product, draw)
+    turnover = d.net_sale or 0.0
+    row_price = d.row_price or 1.0
+    tiers = [{"correct": c, "share": s, "pool": round(turnover * plan["ratio"] * s, 2)}
+             for c, s in sorted(plan["splits"].items(), reverse=True)]
+    return {"available": turnover > 0, "draw_number": d.draw_number,
+            "turnover": turnover, "row_price": row_price, "ratio": plan["ratio"],
+            "tiers": tiers}
+
+
 @app.get("/api/analysis")
 def analysis(product: str = "stryktipset", draw: int | None = None):
     return analysis_to_dict(_analyze(product, draw))

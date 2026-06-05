@@ -160,6 +160,27 @@ SQLite och vävs sedan in i analysen utan att kosta fler credits. `value_sharp`
 används också när raden byggs (bästa värdetecken). Trösklar (`VALUE_MIN`,
 `EDGE_MIN` m.fl.) ligger överst i `app/analysis.py` och är lätta att tweaka.
 
+## Din kupong (klickbar)
+
+Klicka 1/X/2 direkt i analystabellen för att bygga en kupong (flera tecken =
+gardering). "Fyll från förslag" fyller utifrån senaste systemet eller
+analysens speltyp. Live-beräkningar:
+
+- **Rader & insats** (produkt av valda tecken × radpris).
+- **Förväntat antal rätt** och **chans till alla rätt** (Poisson-binomial över
+  fair-sannolikheterna).
+- **Förväntad utdelning & EV** beräknad från **aktuell omsättning** och Svenska
+  Spels **officiella vinstplan** (`/api/payouts`):
+  - Stryktipset/Europatipset: 65 % återbetalning, fördelat 13:40 % · 12:15 % ·
+    11:12 % · 10:25 %. Topptipset: 70 %, endast 8 rätt.
+  - Prispott per nivå = omsättning × andel. Antal vinnare (och därmed kr/vinnare)
+    uppskattas från **nuvarande streck** (Poisson-binomial per rad), så en
+    favorit-rad som folket överspelar ger låg utdelning och en undervärderad rad
+    hög — EV speglar verkligt värde.
+
+EV är en uppskattning — verklig utdelning beror på slutlig omsättning och utfall
+(ev. jackpot/garantifond ingår ej).
+
 ## System (radbyggaren)
 
 Obs: de reducerade systemen är **egna** reduceringar (inte Svenska Spels

@@ -78,6 +78,7 @@ class Draw:
     state: str              # "Open", "Finalized", ...
     reg_close_time: Optional[str]
     net_sale: Optional[float]
+    row_price: Optional[float]
     fetched_at: str
     matches: list[Match] = field(default_factory=list)
 
@@ -172,6 +173,43 @@ class SvenskaSpel:
                    start_hint: Optional[int] = None) -> list[dict]:
         return [d for d in self.list_draws(product, start_hint) if d["state"] == "Open"]
 
+    # --- resultat / utdelning ---
+    def get_result(self, product: str, draw_number: int) -> Optional[dict]:
+        """Utdelning per prisnivå för en avgjord omgång, eller None."""
+        slug = PRODUCTS[product]["slug"]
+        data = self._get_or_none(f"/draw/{API_VER}/{slug}/draws/{draw_number}/result")
+        if not data:
+            return None
+        r = data.get("result")
+        if isinstance(r, list):
+            r = r[0] if r else None
+        if not r or not r.get("distribution"):
+            return None
+        tiers = []
+        for g in r["distribution"]:
+            name = g.get("name", "")
+            try:
+                correct = int(str(name).split()[0])
+            except (ValueError, IndexError):
+                correct = None
+            tiers.append({"name": name, "correct": correct,
+                          "winners": g.get("winners"),
+                          "amount": _f(g.get("amount"))})
+        return {"draw_number": draw_number, "turnover": _f(r.get("currentNetSale")),
+                "tiers": tiers}
+
+    def latest_payouts(self, product: str = "stryktipset",
+                       from_number: Optional[int] = None, back: int = 12) -> Optional[dict]:
+        """Senaste avgjorda omgångens utdelning (scanna bakåt från from_number)."""
+        start = from_number or self.current_draw_number(product) or PRODUCTS[product].get("seed")
+        if not start:
+            return None
+        for n in range(start, max(1, start - back), -1):
+            res = self.get_result(product, n)
+            if res:
+                return res
+        return None
+
     def current_draw_number(self, product: str = "stryktipset",
                             start_hint: Optional[int] = None) -> Optional[int]:
         """Närmaste öppna omgång (lägsta öppna numret)."""
@@ -200,6 +238,7 @@ class SvenskaSpel:
             state=raw.get("drawState", ""),
             reg_close_time=raw.get("regCloseTime"),
             net_sale=_f(raw.get("currentNetSale")),
+            row_price=_f(raw.get("rowPrice")) or 1.0,
             fetched_at=dt.datetime.now(dt.timezone.utc).isoformat(),
         )
         for ev in raw.get("drawEvents", []):
