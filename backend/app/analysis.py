@@ -224,13 +224,17 @@ def analyze_match(m: Match, sharp: Optional[dict] = None,
     # spik-score: favoritens styrka. Kalibrerat så en typisk favorit på odds
     # ~1.65 (≈55% efter marginal) blir spik, inte gardering.
     spik = 0.0
+    fav_value = None
     if fav_prob is not None:
         spik = max(0.0, min(1.0, (fav_prob - SPIK_LO) / (SPIK_HI - SPIK_LO))) * 100
         fav = oa[fav_sign]
+        fav_value = fav.value_sharp if fav.value_sharp is not None else fav.value
         if fav.odds_drift_pct and fav.odds_drift_pct >= DROP_MIN_PCT:
             spik = min(100.0, spik + 8)        # marknaden stärker favoriten (vs startodds)
         if "rörelse_ner" in fav.tags:
             spik = min(100.0, spik + 8)        # stärks i våra egna snapshots (stark signal)
+        if fav_value and fav_value > 0:        # undervärderad favorit (lågt streck) = bättre spik
+            spik = min(100.0, spik + min(18.0, fav_value))
     if basis_src == "streck":
         spik *= 0.6    # streck-baserad favorit är en svagare signal (sharp är inte det)
     spik = round(spik, 1)
@@ -254,6 +258,10 @@ def analyze_match(m: Match, sharp: Optional[dict] = None,
         speltyp = "lutar"
     if basis_src == "streck" and speltyp == "spik":
         speltyp = "halvspik"    # utan odds är vi försiktigare
+    # värdespik: kort odds men klart underspelad av folket (t.ex. 2.00-oddsare på 30%)
+    if (basis_src != "streck" and speltyp in ("halvspik", "lutar")
+            and fav_value is not None and fav_value >= 10 and fav_prob and fav_prob >= 0.42):
+        speltyp = "värdespik"
 
     # spik-boost när sharp bekräftar SS-favoriten (bara relevant när basen är SS-odds)
     if basis_src == "odds" and has_sharp and fav_sign and sharp_probs.get(fav_sign) is not None:
@@ -295,6 +303,7 @@ def _recommendation(speltyp, fav, oa, source="odds", best_value=None) -> str:
     if source == "none" or speltyp == "avvakta":
         return "Avvakta odds"
     lead = {"spik": f"Spik {fav}", "halvspik": f"Halvspik {fav}",
+            "värdespik": f"Värdespik {fav} (underspelad)",
             "gardera": "Öppen match – gardera", "lutar": f"Lutar {fav}"}
     parts = [lead.get(speltyp, f"Lutar {fav}")]
     if best_value and best_value != fav:

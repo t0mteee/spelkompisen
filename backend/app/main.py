@@ -11,7 +11,6 @@ GET /api/history?draw=...&event=...&sign=1   -> oddshistorik för ett utfall
 """
 from __future__ import annotations
 
-import datetime as dt
 import subprocess
 from dataclasses import asdict
 from pathlib import Path
@@ -25,10 +24,9 @@ from .builder import (build_math_system, build_reduced_system,
                       build_guarantee_system, build_svs_rsystem,
                       SVS_R12, system_to_dict)
 from .collector import collector
-from . import odds_provider
 from . import sharp_service
 from .storage import Storage
-from .svenskaspel import SvenskaSpel, draw_to_dict
+from .svenskaspel import SvenskaSpel, draw_to_dict, GAME_GROUPS
 
 app = FastAPI(title="Stryktips-hjälpen", version="0.1.0")
 app.add_middleware(
@@ -97,10 +95,17 @@ def health():
 
 @app.get("/api/draws")
 def draws(product: str = "stryktipset"):
-    """Lista tillgängliga omgångar för spelet (för omgångsväljaren)."""
+    """Lista tillgängliga omgångar för spelet/gruppen (för omgångsväljaren).
+    Topptipset-gruppen aggregerar flera produkter; varje omgång bär sin egen
+    'product' (slug) så efterföljande anrop använder rätt produkt."""
+    slugs = GAME_GROUPS.get(product, [product])
+    all_draws = []
     with SvenskaSpel() as ss:
-        all_draws = ss.list_draws(product, start_hint=_seed_hint(product))
-    _store_seed(product, all_draws)
+        for slug in slugs:
+            ds = ss.list_draws(slug, start_hint=_seed_hint(slug))
+            _store_seed(slug, ds)
+            all_draws.extend(ds)
+    all_draws.sort(key=lambda d: d.get("reg_close_time") or "")
     opens = [d for d in all_draws if d["state"] == "Open"]
     return {"product": product, "draws": all_draws, "open": opens}
 
@@ -113,9 +118,11 @@ def draw(product: str = "stryktipset", draw: int | None = None):
 # Svenska Spels officiella vinstplaner: återbetalningsandel + andel per nivå.
 # (Validerat mot faktiska utfall.) Topptipset: bara 8 rätt delar potten.
 PRIZE_PLANS = {
-    "stryktipset":  {"ratio": 0.65, "splits": {13: 0.40, 12: 0.15, 11: 0.12, 10: 0.25}},
-    "europatipset": {"ratio": 0.65, "splits": {13: 0.40, 12: 0.15, 11: 0.12, 10: 0.25}},
-    "topptipset":   {"ratio": 0.70, "splits": {8: 1.00}},
+    "stryktipset":     {"ratio": 0.65, "splits": {13: 0.40, 12: 0.15, 11: 0.12, 10: 0.25}},
+    "europatipset":    {"ratio": 0.65, "splits": {13: 0.40, 12: 0.15, 11: 0.12, 10: 0.25}},
+    "topptipset":      {"ratio": 0.70, "splits": {8: 1.00}},
+    "topptipsetstryk": {"ratio": 0.70, "splits": {8: 1.00}},
+    "topptipsetextra": {"ratio": 0.70, "splits": {8: 1.00}},
 }
 
 
@@ -261,72 +268,30 @@ def collector_stop():
     return collector.stop()
 
 
-# ---- extern oddskälla (the-odds-api) ----
+# ---- sharp-odds (Pinnacle, gratis) ----
 
 @app.get("/api/external-odds")
-def external_odds(product: str = "stryktipset", draw: int | None = None,
-                  use_oddsapi: bool = False):
-    """MANUELLT anrop. Hämtar sharp-odds, primärt från **Pinnacle** (gratis,
-    täcker även landskamper). use_oddsapi=true kompletterar matcher som Pinnacle
-    saknar via the-odds-api (kostar 1 credit per matchad match)."""
+def external_odds(product: str = "stryktipset", draw: int | None = None):
+    """Hämtar sharp-odds från Pinnacle (gratis, täcker även landskamper) och
+    cachar dem så analysen kan väva in dem. Ger coverage-status per match."""
     draw = _get_draw(product, draw)
-    fetched_at = dt.datetime.now(dt.timezone.utc).isoformat()
-
-    # 1) Pinnacle — gratis (cachar matchade odds + ger coverage-status)
     pin_res = sharp_service.collect_pinnacle(product, draw=draw, cache=True)
-    hits = dict(pin_res["hits"])
-    status = dict(pin_res["status"])
+    hits, status = pin_res["hits"], pin_res["status"]
 
-    # 2) the-odds-api — valfri fallback (kostar credits) för det Pinnacle saknar
-    paid, remaining = 0, None
-    if use_oddsapi and odds_provider.enabled():
-        missing = [m for m in draw.matches if m.event_number not in hits]
-        if missing:
-            with odds_provider.ExternalOdds() as ext:
-                eidx = ext.event_index()
-                for m in missing:
-                    hit = ext.match_event(m.home, m.away, m.home_iso, m.away_iso,
-                                          eidx, match_start=m.match_start)
-                    if not hit:
-                        continue
-                    books = ext.event_odds(hit["sport"], hit["id"])  # 1 credit
-                    paid += 1
-                    book = ext.pick_book(books)
-                    odds = books.get(book) if book else None
-                    if odds:
-                        hits[m.event_number] = {
-                            "home": hit["home"], "away": hit["away"],
-                            "start": hit["commence_time"], "odds": odds,
-                            "confidence": hit["confidence"], "source": "the-odds-api",
-                            "bookmaker": book}
-                remaining = ext.requests_remaining
-
-    # sammanställ + cacha (Pinnacle redan cachad i servicen; här cachas ev. the-odds-api)
-    out, to_cache = [], []
+    out = []
     for m in draw.matches:
         h = hits.get(m.event_number)
-        ext_data, st = None, status.get(m.event_number, "not_listed")
+        ext_data = None
+        st = status.get(m.event_number, "not_listed")
         if h:
-            st = st if st in ("matched", "derived") else "matched"
             ext_data = {"source": h["source"], "matched": f'{h["home"]} - {h["away"]}',
                         "confidence": h["confidence"], "commence_time": h.get("start"),
                         "bookmaker": h["bookmaker"], "odds": h["odds"],
                         "swapped": h.get("swapped", False)}
-            if h["odds"] and h["source"] != "pinnacle":
-                to_cache.append({"event_number": m.event_number, "bookmaker": h["bookmaker"],
-                                 "odds": h["odds"], "confidence": h["confidence"],
-                                 "matched": ext_data["matched"], "fetched_at": fetched_at})
         out.append({"event_number": m.event_number, "description": m.description,
                     "ss_has_odds": m.outcomes["1"].odds is not None,
                     "status": st, "external": ext_data})
 
-    if to_cache:
-        store = Storage()
-        try:
-            store.save_sharp(product, draw.draw_number, to_cache)
-        finally:
-            store.close()
-    matched = sum(1 for o in out if o["external"])
     return {"enabled": True, "draw_number": draw.draw_number,
-            "matched": matched, "credits_used_now": paid, "requests_remaining": remaining,
-            "cached": len(pin_res["hits"]) + len(to_cache), "matches": out}
+            "matched": sum(1 for o in out if o["external"]),
+            "cached": len(hits), "matches": out}

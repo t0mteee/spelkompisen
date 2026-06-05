@@ -122,24 +122,22 @@ def _size_to_budget(analysis: DrawAnalysis, cfg: StrategyConfig,
     först till halv-, sedan helgardering, så länge radantalet ryms i budget."""
     target = max(1, int(budget / row_price))
     counts = {m.event_number: 1 for m in analysis.matches}
+    order = [m for m in sorted(analysis.matches, key=lambda m: m.open_score, reverse=True)
+             if not m.cancelled]
     rows = 1
-    # mest öppna (osäkra) matcher först
-    order = sorted(analysis.matches, key=lambda m: m.open_score, reverse=True)
+    # Fyll budgeten: halvgardera de mest öppna matcherna först, så långt budgeten
+    # räcker (inte bara de över en tröskel — annars fastnar favorit-tunga omgångar
+    # på nästan inga rader).
     for m in order:
-        if m.cancelled:
-            continue
-        if m.open_score < cfg.min_open_for_half:
-            continue
-        # försök halvgardera
         if rows * 2 <= target:
             counts[m.event_number] = 2
             rows *= 2
-            # försök helgardera om matchen är mycket öppen och strategin tillåter
-            if cfg.allow_full and m.open_score >= cfg.full_open and rows // 2 * 3 <= target:
+    # Uppgradera halvor till hel (mest öppna först) om strategin tillåter och plats finns.
+    if cfg.allow_full:
+        for m in order:
+            if counts[m.event_number] == 2 and rows // 2 * 3 <= target:
                 counts[m.event_number] = 3
                 rows = rows // 2 * 3
-        else:
-            break
     return counts
 
 

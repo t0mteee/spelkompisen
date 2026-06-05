@@ -39,16 +39,20 @@ function Collection() {
 
 /* ---------- folkfördelning (streck %) som 3-segmentsstapel ---------- */
 function StreckBar({ outcomes }) {
-  const segs = ['1', 'X', '2'].map((s) => outcomes[s].streck || 0)
+  const signs = ['1', 'X', '2']
+  const segs = signs.map((s) => outcomes[s].streck || 0)
   const tot = segs.reduce((a, b) => a + b, 0) || 1
-  const colors = { 0: '#4aa3df', 1: '#8b97a5', 2: '#e0853b' }
+  const cls = ['sb-1', 'sb-x', 'sb-2']
   return (
-    <div className="streckbar" title={`Folket: 1=${segs[0]}% X=${segs[1]}% 2=${segs[2]}%`}>
-      {segs.map((v, i) => (
-        <div key={i} className="seg" style={{ width: `${(v / tot) * 100}%`, background: colors[i] }}>
-          {v >= 12 ? `${v}` : ''}
-        </div>
-      ))}
+    <div className="streckbar" title={`Folkets streck: 1 ${segs[0]}% · X ${segs[1]}% · 2 ${segs[2]}%`}>
+      {segs.map((v, i) => {
+        const w = (v / tot) * 100
+        return (
+          <div key={i} className={`seg ${cls[i]}`} style={{ width: `${w}%` }}>
+            {w >= 16 ? <><b>{signs[i]}</b> {v}%</> : w >= 9 ? `${v}` : ''}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -83,9 +87,8 @@ function OddsCell({ o, derived, picked, onToggle, valueOk }) {
   return (
     <td className={cls.join(' ')} onClick={onToggle} title="klicka för att lägga till/ta bort i kupongen">
       <div className="odds">{fmt(o.odds)}</div>
-      <div className="streck">{o.streck != null ? `${o.streck}%` : '–'}</div>
       {o.sharp_odds != null && (
-        <div className="sharpodds" title={derived ? 'härledd från spread/total' : 'sharp (Pinnacle)'}>
+        <div className="sharpodds" title={derived ? 'Pinnacle, härledd från spread/total' : 'Pinnacle (sharp)'}>
           {derived ? 'P~' : 'P'} {fmt(o.sharp_odds)}
         </div>
       )}
@@ -117,9 +120,10 @@ function AnalysisTable({ matches, product, drawNumber, selected, onSelect, picks
             <Fragment key={m.event_number}>
               <tr className={selected === m.event_number ? 'sel' : ''}>
                 <td>{m.event_number}</td>
-                <td className="match clickable" onClick={() => onSelect(selected === m.event_number ? null : m.event_number)}>
+                <td className="match clickable" title="klicka för oddsgraf"
+                  onClick={() => onSelect(selected === m.event_number ? null : m.event_number)}>
                   {m.description}
-                  <div className="league">{m.league}{derived ? ' · sharp härledd' : ''} · klicka för graf</div>
+                  <div className="league">🕑 {fmtStart(m.match_start)} · {m.league}{derived ? ' · sharp härledd' : ''}</div>
                 </td>
                 {['1', 'X', '2'].map((s) => (
                   <OddsCell key={s} o={m.outcomes[s]} derived={derived} valueOk={valueOk}
@@ -142,6 +146,44 @@ function AnalysisTable({ matches, product, drawNumber, selected, onSelect, picks
   )
 }
 
+function MiniChart({ sign, pts, color }) {
+  const W = 250, H = 110, padL = 38, padR = 10, padT = 18, padB = 22
+  const fmtT = (iso) => new Date(iso).toLocaleString('sv-SE', { hour: '2-digit', minute: '2-digit' })
+  const last = pts.length ? pts[pts.length - 1].o : null
+  if (pts.length < 2) {
+    return (
+      <div className="mini">
+        <div className="mc-title"><span className="sw" style={{ background: color }} />{sign} {last != null ? last.toFixed(2) : ''}</div>
+        <div className="loading sm">för få mätpunkter ännu</div>
+      </div>
+    )
+  }
+  const odds = pts.map((p) => p.o)
+  let lo = Math.min(...odds), hi = Math.max(...odds)
+  if (hi === lo) { hi += 0.05; lo -= 0.05 }
+  const xs = (i) => padL + (i / (pts.length - 1)) * (W - padL - padR)
+  const ys = (o) => H - padB - ((o - lo) / (hi - lo)) * (H - padT - padB)
+  const up = pts[0].o > last  // oddset har gått ned (stärkts)
+  return (
+    <div className="mini">
+      <div className="mc-title">
+        <span className="sw" style={{ background: color }} />{sign} {last.toFixed(2)}
+        <span className={up ? 'mc-down' : 'mc-up'}>{up ? '↓ stärkts' : pts[0].o < last ? '↑ försvagats' : ''}</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`}>
+        <text x="2" y={ys(hi) + 4} className="cax">{hi.toFixed(2)}</text>
+        <text x="2" y={ys(lo) + 4} className="cax">{lo.toFixed(2)}</text>
+        <line x1={padL} y1={padT} x2={padL} y2={H - padB} className="caxis" />
+        <polyline fill="none" stroke={color} strokeWidth="2"
+          points={pts.map((p, i) => `${xs(i)},${ys(p.o)}`).join(' ')} />
+        {pts.map((p, i) => <circle key={i} cx={xs(i)} cy={ys(p.o)} r="2.5" fill={color} />)}
+        <text x={padL} y={H - 6} className="cax">{fmtT(pts[0].t)}</text>
+        <text x={W - padR} y={H - 6} className="cax" textAnchor="end">{fmtT(pts[pts.length - 1].t)}</text>
+      </svg>
+    </div>
+  )
+}
+
 function MovementChart({ product, drawNumber, eventNumber }) {
   const [hist, setHist] = useState(null)
   useEffect(() => {
@@ -152,36 +194,15 @@ function MovementChart({ product, drawNumber, eventNumber }) {
   }, [product, drawNumber, eventNumber])
 
   if (!hist) return <div className="loading">Hämtar historik…</div>
-  if (hist.length < 2) return <div className="loading">För få mätpunkter ännu – insamlingen bygger upp detta över tid.</div>
-
-  const colors = { '1': '#4aa3df', X: '#8b97a5', '2': '#e0853b' }
-  const W = 520, H = 160, pad = 28
-  const times = [...new Set(hist.map((r) => r.fetched_at))].sort()
-  const xs = (t) => pad + (times.indexOf(t) / (times.length - 1)) * (W - 2 * pad)
-  const odds = hist.map((r) => r.odds).filter((v) => v != null)
-  const lo = Math.min(...odds), hi = Math.max(...odds)
-  const ys = (v) => H - pad - ((v - lo) / (hi - lo || 1)) * (H - 2 * pad)
+  const colors = { '1': '#4aa3df', X: '#aab3bf', '2': '#e0853b' }
   const bySign = { '1': [], X: [], '2': [] }
-  hist.forEach((r) => { if (r.odds != null) bySign[r.sign]?.push(r) })
+  hist.filter((r) => r.odds != null).sort((a, b) => a.fetched_at.localeCompare(b.fetched_at))
+    .forEach((r) => bySign[r.sign]?.push({ t: r.fetched_at, o: r.odds }))
 
   return (
-    <svg className="chart" viewBox={`0 0 ${W} ${H}`}>
-      <text x={pad} y={14} className="cax">{hi.toFixed(2)}</text>
-      <text x={pad} y={H - pad + 12} className="cax">{lo.toFixed(2)}</text>
-      {Object.entries(bySign).map(([sign, rows]) => (
-        <g key={sign}>
-          <polyline fill="none" stroke={colors[sign]} strokeWidth="2"
-            points={rows.map((r) => `${xs(r.fetched_at)},${ys(r.odds)}`).join(' ')} />
-          {rows.map((r, i) => <circle key={i} cx={xs(r.fetched_at)} cy={ys(r.odds)} r="2.5" fill={colors[sign]} />)}
-        </g>
-      ))}
-      {Object.entries(colors).map(([sign, c], i) => (
-        <g key={sign}>
-          <rect x={W - 80 + i * 26} y={8} width="10" height="10" fill={c} />
-          <text x={W - 67 + i * 26} y={17} className="cleg">{sign}</text>
-        </g>
-      ))}
-    </svg>
+    <div className="charts3">
+      {['1', 'X', '2'].map((s) => <MiniChart key={s} sign={s} pts={bySign[s]} color={colors[s]} />)}
+    </div>
   )
 }
 
@@ -199,7 +220,7 @@ function SharpPanel({ product, draw, onLoaded }) {
     if (!draw) return
     setLoading(true)
     try {
-      const d = await (await fetch(`/api/external-odds?product=${product}&draw=${draw}&use_oddsapi=false`)).json()
+      const d = await (await fetch(`/api/external-odds?product=${product}&draw=${draw}`)).json()
       if (d && (d.matches || d.enabled === false)) {  // ignorera 404/detail-svar
         setData(d); if (d.cached > 0 && onLoaded) onLoaded()
       }
@@ -278,6 +299,10 @@ const GAMES = [
   { id: 'stryktipset', label: 'Stryktipset' },
   { id: 'europatipset', label: 'Europatipset' },
 ]
+// kort variantnamn i omgångsväljaren (Topptipset-gruppen består av flera produkter)
+const VARIANT = {
+  topptipset: 'Dagens', topptipsetstryk: 'Stryk', topptipsetextra: 'Extra',
+}
 
 const SYSTEM_BASE = [
   { id: 'math', label: 'Matematiskt (alla kombinationer)', q: 'reduced=false' },
@@ -293,6 +318,14 @@ const SYSTEM_SVS = [
 
 function fmtClose(iso) {
   return iso ? iso.slice(5, 16).replace('T', ' ') : ''
+}
+function fmtStart(iso) {
+  if (!iso) return ''
+  try {
+    return new Date(iso).toLocaleString('sv-SE', {
+      weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit',
+    })
+  } catch { return '' }
 }
 
 const kr = (v) => (v == null ? '–' : Math.round(v).toLocaleString('sv-SE') + ' kr')
@@ -467,7 +500,8 @@ function CouponPanel({ matches, picks, payouts, onFill, onClear }) {
 }
 
 export default function App() {
-  const [product, setProduct] = useState('topptipset')
+  const [group, setGroup] = useState('topptipset')   // flik (kan samla flera produkter)
+  const [product, setProduct] = useState('topptipset')  // vald omgångs faktiska produkt (slug)
   const [draws, setDraws] = useState([])
   const [draw, setDraw] = useState(null)
   const [analysis, setAnalysis] = useState(null)
@@ -523,20 +557,24 @@ export default function App() {
     fetch(`/api/payouts?product=${p}&draw=${dn}`).then((r) => r.json()).then(setPayouts).catch(() => setPayouts(null))
   }
 
-  const switchGame = async (p) => {
-    setProduct(p); setSys(null); setAnalysis(null); setErr(null); setSysType('math'); setPicks({}); setLoading(true)
+  const switchGame = async (g) => {
+    setGroup(g); setSys(null); setAnalysis(null); setErr(null); setSysType('math'); setPicks({}); setLoading(true)
     try {
-      const d = await (await fetch(`/api/draws?product=${p}`)).json()
+      const d = await (await fetch(`/api/draws?product=${g}`)).json()
       const list = d.open?.length ? d.open : d.draws
       setDraws(list)
-      const first = list[0]?.draw_number || null
-      setDraw(first)
-      if (first) { loadAnalysis(p, first); loadPayouts(p, first) }
-      else { setLoading(false); setErr('Inga öppna omgångar just nu.') }
+      const first = list[0]
+      if (first) {
+        setProduct(first.product); setDraw(first.draw_number)
+        loadAnalysis(first.product, first.draw_number); loadPayouts(first.product, first.draw_number)
+      } else { setLoading(false); setErr('Inga öppna omgångar just nu.') }
     } catch (e) { setErr(String(e)); setLoading(false) }
   }
 
-  const changeDraw = (dn) => { setDraw(dn); setSys(null); setPicks({}); loadAnalysis(product, dn); loadPayouts(product, dn) }
+  const changeDraw = (slug, dn) => {
+    setProduct(slug); setDraw(dn); setSys(null); setPicks({})
+    loadAnalysis(slug, dn); loadPayouts(slug, dn)
+  }
 
   const loadSystem = async () => {
     setErr(null)
@@ -557,15 +595,17 @@ export default function App() {
         <h1>⚽ Tips-hjälpen</h1>
         <div className="games">
           {GAMES.map((g) => (
-            <button key={g.id} className={product === g.id ? 'game active' : 'game'}
+            <button key={g.id} className={group === g.id ? 'game active' : 'game'}
               onClick={() => switchGame(g.id)}>{g.label}</button>
           ))}
         </div>
         {draws.length > 0 && (
-          <select className="drawsel" value={draw || ''} onChange={(e) => changeDraw(Number(e.target.value))}>
+          <select className="drawsel" value={`${product}|${draw}`}
+            onChange={(e) => { const [sl, dn] = e.target.value.split('|'); changeDraw(sl, Number(dn)) }}>
             {draws.map((d) => (
-              <option key={d.draw_number} value={d.draw_number}>
-                Omgång {d.draw_number} · stänger {fmtClose(d.reg_close_time)}{d.state !== 'Open' ? ` (${d.state})` : ''}
+              <option key={`${d.product}|${d.draw_number}`} value={`${d.product}|${d.draw_number}`}>
+                {VARIANT[d.product] ? `${VARIANT[d.product]} · ` : ''}stänger {fmtClose(d.reg_close_time)}
+                {d.state !== 'Open' ? ` (${d.state})` : ''} · omg {d.draw_number}
               </option>
             ))}
           </select>
@@ -579,13 +619,19 @@ export default function App() {
 
       <section>
         <h2>Analys</h2>
-        <p className="legend">
-          <b>Förslag:</b> <span className="badge b-spik">Spik</span> stark favorit ·
-          <span className="badge b-open">Gardera</span> öppen match ·&nbsp;
-          <b>★</b> värdestreck · <b className="m-sharp">S</b> sharp ser värde ·
-          <b className="m-edge">▲</b> SS-odds höga vs sharp · <b className="m-move-down">⇊</b> stärks i snapshots ·
-          P = sharp-odds · färgad kvot = <b>värde</b> (sannolikhet ÷ streck, <span className="vpill v-green">≥1.08</span> bra)
-        </p>
+        <div className="legend">
+          <div><b>Färgad kvot</b> (under oddset) = <b>värde</b> = oddsens sannolikhet ÷ folkets streck.
+            {' '}<span className="vpill v-green">≥1.08</span> marknaden tror mer än folket (köpläge) ·
+            {' '}<span className="vpill v-yellow">~1.0</span> rätt streckad ·
+            {' '}<span className="vpill v-red">≤0.92</span> överspelad.</div>
+          <div><b>P</b> = Pinnacle (sharp bookmaker) odds · <b>P~</b> = härlett från handikapp när 1X2 inte öppnats.</div>
+          <div><b>Förslag:</b> <span className="badge b-spik">Spik</span> stark favorit ·
+            {' '}<span className="badge b-half">Värdespik</span> kort odds men lågt streck (undervärderad) ·
+            {' '}<span className="badge b-open">Gardera</span> öppen match.</div>
+          <div>Märken: <b className="m-sharp">S</b> sharp ser värde folket missat ·
+            {' '}<b className="m-edge">▲</b> Svenska Spels odds högre än Pinnacle (felprisat) ·
+            {' '}<b className="m-move-down">⇊</b> oddset har stärkts i våra mätningar · ↓ fallande mot startodds.</div>
+        </div>
         {analysis && (
           <AnalysisTable matches={analysis.matches} product={product} drawNumber={analysis.draw_number}
             selected={selected} onSelect={setSelected} picks={picks} onToggleSign={toggleSign} />

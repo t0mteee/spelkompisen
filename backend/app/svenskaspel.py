@@ -23,10 +23,22 @@ API_VER = 1  # path-prefix är alltid 1 (API-version), slugen styr produkten
 # listing=True: /draw/1/{slug}/draws listar alla omgångar.
 # listing=False (topptipset): ingen listnings-route -> vi scannar omgångsnummer
 # runt ett känt/cachat nummer (seed = fallback om inget cachat finns).
+# "Topptipset" är egentligen flera produkter (visas ihop på svenskaspel.se):
+#   topptipset (pid25) dagliga, topptipsetstryk (pid23) helgkupong med
+#   Stryktipsets matcher, topptipsetextra (pid24). Var och en har egen nummerserie.
 PRODUCTS = {
-    "stryktipset":  {"slug": "stryktipset",  "listing": True,  "matches": 13, "name": "Stryktipset"},
-    "europatipset": {"slug": "europatipset", "listing": True,  "matches": 13, "name": "Europatipset"},
-    "topptipset":   {"slug": "topptipset",   "listing": False, "matches": 8,  "name": "Topptipset", "seed": 4176},
+    "stryktipset":     {"slug": "stryktipset",     "listing": True,  "matches": 13, "name": "Stryktipset"},
+    "europatipset":    {"slug": "europatipset",    "listing": True,  "matches": 13, "name": "Europatipset"},
+    "topptipset":      {"slug": "topptipset",      "listing": False, "matches": 8,  "name": "Topptipset", "seed": 4177},
+    "topptipsetstryk": {"slug": "topptipsetstryk", "listing": False, "matches": 8,  "name": "Topptipset Stryk", "seed": 966},
+    "topptipsetextra": {"slug": "topptipsetextra", "listing": False, "matches": 8,  "name": "Topptipset Extra", "seed": 1840},
+}
+
+# Spel-grupper i UI: en flik kan samla flera produkter (delade omgångsväljaren).
+GAME_GROUPS = {
+    "topptipset": ["topptipset", "topptipsetstryk", "topptipsetextra"],
+    "stryktipset": ["stryktipset"],
+    "europatipset": ["europatipset"],
 }
 _HEADERS = {"User-Agent": "Mozilla/5.0 (stryktips-helper/0.1)"}
 
