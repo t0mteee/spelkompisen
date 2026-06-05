@@ -39,17 +39,48 @@ app.add_middleware(
 )
 
 
-def _draw_or_404(product: str):
+PRODUCTS_PUBLIC = ["topptipset", "stryktipset", "europatipset"]
+
+
+def _seed_hint(product: str) -> int | None:
+    store = Storage()
+    try:
+        v = store.meta_get(f"latest_{product}")
+        return int(v) if v else None
+    finally:
+        store.close()
+
+
+def _store_seed(product: str, draws) -> None:
+    nums = [d.draw_number if hasattr(d, "draw_number") else d.get("draw_number")
+            for d in draws]
+    nums = [n for n in nums if n]
+    if not nums:
+        return
+    store = Storage()
+    try:
+        prev = store.meta_get(f"latest_{product}")
+        newmax = max(nums + ([int(prev)] if prev else []))
+        store.meta_set(f"latest_{product}", str(newmax))
+    finally:
+        store.close()
+
+
+def _get_draw(product: str, draw_number: int | None = None):
     with SvenskaSpel() as ss:
-        draw = ss.get_current_draw(product)
+        if draw_number:
+            draw = ss.get_draw(draw_number, product)
+        else:
+            draw = ss.get_current_draw(product, start_hint=_seed_hint(product))
     if draw is None:
         raise HTTPException(404, f"Ingen öppen omgång för {product}")
+    _store_seed(product, [draw])
     return draw
 
 
-def _analyze(product: str):
-    """Analysera aktuell omgång och väv in cachade sharp-odds om de finns."""
-    draw = _draw_or_404(product)
+def _analyze(product: str, draw_number: int | None = None):
+    """Analysera vald omgång och väv in cachade sharp-odds + rörelse."""
+    draw = _get_draw(product, draw_number)
     store = Storage()
     try:
         sharp = store.get_sharp(product, draw.draw_number)
@@ -64,25 +95,36 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/api/draws")
+def draws(product: str = "stryktipset"):
+    """Lista tillgängliga omgångar för spelet (för omgångsväljaren)."""
+    with SvenskaSpel() as ss:
+        all_draws = ss.list_draws(product, start_hint=_seed_hint(product))
+    _store_seed(product, all_draws)
+    opens = [d for d in all_draws if d["state"] == "Open"]
+    return {"product": product, "draws": all_draws, "open": opens}
+
+
 @app.get("/api/draw")
-def draw(product: str = "stryktipset"):
-    return draw_to_dict(_draw_or_404(product))
+def draw(product: str = "stryktipset", draw: int | None = None):
+    return draw_to_dict(_get_draw(product, draw))
 
 
 @app.get("/api/analysis")
-def analysis(product: str = "stryktipset"):
-    return analysis_to_dict(_analyze(product))
+def analysis(product: str = "stryktipset", draw: int | None = None):
+    return analysis_to_dict(_analyze(product, draw))
 
 
 @app.get("/api/spikar")
-def spikar(product: str = "stryktipset"):
-    a = _analyze(product)
+def spikar(product: str = "stryktipset", draw: int | None = None):
+    a = _analyze(product, draw)
     return {"draw_number": a.draw_number,
             "spikar": [asdict(m) for m in a.spikar]}
 
 
 @app.get("/api/system")
 def system(product: str = "stryktipset",
+           draw: int | None = None,
            strategy: str = Query("medel", pattern="^(säker|medel|tuff)$"),
            budget: float = 100.0,
            reduced: bool = False,
@@ -91,15 +133,18 @@ def system(product: str = "stryktipset",
     """sv_rsystem=R 3-3-24 m.fl. ger Svenska Spels eget R-system (12-rätts garanti).
     Annars: reduced=true + guarantee=11/12 ger egen covering-reducering;
     reduced=true ensam ger värde-reducering; default = matematiskt."""
-    a = _analyze(product)
-    if sv_rsystem and sv_rsystem in SVS_R12:
-        s = build_svs_rsystem(a, sv_rsystem, strategy)
-    elif reduced and guarantee:
-        s = build_guarantee_system(a, strategy, budget, guarantee=guarantee)
-    elif reduced:
-        s = build_reduced_system(a, strategy, budget)
-    else:
-        s = build_math_system(a, strategy, budget)
+    a = _analyze(product, draw)
+    try:
+        if sv_rsystem and sv_rsystem in SVS_R12:
+            s = build_svs_rsystem(a, sv_rsystem, strategy)
+        elif reduced and guarantee:
+            s = build_guarantee_system(a, strategy, budget, guarantee=guarantee)
+        elif reduced:
+            s = build_reduced_system(a, strategy, budget)
+        else:
+            s = build_math_system(a, strategy, budget)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     return system_to_dict(s)
 
 
@@ -110,15 +155,15 @@ def rsystems():
 
 
 @app.post("/api/snapshot")
-def snapshot(product: str = "stryktipset"):
-    draw = _draw_or_404(product)
+def snapshot(product: str = "stryktipset", draw: int | None = None):
+    d = _get_draw(product, draw)
     store = Storage()
     try:
-        rows = store.save_snapshot(draw)
+        rows = store.save_snapshot(d)
     finally:
         store.close()
-    return {"draw_number": draw.draw_number, "rows_saved": rows,
-            "fetched_at": draw.fetched_at}
+    return {"draw_number": d.draw_number, "rows_saved": rows,
+            "fetched_at": d.fetched_at}
 
 
 @app.get("/api/history")
@@ -192,11 +237,12 @@ def collector_stop():
 # ---- extern oddskälla (the-odds-api) ----
 
 @app.get("/api/external-odds")
-def external_odds(product: str = "stryktipset", use_oddsapi: bool = False):
+def external_odds(product: str = "stryktipset", draw: int | None = None,
+                  use_oddsapi: bool = False):
     """MANUELLT anrop. Hämtar sharp-odds, primärt från **Pinnacle** (gratis,
     täcker även landskamper). use_oddsapi=true kompletterar matcher som Pinnacle
     saknar via the-odds-api (kostar 1 credit per matchad match)."""
-    draw = _draw_or_404(product)
+    draw = _get_draw(product, draw)
     fetched_at = dt.datetime.now(dt.timezone.utc).isoformat()
 
     # 1) Pinnacle — gratis (cachar matchade odds + ger coverage-status)

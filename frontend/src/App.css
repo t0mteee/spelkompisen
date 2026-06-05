@@ -25,7 +25,11 @@ header {
 }
 header h1 { font-size: 20px; margin: 0; }
 header .draw { color: var(--muted); }
-header button { margin-left: auto; }
+header .games { display: flex; gap: 6px; }
+header .game { padding: 6px 12px; }
+header .game.active { background: var(--green); border-color: var(--green); color: #0b0e12; font-weight: 700; }
+header .drawsel { max-width: 320px; }
+header > button:last-child { margin-left: auto; }
 
 button {
   background: var(--panel); color: var(--text); border: 1px solid var(--line);

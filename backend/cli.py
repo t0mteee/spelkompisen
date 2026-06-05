@@ -64,28 +64,28 @@ def cmd_spikar(product: str) -> None:
 
 
 def cmd_snapshot(product: str) -> None:
+    """Snapshotta ALLA öppna omgångar för spelet (topptipset kan ha flera) +
+    cacha Pinnacle sharp för var och en."""
     with SvenskaSpel() as ss:
-        draw = ss.get_current_draw(product)
-    if not draw:
-        print("Ingen öppen omgång — hoppar över.")
-        return
-    store = Storage()
-    try:
-        rows = store.save_snapshot_if_changed(draw)
-        n = len(store.snapshot_times(product, draw.draw_number))
-    finally:
-        store.close()
-    if rows:
-        print(f"Sparade {rows} ändrade rader för omgång {draw.draw_number}. "
-              f"Totalt {n} snapshot-tillfällen lagrade.")
-    else:
-        print(f"Inget ändrat för omgång {draw.draw_number} — inget sparat.")
-    # uppdatera även Pinnacle sharp (gratis) så 1X2 fångas när de öppnas
-    try:
-        res = sharp_service.collect_pinnacle(product, draw=draw, cache=True)
-        print(f"Pinnacle: {len(res['hits'])} matcher med 1X2 cachade.")
-    except Exception as e:  # noqa: BLE001
-        print(f"Pinnacle-hämtning hoppades över: {e}")
+        opens = ss.open_draws(product)
+        if not opens:
+            print(f"{product}: ingen öppen omgång — hoppar över.")
+            return
+        for summ in opens:
+            dn = summ["draw_number"]
+            draw = ss.get_draw(dn, product)
+            store = Storage()
+            try:
+                rows = store.save_snapshot_if_changed(draw)
+            finally:
+                store.close()
+            sharp_n = 0
+            try:
+                res = sharp_service.collect_pinnacle(product, draw=draw, cache=True)
+                sharp_n = len(res["hits"]) if res else 0
+            except Exception:  # noqa: BLE001
+                sharp_n = -1
+            print(f"{product} omg {dn}: {rows} ändrade rader, sharp {sharp_n} matcher.")
 
 
 def cmd_history(args: list[str]) -> None:

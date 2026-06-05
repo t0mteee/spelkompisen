@@ -287,11 +287,12 @@ def _pick_garderings_capped(analysis: DrawAnalysis, cfg: StrategyConfig,
 def build_guarantee_system(analysis: DrawAnalysis, strategy: str = "medel",
                            budget: float = 100.0, guarantee: int = 12,
                            row_price: float = ROW_PRICE) -> System:
-    """Reducerat R-system med garanti 'minst `guarantee` rätt' (av 13) förutsatt
-    att alla dina tecken är rätt. Väljer garderingar efter strategi/öppenhet,
-    krymper vid behov tills systemet ryms i budget."""
+    """Reducerat R-system med garanti 'minst `guarantee` rätt' (av antalet
+    matcher) förutsatt att alla dina tecken är rätt. Väljer garderingar efter
+    strategi/öppenhet, krymper vid behov tills systemet ryms i budget."""
     cfg = STRATEGIES[strategy]
-    guarantee = max(8, min(13, int(guarantee)))
+    n_matches = len(analysis.matches)
+    guarantee = max(n_matches - 3, min(n_matches, int(guarantee)))
     target_rows = max(1, int(budget / row_price))
     counts = _pick_garderings_capped(analysis, cfg)
 
@@ -308,7 +309,7 @@ def build_guarantee_system(analysis: DrawAnalysis, strategy: str = "medel",
         if not gard:
             rows = [tuple(p.signs[0] for p in picks)]
             break
-        radius = 13 - guarantee          # tillåtna fel bland garderingar
+        radius = n_matches - guarantee   # tillåtna fel bland garderingar
         cover = _greedy_cover([p.signs for p in gard], radius)
         # bygg fulla rader: spikar fasta + täckta garderingskombinationer
         gard_ev = [p.event_number for p in gard]
@@ -334,7 +335,7 @@ def build_guarantee_system(analysis: DrawAnalysis, strategy: str = "medel",
         row_price=row_price, num_rows=len(rows_as_lists),
         cost=round(len(rows_as_lists) * row_price, 2), picks=picks, rows=rows_as_lists,
         rule=f"Garanterar minst {guarantee} rätt om alla dina tecken är korrekta "
-             f"(tillåter {13 - guarantee} miss bland garderingarna).",
+             f"(tillåter {n_matches - guarantee} miss bland garderingarna).",
         note=f"Reducerat från {full_rows} till {len(rows_as_lists)} rader.",
     )
 
@@ -389,6 +390,9 @@ def build_svs_rsystem(analysis: DrawAnalysis, name: str = "R 3-3-24",
     öppna matcherna, halvgarderar nästa, spikar resten — och genererar de
     faktiska raderna med 12-garantin verifierad."""
     cfg = STRATEGIES[strategy]
+    if len(analysis.matches) != 13:
+        raise ValueError("Svenska Spels R-system gäller bara 13-matchskuponger "
+                         "(Stryktipset/Europatipset).")
     spec = SVS_R12[name]
     hel, halv = spec["hel"], spec["halv"]
 

@@ -97,7 +97,7 @@ function OddsCell({ o, derived }) {
   )
 }
 
-function AnalysisTable({ matches, drawNumber, selected, onSelect }) {
+function AnalysisTable({ matches, product, drawNumber, selected, onSelect }) {
   return (
     <table className="grid">
       <thead>
@@ -122,7 +122,7 @@ function AnalysisTable({ matches, drawNumber, selected, onSelect }) {
               </tr>
               {selected === m.event_number && (
                 <tr className="chartrow"><td colSpan={7}>
-                  <MovementChart drawNumber={drawNumber} eventNumber={m.event_number} />
+                  <MovementChart product={product} drawNumber={drawNumber} eventNumber={m.event_number} />
                 </td></tr>
               )}
             </Fragment>
@@ -133,14 +133,14 @@ function AnalysisTable({ matches, drawNumber, selected, onSelect }) {
   )
 }
 
-function MovementChart({ drawNumber, eventNumber }) {
+function MovementChart({ product, drawNumber, eventNumber }) {
   const [hist, setHist] = useState(null)
   useEffect(() => {
     let on = true
-    fetch(`/api/history?draw=${drawNumber}&event=${eventNumber}`)
+    fetch(`/api/history?product=${product}&draw=${drawNumber}&event=${eventNumber}`)
       .then((r) => r.json()).then((d) => { if (on) setHist(d.history || []) })
     return () => { on = false }
-  }, [drawNumber, eventNumber])
+  }, [product, drawNumber, eventNumber])
 
   if (!hist) return <div className="loading">Hämtar historik…</div>
   if (hist.length < 2) return <div className="loading">För få mätpunkter ännu – insamlingen bygger upp detta över tid.</div>
@@ -177,7 +177,7 @@ function MovementChart({ drawNumber, eventNumber }) {
 }
 
 /* ---------- sharp (Pinnacle, gratis, auto) – kompakt status + manuell uppdatering ---------- */
-function SharpPanel({ onLoaded }) {
+function SharpPanel({ product, draw, onLoaded }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [show, setShow] = useState(false)
@@ -187,13 +187,16 @@ function SharpPanel({ onLoaded }) {
     not_listed: { txt: 'ej listad hos Pinnacle ännu', cls: 'st-miss' },
   }
   const fetchSharp = async () => {
+    if (!draw) return
     setLoading(true)
     try {
-      const d = await (await fetch('/api/external-odds?use_oddsapi=false')).json()
-      setData(d); if (d.cached > 0 && onLoaded) onLoaded()
+      const d = await (await fetch(`/api/external-odds?product=${product}&draw=${draw}&use_oddsapi=false`)).json()
+      if (d && (d.matches || d.enabled === false)) {  // ignorera 404/detail-svar
+        setData(d); if (d.cached > 0 && onLoaded) onLoaded()
+      }
     } catch (e) { setData({ error: String(e) }) } finally { setLoading(false) }
   }
-  useEffect(() => { fetchSharp() }, [])  // hämta direkt (gratis)
+  useEffect(() => { fetchSharp() }, [product, draw])  // hämta direkt (gratis) vid byte
 
   const matched = data?.matches?.filter((m) => m.external) || []
   const uncovered = data?.matches?.filter((m) => !m.external) || []
@@ -201,7 +204,7 @@ function SharpPanel({ onLoaded }) {
     <div className="sharp">
       <div className="sharp-head">
         <strong>Sharp-odds (Pinnacle, gratis)</strong>
-        <span className="cstatus">{data ? `${matched.length}/${data.matches.length} matcher` : '…'}</span>
+        <span className="cstatus">{data?.matches ? `${matched.length}/${data.matches.length} matcher` : (loading ? '…' : '')}</span>
         <button onClick={fetchSharp} disabled={loading}>{loading ? 'Hämtar…' : '↻ Uppdatera nu'}</button>
         <button onClick={() => setShow(!show)}>{show ? 'Dölj detaljer' : 'Visa detaljer'}</button>
       </div>
@@ -261,17 +264,32 @@ function SystemView({ sys }) {
   )
 }
 
-const SYSTEM_TYPES = [
+const GAMES = [
+  { id: 'topptipset', label: 'Topptipset' },
+  { id: 'stryktipset', label: 'Stryktipset' },
+  { id: 'europatipset', label: 'Europatipset' },
+]
+
+const SYSTEM_BASE = [
   { id: 'math', label: 'Matematiskt (alla kombinationer)', q: 'reduced=false' },
   { id: 'red', label: 'Reducerat (värde)', q: 'reduced=true' },
-  { id: 'g12', label: 'Egen reducering: minst 12 rätt', q: 'reduced=true&guarantee=12' },
+  { id: 'g', label: 'Egen reducering (garanti)', q: 'reduced=true&guarantee=', dynamic: true },
+]
+const SYSTEM_SVS = [
   { id: 'svs_r409', label: 'Svenska Spel R 4-0-9 (12 rätt, 9 rad)', q: `sv_rsystem=${encodeURIComponent('R 4-0-9')}` },
   { id: 'svs_r0716', label: 'Svenska Spel R 0-7-16 (12 rätt, 16 rad)', q: `sv_rsystem=${encodeURIComponent('R 0-7-16')}` },
   { id: 'svs_r3324', label: 'Svenska Spel R 3-3-24 (12 rätt, 24 rad)', q: `sv_rsystem=${encodeURIComponent('R 3-3-24')}` },
   { id: 'svs_r44144', label: 'Svenska Spel R 4-4-144 (12 rätt, 144 rad)', q: `sv_rsystem=${encodeURIComponent('R 4-4-144')}` },
 ]
 
+function fmtClose(iso) {
+  return iso ? iso.slice(5, 16).replace('T', ' ') : ''
+}
+
 export default function App() {
+  const [product, setProduct] = useState('topptipset')
+  const [draws, setDraws] = useState([])
+  const [draw, setDraw] = useState(null)
   const [analysis, setAnalysis] = useState(null)
   const [sys, setSys] = useState(null)
   const [strategy, setStrategy] = useState('medel')
@@ -281,31 +299,68 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(null)
 
-  const loadAnalysis = async () => {
-    setLoading(true); setErr(null)
+  const nMatches = analysis?.matches?.length || 0
+  const systemTypes = nMatches === 13 ? [...SYSTEM_BASE, ...SYSTEM_SVS] : SYSTEM_BASE
+
+  const loadAnalysis = async (p = product, dn = draw) => {
+    if (!dn) return
+    setLoading(true); setErr(null); setSelected(null)
     try {
-      const r = await fetch('/api/analysis')
+      const r = await fetch(`/api/analysis?product=${p}&draw=${dn}`)
       if (!r.ok) throw new Error(`Analys ${r.status}`)
       setAnalysis(await r.json())
     } catch (e) { setErr(String(e)) } finally { setLoading(false) }
   }
+
+  // byt spel: hämta omgångar, välj första öppna, ladda analys
+  const switchGame = async (p) => {
+    setProduct(p); setSys(null); setAnalysis(null); setErr(null); setSysType('math'); setLoading(true)
+    try {
+      const d = await (await fetch(`/api/draws?product=${p}`)).json()
+      const list = d.open?.length ? d.open : d.draws
+      setDraws(list)
+      const first = list[0]?.draw_number || null
+      setDraw(first)
+      if (first) loadAnalysis(p, first)
+      else { setLoading(false); setErr('Inga öppna omgångar just nu.') }
+    } catch (e) { setErr(String(e)); setLoading(false) }
+  }
+
+  const changeDraw = (dn) => { setDraw(dn); setSys(null); loadAnalysis(product, dn) }
+
   const loadSystem = async () => {
     setErr(null)
     try {
-      const q = SYSTEM_TYPES.find((t) => t.id === sysType).q
-      const r = await fetch(`/api/system?strategy=${encodeURIComponent(strategy)}&budget=${budget}&${q}`)
-      if (!r.ok) throw new Error(`System ${r.status}`)
+      let q = (systemTypes.find((t) => t.id === sysType) || SYSTEM_BASE[0]).q
+      if (q.endsWith('guarantee=')) q += Math.max(1, nMatches - 1)  // garanti = n-1
+      const r = await fetch(`/api/system?product=${product}&draw=${draw}&strategy=${encodeURIComponent(strategy)}&budget=${budget}&${q}`)
+      if (!r.ok) throw new Error((await r.json()).detail || `System ${r.status}`)
       setSys(await r.json())
     } catch (e) { setErr(String(e)) }
   }
-  useEffect(() => { loadAnalysis() }, [])
+
+  useEffect(() => { switchGame('topptipset') }, [])  // eslint-disable-line
 
   return (
     <div className="app">
       <header>
-        <h1>⚽ Stryktips-hjälpen</h1>
-        {analysis && <span className="draw">Omgång {analysis.draw_number} · stänger {analysis.reg_close_time?.slice(0, 16).replace('T', ' ')}</span>}
-        <button onClick={loadAnalysis}>↻ Uppdatera</button>
+        <h1>⚽ Tips-hjälpen</h1>
+        <div className="games">
+          {GAMES.map((g) => (
+            <button key={g.id} className={product === g.id ? 'game active' : 'game'}
+              onClick={() => switchGame(g.id)}>{g.label}</button>
+          ))}
+        </div>
+        {draws.length > 0 && (
+          <select className="drawsel" value={draw || ''} onChange={(e) => changeDraw(Number(e.target.value))}>
+            {draws.map((d) => (
+              <option key={d.draw_number} value={d.draw_number}>
+                Omgång {d.draw_number} · stänger {fmtClose(d.reg_close_time)}{d.state !== 'Open' ? ` (${d.state})` : ''}
+              </option>
+            ))}
+          </select>
+        )}
+        <button onClick={() => loadAnalysis()}>↻ Uppdatera</button>
       </header>
 
       <Collection />
@@ -322,14 +377,14 @@ export default function App() {
           P = sharp-odds, P~ = härledd
         </p>
         {analysis && (
-          <AnalysisTable matches={analysis.matches} drawNumber={analysis.draw_number}
+          <AnalysisTable matches={analysis.matches} product={product} drawNumber={analysis.draw_number}
             selected={selected} onSelect={setSelected} />
         )}
       </section>
 
       <section>
         <h2>Sharp-odds</h2>
-        <SharpPanel onLoaded={loadAnalysis} />
+        <SharpPanel product={product} draw={draw} onLoaded={() => loadAnalysis()} />
       </section>
 
       <section>
@@ -344,7 +399,7 @@ export default function App() {
             <input type="number" min="1" value={budget} onChange={(e) => setBudget(Number(e.target.value))} />
           </label>
           <select value={sysType} onChange={(e) => setSysType(e.target.value)}>
-            {SYSTEM_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            {systemTypes.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
           </select>
           <button className="primary" onClick={loadSystem}>Föreslå rad</button>
         </div>

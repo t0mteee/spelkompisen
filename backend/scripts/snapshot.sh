@@ -10,5 +10,7 @@ mkdir -p "$BACKEND_DIR/data"
 
 cd "$BACKEND_DIR"
 TS="$(date '+%Y-%m-%d %H:%M:%S')"
-OUT="$("$PY" cli.py snapshot stryktipset 2>&1 | tail -2 | tr '\n' ' ' || echo 'FEL')"
-echo "[$TS] $OUT" >> "$LOG"
+for product in topptipset stryktipset europatipset; do
+  OUT="$("$PY" cli.py snapshot "$product" 2>&1 | tr '\n' ' ' || echo 'FEL')"
+  echo "[$TS] $OUT" >> "$LOG"
+done

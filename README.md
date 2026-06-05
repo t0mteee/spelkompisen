@@ -1,7 +1,10 @@
-# Stryktips-hjälpen
+# Tips-hjälpen
 
-Personligt verktyg för att analysera Stryktipset (Svenska Spel): hitta spikar,
-värdestreck och oddsrörelser, och (kommande) föreslå rader och system.
+Personligt verktyg för att analysera Svenska Spels tipsspel — **Topptipset,
+Stryktipset och Europatipset** — hitta spikar, värdestreck och oddsrörelser,
+samt föreslå rader och system. Spelväljare i toppen; Topptipset (8 matcher,
+körs varje kväll) har även en omgångsväljare eftersom flera kuponger kan vara
+öppna samtidigt.
 
 Körs **lokalt**. Stack: Python + FastAPI (backend), React kommer senare (frontend).
 

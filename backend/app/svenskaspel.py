@@ -18,11 +18,15 @@ from typing import Optional
 import httpx
 
 BASE = "https://api.spela.svenskaspel.se"
-# Produkt-id 1 = Stryktipset. (2 = Europatipset, 16 = Topptipset — samma format.)
+API_VER = 1  # path-prefix är alltid 1 (API-version), slugen styr produkten
+
+# listing=True: /draw/1/{slug}/draws listar alla omgångar.
+# listing=False (topptipset): ingen listnings-route -> vi scannar omgångsnummer
+# runt ett känt/cachat nummer (seed = fallback om inget cachat finns).
 PRODUCTS = {
-    "stryktipset": ("stryktipset", 1),
-    "europatipset": ("europatipset", 2),
-    "topptipset": ("topptipset", 16),
+    "stryktipset":  {"slug": "stryktipset",  "listing": True,  "matches": 13, "name": "Stryktipset"},
+    "europatipset": {"slug": "europatipset", "listing": True,  "matches": 13, "name": "Europatipset"},
+    "topptipset":   {"slug": "topptipset",   "listing": False, "matches": 8,  "name": "Topptipset", "seed": 4176},
 }
 _HEADERS = {"User-Agent": "Mozilla/5.0 (stryktips-helper/0.1)"}
 
@@ -97,28 +101,95 @@ class SvenskaSpel:
         r.raise_for_status()
         return r.json()
 
-    def list_draws(self, product: str = "stryktipset") -> list[dict]:
-        slug, pid = PRODUCTS[product]
-        data = self._get(f"/draw/{pid}/{slug}/draws")
-        return data.get("draws", [])
-
-    def current_draw_number(self, product: str = "stryktipset") -> Optional[int]:
-        """Lägsta öppna omgångsnumret (närmast i tid)."""
-        draws = self.list_draws(product)
-        open_draws = [d for d in draws if d.get("drawState") == "Open"]
-        pool = open_draws or draws
-        if not pool:
+    def _get_or_none(self, path: str) -> Optional[dict]:
+        r = self._client.get(f"{BASE}{path}")
+        if r.status_code == 404:
             return None
-        return min(d["drawNumber"] for d in pool)
+        r.raise_for_status()
+        return r.json()
+
+    @staticmethod
+    def _summary(raw: dict, product: str) -> dict:
+        return {
+            "product": product,
+            "draw_number": raw.get("drawNumber"),
+            "state": raw.get("drawState"),
+            "reg_close_time": raw.get("regCloseTime"),
+            "comment": raw.get("drawComment"),
+            "num_events": len(raw.get("drawEvents", [])),
+        }
+
+    def _draw_summary(self, product: str, n: int) -> Optional[dict]:
+        slug = PRODUCTS[product]["slug"]
+        data = self._get_or_none(f"/draw/{API_VER}/{slug}/draws/{n}")
+        if not data:
+            return None
+        if data.get("draws"):
+            raw = data["draws"][0]
+        elif data.get("draw"):
+            raw = data["draw"]
+        else:
+            return None
+        if not raw.get("drawNumber"):
+            return None
+        return self._summary(raw, product)
+
+    def _scan_draws(self, product: str, start_hint: Optional[int] = None,
+                    back: int = 4, gap: int = 3, max_scan: int = 80) -> list[dict]:
+        """Scanna omgångsnummer (för produkter utan listnings-route, t.ex.
+        topptipset). Börjar något före start_hint och går framåt tills `gap`
+        sammanhängande 404 efter senaste träff."""
+        cfg = PRODUCTS[product]
+        start = (start_hint or cfg.get("seed") or 1)
+        n = max(1, start - back)
+        found: list[dict] = []
+        misses = scanned = 0
+        while scanned < max_scan:
+            s = self._draw_summary(product, n)
+            if s is None:
+                misses += 1
+                if found and misses >= gap:
+                    break
+            else:
+                misses = 0
+                found.append(s)
+            n += 1
+            scanned += 1
+        return found
+
+    def list_draws(self, product: str = "stryktipset",
+                   start_hint: Optional[int] = None) -> list[dict]:
+        """Sammanfattningar av tillgängliga omgångar (sorterade på nummer)."""
+        cfg = PRODUCTS[product]
+        if cfg["listing"]:
+            data = self._get(f"/draw/{API_VER}/{cfg['slug']}/draws")
+            draws = [self._summary(d, product) for d in data.get("draws", [])]
+        else:
+            draws = self._scan_draws(product, start_hint)
+        return sorted(draws, key=lambda d: d["draw_number"])
+
+    def open_draws(self, product: str = "stryktipset",
+                   start_hint: Optional[int] = None) -> list[dict]:
+        return [d for d in self.list_draws(product, start_hint) if d["state"] == "Open"]
+
+    def current_draw_number(self, product: str = "stryktipset",
+                            start_hint: Optional[int] = None) -> Optional[int]:
+        """Närmaste öppna omgång (lägsta öppna numret)."""
+        opens = self.open_draws(product, start_hint)
+        if opens:
+            return min(d["draw_number"] for d in opens)
+        alld = self.list_draws(product, start_hint)
+        return max((d["draw_number"] for d in alld), default=None)
 
     def get_draw(self, draw_number: int, product: str = "stryktipset") -> Draw:
-        slug, pid = PRODUCTS[product]
-        data = self._get(f"/draw/{pid}/{slug}/draws/{draw_number}")
+        slug = PRODUCTS[product]["slug"]
+        data = self._get(f"/draw/{API_VER}/{slug}/draws/{draw_number}")
         raw = data["draws"][0] if "draws" in data else data.get("draw", data)
         return self._parse_draw(raw, product)
 
-    def get_current_draw(self, product: str = "stryktipset") -> Optional[Draw]:
-        num = self.current_draw_number(product)
+    def get_current_draw(self, product: str = "stryktipset",
+                         start_hint: Optional[int] = None) -> Optional[Draw]:
+        num = self.current_draw_number(product, start_hint)
         return self.get_draw(num, product) if num is not None else None
 
     # --- parsning ---

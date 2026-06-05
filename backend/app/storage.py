@@ -43,6 +43,11 @@ CREATE TABLE IF NOT EXISTS snapshots (
 CREATE INDEX IF NOT EXISTS idx_snap_lookup
     ON snapshots (product, draw_number, event_number, sign, fetched_at);
 
+CREATE TABLE IF NOT EXISTS meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);
+
 CREATE TABLE IF NOT EXISTS sharp_odds (
     product       TEXT NOT NULL,
     draw_number   INTEGER NOT NULL,
@@ -139,6 +144,17 @@ class Storage:
             args.append(sign)
         q += " ORDER BY fetched_at"
         return [dict(r) for r in self.conn.execute(q, args).fetchall()]
+
+    # --- nyckel/värde-meta ---
+    def meta_get(self, key: str) -> Optional[str]:
+        r = self.conn.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
+        return r["value"] if r else None
+
+    def meta_set(self, key: str, value: str) -> None:
+        self.conn.execute(
+            "INSERT INTO meta(key, value) VALUES(?,?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
+        self.conn.commit()
 
     # --- sharp-odds (cache från the-odds-api) ---
     def save_sharp(self, product: str, draw_number: int, hits: list[dict]) -> int:
