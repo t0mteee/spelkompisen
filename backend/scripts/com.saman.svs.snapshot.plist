@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.saman.svs.snapshot</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/saman/svs/backend/scripts/snapshot.sh</string>
+    </array>
+
+    <!-- Kör var 30:e minut. Dedup i koden gör att inget sparas om inget ändrats. -->
+    <key>StartInterval</key>
+    <integer>1800</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/saman/svs/backend/data/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/saman/svs/backend/data/launchd.err.log</string>
+</dict>
+</plist>
