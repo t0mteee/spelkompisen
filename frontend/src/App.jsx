@@ -224,23 +224,26 @@ function MiniChart({ sign, pts, color }) {
 }
 
 function MovementChart({ product, drawNumber, eventNumber }) {
-  const [hist, setHist] = useState(null)
+  const [data, setData] = useState(null)
   useEffect(() => {
     let on = true
     fetch(`/api/history?product=${product}&draw=${drawNumber}&event=${eventNumber}`)
-      .then((r) => r.json()).then((d) => { if (on) setHist(d.history || []) })
+      .then((r) => r.json()).then((d) => { if (on) setData(d) })
     return () => { on = false }
   }, [product, drawNumber, eventNumber])
 
-  if (!hist) return <div className="loading">Hämtar historik…</div>
+  if (!data) return <div className="loading">Hämtar historik…</div>
   const colors = { '1': '#4aa3df', X: '#aab3bf', '2': '#e0853b' }
   const bySign = { '1': [], X: [], '2': [] }
-  hist.filter((r) => r.odds != null).sort((a, b) => a.fetched_at.localeCompare(b.fetched_at))
+  ;(data.history || []).filter((r) => r.odds != null).sort((a, b) => a.fetched_at.localeCompare(b.fetched_at))
     .forEach((r) => bySign[r.sign]?.push({ t: r.fetched_at, o: r.odds }))
 
   return (
-    <div className="charts3">
-      {['1', 'X', '2'].map((s) => <MiniChart key={s} sign={s} pts={bySign[s]} color={colors[s]} />)}
+    <div>
+      <div className="chart-src">Oddsrörelse · källa: {data.source === 'pinnacle' ? 'Pinnacle (sharp)' : 'Svenska Spel'}</div>
+      <div className="charts3">
+        {['1', 'X', '2'].map((s) => <MiniChart key={s} sign={s} pts={bySign[s]} color={colors[s]} />)}
+      </div>
     </div>
   )
 }
@@ -342,6 +345,14 @@ const GAMES = [
 const VARIANT = {
   topptipset: 'Dagens', topptipsetstryk: 'Stryk', topptipsetextra: 'Extra',
 }
+// djuplänk till rätt omgång på Svenska Spel (du fyller i/lämnar in själv där)
+const SVS_PID = { topptipset: 25, topptipsetstryk: 23, topptipsetextra: 24 }
+function svsUrl(product, draw) {
+  if (product === 'stryktipset' || product === 'europatipset') {
+    return `https://spela.svenskaspel.se/${product}?draw=${draw}`
+  }
+  return `https://spela.svenskaspel.se/topptipset/?draw=${draw}&product=${SVS_PID[product] || 25}`
+}
 
 const SYSTEM_BASE = [
   { id: 'math', label: 'Matematiskt (alla kombinationer)', q: 'reduced=false' },
@@ -357,6 +368,12 @@ const SYSTEM_SVS = [
 
 function fmtClose(iso) {
   return iso ? iso.slice(5, 16).replace('T', ' ') : ''
+}
+function fmtFetched(iso) {
+  if (!iso) return '–'
+  try {
+    return new Date(iso).toLocaleString('sv-SE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })
+  } catch { return '–' }
 }
 function fmtStart(iso) {
   if (!iso) return ''
@@ -465,11 +482,16 @@ function couponStats(matches, picks, payouts, minDividend = 0, turnoverOverride 
     roi: cost ? (evPayout - cost) / cost : null, pAll }
 }
 
-function CouponPanel({ matches, picks, payouts, onFill, onClear }) {
+function CouponPanel({ matches, picks, payouts, product, draw, onFill, onClear }) {
   const [redOn, setRedOn] = useState(false)
   const [minDiv, setMinDiv] = useState(50)
   const [turnover, setTurnover] = useState(null)   // null = använd live-omsättning
   const [jackpot, setJackpot] = useState(0)
+  const [copied, setCopied] = useState(false)
+  const copyCoupon = () => {
+    const txt = matches.map((m) => `${m.event_number}. ${m.description}: ${(picks[m.event_number] || []).join('')}`).join('\n')
+    navigator.clipboard?.writeText(txt); setCopied(true); setTimeout(() => setCopied(false), 2000)
+  }
   const effTurnover = turnover != null ? turnover : (payouts?.turnover || 0)
   const s = couponStats(matches, picks, payouts, redOn ? minDiv : 0, turnover, jackpot)
   const payTiers = (payouts?.tiers || []).filter((t) => t.correct != null).sort((a, b) => b.correct - a.correct)
@@ -509,9 +531,12 @@ function CouponPanel({ matches, picks, payouts, onFill, onClear }) {
             <div className="kpi"><span>{kr(s.cost)}</span>insats</div>
             <div className="kpi"><span>{s.expectedCorrect.toFixed(2)}</span>förv. antal rätt</div>
             <div className="kpi"><span>{pct(s.pAll)}</span>chans alla rätt</div>
-            <div className="kpi"><span>{kr(s.topDividend)}</span>utdelning om alla rätt</div>
-            <div className="kpi"><span className={s.ev >= 0 ? 'pos' : 'neg'}>{s.ev >= 0 ? '+' : ''}{kr(s.ev)}</span>EV (netto)</div>
-            <div className="kpi"><span className={s.roi >= 0 ? 'pos' : 'neg'}>{s.roi == null ? '–' : (s.roi * 100).toFixed(0) + ' %'}</span>ROI</div>
+            <div className="kpi" title="Vad du får om hela raden är rätt: prispotten för toppnivån delad på förväntat antal medvinnare (uppskattat från folkets streck).">
+              <span>{kr(s.topDividend)}</span>utdelning om alla rätt</div>
+            <div className="kpi" title="EV netto = förväntad utdelning − insats. Förväntad utdelning = summan över alla vinstnivåer av (sannolikhet att raden träffar nivån × utdelning per vinnare på den nivån). Positivt = lönsamt i längden.">
+              <span className={s.ev >= 0 ? 'pos' : 'neg'}>{s.ev >= 0 ? '+' : ''}{kr(s.ev)}</span>EV (netto)</div>
+            <div className="kpi" title="ROI = EV netto ÷ insats, i procent. T.ex. +20% betyder att du i snitt får tillbaka 1,20 kr per satsad krona.">
+              <span className={s.roi >= 0 ? 'pos' : 'neg'}>{s.roi == null ? '–' : (s.roi * 100).toFixed(0) + ' %'}</span>ROI</div>
           </div>
           {payouts?.available && (
             <table className="grid compact paytable">
@@ -532,6 +557,11 @@ function CouponPanel({ matches, picks, payouts, onFill, onClear }) {
           <p className="hint">*Prispott = omsättning ({kr(effTurnover)}{turnover != null ? ', justerad' : ', live'})
             × Svenska Spels vinstplan{jackpot ? ` + jackpot ${kr(jackpot)}` : ''}. Antal vinnare uppskattas
             från nuvarande streck. "Utdelning om rätt" = vad du får om raden vinner nivån; EV är sannolikhetsviktat.</p>
+          <div className="svs-row">
+            <a className="svs-link" href={svsUrl(product, draw)} target="_blank" rel="noreferrer">▶ Öppna omgången på Svenska Spel ↗</a>
+            <button onClick={copyCoupon}>{copied ? '✓ Kopierad' : 'Kopiera kupong'}</button>
+            <span className="hint">Fyll i/lämna in själv där — av säkerhetsskäl skickas inga spel automatiskt.</span>
+          </div>
         </>
       )}
     </div>
@@ -652,6 +682,14 @@ export default function App() {
         <button onClick={() => loadAnalysis()}>↻ Uppdatera</button>
       </header>
 
+      {analysis && (
+        <div className="topinfo">
+          <span>Omsättning <b>{analysis.turnover ? kr(analysis.turnover) : '–'}</b></span>
+          <span>odds, streck & omsättning hämtade <b>{fmtFetched(analysis.fetched_at)}</b></span>
+          {payouts?.available && <span>prispott (alla rätt) <b>{kr(payouts.tiers?.[0]?.pool)}</b></span>}
+        </div>
+      )}
+
       <Collection />
       {err && <div className="error">{err}</div>}
       {loading && <div className="loading">Hämtar…</div>}
@@ -672,7 +710,7 @@ export default function App() {
         <h2>Din kupong</h2>
         {analysis && (
           <CouponPanel matches={analysis.matches} picks={picks} payouts={payouts}
-            onFill={fillFromTips} onClear={clearCoupon} />
+            product={product} draw={draw} onFill={fillFromTips} onClear={clearCoupon} />
         )}
       </section>
 

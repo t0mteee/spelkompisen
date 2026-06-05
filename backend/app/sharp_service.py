@@ -57,6 +57,7 @@ def collect_pinnacle(product: str = "stryktipset",
         store = Storage()
         try:
             store.save_sharp(product, draw.draw_number, to_cache)
+            store.save_sharp_snapshot(product, draw.draw_number, hits, fetched_at)
         finally:
             store.close()
 

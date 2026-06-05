@@ -48,6 +48,18 @@ CREATE TABLE IF NOT EXISTS meta (
     value TEXT
 );
 
+CREATE TABLE IF NOT EXISTS sharp_snapshots (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    product       TEXT NOT NULL,
+    draw_number   INTEGER NOT NULL,
+    event_number  INTEGER NOT NULL,
+    sign          TEXT NOT NULL,
+    odds          REAL,
+    fetched_at    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sharpsnap_lookup
+    ON sharp_snapshots (product, draw_number, event_number, sign, fetched_at);
+
 CREATE TABLE IF NOT EXISTS sharp_odds (
     product       TEXT NOT NULL,
     draw_number   INTEGER NOT NULL,
@@ -177,6 +189,53 @@ class Storage:
             n += 1
         self.conn.commit()
         return n
+
+    def save_sharp_snapshot(self, product: str, draw_number: int, hits: dict[int, dict],
+                            fetched_at: str) -> int:
+        """Lägg till en tidsserie-punkt för sharp-odds (Pinnacle) per utfall, men
+        bara om oddset ändrats sedan senaste punkten (håller serien liten)."""
+        prev = {}
+        for r in self.conn.execute(
+            "SELECT event_number, sign, odds FROM sharp_snapshots s WHERE product=? AND draw_number=? "
+            "AND fetched_at=(SELECT MAX(fetched_at) FROM sharp_snapshots WHERE product=s.product "
+            "AND draw_number=s.draw_number AND event_number=s.event_number AND sign=s.sign)",
+            (product, draw_number)).fetchall():
+            prev[(r["event_number"], r["sign"])] = r["odds"]
+        n = 0
+        for ev, h in hits.items():
+            o = h.get("odds") or {}
+            for sign in ("1", "X", "2"):
+                val = o.get(sign)
+                if val is None or prev.get((ev, sign)) == val:
+                    continue
+                self.conn.execute(
+                    "INSERT INTO sharp_snapshots(product, draw_number, event_number, sign, odds, fetched_at) "
+                    "VALUES(?,?,?,?,?,?)", (product, draw_number, ev, sign, val, fetched_at))
+                n += 1
+        self.conn.commit()
+        return n
+
+    def sharp_movement(self, product: str, draw_number: int) -> dict[tuple[int, str], dict]:
+        rows = self.conn.execute(
+            "SELECT event_number, sign, odds, fetched_at FROM sharp_snapshots "
+            "WHERE product=? AND draw_number=? AND odds IS NOT NULL ORDER BY fetched_at",
+            (product, draw_number)).fetchall()
+        agg: dict[tuple[int, str], dict] = {}
+        for r in rows:
+            k = (r["event_number"], r["sign"]); a = agg.get(k)
+            if a is None:
+                agg[k] = {"first": r["odds"], "last": r["odds"], "n": 1,
+                          "min": r["odds"], "max": r["odds"]}
+            else:
+                a["last"], a["n"] = r["odds"], a["n"] + 1
+                a["min"], a["max"] = min(a["min"], r["odds"]), max(a["max"], r["odds"])
+        return agg
+
+    def sharp_history(self, product: str, draw_number: int, event_number: int) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT sign, odds, fetched_at FROM sharp_snapshots WHERE product=? AND draw_number=? "
+            "AND event_number=? ORDER BY fetched_at", (product, draw_number, event_number)).fetchall()
+        return [dict(r) for r in rows]
 
     def get_sharp(self, product: str, draw_number: int) -> dict[int, dict]:
         rows = self.conn.execute(

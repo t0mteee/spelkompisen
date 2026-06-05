@@ -82,7 +82,10 @@ def _analyze(product: str, draw_number: int | None = None):
     store = Storage()
     try:
         sharp = store.get_sharp(product, draw.draw_number)
-        movement = store.movement(product, draw.draw_number)
+        # rörelse-signalen baseras på Pinnacle (snabbare/sharpare); SS som fallback
+        movement = store.sharp_movement(product, draw.draw_number)
+        if not movement:
+            movement = store.movement(product, draw.draw_number)
     finally:
         store.close()
     return analyze_draw(draw, sharp, movement)
@@ -203,9 +206,14 @@ def snapshot(product: str = "stryktipset", draw: int | None = None):
 @app.get("/api/history")
 def history(draw: int, event: int, sign: str | None = None,
             product: str = "stryktipset"):
+    """Oddshistorik för grafen. Pinnacle (sharp) i första hand — snabbare/sharpare
+    rörelse — annars Svenska Spels egna snapshots."""
     store = Storage()
     try:
-        return {"history": store.history(product, draw, event, sign)}
+        sharp = store.sharp_history(product, draw, event)
+        if sharp:
+            return {"history": sharp, "source": "pinnacle"}
+        return {"history": store.history(product, draw, event, sign), "source": "svenskaspel"}
     finally:
         store.close()
 

@@ -83,18 +83,27 @@ def _signs_by_prob(m: MatchAnalysis) -> list[str]:
     return [s for s, _ in pairs]
 
 
+def _sign_value(m: MatchAnalysis, s: str) -> float:
+    """Värde för ett tecken: sharp-värde om det finns, annars SS-värde."""
+    o = m.outcomes[s]
+    v = o.value_sharp if o.value_sharp is not None else o.value
+    return v if v is not None else -999.0
+
+
 def _pick_signs(m: MatchAnalysis, count: int, cfg: StrategyConfig) -> list[str]:
-    """Välj `count` tecken för matchen enligt strategi."""
+    """Välj `count` tecken (alltid sorterade 1/X/2).
+
+    Halvgardering = favoriten + det ÖVRIGA tecken som har mest värde (inte näst
+    mest sannolikt) — så gröna värdetecken kommer med och röda överspelade lämnas."""
     order = _signs_by_prob(m)
     if count >= 3:
         return list(SIGNS)
+    fav = m.favourite or order[0]
     if count == 1:
-        return [m.favourite or order[0]]
-    # count == 2: två bästa sannolikheter, men låt värdetecken tränga in vid value_bias
-    chosen = order[:2]
-    if cfg.value_bias and m.best_value_sign and m.best_value_sign not in chosen:
-        chosen = [order[0], m.best_value_sign]
-    return chosen
+        return [fav]
+    others = [s for s in SIGNS if s != fav]
+    best_other = max(others, key=lambda s: _sign_value(m, s))
+    return sorted([fav, best_other], key=SIGNS.index)
 
 
 def _role(count: int) -> str:

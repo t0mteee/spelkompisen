@@ -335,6 +335,7 @@ class DrawAnalysis:
     state: str
     reg_close_time: Optional[str]
     fetched_at: str
+    turnover: Optional[float]
     matches: list[MatchAnalysis]
 
     @property
@@ -358,6 +359,7 @@ def analyze_draw(draw: Draw, sharp: Optional[dict[int, dict]] = None,
         state=draw.state,
         reg_close_time=draw.reg_close_time,
         fetched_at=draw.fetched_at,
+        turnover=draw.net_sale,
         matches=[analyze_match(m, sharp.get(m.event_number), _move_for(m.event_number))
                  for m in draw.matches],
     )
@@ -370,5 +372,6 @@ def analysis_to_dict(a: DrawAnalysis) -> dict:
         "state": a.state,
         "reg_close_time": a.reg_close_time,
         "fetched_at": a.fetched_at,
+        "turnover": a.turnover,
         "matches": [asdict(m) for m in a.matches],
     }
