@@ -390,14 +390,14 @@ def _recommendation(speltyp, fav, oa, source="odds", best_value=None) -> str:
             "värdespik": f"Värdespik {fav} (underspelad)",
             "gardera": "Öppen match – gardera", "lutar": f"Lutar {fav}"}
     parts = [lead.get(speltyp, f"Lutar {fav}")]
+    # värdetecken = underspelat av folket; tydliggör att det avviker från favoriten
     if best_value and best_value != fav:
-        parts.append(f"värdetecken {best_value}")
-    drops = [s for s in SIGNS if "fallande_odds" in oa[s].tags]
-    if drops:
-        parts.append("fallande odds: " + "/".join(drops))
-    moved = [s for s in SIGNS if "rörelse_ner" in oa[s].tags]
-    if moved:
-        parts.append("rör sig ned: " + "/".join(moved))
+        if speltyp in ("spik", "halvspik", "lutar", "värdespik"):
+            parts.append(f"men värde på {best_value}")
+        else:
+            parts.append(f"värdetecken {best_value}")
+    # oddsrörelse (fallande/rör sig ned) visas nu via märken (↓/⇊) + rörelse-chips
+    # samt på hover över oddset — håll därför rekommendationstexten kort.
     sharp_val = [s for s in SIGNS if "sharp_värde" in oa[s].tags]
     if sharp_val:
         parts.append("sharp-värde: " + "/".join(sharp_val))

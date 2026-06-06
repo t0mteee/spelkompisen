@@ -288,6 +288,26 @@ class Storage:
                 a["min"], a["max"] = min(a["min"], r["streck"]), max(a["max"], r["streck"])
         return agg
 
+    def odds_series(self, product: str, draw_number: int) -> dict[tuple[int, str], dict]:
+        """Hela oddsserien per (event, sign) för både SvS och Pinnacle —
+        underlag för rörelse-tooltipen (alla mätpunkter + min/max)."""
+        out: dict[tuple[int, str], dict] = {}
+        for r in self.conn.execute(
+            "SELECT event_number, sign, odds, fetched_at FROM snapshots "
+            "WHERE product=? AND draw_number=? AND odds IS NOT NULL ORDER BY fetched_at",
+            (product, draw_number)).fetchall():
+            out.setdefault((r["event_number"], r["sign"]),
+                           {"svs": [], "pinnacle": []})["svs"].append(
+                {"t": r["fetched_at"], "odds": r["odds"]})
+        for r in self.conn.execute(
+            "SELECT event_number, sign, odds, fetched_at FROM sharp_snapshots "
+            "WHERE product=? AND draw_number=? AND odds IS NOT NULL ORDER BY fetched_at",
+            (product, draw_number)).fetchall():
+            out.setdefault((r["event_number"], r["sign"]),
+                           {"svs": [], "pinnacle": []})["pinnacle"].append(
+                {"t": r["fetched_at"], "odds": r["odds"]})
+        return out
+
     def last_snapshot(self) -> Optional[str]:
         r = self.conn.execute("SELECT MAX(fetched_at) AS m FROM snapshots").fetchone()
         return r["m"]

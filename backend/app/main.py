@@ -215,6 +215,22 @@ def snapshot(product: str = "stryktipset", draw: int | None = None):
             "fetched_at": d.fetched_at}
 
 
+@app.get("/api/movement")
+def movement(product: str = "stryktipset", draw: int | None = None):
+    """Hela oddsserien (SvS + Pinnacle) per utfall för rörelse-tooltipen.
+    Slår inte mot SvS-API:t när draw anges — läser bara våra snapshots."""
+    dn = draw or _get_draw(product, None).draw_number
+    store = Storage()
+    try:
+        ser = store.odds_series(product, dn)
+    finally:
+        store.close()
+    events: dict[str, dict] = {}
+    for (ev, sign), data in ser.items():
+        events.setdefault(str(ev), {})[sign] = data
+    return {"draw_number": dn, "events": events}
+
+
 @app.get("/api/history")
 def history(draw: int, event: int, sign: str | None = None,
             product: str = "stryktipset"):

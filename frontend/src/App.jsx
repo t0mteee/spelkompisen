@@ -79,7 +79,7 @@ function StreckBar({ outcomes }) {
         const w = (v / tot) * 100
         return (
           <div key={i} className={`seg ${cls[i]}`} style={{ width: `${w}%` }}>
-            {w >= 16 ? <><b>{signs[i]}</b> {v}%</> : w >= 9 ? `${v}` : ''}
+            {w >= 13 ? `${v}%` : w >= 8 ? v : ''}
           </div>
         )
       })}
@@ -87,11 +87,26 @@ function StreckBar({ outcomes }) {
   )
 }
 
+/* extra värdesignaler ur rekommendationen i klartext (badgens hover) –
+   ledtexten (Spik/Lutar …) utelämnas eftersom badgen redan visar den */
+function recExtra(rec) {
+  return (rec || '').split('. ').slice(1).map((p) => {
+    const m = p.match(/([1X2](?:\/[1X2])*)\s*$/)
+    const sign = m ? m[1] : ''
+    if (p.startsWith('sharp-värde')) return `Pinnacle ser värde på ${sign} som folket missat`
+    if (p.startsWith('men värde på')) return `värde (underspelat av folket) på ${sign}`
+    if (p.startsWith('värdetecken')) return `värdetecken (underspelat) på ${sign}`
+    if (p.startsWith('SS billigt')) return `SS-odds för höga på ${sign} (felprisat)`
+    return p
+  }).join('. ')
+}
+
 /* ---------- förslagsbadge (ersätter de otydliga spik/öppen-staplarna) ---------- */
 function Forslag({ m }) {
   const fav = m.favourite
   const map = {
     spik: ['b-spik', `Spik ${fav}`],
+    värdespik: ['b-half', `Värdespik ${fav}`],
     halvspik: ['b-half', `Halvspik ${fav}`],
     gardera: ['b-open', 'Gardera'],
     lutar: ['b-lean', `Lutar ${fav}`],
@@ -100,16 +115,18 @@ function Forslag({ m }) {
   const [cls, txt] = map[m.speltyp] || ['b-lean', `Lutar ${fav}`]
   const tips = {
     spik: 'Stark favorit – kan singlas.',
-    halvspik: 'Halvfavorit – singla djärvt eller halvgardera.',
     värdespik: 'Kort odds men lågt streck – undervärderad av folket, bra att singla.',
+    halvspik: 'Halvfavorit – singla djärvt eller halvgardera.',
     gardera: 'Öppen match utan klar favorit – ta flera tecken.',
     lutar: 'Svag favorit – luta hit men gardera gärna.',
     avvakta: 'Odds saknas än – avvakta.',
   }
-  const badgeTitle = `${tips[m.speltyp] || ''} (favorit ${Math.round((m.favourite_prob || 0) * 100)}%, spik-styrka ${Math.round(m.spik_score)}/100)`
+  const extra = recExtra(m.recommendation)
+  const badgeTitle = `${tips[m.speltyp] || ''}${extra ? ' · ' + extra : ''}`
+    + ` (favorit ${Math.round((m.favourite_prob || 0) * 100)}%, spik-styrka ${Math.round(m.spik_score)}/100)`
   const mv = m.mover
   return (
-    <div className="forslag" title={`spik-styrka ${Math.round(m.spik_score)}/100 · öppenhet ${Math.round(m.open_score)}/100`}>
+    <div className="forslag">
       <span className={`badge ${cls}`} title={badgeTitle}>{txt}</span>
       {mv && (
         <span className="moverflags">
@@ -129,12 +146,53 @@ function Forslag({ m }) {
           )}
         </span>
       )}
-      <div className="rec">{m.recommendation}</div>
     </div>
   )
 }
 
-function OddsCell({ o, derived, picked, onToggle, valueOk }) {
+/* ---------- rörelse-tooltip (hela serien per utfall, SvS + Pinnacle) ---------- */
+function fmtTs(t) {
+  const d = new Date(t); const p = (n) => String(n).padStart(2, '0')
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+// behåll bara förändringspunkter (hoppa över upprepade identiska odds)
+function changePoints(pts) {
+  const out = []
+  for (const p of pts || []) if (!out.length || out[out.length - 1].odds !== p.odds) out.push(p)
+  return out
+}
+function TipSection({ label, pts }) {
+  const c = changePoints(pts)
+  if (!c.length) return null
+  const first = c[0].odds, last = c[c.length - 1].odds
+  const delta = +(last - first).toFixed(2)
+  const dir = delta < 0 ? 'NED' : delta > 0 ? 'UPP' : '—'
+  const dcls = delta < 0 ? 't-down' : delta > 0 ? 't-up' : ''
+  const vals = (pts || []).map((p) => p.odds)
+  const mn = Math.min(...vals), mx = Math.max(...vals)
+  return (
+    <div className="tip-sec">
+      <div className="tip-h"><b>{label}</b>: {fmt(last)} · {fmt(first)}→{fmt(last)}{' '}
+        <span className={dcls}>({delta > 0 ? '+' : ''}{delta.toFixed(2)}, {dir})</span></div>
+      {c.map((p, i) => (
+        <div key={i} className="tip-row"><span>{fmtTs(p.t)}</span><b>{fmt(p.odds)}</b></div>
+      ))}
+      <div className="tip-f">min {fmt(mn)} / max {fmt(mx)} · {c.length} mätpunkter</div>
+    </div>
+  )
+}
+function OddsTip({ sign, series, x, y }) {
+  return (
+    <div className="oddstip" style={{ left: x, top: y }}>
+      <TipSection label={`SvS ${sign}`} pts={series.svs} />
+      <TipSection label={`Pinnacle ${sign}`} pts={series.pinnacle} />
+    </div>
+  )
+}
+
+function OddsCell({ o, derived, picked, onToggle, valueOk, series }) {
+  const [tipPos, setTipPos] = useState(null)
+  const hasSeries = !!series && (changePoints(series.svs).length > 0 || changePoints(series.pinnacle).length > 0)
   const cls = ['cell', 'pickcell']
   if (o.tags?.includes('värdestreck') || o.tags?.includes('sharp_värde')) cls.push('value')
   if (o.tags?.includes('ss_undervärderad')) cls.push('edge')
@@ -146,8 +204,16 @@ function OddsCell({ o, derived, picked, onToggle, valueOk }) {
     (ratio >= 1.08 ? `Marknaden tror ~${Math.round((ratio - 1) * 100)}% mer än folket — köpläge.`
       : ratio <= 0.92 ? `Folket överspelar (${Math.round((1 - ratio) * 100)}% mindre sannolik än streckad).`
         : 'Ungefär rätt streckad.')
+  const showTip = (e) => {
+    if (!hasSeries) return
+    const r = e.currentTarget.getBoundingClientRect()
+    setTipPos({ x: Math.min(r.left, window.innerWidth - 280), y: r.bottom + 4 })
+  }
   return (
-    <td className={cls.join(' ')} onClick={onToggle} title="klicka för att lägga till/ta bort i kupongen">
+    <td className={cls.join(' ')} onClick={onToggle}
+      onMouseEnter={showTip} onMouseLeave={() => setTipPos(null)}
+      title={hasSeries ? undefined : 'Klicka för att lägga till/ta bort i kupongen'}>
+      {tipPos && <OddsTip sign={o.sign} series={series} x={tipPos.x} y={tipPos.y} />}
       <div className="odds">{fmt(o.odds)}</div>
       {o.sharp_odds != null && (
         <div className="sharpodds" title={derived ? 'Pinnacle, härledd från spread/total' : 'Pinnacle (sharp)'}>
@@ -167,7 +233,7 @@ function OddsCell({ o, derived, picked, onToggle, valueOk }) {
   )
 }
 
-function AnalysisTable({ matches, product, drawNumber, selected, onSelect, picks, onToggleSign }) {
+function AnalysisTable({ matches, product, drawNumber, selected, onSelect, picks, onToggleSign, movement }) {
   const isPicked = (ev, s) => (picks[ev] || []).includes(s)
   return (
     <table className="grid">
@@ -190,6 +256,7 @@ function AnalysisTable({ matches, product, drawNumber, selected, onSelect, picks
                 {['1', 'X', '2'].map((s) => (
                   <OddsCell key={s} o={m.outcomes[s]} derived={derived} valueOk={valueOk}
                     picked={isPicked(m.event_number, s)}
+                    series={movement?.events?.[m.event_number]?.[s]}
                     onToggle={() => onToggleSign(m.event_number, s)} />
                 ))}
                 <td><StreckBar outcomes={m.outcomes} /></td>
@@ -597,6 +664,7 @@ export default function App() {
   const [draws, setDraws] = useState([])
   const [draw, setDraw] = useState(null)
   const [analysis, setAnalysis] = useState(null)
+  const [movement, setMovement] = useState(null)
   const [sys, setSys] = useState(null)
   const [strategy, setStrategy] = useState('medel')
   const [budget, setBudget] = useState(100)
@@ -641,6 +709,8 @@ export default function App() {
       const r = await fetch(`/api/analysis?product=${p}&draw=${dn}&_t=${Date.now()}`, { cache: 'no-store' })
       if (!r.ok) throw new Error(`Analys ${r.status}`)
       setAnalysis(await r.json())
+      fetch(`/api/movement?product=${p}&draw=${dn}&_t=${Date.now()}`, { cache: 'no-store' })
+        .then((x) => x.json()).then(setMovement).catch(() => setMovement(null))
     } catch (e) { setErr(String(e)) } finally { setLoading(false) }
   }
 
@@ -655,7 +725,7 @@ export default function App() {
   const refresh = () => { loadAnalysis(); loadPayouts() }
 
   const switchGame = async (g) => {
-    setGroup(g); setSys(null); setAnalysis(null); setErr(null); setSysType('math'); setPicks({}); setLoading(true)
+    setGroup(g); setSys(null); setAnalysis(null); setMovement(null); setErr(null); setSysType('math'); setPicks({}); setLoading(true)
     try {
       const d = await (await fetch(`/api/draws?product=${g}&_t=${Date.now()}`, { cache: 'no-store' })).json()
       const list = d.open?.length ? d.open : d.draws
@@ -726,12 +796,12 @@ export default function App() {
       <section>
         <div className="analys-head">
           <h2>Analys</h2>
-          <span className="hovertip">💡 håll muspekaren över en siffra eller badge för förklaring</span>
+          <span className="hovertip">💡 håll muspekaren över ett odds för hela rörelsen (SvS + Pinnacle), eller över en badge för förklaring</span>
         </div>
         <Legend />
         {analysis && (
           <AnalysisTable matches={analysis.matches} product={product} drawNumber={analysis.draw_number}
-            selected={selected} onSelect={setSelected} picks={picks} onToggleSign={toggleSign} />
+            selected={selected} onSelect={setSelected} picks={picks} onToggleSign={toggleSign} movement={movement} />
         )}
       </section>
 
