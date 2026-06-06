@@ -28,7 +28,7 @@ from . import sharp_service
 from .storage import Storage
 from .svenskaspel import SvenskaSpel, draw_to_dict, GAME_GROUPS
 
-app = FastAPI(title="Stryktips-hjälpen", version="0.1.0")
+app = FastAPI(title="SvS kompisen", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],

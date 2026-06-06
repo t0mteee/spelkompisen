@@ -690,7 +690,7 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <h1>⚽ Tips-hjälpen</h1>
+        <h1>⚽ SvS kompisen</h1>
         <div className="games">
           {GAMES.map((g) => (
             <button key={g.id} className={group === g.id ? 'game active' : 'game'}
