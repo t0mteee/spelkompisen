@@ -262,7 +262,7 @@ function SharpPanel({ product, draw, onLoaded }) {
     if (!draw) return
     setLoading(true)
     try {
-      const d = await (await fetch(`/api/external-odds?product=${product}&draw=${draw}`)).json()
+      const d = await (await fetch(`/api/external-odds?product=${product}&draw=${draw}&_t=${Date.now()}`, { cache: 'no-store' })).json()
       if (d && (d.matches || d.enabled === false)) {  // ignorera 404/detail-svar
         setData(d); if (d.cached > 0 && onLoaded) onLoaded()
       }
@@ -578,6 +578,7 @@ export default function App() {
   const [strategy, setStrategy] = useState('medel')
   const [budget, setBudget] = useState(100)
   const [sysType, setSysType] = useState('math')
+  const [valueWeight, setValueWeight] = useState(50)  // EV-/värdeskala 0..100
   const [selected, setSelected] = useState(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(null)
@@ -614,22 +615,26 @@ export default function App() {
     if (!dn) return
     setLoading(true); setErr(null); setSelected(null)
     try {
-      const r = await fetch(`/api/analysis?product=${p}&draw=${dn}`)
+      const r = await fetch(`/api/analysis?product=${p}&draw=${dn}&_t=${Date.now()}`, { cache: 'no-store' })
       if (!r.ok) throw new Error(`Analys ${r.status}`)
       setAnalysis(await r.json())
     } catch (e) { setErr(String(e)) } finally { setLoading(false) }
   }
 
   // byt spel: hämta omgångar, välj första öppna, ladda analys
-  const loadPayouts = (p, dn) => {
+  const loadPayouts = (p = product, dn = draw) => {
+    if (!dn) return
     setPayouts(null)
-    fetch(`/api/payouts?product=${p}&draw=${dn}`).then((r) => r.json()).then(setPayouts).catch(() => setPayouts(null))
+    fetch(`/api/payouts?product=${p}&draw=${dn}&_t=${Date.now()}`, { cache: 'no-store' })
+      .then((r) => r.json()).then(setPayouts).catch(() => setPayouts(null))
   }
+
+  const refresh = () => { loadAnalysis(); loadPayouts() }
 
   const switchGame = async (g) => {
     setGroup(g); setSys(null); setAnalysis(null); setErr(null); setSysType('math'); setPicks({}); setLoading(true)
     try {
-      const d = await (await fetch(`/api/draws?product=${g}`)).json()
+      const d = await (await fetch(`/api/draws?product=${g}&_t=${Date.now()}`, { cache: 'no-store' })).json()
       const list = d.open?.length ? d.open : d.draws
       setDraws(list)
       const first = list[0]
@@ -650,7 +655,8 @@ export default function App() {
     try {
       let q = (systemTypes.find((t) => t.id === sysType) || SYSTEM_BASE[0]).q
       if (q.endsWith('guarantee=')) q += Math.max(1, nMatches - 1)  // garanti = n-1
-      const r = await fetch(`/api/system?product=${product}&draw=${draw}&strategy=${encodeURIComponent(strategy)}&budget=${budget}&${q}`)
+      const vw = valueWeight / 100
+      const r = await fetch(`/api/system?product=${product}&draw=${draw}&strategy=${encodeURIComponent(strategy)}&budget=${budget}&value_weight=${vw}&${q}&_t=${Date.now()}`, { cache: 'no-store' })
       if (!r.ok) throw new Error((await r.json()).detail || `System ${r.status}`)
       setSys(await r.json())
     } catch (e) { setErr(String(e)) }
@@ -679,7 +685,7 @@ export default function App() {
             ))}
           </select>
         )}
-        <button onClick={() => loadAnalysis()}>↻ Uppdatera</button>
+        <button onClick={refresh}>↻ Uppdatera</button>
       </header>
 
       {analysis && (
@@ -734,6 +740,13 @@ export default function App() {
             {systemTypes.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
           </select>
           <button className="primary" onClick={loadSystem}>Föreslå rad</button>
+        </div>
+        <div className="evscale" title="Lågt = lågoddsare/favoriter (hög träffchans, lägre EV). Högt = värde/skräll (lägre chans, högre EV långsiktigt).">
+          <span>Träffchans</span>
+          <input type="range" min="0" max="100" step="5" value={valueWeight}
+            onChange={(e) => setValueWeight(Number(e.target.value))} />
+          <span>Värde/EV</span>
+          <span className="evval">{valueWeight}%</span>
         </div>
         <SystemView sys={sys} />
       </section>

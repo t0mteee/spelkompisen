@@ -83,27 +83,30 @@ def _signs_by_prob(m: MatchAnalysis) -> list[str]:
     return [s for s, _ in pairs]
 
 
-def _sign_value(m: MatchAnalysis, s: str) -> float:
-    """Värde för ett tecken: sharp-värde om det finns, annars SS-värde."""
+def _sign_score(m: MatchAnalysis, s: str, value_weight: float) -> float:
+    """Tecknets attraktivitet = sannolikhet vägt mot värde (fair ÷ streck).
+
+    value_weight 0 = ren sannolikhet (lågoddsare/favoriter, hög träffchans, lägre
+    EV). Högre = mer värde/skräll (lägre chans men högre EV långsiktigt)."""
     o = m.outcomes[s]
-    v = o.value_sharp if o.value_sharp is not None else o.value
-    return v if v is not None else -999.0
+    p = o.fair_prob if o.fair_prob is not None else 0.0
+    ratio = (o.fair_prob / (o.streck / 100)) if (o.fair_prob is not None and o.streck) else 1.0
+    return p * (ratio ** (3.0 * max(0.0, value_weight)))
 
 
-def _pick_signs(m: MatchAnalysis, count: int, cfg: StrategyConfig) -> list[str]:
-    """Välj `count` tecken (alltid sorterade 1/X/2).
+def _signs_by_score(m: MatchAnalysis, value_weight: float) -> list[str]:
+    return sorted(SIGNS, key=lambda s: _sign_score(m, s, value_weight), reverse=True)
 
-    Halvgardering = favoriten + det ÖVRIGA tecken som har mest värde (inte näst
-    mest sannolikt) — så gröna värdetecken kommer med och röda överspelade lämnas."""
-    order = _signs_by_prob(m)
+
+def _pick_signs(m: MatchAnalysis, count: int, cfg: StrategyConfig,
+                value_weight: float = 0.5) -> list[str]:
+    """Välj `count` tecken (sorterade 1/X/2), viktat mot värde enligt value_weight."""
     if count >= 3:
         return list(SIGNS)
-    fav = m.favourite or order[0]
+    order = _signs_by_score(m, value_weight)
     if count == 1:
-        return [fav]
-    others = [s for s in SIGNS if s != fav]
-    best_other = max(others, key=lambda s: _sign_value(m, s))
-    return sorted([fav, best_other], key=SIGNS.index)
+        return [order[0]]
+    return sorted(order[:2], key=SIGNS.index)
 
 
 def _role(count: int) -> str:
@@ -151,13 +154,13 @@ def _size_to_budget(analysis: DrawAnalysis, cfg: StrategyConfig,
 
 
 def _build_picks(analysis: DrawAnalysis, cfg: StrategyConfig,
-                 counts: dict[int, int]) -> list[MatchPick]:
+                 counts: dict[int, int], value_weight: float = 0.5) -> list[MatchPick]:
     picks: list[MatchPick] = []
     for m in analysis.matches:
         c = counts.get(m.event_number, 1)
         if m.cancelled:
             c = 3  # avbruten match ger oftast återbetalning/halvgardering — täck brett
-        signs = _pick_signs(m, c, cfg)
+        signs = _pick_signs(m, c, cfg, value_weight)
         picks.append(MatchPick(
             event_number=m.event_number,
             description=m.description,
@@ -180,10 +183,10 @@ def _num_rows(picks: list[MatchPick]) -> int:
 
 def build_math_system(analysis: DrawAnalysis, strategy: str = "medel",
                       budget: float = 100.0, row_price: float = ROW_PRICE,
-                      enumerate_rows: bool = False) -> System:
+                      enumerate_rows: bool = False, value_weight: float = 0.5) -> System:
     cfg = STRATEGIES[strategy]
     counts = _size_to_budget(analysis, cfg, budget, row_price)
-    picks = _build_picks(analysis, cfg, counts)
+    picks = _build_picks(analysis, cfg, counts, value_weight)
     n = _num_rows(picks)
     rows: list[list[str]] = []
     if enumerate_rows and n <= 100_000:
@@ -200,7 +203,7 @@ def build_math_system(analysis: DrawAnalysis, strategy: str = "medel",
 
 def build_reduced_system(analysis: DrawAnalysis, strategy: str = "medel",
                          budget: float = 100.0, row_price: float = ROW_PRICE,
-                         expand: float = 4.0) -> System:
+                         expand: float = 4.0, value_weight: float = 0.5) -> System:
     """Reducerat system: ta ett generösare garderingsval (≈ budget×expand rader
     som fullt system) och reducera ner till budget med villkorsreducering.
 
@@ -209,7 +212,7 @@ def build_reduced_system(analysis: DrawAnalysis, strategy: str = "medel",
     samtidigt) men behåller bredden — klassisk färg-/villkorsreducering."""
     cfg = STRATEGIES[strategy]
     counts = _size_to_budget(analysis, cfg, budget * expand, row_price)
-    picks = _build_picks(analysis, cfg, counts)
+    picks = _build_picks(analysis, cfg, counts, value_weight)
     full_rows = _num_rows(picks)
 
     # favorittecken per match (för att räkna avvikelser)
@@ -293,7 +296,7 @@ def _pick_garderings_capped(analysis: DrawAnalysis, cfg: StrategyConfig,
 
 def build_guarantee_system(analysis: DrawAnalysis, strategy: str = "medel",
                            budget: float = 100.0, guarantee: int = 12,
-                           row_price: float = ROW_PRICE) -> System:
+                           row_price: float = ROW_PRICE, value_weight: float = 0.5) -> System:
     """Reducerat R-system med garanti 'minst `guarantee` rätt' (av antalet
     matcher) förutsatt att alla dina tecken är rätt. Väljer garderingar efter
     strategi/öppenhet, krymper vid behov tills systemet ryms i budget."""
@@ -310,7 +313,7 @@ def build_guarantee_system(analysis: DrawAnalysis, strategy: str = "medel",
     picks: list[MatchPick] = []
     full_rows = 0
     while True:
-        picks = _build_picks(analysis, cfg, counts)
+        picks = _build_picks(analysis, cfg, counts, value_weight)
         gard = [p for p in picks if len(p.signs) > 1]
         full_rows = _num_rows(picks)
         if not gard:
@@ -392,7 +395,8 @@ def _r12_index_cover(name: str, hel: int, halv: int) -> tuple[list[tuple], bool]
 
 
 def build_svs_rsystem(analysis: DrawAnalysis, name: str = "R 3-3-24",
-                      strategy: str = "medel", row_price: float = ROW_PRICE) -> System:
+                      strategy: str = "medel", row_price: float = ROW_PRICE,
+                      value_weight: float = 0.5) -> System:
     """Bygg ett av Svenska Spels 12-rättsgaranti-R-system. Helgarderar de mest
     öppna matcherna, halvgarderar nästa, spikar resten — och genererar de
     faktiska raderna med 12-garantin verifierad."""
@@ -416,12 +420,12 @@ def build_svs_rsystem(analysis: DrawAnalysis, name: str = "R 3-3-24",
             picks.append(MatchPick(m.event_number, m.description, "helgardering",
                                    list(SIGNS), m.favourite, _reason(m, 3)))
         elif m.event_number in halv_ev:
-            signs = _pick_signs(m, 2, cfg)
+            signs = _pick_signs(m, 2, cfg, value_weight)
             halv_signs[m.event_number] = signs
             picks.append(MatchPick(m.event_number, m.description, "halvgardering",
                                    signs, m.favourite, _reason(m, 2)))
         else:
-            sign = m.favourite or _signs_by_prob(m)[0]
+            sign = _signs_by_score(m, value_weight)[0]
             picks.append(MatchPick(m.event_number, m.description, "spik",
                                    [sign], m.favourite, _reason(m, 1)))
 

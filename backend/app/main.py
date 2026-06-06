@@ -166,20 +166,21 @@ def system(product: str = "stryktipset",
            budget: float = 100.0,
            reduced: bool = False,
            guarantee: int = 0,
-           sv_rsystem: str = ""):
-    """sv_rsystem=R 3-3-24 m.fl. ger Svenska Spels eget R-system (12-rätts garanti).
-    Annars: reduced=true + guarantee=11/12 ger egen covering-reducering;
-    reduced=true ensam ger värde-reducering; default = matematiskt."""
+           sv_rsystem: str = "",
+           value_weight: float = 0.5):
+    """value_weight 0..1 = EV-/värdeskala: 0 = lågoddsare/favoriter (hög träffchans),
+    högre = mer värde/skräll (lägre chans, högre EV). sv_rsystem ger SvS R-system."""
     a = _analyze(product, draw)
+    vw = max(0.0, min(1.0, value_weight))
     try:
         if sv_rsystem and sv_rsystem in SVS_R12:
-            s = build_svs_rsystem(a, sv_rsystem, strategy)
+            s = build_svs_rsystem(a, sv_rsystem, strategy, value_weight=vw)
         elif reduced and guarantee:
-            s = build_guarantee_system(a, strategy, budget, guarantee=guarantee)
+            s = build_guarantee_system(a, strategy, budget, guarantee=guarantee, value_weight=vw)
         elif reduced:
-            s = build_reduced_system(a, strategy, budget)
+            s = build_reduced_system(a, strategy, budget, value_weight=vw)
         else:
-            s = build_math_system(a, strategy, budget)
+            s = build_math_system(a, strategy, budget, value_weight=vw)
     except ValueError as e:
         raise HTTPException(400, str(e))
     return system_to_dict(s)
