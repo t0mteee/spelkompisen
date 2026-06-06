@@ -224,10 +224,11 @@ class Storage:
         for r in rows:
             k = (r["event_number"], r["sign"]); a = agg.get(k)
             if a is None:
-                agg[k] = {"first": r["odds"], "last": r["odds"], "n": 1,
+                agg[k] = {"first": r["odds"], "first_t": r["fetched_at"],
+                          "last": r["odds"], "last_t": r["fetched_at"], "n": 1,
                           "min": r["odds"], "max": r["odds"]}
             else:
-                a["last"], a["n"] = r["odds"], a["n"] + 1
+                a["last"], a["last_t"], a["n"] = r["odds"], r["fetched_at"], a["n"] + 1
                 a["min"], a["max"] = min(a["min"], r["odds"]), max(a["max"], r["odds"])
         return agg
 
@@ -266,6 +267,25 @@ class Storage:
             else:
                 a["last"], a["last_t"], a["n"] = r["odds"], r["fetched_at"], a["n"] + 1
                 a["min"], a["max"] = min(a["min"], r["odds"]), max(a["max"], r["odds"])
+        return agg
+
+    def streck_movement(self, product: str, draw_number: int) -> dict[tuple[int, str], dict]:
+        """Per (event, sign): folkets streck vid första vs senaste snapshot.
+        Underlag för att flagga matcher där folket svängt markant."""
+        rows = self.conn.execute(
+            "SELECT event_number, sign, streck, fetched_at FROM snapshots "
+            "WHERE product=? AND draw_number=? AND streck IS NOT NULL ORDER BY fetched_at",
+            (product, draw_number)).fetchall()
+        agg: dict[tuple[int, str], dict] = {}
+        for r in rows:
+            k = (r["event_number"], r["sign"]); a = agg.get(k)
+            if a is None:
+                agg[k] = {"first": r["streck"], "first_t": r["fetched_at"],
+                          "last": r["streck"], "last_t": r["fetched_at"],
+                          "n": 1, "min": r["streck"], "max": r["streck"]}
+            else:
+                a["last"], a["last_t"], a["n"] = r["streck"], r["fetched_at"], a["n"] + 1
+                a["min"], a["max"] = min(a["min"], r["streck"]), max(a["max"], r["streck"])
         return agg
 
     def last_snapshot(self) -> Optional[str]:

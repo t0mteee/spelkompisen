@@ -82,13 +82,24 @@ def _analyze(product: str, draw_number: int | None = None):
     store = Storage()
     try:
         sharp = store.get_sharp(product, draw.draw_number)
-        # rörelse-signalen baseras på Pinnacle (snabbare/sharpare); SS som fallback
+        # oddsrörelsen baseras på Pinnacle (snabbare/sharpare); SS som fallback
         movement = store.sharp_movement(product, draw.draw_number)
         if not movement:
             movement = store.movement(product, draw.draw_number)
+        # streck-rörelse (folkets svängningar) kommer alltid från SS-snapshots
+        streck_mv = store.streck_movement(product, draw.draw_number)
     finally:
         store.close()
-    return analyze_draw(draw, sharp, movement)
+    # väv in streck-rörelsen i samma (event, sign)-dict som oddsrörelsen
+    merged: dict = {}
+    for k in set(movement) | set(streck_mv):
+        e = dict(movement.get(k, {}))
+        sm = streck_mv.get(k)
+        if sm:
+            e["streck_first"], e["streck_last"] = sm["first"], sm["last"]
+            e["streck_n"] = sm["n"]
+        merged[k] = e
+    return analyze_draw(draw, sharp, merged)
 
 
 @app.get("/api/health")

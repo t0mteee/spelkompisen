@@ -58,6 +58,10 @@ function Legend() {
           <div>Märken: <b className="m-sharp">S</b> sharp ser värde folket missat ·
             {' '}<b className="m-edge">▲</b> Svenska Spels odds högre än Pinnacle (felprisat) ·
             {' '}<b className="m-move-down">⇊</b> oddset har stärkts i våra mätningar · ↓ fallande mot startodds.</div>
+          <div>Rörelse-flaggor (håll muspekaren för detaljer):
+            {' '}<span className="mover mv-odds"><b>1X2</b> ↓</span> oddset har sjunkit markant (marknaden tror mer) ·
+            {' '}<span className="mover mv-odds mv-late"><b>1X2</b> ↓ 🔥</span> <b>sen oddssänkning nära avspark</b> – ofta ett mycket bra streck ·
+            {' '}<span className="mover mv-streck">👥</span> folket har svängt markant.</div>
         </div>
       )}
     </div>
@@ -103,9 +107,28 @@ function Forslag({ m }) {
     avvakta: 'Odds saknas än – avvakta.',
   }
   const badgeTitle = `${tips[m.speltyp] || ''} (favorit ${Math.round((m.favourite_prob || 0) * 100)}%, spik-styrka ${Math.round(m.spik_score)}/100)`
+  const mv = m.mover
   return (
     <div className="forslag" title={`spik-styrka ${Math.round(m.spik_score)}/100 · öppenhet ${Math.round(m.open_score)}/100`}>
       <span className={`badge ${cls}`} title={badgeTitle}>{txt}</span>
+      {mv && (
+        <span className="moverflags">
+          {mv.odds_sign && (
+            <span className={`mover mv-odds ${mv.late ? 'mv-late' : ''}`}
+              title={`Oddsrörelse: ${mv.odds_sign} ${mv.odds_from}→${mv.odds_to} (−${Math.round(mv.odds_drop_pct * 100)}%)`
+                + (mv.late ? ' · sen sänkning nära avspark – stark signal' : ' sedan vi började mäta')}>
+              <b>1X2</b> {mv.odds_sign}↓{Math.round(mv.odds_drop_pct * 100)}%{mv.late ? ' 🔥' : ''}
+            </span>
+          )}
+          {mv.streck_sign && (
+            <span className="mover mv-streck"
+              title={`Folkrörelse: strecket på ${mv.streck_sign} har ${mv.streck_move > 0 ? 'ökat' : 'minskat'} `
+                + `${Math.abs(mv.streck_move)} procentenheter sedan vi började mäta`}>
+              👥 {mv.streck_sign} {mv.streck_move > 0 ? '+' : '−'}{Math.abs(mv.streck_move)}%
+            </span>
+          )}
+        </span>
+      )}
       <div className="rec">{m.recommendation}</div>
     </div>
   )

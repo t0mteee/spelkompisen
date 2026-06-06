@@ -159,6 +159,18 @@ tr.r-full td { background: rgba(201,123,29,0.10); }
 .badge.b-half { background: #8fd6a8; }
 .badge.b-open { background: var(--orange); color: #fff; }
 .badge.b-lean { background: #39424f; color: var(--text); }
+
+/* markant odds-/streck-rörelse */
+.moverflags { display: inline-flex; gap: 5px; flex-wrap: wrap; margin-left: 6px; vertical-align: middle; }
+.mover { display: inline-block; padding: 2px 7px; border-radius: 10px;
+  font-size: 11px; font-weight: 700; cursor: help; white-space: nowrap; }
+.mover b { font-weight: 800; letter-spacing: .5px; }
+/* odds-rörelse = blå (samma familj som sharp/odds) */
+.mover.mv-odds { background: rgba(74,163,223,0.16); color: #7cc1ee; border: 1px solid rgba(74,163,223,0.5); }
+/* sen oddssänkning nära avspark = röd, starkast signal */
+.mover.mv-odds.mv-late { background: rgba(224,107,107,0.22); color: #ff8a6a; border-color: rgba(224,107,107,0.7); }
+/* streck-/folkrörelse = orange (samma som folk-stapeln) */
+.mover.mv-streck { background: rgba(224,133,59,0.16); color: #f0a35a; border: 1px solid rgba(224,133,59,0.5); }
 select { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; }
 .collector select {
   background: var(--bg); color: var(--text); border: 1px solid var(--line);

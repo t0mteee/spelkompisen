@@ -17,6 +17,7 @@ för API:t/frontend.
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
+from datetime import datetime, timezone
 from typing import Optional
 
 from .svenskaspel import Draw, Match, Outcome
@@ -45,6 +46,7 @@ class OutcomeAnalysis:
     move_from: Optional[float]        # odds vid första snapshot
     move_to: Optional[float]          # odds vid senaste snapshot
     move_points: Optional[int]        # antal snapshots
+    streck_move: Optional[int]        # streck senaste - första snapshot (folkets svängning)
     tags: list[str]
 
 
@@ -64,6 +66,7 @@ class MatchAnalysis:
     speltyp: str                      # "spik"|"halvspik"|"lutar"|"gardera"|"avvakta"
     best_value_sign: Optional[str]
     prob_source: str                  # "odds" | "sharp" | "streck" | "none"
+    mover: Optional[dict] = None       # markant odds-/streck-rörelse, annars None
     has_sharp: bool = False
     sharp_bookmaker: Optional[str] = None
     sharp_confidence: Optional[float] = None
@@ -76,6 +79,14 @@ DROP_MIN_PCT = 0.04       # oddsfall >= 4% = signifikant rörelse
 HEAVY_FAVOURITE = 0.70    # mycket stark favorit
 EDGE_MIN = 0.06           # sharp vs SS-sannolikhet: materiell felprissättning
 MOVE_MIN = 0.05           # rörelse över egna snapshots >= 5% = signifikant
+
+# "markant rörelse"-flagga (match-nivå): större trösklar än rörelse-taggen ovan
+MARKANT_ODDS = 0.08       # oddsfall >= 8% sedan vi började logga = markant
+STARK_ODDS = 0.13         # oddsfall >= 13% = stark
+# streck driver ofta brett över veckan -> högre tröskel så flaggan förblir meningsfull
+MARKANT_STRECK = 10       # folket svängt >= 10 procentenheter = markant
+STARK_STRECK = 16         # >= 16 procentenheter = stark
+SEN_TIMMAR = 30           # senaste rörelse inom 30h av avspark = "sen rörelse" (extra stark signal)
 
 # spik-/öppen-score: kalibrering mot favoritens (overround-justerade) sannolikhet
 SPIK_LO, SPIK_HI = 0.40, 0.78     # fair_prob -> spik-score 0..100
@@ -137,6 +148,13 @@ def analyze_outcome(o: Outcome, fair: Optional[float],
         move_from, move_to, move_points = move["first"], move["last"], move["n"]
         move_pct = round((move_from - move_to) / move_from, 4)
 
+    # folkets svängning över våra snapshots (senaste - första streck)
+    streck_move = None
+    if move:
+        sf, sl = move.get("streck_first"), move.get("streck_last")
+        if sf is not None and sl is not None:
+            streck_move = sl - sf
+
     drift = drift_pct = None
     if o.odds is not None and o.start_odds is not None and o.start_odds > 0:
         drift = round(o.odds - o.start_odds, 3)
@@ -186,8 +204,71 @@ def analyze_outcome(o: Outcome, fair: Optional[float],
         move_from=move_from,
         move_to=move_to,
         move_points=move_points,
+        streck_move=streck_move,
         tags=tags,
     )
+
+
+def _parse_dt(s: Optional[str]) -> Optional[datetime]:
+    if not s:
+        return None
+    try:
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        return None
+
+
+def _detect_mover(oa: dict[str, OutcomeAnalysis], move: dict,
+                  match_start: Optional[str]) -> Optional[dict]:
+    """Flagga matcher där oddset och/eller folket rört sig markant.
+
+    Stora oddssänkningar (marknaden vräker in pengar) är en av de starkaste
+    signalerna på ett bra streck — extra stark när den sker nära avspark."""
+    drops = {s: oa[s].move_pct for s in SIGNS if oa[s].move_pct is not None}
+    osign = max(drops, key=drops.get) if drops else None
+    odrop = drops[osign] if osign else None
+
+    swings = {s: oa[s].streck_move for s in SIGNS if oa[s].streck_move is not None}
+    ssign = max(swings, key=lambda s: abs(swings[s])) if swings else None
+    sswing = swings[ssign] if ssign else None
+
+    odds_hit = odrop is not None and odrop >= MARKANT_ODDS
+    streck_hit = sswing is not None and abs(sswing) >= MARKANT_STRECK
+    if not (odds_hit or streck_hit):
+        return None
+
+    strong = ((odrop is not None and odrop >= STARK_ODDS)
+              or (sswing is not None and abs(sswing) >= STARK_STRECK))
+
+    # "sen rörelse": senaste oddspunkt nära avspark = färskt, skarpt pengaflöde
+    late = False
+    last_t = _parse_dt((move.get(osign) or {}).get("last_t")) if osign else None
+    start = _parse_dt(match_start)
+    if odds_hit and last_t and start:
+        hrs = (start - last_t).total_seconds() / 3600
+        late = 0 <= hrs <= SEN_TIMMAR
+
+    parts = []
+    if odds_hit:
+        parts.append(f"{osign}: odds {oa[osign].move_from}→{oa[osign].move_to} "
+                     f"(−{round(odrop * 100)}%)")
+    if streck_hit:
+        parts.append(f"{ssign}: folk {'+' if sswing > 0 else '−'}{abs(sswing)}%")
+    label = ("Sen oddssänkning · " if late else "") + "Markant rörelse: " + ", ".join(parts)
+
+    return {
+        "active": True,
+        "strength": "stark" if (strong or late) else "måttlig",
+        "late": late,
+        "odds_sign": osign if odds_hit else None,
+        "odds_drop_pct": round(odrop, 4) if odds_hit else None,
+        "odds_from": oa[osign].move_from if odds_hit else None,
+        "odds_to": oa[osign].move_to if odds_hit else None,
+        "streck_sign": ssign if streck_hit else None,
+        "streck_move": sswing if streck_hit else None,
+        "label": label,
+    }
 
 
 def analyze_match(m: Match, sharp: Optional[dict] = None,
@@ -276,6 +357,8 @@ def analyze_match(m: Match, sharp: Optional[dict] = None,
     if best_value is not None and valued[best_value] < VALUE_MIN:
         best_value = None
 
+    mover = _detect_mover(oa, move, m.match_start)
+
     rec = _recommendation(speltyp, fav_sign, oa, basis_src, best_value)
 
     return MatchAnalysis(
@@ -293,6 +376,7 @@ def analyze_match(m: Match, sharp: Optional[dict] = None,
         speltyp=speltyp,
         best_value_sign=best_value,
         prob_source=basis_src,
+        mover=mover,
         has_sharp=has_sharp,
         sharp_bookmaker=(sharp.get("bookmaker") if sharp else None),
         sharp_confidence=(sharp.get("confidence") if sharp else None),
