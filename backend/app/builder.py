@@ -49,6 +49,15 @@ STRATEGIES: dict[str, StrategyConfig] = {
     "tuff": StrategyConfig("tuff", 38, 52, True, True),
 }
 
+# strategin nudgar även värdevikten: säker lutar mot favoriter (lägre varians),
+# tuff jagar värde/skräll (högre varians, högre möjlig topputdelning). Läggs på
+# ovanpå EV-/värdeskjutreglaget och klipps till [0, 1].
+STRATEGY_VW_BIAS = {"säker": -0.15, "medel": 0.0, "tuff": 0.20}
+
+
+def _eff_vw(strategy: str, value_weight: float) -> float:
+    return max(0.0, min(1.0, value_weight + STRATEGY_VW_BIAS.get(strategy, 0.0)))
+
 
 @dataclass
 class MatchPick:
@@ -134,20 +143,21 @@ def _size_to_budget(analysis: DrawAnalysis, cfg: StrategyConfig,
     först till halv-, sedan helgardering, så länge radantalet ryms i budget."""
     target = max(1, int(budget / row_price))
     counts = {m.event_number: 1 for m in analysis.matches}
-    order = [m for m in sorted(analysis.matches, key=lambda m: m.open_score, reverse=True)
-             if not m.cancelled]
+    # bara matcher som är tillräckligt öppna för strategin får garderas. Det är
+    # det som skiljer strategierna åt: säker (hög tröskel) garderar få -> få rader,
+    # hög träffchans, låg varians; tuff (låg tröskel) garderar fler + helgarderar.
+    elig = [m for m in sorted(analysis.matches, key=lambda m: m.open_score, reverse=True)
+            if not m.cancelled and m.open_score >= cfg.min_open_for_half]
     rows = 1
-    # Fyll budgeten: halvgardera de mest öppna matcherna först, så långt budgeten
-    # räcker (inte bara de över en tröskel — annars fastnar favorit-tunga omgångar
-    # på nästan inga rader).
-    for m in order:
+    for m in elig:
         if rows * 2 <= target:
             counts[m.event_number] = 2
             rows *= 2
-    # Uppgradera halvor till hel (mest öppna först) om strategin tillåter och plats finns.
+    # uppgradera de öppnaste halvorna till hel om strategin tillåter och plats finns
     if cfg.allow_full:
-        for m in order:
-            if counts[m.event_number] == 2 and rows // 2 * 3 <= target:
+        for m in elig:
+            if (counts[m.event_number] == 2 and m.open_score >= cfg.full_open
+                    and rows // 2 * 3 <= target):
                 counts[m.event_number] = 3
                 rows = rows // 2 * 3
     return counts
@@ -185,6 +195,7 @@ def build_math_system(analysis: DrawAnalysis, strategy: str = "medel",
                       budget: float = 100.0, row_price: float = ROW_PRICE,
                       enumerate_rows: bool = False, value_weight: float = 0.5) -> System:
     cfg = STRATEGIES[strategy]
+    value_weight = _eff_vw(strategy, value_weight)
     counts = _size_to_budget(analysis, cfg, budget, row_price)
     picks = _build_picks(analysis, cfg, counts, value_weight)
     n = _num_rows(picks)
@@ -211,6 +222,7 @@ def build_reduced_system(analysis: DrawAnalysis, strategy: str = "medel",
     [lo, hi]. Det skär bort de mest osannolika kombinationerna (alla skrällar
     samtidigt) men behåller bredden — klassisk färg-/villkorsreducering."""
     cfg = STRATEGIES[strategy]
+    value_weight = _eff_vw(strategy, value_weight)
     counts = _size_to_budget(analysis, cfg, budget * expand, row_price)
     picks = _build_picks(analysis, cfg, counts, value_weight)
     full_rows = _num_rows(picks)
@@ -301,6 +313,7 @@ def build_guarantee_system(analysis: DrawAnalysis, strategy: str = "medel",
     matcher) förutsatt att alla dina tecken är rätt. Väljer garderingar efter
     strategi/öppenhet, krymper vid behov tills systemet ryms i budget."""
     cfg = STRATEGIES[strategy]
+    value_weight = _eff_vw(strategy, value_weight)
     n_matches = len(analysis.matches)
     guarantee = max(n_matches - 3, min(n_matches, int(guarantee)))
     target_rows = max(1, int(budget / row_price))
@@ -401,6 +414,7 @@ def build_svs_rsystem(analysis: DrawAnalysis, name: str = "R 3-3-24",
     öppna matcherna, halvgarderar nästa, spikar resten — och genererar de
     faktiska raderna med 12-garantin verifierad."""
     cfg = STRATEGIES[strategy]
+    value_weight = _eff_vw(strategy, value_weight)
     if len(analysis.matches) != 13:
         raise ValueError("Svenska Spels R-system gäller bara 13-matchskuponger "
                          "(Stryktipset/Europatipset).")

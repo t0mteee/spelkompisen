@@ -399,9 +399,11 @@ function SharpPanel({ product, draw, onLoaded }) {
 }
 
 /* ---------- system / radbyggare ---------- */
-function SystemView({ sys }) {
+function SystemView({ sys, matches, payouts }) {
   if (!sys) return null
   const roleClass = { spik: 'r-spik', halvgardering: 'r-half', helgardering: 'r-full' }
+  const st = systemStats(sys, matches, payouts)
+  const payTiers = (payouts?.tiers || []).filter((t) => t.correct != null).sort((a, b) => b.correct - a.correct)
   return (
     <div className="system">
       <div className="system-head">
@@ -410,6 +412,25 @@ function SystemView({ sys }) {
         <span className="note"> {sys.note}</span>
       </div>
       {sys.rule && <div className="rule">{sys.rule}</div>}
+      {st && !st.tooBig && (
+        <>
+          <div className="coupon-kpis">
+            <div className="kpi"><span>{kr(st.cost)}</span>insats</div>
+            <div className="kpi"><span>{pct(st.pAll)}</span>chans alla rätt</div>
+            <div className="kpi" title="Sannolikhetsviktad förväntad utdelning (brutto, före insats) över systemets rader.">
+              <span>{kr(st.evPayout)}</span>förv. utdelning</div>
+            <div className="kpi" title="EV netto = förväntad utdelning − insats. Positivt = lönsamt i längden.">
+              <span className={st.ev >= 0 ? 'pos' : 'neg'}>{st.ev >= 0 ? '+' : ''}{kr(st.ev)}</span>EV (netto)</div>
+            <div className="kpi" title="ROI = EV netto ÷ insats.">
+              <span className={st.roi >= 0 ? 'pos' : 'neg'}>{st.roi == null ? '–' : (st.roi * 100).toFixed(0) + ' %'}</span>ROI</div>
+          </div>
+          {payouts?.available && (
+            <PayoutTable s={st} tiers={payTiers} effTurnover={payouts.turnover || 0}
+              turnoverOverridden={false} jackpot={0} />
+          )}
+        </>
+      )}
+      {st?.tooBig && <div className="rule">Systemet är för stort ({st.rows} rader) för att räkna ut utdelningsspann här.</div>}
       <table className="grid compact">
         <thead><tr><th>#</th><th>Match</th><th>Roll</th><th>Tecken</th><th>Motivering</th></tr></thead>
         <tbody>
@@ -490,6 +511,36 @@ function poissonBinomial(probs) {
   return d
 }
 
+/* Värdera en konkret uppsättning rader. Per rad: Poisson-binomial över odds
+   (P att raden får k rätt) och över folkets streck (medvinnartäthet). Utdelning
+   om rätt = pott_k / (förv. medvinnare + dig själv). Spårar lägsta/medel/högsta
+   utdelning per nivå över raderna — utdelningens spann (likt reducering.se). */
+function evalRows(rowFF, tiers, field, N, minDividend = 0) {
+  const poly = {}, evTiers = {}, divMin = {}, divMax = {}
+  let kept = 0, evPayout = 0
+  for (const row of rowFF) {
+    const pf = poissonBinomial(row.map((o) => o.fair))
+    const pk = poissonBinomial(row.map((o) => o.folk))
+    const div = {}
+    for (const t of tiers) { const c = t.correct; div[c] = Math.min(t.pool, t.pool / (field * (pk[c] || 0) + 1)) }
+    if (minDividend > 0 && (div[N] || 0) < minDividend) continue
+    kept++
+    for (const t of tiers) {
+      const c = t.correct
+      poly[c] = (poly[c] || 0) + (pf[c] || 0)
+      const contrib = (pf[c] || 0) * div[c]
+      evPayout += contrib; evTiers[c] = (evTiers[c] || 0) + contrib
+      if ((pf[c] || 0) > 0) {
+        divMin[c] = divMin[c] == null ? div[c] : Math.min(divMin[c], div[c])
+        divMax[c] = divMax[c] == null ? div[c] : Math.max(divMax[c], div[c])
+      }
+    }
+  }
+  const dividend = {}
+  for (const c in evTiers) dividend[c] = poly[c] ? evTiers[c] / poly[c] : null
+  return { poly, evTiers, dividend, divMin, divMax, kept, evPayout }
+}
+
 function couponStats(matches, picks, payouts, minDividend = 0, turnoverOverride = null, jackpot = 0) {
   const N = matches.length
   const rowPrice = payouts?.row_price || 1
@@ -522,54 +573,105 @@ function couponStats(matches, picks, payouts, minDividend = 0, turnoverOverride 
   const poolMap = {}; tiers.forEach((t) => { poolMap[t.correct] = t.pool })
   const field = turnover / rowPrice
 
-  // Enumerera kupongens rader. Per rad: Poisson-binomial över odds (P att raden
-  // får k rätt) och över folkets streck (medvinnartäthet). kr/vinnare =
-  // pott_k / (förv. medvinnare + dig själv). Utdelningsreducering: hoppa över
-  // rader vars toppvinst-utdelning understiger minDividend.
-  const poly = {}, evTiers = {}
-  let kept = 0, evPayout = 0, modelOk = false
+  // Enumerera kupongens rader och värdera dem. Utdelningsreducering: evalRows
+  // hoppar över rader vars toppvinst-utdelning understiger minDividend.
+  let modelOk = false, e = null
   if (complete && field > 0 && fullRows > 0 && fullRows <= 20000 && tiers.length) {
-    const sel = matches.map((m) => (picks[m.event_number] || []).map((s) => ({
+    const lists = matches.map((m) => (picks[m.event_number] || []).map((s) => ({
       fair: m.outcomes[s]?.fair_prob || 0,
       folk: m.outcomes[s]?.streck != null ? m.outcomes[s].streck / 100 : (m.outcomes[s]?.fair_prob || 0),
     })))
-    const rec = (i, fairArr, folkArr) => {
-      if (i === N) {
-        const pf = poissonBinomial(fairArr)
-        const pk = poissonBinomial(folkArr)
-        const div = {}
-        for (const t of tiers) {
-          const c = t.correct
-          div[c] = Math.min(t.pool, t.pool / (field * (pk[c] || 0) + 1))
-        }
-        if (minDividend > 0 && (div[N] || 0) < minDividend) return   // bort med raden
-        kept++
-        for (const t of tiers) {
-          const c = t.correct
-          poly[c] = (poly[c] || 0) + (pf[c] || 0)
-          const contrib = (pf[c] || 0) * div[c]
-          evPayout += contrib
-          evTiers[c] = (evTiers[c] || 0) + contrib
-        }
-        return
-      }
-      for (const o of sel[i]) rec(i + 1, [...fairArr, o.fair], [...folkArr, o.folk])
-    }
-    rec(0, [], [])
-    modelOk = true
+    const rowFF = []
+    const rec = (i, acc) => { if (i === N) { rowFF.push(acc); return } for (const o of lists[i]) rec(i + 1, [...acc, o]) }
+    rec(0, [])
+    e = evalRows(rowFF, tiers, field, N, minDividend); modelOk = true
   }
 
+  const poly = modelOk ? e.poly : gpoly.reduce((o, v, i) => { o[i] = v; return o }, {})
+  const evTiers = modelOk ? e.evTiers : {}
+  const dividend = modelOk ? e.dividend : {}
+  const divMin = modelOk ? e.divMin : {}
+  const divMax = modelOk ? e.divMax : {}
+  const kept = modelOk ? e.kept : fullRows
+  const evPayout = modelOk ? e.evPayout : 0
   const rows = modelOk ? kept : fullRows
   const cost = rows * rowPrice
-  // Utdelning OM raden vinner nivån = EV-bidrag / förv. antal vinstrader på nivån.
-  const dividend = {}
-  for (const c in evTiers) dividend[c] = poly[c] ? evTiers[c] / poly[c] : null
-  const polyOut = modelOk ? poly : gpoly.reduce((o, v, i) => { o[i] = v; return o }, {})
   const pAll = modelOk ? (poly[N] || 0) : (gpoly[N] || 0)
-  return { N, complete, selectedCount, fullRows, kept, rows, cost, poly: polyOut, evTiers,
-    dividend, topDividend: dividend[N] ?? null, modelOk, reduced: minDividend > 0,
+  return { N, complete, selectedCount, fullRows, kept, rows, cost, poly, evTiers,
+    dividend, divMin, divMax, topDividend: dividend[N] ?? null, modelOk, reduced: minDividend > 0,
     poolMap, turnover, expectedCorrect, evPayout, ev: evPayout - cost,
     roi: cost ? (evPayout - cost) / cost : null, pAll }
+}
+
+/* Värdera ett genererat system (matematiskt eller reducerat) över dess faktiska
+   rader, så vi kan visa EV/ROI och utdelningens spann per strategi. */
+function systemStats(sys, matches, payouts) {
+  if (!sys || !matches?.length || !payouts?.available) return null
+  const N = matches.length
+  const rowPrice = payouts.row_price || sys.row_price || 1
+  const ratio = payouts.ratio || 0
+  const turnover = payouts.turnover || 0
+  const field = turnover / rowPrice
+  const tiers = (payouts.tiers || []).map((t) => ({ correct: t.correct, pool: turnover * ratio * (t.share || 0) }))
+  if (!tiers.length || field <= 0) return null
+  const byEv = {}; matches.forEach((m) => { byEv[m.event_number] = m })
+  const picks = sys.picks || []
+  let rowsSigns = sys.rows && sys.rows.length ? sys.rows : null
+  if (!rowsSigns) {
+    const lists = picks.map((p) => p.signs)
+    const total = lists.reduce((a, l) => a * l.length, 1)
+    if (total > 50000) return { tooBig: true, rows: sys.num_rows }
+    rowsSigns = []
+    const rec = (i, acc) => { if (i === lists.length) { rowsSigns.push(acc); return } for (const s of lists[i]) rec(i + 1, [...acc, s]) }
+    rec(0, [])
+  } else if (rowsSigns.length > 50000) {
+    return { tooBig: true, rows: sys.num_rows }
+  }
+  const rowFF = rowsSigns.map((r) => r.map((s, i) => {
+    const o = byEv[picks[i]?.event_number]?.outcomes?.[s] || {}
+    return { fair: o.fair_prob || 0, folk: o.streck != null ? o.streck / 100 : (o.fair_prob || 0) }
+  }))
+  const e = evalRows(rowFF, tiers, field, N, 0)
+  const cost = rowsSigns.length * rowPrice
+  const poolMap = {}; tiers.forEach((t) => { poolMap[t.correct] = t.pool })
+  return { ...e, N, rows: rowsSigns.length, cost, poolMap, turnover,
+    ev: e.evPayout - cost, roi: cost ? (e.evPayout - cost) / cost : null, pAll: e.poly[N] || 0 }
+}
+
+/* Liten tabell: lägsta/medel/högsta förväntad utdelning per vinstnivå. */
+function PayoutTable({ s, tiers, effTurnover, turnoverOverridden, jackpot }) {
+  return (
+    <>
+      <table className="grid compact paytable">
+        <thead><tr>
+          <th>Nivå</th><th>Prispott*</th><th>Förv. vinstrader</th>
+          <th title="Om en av de mest spelade (favorit-tunga) raderna vinner — då delar flest på potten">Lägsta utd.</th>
+          <th title="Sannolikhetsviktat snitt över systemets rader">Medel utd.</th>
+          <th title="Om en av de minst spelade (skräll-)raderna vinner — då delar få på potten">Högsta utd.</th>
+          <th>EV-bidrag</th>
+        </tr></thead>
+        <tbody>
+          {tiers.map((t) => {
+            const c = t.correct
+            return (
+              <tr key={c}>
+                <td>{c} rätt</td>
+                <td>{kr(s.poolMap?.[c])}</td>
+                <td>{(s.poly?.[c] || 0).toFixed(3)}</td>
+                <td>{kr(s.divMin?.[c])}</td>
+                <td><b>{kr(s.dividend?.[c])}</b></td>
+                <td>{kr(s.divMax?.[c])}</td>
+                <td>{kr(s.evTiers?.[c] || 0)}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      <p className="hint">*Prispott = omsättning ({kr(effTurnover)}{turnoverOverridden ? ', justerad' : ', live'})
+        × Svenska Spels vinstplan{jackpot ? ` + jackpot ${kr(jackpot)}` : ''}. Lägsta/högsta = utdelningens
+        spann beroende på om en favorit-tung eller skräll-rad vinner; medel är sannolikhetsviktat.</p>
+    </>
+  )
 }
 
 function CouponPanel({ matches, picks, payouts, product, draw, onFill, onClear }) {
@@ -628,25 +730,10 @@ function CouponPanel({ matches, picks, payouts, product, draw, onFill, onClear }
             <div className="kpi" title="ROI = EV netto ÷ insats, i procent. T.ex. +20% betyder att du i snitt får tillbaka 1,20 kr per satsad krona.">
               <span className={s.roi >= 0 ? 'pos' : 'neg'}>{s.roi == null ? '–' : (s.roi * 100).toFixed(0) + ' %'}</span>ROI</div>
           </div>
-          {payouts?.available && (
-            <table className="grid compact paytable">
-              <thead><tr><th>Nivå</th><th>Prispott*</th><th>Förv. vinstrader</th><th>Utdelning om rätt</th><th>EV-bidrag</th></tr></thead>
-              <tbody>
-                {payTiers.map((t) => (
-                  <tr key={t.correct}>
-                    <td>{t.correct} rätt</td>
-                    <td>{kr(s.poolMap?.[t.correct])}</td>
-                    <td>{(s.poly[t.correct] || 0).toFixed(3)}</td>
-                    <td>{kr(s.dividend?.[t.correct])}</td>
-                    <td>{kr(s.evTiers[t.correct] || 0)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {payouts?.available && s.modelOk && (
+            <PayoutTable s={s} tiers={payTiers} effTurnover={effTurnover}
+              turnoverOverridden={turnover != null} jackpot={jackpot} />
           )}
-          <p className="hint">*Prispott = omsättning ({kr(effTurnover)}{turnover != null ? ', justerad' : ', live'})
-            × Svenska Spels vinstplan{jackpot ? ` + jackpot ${kr(jackpot)}` : ''}. Antal vinnare uppskattas
-            från nuvarande streck. "Utdelning om rätt" = vad du får om raden vinner nivån; EV är sannolikhetsviktat.</p>
           <div className="svs-row">
             <a className="svs-link" href={svsUrl(product, draw)} target="_blank" rel="noreferrer">▶ Öppna omgången på Svenska Spel ↗</a>
             <button onClick={copyCoupon}>{copied ? '✓ Kopierad' : 'Kopiera kupong'}</button>
@@ -826,7 +913,8 @@ export default function App() {
               <input type="radio" name="strategy" checked={strategy === s} onChange={() => setStrategy(s)} />{s}
             </label>
           ))}
-          <label className="budget">Budget (kr)
+          <label className="budget" title="Tak för insatsen. Säker garderar bara klart öppna matcher och stannar gärna under taket; tuff garderar bredare och fyller mer.">
+            Max budget (kr)
             <input type="number" min="1" value={budget} onChange={(e) => setBudget(Number(e.target.value))} />
           </label>
           <select value={sysType} onChange={(e) => setSysType(e.target.value)}>
@@ -841,7 +929,7 @@ export default function App() {
           <span>Värde/EV</span>
           <span className="evval">{valueWeight}%</span>
         </div>
-        <SystemView sys={sys} />
+        <SystemView sys={sys} matches={analysis?.matches} payouts={payouts} />
       </section>
 
       <footer>Lokal data från Svenska Spel + Pinnacle · personligt verktyg</footer>
