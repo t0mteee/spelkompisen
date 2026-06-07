@@ -2,6 +2,8 @@ import { Fragment, useEffect, useState } from 'react'
 import './App.css'
 
 const STRATEGIES = ['säker', 'medel', 'tuff']
+// strategin sätter en startpunkt på EV-/värdereglaget (samma axel), så de inte krockar
+const STRATEGY_EV = { säker: 20, medel: 50, tuff: 80 }
 const fmt = (o) => (o === null || o === undefined ? '–' : o.toFixed(2))
 
 function timeAgo(iso) {
@@ -910,7 +912,8 @@ export default function App() {
         <div className="controls">
           {STRATEGIES.map((s) => (
             <label key={s} className={strategy === s ? 'active' : ''}>
-              <input type="radio" name="strategy" checked={strategy === s} onChange={() => setStrategy(s)} />{s}
+              <input type="radio" name="strategy" checked={strategy === s}
+                onChange={() => { setStrategy(s); setValueWeight(STRATEGY_EV[s]) }} />{s}
             </label>
           ))}
           <label className="budget" title="Tak för insatsen. Säker garderar bara klart öppna matcher och stannar gärna under taket; tuff garderar bredare och fyller mer.">
@@ -922,12 +925,16 @@ export default function App() {
           </select>
           <button className="primary" onClick={loadSystem}>Föreslå rad</button>
         </div>
-        <div className="evscale" title="Lågt = lågoddsare/favoriter (hög träffchans, lägre EV). Högt = värde/skräll (lägre chans, högre EV långsiktigt).">
-          <span>Träffchans</span>
+        <div className="evscale" title="Samma risk-axel som strategin. Lågt = lågoddsare/favoriter (hög träffchans, lägre EV). Högt = värde/skräll (lägre chans, högre EV långsiktigt). Strategin sätter startpunkten – dra för att finjustera.">
+          <span>Träffchans <em>(säker)</em></span>
           <input type="range" min="0" max="100" step="5" value={valueWeight}
             onChange={(e) => setValueWeight(Number(e.target.value))} />
-          <span>Värde/EV</span>
+          <span><em>(tuff)</em> Värde/EV</span>
           <span className="evval">{valueWeight}%</span>
+          {valueWeight !== STRATEGY_EV[strategy] && (
+            <button className="evreset" title={`Återställ till ${strategy} (${STRATEGY_EV[strategy]}%)`}
+              onClick={() => setValueWeight(STRATEGY_EV[strategy])}>↺ följ {strategy}</button>
+          )}
         </div>
         <SystemView sys={sys} matches={analysis?.matches} payouts={payouts} />
       </section>

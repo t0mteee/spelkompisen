@@ -48,15 +48,8 @@ STRATEGIES: dict[str, StrategyConfig] = {
     "medel": StrategyConfig("medel", 48, 66, True, False),
     "tuff": StrategyConfig("tuff", 38, 52, True, True),
 }
-
-# strategin nudgar även värdevikten: säker lutar mot favoriter (lägre varians),
-# tuff jagar värde/skräll (högre varians, högre möjlig topputdelning). Läggs på
-# ovanpå EV-/värdeskjutreglaget och klipps till [0, 1].
-STRATEGY_VW_BIAS = {"säker": -0.15, "medel": 0.0, "tuff": 0.20}
-
-
-def _eff_vw(strategy: str, value_weight: float) -> float:
-    return max(0.0, min(1.0, value_weight + STRATEGY_VW_BIAS.get(strategy, 0.0)))
+# Värdevikten (EV-/värdereglaget) är en enda axel som frontend kopplar till
+# strategin (säker -> låg, tuff -> hög), så reglaget och strategin inte krockar.
 
 
 @dataclass
@@ -93,14 +86,25 @@ def _signs_by_prob(m: MatchAnalysis) -> list[str]:
 
 
 def _sign_score(m: MatchAnalysis, s: str, value_weight: float) -> float:
-    """Tecknets attraktivitet = sannolikhet vägt mot värde (fair ÷ streck).
+    """Tecknets attraktivitet = sannolikhet vägt mot värde (sannolikhet ÷ streck).
 
     value_weight 0 = ren sannolikhet (lågoddsare/favoriter, hög träffchans, lägre
-    EV). Högre = mer värde/skräll (lägre chans men högre EV långsiktigt)."""
+    EV). Högre = mer värde/skräll (lägre chans men högre EV långsiktigt).
+
+    Sharp (Pinnacle) används som sannolikhet/värde när det finns — den är skarpare
+    än Svenska Spels odds. Tecken som marknaden *backar* (fallande odds, sharp ser
+    dem som underprisade) får dessutom en bonus så att de inte petas bara för att
+    folket råkar översträcka dem just nu."""
     o = m.outcomes[s]
-    p = o.fair_prob if o.fair_prob is not None else 0.0
-    ratio = (o.fair_prob / (o.streck / 100)) if (o.fair_prob is not None and o.streck) else 1.0
-    return p * (ratio ** (3.0 * max(0.0, value_weight)))
+    # bästa sannolikhetsestimatet: sharp först, annars SS-odds-baserad fair_prob
+    p = o.sharp_prob if o.sharp_prob is not None else (o.fair_prob if o.fair_prob is not None else 0.0)
+    ratio = (p / (o.streck / 100)) if (p and o.streck) else 1.0
+    score = p * (ratio ** (3.0 * max(0.0, value_weight)))
+    # marknaden backar tecknet -> håll kvar det (skala med värdevikten)
+    tags = o.tags or []
+    if any(t in tags for t in ("ss_undervärderad", "rörelse_ner", "fallande_odds")):
+        score *= 1.0 + 0.15 * (1.0 + max(0.0, value_weight))
+    return score
 
 
 def _signs_by_score(m: MatchAnalysis, value_weight: float) -> list[str]:
@@ -195,7 +199,6 @@ def build_math_system(analysis: DrawAnalysis, strategy: str = "medel",
                       budget: float = 100.0, row_price: float = ROW_PRICE,
                       enumerate_rows: bool = False, value_weight: float = 0.5) -> System:
     cfg = STRATEGIES[strategy]
-    value_weight = _eff_vw(strategy, value_weight)
     counts = _size_to_budget(analysis, cfg, budget, row_price)
     picks = _build_picks(analysis, cfg, counts, value_weight)
     n = _num_rows(picks)
@@ -222,7 +225,6 @@ def build_reduced_system(analysis: DrawAnalysis, strategy: str = "medel",
     [lo, hi]. Det skär bort de mest osannolika kombinationerna (alla skrällar
     samtidigt) men behåller bredden — klassisk färg-/villkorsreducering."""
     cfg = STRATEGIES[strategy]
-    value_weight = _eff_vw(strategy, value_weight)
     counts = _size_to_budget(analysis, cfg, budget * expand, row_price)
     picks = _build_picks(analysis, cfg, counts, value_weight)
     full_rows = _num_rows(picks)
@@ -313,7 +315,6 @@ def build_guarantee_system(analysis: DrawAnalysis, strategy: str = "medel",
     matcher) förutsatt att alla dina tecken är rätt. Väljer garderingar efter
     strategi/öppenhet, krymper vid behov tills systemet ryms i budget."""
     cfg = STRATEGIES[strategy]
-    value_weight = _eff_vw(strategy, value_weight)
     n_matches = len(analysis.matches)
     guarantee = max(n_matches - 3, min(n_matches, int(guarantee)))
     target_rows = max(1, int(budget / row_price))
@@ -414,7 +415,6 @@ def build_svs_rsystem(analysis: DrawAnalysis, name: str = "R 3-3-24",
     öppna matcherna, halvgarderar nästa, spikar resten — och genererar de
     faktiska raderna med 12-garantin verifierad."""
     cfg = STRATEGIES[strategy]
-    value_weight = _eff_vw(strategy, value_weight)
     if len(analysis.matches) != 13:
         raise ValueError("Svenska Spels R-system gäller bara 13-matchskuponger "
                          "(Stryktipset/Europatipset).")
