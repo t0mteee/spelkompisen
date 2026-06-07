@@ -259,8 +259,9 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
     padding: 10px 12px; margin-bottom: 10px;
   }
   .grid.analysis td { display: block; border: none; padding: 0; }
-  /* # uppe till höger (utanför flex-flödet), matchnamn tar hela första raden */
-  .grid.analysis td:first-child { position: absolute; top: 10px; right: 12px; color: var(--muted); font-size: 12px; }
+  /* # uppe till höger (utanför flex-flödet), matchnamn tar hela första raden.
+     OBS: bara matchrader – inte graf-raden (vars enda td också är :first-child). */
+  .grid.analysis tr:not(.chartrow) td:first-child { position: absolute; top: 10px; right: 12px; color: var(--muted); font-size: 12px; }
   .grid.analysis td.match { order: 2; flex: 1 1 100%; font-size: 15px; padding-right: 22px; }
   /* tre odds-celler i rad, var sin mini-ruta med 1/X/2-etikett */
   .grid.analysis td.cell { order: 3; flex: 1 1 28%; min-width: 0; text-align: center;
