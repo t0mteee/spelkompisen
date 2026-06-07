@@ -60,6 +60,9 @@ h2 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spa
 .svs-link { display: inline-block; background: var(--green); color: #0b0e12; font-weight: 700;
   text-decoration: none; padding: 8px 14px; border-radius: 7px; }
 .svs-link:hover { filter: brightness(1.1); }
+.extlink { color: #4aa3df; }
+.linkbtn { background: none; border: none; color: #4aa3df; padding: 0; cursor: pointer; text-decoration: underline; font: inherit; }
+.linkbtn:hover { border: none; filter: brightness(1.15); }
 
 .grid { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 8px; overflow: hidden; }
 .grid th, .grid td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }

@@ -401,11 +401,20 @@ function SharpPanel({ product, draw, onLoaded }) {
 }
 
 /* ---------- system / radbyggare ---------- */
-function SystemView({ sys, matches, payouts }) {
+function SystemView({ sys, matches, payouts, product, draw }) {
   if (!sys) return null
   const roleClass = { spik: 'r-spik', halvgardering: 'r-half', helgardering: 'r-full' }
   const st = systemStats(sys, matches, payouts)
   const payTiers = (payouts?.tiers || []).filter((t) => t.correct != null).sort((a, b) => b.correct - a.correct)
+  const egnaUrl = egnaRaderUrl(product)
+  const sysRows = (sys.rows && sys.rows.length) ? sys.rows : null
+  // faktiskt antal rader filen innehåller (reducerade/R-system kan avvika från num_rows)
+  const exportCount = sysRows ? sysRows.length : sys.num_rows
+  const downloadEgna = () => {
+    const rows = sysRows || cartesianRows(sys.picks.map((p) => p.signs))
+    if (rows.length > 50000) { alert(`Systemet är för stort (${rows.length} rader) för filexport.`); return }
+    downloadText(`${product}_${sys.strategy}_omg${draw || ''}_egnarader.txt`, egnaRaderText(rows))
+  }
   return (
     <div className="system">
       <div className="system-head">
@@ -445,6 +454,20 @@ function SystemView({ sys, matches, payouts }) {
           ))}
         </tbody>
       </table>
+      <div className="svs-row">
+        <a className="svs-link" href={svsUrl(product, draw)} target="_blank" rel="noreferrer">▶ Öppna omgången på Svenska Spel ↗</a>
+        {egnaUrl && <button onClick={downloadEgna} title={`Laddar ner ${exportCount} rader i Egna rader-format`}>⬇ Egna rader-fil ({exportCount} rader)</button>}
+      </div>
+      {egnaUrl ? (
+        <p className="hint">Filen innehåller {exportCount} konkreta rader (reduceringen behålls).
+          Ladda upp den hos{' '}
+          <a className="extlink" href={egnaUrl} target="_blank" rel="noreferrer">Svenska Spel · Externa systemspel ↗</a>{' '}
+          (Egna rader) – välj omgång och betala själv där.
+          {sys.system_type?.includes('Svenska Spel-system') &&
+            ' Tips: namngivna R-system kan också spelas direkt på Svenska Spels systemkupong (markera hel-/halvgarderingarna och välj R-systemet) – ibland billigare.'}</p>
+      ) : (
+        <p className="hint">Egna rader stödjer inte {product} – öppna omgången och fyll i raderna ovan själv.</p>
+      )}
     </div>
   )
 }
@@ -498,6 +521,36 @@ function fmtStart(iso) {
 }
 
 const kr = (v) => (v == null ? '–' : Math.round(v).toLocaleString('sv-SE') + ' kr')
+
+/* ---------- Svenska Spel "Egna rader"-export (filuppladdning) ----------
+   Tjänsten finns för Stryktipset/Europatipset på .../externa-systemspel.
+   Filformat: en rad per spelad rad, "E,<tecken>,<tecken>,..." i matchordning.
+   Vi enumererar konkreta rader (E) – korrekt även för reducerade system där
+   vi måste behålla exakt de raderna (ett M-system skulle spela hela produkten). */
+const EGNA_RADER_GAMES = ['stryktipset', 'europatipset']
+function egnaRaderUrl(product) {
+  return EGNA_RADER_GAMES.includes(product) ? `https://spela.svenskaspel.se/${product}/externa-systemspel` : null
+}
+function cartesianRows(groups) {
+  let rows = [[]]
+  for (const g of groups) {
+    const next = []
+    for (const r of rows) for (const s of g) next.push([...r, s])
+    rows = next
+  }
+  return rows
+}
+function egnaRaderText(rows) {
+  return rows.map((r) => 'E,' + r.join(',')).join('\r\n') + '\r\n'
+}
+function downloadText(filename, text) {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename
+  document.body.appendChild(a); a.click(); a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
 const pct = (v) => (v == null ? '–' : (v * 100 < 0.1 ? (v * 100).toFixed(3) : (v * 100).toFixed(v < 0.1 ? 2 : 1)) + ' %')
 
 /* Räkna kupongens nyckeltal från analysens fair-sannolikheter.
@@ -686,6 +739,13 @@ function CouponPanel({ matches, picks, payouts, product, draw, onFill, onClear }
     const txt = matches.map((m) => `${m.event_number}. ${m.description}: ${(picks[m.event_number] || []).join('')}`).join('\n')
     navigator.clipboard?.writeText(txt); setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
+  const egnaUrl = egnaRaderUrl(product)
+  const couponGroups = matches.map((m) => picks[m.event_number] || [])
+  const nRows = couponGroups.reduce((a, g) => a * (g.length || 1), 1)
+  const downloadEgna = () => {
+    if (nRows > 50000) { alert(`Systemet är för stort (${nRows} rader) för filexport.`); return }
+    downloadText(`${product}_omg${draw}_egnarader.txt`, egnaRaderText(cartesianRows(couponGroups)))
+  }
   const effTurnover = turnover != null ? turnover : (payouts?.turnover || 0)
   const s = couponStats(matches, picks, payouts, redOn ? minDiv : 0, turnover, jackpot)
   const payTiers = (payouts?.tiers || []).filter((t) => t.correct != null).sort((a, b) => b.correct - a.correct)
@@ -738,9 +798,18 @@ function CouponPanel({ matches, picks, payouts, product, draw, onFill, onClear }
           )}
           <div className="svs-row">
             <a className="svs-link" href={svsUrl(product, draw)} target="_blank" rel="noreferrer">▶ Öppna omgången på Svenska Spel ↗</a>
-            <button onClick={copyCoupon}>{copied ? '✓ Kopierad' : 'Kopiera kupong'}</button>
-            <span className="hint">Fyll i/lämna in själv där — av säkerhetsskäl skickas inga spel automatiskt.</span>
+            {egnaUrl
+              ? <button onClick={downloadEgna} title={`Laddar ner ${nRows} rader som .txt i Svenska Spels Egna rader-format`}>⬇ Egna rader-fil ({nRows} rad{nRows === 1 ? '' : 'er'})</button>
+              : <button onClick={copyCoupon}>{copied ? '✓ Kopierad' : 'Kopiera kupong'}</button>}
           </div>
+          {egnaUrl ? (
+            <p className="hint">Ladda ner filen och ladda upp den hos{' '}
+              <a className="extlink" href={egnaUrl} target="_blank" rel="noreferrer">Svenska Spel · Externa systemspel ↗</a>
+              {' '}(Egna rader). Du väljer omgång och betalar själv där — av säkerhetsskäl lämnas inga spel automatiskt.</p>
+          ) : (
+            <p className="hint">Egna rader-filuppladdning stödjer inte {product}. Öppna omgången, klistra in{' '}
+              <button className="linkbtn" onClick={copyCoupon}>{copied ? '✓ kopierad' : 'kopierad kupong'}</button> och fyll i själv.</p>
+          )}
         </>
       )}
     </div>
@@ -936,7 +1005,7 @@ export default function App() {
               onClick={() => setValueWeight(STRATEGY_EV[strategy])}>↺ följ {strategy}</button>
           )}
         </div>
-        <SystemView sys={sys} matches={analysis?.matches} payouts={payouts} />
+        <SystemView sys={sys} matches={analysis?.matches} payouts={payouts} product={product} draw={draw} />
       </section>
 
       <footer>Lokal data från Svenska Spel + Pinnacle · personligt verktyg</footer>
