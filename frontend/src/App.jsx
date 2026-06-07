@@ -4,6 +4,8 @@ import './App.css'
 const STRATEGIES = ['säker', 'medel', 'tuff']
 // strategin sätter en startpunkt på EV-/värdereglaget (samma axel), så de inte krockar
 const STRATEGY_EV = { säker: 20, medel: 50, tuff: 80 }
+// budgetsteg (tak för insatsen) – slider istället för sifferfält
+const BUDGET_STOPS = [16, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048]
 const fmt = (o) => (o === null || o === undefined ? '–' : o.toFixed(2))
 
 function timeAgo(iso) {
@@ -825,7 +827,7 @@ export default function App() {
   const [movement, setMovement] = useState(null)
   const [sys, setSys] = useState(null)
   const [strategy, setStrategy] = useState('medel')
-  const [budget, setBudget] = useState(100)
+  const [budget, setBudget] = useState(128)
   const [sysType, setSysType] = useState('math')
   const [valueWeight, setValueWeight] = useState(50)  // EV-/värdeskala 0..100
   const [selected, setSelected] = useState(null)
@@ -859,6 +861,8 @@ export default function App() {
 
   const nMatches = analysis?.matches?.length || 0
   const systemTypes = nMatches === 13 ? [...SYSTEM_BASE, ...SYSTEM_SVS] : SYSTEM_BASE
+  const budgetIdx = BUDGET_STOPS.reduce((best, v, i) =>
+    Math.abs(v - budget) < Math.abs(BUDGET_STOPS[best] - budget) ? i : best, 0)
 
   const loadAnalysis = async (p = product, dn = draw) => {
     if (!dn) return
@@ -985,9 +989,11 @@ export default function App() {
                 onChange={() => { setStrategy(s); setValueWeight(STRATEGY_EV[s]) }} />{s}
             </label>
           ))}
-          <label className="budget" title="Tak för insatsen. Säker garderar bara klart öppna matcher och stannar gärna under taket; tuff garderar bredare och fyller mer.">
-            Max budget (kr)
-            <input type="number" min="1" value={budget} onChange={(e) => setBudget(Number(e.target.value))} />
+          <label className="budget" title="Tak för insatsen. Systemet fylls upp mot taket; exakt belopp går inte alltid att träffa eftersom rader är produkter av 2 och 3.">
+            Max budget <b>{budget} kr</b>
+            <input type="range" min="0" max={BUDGET_STOPS.length - 1} step="1"
+              value={budgetIdx}
+              onChange={(e) => setBudget(BUDGET_STOPS[Number(e.target.value)])} />
           </label>
           <select value={sysType} onChange={(e) => setSysType(e.target.value)}>
             {systemTypes.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}

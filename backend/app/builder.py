@@ -147,21 +147,27 @@ def _size_to_budget(analysis: DrawAnalysis, cfg: StrategyConfig,
     först till halv-, sedan helgardering, så länge radantalet ryms i budget."""
     target = max(1, int(budget / row_price))
     counts = {m.event_number: 1 for m in analysis.matches}
-    # bara matcher som är tillräckligt öppna för strategin får garderas. Det är
-    # det som skiljer strategierna åt: säker (hög tröskel) garderar få -> få rader,
-    # hög träffchans, låg varians; tuff (låg tröskel) garderar fler + helgarderar.
-    elig = [m for m in sorted(analysis.matches, key=lambda m: m.open_score, reverse=True)
-            if not m.cancelled and m.open_score >= cfg.min_open_for_half]
+    order = [m for m in sorted(analysis.matches, key=lambda m: m.open_score, reverse=True)
+             if not m.cancelled]
     rows = 1
-    for m in elig:
-        if rows * 2 <= target:
+    # Budgeten är ett tak som ska fyllas; strategierna skiljs åt av *hur* den
+    # fylls (halv vs hel + värde), inte genom att kapa radantalet.
+    # 1) Helgardera de öppnaste matcherna först om strategin tillåter — det ger
+    #    tuff/medel högre varians (tröskeln full_open styr hur djärvt).
+    if cfg.allow_full:
+        for m in order:
+            if m.open_score >= cfg.full_open and rows * 3 <= target:
+                counts[m.event_number] = 3
+                rows *= 3
+    # 2) Halvgardera de öppnaste återstående tills budgeten (nästan) är fylld.
+    for m in order:
+        if counts[m.event_number] == 1 and rows * 2 <= target:
             counts[m.event_number] = 2
             rows *= 2
-    # uppgradera de öppnaste halvorna till hel om strategin tillåter och plats finns
+    # 3) Budget kvar? Uppgradera fler halvor till hel (mest öppna först).
     if cfg.allow_full:
-        for m in elig:
-            if (counts[m.event_number] == 2 and m.open_score >= cfg.full_open
-                    and rows // 2 * 3 <= target):
+        for m in order:
+            if counts[m.event_number] == 2 and rows // 2 * 3 <= target:
                 counts[m.event_number] = 3
                 rows = rows // 2 * 3
     return counts

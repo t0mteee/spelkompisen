@@ -137,7 +137,9 @@ h2 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spa
 }
 .controls label.active { border-color: var(--green); background: rgba(46,139,87,0.12); }
 .controls .budget { text-transform: none; }
-.controls .budget input { width: 80px; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; }
+.controls .budget { gap: 8px; }
+.controls .budget b { color: var(--text); min-width: 56px; }
+.controls .budget input[type=range] { width: 150px; accent-color: var(--green); }
 .evscale { display: flex; align-items: center; gap: 10px; margin: 10px 0 14px; font-size: 12px; color: var(--muted); }
 .evscale input[type=range] { width: 220px; accent-color: var(--green); }
 .evscale .evval { color: var(--text); font-weight: 700; min-width: 38px; }
