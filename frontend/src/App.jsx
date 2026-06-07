@@ -210,7 +210,7 @@ function OddsCell({ o, derived, picked, onToggle, valueOk, series }) {
     setTipPos({ x: Math.min(r.left, window.innerWidth - 280), y: r.bottom + 4 })
   }
   return (
-    <td className={cls.join(' ')} onClick={onToggle}
+    <td className={cls.join(' ')} data-sign={o.sign} onClick={onToggle}
       onMouseEnter={showTip} onMouseLeave={() => setTipPos(null)}
       title={hasSeries ? undefined : 'Klicka för att lägga till/ta bort i kupongen'}>
       {tipPos && <OddsTip sign={o.sign} series={series} x={tipPos.x} y={tipPos.y} />}
@@ -236,7 +236,7 @@ function OddsCell({ o, derived, picked, onToggle, valueOk, series }) {
 function AnalysisTable({ matches, product, drawNumber, selected, onSelect, picks, onToggleSign, movement }) {
   const isPicked = (ev, s) => (picks[ev] || []).includes(s)
   return (
-    <table className="grid">
+    <table className="grid analysis">
       <thead>
         <tr><th>#</th><th>Match</th><th>1</th><th>X</th><th>2</th><th>Folket (1·X·2)</th><th>Förslag</th></tr>
       </thead>
