@@ -818,22 +818,28 @@ function CouponPanel({ matches, picks, payouts, product, draw, onFill, onClear }
   )
 }
 
+// sparat tillstånd (iOS slänger hemskärms-appen ur minnet och laddar om vid
+// återkomst – vi återställer val/kupong/inställningar så omladdningen blir osynlig)
+const SAVED = (() => {
+  try { return JSON.parse(localStorage.getItem('svs_state') || '{}') || {} } catch { return {} }
+})()
+
 export default function App() {
-  const [group, setGroup] = useState('topptipset')   // flik (kan samla flera produkter)
-  const [product, setProduct] = useState('topptipset')  // vald omgångs faktiska produkt (slug)
+  const [group, setGroup] = useState(SAVED.group || 'topptipset')   // flik (kan samla flera produkter)
+  const [product, setProduct] = useState(SAVED.product || 'topptipset')  // vald omgångs faktiska produkt (slug)
   const [draws, setDraws] = useState([])
-  const [draw, setDraw] = useState(null)
+  const [draw, setDraw] = useState(SAVED.draw || null)
   const [analysis, setAnalysis] = useState(null)
   const [movement, setMovement] = useState(null)
   const [sys, setSys] = useState(null)
-  const [strategy, setStrategy] = useState('medel')
-  const [budget, setBudget] = useState(128)
-  const [sysType, setSysType] = useState('math')
-  const [valueWeight, setValueWeight] = useState(50)  // EV-/värdeskala 0..100
+  const [strategy, setStrategy] = useState(SAVED.strategy || 'medel')
+  const [budget, setBudget] = useState(SAVED.budget || 128)
+  const [sysType, setSysType] = useState(SAVED.sysType || 'math')
+  const [valueWeight, setValueWeight] = useState(SAVED.valueWeight ?? 50)  // EV-/värdeskala 0..100
   const [selected, setSelected] = useState(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(null)
-  const [picks, setPicks] = useState({})
+  const [picks, setPicks] = useState(SAVED.picks || {})
   const [payouts, setPayouts] = useState(null)
 
   const toggleSign = (ev, sign) => setPicks((prev) => {
@@ -917,7 +923,36 @@ export default function App() {
     } catch (e) { setErr(String(e)) }
   }
 
-  useEffect(() => { switchGame('topptipset') }, [])  // eslint-disable-line
+  // Förstagångsladdning: återställ sparad omgång + kupong om den fortfarande
+  // finns kvar i listan (annars första öppna). Gör iOS-omladdningen osynlig.
+  const bootstrap = async () => {
+    const g = SAVED.group || 'topptipset'
+    setLoading(true); setErr(null)
+    try {
+      const d = await (await fetch(`/api/draws?product=${g}&_t=${Date.now()}`, { cache: 'no-store' })).json()
+      const list = d.open?.length ? d.open : d.draws
+      setDraws(list)
+      const restored = list.find((x) => x.product === SAVED.product && x.draw_number === SAVED.draw)
+      const chosen = restored || list[0]
+      if (chosen) {
+        setProduct(chosen.product); setDraw(chosen.draw_number)
+        if (!restored) setPicks({})   // annan omgång -> börja om med tom kupong
+        loadAnalysis(chosen.product, chosen.draw_number)
+        loadPayouts(chosen.product, chosen.draw_number)
+      } else { setLoading(false); setErr('Inga öppna omgångar just nu.') }
+    } catch (e) { setErr(String(e)); setLoading(false) }
+  }
+
+  useEffect(() => { bootstrap() }, [])  // eslint-disable-line
+
+  // spara tillståndet löpande så iOS-omladdningen kan återställa det
+  useEffect(() => {
+    try {
+      localStorage.setItem('svs_state', JSON.stringify({
+        group, product, draw, picks, strategy, budget, sysType, valueWeight,
+      }))
+    } catch { /* lagring kan vara avstängd – strunta */ }
+  }, [group, product, draw, picks, strategy, budget, sysType, valueWeight])
 
   return (
     <div className="app">
