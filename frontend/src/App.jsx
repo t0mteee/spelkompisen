@@ -59,9 +59,12 @@ function Legend() {
           <div><b>Förslag:</b> <span className="badge b-spik">Spik</span> stark favorit ·
             {' '}<span className="badge b-half">Värdespik</span> kort odds men lågt streck (undervärderad) ·
             {' '}<span className="badge b-open">Gardera</span> öppen match.</div>
-          <div>Märken: <b className="m-sharp">S</b> sharp ser värde folket missat ·
+          <div>Märken: <b>★</b> värdestreck (underspelat av folket) ·
+            {' '}<b className="m-sharp">S</b> sharp ser värde folket missat ·
             {' '}<b className="m-edge">▲</b> Svenska Spels odds högre än Pinnacle (felprisat) ·
             {' '}<b className="m-move-down">⇊</b> oddset har stärkts i våra mätningar · ↓ fallande mot startodds.</div>
+          <div><b>Grön ram</b> på en odds-cell = tecknet ligger i din kupong.
+            {' '}Grön <b>ton + ×N</b> (radläge) = N av förslagets rader använder tecknet — starkare ton, fler rader.</div>
           <div>Rörelse-flaggor (håll muspekaren för detaljer):
             {' '}<span className="mover mv-odds"><b>1X2</b> ↓</span> oddset har sjunkit markant (marknaden tror mer) ·
             {' '}<span className="mover mv-odds mv-late"><b>1X2</b> ↓ 🔥</span> <b>sen oddssänkning nära avspark</b> – ofta ett mycket bra streck ·
@@ -201,8 +204,7 @@ function OddsCell({ o, derived, picked, onToggle, valueOk, series, rowCount, row
   // radläge: visa hur stor del av de överlevande raderna som använder tecknet
   const inRowMode = rowTotal > 0
   const share = inRowMode ? (rowCount || 0) / rowTotal : 0
-  if (o.tags?.includes('värdestreck') || o.tags?.includes('sharp_värde')) cls.push('value')
-  if (o.tags?.includes('ss_undervärderad')) cls.push('edge')
+  // (inga bakgrundstoner för värde/edge — kvot-pillret + märkena ★/S/▲ bär den infon)
   if (picked) cls.push('picked')
   // Värde-kvot = fair-sannolikhet / streck. >1 = marknaden tror mer än folket.
   const ratio = (valueOk && o.fair_prob != null && o.streck) ? o.fair_prob / (o.streck / 100) : null
@@ -464,29 +466,20 @@ function ColorLab({ sys, onRecalc }) {
   )
 }
 
-function SystemView({ sys, matches, payouts, product, draw, onRecalc }) {
+function SystemView({ sys, matches, payouts, onRecalc, onUse }) {
   if (!sys) return null
   const roleClass = { spik: 'r-spik', halvgardering: 'r-half', helgardering: 'r-full' }
   const st = systemStats(sys, matches, payouts)
   const payTiers = (payouts?.tiers || []).filter((t) => t.correct != null).sort((a, b) => b.correct - a.correct)
-  const egnaUrl = egnaRaderUrl(product)
-  const sysRows = (sys.rows && sys.rows.length) ? sys.rows : null
-  // faktiskt antal rader filen innehåller (reducerade/R-system kan avvika från num_rows)
-  const exportCount = sysRows ? sysRows.length : sys.num_rows
   // rad-system (EV-topp/färg/reducerat): tecknen i tabellen är ett URVAL av rader,
   // inte ett kombinationssystem — visa per tecken hur många rader som använder det
-  const rowsList = sysRows
+  const rowsList = (sys.rows && sys.rows.length) ? sys.rows : null
   const signCounts = rowsList ? sys.picks.map((p, i) => {
     const c = {}
     rowsList.forEach((r) => { c[r[i]] = (c[r[i]] || 0) + 1 })
     return c
   }) : null
   const fullCombos = sys.picks.reduce((a, p) => a * p.signs.length, 1)
-  const downloadEgna = () => {
-    const rows = sysRows || cartesianRows(sys.picks.map((p) => p.signs))
-    if (rows.length > 50000) { alert(`Systemet är för stort (${rows.length} rader) för filexport.`); return }
-    downloadText(`${product}_${sys.strategy}_omg${draw || ''}_egnarader.txt`, egnaRaderText(product, draw, rows))
-  }
   return (
     <div className="system">
       <div className="system-head">
@@ -559,18 +552,12 @@ function SystemView({ sys, matches, payouts, product, draw, onRecalc }) {
         </tbody>
       </table>
       <div className="svs-row">
-        <a className="svs-link" href={svsUrl(product, draw)} target="_blank" rel="noreferrer">▶ Öppna omgången på Svenska Spel ↗</a>
-        {egnaUrl && <button onClick={downloadEgna} title={`Laddar ner ${exportCount} rader i Egna rader-format`}>⬇ Egna rader-fil ({exportCount} rader)</button>}
+        <button className="primary" onClick={onUse}>⬇ Lägg i kupongen</button>
+        <span className="hint">Kupongen är navet — där finns export till Svenska Spel, EV-detaljer och raderna.</span>
       </div>
-      {egnaUrl ? (
-        <p className="hint">Filen innehåller {exportCount} konkreta rader (reduceringen behålls).
-          Ladda upp den hos{' '}
-          <a className="extlink" href={egnaUrl} target="_blank" rel="noreferrer">Svenska Spel · Externa systemspel ↗</a>{' '}
-          (Egna rader) – välj omgång och betala själv där.
-          {sys.system_type?.includes('Svenska Spel-system') &&
-            ' Tips: namngivna R-system kan också spelas direkt på Svenska Spels systemkupong (markera hel-/halvgarderingarna och välj R-systemet) – ibland billigare.'}</p>
-      ) : (
-        <p className="hint">Egna rader stödjer inte {product} – öppna omgången och fyll i raderna ovan själv.</p>
+      {sys.system_type?.includes('Svenska Spel-system') && (
+        <p className="hint">Tips: namngivna R-system kan också spelas direkt på Svenska Spels
+          systemkupong (markera hel-/halvgarderingarna och välj R-systemet) – ibland billigare.</p>
       )}
     </div>
   )
@@ -1092,6 +1079,62 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onFill,
   )
 }
 
+/* Signal-facit: visar om våra flaggade värdetecken slår stängningslinjen (CLV)
+   och hur ofta de går in. Fylls på automatiskt av bakgrundsinsamlingen. */
+function ClvPanel({ group }) {
+  const [data, setData] = useState(null)
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    setData(null)
+    fetch(`/api/clv?product=${group}&_t=${Date.now()}`, { cache: 'no-store' })
+      .then((r) => r.json()).then(setData).catch(() => setData(null))
+  }, [group])
+  if (!data) return <div className="loading sm">Hämtar facit…</div>
+  const p100 = (v) => (v == null ? '–' : Math.round(v * 100) + ' %')
+  const clvCls = data.avg_clv_pp > 0 ? 'pos' : data.avg_clv_pp < 0 ? 'neg' : ''
+  return (
+    <div className="clv">
+      <div className="clv-sum">
+        <span>flaggade tecken <b>{data.n_flagged}</b></span>
+        <span title="Closing Line Value: devigad Pinnacle-stängning minus sannolikheten när vi flaggade. Positivt över många flaggor = vi hittar värdet före marknaden.">
+          snitt-CLV <b className={clvCls}>{data.avg_clv_pp == null ? '–' : (data.avg_clv_pp > 0 ? '+' : '') + data.avg_clv_pp + ' pp'}</b></span>
+        <span>slog stängningen <b>{p100(data.beat_pct)}</b>{data.n_scored ? ` (n=${data.n_scored})` : ''}</span>
+        <span>gick in <b>{p100(data.hit_pct)}</b>{data.n_judged ? ` (n=${data.n_judged})` : ''}</span>
+      </div>
+      {data.n_flagged === 0 ? (
+        <p className="hint">Inga flaggor loggade än — bakgrundsinsamlingen börjar logga gröna
+          värdetecken och sharp-edges från och med nu, och facit fylls på när matcherna avgörs.</p>
+      ) : (
+        <>
+          <button className="legend-toggle" onClick={() => setOpen(!open)}>
+            {open ? '▲ Dölj' : '▼ Visa'} flaggorna
+          </button>
+          {open && (
+            <table className="grid compact clv-table">
+              <thead><tr><th>Match</th><th>Tecken</th><th>Typ</th><th>Flagg-P</th><th>Stängning</th><th>CLV</th><th>Utfall</th></tr></thead>
+              <tbody>
+                {data.rows.slice(0, 40).map((r, i) => (
+                  <tr key={i}>
+                    <td className="match">{r.description}
+                      <div className="league">{r.product} omg {r.draw_number}</div></td>
+                    <td className="signs">{r.sign}</td>
+                    <td>{r.flag_type}</td>
+                    <td>{r.first_prob != null ? Math.round(r.first_prob * 100) + ' %' : '–'}</td>
+                    <td>{r.closing_prob != null ? Math.round(r.closing_prob * 100) + ' %' : (r.closing_note || 'väntar…')}</td>
+                    <td className={r.clv_pp > 0 ? 'pos' : r.clv_pp < 0 ? 'neg' : ''}>
+                      {r.clv_pp != null ? (r.clv_pp > 0 ? '+' : '') + r.clv_pp + ' pp' : '–'}</td>
+                    <td>{r.outcome == null ? '–' : r.outcome ? '✓' : '✗'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 // sparat tillstånd (iOS slänger hemskärms-appen ur minnet och laddar om vid
 // återkomst – vi återställer val/kupong/inställningar så omladdningen blir osynlig)
 const SAVED = (() => {
@@ -1128,6 +1171,10 @@ export default function App() {
     })
   }
   const clearCoupon = () => { setPicks({}); setPickRows(null) }
+  const useSystem = () => {   // "Lägg i kupongen" från förslagsvyn
+    fillFromTips()
+    setTimeout(() => document.getElementById('kupong')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
+  }
   const fillFromTips = () => {
     if (!analysis) return
     const p = {}
@@ -1310,53 +1357,62 @@ export default function App() {
         )}
       </section>
 
-      <section>
-        <h2>Din kupong</h2>
-        {analysis && (
-          <CouponPanel matches={analysis.matches} picks={picks} pickRows={pickRows} payouts={payouts}
-            product={product} draw={draw} onFill={fillFromTips} onClear={clearCoupon} />
-        )}
-      </section>
-
-      <section>
-        <h2>Sharp-odds</h2>
-        <SharpPanel product={product} draw={draw} onLoaded={() => loadAnalysis()} />
-      </section>
-
-      <section>
-        <h2>Bygg rad</h2>
-        <div className="controls">
-          {STRATEGIES.map((s) => (
-            <label key={s} className={strategy === s ? 'active' : ''}>
-              <input type="radio" name="strategy" checked={strategy === s}
-                onChange={() => { setStrategy(s); setValueWeight(STRATEGY_EV[s]) }} />{s}
+      <div className="cols">
+        <section>
+          <h2>1 · Bygg förslag</h2>
+          <div className="controls">
+            {STRATEGIES.map((s) => (
+              <label key={s} className={strategy === s ? 'active' : ''}>
+                <input type="radio" name="strategy" checked={strategy === s}
+                  onChange={() => { setStrategy(s); setValueWeight(STRATEGY_EV[s]) }} />{s}
+              </label>
+            ))}
+            <label className="budget" title="Tak för insatsen. Systemet fylls upp mot taket; exakt belopp går inte alltid att träffa eftersom rader är produkter av 2 och 3.">
+              Max budget <b>{budget} kr</b>
+              <input type="range" min="0" max={BUDGET_STOPS.length - 1} step="1"
+                value={budgetIdx}
+                onChange={(e) => setBudget(BUDGET_STOPS[Number(e.target.value)])} />
             </label>
-          ))}
-          <label className="budget" title="Tak för insatsen. Systemet fylls upp mot taket; exakt belopp går inte alltid att träffa eftersom rader är produkter av 2 och 3.">
-            Max budget <b>{budget} kr</b>
-            <input type="range" min="0" max={BUDGET_STOPS.length - 1} step="1"
-              value={budgetIdx}
-              onChange={(e) => setBudget(BUDGET_STOPS[Number(e.target.value)])} />
-          </label>
-          <select value={sysType} onChange={(e) => setSysType(e.target.value)}>
-            {systemTypes.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-          </select>
-          <button className="primary" onClick={loadSystem}>Föreslå rad</button>
-        </div>
-        <div className="evscale" title="Samma risk-axel som strategin. Lågt = lågoddsare/favoriter (hög träffchans, lägre EV). Högt = värde/skräll (lägre chans, högre EV långsiktigt). Strategin sätter startpunkten – dra för att finjustera.">
-          <span>Träffchans <em>(säker)</em></span>
-          <input type="range" min="0" max="100" step="5" value={valueWeight}
-            onChange={(e) => setValueWeight(Number(e.target.value))} />
-          <span><em>(tuff)</em> Värde/EV</span>
-          <span className="evval">{valueWeight}%</span>
-          {valueWeight !== STRATEGY_EV[strategy] && (
-            <button className="evreset" title={`Återställ till ${strategy} (${STRATEGY_EV[strategy]}%)`}
-              onClick={() => setValueWeight(STRATEGY_EV[strategy])}>↺ följ {strategy}</button>
+            <select value={sysType} onChange={(e) => setSysType(e.target.value)}>
+              {systemTypes.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+            <button className="primary" onClick={loadSystem}>Föreslå rad</button>
+          </div>
+          <div className="evscale" title="Samma risk-axel som strategin. Lågt = lågoddsare/favoriter (hög träffchans, lägre EV). Högt = värde/skräll (lägre chans, högre EV långsiktigt). Strategin sätter startpunkten – dra för att finjustera.">
+            <span>Träffchans <em>(säker)</em></span>
+            <input type="range" min="0" max="100" step="5" value={valueWeight}
+              onChange={(e) => setValueWeight(Number(e.target.value))} />
+            <span><em>(tuff)</em> Värde/EV</span>
+            <span className="evval">{valueWeight}%</span>
+            {valueWeight !== STRATEGY_EV[strategy] && (
+              <button className="evreset" title={`Återställ till ${strategy} (${STRATEGY_EV[strategy]}%)`}
+                onClick={() => setValueWeight(STRATEGY_EV[strategy])}>↺ följ {strategy}</button>
+            )}
+          </div>
+          <SystemView sys={sys} matches={analysis?.matches} payouts={payouts}
+            onRecalc={loadSystem} onUse={useSystem} />
+        </section>
+
+        <section id="kupong">
+          <h2>2 · Din kupong — granska & lämna in</h2>
+          {analysis && (
+            <CouponPanel matches={analysis.matches} picks={picks} pickRows={pickRows} payouts={payouts}
+              product={product} draw={draw} onFill={fillFromTips} onClear={clearCoupon} />
           )}
-        </div>
-        <SystemView sys={sys} matches={analysis?.matches} payouts={payouts} product={product} draw={draw}
-          onRecalc={loadSystem} />
-      </section>
+        </section>
+      </div>
+
+      <div className="cols">
+        <section>
+          <h2>Sharp-odds</h2>
+          <SharpPanel product={product} draw={draw} onLoaded={() => loadAnalysis()} />
+        </section>
+
+        <section>
+          <h2>Signal-facit (CLV)</h2>
+          <ClvPanel group={group} />
+        </section>
+      </div>
 
       <footer>Lokal data från Svenska Spel + Pinnacle · personligt verktyg</footer>
     </div>

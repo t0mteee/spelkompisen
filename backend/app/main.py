@@ -321,6 +321,37 @@ def movement(product: str = "stryktipset", draw: int | None = None):
     return {"draw_number": dn, "events": events}
 
 
+@app.get("/api/clv")
+def clv_facit(product: str | None = None):
+    """Signal-facit: flaggade värdetecken vs devigad Pinnacle-stängning (CLV)
+    + träffprocent mot facit. Positiv snitt-CLV = signalerna är äkta."""
+    from . import clv as clv_mod
+    store = Storage()
+    try:
+        clv_mod.resolve(store)        # sätt stängningar som hunnit passera (lokalt, billigt)
+        slugs = GAME_GROUPS.get(product, [product]) if product else [None]
+        if len(slugs) == 1:
+            return clv_mod.report(store, slugs[0])
+        # gruppflik (topptipset) = slå ihop varianterna
+        rows = []
+        for s in slugs:
+            rows.extend(store.clv_rows(s))
+        rows.sort(key=lambda r: r["first_at"] or "", reverse=True)
+        scored = [r for r in rows if r["closing_prob"] is not None and r["first_prob"]]
+        for r in scored:
+            r["clv_pp"] = round((r["closing_prob"] - r["first_prob"]) * 100, 2)
+        beat = [r for r in scored if r["clv_pp"] > 0]
+        judged = [r for r in rows if r["outcome"] is not None]
+        return {"n_flagged": len(rows), "n_scored": len(scored),
+                "beat_pct": round(len(beat) / len(scored), 3) if scored else None,
+                "avg_clv_pp": round(sum(r["clv_pp"] for r in scored) / len(scored), 2) if scored else None,
+                "n_judged": len(judged),
+                "hit_pct": round(sum(r["outcome"] for r in judged) / len(judged), 3) if judged else None,
+                "avg_streck": None, "rows": rows[:120]}
+    finally:
+        store.close()
+
+
 @app.get("/api/history")
 def history(draw: int, event: int, sign: str | None = None,
             product: str = "stryktipset"):

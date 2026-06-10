@@ -91,7 +91,23 @@ start.sh / stop.sh    kör/stoppa båda lokalt
 - R 4-0-9 / R 0-7-16 / R 4-4-144 är exakta Hamming-täckningar (= SvS officiella rader).
   R 3-3-24 är greedy (38 rader) — spelas billigare direkt på SvS systemkupong.
 
+## CLV-facit (signalvalidering)
+
+- `app/clv.py` + `value_log`-tabellen: snapshot-pollen loggar tecken med grön
+  värde-kvot (≥1.08) eller sharp-edge (≥2 %) — first/best per selektion.
+  Stängning = devigad Pinnacle (sista sharp-snapshot före avspark); facit från
+  resultat-API:t. `/api/clv` + "Signal-facit"-panelen i UI.
+- Metodregel (från VM-projektet): ENDAST marknadspriser får logga flaggor —
+  modellhärledda sannolikheter förorenar facitet. Se docs/forbattringar.md
+  för fler metodlärdomar (steam i devigade pp, ClubElo, football-data-backtest).
+
 ## UI-konventioner
+
+- Bred skärm (≥1280px): sektionspar i `.cols`-grid (Bygg förslag | Kupong,
+  Sharp | Signal-facit). Kupongen är navet — export/inlämning finns BARA där
+  (förslagsvyn har "Lägg i kupongen", inga dubblettknappar).
+- Inga bakgrundstoner på odds-celler för värde/edge — kvot-pillret och märkena
+  (★ S ▲ ⇊ ↓) bär den infon. Grön ram = i kupongen; grön ton + ×N = radläge.
 
 - Mobil: ALLT i `@media (max-width:760px)` — desktop får inte ändras. Analystabellen blir kort
   (klass `analysis`, `data-sign` på odds-celler). OBS: `td:first-child`-regler måste exkludera

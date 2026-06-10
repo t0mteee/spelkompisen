@@ -63,6 +63,36 @@ sitter i rader folket inte spelar, inte i enskilda tecken.
    rader (delar öde). Greedy-val med straff för Hamming-närhet till redan valda
    rader ger bättre portfölj-varians till nästan samma EV.
 
+## Portat/att porta från VM-kollen (/Users/saman/vm)
+
+P1. ~~**CLV-facit**~~ (klar): value_log-tabell (first/best per flaggat tecken,
+    grön kvot ≥1.08 eller sharp-edge ≥2 %), devigad Pinnacle-stängning från
+    sista sharp-snapshot före avspark, facit från resultat-API:t. Loggas av
+    snapshot-pollen; /api/clv + "Signal-facit"-panel i UI. Positiv snitt-CLV
+    över många flaggor = signalerna äkta; negativ = vi lurar oss själva.
+P2. **Steam i devigade procentenheter**: jämför devigad sannolikhet nu vs
+    6/24/72 h sedan (vm service.steam_moves) — tar bort marginalbrus, jämförbart
+    favorit/skräll. Låt 🔥-flaggan + ntfy använda devigat skift i stället för
+    rå odds-diff; sorterad panel.
+P3. **ClubElo-korsreferens** (Stryktipset = klubbar): api.clubelo.com (gratis
+    CSV, dagliga ratings). Elo→1X2 via supremacy = ratingdiff/skala → Poisson,
+    kalibrera skalan mot marknadens snittsäkerhet (vm: ELO_GOAL_SCALE).
+    EJ värdekälla (vet inget om skador) — bara "marknad/modell oense → kolla".
+P4. **Backtest mot football-data.co.uk**: gratis CSV:er (resultat + B365/
+    Pinnacle-close för engelska ligor) — backtesta BESLUTSREGELN (grön >1.08 /
+    röd <0.92), inte bara kalibreringen.
+
+**Metodlärdomar från vm (dyrt köpta):**
+- Modellhärledda sannolikheter utan sharp-ankare driver alltid åt ett håll
+  (+40–120 % "edges" × 3 ggr). Poisson-deriverat = modell-tier i UI, ALDRIG
+  in i CLV-facitet.
+- O/U-linje ≈ median (inte medel) för skev Poisson; kalibrera μ mot devigad
+  sharp P(Över) via bisektion — härled aldrig μ direkt ur linjen.
+- Aggregat-kalibrering ≠ per-match-edge: rätt i snitt bevisar inte att man
+  slår stängningslinjen per match.
+- Dixon-Coles rho: −0.13 (klubblitteratur) rimligt för klubbar; vm fittade
+  −0.04 för landslag. Fitta mot egen data före användning.
+
 ## Låg prioritet / idéer
 
 8. ~~Färgreducering~~ → `color=true` på /api/system (klar), inkl. **manuell

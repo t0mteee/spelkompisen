@@ -69,11 +69,17 @@ def cmd_snapshot(product: str) -> float | None:
     cacha Pinnacle sharp + pusha ev. 🔥-notiser. Returnerar timmar till
     närmaste spelstopp (för den smarta förtätningen)."""
     import datetime as dt
-    from app import notify
+    from app import notify, clv
     min_hrs: float | None = None
     with SvenskaSpel() as ss:
         opens = ss.open_draws(product)
         if not opens:
+            # inga öppna omgångar — men lös ev. väntande CLV-facit för avgjorda
+            store = Storage()
+            try:
+                clv.resolve(store, ss)
+            finally:
+                store.close()
             print(f"{product}: ingen öppen omgång — hoppar över.")
             return None
         for summ in opens:
@@ -89,6 +95,8 @@ def cmd_snapshot(product: str) -> float | None:
                 except Exception:  # noqa: BLE001
                     sharp_n = -1
                 pushed = notify.check_movers(product, draw, store)
+                clv.log_flags(product, draw, store)   # CLV-facit: logga gröna/sharp-flaggor
+                clv.resolve(store, ss)                # + sätt stängning/facit där det går
             finally:
                 store.close()
             if draw.reg_close_time:

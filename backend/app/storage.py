@@ -73,6 +73,31 @@ CREATE TABLE IF NOT EXISTS sharp_odds (
     fetched_at    TEXT,
     PRIMARY KEY (product, draw_number, event_number)
 );
+
+-- Flaggade värdetecken (CLV-facit): first/best per selektion + devigad
+-- Pinnacle-stängning före avspark + facit. Positiv snitt-CLV = signalen äkta.
+CREATE TABLE IF NOT EXISTS value_log (
+    product       TEXT NOT NULL,
+    draw_number   INTEGER NOT NULL,
+    event_number  INTEGER NOT NULL,
+    sign          TEXT NOT NULL,
+    description   TEXT,
+    match_start   TEXT,
+    flag_type     TEXT,
+    first_at      TEXT,
+    first_odds    REAL,
+    first_prob    REAL,
+    prob_src      TEXT,
+    first_streck  INTEGER,
+    first_ratio   REAL,
+    best_ratio    REAL,
+    best_at       TEXT,
+    closing_prob  REAL,
+    closing_odds  REAL,
+    closing_note  TEXT,
+    outcome       INTEGER,
+    PRIMARY KEY (product, draw_number, event_number, sign)
+);
 """
 
 
@@ -307,6 +332,77 @@ class Storage:
                            {"svs": [], "pinnacle": []})["pinnacle"].append(
                 {"t": r["fetched_at"], "odds": r["odds"]})
         return out
+
+    # --- CLV-facit: flaggade värdetecken vs devigad stängningslinje ---
+    def log_value_flag(self, r: dict, at: str) -> None:
+        """first/best per selektion: insert vid ny flagga, uppdatera best om
+        värde-kvoten är bättre än tidigare bästa."""
+        cur = self.conn.execute(
+            "SELECT best_ratio FROM value_log WHERE product=? AND draw_number=? "
+            "AND event_number=? AND sign=?",
+            (r["product"], r["draw_number"], r["event_number"], r["sign"])).fetchone()
+        if cur is None:
+            self.conn.execute(
+                "INSERT INTO value_log(product, draw_number, event_number, sign, "
+                "description, match_start, flag_type, first_at, first_odds, first_prob, "
+                "prob_src, first_streck, first_ratio, best_ratio, best_at) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (r["product"], r["draw_number"], r["event_number"], r["sign"],
+                 r.get("description"), r.get("match_start"), r.get("flag_type"),
+                 at, r.get("odds"), r.get("prob"), r.get("prob_src"),
+                 r.get("streck"), r.get("ratio"), r.get("ratio"), at))
+        elif (r.get("ratio") or 0) > (cur["best_ratio"] or 0):
+            self.conn.execute(
+                "UPDATE value_log SET best_ratio=?, best_at=? WHERE product=? "
+                "AND draw_number=? AND event_number=? AND sign=?",
+                (r.get("ratio"), at, r["product"], r["draw_number"],
+                 r["event_number"], r["sign"]))
+        self.conn.commit()
+
+    def unresolved_closings(self) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT * FROM value_log WHERE closing_prob IS NULL AND closing_note IS NULL "
+            "AND match_start IS NOT NULL").fetchall()
+        return [dict(r) for r in rows]
+
+    def set_closing(self, product: str, draw_number: int, event_number: int, sign: str,
+                    prob: Optional[float] = None, odds: Optional[float] = None,
+                    note: Optional[str] = None) -> None:
+        self.conn.execute(
+            "UPDATE value_log SET closing_prob=?, closing_odds=?, closing_note=? "
+            "WHERE product=? AND draw_number=? AND event_number=? AND sign=?",
+            (prob, odds, note, product, draw_number, event_number, sign))
+        self.conn.commit()
+
+    def draws_missing_outcome(self) -> list[tuple[str, int]]:
+        rows = self.conn.execute(
+            "SELECT DISTINCT product, draw_number FROM value_log WHERE outcome IS NULL").fetchall()
+        return [(r["product"], r["draw_number"]) for r in rows]
+
+    def set_outcomes(self, product: str, draw_number: int, facit: dict[int, str]) -> int:
+        n = 0
+        for r in self.conn.execute(
+                "SELECT event_number, sign FROM value_log WHERE product=? AND draw_number=? "
+                "AND outcome IS NULL", (product, draw_number)).fetchall():
+            f = facit.get(r["event_number"])
+            if f:
+                self.conn.execute(
+                    "UPDATE value_log SET outcome=? WHERE product=? AND draw_number=? "
+                    "AND event_number=? AND sign=?",
+                    (1 if r["sign"] == f else 0, product, draw_number,
+                     r["event_number"], r["sign"]))
+                n += 1
+        self.conn.commit()
+        return n
+
+    def clv_rows(self, product: Optional[str] = None, limit: int = 300) -> list[dict]:
+        q, args = "SELECT * FROM value_log", []
+        if product:
+            q += " WHERE product=?"
+            args.append(product)
+        q += " ORDER BY first_at DESC LIMIT ?"
+        args.append(limit)
+        return [dict(r) for r in self.conn.execute(q, args).fetchall()]
 
     def last_snapshot(self) -> Optional[str]:
         r = self.conn.execute("SELECT MAX(fetched_at) AS m FROM snapshots").fetchone()
