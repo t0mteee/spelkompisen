@@ -403,7 +403,60 @@ function SharpPanel({ product, draw, onLoaded }) {
 }
 
 /* ---------- system / radbyggare ---------- */
-function SystemView({ sys, matches, payouts, product, draw }) {
+/* manuell överstyrning av färgreduceringen: klicka tecken (ofärgad→blå→gul),
+   sätt egna min/max-gränser och räkna om. */
+function ColorLab({ sys, onRecalc }) {
+  const init = {}
+  sys.picks.forEach((p) => Object.entries(p.colors || {}).forEach(([s, c]) => { init[`${p.event_number}:${s}`] = c }))
+  const [cols, setCols] = useState(init)
+  const b = sys.color_bounds
+  const [blo, setBlo] = useState(b.blo); const [bhi, setBhi] = useState(b.bhi)
+  const [glo, setGlo] = useState(b.glo); const [ghi, setGhi] = useState(b.ghi)
+  const cycle = (ev, s) => setCols((prev) => {
+    const k = `${ev}:${s}`
+    const next = prev[k] == null ? 'blå' : prev[k] === 'blå' ? 'gul' : null
+    const c = { ...prev }
+    if (next) c[k] = next; else delete c[k]
+    return c
+  })
+  const apply = () => {
+    const cstr = Object.entries(cols)
+      .map(([k, v]) => { const [ev, s] = k.split(':'); return `${ev}:${s}:${v === 'blå' ? 'b' : 'g'}` })
+      .join(',')
+    onRecalc(`&colors=${encodeURIComponent(cstr)}&bounds=${blo}-${bhi},${glo}-${ghi}`)
+  }
+  const num = (v, set, max) => (
+    <input type="number" min="0" max={max} value={v}
+      onChange={(e) => set(Math.max(0, Number(e.target.value)))} />
+  )
+  return (
+    <div className="colorlab">
+      <div className="cl-title">🎨 Justera färgerna själv (klicka tecken: ofärgad → <span className="sg-bla">blå</span> → <span className="sg-gul">gul</span>):</div>
+      <div className="cl-chips">
+        {sys.picks.filter((p) => p.signs.length >= 2).map((p) => (
+          <span key={p.event_number} className="cl-match">
+            <em>{p.event_number}</em>
+            {p.signs.map((s) => {
+              const c = cols[`${p.event_number}:${s}`]
+              return (
+                <button key={s} className={`cl-sign ${c === 'blå' ? 'sg-bla' : c === 'gul' ? 'sg-gul' : ''}`}
+                  onClick={() => cycle(p.event_number, s)}>{s}</button>
+              )
+            })}
+          </span>
+        ))}
+      </div>
+      <div className="cl-bounds">
+        <span className="sg-bla">Blå rätt:</span> min {num(blo, setBlo, b.nb_max)} max {num(bhi, setBhi, b.nb_max)}
+        <span className="sg-gul">Gula rätt:</span> min {num(glo, setGlo, b.ng_max)} max {num(ghi, setGhi, b.ng_max)}
+        <button className="primary" onClick={apply}>Räkna om med mina färger</button>
+        <button onClick={() => onRecalc('')}>↺ Auto</button>
+      </div>
+    </div>
+  )
+}
+
+function SystemView({ sys, matches, payouts, product, draw, onRecalc }) {
   if (!sys) return null
   const roleClass = { spik: 'r-spik', halvgardering: 'r-half', helgardering: 'r-full' }
   const st = systemStats(sys, matches, payouts)
@@ -425,6 +478,9 @@ function SystemView({ sys, matches, payouts, product, draw }) {
         <span className="note"> {sys.note}</span>
       </div>
       {sys.rule && <div className="rule">{sys.rule}</div>}
+      {sys.system_type === 'färgreducerat' && sys.color_bounds && onRecalc && (
+        <ColorLab key={sys.rule} sys={sys} onRecalc={onRecalc} />
+      )}
       {st && !st.tooBig && (
         <>
           <div className="coupon-kpis">
@@ -609,11 +665,38 @@ function evalRows(rowFF, tiers, field, N, minDividend = 0) {
   return { poly, evTiers, dividend, divMin, divMax, kept, evPayout }
 }
 
-function couponStats(matches, picks, payouts, minDividend = 0, turnoverOverride = null, jackpot = 0) {
+function couponStats(matches, picks, payouts, minDividend = 0, turnoverOverride = null, jackpot = 0, pickRows = null) {
   const N = matches.length
   const rowPrice = payouts?.row_price || 1
   const ratio = payouts?.ratio || 0
   const turnover = turnoverOverride != null ? turnoverOverride : (payouts?.turnover || 0)
+
+  // RADLÄGE: kupongen är en explicit lista utvalda rader (t.ex. från EV-topp/
+  // färgreducering) — värdera exakt de raderna, inte alla teckenkombinationer.
+  if (pickRows && pickRows.length && pickRows.every((r) => r.length === N)) {
+    const tiers = (payouts?.tiers || []).map((t) => ({
+      correct: t.correct,
+      pool: turnover * ratio * (t.share || 0) + (t.correct === N ? jackpot : 0),
+    }))
+    const poolMap = {}; tiers.forEach((t) => { poolMap[t.correct] = t.pool })
+    const field = turnover / rowPrice
+    const rowFF = pickRows.map((r) => r.map((s, i) => {
+      const o = matches[i].outcomes[s] || {}
+      return { fair: o.fair_prob || 0, folk: o.streck != null ? o.streck / 100 : (o.fair_prob || 0) }
+    }))
+    const modelOk = field > 0 && tiers.length > 0
+    const e = modelOk ? evalRows(rowFF, tiers, field, N, minDividend)
+      : { poly: {}, evTiers: {}, dividend: {}, divMin: {}, divMax: {}, kept: pickRows.length, evPayout: 0 }
+    const rows = e.kept
+    const cost = rows * rowPrice
+    const expectedCorrect = rowFF.reduce((a, r) => a + r.reduce((x, o) => x + o.fair, 0), 0) / (rowFF.length || 1)
+    return { N, complete: true, selectedCount: N, fullRows: pickRows.length, kept: e.kept,
+      rows, cost, poly: e.poly, evTiers: e.evTiers, dividend: e.dividend,
+      divMin: e.divMin, divMax: e.divMax, topDividend: e.dividend[N] ?? null,
+      modelOk, reduced: minDividend > 0, poolMap, turnover, expectedCorrect,
+      evPayout: e.evPayout, ev: e.evPayout - cost,
+      roi: cost ? (e.evPayout - cost) / cost : null, pAll: e.poly[N] || 0, rowMode: true }
+  }
   const ps = [], counts = []
   let complete = true
   for (const m of matches) {
@@ -742,32 +825,43 @@ function PayoutTable({ s, tiers, effTurnover, turnoverOverridden, jackpot }) {
   )
 }
 
-function CouponPanel({ matches, picks, payouts, product, draw, onFill, onClear }) {
+function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onFill, onClear }) {
   const [redOn, setRedOn] = useState(false)
   const [minDiv, setMinDiv] = useState(50)
   const [turnover, setTurnover] = useState(null)   // null = använd live-omsättning
   const [jackpot, setJackpot] = useState(0)
   const [copied, setCopied] = useState(false)
+  // jackpot/rullpott hämtas numera ur API:t — förifyll när omgången har en
+  useEffect(() => {
+    if (payouts?.jackpot > 0) setJackpot(payouts.jackpot)
+  }, [payouts?.jackpot])  // eslint-disable-line
   const copyCoupon = () => {
     const txt = matches.map((m) => `${m.event_number}. ${m.description}: ${(picks[m.event_number] || []).join('')}`).join('\n')
     navigator.clipboard?.writeText(txt); setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
   const egnaUrl = egnaRaderUrl(product)
+  const rowMode = !!(pickRows && pickRows.length)
   const couponGroups = matches.map((m) => picks[m.event_number] || [])
-  const nRows = couponGroups.reduce((a, g) => a * (g.length || 1), 1)
+  const nRows = rowMode ? pickRows.length
+    : couponGroups.reduce((a, g) => a * (g.length || 1), 1)
   const downloadEgna = () => {
     if (nRows > 50000) { alert(`Systemet är för stort (${nRows} rader) för filexport.`); return }
-    downloadText(`${product}_omg${draw}_egnarader.txt`, egnaRaderText(cartesianRows(couponGroups)))
+    const rows = rowMode ? pickRows : cartesianRows(couponGroups)
+    downloadText(`${product}_omg${draw}_egnarader.txt`, egnaRaderText(rows))
   }
   const effTurnover = turnover != null ? turnover : (payouts?.turnover || 0)
-  const s = couponStats(matches, picks, payouts, redOn ? minDiv : 0, turnover, jackpot)
+  const s = couponStats(matches, picks, payouts, redOn ? minDiv : 0, turnover, jackpot, pickRows)
   const payTiers = (payouts?.tiers || []).filter((t) => t.correct != null).sort((a, b) => b.correct - a.correct)
   return (
     <div className="coupon">
       <div className="coupon-actions">
         <button className="primary" onClick={onFill}>Fyll från förslag</button>
         <button onClick={onClear}>Rensa</button>
-        <span className="cstatus">{s.selectedCount}/{s.N} matcher valda{!s.complete ? ' – klicka tecken i tabellen ovan' : ''}</span>
+        <span className="cstatus">
+          {s.rowMode
+            ? `${s.fullRows} utvalda rader från förslaget (inte alla kombinationer) — klicka tecken i tabellen för att bygga om manuellt`
+            : `${s.selectedCount}/${s.N} matcher valda${!s.complete ? ' – klicka tecken i tabellen ovan' : ''}`}
+        </span>
       </div>
       {s.complete && (
         <>
@@ -851,27 +945,35 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(null)
   const [picks, setPicks] = useState(SAVED.picks || {})
+  const [pickRows, setPickRows] = useState(SAVED.pickRows || null)  // radläge: exakta rader från förslaget
   const [payouts, setPayouts] = useState(null)
 
-  const toggleSign = (ev, sign) => setPicks((prev) => {
-    const cur = prev[ev] || []
-    const next = cur.includes(sign) ? cur.filter((s) => s !== sign) : [...cur, sign]
-    const copy = { ...prev }
-    if (next.length) copy[ev] = next; else delete copy[ev]
-    return copy
-  })
-  const clearCoupon = () => setPicks({})
+  const toggleSign = (ev, sign) => {
+    setPickRows(null)   // manuell ändring -> tillbaka till kombinationsläge
+    setPicks((prev) => {
+      const cur = prev[ev] || []
+      const next = cur.includes(sign) ? cur.filter((s) => s !== sign) : [...cur, sign]
+      const copy = { ...prev }
+      if (next.length) copy[ev] = next; else delete copy[ev]
+      return copy
+    })
+  }
+  const clearCoupon = () => { setPicks({}); setPickRows(null) }
   const fillFromTips = () => {
     if (!analysis) return
     const p = {}
     if (sys?.picks) {                       // använd senaste föreslagna systemet om det finns
       sys.picks.forEach((pk) => { p[pk.event_number] = pk.signs })
+      // system med utvalda rader (EV-topp/färg/reducerat): kupongen ärver
+      // exakt de raderna i stället för att explodera till alla kombinationer
+      setPickRows(sys.rows && sys.rows.length ? sys.rows.map((r) => [...r]) : null)
     } else {
       for (const m of analysis.matches) {
         const order = ['1', 'X', '2'].sort((a, b) => (m.outcomes[b].fair_prob || 0) - (m.outcomes[a].fair_prob || 0))
         const k = m.speltyp === 'avvakta' ? 3 : (m.speltyp === 'halvspik' || m.speltyp === 'gardera') ? 2 : 1
         p[m.event_number] = order.slice(0, k)
       }
+      setPickRows(null)
     }
     setPicks(p)
   }
@@ -918,17 +1020,18 @@ export default function App() {
   }
 
   const changeDraw = (slug, dn) => {
-    setProduct(slug); setDraw(dn); setSys(null); setPicks({})
+    setProduct(slug); setDraw(dn); setSys(null); setPicks({}); setPickRows(null)
     loadAnalysis(slug, dn); loadPayouts(slug, dn)
   }
 
-  const loadSystem = async () => {
+  const loadSystem = async (extra = '') => {
+    if (typeof extra !== 'string') extra = ''   // knappen skickar klick-eventet hit
     setErr(null)
     try {
       let q = (systemTypes.find((t) => t.id === sysType) || SYSTEM_BASE[0]).q
       if (q.endsWith('guarantee=')) q += Math.max(1, nMatches - 1)  // garanti = n-1
       const vw = valueWeight / 100
-      const r = await fetch(`/api/system?product=${product}&draw=${draw}&strategy=${encodeURIComponent(strategy)}&budget=${budget}&value_weight=${vw}&${q}&_t=${Date.now()}`, { cache: 'no-store' })
+      const r = await fetch(`/api/system?product=${product}&draw=${draw}&strategy=${encodeURIComponent(strategy)}&budget=${budget}&value_weight=${vw}&${q}${extra}&_t=${Date.now()}`, { cache: 'no-store' })
       if (!r.ok) throw new Error((await r.json()).detail || `System ${r.status}`)
       setSys(await r.json())
     } catch (e) { setErr(String(e)) }
@@ -947,7 +1050,7 @@ export default function App() {
       const chosen = restored || list[0]
       if (chosen) {
         setProduct(chosen.product); setDraw(chosen.draw_number)
-        if (!restored) setPicks({})   // annan omgång -> börja om med tom kupong
+        if (!restored) { setPicks({}); setPickRows(null) }   // annan omgång -> börja om med tom kupong
         loadAnalysis(chosen.product, chosen.draw_number)
         loadPayouts(chosen.product, chosen.draw_number)
       } else { setLoading(false); setErr('Inga öppna omgångar just nu.') }
@@ -961,9 +1064,11 @@ export default function App() {
     try {
       localStorage.setItem('svs_state', JSON.stringify({
         group, product, draw, picks, strategy, budget, sysType, valueWeight,
+        // radläget kan vara stort — spara bara rimliga storlekar
+        pickRows: pickRows && pickRows.length <= 2048 ? pickRows : null,
       }))
     } catch { /* lagring kan vara avstängd – strunta */ }
-  }, [group, product, draw, picks, strategy, budget, sysType, valueWeight])
+  }, [group, product, draw, picks, pickRows, strategy, budget, sysType, valueWeight])
 
   return (
     <div className="app">
@@ -994,6 +1099,16 @@ export default function App() {
           <span>Omsättning <b>{analysis.turnover ? kr(analysis.turnover) : '–'}</b></span>
           <span>odds, streck & omsättning hämtade <b>{fmtFetched(analysis.fetched_at)}</b></span>
           {payouts?.available && <span>prispott (alla rätt) <b>{kr(payouts.tiers?.[0]?.pool)}</b></span>}
+          {payouts?.available && (
+            <span title="Andel av omsättningen som betalas tillbaka, inkl. ev. jackpot. Över grundnivån = extra bra omgång att spela.">
+              spelvärde <b>{Math.round((payouts.spelvarde || payouts.ratio || 0) * 100)} %</b>
+            </span>
+          )}
+          {payouts?.jackpot > 0 && (
+            <span className="jackpot" title={payouts.extra_info || 'Jackpot/rullpott läggs på toppvinsten'}>
+              💰 <b>Jackpot {kr(payouts.jackpot)}</b> — höjt spelvärde!
+            </span>
+          )}
         </div>
       )}
 
@@ -1016,7 +1131,7 @@ export default function App() {
       <section>
         <h2>Din kupong</h2>
         {analysis && (
-          <CouponPanel matches={analysis.matches} picks={picks} payouts={payouts}
+          <CouponPanel matches={analysis.matches} picks={picks} pickRows={pickRows} payouts={payouts}
             product={product} draw={draw} onFill={fillFromTips} onClear={clearCoupon} />
         )}
       </section>
@@ -1057,7 +1172,8 @@ export default function App() {
               onClick={() => setValueWeight(STRATEGY_EV[strategy])}>↺ följ {strategy}</button>
           )}
         </div>
-        <SystemView sys={sys} matches={analysis?.matches} payouts={payouts} product={product} draw={draw} />
+        <SystemView sys={sys} matches={analysis?.matches} payouts={payouts} product={product} draw={draw}
+          onRecalc={loadSystem} />
       </section>
 
       <footer>Lokal data från Svenska Spel + Pinnacle · personligt verktyg</footer>

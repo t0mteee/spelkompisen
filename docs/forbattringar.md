@@ -34,11 +34,11 @@ sitter i rader folket inte spelar, inte i enskilda tecken.
      API:t → kör om backtesten mot **våra egna snapshots** när databasen växt
      (några veckors data ger full odds-täckning). = backtest v2.
 
-2. **Spelvärdesindikator per omgång** (jackpot-detektor)
-   - Forskningen/branschen är enig: +EV-omgångar uppstår vid **jackpott/rullpott**
-     (ROI kan överstiga 100 %). API:t exponerar fonder/jackpot i draw-svaret
-     (`funds`/`jackpotItems` — verifiera fältnamn) — visa "Spelvärde: X % åter"
-     i topinfo och flagga jackpotomgångar tydligt. Idag matas jackpot in manuellt.
+2. ~~**Spelvärdesindikator per omgång**~~ (klar): `fund`/`extraInfo` parsas ur
+   draw-svaret, /api/payouts ger `jackpot` + `spelvarde`; topinfo visar
+   "spelvärde X %" + 💰-flagga, och kupongens jackpotfält förifylls.
+   OBS: `fund`-fältets form är ännu overifierad (null utan jackpot) — dubbelkolla
+   parsningen första riktiga jackpotomgången!
 
 3. **EV-läget: osäkerhetsjustering tidigt i veckan**
    - Tidig låg omsättning → fält litet → "+EV" mot dagens pott är glädjesiffror.
@@ -61,10 +61,11 @@ sitter i rader folket inte spelar, inte i enskilda tecken.
 
 ## Låg prioritet / idéer
 
-8. ~~Färgreducering~~ → `color=true` på /api/system (klar): blå/gul-färgade
-   utmanartecken, min/max-gränser väljs automatiskt för max EV inom budgeten.
-   Kvar att bygga: manuell överstyrning (egna färger/gränser) à la Poolarn,
-   plus lås spik/uteslut tecken.
+8. ~~Färgreducering~~ → `color=true` på /api/system (klar), inkl. **manuell
+   överstyrning** (ColorLab: klicka tecken ofärgad→blå→gul, egna min/max-gränser,
+   `colors=`/`bounds=`-params). Kvar: lås spik/uteslut tecken som separat villkor.
+   Kupongen ärver numera systemets exakta rader ("radläge") i stället för att
+   explodera till alla kombinationer vid "Fyll från förslag".
 9. Andelsspels-läge: dela systemkostnad, visa per-andel-EV.
 10. Måltipset (pid 6?) — samma API-familj, annan radstruktur.
 11. Notifiering (ntfy/pushover) när 🔥-flagga (sen oddssänkning) dyker upp nära deadline.

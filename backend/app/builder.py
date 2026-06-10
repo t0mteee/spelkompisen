@@ -75,6 +75,7 @@ class System:
     rows: list[list[str]] = field(default_factory=list)  # konkreta rader (om uträknade)
     rule: Optional[str] = None
     note: Optional[str] = None
+    color_bounds: Optional[dict] = None   # {blo,bhi,glo,ghi,nb_max,ng_max} vid färgreducering
 
 
 # ---------- val av tecken per match ----------
@@ -604,7 +605,12 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
 
 def build_color_system(analysis: DrawAnalysis, strategy: str = "medel",
                        budget: float = 100.0, row_price: float = ROW_PRICE,
-                       value_weight: float = 0.5, plan: Optional[dict] = None) -> System:
+                       value_weight: float = 0.5, plan: Optional[dict] = None,
+                       colors_override: Optional[dict] = None,
+                       bounds_override: Optional[tuple] = None) -> System:
+    """colors_override: {(event_number, tecken): 'blå'|'gul'} — användarens egna färger.
+    bounds_override: (blo, bhi, glo, ghi) — användarens egna min/max-gränser.
+    Utan overrides väljs båda automatiskt för max EV inom budgeten."""
     cfg = STRATEGIES[strategy]
     target = max(1, int(budget / row_price))
 
@@ -625,15 +631,20 @@ def build_color_system(analysis: DrawAnalysis, strategy: str = "medel",
         return build_math_system(analysis, strategy, budget, row_price,
                                  enumerate_rows=True, value_weight=value_weight)
 
-    # färgsätt utmanartecknen: rank 2 -> blå, rank 3 -> gul
+    # färgsätt utmanartecknen: rank 2 -> blå, rank 3 -> gul (eller användarens egna)
     order = {m.event_number: _signs_by_score(m, value_weight) for m in analysis.matches}
     color_of: dict[tuple[int, str], str] = {}
+    if colors_override is not None:
+        valid = {(p.event_number, s) for p in picks for s in p.signs}
+        color_of = {k: v for k, v in colors_override.items() if k in valid}
+    else:
+        for p in picks:
+            ranked = [s for s in order[p.event_number] if s in p.signs]
+            if len(ranked) >= 2:
+                color_of[(p.event_number, ranked[1])] = "blå"
+            if len(ranked) >= 3:
+                color_of[(p.event_number, ranked[2])] = "gul"
     for p in picks:
-        ranked = [s for s in order[p.event_number] if s in p.signs]
-        if len(ranked) >= 2:
-            color_of[(p.event_number, ranked[1])] = "blå"
-        if len(ranked) >= 3:
-            color_of[(p.event_number, ranked[2])] = "gul"
         p.colors = {s: color_of[(p.event_number, s)] for s in p.signs
                     if (p.event_number, s) in color_of} or None
 
@@ -673,20 +684,36 @@ def build_color_system(analysis: DrawAnalysis, strategy: str = "medel",
     ng_max = max(k[1] for k in buckets)
     bstat = {k: (len(v), sum(e for e, _ in v)) for k, v in buckets.items()}
 
-    # välj gränser (min/max blå, min/max gul) som maximerar EV inom budgeten
-    best, best_ev = None, -1.0
-    for blo in range(nb_max + 1):
-        for bhi in range(blo, nb_max + 1):
-            for glo in range(ng_max + 1):
-                for ghi in range(glo, ng_max + 1):
-                    n = ev = 0.0
-                    for (nb, ng), (cnt, evs) in bstat.items():
-                        if blo <= nb <= bhi and glo <= ng <= ghi:
-                            n += cnt; ev += evs
-                    if n and n <= target and ev > best_ev:
-                        best, best_ev = (blo, bhi, glo, ghi), ev
-
-    blo, bhi, glo, ghi = best
+    if bounds_override is not None:
+        blo, bhi, glo, ghi = bounds_override
+        blo, bhi = max(0, blo), min(nb_max, bhi)
+        glo, ghi = max(0, glo), min(ng_max, ghi)
+    else:
+        # välj gränser (min/max blå, min/max gul) som maximerar EV inom budgeten
+        best, best_ev = None, -1.0
+        for blo_ in range(nb_max + 1):
+            for bhi_ in range(blo_, nb_max + 1):
+                for glo_ in range(ng_max + 1):
+                    for ghi_ in range(glo_, ng_max + 1):
+                        n = ev = 0.0
+                        for (nb, ng), (cnt, evs) in bstat.items():
+                            if blo_ <= nb <= bhi_ and glo_ <= ng <= ghi_:
+                                n += cnt; ev += evs
+                        if n and n <= target and ev > best_ev:
+                            best, best_ev = (blo_, bhi_, glo_, ghi_), ev
+        if best is None:    # ingen färgregel ryms (t.ex. inga färger satta) -> ta bästa raderna rakt av
+            allr = sorted((t for v in buckets.values() for t in v), key=lambda t: t[0], reverse=True)
+            rows = [list(r) for _, r in allr[:target]]
+            return System(
+                strategy=strategy, system_type="färgreducerat", budget=budget,
+                row_price=row_price, num_rows=len(rows), cost=round(len(rows) * row_price, 2),
+                picks=picks, rows=rows,
+                rule=f"Ingen färgregel rymde budgeten — tog de {len(rows)} bästa raderna (EV) av {full_rows}.",
+                note=f"Kostnad {full_rows * row_price:.0f} kr → {len(rows) * row_price:.0f} kr.",
+                color_bounds={"blo": 0, "bhi": nb_max, "glo": 0, "ghi": ng_max,
+                              "nb_max": nb_max, "ng_max": ng_max},
+            )
+        blo, bhi, glo, ghi = best
     rows = [list(r) for (nb, ng), v in buckets.items() if blo <= nb <= bhi and glo <= ng <= ghi
             for _, r in v]
 
@@ -697,12 +724,16 @@ def build_color_system(analysis: DrawAnalysis, strategy: str = "medel",
             + f". Skär {full_rows} → {len(rows)} rader; bort åker folkraden "
               f"(för få utmanare) och skräll-bomberna (för många).")
 
+    manual = colors_override is not None or bounds_override is not None
     return System(
         strategy=strategy, system_type="färgreducerat", budget=budget,
         row_price=row_price, num_rows=len(rows), cost=round(len(rows) * row_price, 2),
         picks=picks, rows=rows, rule=rule,
         note=f"Kostnad {full_rows * row_price:.0f} kr → {len(rows) * row_price:.0f} kr. "
-             f"Gränserna valda för max EV bland kvarvarande rader.",
+             + ("Egna färger/gränser." if manual
+                else "Gränserna valda för max EV bland kvarvarande rader."),
+        color_bounds={"blo": blo, "bhi": bhi, "glo": glo, "ghi": ghi,
+                      "nb_max": nb_max, "ng_max": ng_max},
     )
 
 

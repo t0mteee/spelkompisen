@@ -12,6 +12,7 @@ oddskällor senare (t.ex. Pinnacle).
 from __future__ import annotations
 
 import datetime as dt
+import re
 from dataclasses import dataclass, field, asdict
 from typing import Optional
 
@@ -92,6 +93,8 @@ class Draw:
     net_sale: Optional[float]
     row_price: Optional[float]
     fetched_at: str
+    jackpot: Optional[float] = None     # extrapengar/rullpott till toppnivån
+    extra_info: Optional[str] = None    # SvS egen text, t.ex. "Jackpot ca 10 mkr"
     matches: list[Match] = field(default_factory=list)
 
 
@@ -254,6 +257,22 @@ class SvenskaSpel:
         return self.get_draw(num, product) if num is not None else None
 
     # --- parsning ---
+    @staticmethod
+    def _parse_jackpot(raw: dict) -> Optional[float]:
+        """Jackpot/rullpott ur 'fund' (form okänd — defensivt) eller extraInfo-texten."""
+        f = raw.get("fund")
+        if isinstance(f, (int, float)) and f > 0:
+            return float(f)
+        if isinstance(f, dict):
+            for k in ("amount", "jackpot", "value", "fundSum", "extraMoney"):
+                v = _f(f.get(k))
+                if v:
+                    return v
+        m = re.search(r"(\d+(?:[.,]\d+)?)\s*(miljon|milj|mkr)", raw.get("extraInfo") or "", re.I)
+        if m:
+            return float(m.group(1).replace(",", ".")) * 1_000_000
+        return None
+
     def _parse_draw(self, raw: dict, product: str) -> Draw:
         draw = Draw(
             product=product,
@@ -263,6 +282,8 @@ class SvenskaSpel:
             net_sale=_f(raw.get("currentNetSale")),
             row_price=_f(raw.get("rowPrice")) or 1.0,
             fetched_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+            jackpot=self._parse_jackpot(raw),
+            extra_info=raw.get("extraInfo") or None,
         )
         for ev in raw.get("drawEvents", []):
             draw.matches.append(self._parse_match(ev))

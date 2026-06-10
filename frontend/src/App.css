@@ -154,8 +154,26 @@ h2 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spa
 
 .grid.compact td, .grid.compact th { padding: 6px 10px; }
 .signs { font-weight: 700; letter-spacing: 2px; }
-.signs .sg-bla { color: #4aa3df; }
-.signs .sg-gul { color: #e8c95a; }
+.sg-bla { color: #4aa3df; }
+.sg-gul { color: #e8c95a; }
+
+/* manuell färgstyrning (ColorLab) */
+.colorlab { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; margin: 10px 0; font-size: 13px; }
+.colorlab .cl-title { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+.colorlab .cl-chips { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 10px; }
+.colorlab .cl-match { display: inline-flex; align-items: center; gap: 3px; }
+.colorlab .cl-match em { color: var(--muted); font-style: normal; font-size: 11px; margin-right: 2px; }
+.colorlab .cl-sign { padding: 3px 9px; border-radius: 6px; font-weight: 800; font-size: 13px; }
+.colorlab .cl-sign.sg-bla { border-color: #4aa3df; }
+.colorlab .cl-sign.sg-gul { border-color: #e8c95a; }
+.colorlab .cl-bounds { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--muted); }
+.colorlab .cl-bounds input { width: 52px; background: var(--bg); color: var(--text);
+  border: 1px solid var(--line); border-radius: 5px; padding: 3px 6px; }
+
+/* jackpot-flagga i topinfo */
+.topinfo .jackpot { color: #e8c95a; }
+.topinfo .jackpot b { color: #e8c95a; }
 tr.r-spik td { background: rgba(46,139,87,0.10); }
 tr.r-full td { background: rgba(201,123,29,0.10); }
 

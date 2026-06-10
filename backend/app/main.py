@@ -153,9 +153,13 @@ def payouts(product: str = "stryktipset", draw: int | None = None):
     row_price = d.row_price or 1.0
     tiers = [{"correct": c, "share": s, "pool": round(turnover * plan["ratio"] * s, 2)}
              for c, s in sorted(plan["splits"].items(), reverse=True)]
+    # spelvärde = total återbetalning inkl jackpot/rullpott; > ratio => extra bra omgång
+    jackpot = d.jackpot or 0.0
+    spelvarde = plan["ratio"] + (jackpot / turnover if turnover else 0.0)
     return {"available": turnover > 0, "draw_number": d.draw_number,
             "turnover": turnover, "row_price": row_price, "ratio": plan["ratio"],
-            "tiers": tiers}
+            "jackpot": jackpot, "extra_info": d.extra_info,
+            "spelvarde": round(spelvarde, 4), "tiers": tiers}
 
 
 @app.get("/api/analysis")
@@ -180,6 +184,8 @@ def system(product: str = "stryktipset",
            sv_rsystem: str = "",
            ev: bool = False,
            color: bool = False,
+           colors: str = "",
+           bounds: str = "",
            value_weight: float = 0.5):
     """value_weight 0..1 = EV-/värdeskala: 0 = lågoddsare/favoriter (hög träffchans),
     högre = mer värde/skräll (lägre chans, högre EV). sv_rsystem ger SvS R-system.
@@ -193,8 +199,29 @@ def system(product: str = "stryktipset",
             s = build_ev_system(a, strategy, budget, row_price=a.row_price or 1.0,
                                 value_weight=vw, plan=PRIZE_PLANS.get(product))
         elif color:
+            # manuella overrides: colors="1:X:b,5:2:g" (b=blå, g=gul), bounds="0-2,0-1"
+            co = None
+            if colors:
+                co = {}
+                for part in colors.split(","):
+                    bits = part.split(":")
+                    if len(bits) == 3 and bits[1] in ("1", "X", "2") and bits[2] in ("b", "g"):
+                        try:
+                            co[(int(bits[0]), bits[1])] = "blå" if bits[2] == "b" else "gul"
+                        except ValueError:
+                            pass
+            bo = None
+            if bounds:
+                try:
+                    b, g = bounds.split(",")
+                    blo, bhi = (int(x) for x in b.split("-"))
+                    glo, ghi = (int(x) for x in g.split("-"))
+                    bo = (blo, bhi, glo, ghi)
+                except ValueError:
+                    bo = None
             s = build_color_system(a, strategy, budget, row_price=a.row_price or 1.0,
-                                   value_weight=vw, plan=PRIZE_PLANS.get(product))
+                                   value_weight=vw, plan=PRIZE_PLANS.get(product),
+                                   colors_override=co, bounds_override=bo)
         elif reduced and guarantee:
             s = build_guarantee_system(a, strategy, budget, guarantee=guarantee, value_weight=vw)
         elif reduced:
