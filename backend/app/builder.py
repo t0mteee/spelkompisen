@@ -60,6 +60,7 @@ class MatchPick:
     signs: list[str]           # valda tecken, t.ex. ["1"] eller ["1","X"]
     favourite: Optional[str]
     reason: str
+    colors: Optional[dict] = None   # {tecken: "blå"|"gul"} vid färgreducering
 
 
 @dataclass
@@ -590,6 +591,118 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
              f"popularitetsjusterad EV (marknadens sannolikhet ÷ folkets streck per rad).",
         note=f"Förv. utdelning ≈ {ev_sum:.0f} kr mot {cost:.0f} kr insats "
              f"(EV {ev_sum - cost:+.0f} kr) vid nuvarande omsättning/streck.",
+    )
+
+
+# ---------- färgreducering (villkorsreducering med min/max per färg) ----------
+# Klassisk färgreducering: utmanartecken färgas BLÅ (näst bästa tecknet) och
+# GUL (tredje tecknet/skrällen). Regeln "minst a, högst b blå rätt + minst c,
+# högst d gula rätt" skär bort både folkraden (0 utmanare = alla spelar den)
+# och skräll-bomberna (för många avvikelser = chanslös). Gränserna väljs
+# automatiskt för att maximera total EV bland raderna som ryms i budgeten.
+
+
+def build_color_system(analysis: DrawAnalysis, strategy: str = "medel",
+                       budget: float = 100.0, row_price: float = ROW_PRICE,
+                       value_weight: float = 0.5, plan: Optional[dict] = None) -> System:
+    cfg = STRATEGIES[strategy]
+    target = max(1, int(budget / row_price))
+
+    # generösare grundsystem än budgeten — reduceringen skär ner kostnaden
+    counts = _size_to_budget(analysis, cfg, budget * 6, row_price)
+    picks = _build_picks(analysis, cfg, counts, value_weight)
+    while _num_rows(picks) > EV_UNIVERSE_CAP:      # håll enumereringen hanterbar
+        for m in sorted(analysis.matches, key=lambda x: x.open_score):
+            c = counts.get(m.event_number, 1)
+            if c > 1:
+                counts[m.event_number] = c - 1
+                break
+        else:
+            break
+        picks = _build_picks(analysis, cfg, counts, value_weight)
+    full_rows = _num_rows(picks)
+    if full_rows <= target:
+        return build_math_system(analysis, strategy, budget, row_price,
+                                 enumerate_rows=True, value_weight=value_weight)
+
+    # färgsätt utmanartecknen: rank 2 -> blå, rank 3 -> gul
+    order = {m.event_number: _signs_by_score(m, value_weight) for m in analysis.matches}
+    color_of: dict[tuple[int, str], str] = {}
+    for p in picks:
+        ranked = [s for s in order[p.event_number] if s in p.signs]
+        if len(ranked) >= 2:
+            color_of[(p.event_number, ranked[1])] = "blå"
+        if len(ranked) >= 3:
+            color_of[(p.event_number, ranked[2])] = "gul"
+        p.colors = {s: color_of[(p.event_number, s)] for s in p.signs
+                    if (p.event_number, s) in color_of} or None
+
+    # p/q per tecken + EV-grund (toppnivån); utan omsättning rankas på sannolikhet
+    turnover = analysis.turnover or 0.0
+    field = turnover / row_price if turnover > 0 else 0.0
+    pool_top = 0.0
+    if plan and turnover > 0:
+        c_top = max(plan["splits"])
+        pool_top = turnover * plan["ratio"] * plan["splits"][c_top]
+
+    def _pq(ev: int, s: str) -> tuple[float, float]:
+        o = next(m for m in analysis.matches if m.event_number == ev).outcomes[s]
+        p = o.fair_prob if o.fair_prob is not None else (1.0 / 3)
+        q = (o.streck / 100.0) if o.streck else p
+        return p, max(q, 0.001)
+
+    pq = {(p.event_number, s): _pq(p.event_number, s) for p in picks for s in p.signs}
+
+    # enumerera fulla systemet, bucketa per (antal blå, antal gula)
+    buckets: dict[tuple[int, int], list] = {}
+
+    def _walk(i: int, nb: int, ng: int, pr: float, qr: float, acc: list[str]):
+        if i == len(picks):
+            ev1 = pr * (min(pool_top, pool_top / (field * qr + 1.0)) if pool_top else 1.0)
+            buckets.setdefault((nb, ng), []).append((ev1, tuple(acc)))
+            return
+        p = picks[i]
+        for s in p.signs:
+            col = color_of.get((p.event_number, s))
+            ps, qs = pq[(p.event_number, s)]
+            _walk(i + 1, nb + (col == "blå"), ng + (col == "gul"),
+                  pr * ps, qr * qs, acc + [s])
+
+    _walk(0, 0, 0, 1.0, 1.0, [])
+    nb_max = max(k[0] for k in buckets)
+    ng_max = max(k[1] for k in buckets)
+    bstat = {k: (len(v), sum(e for e, _ in v)) for k, v in buckets.items()}
+
+    # välj gränser (min/max blå, min/max gul) som maximerar EV inom budgeten
+    best, best_ev = None, -1.0
+    for blo in range(nb_max + 1):
+        for bhi in range(blo, nb_max + 1):
+            for glo in range(ng_max + 1):
+                for ghi in range(glo, ng_max + 1):
+                    n = ev = 0.0
+                    for (nb, ng), (cnt, evs) in bstat.items():
+                        if blo <= nb <= bhi and glo <= ng <= ghi:
+                            n += cnt; ev += evs
+                    if n and n <= target and ev > best_ev:
+                        best, best_ev = (blo, bhi, glo, ghi), ev
+
+    blo, bhi, glo, ghi = best
+    rows = [list(r) for (nb, ng), v in buckets.items() if blo <= nb <= bhi and glo <= ng <= ghi
+            for _, r in v]
+
+    blues = [f"{ev}:{s}" for (ev, s), c in sorted(color_of.items()) if c == "blå"]
+    yells = [f"{ev}:{s}" for (ev, s), c in sorted(color_of.items()) if c == "gul"]
+    rule = (f"Färgregel — BLÅ ({', '.join(blues)}): minst {blo}, högst {bhi} rätt"
+            + (f" · GUL ({', '.join(yells)}): minst {glo}, högst {ghi} rätt" if yells else "")
+            + f". Skär {full_rows} → {len(rows)} rader; bort åker folkraden "
+              f"(för få utmanare) och skräll-bomberna (för många).")
+
+    return System(
+        strategy=strategy, system_type="färgreducerat", budget=budget,
+        row_price=row_price, num_rows=len(rows), cost=round(len(rows) * row_price, 2),
+        picks=picks, rows=rows, rule=rule,
+        note=f"Kostnad {full_rows * row_price:.0f} kr → {len(rows) * row_price:.0f} kr. "
+             f"Gränserna valda för max EV bland kvarvarande rader.",
     )
 
 

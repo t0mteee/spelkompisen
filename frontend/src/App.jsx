@@ -450,7 +450,16 @@ function SystemView({ sys, matches, payouts, product, draw }) {
           {sys.picks.map((p) => (
             <tr key={p.event_number} className={roleClass[p.role]}>
               <td>{p.event_number}</td><td className="match">{p.description}</td>
-              <td>{p.role}</td><td className="signs">{p.signs.join('  ')}</td>
+              <td>{p.role}</td>
+              <td className="signs">
+                {p.signs.map((s, i) => (
+                  <Fragment key={s}>
+                    {i > 0 ? '  ' : ''}
+                    <span className={p.colors?.[s] === 'blå' ? 'sg-bla' : p.colors?.[s] === 'gul' ? 'sg-gul' : ''}
+                      title={p.colors?.[s] ? `${p.colors[s]} färg i färgregeln` : undefined}>{s}</span>
+                  </Fragment>
+                ))}
+              </td>
               <td className="rec">{p.reason}</td>
             </tr>
           ))}
@@ -494,6 +503,7 @@ function svsUrl(product, draw) {
 
 const SYSTEM_BASE = [
   { id: 'ev', label: 'EV-topp (bäst betalda raderna)', q: 'ev=true' },
+  { id: 'farg', label: 'Färgreducering (min/max per färg)', q: 'color=true' },
   { id: 'math', label: 'Matematiskt (alla kombinationer)', q: 'reduced=false' },
   { id: 'red', label: 'Reducerat (värde)', q: 'reduced=true' },
   { id: 'g', label: 'Egen reducering (garanti)', q: 'reduced=true&guarantee=', dynamic: true },

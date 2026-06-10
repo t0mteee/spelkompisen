@@ -19,15 +19,20 @@ sitter i rader folket inte spelar, inte i enskilda tecken.
 
 ## Hög prioritet
 
-1. **Backtest & kalibrering mot facit** (störst kunskapsvinst per timme)
-   - `/draws/{nr}/result` ger faktisk `distribution` (vinnare + utdelning per nivå),
-     och gamla `/draws/{nr}` har kvar streck/odds. Vi har dessutom egna snapshots.
-   - Bygg `cli.py backtest`: för N historiska omgångar, jämför (a) vårt förväntade
-     antal vinnare per nivå vs faktiskt, (b) träffar våra "värdestreck" oftare än
-     strecket antyder, (c) EV-topp-radernas realiserade ROI.
-   - Kalibrera en **korrelationsfaktor κ**: folk spelar *rader* (kuponger), inte
-     oberoende tecken — oberoende-antagandet underskattar medvinnare på folkrader
-     och överskattar på skrällrader. Skala: vinnare ≈ κ(radtyp) × oberoende-estimat.
+1. ~~**Backtest & kalibrering mot facit**~~ → `cli.py backtest N produkt` (klar).
+   **Första körningen (30+30 omgångar, juni 2026):**
+   - Stryktipset: värdestreck (kvot ≥1.08) träffade **50 %** mot folkets 30.8 %
+     streckade (n=20) — signalen ser äkta ut. Överspelade tecken (≤0.92) träffade
+     bara **15.8 %** mot 30.1 % streckat — folket bränner pengar precis där
+     modellen säger.
+   - Europatipset: svagare/ingen edge i urvalet (värde 21.7 % träff, n=23) — mer
+     data behövs innan slutsats.
+   - **κ (vinnar-kalibrering)**: Stryk 1.08, Europa 0.78 — oberoende-antagandet
+     är inom ±25 % och åt olika håll; ingen stor systematisk klumpning. Följ upp
+     när n växer; ev. produkt-specifik κ i EV-modellen.
+   - **Begränsning:** avgjorda omgångar behåller odds på bara ~1 match/omgång i
+     API:t → kör om backtesten mot **våra egna snapshots** när databasen växt
+     (några veckors data ger full odds-täckning). = backtest v2.
 
 2. **Spelvärdesindikator per omgång** (jackpot-detektor)
    - Forskningen/branschen är enig: +EV-omgångar uppstår vid **jackpott/rullpott**
@@ -56,7 +61,10 @@ sitter i rader folket inte spelar, inte i enskilda tecken.
 
 ## Låg prioritet / idéer
 
-8. Villkors-/poängreducering à la Poolarn (lås spik, uteslut tecken, poängintervall).
+8. ~~Färgreducering~~ → `color=true` på /api/system (klar): blå/gul-färgade
+   utmanartecken, min/max-gränser väljs automatiskt för max EV inom budgeten.
+   Kvar att bygga: manuell överstyrning (egna färger/gränser) à la Poolarn,
+   plus lås spik/uteslut tecken.
 9. Andelsspels-läge: dela systemkostnad, visa per-andel-EV.
 10. Måltipset (pid 6?) — samma API-familj, annan radstruktur.
 11. Notifiering (ntfy/pushover) när 🔥-flagga (sen oddssänkning) dyker upp nära deadline.

@@ -22,7 +22,7 @@ from . import config  # noqa: F401 — laddar .env (ODDS_API_KEY) vid import
 from .analysis import analyze_draw, analysis_to_dict
 from .builder import (build_math_system, build_reduced_system,
                       build_guarantee_system, build_svs_rsystem,
-                      build_ev_system, SVS_R12, system_to_dict)
+                      build_ev_system, build_color_system, SVS_R12, system_to_dict)
 from .collector import collector
 from . import sharp_service
 from .storage import Storage
@@ -179,6 +179,7 @@ def system(product: str = "stryktipset",
            guarantee: int = 0,
            sv_rsystem: str = "",
            ev: bool = False,
+           color: bool = False,
            value_weight: float = 0.5):
     """value_weight 0..1 = EV-/värdeskala: 0 = lågoddsare/favoriter (hög träffchans),
     högre = mer värde/skräll (lägre chans, högre EV). sv_rsystem ger SvS R-system.
@@ -191,6 +192,9 @@ def system(product: str = "stryktipset",
         elif ev:
             s = build_ev_system(a, strategy, budget, row_price=a.row_price or 1.0,
                                 value_weight=vw, plan=PRIZE_PLANS.get(product))
+        elif color:
+            s = build_color_system(a, strategy, budget, row_price=a.row_price or 1.0,
+                                   value_weight=vw, plan=PRIZE_PLANS.get(product))
         elif reduced and guarantee:
             s = build_guarantee_system(a, strategy, budget, guarantee=guarantee, value_weight=vw)
         elif reduced:

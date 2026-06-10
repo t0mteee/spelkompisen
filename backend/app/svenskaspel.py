@@ -207,7 +207,18 @@ class SvenskaSpel:
             tiers.append({"name": name, "correct": correct,
                           "winners": g.get("winners"),
                           "amount": _f(g.get("amount"))})
-        return {"draw_number": draw_number, "turnover": _f(r.get("currentNetSale")),
+        # facit: rätt tecken per match (underlag för backtest/kalibrering)
+        outcomes: dict[int, str] = {}
+        cancelled: list[int] = []
+        for e in (r.get("events") or []):
+            en = e.get("eventNumber")
+            if e.get("cancelled"):
+                cancelled.append(en)
+            if e.get("outcome") in ("1", "X", "2"):
+                outcomes[en] = e["outcome"]
+        return {"draw_number": draw_number, "outcomes": outcomes,
+                "cancelled": cancelled,
+                "turnover": _f(r.get("currentNetSale")),
                 "tiers": tiers}
 
     def latest_payouts(self, product: str = "stryktipset",

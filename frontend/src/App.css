@@ -154,6 +154,8 @@ h2 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spa
 
 .grid.compact td, .grid.compact th { padding: 6px 10px; }
 .signs { font-weight: 700; letter-spacing: 2px; }
+.signs .sg-bla { color: #4aa3df; }
+.signs .sg-gul { color: #e8c95a; }
 tr.r-spik td { background: rgba(46,139,87,0.10); }
 tr.r-full td { background: rgba(201,123,29,0.10); }
 

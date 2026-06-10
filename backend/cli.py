@@ -5,6 +5,7 @@ Användning (från backend/ med aktiverat venv):
     python cli.py spikar            # topp-spikar sorterade
     python cli.py snapshot          # hämta + spara snapshot i SQLite
     python cli.py history 4956 1 1  # oddshistorik draw=4956 event=1 sign=1
+    python cli.py backtest 25 stryktipset  # kalibrera modellen mot facit
 
 Tips: lägg 'snapshot' i en cron/launchd var 30:e min för att logga rörelse.
 """
@@ -17,7 +18,7 @@ from app.builder import (build_math_system, build_reduced_system,
                          build_guarantee_system, STRATEGIES)
 from app import sharp_service
 from app.storage import Storage
-from app.svenskaspel import SvenskaSpel
+from app.svenskaspel import SvenskaSpel, PRODUCTS
 
 
 def _fmt_odds(o):
@@ -146,10 +147,98 @@ def cmd_system(args: list[str], product: str) -> None:
     _print_system(s)
 
 
+def cmd_backtest(rest: list[str], product: str) -> None:
+    """Kalibrera modellen mot avgjorda omgångar: backtest [antal] [produkt].
+
+    Mäter (a) träffsäkerhet per värde-bucket (slår 'värdestreck' folkets streck?),
+    (b) kryss-bias, (c) vinnar-kalibrering: faktiska vinnare på toppnivån vs
+    oberoende-antagandets prognos (fält × Π folk-streck på facit-raden)."""
+    import math
+    from app.analysis import _fair_probs
+    count = next((int(a) for a in rest if a.isdigit()), 25)
+    SIGNS = ("1", "X", "2")
+    BUCKETS = (("värde (kvot ≥1.08)", 1.08, 99.0),
+               ("neutral (0.92–1.08)", 0.92, 1.08),
+               ("överspelat (≤0.92)", 0.0, 0.92))
+    rows: dict[str, list] = {b[0]: [] for b in BUCKETS}
+    xs, kappas, done = [], [], 0
+
+    with SvenskaSpel() as ss:
+        ds = ss.list_draws(product)
+        nr = (min(d["draw_number"] for d in ds) - 1) if ds else None
+        tried = 0
+        while nr and done < count and tried < count * 3:
+            tried += 1
+            res = ss.get_result(product, nr)
+            this = nr
+            nr -= 1
+            if not res or not res.get("outcomes"):
+                continue
+            try:
+                d = ss.get_draw(this, product)
+            except Exception:  # noqa: BLE001 — enstaka 500 från SvS, hoppa
+                continue
+            facit, skip = res["outcomes"], set(res.get("cancelled") or [])
+            row_q, kappa_ok = 1.0, True
+            for m in d.matches:
+                if m.event_number in skip or m.event_number not in facit:
+                    kappa_ok = False
+                    continue
+                f = facit[m.event_number]
+                probs, src = _fair_probs(m.outcomes)
+                # bucket-statistik bara där riktiga odds finns (alla matcher har streck,
+                # men SvS sätter inte odds på alla — hoppa över de odds-lösa)
+                if src == "odds":
+                    for s in SIGNS:
+                        p, st = probs[s], m.outcomes[s].streck
+                        if p is None or not st:
+                            continue
+                        ratio = p / (st / 100.0)
+                        for name, lo, hi in BUCKETS:
+                            if lo <= ratio < hi:
+                                rows[name].append((p, st / 100.0, 1.0 if s == f else 0.0))
+                                break
+                        if s == "X":
+                            xs.append((p, st / 100.0, 1.0 if s == f else 0.0))
+                qf = m.outcomes[f].streck
+                row_q *= (qf / 100.0) if qf else (probs[f] or 1 / 3)
+            top = next((t for t in res["tiers"] if t["correct"] == len(d.matches)), None)
+            turn = res.get("turnover") or d.net_sale
+            if kappa_ok and top and turn and top.get("winners") is not None:
+                pred = (turn / (d.row_price or 1.0)) * row_q
+                kappas.append((this, top["winners"], pred))
+            done += 1
+            print(f"  omg {this} klar ({done}/{count})", end="\r")
+
+    print(f"\n=== Backtest {product}: {done} avgjorda omgångar ===")
+    print(f"{'bucket':22} {'n':>6} {'modell-P':>9} {'folk-Q':>8} {'träff%':>8}")
+    for name, *_ in BUCKETS:
+        r = rows[name]
+        if not r:
+            continue
+        n = len(r)
+        print(f"{name:22} {n:6d} {sum(x[0] for x in r)/n*100:8.1f}% "
+              f"{sum(x[1] for x in r)/n*100:7.1f}% {sum(x[2] for x in r)/n*100:7.1f}%")
+    if xs:
+        n = len(xs)
+        print(f"\nKryss (X): modell {sum(x[0] for x in xs)/n*100:.1f}% · "
+              f"folket {sum(x[1] for x in xs)/n*100:.1f}% · träffade {sum(x[2] for x in xs)/n*100:.1f}% (n={n})")
+    if kappas:
+        logs = [math.log((a + 1) / (p + 1)) for _, a, p in kappas]
+        kappa = math.exp(sum(logs) / len(logs))
+        print(f"\nVinnar-kalibrering toppnivån (n={len(kappas)}): "
+              f"faktiska vinnare ≈ {kappa:.2f} × oberoende-prognosen.")
+        print("  κ > 1 ⇒ folket klumpar ihop sig på folkrader mer än oberoende "
+              "streck antyder (utdelningen på folkrader överskattas av modellen).")
+        worst = sorted(kappas, key=lambda t: abs(math.log((t[1] + 1) / (t[2] + 1))), reverse=True)[:3]
+        for nr_, a, p in worst:
+            print(f"  omg {nr_}: faktiskt {a} vinnare vs prognos {p:.1f}")
+
+
 def main() -> None:
     args = sys.argv[1:]
     cmd = args[0] if args else "show"
-    valid = {"stryktipset", "europatipset", "topptipset"}
+    valid = set(PRODUCTS)   # alla slugs inkl topptipsetstryk/-extra
     product = next((a for a in args[1:] if a in valid), "stryktipset")
     rest = [a for a in args[1:] if a not in valid]
     if cmd == "show":
@@ -162,6 +251,8 @@ def main() -> None:
         cmd_history(rest)
     elif cmd in ("rad", "system"):
         cmd_system(rest, product)
+    elif cmd == "backtest":
+        cmd_backtest(rest, product)
     else:
         print(__doc__)
 
