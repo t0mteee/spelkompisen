@@ -28,11 +28,11 @@ API_VER = 1  # path-prefix är alltid 1 (API-version), slugen styr produkten
 #   topptipset (pid25) dagliga, topptipsetstryk (pid23) helgkupong med
 #   Stryktipsets matcher, topptipsetextra (pid24). Var och en har egen nummerserie.
 PRODUCTS = {
-    "stryktipset":     {"slug": "stryktipset",     "listing": True,  "matches": 13, "name": "Stryktipset"},
-    "europatipset":    {"slug": "europatipset",    "listing": True,  "matches": 13, "name": "Europatipset"},
-    "topptipset":      {"slug": "topptipset",      "listing": False, "matches": 8,  "name": "Topptipset", "seed": 4177},
-    "topptipsetstryk": {"slug": "topptipsetstryk", "listing": False, "matches": 8,  "name": "Topptipset Stryk", "seed": 966},
-    "topptipsetextra": {"slug": "topptipsetextra", "listing": False, "matches": 8,  "name": "Topptipset Extra", "seed": 1840},
+    "stryktipset":     {"slug": "stryktipset",     "pid": 1,  "listing": True,  "matches": 13, "name": "Stryktipset"},
+    "europatipset":    {"slug": "europatipset",    "pid": 2,  "listing": True,  "matches": 13, "name": "Europatipset"},
+    "topptipset":      {"slug": "topptipset",      "pid": 25, "listing": False, "matches": 8,  "name": "Topptipset", "seed": 4177},
+    "topptipsetstryk": {"slug": "topptipsetstryk", "pid": 23, "listing": False, "matches": 8,  "name": "Topptipset Stryk", "seed": 966},
+    "topptipsetextra": {"slug": "topptipsetextra", "pid": 24, "listing": False, "matches": 8,  "name": "Topptipset Extra", "seed": 1840},
 }
 
 # Spel-grupper i UI: en flik kan samla flera produkter (delade omgångsväljaren).
@@ -223,6 +223,21 @@ class SvenskaSpel:
                 "cancelled": cancelled,
                 "turnover": _f(r.get("currentNetSale")),
                 "tiers": tiers}
+
+    def get_jackpot(self, product: str, draw_number: int) -> Optional[float]:
+        """Riktig jackpot/rullpott från /jackpots-endpointen (fund-fältet på
+        draws är opålitligt — t.ex. 6 Mkr-jackpot syns bara här). Matchar på
+        productId eftersom productName byter skepnad (Europatipset = 'VM-tipset')."""
+        data = self._get_or_none(f"/draw/{API_VER}/jackpots")
+        if not data:
+            return None
+        pid = PRODUCTS[product].get("pid")
+        total = 0.0
+        for j in data.get("jackpots") or []:
+            if j.get("productId") == pid and j.get("drawNumber") == draw_number:
+                for x in j.get("jackpots") or []:
+                    total += _f(x.get("jackpotAmount")) or 0.0
+        return total or None
 
     def latest_payouts(self, product: str = "stryktipset",
                        from_number: Optional[int] = None, back: int = 12) -> Optional[dict]:

@@ -154,7 +154,8 @@ def payouts(product: str = "stryktipset", draw: int | None = None):
     tiers = [{"correct": c, "share": s, "pool": round(turnover * plan["ratio"] * s, 2)}
              for c, s in sorted(plan["splits"].items(), reverse=True)]
     # spelvärde = total återbetalning inkl jackpot/rullpott; > ratio => extra bra omgång
-    jackpot = d.jackpot or 0.0
+    with SvenskaSpel() as ss:
+        jackpot = ss.get_jackpot(product, d.draw_number) or d.jackpot or 0.0
     spelvarde = plan["ratio"] + (jackpot / turnover if turnover else 0.0)
     return {"available": turnover > 0, "draw_number": d.draw_number,
             "turnover": turnover, "row_price": row_price, "ratio": plan["ratio"],

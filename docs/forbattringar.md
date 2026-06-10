@@ -34,11 +34,13 @@ sitter i rader folket inte spelar, inte i enskilda tecken.
      API:t → kör om backtesten mot **våra egna snapshots** när databasen växt
      (några veckors data ger full odds-täckning). = backtest v2.
 
-2. ~~**Spelvärdesindikator per omgång**~~ (klar): `fund`/`extraInfo` parsas ur
-   draw-svaret, /api/payouts ger `jackpot` + `spelvarde`; topinfo visar
-   "spelvärde X %" + 💰-flagga, och kupongens jackpotfält förifylls.
-   OBS: `fund`-fältets form är ännu overifierad (null utan jackpot) — dubbelkolla
-   parsningen första riktiga jackpotomgången!
+2. ~~**Spelvärdesindikator per omgång**~~ (klar): riktiga jackpotdata från
+   `/draw/1/jackpots` (matcha productId + drawNumber; `fund` på draws är
+   opålitligt — 6 Mkr-jackpotten fanns bara i jackpots-endpointen). /api/payouts
+   ger `jackpot` + `spelvarde`; topinfo visar 💰-flagga och kupongens jackpotfält
+   förifylls. Verifierad live: Stryk 6 Mkr, Europa/VM-tipset 5 Mkr.
+   Kvar: spelvärdet räknas mot nuvarande omsättning — blir rättvisande först
+   med projicerad slutomsättning (punkt 3).
 
 3. **EV-läget: osäkerhetsjustering tidigt i veckan**
    - Tidig låg omsättning → fält litet → "+EV" mot dagens pott är glädjesiffror.

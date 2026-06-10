@@ -477,7 +477,7 @@ function SystemView({ sys, matches, payouts, product, draw, onRecalc }) {
   const downloadEgna = () => {
     const rows = sysRows || cartesianRows(sys.picks.map((p) => p.signs))
     if (rows.length > 50000) { alert(`Systemet är för stort (${rows.length} rader) för filexport.`); return }
-    downloadText(`${product}_${sys.strategy}_omg${draw || ''}_egnarader.txt`, egnaRaderText(rows))
+    downloadText(`${product}_${sys.strategy}_omg${draw || ''}_egnarader.txt`, egnaRaderText(product, draw, rows))
   }
   return (
     <div className="system">
@@ -633,8 +633,19 @@ function cartesianRows(groups) {
   }
   return rows
 }
-function egnaRaderText(rows) {
-  return rows.map((r) => 'E,' + r.join(',')).join('\r\n') + '\r\n'
+// Obligatorisk rubrikrad (enligt SvS filspecifikation): produktnamn först,
+// Topptipset kräver dessutom variant + Omg= + Insats= (1–10 kr/rad).
+function egnaRaderHeader(product, draw) {
+  if (product === 'stryktipset') return 'Stryktipset'
+  if (product === 'europatipset') return 'Europatipset'
+  if (product === 'topptipset') return `Topptipset,Omg=${draw},Insats=1`
+  if (product === 'topptipsetstryk') return `Topptipset,Stryk,Omg=${draw},Insats=1`
+  if (product === 'topptipsetextra') return `Topptipset,Europa,Omg=${draw},Insats=1`
+  return null
+}
+function egnaRaderText(product, draw, rows) {
+  return egnaRaderHeader(product, draw) + '\r\n'
+    + rows.map((r) => 'E,' + r.join(',')).join('\r\n') + '\r\n'
 }
 function downloadText(filename, text) {
   const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
@@ -875,7 +886,7 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onFill,
   const downloadEgna = () => {
     if (nRows > 50000) { alert(`Systemet är för stort (${nRows} rader) för filexport.`); return }
     const rows = rowMode ? pickRows : cartesianRows(couponGroups)
-    downloadText(`${product}_omg${draw}_egnarader.txt`, egnaRaderText(rows))
+    downloadText(`${product}_omg${draw}_egnarader.txt`, egnaRaderText(product, draw, rows))
   }
   const effTurnover = turnover != null ? turnover : (payouts?.turnover || 0)
   const s = couponStats(matches, picks, payouts, redOn ? minDiv : 0, turnover, jackpot, pickRows)

@@ -40,6 +40,9 @@ start.sh / stop.sh    kör/stoppa båda lokalt
 - Svenska decimaler: "5,50" → 5.50 (`_f` i svenskaspel.py). `svenskaFolket` = streck %,
   `currentNetSale` = omsättning, `drawEvents[].match.participants[].isoCode` = flaggor.
 - `/draws/{nr}/result` ger `distribution` (faktiska vinstnivåer/utdelningar) — användbart för backtest.
+- **Jackpot**: `/draw/1/jackpots` (matcha på productId + drawNumber — `fund` på draws är
+  opålitligt och productName byter skepnad, t.ex. Europatipset = "VM-tipset" under VM).
+  Belopp som svensk decimalsträng ("6000000,00").
 - Vinstplaner (validerade mot utfall): Stryk/Europa 65 % åter, split 13/12/11/10 = 40/15/12/25 %.
   Topptipset 70 %, bara 8 rätt delar potten. Finns i `PRIZE_PLANS` i main.py.
 
@@ -69,8 +72,12 @@ start.sh / stop.sh    kör/stoppa båda lokalt
 
 ## Export till Svenska Spel ("Egna rader")
 
-- `.txt`, en rad per spelrad: `E,1,X,2,...` (CRLF). Uppladdning på
-  `spela.svenskaspel.se/{stryktipset|europatipset|topptipset}/externa-systemspel`
+- `.txt` (CRLF) med **obligatorisk rubrikrad** (annars "Produktnamnet verkar inte stämma"):
+  Stryktipset/Europatipset = bara produktnamnet (`Stryktipset`); Topptipset =
+  `Topptipset[,Stryk|,Europa],Omg=<nr>,Insats=<1–10>` (Stryk=topptipsetstryk,
+  Europa=topptipsetextra). Därefter en rad per spelrad: `E,1,X,2,...`.
+  Filspecen står på resp. produkts `/externa-systemspel`-sida (verifierad där).
+  Uppladdning på `spela.svenskaspel.se/{stryktipset|europatipset|topptipset}/externa-systemspel`
   (alla Topptipset-varianter går via topptipset-sidan).
 - Exportera alltid **konkreta enumererade rader** (E), aldrig M-system — annars förloras reduceringen.
 - R 4-0-9 / R 0-7-16 / R 4-4-144 är exakta Hamming-täckningar (= SvS officiella rader).
