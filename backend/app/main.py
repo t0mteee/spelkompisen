@@ -11,6 +11,7 @@ GET /api/history?draw=...&event=...&sign=1   -> oddshistorik för ett utfall
 """
 from __future__ import annotations
 
+import datetime as dt
 import subprocess
 from dataclasses import asdict
 from pathlib import Path
@@ -140,6 +141,47 @@ PRIZE_PLANS = {
 }
 
 
+def _projected_turnover(product: str, current: float) -> float | None:
+    """Förväntad SLUTomsättning = medianen av de senaste avgjorda omgångarnas
+    slutomsättning (cachas 6 h i meta). Tidig låg omsättning ger annars
+    glädje-EV: både potter och medvinnare skalar med omsättningen."""
+    import json as _json
+
+    store = Storage()
+    try:
+        key = f"finalturn_{product}"
+        cached = store.meta_get(key)
+        if cached:
+            try:
+                c = _json.loads(cached)
+                age = (dt.datetime.now(dt.timezone.utc)
+                       - dt.datetime.fromisoformat(c["ts"])).total_seconds()
+                if age < 6 * 3600 and c.get("median"):
+                    return max(current, float(c["median"]))
+            except (ValueError, KeyError):
+                pass
+        vals: list[float] = []
+        with SvenskaSpel() as ss:
+            ds = ss.list_draws(product, start_hint=_seed_hint(product))
+            nr = (min(d["draw_number"] for d in ds) - 1) if ds else None
+            tried = 0
+            while nr and len(vals) < 6 and tried < 15:
+                res = ss.get_result(product, nr)
+                tried += 1
+                nr -= 1
+                if res and res.get("turnover"):
+                    vals.append(res["turnover"])
+        if not vals:
+            return None
+        vals.sort()
+        median = vals[len(vals) // 2]
+        store.meta_set(key, _json.dumps(
+            {"ts": dt.datetime.now(dt.timezone.utc).isoformat(), "median": median}))
+        return max(current, median)
+    finally:
+        store.close()
+
+
 @app.get("/api/payouts")
 def payouts(product: str = "stryktipset", draw: int | None = None):
     """Prispott per vinstnivå beräknad från AKTUELL omsättning och Svenska Spels
@@ -157,10 +199,15 @@ def payouts(product: str = "stryktipset", draw: int | None = None):
     with SvenskaSpel() as ss:
         jackpot = ss.get_jackpot(product, d.draw_number) or d.jackpot or 0.0
     spelvarde = plan["ratio"] + (jackpot / turnover if turnover else 0.0)
+    projected = _projected_turnover(product, turnover) or turnover
+    spelvarde_proj = plan["ratio"] + (jackpot / projected if projected else 0.0)
     return {"available": turnover > 0, "draw_number": d.draw_number,
             "turnover": turnover, "row_price": row_price, "ratio": plan["ratio"],
             "jackpot": jackpot, "extra_info": d.extra_info,
-            "spelvarde": round(spelvarde, 4), "tiers": tiers}
+            "spelvarde": round(spelvarde, 4),
+            "projected_turnover": projected,
+            "spelvarde_proj": round(spelvarde_proj, 4),
+            "tiers": tiers}
 
 
 @app.get("/api/analysis")
@@ -193,6 +240,12 @@ def system(product: str = "stryktipset",
     ev=true rankar konkreta rader efter popularitetsjusterad EV (poolspels-optimal)."""
     a = _analyze(product, draw)
     vw = max(0.0, min(1.0, value_weight))
+    # EV-rankning/färgval räknar mot förväntad SLUTomsättning (tidig låg
+    # omsättning gör annars +1:an i medvinnarformeln dominant = glädje-EV)
+    if ev or color:
+        proj = _projected_turnover(product, a.turnover or 0.0)
+        if proj and proj > (a.turnover or 0.0):
+            a.turnover = proj
     try:
         if sv_rsystem and sv_rsystem in SVS_R12:
             s = build_svs_rsystem(a, sv_rsystem, strategy, value_weight=vw)

@@ -510,6 +510,17 @@ function SystemView({ sys, matches, payouts, product, draw, onRecalc }) {
             <div className="kpi" title="ROI = EV netto ÷ insats.">
               <span className={st.roi >= 0 ? 'pos' : 'neg'}>{st.roi == null ? '–' : (st.roi * 100).toFixed(0) + ' %'}</span>ROI</div>
           </div>
+          {payouts?.projected_turnover > payouts?.turnover && (() => {
+            const stP = systemStats(sys, matches, { ...payouts, turnover: payouts.projected_turnover })
+            if (!stP || stP.tooBig) return null
+            return (
+              <div className="rule" title="Potterna växer mot spelstopp men det gör medvinnarna också — detta är EV räknat mot medianen av senaste omgångarnas slutomsättning.">
+                Vid förväntad slutomsättning ({kr(payouts.projected_turnover)}): förv. utdelning {kr(stP.evPayout)}
+                {' '}· EV <b className={stP.ev >= 0 ? 'pos' : 'neg'}>{stP.ev >= 0 ? '+' : ''}{kr(stP.ev)}</b>
+                {' '}· ROI {stP.roi == null ? '–' : (stP.roi * 100).toFixed(0) + ' %'} — den ärliga siffran tidigt i veckan.
+              </div>
+            )
+          })()}
           {payouts?.available && (
             <PayoutTable s={st} tiers={payTiers} effTurnover={payouts.turnover || 0}
               turnoverOverridden={false} jackpot={0} />
@@ -949,6 +960,10 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onFill,
   const [turnover, setTurnover] = useState(null)   // null = använd live-omsättning
   const [jackpot, setJackpot] = useState(0)
   const [copied, setCopied] = useState(false)
+  const [bankroll, setBankroll] = useState(() => {
+    try { return Number(localStorage.getItem('svs_bankroll')) || 5000 } catch { return 5000 }
+  })
+  useEffect(() => { try { localStorage.setItem('svs_bankroll', String(bankroll)) } catch { /* ok */ } }, [bankroll])
   // jackpot/rullpott hämtas numera ur API:t — förifyll när omgången har en
   useEffect(() => {
     if (payouts?.jackpot > 0) setJackpot(payouts.jackpot)
@@ -998,6 +1013,11 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onFill,
                   <input type="number" min="0" step="0.5" value={(jackpot / 1e6)}
                     onChange={(e) => setJackpot(Number(e.target.value) * 1e6)} />
                 </label>
+                {payouts?.projected_turnover > (payouts?.turnover || 0) && turnover !== payouts.projected_turnover && (
+                  <button onClick={() => setTurnover(payouts.projected_turnover)}
+                    title="Räkna EV/utdelning mot förväntad slutomsättning (median av senaste omgångarna) i stället för nuvarande — den ärliga siffran tidigt i veckan.">
+                    → prognos ({kr(payouts.projected_turnover)})</button>
+                )}
                 {turnover != null && <button onClick={() => setTurnover(null)}>↺ live</button>}
               </div>
               <label className="reducer">
@@ -1021,6 +1041,29 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onFill,
             <div className="kpi" title="ROI = EV netto ÷ insats, i procent. T.ex. +20% betyder att du i snitt får tillbaka 1,20 kr per satsad krona.">
               <span className={s.roi >= 0 ? 'pos' : 'neg'}>{s.roi == null ? '–' : (s.roi * 100).toFixed(0) + ' %'}</span>ROI</div>
           </div>
+          {s.modelOk && (() => {
+            // Kelly på toppvinsten (konservativt: lägre nivåer ignoreras).
+            // f* = (p·b − (1−p))/b där b = utdelning/insats − 1
+            const C = s.cost, p = s.pAll, D = s.topDividend
+            const b = C > 0 && D > C ? D / C - 1 : 0
+            const f = b > 0 ? (p * b - (1 - p)) / b : -1
+            return (
+              <div className="kellybox" title="Kelly-kriteriet: andel av bankrullen som maximerar långsiktig tillväxt. Räknat enbart på toppvinsten (konservativt). Kvarts-Kelly rekommenderas — full Kelly är väldigt volatil. Tips: tryck '→ prognos' ovan så räknas det mot förväntad slutomsättning.">
+                <span>📐 Kelly:</span>
+                {f > 0 ? (
+                  <>
+                    kvarts-Kelly <b>{(f / 4 * 100).toFixed(2)} %</b> av bankrullen
+                    <label> bankrulle <input type="number" min="0" step="500" value={bankroll}
+                      onChange={(e) => setBankroll(Math.max(0, Number(e.target.value)))} /> kr</label>
+                    → insats ≈ <b className={f / 4 * bankroll >= s.cost ? 'pos' : 'neg'}>{kr(f / 4 * bankroll)}</b>
+                    <span className="hint"> (kupongen kostar {kr(s.cost)}{f / 4 * bankroll < s.cost ? ' — över kvarts-Kelly, sänk budgeten' : ''})</span>
+                  </>
+                ) : (
+                  <span className="hint"> ingen edge på toppvinsten vid dessa siffror — Kelly säger avstå/minska. Prova "→ prognos" för ärligare omsättning.</span>
+                )}
+              </div>
+            )
+          })()}
           {payouts?.available && s.modelOk && (
             <PayoutTable s={s} tiers={payTiers} effTurnover={effTurnover}
               turnoverOverridden={turnover != null} jackpot={jackpot} />
@@ -1235,8 +1278,11 @@ export default function App() {
           <span>odds, streck & omsättning hämtade <b>{fmtFetched(analysis.fetched_at)}</b></span>
           {payouts?.available && <span>prispott (alla rätt) <b>{kr(payouts.tiers?.[0]?.pool)}</b></span>}
           {payouts?.available && (
-            <span title="Andel av omsättningen som betalas tillbaka, inkl. ev. jackpot. Över grundnivån = extra bra omgång att spela.">
-              spelvärde <b>{Math.round((payouts.spelvarde || payouts.ratio || 0) * 100)} %</b>
+            <span title="Andel av omsättningen som betalas tillbaka, inkl. ev. jackpot. 'Nu' räknar mot nuvarande omsättning; prognosen mot medianen av senaste omgångarnas slutomsättning — den siffran är den ärliga.">
+              spelvärde nu <b>{Math.round((payouts.spelvarde || payouts.ratio || 0) * 100)} %</b>
+              {payouts.projected_turnover > payouts.turnover && (
+                <> · vid förv. slutoms. ({kr(payouts.projected_turnover)}) <b>{Math.round((payouts.spelvarde_proj || 0) * 100)} %</b></>
+              )}
             </span>
           )}
           {payouts?.jackpot > 0 && (

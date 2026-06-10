@@ -27,8 +27,16 @@ start.sh / stop.sh    kör/stoppa båda lokalt
 - Frontend nås via Tailscale/LAN (vite.config: `host:true, allowedHosts:true`).
   Stoppa ALDRIG 5173-servern utan att starta om den — användaren kör mot den från mobilen.
 - Verifiering i browser: preview-servern `frontend-preview` (port 5180) i `.claude/launch.json`.
-- Bakgrundsinsamling: launchd `com.saman.svs.snapshot` var 30:e min → `backend/scripts/snapshot.sh`.
-  Skriv inte plist-filer åt användaren (behörighetsklassaren blockerar) — be hen köra `launchctl load`.
+- Bakgrundsinsamling: launchd `com.saman.svs.snapshot` var 30:e min → `backend/scripts/snapshot.sh`
+  → `cli.py snapshot-smart` (alla produkter; förtätar SJÄLV till var 5:e min när någon omgång
+  stänger inom 2 h, max ~25 min per körning). Skriv inte plist-filer åt användaren
+  (behörighetsklassaren blockerar) — be hen köra `launchctl load`.
+- Push-notiser (🔥 sen oddssänkning ≤8 h före spelstopp): `app/notify.py` via ntfy.sh.
+  Aktiveras med `NTFY_TOPIC=<hemligt-namn>` i gitignore:ade `backend/.env` + prenumeration
+  på samma topic i ntfy-appen. Utan topic = avstängt. Dedup per match via meta-tabellen.
+- Projicerad slutomsättning: `_projected_turnover` i main.py (median av senaste avgjorda
+  omgångars slutomsättning, cachad 6 h i meta). /api/payouts ger `projected_turnover` +
+  `spelvarde_proj`; EV-/färgsystem räknar mot prognosen. EV mot dagens omsättning är glädjesiffror.
 
 ## Svenska Spel-API:t (öppet, inga nycklar)
 

@@ -593,7 +593,8 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
              f"färre andra som spelat raden). De {len(rows)} bästa behölls — bort åker både "
              f"folkrader (många delar potten) och rena skrällbomber (för osannolika).",
         note=f"Förv. utdelning ≈ {ev_sum:.0f} kr mot {cost:.0f} kr insats "
-             f"(EV {ev_sum - cost:+.0f} kr) vid nuvarande omsättning/streck.",
+             f"(EV {ev_sum - cost:+.0f} kr) vid {turnover:,.0f} kr omsättning "
+             f"och nuvarande streck.".replace(",", " "),
     )
 
 

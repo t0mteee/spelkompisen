@@ -200,6 +200,18 @@ h2 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spa
 /* jackpot-flagga i topinfo */
 .topinfo .jackpot { color: #e8c95a; }
 .topinfo .jackpot b { color: #e8c95a; }
+
+/* Kelly-rutan i kupongen */
+.kellybox { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 12px; margin-bottom: 12px; font-size: 13px; color: var(--muted); }
+.kellybox b { color: var(--text); }
+.kellybox b.pos { color: #3ddc84; }
+.kellybox b.neg { color: #e06b6b; }
+.kellybox input { width: 80px; background: var(--bg); color: var(--text);
+  border: 1px solid var(--line); border-radius: 5px; padding: 3px 6px; }
+.rule b.pos { color: #3ddc84; }
+.rule b.neg { color: #e06b6b; }
 tr.r-spik td { background: rgba(46,139,87,0.10); }
 tr.r-full td { background: rgba(201,123,29,0.10); }
 

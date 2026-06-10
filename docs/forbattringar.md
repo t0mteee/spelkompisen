@@ -42,21 +42,23 @@ sitter i rader folket inte spelar, inte i enskilda tecken.
    Kvar: spelvärdet räknas mot nuvarande omsättning — blir rättvisande först
    med projicerad slutomsättning (punkt 3).
 
-3. **EV-läget: osäkerhetsjustering tidigt i veckan**
-   - Tidig låg omsättning → fält litet → "+EV" mot dagens pott är glädjesiffror.
-     Projicera slutomsättning (historik per produkt/veckodag) och räkna EV mot
-     den; visa båda. Streck stabiliseras sent — flagga att EV-ranking är färskvara.
+3. ~~**Projicerad slutomsättning**~~ (klar): median av senaste avgjorda omgångars
+   slutomsättning (cachas 6 h). Topinfo visar spelvärde nu + vid prognos
+   (Stryk-jackpotomgången: "606 %" → ärliga 91 %); kupongen har "→ prognos"-knapp;
+   systemvyn visar EV vid prognos; EV-/färgbyggarna räknar mot prognosen.
+   Möjlig förfining: veckodags-/säsongsviktning i stället för rak median.
 
 ## Medel prioritet
 
-4. **Kelly-insats**: givet radernas p och utdelningsspann, föreslå total insats
-   (fraktionell Kelly, t.ex. 0,25×) i stället för fast budget. Kräver (3).
+4. ~~**Kelly-insats**~~ (klar): 📐-ruta i kupongen — kvarts-Kelly på toppvinsten
+   (konservativt), bankrulle sparas lokalt, varnar när kupongkostnaden överstiger
+   rekommendationen. Förfining: full multinivå-Kelly över alla vinstnivåer.
 5. **X-bias-koll**: litteraturen antyder att kryss systematiskt understreckas i
    1X2-pooler. Verifieras gratis i backtesten (1) — i så fall litet X-tillägg i
    teckenpoängen.
-6. **Tätare snapshots nära spelstopp**: launchd var 30:e min missar sena rörelser
-   (vår starkaste signal). Öka till var 5:e min sista 2 h (StartCalendarInterval-
-   varianter eller en löpande agent som sover adaptivt).
+6. ~~**Tätare snapshots nära spelstopp**~~ (klar): `cli.py snapshot-smart` —
+   snapshotar alla produkter och förtätar själv till var 5:e min när någon
+   omgång stänger inom 2 h (max 25 min/körning; launchd-intervallet orört).
 7. **Diversifiering i EV-topp**: topplistan kan bli klungor av nästan identiska
    rader (delar öde). Greedy-val med straff för Hamming-närhet till redan valda
    rader ger bättre portfölj-varians till nästan samma EV.
@@ -70,7 +72,9 @@ sitter i rader folket inte spelar, inte i enskilda tecken.
    explodera till alla kombinationer vid "Fyll från förslag".
 9. Andelsspels-läge: dela systemkostnad, visa per-andel-EV.
 10. Måltipset (pid 6?) — samma API-familj, annan radstruktur.
-11. Notifiering (ntfy/pushover) när 🔥-flagga (sen oddssänkning) dyker upp nära deadline.
+11. ~~Notifiering vid 🔥~~ (klar): app/notify.py pushar via ntfy.sh när en match
+    får 🔥 (sen markant oddssänkning) och omgången stänger inom 8 h; dedup per
+    match. Kräver NTFY_TOPIC i backend/.env + ntfy-appen.
 12. Visa "din rad vs folkets rad"-överlapp som riskmått på kupongen.
 
 ## Research-källor

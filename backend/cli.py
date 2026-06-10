@@ -64,29 +64,76 @@ def cmd_spikar(product: str) -> None:
     print()
 
 
-def cmd_snapshot(product: str) -> None:
+def cmd_snapshot(product: str) -> float | None:
     """Snapshotta ALLA öppna omgångar för spelet (topptipset kan ha flera) +
-    cacha Pinnacle sharp för var och en."""
+    cacha Pinnacle sharp + pusha ev. 🔥-notiser. Returnerar timmar till
+    närmaste spelstopp (för den smarta förtätningen)."""
+    import datetime as dt
+    from app import notify
+    min_hrs: float | None = None
     with SvenskaSpel() as ss:
         opens = ss.open_draws(product)
         if not opens:
             print(f"{product}: ingen öppen omgång — hoppar över.")
-            return
+            return None
         for summ in opens:
             dn = summ["draw_number"]
             draw = ss.get_draw(dn, product)
             store = Storage()
             try:
                 rows = store.save_snapshot_if_changed(draw)
+                sharp_n = 0
+                try:
+                    res = sharp_service.collect_pinnacle(product, draw=draw, cache=True)
+                    sharp_n = len(res["hits"]) if res else 0
+                except Exception:  # noqa: BLE001
+                    sharp_n = -1
+                pushed = notify.check_movers(product, draw, store)
             finally:
                 store.close()
-            sharp_n = 0
+            if draw.reg_close_time:
+                try:
+                    close = dt.datetime.fromisoformat(draw.reg_close_time.replace("Z", "+00:00"))
+                    if close.tzinfo is None:
+                        close = close.replace(tzinfo=dt.timezone.utc)
+                    hrs = (close - dt.datetime.now(dt.timezone.utc)).total_seconds() / 3600
+                    if hrs >= 0:
+                        min_hrs = hrs if min_hrs is None else min(min_hrs, hrs)
+                except (ValueError, TypeError):
+                    pass
+            extra = f", {pushed} notis(er)" if pushed else ""
+            print(f"{product} omg {dn}: {rows} ändrade rader, sharp {sharp_n} matcher{extra}.")
+    return min_hrs
+
+
+# förtätning: när spelstopp närmar sig är sena oddsrörelser guld — snapshotta
+# var 5:e minut i stället för launchd-intervallets var 30:e
+DENSE_WITHIN_H = 2.0      # börja förtäta när någon omgång stänger inom 2 h
+DENSE_SLEEP_S = 300       # 5 min mellan varven i tätläget
+DENSE_BUDGET_S = 1500     # håll på i max 25 min, sedan tar nästa launchd-körning vid
+
+
+def cmd_snapshot_smart(max_seconds: int = DENSE_BUDGET_S) -> None:
+    """Snapshotta alla produkter; om någon öppen omgång stänger inom
+    DENSE_WITHIN_H timmar: fortsätt var 5:e minut tills tidsbudgeten är slut."""
+    import time
+    start = time.time()
+    while True:
+        min_hrs: float | None = None
+        for product in PRODUCTS:
             try:
-                res = sharp_service.collect_pinnacle(product, draw=draw, cache=True)
-                sharp_n = len(res["hits"]) if res else 0
-            except Exception:  # noqa: BLE001
-                sharp_n = -1
-            print(f"{product} omg {dn}: {rows} ändrade rader, sharp {sharp_n} matcher.")
+                h = cmd_snapshot(product)
+            except Exception as e:  # noqa: BLE001 — en produkt får inte stoppa resten
+                print(f"{product}: FEL {e}")
+                h = None
+            if h is not None:
+                min_hrs = h if min_hrs is None else min(min_hrs, h)
+        if min_hrs is None or min_hrs > DENSE_WITHIN_H:
+            break
+        if time.time() - start + DENSE_SLEEP_S > max_seconds:
+            break
+        print(f"-- spelstopp om {min_hrs:.1f} h -> tätläge, ny mätning om {DENSE_SLEEP_S // 60} min --")
+        time.sleep(DENSE_SLEEP_S)
 
 
 def cmd_history(args: list[str]) -> None:
@@ -247,6 +294,9 @@ def main() -> None:
         cmd_spikar(product)
     elif cmd == "snapshot":
         cmd_snapshot(product)
+    elif cmd == "snapshot-smart":
+        secs = next((int(a) for a in rest if a.isdigit()), None)
+        cmd_snapshot_smart(secs if secs is not None else 1500)
     elif cmd == "history":
         cmd_history(rest)
     elif cmd in ("rad", "system"):
