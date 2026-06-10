@@ -465,6 +465,15 @@ function SystemView({ sys, matches, payouts, product, draw, onRecalc }) {
   const sysRows = (sys.rows && sys.rows.length) ? sys.rows : null
   // faktiskt antal rader filen innehåller (reducerade/R-system kan avvika från num_rows)
   const exportCount = sysRows ? sysRows.length : sys.num_rows
+  // rad-system (EV-topp/färg/reducerat): tecknen i tabellen är ett URVAL av rader,
+  // inte ett kombinationssystem — visa per tecken hur många rader som använder det
+  const rowsList = sysRows
+  const signCounts = rowsList ? sys.picks.map((p, i) => {
+    const c = {}
+    rowsList.forEach((r) => { c[r[i]] = (c[r[i]] || 0) + 1 })
+    return c
+  }) : null
+  const fullCombos = sys.picks.reduce((a, p) => a * p.signs.length, 1)
   const downloadEgna = () => {
     const rows = sysRows || cartesianRows(sys.picks.map((p) => p.signs))
     if (rows.length > 50000) { alert(`Systemet är för stort (${rows.length} rader) för filexport.`); return }
@@ -500,19 +509,28 @@ function SystemView({ sys, matches, payouts, product, draw, onRecalc }) {
         </>
       )}
       {st?.tooBig && <div className="rule">Systemet är för stort ({st.rows} rader) för att räkna ut utdelningsspann här.</div>}
+      {rowsList && fullCombos > sys.num_rows && (
+        <div className="rule">
+          Urval, inte kombinationssystem: {sys.num_rows} utvalda rader av {fullCombos.toLocaleString('sv-SE')} möjliga
+          — som fullt system hade tecknen nedan kostat {kr(fullCombos * (sys.row_price || 1))}.
+          Siffran vid varje tecken visar hur många av raderna som använder det.
+        </div>
+      )}
       <table className="grid compact">
         <thead><tr><th>#</th><th>Match</th><th>Roll</th><th>Tecken</th><th>Motivering</th></tr></thead>
         <tbody>
-          {sys.picks.map((p) => (
+          {sys.picks.map((p, pi) => (
             <tr key={p.event_number} className={roleClass[p.role]}>
               <td>{p.event_number}</td><td className="match">{p.description}</td>
-              <td>{p.role}</td>
+              <td>{rowsList ? (p.signs.length === 1 ? 'spik' : `${p.signs.length} tecken`) : p.role}</td>
               <td className="signs">
                 {p.signs.map((s, i) => (
                   <Fragment key={s}>
                     {i > 0 ? '  ' : ''}
                     <span className={p.colors?.[s] === 'blå' ? 'sg-bla' : p.colors?.[s] === 'gul' ? 'sg-gul' : ''}
                       title={p.colors?.[s] ? `${p.colors[s]} färg i färgregeln` : undefined}>{s}</span>
+                    {signCounts && p.signs.length > 1 && signCounts[pi]?.[s] != null
+                      && <em className="signcnt" title={`${s} spelas i ${signCounts[pi][s]} av ${sys.num_rows} rader`}>×{signCounts[pi][s]}</em>}
                   </Fragment>
                 ))}
               </td>
