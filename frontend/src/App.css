@@ -159,6 +159,30 @@ h2 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spa
 .sg-bla { color: #4aa3df; }
 .sg-gul { color: #e8c95a; }
 
+/* radläge: andel av överlevande rader per tecken i analystabellen */
+.cell .rowshare { position: absolute; top: 2px; right: 4px; font-size: 9px;
+  color: #3ddc84; font-weight: 700; }
+
+/* RowExplorer: lista överlevande rader */
+.rowx { margin: 10px 0; }
+.rowx-sum { color: var(--muted); font-size: 12px; margin: 8px 0; }
+.rowx-sum .rowx-dev { display: inline-block; margin-right: 10px; }
+.rowx-sum .rowx-dev b { color: var(--text); }
+.rowx-grid { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 10px; max-height: 360px; overflow-y: auto; font-size: 12px; }
+.rowx-row { display: flex; gap: 16px; align-items: center; padding: 2px 0;
+  border-bottom: 1px solid rgba(42,51,63,.5); }
+.rowx-row:last-child { border-bottom: none; }
+.rowx-row.rowx-head { color: var(--muted); font-size: 11px; position: sticky; top: 0;
+  background: var(--panel); }
+.rowx-row > span:nth-child(2) { min-width: 80px; text-align: right; margin-left: auto; }
+.rowx-row > span:nth-child(3) { min-width: 80px; text-align: right; }
+.rowx-signs { font-family: ui-monospace, monospace; letter-spacing: 3px; font-weight: 700; }
+.rowx em, .rx-0, .rx-1, .rx-2 { font-style: normal; }
+.rx-0 { color: #3ddc84; }
+.rx-1 { color: #4aa3df; }
+.rx-2 { color: #e8c95a; }
+
 /* manuell färgstyrning (ColorLab) */
 .colorlab { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
   padding: 10px 12px; margin: 10px 0; font-size: 13px; }

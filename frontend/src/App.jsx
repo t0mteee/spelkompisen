@@ -194,10 +194,13 @@ function OddsTip({ sign, series, x, y }) {
   )
 }
 
-function OddsCell({ o, derived, picked, onToggle, valueOk, series }) {
+function OddsCell({ o, derived, picked, onToggle, valueOk, series, rowCount, rowTotal }) {
   const [tipPos, setTipPos] = useState(null)
   const hasSeries = !!series && (changePoints(series.svs).length > 0 || changePoints(series.pinnacle).length > 0)
   const cls = ['cell', 'pickcell']
+  // radläge: visa hur stor del av de överlevande raderna som använder tecknet
+  const inRowMode = rowTotal > 0
+  const share = inRowMode ? (rowCount || 0) / rowTotal : 0
   if (o.tags?.includes('värdestreck') || o.tags?.includes('sharp_värde')) cls.push('value')
   if (o.tags?.includes('ss_undervärderad')) cls.push('edge')
   if (picked) cls.push('picked')
@@ -216,8 +219,11 @@ function OddsCell({ o, derived, picked, onToggle, valueOk, series }) {
   return (
     <td className={cls.join(' ')} data-sign={o.sign} onClick={onToggle}
       onMouseEnter={showTip} onMouseLeave={() => setTipPos(null)}
-      title={hasSeries ? undefined : 'Klicka för att lägga till/ta bort i kupongen'}>
+      style={inRowMode ? { background: rowCount > 0 ? `rgba(61,220,132,${(0.07 + 0.38 * share).toFixed(3)})` : undefined } : undefined}
+      title={inRowMode ? `${rowCount || 0} av ${rowTotal} överlevande rader använder ${o.sign}` + (hasSeries ? '' : ' · klicka för att bygga om manuellt')
+        : hasSeries ? undefined : 'Klicka för att lägga till/ta bort i kupongen'}>
       {tipPos && <OddsTip sign={o.sign} series={series} x={tipPos.x} y={tipPos.y} />}
+      {inRowMode && rowCount > 0 && <div className="rowshare">×{rowCount}</div>}
       <div className="odds">{fmt(o.odds)}</div>
       {o.sharp_odds != null && (
         <div className="sharpodds" title={derived ? 'Pinnacle, härledd från spread/total' : 'Pinnacle (sharp)'}>
@@ -237,7 +243,7 @@ function OddsCell({ o, derived, picked, onToggle, valueOk, series }) {
   )
 }
 
-function AnalysisTable({ matches, product, drawNumber, selected, onSelect, picks, onToggleSign, movement }) {
+function AnalysisTable({ matches, product, drawNumber, selected, onSelect, picks, onToggleSign, movement, rowShares }) {
   const isPicked = (ev, s) => (picks[ev] || []).includes(s)
   return (
     <table className="grid analysis">
@@ -261,6 +267,8 @@ function AnalysisTable({ matches, product, drawNumber, selected, onSelect, picks
                   <OddsCell key={s} o={m.outcomes[s]} derived={derived} valueOk={valueOk}
                     picked={isPicked(m.event_number, s)}
                     series={movement?.events?.[m.event_number]?.[s]}
+                    rowCount={rowShares?.counts?.[`${m.event_number}:${s}`]}
+                    rowTotal={rowShares?.total}
                     onToggle={() => onToggleSign(m.event_number, s)} />
                 ))}
                 <td><StreckBar outcomes={m.outcomes} /></td>
@@ -860,6 +868,81 @@ function PayoutTable({ s, tiers, effTurnover, turnoverOverridden, jackpot }) {
   )
 }
 
+/* listar de överlevande raderna i radläget: exakta kombinationer, färgade efter
+   teckenrang (favorit/utmanare/skräll), med sannolikhet + utdelning per rad och
+   en sammanfattning av hur reduceringen slog per antal avvikelser från favoritraden. */
+function RowExplorer({ rows, matches, payouts, turnover, jackpot }) {
+  const [open, setOpen] = useState(false)
+  const [showAll, setShowAll] = useState(false)
+  if (!rows?.length || rows[0].length !== matches.length) return null
+  const N = matches.length
+  // teckenrang per match (0 = favorit, 1 = utmanare, 2 = skräll) för färgning
+  const rank = matches.map((m) => {
+    const order = ['1', 'X', '2'].sort((a, b) => (m.outcomes[b].fair_prob || 0) - (m.outcomes[a].fair_prob || 0))
+    return { [order[0]]: 0, [order[1]]: 1, [order[2]]: 2 }
+  })
+  const rowPrice = payouts?.row_price || 1
+  const field = turnover > 0 ? turnover / rowPrice : 0
+  const ratio = payouts?.ratio || 0
+  const topShare = payouts?.tiers?.find((t) => t.correct === N)?.share || 0
+  const pool = turnover * ratio * topShare + (jackpot || 0)
+  const data = rows.map((r) => {
+    let p = 1, q = 1, dev = 0
+    r.forEach((s, i) => {
+      const o = matches[i].outcomes[s] || {}
+      p *= o.fair_prob || 0
+      q *= o.streck != null ? o.streck / 100 : (o.fair_prob || 0)
+      if (rank[i][s] !== 0) dev++
+    })
+    const div = field > 0 ? Math.min(pool, pool / (field * q + 1)) : null
+    return { r, p, dev, div }
+  }).sort((a, b) => b.p - a.p)
+  // sammanfattning: överlevande rader per antal avvikelser från favoritraden
+  const byDev = {}
+  data.forEach((d) => { byDev[d.dev] = (byDev[d.dev] || 0) + 1 })
+  const shown = showAll ? data.slice(0, 512) : data.slice(0, 60)
+  return (
+    <div className="rowx">
+      <button className="legend-toggle" onClick={() => setOpen(!open)}>
+        🔍 Visa de {rows.length} överlevande raderna {open ? '▲' : '▼'}
+      </button>
+      {open && (
+        <>
+          <div className="rowx-sum">
+            Så slog reduceringen — rader kvar per antal avvikelser från favoritraden:{' '}
+            {Object.keys(byDev).sort((a, b) => a - b).map((d, i) => (
+              <span key={d} className="rowx-dev">{i > 0 ? ' · ' : ''}{d} avv: <b>{byDev[d]}</b> rader</span>
+            ))}
+          </div>
+          <div className="rowx-grid">
+            <div className="rowx-row rowx-head">
+              <span className="rowx-signs">rad (sorterad efter sannolikhet)</span>
+              <span>chans alla rätt</span><span>utd. om rätt</span>
+            </div>
+            {shown.map((d, i) => (
+              <div key={i} className="rowx-row">
+                <span className="rowx-signs">
+                  {d.r.map((s, j) => <em key={j} className={`rx-${rank[j][s]}`}>{s}</em>)}
+                </span>
+                <span>{pct(d.p)}</span>
+                <span>{d.div != null ? kr(d.div) : '–'}</span>
+              </div>
+            ))}
+          </div>
+          {data.length > shown.length && (
+            <button className="legend-toggle" onClick={() => setShowAll(true)}>
+              … visa fler ({data.length - shown.length} till, max 512)
+            </button>
+          )}
+          <p className="hint">Färger: <em className="rx-0">favorittecken</em> ·{' '}
+            <em className="rx-1">utmanare</em> · <em className="rx-2">skräll</em>. Samma
+            färglogik tonas in i analystabellen ovan (×N = antal rader som använder tecknet).</p>
+        </>
+      )}
+    </div>
+  )
+}
+
 function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onFill, onClear }) {
   const [redOn, setRedOn] = useState(false)
   const [minDiv, setMinDiv] = useState(50)
@@ -942,6 +1025,10 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onFill,
             <PayoutTable s={s} tiers={payTiers} effTurnover={effTurnover}
               turnoverOverridden={turnover != null} jackpot={jackpot} />
           )}
+          {s.rowMode && (
+            <RowExplorer rows={pickRows} matches={matches} payouts={payouts}
+              turnover={effTurnover} jackpot={jackpot} />
+          )}
           <div className="svs-row">
             <a className="svs-link" href={svsUrl(product, draw)} target="_blank" rel="noreferrer">▶ Öppna omgången på Svenska Spel ↗</a>
             {egnaUrl && <button onClick={downloadEgna} title={`Laddar ner ${nRows} rader som .txt i Svenska Spels Egna rader-format`}>⬇ Egna rader-fil ({nRows} rad{nRows === 1 ? '' : 'er'})</button>}
@@ -1021,6 +1108,15 @@ export default function App() {
   const systemTypes = nMatches === 13 ? [...SYSTEM_BASE, ...SYSTEM_SVS] : SYSTEM_BASE
   const budgetIdx = BUDGET_STOPS.reduce((best, v, i) =>
     Math.abs(v - budget) < Math.abs(BUDGET_STOPS[best] - budget) ? i : best, 0)
+  // radläge: hur många överlevande rader använder varje tecken (färgar stora kupongen)
+  const rowShares = (pickRows?.length && analysis?.matches?.length === pickRows[0]?.length) ? (() => {
+    const counts = {}
+    pickRows.forEach((r) => r.forEach((s, i) => {
+      const k = `${analysis.matches[i].event_number}:${s}`
+      counts[k] = (counts[k] || 0) + 1
+    }))
+    return { counts, total: pickRows.length }
+  })() : null
 
   const loadAnalysis = async (p = product, dn = draw) => {
     if (!dn) return
@@ -1163,7 +1259,8 @@ export default function App() {
         <Legend />
         {analysis && (
           <AnalysisTable matches={analysis.matches} product={product} drawNumber={analysis.draw_number}
-            selected={selected} onSelect={setSelected} picks={picks} onToggleSign={toggleSign} movement={movement} />
+            selected={selected} onSelect={setSelected} picks={picks} onToggleSign={toggleSign} movement={movement}
+            rowShares={rowShares} />
         )}
       </section>
 
