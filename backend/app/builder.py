@@ -588,8 +588,10 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
         strategy=strategy, system_type="EV-topp", budget=budget,
         row_price=row_price, num_rows=len(rows), cost=round(cost, 2),
         picks=picks, rows=rows,
-        rule=f"Topp {len(rows)} av {universe} kandidatrader, rankade efter "
-             f"popularitetsjusterad EV (marknadens sannolikhet ÷ folkets streck per rad).",
+        rule=f"Så valdes raderna: alla {universe} möjliga rader med tecknen nedan rankades "
+             f"efter EV = radens sannolikhet × förväntad utdelning (utdelningen stiger ju "
+             f"färre andra som spelat raden). De {len(rows)} bästa behölls — bort åker både "
+             f"folkrader (många delar potten) och rena skrällbomber (för osannolika).",
         note=f"Förv. utdelning ≈ {ev_sum:.0f} kr mot {cost:.0f} kr insats "
              f"(EV {ev_sum - cost:+.0f} kr) vid nuvarande omsättning/streck.",
     )

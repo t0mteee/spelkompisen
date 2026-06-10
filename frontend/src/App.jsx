@@ -610,13 +610,19 @@ function fmtStart(iso) {
 const kr = (v) => (v == null ? '–' : Math.round(v).toLocaleString('sv-SE') + ' kr')
 
 /* ---------- Svenska Spel "Egna rader"-export (filuppladdning) ----------
-   Tjänsten finns för Stryktipset/Europatipset på .../externa-systemspel.
+   Tjänsten finns på .../externa-systemspel (Stryktipset, Europatipset och
+   Topptipset — alla varianter laddas upp via topptipset-sidan).
    Filformat: en rad per spelad rad, "E,<tecken>,<tecken>,..." i matchordning.
    Vi enumererar konkreta rader (E) – korrekt även för reducerade system där
    vi måste behålla exakt de raderna (ett M-system skulle spela hela produkten). */
-const EGNA_RADER_GAMES = ['stryktipset', 'europatipset']
 function egnaRaderUrl(product) {
-  return EGNA_RADER_GAMES.includes(product) ? `https://spela.svenskaspel.se/${product}/externa-systemspel` : null
+  if (product === 'stryktipset' || product === 'europatipset') {
+    return `https://spela.svenskaspel.se/${product}/externa-systemspel`
+  }
+  if (product?.startsWith('topptipset')) {
+    return 'https://spela.svenskaspel.se/topptipset/externa-systemspel'
+  }
+  return null
 }
 function cartesianRows(groups) {
   let rows = [[]]
@@ -854,7 +860,11 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onFill,
     if (payouts?.jackpot > 0) setJackpot(payouts.jackpot)
   }, [payouts?.jackpot])  // eslint-disable-line
   const copyCoupon = () => {
-    const txt = matches.map((m) => `${m.event_number}. ${m.description}: ${(picks[m.event_number] || []).join('')}`).join('\n')
+    // radläge: kopiera de faktiska raderna (en per rad) — teckenunionen per
+    // match säger inget om vilka rader som faktiskt spelas
+    const txt = (pickRows && pickRows.length)
+      ? pickRows.map((r) => r.join('')).join('\n')
+      : matches.map((m) => `${m.event_number}. ${m.description}: ${(picks[m.event_number] || []).join('')}`).join('\n')
     navigator.clipboard?.writeText(txt); setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
   const egnaUrl = egnaRaderUrl(product)
@@ -923,9 +933,9 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onFill,
           )}
           <div className="svs-row">
             <a className="svs-link" href={svsUrl(product, draw)} target="_blank" rel="noreferrer">▶ Öppna omgången på Svenska Spel ↗</a>
-            {egnaUrl
-              ? <button onClick={downloadEgna} title={`Laddar ner ${nRows} rader som .txt i Svenska Spels Egna rader-format`}>⬇ Egna rader-fil ({nRows} rad{nRows === 1 ? '' : 'er'})</button>
-              : <button onClick={copyCoupon}>{copied ? '✓ Kopierad' : 'Kopiera kupong'}</button>}
+            {egnaUrl && <button onClick={downloadEgna} title={`Laddar ner ${nRows} rader som .txt i Svenska Spels Egna rader-format`}>⬇ Egna rader-fil ({nRows} rad{nRows === 1 ? '' : 'er'})</button>}
+            <button onClick={copyCoupon} title={rowMode ? 'Kopierar alla rader, en per rad' : 'Kopierar valda tecken per match'}>
+              {copied ? '✓ Kopierad' : rowMode ? `Kopiera ${nRows} rader` : 'Kopiera kupong'}</button>
           </div>
           {egnaUrl ? (
             <p className="hint">Ladda ner filen och ladda upp den hos{' '}

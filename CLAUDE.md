@@ -70,7 +70,8 @@ start.sh / stop.sh    kör/stoppa båda lokalt
 ## Export till Svenska Spel ("Egna rader")
 
 - `.txt`, en rad per spelrad: `E,1,X,2,...` (CRLF). Uppladdning på
-  `spela.svenskaspel.se/{stryktipset|europatipset}/externa-systemspel`. **Topptipset stöds EJ.**
+  `spela.svenskaspel.se/{stryktipset|europatipset|topptipset}/externa-systemspel`
+  (alla Topptipset-varianter går via topptipset-sidan).
 - Exportera alltid **konkreta enumererade rader** (E), aldrig M-system — annars förloras reduceringen.
 - R 4-0-9 / R 0-7-16 / R 4-4-144 är exakta Hamming-täckningar (= SvS officiella rader).
   R 3-3-24 är greedy (38 rader) — spelas billigare direkt på SvS systemkupong.
