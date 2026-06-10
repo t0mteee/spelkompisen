@@ -97,6 +97,26 @@ HALF_PROB_LABEL = 0.45    # >= => "halvspik"
 OPEN_PROB_LABEL = 0.40    # <  => "gardera" (ingen klar favorit)
 
 
+def _power_probs(inv: dict[str, float]) -> dict[str, float]:
+    """Power-metoden: hitta k så att sum((1/odds)^k) = 1.
+
+    Tar bort overround OCH korrigerar favorit/longshot-bias (longshots är
+    systematiskt överprisade i 1X2). Empiriskt bättre kalibrerad än rak
+    proportionell normalisering (Clarke m.fl.; power/Shin vinner i utvärderingar)."""
+    lo, hi = 1.0, 10.0
+    for _ in range(60):                      # bisektion, konvergerar snabbt
+        k = (lo + hi) / 2
+        s = sum(v ** k for v in inv.values())
+        if s > 1.0:
+            lo = k
+        else:
+            hi = k
+    k = (lo + hi) / 2
+    raw = {s: v ** k for s, v in inv.items()}
+    tot = sum(raw.values())                  # normera bort sista lilla resten
+    return {s: v / tot for s, v in raw.items()}
+
+
 def _normalize_odds(odds: dict) -> dict[str, Optional[float]]:
     """1X2-odds -> overround-justerade sannolikheter (nyckel '1'/'X'/'2')."""
     inv = {}
@@ -106,7 +126,7 @@ def _normalize_odds(odds: dict) -> dict[str, Optional[float]]:
     total = sum(v for v in inv.values() if v is not None)
     if not total or any(inv[s] is None for s in SIGNS):
         return {s: None for s in SIGNS}
-    return {s: inv[s] / total for s in SIGNS}
+    return _power_probs(inv)
 
 
 def _fair_probs(outcomes: dict[str, Outcome]) -> tuple[dict[str, Optional[float]], str]:
@@ -120,7 +140,7 @@ def _fair_probs(outcomes: dict[str, Outcome]) -> tuple[dict[str, Optional[float]
         inv[s] = (1.0 / o) if o and o > 0 else None
     total = sum(v for v in inv.values() if v is not None)
     if total and all(inv[s] is not None for s in SIGNS):
-        return {s: inv[s] / total for s in SIGNS}, "odds"
+        return _power_probs(inv), "odds"
 
     # fallback: streck
     streck = {s: outcomes[s].streck for s in SIGNS}
@@ -420,6 +440,7 @@ class DrawAnalysis:
     reg_close_time: Optional[str]
     fetched_at: str
     turnover: Optional[float]
+    row_price: Optional[float]
     matches: list[MatchAnalysis]
 
     @property
@@ -444,6 +465,7 @@ def analyze_draw(draw: Draw, sharp: Optional[dict[int, dict]] = None,
         reg_close_time=draw.reg_close_time,
         fetched_at=draw.fetched_at,
         turnover=draw.net_sale,
+        row_price=draw.row_price,
         matches=[analyze_match(m, sharp.get(m.event_number), _move_for(m.event_number))
                  for m in draw.matches],
     )
@@ -457,5 +479,6 @@ def analysis_to_dict(a: DrawAnalysis) -> dict:
         "reg_close_time": a.reg_close_time,
         "fetched_at": a.fetched_at,
         "turnover": a.turnover,
+        "row_price": a.row_price,
         "matches": [asdict(m) for m in a.matches],
     }

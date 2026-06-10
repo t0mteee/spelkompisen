@@ -475,6 +475,124 @@ def build_svs_rsystem(analysis: DrawAnalysis, name: str = "R 3-3-24",
     )
 
 
+# ---------- EV-toppade rader (poolspels-optimering) ----------
+# Poolspels-teorin: värdet sitter i RADEN, inte i enskilda tecken. EV per rad =
+# P(raden vinner) × utdelning, där utdelningen beror på hur många man delar med:
+# pott / (fält × P_folk(raden) + 1). Bästa raderna är de där kvoten
+# P_odds / P_folk är hög — rader folket inte spelar men marknaden tror på.
+
+EV_UNIVERSE_CAP = 60_000     # max kandidatrader att enumerera
+EV_REFINE_CAP = 4_000        # rader som får full vinstnivå-EV (Poisson-binomial)
+
+
+def _poisson_binomial(probs: list[float]) -> list[float]:
+    d = [1.0]
+    for p in probs:
+        nd = [0.0] * (len(d) + 1)
+        for j, v in enumerate(d):
+            nd[j] += v * (1.0 - p)
+            nd[j + 1] += v * p
+        d = nd
+    return d
+
+
+def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
+                    budget: float = 100.0, row_price: float = ROW_PRICE,
+                    value_weight: float = 0.5, plan: Optional[dict] = None) -> System:
+    """Ranka konkreta rader efter popularitetsjusterad EV och ta de bästa
+    som ryms i budgeten. Kandidater = topp-2 tecken per match (topp-3 för de
+    öppnaste så långt taket räcker), rankade i två steg: först toppnivå-EV,
+    sedan full EV över alla vinstnivåer för de bästa."""
+    turnover = analysis.turnover or 0.0
+    if not plan or turnover <= 0:
+        raise ValueError("EV-rankning kräver aktuell omsättning och vinstplan.")
+    n = len(analysis.matches)
+    target = max(1, int(budget / row_price))
+    field = turnover / row_price
+    pools = {c: turnover * plan["ratio"] * share for c, share in plan["splits"].items()}
+    top_tier = max(pools)
+
+    # p (marknadens sannolikhet) och q (folkets) per match och tecken
+    def _pq(m: MatchAnalysis, s: str) -> tuple[float, float]:
+        o = m.outcomes[s]
+        p = o.fair_prob if o.fair_prob is not None else (1.0 / 3)
+        q = (o.streck / 100.0) if o.streck else p
+        return p, max(q, 0.001)
+
+    # kandidattecken: topp-2 enligt teckenpoäng; utöka de öppnaste till 3
+    cand: dict[int, list[str]] = {}
+    universe = 1
+    for m in analysis.matches:
+        signs = list(SIGNS) if m.cancelled else _signs_by_score(m, value_weight)[:2]
+        cand[m.event_number] = sorted(signs, key=SIGNS.index)
+        universe *= len(signs)
+    for m in sorted(analysis.matches, key=lambda x: x.open_score, reverse=True):
+        if m.cancelled or len(cand[m.event_number]) == 3:
+            continue
+        if universe // 2 * 3 > EV_UNIVERSE_CAP:
+            break
+        cand[m.event_number] = list(SIGNS)
+        universe = universe // 2 * 3
+
+    ms = analysis.matches
+    pq = {(m.event_number, s): _pq(m, s) for m in ms for s in SIGNS}
+
+    # steg 1: enumerera kandidatrader med toppnivå-EV (p×pott/(fält×q+1))
+    scored: list[tuple[float, float, float, tuple]] = []   # (ev1, p, q, rad)
+
+    def _walk(i: int, p: float, q: float, acc: list[str]):
+        if i == n:
+            div = min(pools[top_tier], pools[top_tier] / (field * q + 1.0))
+            scored.append((p * div, p, q, tuple(acc)))
+            return
+        ev = ms[i].event_number
+        for s in cand[ev]:
+            ps, qs = pq[(ev, s)]
+            _walk(i + 1, p * ps, q * qs, acc + [s])
+
+    _walk(0, 1.0, 1.0, [])
+    scored.sort(key=lambda t: t[0], reverse=True)
+
+    # steg 2: full EV (alla vinstnivåer) för de bästa kandidaterna
+    refine = scored[:max(EV_REFINE_CAP, min(len(scored), target * 2))]
+    full: list[tuple[float, tuple]] = []
+    for _, _, _, row in refine:
+        pf = _poisson_binomial([pq[(m.event_number, s)][0] for m, s in zip(ms, row)])
+        pk = _poisson_binomial([pq[(m.event_number, s)][1] for m, s in zip(ms, row)])
+        ev_total = 0.0
+        for c, pool in pools.items():
+            div = min(pool, pool / (field * pk[c] + 1.0))
+            ev_total += pf[c] * div
+        full.append((ev_total, row))
+    full.sort(key=lambda t: t[0], reverse=True)
+    chosen = full[:target]
+
+    rows = [list(r) for _, r in chosen]
+    ev_sum = sum(e for e, _ in chosen)
+    cost = len(rows) * row_price
+
+    # picks-sammanfattning: vilka tecken som faktiskt används per match
+    used: dict[int, list[str]] = {m.event_number: [] for m in ms}
+    for r in rows:
+        for m, s in zip(ms, r):
+            if s not in used[m.event_number]:
+                used[m.event_number].append(s)
+    picks = [MatchPick(m.event_number, m.description, _role(len(used[m.event_number])),
+                       sorted(used[m.event_number], key=SIGNS.index),
+                       m.favourite, _reason(m, len(used[m.event_number])))
+             for m in ms]
+
+    return System(
+        strategy=strategy, system_type="EV-topp", budget=budget,
+        row_price=row_price, num_rows=len(rows), cost=round(cost, 2),
+        picks=picks, rows=rows,
+        rule=f"Topp {len(rows)} av {universe} kandidatrader, rankade efter "
+             f"popularitetsjusterad EV (marknadens sannolikhet ÷ folkets streck per rad).",
+        note=f"Förv. utdelning ≈ {ev_sum:.0f} kr mot {cost:.0f} kr insats "
+             f"(EV {ev_sum - cost:+.0f} kr) vid nuvarande omsättning/streck.",
+    )
+
+
 def system_to_dict(s: System) -> dict:
     d = asdict(s)
     return d

@@ -493,6 +493,7 @@ function svsUrl(product, draw) {
 }
 
 const SYSTEM_BASE = [
+  { id: 'ev', label: 'EV-topp (bäst betalda raderna)', q: 'ev=true' },
   { id: 'math', label: 'Matematiskt (alla kombinationer)', q: 'reduced=false' },
   { id: 'red', label: 'Reducerat (värde)', q: 'reduced=true' },
   { id: 'g', label: 'Egen reducering (garanti)', q: 'reduced=true&guarantee=', dynamic: true },
@@ -834,7 +835,7 @@ export default function App() {
   const [sys, setSys] = useState(null)
   const [strategy, setStrategy] = useState(SAVED.strategy || 'medel')
   const [budget, setBudget] = useState(SAVED.budget || 128)
-  const [sysType, setSysType] = useState(SAVED.sysType || 'math')
+  const [sysType, setSysType] = useState(SAVED.sysType || 'ev')
   const [valueWeight, setValueWeight] = useState(SAVED.valueWeight ?? 50)  // EV-/värdeskala 0..100
   const [selected, setSelected] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -893,7 +894,7 @@ export default function App() {
   const refresh = () => { loadAnalysis(); loadPayouts() }
 
   const switchGame = async (g) => {
-    setGroup(g); setSys(null); setAnalysis(null); setMovement(null); setErr(null); setSysType('math'); setPicks({}); setLoading(true)
+    setGroup(g); setSys(null); setAnalysis(null); setMovement(null); setErr(null); setSysType('ev'); setPicks({}); setLoading(true)
     try {
       const d = await (await fetch(`/api/draws?product=${g}&_t=${Date.now()}`, { cache: 'no-store' })).json()
       const list = d.open?.length ? d.open : d.draws

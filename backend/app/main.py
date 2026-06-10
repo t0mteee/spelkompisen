@@ -22,7 +22,7 @@ from . import config  # noqa: F401 — laddar .env (ODDS_API_KEY) vid import
 from .analysis import analyze_draw, analysis_to_dict
 from .builder import (build_math_system, build_reduced_system,
                       build_guarantee_system, build_svs_rsystem,
-                      SVS_R12, system_to_dict)
+                      build_ev_system, SVS_R12, system_to_dict)
 from .collector import collector
 from . import sharp_service
 from .storage import Storage
@@ -178,14 +178,19 @@ def system(product: str = "stryktipset",
            reduced: bool = False,
            guarantee: int = 0,
            sv_rsystem: str = "",
+           ev: bool = False,
            value_weight: float = 0.5):
     """value_weight 0..1 = EV-/värdeskala: 0 = lågoddsare/favoriter (hög träffchans),
-    högre = mer värde/skräll (lägre chans, högre EV). sv_rsystem ger SvS R-system."""
+    högre = mer värde/skräll (lägre chans, högre EV). sv_rsystem ger SvS R-system.
+    ev=true rankar konkreta rader efter popularitetsjusterad EV (poolspels-optimal)."""
     a = _analyze(product, draw)
     vw = max(0.0, min(1.0, value_weight))
     try:
         if sv_rsystem and sv_rsystem in SVS_R12:
             s = build_svs_rsystem(a, sv_rsystem, strategy, value_weight=vw)
+        elif ev:
+            s = build_ev_system(a, strategy, budget, row_price=a.row_price or 1.0,
+                                value_weight=vw, plan=PRIZE_PLANS.get(product))
         elif reduced and guarantee:
             s = build_guarantee_system(a, strategy, budget, guarantee=guarantee, value_weight=vw)
         elif reduced:
