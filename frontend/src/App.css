@@ -242,9 +242,20 @@ tr.r-full td { background: rgba(201,123,29,0.10); }
 .collection .cstatus { color: var(--muted); font-size: 12px; }
 .collection button { margin-left: auto; }
 
+/* analystabellen kompakt: lägre rader, mindre typsnitt, smal folk-kolumn */
+.grid.analysis td { padding: 4px 8px; }
+.grid.analysis th.th-folk { width: 104px; }
+.grid.analysis .odds { font-size: 13px; }
+.grid.analysis .cell { min-width: 52px; }
+.grid.analysis .sharpodds { font-size: 10px; }
+.grid.analysis .vpill { font-size: 10px; padding: 0 5px; margin-top: 1px; }
+.grid.analysis .marks { font-size: 11px; height: 12px; }
+.grid.analysis .league { font-size: 10px; }
+.grid.analysis .forslag .moverflags { margin-top: 2px; }
+
 /* folkfördelning – kompakt, bara procent (ordning 1·X·2 står i kolumnrubriken) */
-.streckbar { display: flex; width: 118px; height: 18px; border-radius: 5px; overflow: hidden;
-  font-size: 10px; border: 1px solid var(--line); }
+.streckbar { display: flex; width: 100px; height: 16px; border-radius: 5px; overflow: hidden;
+  font-size: 9px; border: 1px solid var(--line); }
 .streckbar .seg { display: flex; align-items: center; justify-content: center; white-space: nowrap;
   color: #0b0e12; font-weight: 700; min-width: 0; overflow: hidden; }
 .streckbar .sb-1 { background: #4aa3df; }

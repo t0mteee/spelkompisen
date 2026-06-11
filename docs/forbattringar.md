@@ -79,9 +79,15 @@ P3. **ClubElo-korsreferens** (Stryktipset = klubbar): api.clubelo.com (gratis
     CSV, dagliga ratings). Elo→1X2 via supremacy = ratingdiff/skala → Poisson,
     kalibrera skalan mot marknadens snittsäkerhet (vm: ELO_GOAL_SCALE).
     EJ värdekälla (vet inget om skador) — bara "marknad/modell oense → kolla".
-P4. **Backtest mot football-data.co.uk**: gratis CSV:er (resultat + B365/
-    Pinnacle-close för engelska ligor) — backtesta BESLUTSREGELN (grön >1.08 /
-    röd <0.92), inte bara kalibreringen.
+P4. ~~**Backtest mot football-data.co.uk**~~ → `cli.py fdbacktest` (klar).
+    **Resultat (4 608 matcher, 23/24+24/25, E0/E1/D1/SP1/I1/F1), Pinnacle-close
+    devigad = "marknaden", B365 = "folket", insats till B365-odds:**
+    - Grön (kvot ≥1.08): träff 18.4 % (> sharp-P 16.8 > soft-P 15.2) · ROI **−2.6 %**
+    - Neutral: träff 34.3 % = exakt kalibrerat · ROI −7.2 % (= bokens marginal, baslinjen)
+    - Röd (≤0.92): träff 8.7 % (klart under soft-P 11.9) · ROI **−35.4 %**
+    Beslutsregeln validerad: grön äter upp nästan hela bokmarginalen (+4.6 pp
+    mot baslinjen), röd är gift (−28 pp under baslinjen). I poolspel finns ingen
+    bokmarginal — att slå folket räcker, och folket är mjukare än B365.
 
 **Metodlärdomar från vm (dyrt köpta):**
 - Modellhärledda sannolikheter utan sharp-ankare driver alltid åt ett håll

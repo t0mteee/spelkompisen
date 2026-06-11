@@ -290,6 +290,96 @@ def cmd_backtest(rest: list[str], product: str) -> None:
             print(f"  omg {nr_}: faktiskt {a} vinnare vs prognos {p:.1f}")
 
 
+def cmd_fdbacktest(rest: list[str]) -> None:
+    """Backtesta BESLUTSREGELN (grön kvot ≥1.08 / röd ≤0.92) mot football-data.co.uk.
+
+    Översättning till fasta odds: Pinnacle (sharp, devigad med power) spelar
+    rollen som 'marknaden' och B365 (soft, rekreationspengar) som 'folket'.
+    Kvot = P_sharp / P_soft. Mäter träff% och ROI om man satsar 1 enhet till
+    soft-oddset på gröna tecken — exakt analogen till att spela värdetecken."""
+    import csv
+    import io
+    from pathlib import Path
+    import httpx
+    from app.analysis import _power_probs
+
+    seasons = [a for a in rest if a.isdigit() and len(a) == 4] or ["2324", "2425"]
+    divs = ("E0", "E1", "D1", "SP1", "I1", "F1")
+    cache = Path("data/fd")
+    cache.mkdir(parents=True, exist_ok=True)
+    SIGNMAP = {"1": "H", "X": "D", "2": "A"}
+    BUCKETS = (("grön (kvot ≥1.08)", 1.08, 99.0),
+               ("neutral (0.92–1.08)", 0.92, 1.08),
+               ("röd (≤0.92)", 0.0, 0.92))
+    stats = {b[0]: {"n": 0, "hit": 0, "pnl": 0.0, "ps": 0.0, "pb": 0.0} for b in BUCKETS}
+    matches = 0
+
+    with httpx.Client(timeout=30, headers={"User-Agent": "Mozilla/5.0"},
+                      follow_redirects=True) as client:
+        for se in seasons:
+            for dv in divs:
+                f = cache / f"{se}_{dv}.csv"
+                if not f.exists():
+                    r = client.get(f"https://www.football-data.co.uk/mmz4281/{se}/{dv}.csv")
+                    if r.status_code != 200:
+                        print(f"  {se}/{dv}: kunde inte hämtas ({r.status_code})")
+                        continue
+                    f.write_bytes(r.content)
+                for row in csv.DictReader(io.StringIO(f.read_text(errors="replace"))):
+                    ftr = (row.get("FTR") or "").strip()
+                    if ftr not in ("H", "D", "A"):
+                        continue
+                    # stängning mot stängning i första hand, annars pre-close-paret
+                    def _odds(pre, close):
+                        try:
+                            o = {s: float(row.get(close.replace("?", k)) or 0)
+                                 for s, k in SIGNMAP.items()}
+                            if all(v > 1 for v in o.values()):
+                                return o
+                            o = {s: float(row.get(pre.replace("?", k)) or 0)
+                                 for s, k in SIGNMAP.items()}
+                            return o if all(v > 1 for v in o.values()) else None
+                        except (ValueError, TypeError):
+                            return None
+                    sharp = _odds("PS?", "PSC?")
+                    soft = _odds("B365?", "B365C?")
+                    if not sharp or not soft:
+                        continue
+                    matches += 1
+                    p_sharp = _power_probs({s: 1.0 / o for s, o in sharp.items()})
+                    p_soft = _power_probs({s: 1.0 / o for s, o in soft.items()})
+                    for s in ("1", "X", "2"):
+                        ratio = p_sharp[s] / p_soft[s] if p_soft[s] else None
+                        if not ratio:
+                            continue
+                        for name, lo, hi in BUCKETS:
+                            if lo <= ratio < hi:
+                                st = stats[name]
+                                won = SIGNMAP[s] == ftr
+                                st["n"] += 1
+                                st["hit"] += won
+                                st["pnl"] += (soft[s] - 1.0) if won else -1.0
+                                st["ps"] += p_sharp[s]
+                                st["pb"] += p_soft[s]
+                                break
+
+    print(f"\n=== football-data-backtest: {matches} matcher "
+          f"({', '.join(seasons)} · {', '.join(divs)}) ===")
+    print("Satsar 1 enhet till SOFT-oddset (B365) på varje tecken i bucketen:")
+    print(f"{'bucket':22} {'n':>6} {'sharp-P':>8} {'soft-P':>8} {'träff%':>7} {'ROI':>8}")
+    for name, *_ in BUCKETS:
+        st = stats[name]
+        if not st["n"]:
+            continue
+        print(f"{name:22} {st['n']:6d} {st['ps']/st['n']*100:7.1f}% "
+              f"{st['pb']/st['n']*100:7.1f}% {st['hit']/st['n']*100:6.1f}% "
+              f"{st['pnl']/st['n']*100:+7.1f}%")
+    print("\nTolkning: neutral-bucketens ROI ≈ bokens marginal (baslinjen, ca −5 till −7 %)."
+          "\nGrön klart över baslinjen + träff% över soft-P = beslutsregeln hittar riktigt"
+          "\nvärde; röd klart under = överspelade tecken är gift. I poolspel finns ingen"
+          "\nbokmarginal att äta upp — där räcker det att slå folket.")
+
+
 def main() -> None:
     args = sys.argv[1:]
     cmd = args[0] if args else "show"
@@ -311,6 +401,8 @@ def main() -> None:
         cmd_system(rest, product)
     elif cmd == "backtest":
         cmd_backtest(rest, product)
+    elif cmd == "fdbacktest":
+        cmd_fdbacktest(rest)
     else:
         print(__doc__)
 

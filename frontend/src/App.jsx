@@ -56,9 +56,15 @@ function Legend() {
             {' '}<span className="vpill v-yellow">~1.0</span> rätt streckad ·
             {' '}<span className="vpill v-red">≤0.92</span> överspelad.</div>
           <div><b>P</b> = Pinnacle (sharp bookmaker) odds · <b>P~</b> = härlett från handikapp när 1X2 inte öppnats.</div>
-          <div><b>Förslag:</b> <span className="badge b-spik">Spik</span> stark favorit ·
-            {' '}<span className="badge b-half">Värdespik</span> kort odds men lågt streck (undervärderad) ·
+          <div><b>Matchbild</b> beskriver matchen enligt marknaden — den är INTE ditt val och kan
+            skilja sig från kupongen/förslaget:
+            {' '}<span className="badge b-spik">Spik 1</span> stark favorit (kan singlas) ·
+            {' '}<span className="badge b-half">Halvspik 1</span> halvstark favorit (singla djärvt eller gardera) ·
+            {' '}<span className="badge b-half">Värdespik 1</span> favorit som folket undervärderar ·
+            {' '}<span className="badge b-lean">Lutar 1</span> svag favorit ·
             {' '}<span className="badge b-open">Gardera</span> öppen match.</div>
+          <div><b>spik-score</b> 0–100 = favoritens styrka · <b>öppen-score</b> 0–100 = hur jämn/öppen
+            matchen är (hög = ingen klar favorit — systemen garderar de mest öppna matcherna först).</div>
           <div>Märken: <b>★</b> värdestreck (underspelat av folket) ·
             {' '}<b className="m-sharp">S</b> sharp ser värde folket missat ·
             {' '}<b className="m-edge">▲</b> Svenska Spels odds högre än Pinnacle (felprisat) ·
@@ -251,7 +257,8 @@ function AnalysisTable({ matches, product, drawNumber, selected, onSelect, picks
   return (
     <table className="grid analysis">
       <thead>
-        <tr><th>#</th><th>Match</th><th>1</th><th>X</th><th>2</th><th>Folket (1·X·2)</th><th>Förslag</th></tr>
+        <tr><th>#</th><th>Match</th><th>1</th><th>X</th><th>2</th><th className="th-folk">Folket (1·X·2)</th>
+          <th title="Matchbild = favoritens styrka enligt marknaden. Beskriver matchen, inte ditt val — kan skilja sig från kupongen.">Matchbild</th></tr>
       </thead>
       <tbody>
         {matches.map((m) => {
@@ -942,7 +949,7 @@ function RowExplorer({ rows, matches, payouts, turnover, jackpot }) {
   )
 }
 
-function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onFill, onClear }) {
+function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear }) {
   const [redOn, setRedOn] = useState(false)
   const [minDiv, setMinDiv] = useState(50)
   const [turnover, setTurnover] = useState(null)   // null = använd live-omsättning
@@ -980,12 +987,12 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onFill,
   return (
     <div className="coupon">
       <div className="coupon-actions">
-        <button className="primary" onClick={onFill}>Fyll från förslag</button>
         <button onClick={onClear}>Rensa</button>
         <span className="cstatus">
           {s.rowMode
             ? `${s.fullRows} utvalda rader från förslaget (inte alla kombinationer) — klicka tecken i tabellen för att bygga om manuellt`
-            : `${s.selectedCount}/${s.N} matcher valda${!s.complete ? ' – klicka tecken i tabellen ovan' : ''}`}
+            : `${s.selectedCount}/${s.N} matcher valda${!s.complete
+              ? ' — klicka tecken i analystabellen, eller bygg ett förslag och tryck "Lägg i kupongen"' : ''}`}
         </span>
       </div>
       {s.complete && (
@@ -1030,24 +1037,33 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onFill,
               <span className={s.roi >= 0 ? 'pos' : 'neg'}>{s.roi == null ? '–' : (s.roi * 100).toFixed(0) + ' %'}</span>ROI</div>
           </div>
           {s.modelOk && (() => {
-            // Kelly på toppvinsten (konservativt: lägre nivåer ignoreras).
-            // f* = (p·b − (1−p))/b där b = utdelning/insats − 1
-            const C = s.cost, p = s.pAll, D = s.topDividend
-            const b = C > 0 && D > C ? D / C - 1 : 0
-            const f = b > 0 ? (p * b - (1 - p)) / b : -1
+            // Kelly via mean-variance-approximation över ALLA vinstnivåer:
+            // f* ≈ (E[R] − 1) / Var(R), R = utbetalning/insats. (Binär topp-
+            // vinst-Kelly gav ~0 % — den ignorerade 10/11/12-rätt-nivåerna.)
+            const C = s.cost
+            const ER = C > 0 ? s.evPayout / C : 0
+            const varR = C > 0 ? Object.keys(s.evTiers || {}).reduce((a, c) => {
+              const p = s.poly?.[c] || 0
+              const d = s.dividend?.[c] || 0
+              return a + p * Math.pow(d / C, 2)
+            }, 0) - Math.pow(ER, 2) : 0
+            const f = ER > 1 && varR > 0 ? Math.min(0.5, (ER - 1) / varR) : -1
             return (
-              <div className="kellybox" title="Kelly-kriteriet: andel av bankrullen som maximerar långsiktig tillväxt. Räknat enbart på toppvinsten (konservativt). Kvarts-Kelly rekommenderas — full Kelly är väldigt volatil. Tips: tryck '→ prognos' ovan så räknas det mot förväntad slutomsättning.">
+              <div className="kellybox" title="Kelly-kriteriet: andel av bankrullen som maximerar långsiktig tillväxt. Approximation över alla vinstnivåer (f ≈ överavkastning ÷ varians). Kvarts-Kelly rekommenderas — full Kelly är väldigt volatil. Tips: tryck '→ prognos' ovan så räknas det mot förväntad slutomsättning.">
                 <span>📐 Kelly:</span>
                 {f > 0 ? (
                   <>
-                    kvarts-Kelly <b>{(f / 4 * 100).toFixed(2)} %</b> av bankrullen
+                    kvarts-Kelly <b>{(f / 4 * 100) >= 0.1 ? (f / 4 * 100).toFixed(2) : (f / 4 * 100).toPrecision(2)} %</b> av bankrullen
                     <label> bankrulle <input type="number" min="0" step="500" value={bankroll}
                       onChange={(e) => setBankroll(Math.max(0, Number(e.target.value)))} /> kr</label>
-                    → insats ≈ <b className={f / 4 * bankroll >= s.cost ? 'pos' : 'neg'}>{kr(f / 4 * bankroll)}</b>
-                    <span className="hint"> (kupongen kostar {kr(s.cost)}{f / 4 * bankroll < s.cost ? ' — över kvarts-Kelly, sänk budgeten' : ''})</span>
+                    → insats ≈ <b className={f / 4 * bankroll >= s.cost ? 'pos' : 'neg'}>
+                      {f / 4 * bankroll < 10 ? (f / 4 * bankroll).toFixed(2) + ' kr' : kr(f / 4 * bankroll)}</b>
+                    <span className="hint"> (kupongen kostar {kr(s.cost)}). OBS: jackpott-utdelningar är
+                      extremvarians — Kelly blir alltid en liten andel i poolspel; använd den som
+                      relativ mätare mellan omgångar snarare än exakt insats.</span>
                   </>
                 ) : (
-                  <span className="hint"> ingen edge på toppvinsten vid dessa siffror — Kelly säger avstå/minska. Prova "→ prognos" för ärligare omsättning.</span>
+                  <span className="hint"> negativ förväntad avkastning vid dessa siffror — Kelly säger avstå/minska. Prova "→ prognos" för ärligare omsättning.</span>
                 )}
               </div>
             )
@@ -1417,17 +1433,19 @@ export default function App() {
             </select>
             <button className="primary" onClick={loadSystem}>Föreslå rad</button>
           </div>
-          <div className="evscale" title="Samma risk-axel som strategin. Lågt = lågoddsare/favoriter (hög träffchans, lägre EV). Högt = värde/skräll (lägre chans, högre EV långsiktigt). Strategin sätter startpunkten – dra för att finjustera.">
-            <span>Träffchans <em>(säker)</em></span>
-            <input type="range" min="0" max="100" step="5" value={valueWeight}
-              onChange={(e) => setValueWeight(Number(e.target.value))} />
-            <span><em>(tuff)</em> Värde/EV</span>
-            <span className="evval">{valueWeight}%</span>
-            {valueWeight !== STRATEGY_EV[strategy] && (
-              <button className="evreset" title={`Återställ till ${strategy} (${STRATEGY_EV[strategy]}%)`}
-                onClick={() => setValueWeight(STRATEGY_EV[strategy])}>↺ följ {strategy}</button>
-            )}
-          </div>
+          {sysType !== 'ev' && (
+            <div className="evscale" title="Samma risk-axel som strategin. Lågt = lågoddsare/favoriter (hög träffchans, lägre EV). Högt = värde/skräll (lägre chans, högre EV långsiktigt). Strategin sätter startpunkten – dra för att finjustera. (Dold i EV-toppläget — där rankas raderna redan på ren EV.)">
+              <span>Träffchans <em>(säker)</em></span>
+              <input type="range" min="0" max="100" step="5" value={valueWeight}
+                onChange={(e) => setValueWeight(Number(e.target.value))} />
+              <span><em>(tuff)</em> Värde/EV</span>
+              <span className="evval">{valueWeight}%</span>
+              {valueWeight !== STRATEGY_EV[strategy] && (
+                <button className="evreset" title={`Återställ till ${strategy} (${STRATEGY_EV[strategy]}%)`}
+                  onClick={() => setValueWeight(STRATEGY_EV[strategy])}>↺ följ {strategy}</button>
+              )}
+            </div>
+          )}
           <SystemView sys={sys} matches={analysis?.matches} payouts={payouts}
             onRecalc={loadSystem} onUse={useSystem} />
         </section>
@@ -1436,7 +1454,7 @@ export default function App() {
           <h2>2 · Din kupong — granska & lämna in</h2>
           {analysis && (
             <CouponPanel matches={analysis.matches} picks={picks} pickRows={pickRows} payouts={payouts}
-              product={product} draw={draw} onFill={fillFromTips} onClear={clearCoupon} />
+              product={product} draw={draw} onClear={clearCoupon} />
           )}
         </section>
       </div>
