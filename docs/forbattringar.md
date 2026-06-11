@@ -70,10 +70,11 @@ P1. ~~**CLV-facit**~~ (klar): value_log-tabell (first/best per flaggat tecken,
     sista sharp-snapshot före avspark, facit från resultat-API:t. Loggas av
     snapshot-pollen; /api/clv + "Signal-facit"-panel i UI. Positiv snitt-CLV
     över många flaggor = signalerna äkta; negativ = vi lurar oss själva.
-P2. **Steam i devigade procentenheter**: jämför devigad sannolikhet nu vs
-    6/24/72 h sedan (vm service.steam_moves) — tar bort marginalbrus, jämförbart
-    favorit/skräll. Låt 🔥-flaggan + ntfy använda devigat skift i stället för
-    rå odds-diff; sorterad panel.
+P2. ~~**Steam i devigade procentenheter**~~ (klar): app/steam.py — devigad
+    Pinnacle-sannolikhet nu vs 6/24/72 h sedan, /api/steam + panel under
+    Sharp-odds. 🔥-flaggan och ntfy-notisen triggar nu på devigat 24h-skift
+    (≥3,5 pp markant, ≥6 pp stark) i stället för rå odds-diff; rå rörelse
+    finns kvar som fallback när sharp-serie saknas.
 P3. **ClubElo-korsreferens** (Stryktipset = klubbar): api.clubelo.com (gratis
     CSV, dagliga ratings). Elo→1X2 via supremacy = ratingdiff/skala → Poisson,
     kalibrera skalan mot marknadens snittsäkerhet (vm: ELO_GOAL_SCALE).

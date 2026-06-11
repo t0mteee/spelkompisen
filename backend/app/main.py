@@ -20,6 +20,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import config  # noqa: F401 — laddar .env (ODDS_API_KEY) vid import
+from . import steam as steam_mod
 from .analysis import analyze_draw, analysis_to_dict
 from .builder import (build_math_system, build_reduced_system,
                       build_guarantee_system, build_svs_rsystem,
@@ -83,23 +84,11 @@ def _analyze(product: str, draw_number: int | None = None):
     store = Storage()
     try:
         sharp = store.get_sharp(product, draw.draw_number)
-        # oddsrörelsen baseras på Pinnacle (snabbare/sharpare); SS som fallback
-        movement = store.sharp_movement(product, draw.draw_number)
-        if not movement:
-            movement = store.movement(product, draw.draw_number)
-        # streck-rörelse (folkets svängningar) kommer alltid från SS-snapshots
-        streck_mv = store.streck_movement(product, draw.draw_number)
+        # oddsrörelse (sharp först) + streck-rörelse + devigat steam-skift,
+        # sammanvävt i en dict — samma helper som ntfy-notiserna använder
+        merged = steam_mod.movement_with_steam(store, product, draw.draw_number)
     finally:
         store.close()
-    # väv in streck-rörelsen i samma (event, sign)-dict som oddsrörelsen
-    merged: dict = {}
-    for k in set(movement) | set(streck_mv):
-        e = dict(movement.get(k, {}))
-        sm = streck_mv.get(k)
-        if sm:
-            e["streck_first"], e["streck_last"] = sm["first"], sm["last"]
-            e["streck_n"] = sm["n"]
-        merged[k] = e
     return analyze_draw(draw, sharp, merged)
 
 
@@ -319,6 +308,19 @@ def movement(product: str = "stryktipset", draw: int | None = None):
     for (ev, sign), data in ser.items():
         events.setdefault(str(ev), {})[sign] = data
     return {"draw_number": dn, "events": events}
+
+
+@app.get("/api/steam")
+def steam(product: str = "stryktipset", draw: int | None = None):
+    """Devigade sannolikhetsskift per tecken (6/24/72 h) — 'steam' = marknaden
+    flyttar sig på riktigt, jämförbart mellan favoriter och skrällar."""
+    dn = draw or _get_draw(product, None).draw_number
+    store = Storage()
+    try:
+        rows = steam_mod.steam_table(store, product, dn)
+    finally:
+        store.close()
+    return {"draw_number": dn, "rows": rows}
 
 
 @app.get("/api/clv")

@@ -139,9 +139,10 @@ function Forslag({ m }) {
         <span className="moverflags">
           {mv.odds_sign && (
             <span className={`mover mv-odds ${mv.late ? 'mv-late' : ''}`}
-              title={`Oddsrörelse: ${mv.odds_sign} ${mv.odds_from}→${mv.odds_to} (−${Math.round(mv.odds_drop_pct * 100)}%)`
-                + (mv.late ? ' · sen sänkning nära avspark – stark signal' : ' sedan vi började mäta')}>
-              <b>1X2</b> {mv.odds_sign}↓{Math.round(mv.odds_drop_pct * 100)}%{mv.late ? ' 🔥' : ''}
+              title={mv.label + (mv.late ? ' · sen rörelse nära avspark – stark signal' : '')}>
+              <b>1X2</b> {mv.odds_sign}{mv.steam_pp != null
+                ? ` +${mv.steam_pp}pp`
+                : `↓${Math.round((mv.odds_drop_pct || 0) * 100)}%`}{mv.late ? ' 🔥' : ''}
             </span>
           )}
           {mv.streck_sign && (
@@ -1079,6 +1080,44 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onFill,
   )
 }
 
+/* Steam: devigade sannolikhetsskift (procentenheter) över 6/24/72 h.
+   Jämförbart mellan favoriter och skrällar — det rå oddsrörelse inte är. */
+function SteamPanel({ product, draw, matches }) {
+  const [data, setData] = useState(null)
+  useEffect(() => {
+    if (!draw) return
+    setData(null)
+    fetch(`/api/steam?product=${product}&draw=${draw}&_t=${Date.now()}`, { cache: 'no-store' })
+      .then((r) => r.json()).then(setData).catch(() => setData(null))
+  }, [product, draw])
+  const desc = {}
+  ;(matches || []).forEach((m) => { desc[m.event_number] = m.description })
+  const rows = (data?.rows || []).filter((r) => r.primary != null && Math.abs(r.primary) >= 1).slice(0, 10)
+  const cell = (v) => v == null ? <td>–</td>
+    : <td className={v > 0 ? 'pos' : v < 0 ? 'neg' : ''}>{v > 0 ? '+' : ''}{v} pp</td>
+  if (!data) return <div className="loading sm">Hämtar steam…</div>
+  if (!rows.length) return <p className="hint">Inga devigade skift ≥ 1 pp ännu — fylls på när sharp-serien växer.</p>
+  return (
+    <div className="steam">
+      <p className="hint">Devigad Pinnacle-sannolikhet nu jämfört med för 6/24/72 h sedan.
+        Stora positiva skift = marknaden backar tecknet på riktigt (🔥-flaggan triggas på +{'3,5'} pp).</p>
+      <table className="grid compact steam-table">
+        <thead><tr><th>Match</th><th>Tecken</th><th>Sannolikhet nu</th><th>Δ 6 h</th><th>Δ 24 h</th><th>Δ 72 h</th></tr></thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i}>
+              <td className="match">{desc[r.event_number] || `Match ${r.event_number}`}</td>
+              <td className="signs">{r.sign}</td>
+              <td>{Math.round(r.p_now * 100)} %</td>
+              {cell(r.pp['6'])}{cell(r.pp['24'])}{cell(r.pp['72'])}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 /* Signal-facit: visar om våra flaggade värdetecken slår stängningslinjen (CLV)
    och hur ofta de går in. Fylls på automatiskt av bakgrundsinsamlingen. */
 function ClvPanel({ group }) {
@@ -1404,8 +1443,9 @@ export default function App() {
 
       <div className="cols">
         <section>
-          <h2>Sharp-odds</h2>
+          <h2>Sharp-odds & steam</h2>
           <SharpPanel product={product} draw={draw} onLoaded={() => loadAnalysis()} />
+          <SteamPanel product={product} draw={draw} matches={analysis?.matches} />
         </section>
 
         <section>

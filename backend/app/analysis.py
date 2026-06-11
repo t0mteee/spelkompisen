@@ -47,6 +47,7 @@ class OutcomeAnalysis:
     move_to: Optional[float]          # odds vid senaste snapshot
     move_points: Optional[int]        # antal snapshots
     streck_move: Optional[int]        # streck senaste - första snapshot (folkets svängning)
+    steam_pp: Optional[float]         # devigat sannolikhetsskift (procentenheter, 24h-fönster)
     tags: list[str]
 
 
@@ -81,8 +82,12 @@ EDGE_MIN = 0.06           # sharp vs SS-sannolikhet: materiell felprissättning
 MOVE_MIN = 0.05           # rörelse över egna snapshots >= 5% = signifikant
 
 # "markant rörelse"-flagga (match-nivå): större trösklar än rörelse-taggen ovan
-MARKANT_ODDS = 0.08       # oddsfall >= 8% sedan vi började logga = markant
+MARKANT_ODDS = 0.08       # oddsfall >= 8% sedan vi började logga = markant (rå fallback)
 STARK_ODDS = 0.13         # oddsfall >= 13% = stark
+# devigat steam-skift (procentenheter) är primärsignalen när sharp-serie finns:
+# jämförbart mellan favoriter och skrällar, marginalbrus borttaget
+STEAM_MARKANT_PP = 3.5
+STEAM_STARK_PP = 6.0
 # streck driver ofta brett över veckan -> högre tröskel så flaggan förblir meningsfull
 MARKANT_STRECK = 10       # folket svängt >= 10 procentenheter = markant
 STARK_STRECK = 16         # >= 16 procentenheter = stark
@@ -174,6 +179,7 @@ def analyze_outcome(o: Outcome, fair: Optional[float],
         sf, sl = move.get("streck_first"), move.get("streck_last")
         if sf is not None and sl is not None:
             streck_move = sl - sf
+    steam_pp = move.get("steam_pp") if move else None
 
     drift = drift_pct = None
     if o.odds is not None and o.start_odds is not None and o.start_odds > 0:
@@ -225,6 +231,7 @@ def analyze_outcome(o: Outcome, fair: Optional[float],
         move_to=move_to,
         move_points=move_points,
         streck_move=streck_move,
+        steam_pp=steam_pp,
         tags=tags,
     )
 
@@ -245,21 +252,32 @@ def _detect_mover(oa: dict[str, OutcomeAnalysis], move: dict,
 
     Stora oddssänkningar (marknaden vräker in pengar) är en av de starkaste
     signalerna på ett bra streck — extra stark när den sker nära avspark."""
+    # primärt: devigat steam-skift (procentenheter, jämförbart favorit/skräll);
+    # rå oddsrörelse bara som fallback när sharp-serie saknas
+    steams = {s: oa[s].steam_pp for s in SIGNS if oa[s].steam_pp is not None}
     drops = {s: oa[s].move_pct for s in SIGNS if oa[s].move_pct is not None}
-    osign = max(drops, key=drops.get) if drops else None
-    odrop = drops[osign] if osign else None
+    steam_val = None
+    if steams:
+        osign = max(steams, key=steams.get)
+        steam_val = steams[osign]
+        odds_hit = steam_val >= STEAM_MARKANT_PP
+        strong_odds = steam_val >= STEAM_STARK_PP
+        odrop = drops.get(osign)            # rå diff till etiketten om den finns
+    else:
+        osign = max(drops, key=drops.get) if drops else None
+        odrop = drops[osign] if osign else None
+        odds_hit = odrop is not None and odrop >= MARKANT_ODDS
+        strong_odds = odrop is not None and odrop >= STARK_ODDS
 
     swings = {s: oa[s].streck_move for s in SIGNS if oa[s].streck_move is not None}
     ssign = max(swings, key=lambda s: abs(swings[s])) if swings else None
     sswing = swings[ssign] if ssign else None
 
-    odds_hit = odrop is not None and odrop >= MARKANT_ODDS
     streck_hit = sswing is not None and abs(sswing) >= MARKANT_STRECK
     if not (odds_hit or streck_hit):
         return None
 
-    strong = ((odrop is not None and odrop >= STARK_ODDS)
-              or (sswing is not None and abs(sswing) >= STARK_STRECK))
+    strong = (odds_hit and strong_odds) or (sswing is not None and abs(sswing) >= STARK_STRECK)
 
     # "sen rörelse": senaste oddspunkt nära avspark = färskt, skarpt pengaflöde
     late = False
@@ -271,8 +289,14 @@ def _detect_mover(oa: dict[str, OutcomeAnalysis], move: dict,
 
     parts = []
     if odds_hit:
-        parts.append(f"{osign}: odds {oa[osign].move_from}→{oa[osign].move_to} "
-                     f"(−{round(odrop * 100)}%)")
+        if steam_val is not None:
+            seg = f"{osign}: +{steam_val:g} pp devigad sannolikhet"
+            if oa[osign].move_from and oa[osign].move_to:
+                seg += f" ({oa[osign].move_from}→{oa[osign].move_to})"
+            parts.append(seg)
+        else:
+            parts.append(f"{osign}: odds {oa[osign].move_from}→{oa[osign].move_to} "
+                         f"(−{round(odrop * 100)}%)")
     if streck_hit:
         parts.append(f"{ssign}: folk {'+' if sswing > 0 else '−'}{abs(sswing)}%")
     label = ("Sen oddssänkning · " if late else "") + "Markant rörelse: " + ", ".join(parts)
@@ -282,7 +306,8 @@ def _detect_mover(oa: dict[str, OutcomeAnalysis], move: dict,
         "strength": "stark" if (strong or late) else "måttlig",
         "late": late,
         "odds_sign": osign if odds_hit else None,
-        "odds_drop_pct": round(odrop, 4) if odds_hit else None,
+        "odds_drop_pct": round(odrop, 4) if (odds_hit and odrop is not None) else None,
+        "steam_pp": steam_val if odds_hit else None,
         "odds_from": oa[osign].move_from if odds_hit else None,
         "odds_to": oa[osign].move_to if odds_hit else None,
         "streck_sign": ssign if streck_hit else None,

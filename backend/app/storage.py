@@ -257,6 +257,15 @@ class Storage:
                 a["min"], a["max"] = min(a["min"], r["odds"]), max(a["max"], r["odds"])
         return agg
 
+    def sharp_history_all(self, product: str, draw_number: int) -> list[dict]:
+        """Hela sharp-serien för en omgång (alla matcher/tecken, tidsordnad) —
+        underlag för steam-beräkningen (devigade skift över tidsfönster)."""
+        rows = self.conn.execute(
+            "SELECT event_number, sign, odds, fetched_at FROM sharp_snapshots "
+            "WHERE product=? AND draw_number=? AND odds IS NOT NULL ORDER BY fetched_at",
+            (product, draw_number)).fetchall()
+        return [dict(r) for r in rows]
+
     def sharp_history(self, product: str, draw_number: int, event_number: int) -> list[dict]:
         rows = self.conn.execute(
             "SELECT sign, odds, fetched_at FROM sharp_snapshots WHERE product=? AND draw_number=? "

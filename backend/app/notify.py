@@ -54,18 +54,10 @@ def check_movers(product: str, draw: Draw, store: Storage) -> int:
     if not (0 <= hrs <= NOTIFY_WINDOW_H):
         return 0
 
-    # samma rörelse-sammanslagning som API:ts _analyze
+    # samma rörelse-sammanslagning (inkl. devigat steam) som API:ts _analyze
+    from . import steam as steam_mod
     sharp = store.get_sharp(product, draw.draw_number)
-    movement = store.sharp_movement(product, draw.draw_number) \
-        or store.movement(product, draw.draw_number)
-    streck_mv = store.streck_movement(product, draw.draw_number)
-    merged: dict = {}
-    for k in set(movement) | set(streck_mv):
-        e = dict(movement.get(k, {}))
-        sm = streck_mv.get(k)
-        if sm:
-            e["streck_first"], e["streck_last"] = sm["first"], sm["last"]
-        merged[k] = e
+    merged = steam_mod.movement_with_steam(store, product, draw.draw_number)
 
     sent = 0
     for m in analyze_draw(draw, sharp, merged).matches:

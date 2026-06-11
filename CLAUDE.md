@@ -77,6 +77,10 @@ start.sh / stop.sh    kör/stoppa båda lokalt
   (strategin sätter reglagets startpunkt 20/50/80 — ingen dold bias i backend).
 - Teckenpoäng `_sign_score`: sharp-sannolikhet före SvS, bonus för tecken marknaden backar
   (fallande odds/ss_undervärderad) så de inte petas pga tillfällig överstreckning.
+- **Steam** (`app/steam.py`): devigade sannolikhetsskift (pp) över 6/24/72 h — jämförbart
+  favorit/skräll, marginalbrus borta. 🔥-flaggan + ntfy triggar på 24h-skiftet
+  (≥3,5 pp markant, ≥6 pp stark); rå oddsrörelse är bara fallback utan sharp-serie.
+  `movement_with_steam` är den delade rörelse-helpern (API + notiser — håll dem i synk).
 
 ## Export till Svenska Spel ("Egna rader")
 

@@ -225,6 +225,12 @@ h2 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spa
 .clv-sum b { color: var(--text); }
 .clv-table .league { font-size: 10px; }
 .clv-table td.pos, .clv-table td.neg { font-weight: 700; }
+
+/* Steam-tabellen */
+.steam { margin-top: 12px; }
+.steam-table td.pos, .steam-table td.neg { font-weight: 700; }
+.steam-table td:not(.match):not(.signs) { text-align: right; }
+.steam-table th:not(:first-child) { text-align: right; }
 tr.r-spik td { background: rgba(46,139,87,0.10); }
 tr.r-full td { background: rgba(201,123,29,0.10); }
 
