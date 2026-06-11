@@ -1263,27 +1263,43 @@ export default function App() {
     return { counts, total: pickRows.length }
   })() : null
 
-  const loadAnalysis = async (p = product, dn = draw) => {
+  // silent = tyst auto-uppdatering: rör inte spinner/öppen graf/felruta
+  const loadAnalysis = async (p = product, dn = draw, silent = false) => {
     if (!dn) return
-    setLoading(true); setErr(null); setSelected(null)
+    if (!silent) { setLoading(true); setErr(null); setSelected(null) }
     try {
       const r = await fetch(`/api/analysis?product=${p}&draw=${dn}&_t=${Date.now()}`, { cache: 'no-store' })
       if (!r.ok) throw new Error(`Analys ${r.status}`)
       setAnalysis(await r.json())
       fetch(`/api/movement?product=${p}&draw=${dn}&_t=${Date.now()}`, { cache: 'no-store' })
         .then((x) => x.json()).then(setMovement).catch(() => setMovement(null))
-    } catch (e) { setErr(String(e)) } finally { setLoading(false) }
+    } catch (e) { if (!silent) setErr(String(e)) } finally { if (!silent) setLoading(false) }
   }
 
   // byt spel: hämta omgångar, välj första öppna, ladda analys
-  const loadPayouts = (p = product, dn = draw) => {
+  const loadPayouts = (p = product, dn = draw, silent = false) => {
     if (!dn) return
-    setPayouts(null)
+    if (!silent) setPayouts(null)
     fetch(`/api/payouts?product=${p}&draw=${dn}&_t=${Date.now()}`, { cache: 'no-store' })
-      .then((r) => r.json()).then(setPayouts).catch(() => setPayouts(null))
+      .then((r) => r.json()).then(setPayouts).catch(() => { if (!silent) setPayouts(null) })
   }
 
   const refresh = () => { loadAnalysis(); loadPayouts() }
+
+  // tyst auto-uppdatering: bakgrundsjobbet skriver till DB:n var 5–30:e min, men
+  // den öppna sidan visade gammal data tills man tryckte Uppdatera. Polla var 2:a
+  // min + när man kommer tillbaka till fliken/appen (utan att störa kupong/graf).
+  useEffect(() => {
+    if (!draw) return
+    const tick = () => {
+      if (document.visibilityState !== 'visible') return
+      loadAnalysis(product, draw, true)
+      loadPayouts(product, draw, true)
+    }
+    const id = setInterval(tick, 120000)
+    document.addEventListener('visibilitychange', tick)
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', tick) }
+  }, [product, draw])  // eslint-disable-line
 
   const switchGame = async (g) => {
     setGroup(g); setSys(null); setAnalysis(null); setMovement(null); setErr(null); setSysType('ev'); setPicks({}); setLoading(true)
