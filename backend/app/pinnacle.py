@@ -11,6 +11,7 @@ Inofficiellt API — kan ändras utan förvarning.
 """
 from __future__ import annotations
 
+import time
 from typing import Optional
 
 import httpx
@@ -45,9 +46,21 @@ class Pinnacle:
         self.close()
 
     def _get(self, path: str):
-        r = self._client.get(f"{BASE}{path}")
-        r.raise_for_status()
-        return r.json()
+        # Försök igen vid tillfälliga nätfel (launchd-pollen råkade ut för
+        # ConnectError ibland). OBS: Cloudflare ger periodvis 403 (HTML) för
+        # datacenter-/VPN-IP:n — det är IP-baserat, headers/TLS hjälper EJ.
+        # Vi retryar inte 403 (lönlöst) utan låter den bubbla → sharp_service
+        # fångar, loggar block i meta och degraderar.
+        last = None
+        for attempt in range(3):
+            try:
+                r = self._client.get(f"{BASE}{path}")
+                r.raise_for_status()
+                return r.json()
+            except (httpx.ConnectError, httpx.ReadTimeout, httpx.ConnectTimeout) as e:
+                last = e
+                time.sleep(1.5 * (attempt + 1))
+        raise last
 
     def soccer_index(self, include_without_odds: bool = False) -> list[dict]:
         """Alla soccer-matcher i decimalodds (2 gratis-anrop).

@@ -31,34 +31,49 @@ def collect_pinnacle(product: str = "stryktipset",
     hits: dict[int, dict] = {}
     status: dict[int, str] = {}
 
-    with Pinnacle() as pin:
-        index = pin.soccer_index(include_without_odds=True)
-        for m in draw.matches:
-            hit = pin.match(m.home, m.away, m.home_iso, m.away_iso,
-                            index, m.match_start)
-            if not hit:
-                status[m.event_number] = "not_listed"
-                continue
-            o = hit.get("odds") or {}
-            if o.get("1") is None and o.get("2") is None:
-                status[m.event_number] = "no_moneyline"
-            else:
-                derived = hit.get("odds_source") == "derived"
-                status[m.event_number] = "derived" if derived else "matched"
-                hits[m.event_number] = {
-                    **hit, "source": "pinnacle",
-                    "bookmaker": "pinnacle (härledd)" if derived else "pinnacle"}
-
-    if cache and hits:
-        to_cache = [{"event_number": ev, "bookmaker": h["bookmaker"], "odds": h["odds"],
-                     "confidence": h["confidence"],
-                     "matched": f'{h["home"]} - {h["away"]}', "fetched_at": fetched_at}
-                    for ev, h in hits.items()]
-        store = Storage()
+    # Pinnacle Cloudflare-blockar periodvis vår (datacenter-/VPN-)IP → degradera
+    # snyggt: krascha inte insamlingen, spåra hälsan i meta så UI:t kan visa det.
+    # (Headers/TLS hjälper EJ — blocket är IP-baserat. the-odds-api är redan
+    # svs primärkälla och täcker det Pinnacle gör, så ingen fallback behövs här.)
+    try:
+        with Pinnacle() as pin:
+            index = pin.soccer_index(include_without_odds=True)
+            for m in draw.matches:
+                hit = pin.match(m.home, m.away, m.home_iso, m.away_iso,
+                                index, m.match_start)
+                if not hit:
+                    status[m.event_number] = "not_listed"
+                    continue
+                o = hit.get("odds") or {}
+                if o.get("1") is None and o.get("2") is None:
+                    status[m.event_number] = "no_moneyline"
+                else:
+                    derived = hit.get("odds_source") == "derived"
+                    status[m.event_number] = "derived" if derived else "matched"
+                    hits[m.event_number] = {
+                        **hit, "source": "pinnacle",
+                        "bookmaker": "pinnacle (härledd)" if derived else "pinnacle"}
+    except Exception as e:  # noqa: BLE001 — block/nätfel ska inte fälla SS-insamlingen
+        _hs = Storage()
         try:
+            _hs.meta_set("pinnacle_error", str(e).splitlines()[0][:160])
+            _hs.meta_set("pinnacle_error_at", fetched_at)
+        finally:
+            _hs.close()
+        return {"draw": draw, "hits": {}, "status": {}, "pinnacle_error": str(e)[:160]}
+
+    store = Storage()
+    try:
+        store.meta_set("last_pinnacle_ok", fetched_at)   # hämtningen lyckades
+        store.meta_set("pinnacle_error", "")
+        if cache and hits:
+            to_cache = [{"event_number": ev, "bookmaker": h["bookmaker"], "odds": h["odds"],
+                         "confidence": h["confidence"],
+                         "matched": f'{h["home"]} - {h["away"]}', "fetched_at": fetched_at}
+                        for ev, h in hits.items()]
             store.save_sharp(product, draw.draw_number, to_cache)
             store.save_sharp_snapshot(product, draw.draw_number, hits, fetched_at)
-        finally:
-            store.close()
+    finally:
+        store.close()
 
     return {"draw": draw, "hits": hits, "status": status}
