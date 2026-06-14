@@ -332,6 +332,9 @@ tr.sel td { background: rgba(74,163,223,0.08); }
 .bvalue .bchip { display: inline-block; margin-left: 8px; background: rgba(61,220,132,0.14);
   border: 1px solid rgba(61,220,132,0.4); border-radius: 7px; padding: 2px 8px; color: var(--text); }
 .bvalue .bchip b { color: #3ddc84; }
+.bbuild { margin-top: 4px; }
+.bused { margin: 8px 0; color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.bused .bchip { background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 2px 8px; color: var(--text); }
 
 .error { background: #5b1d1d; padding: 10px; border-radius: 7px; margin-bottom: 12px; }
 .loading { color: var(--muted); }

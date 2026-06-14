@@ -112,8 +112,11 @@ P4. ~~**Backtest mot football-data.co.uk**~~ → `cli.py fdbacktest` (klar).
     (Pinnacle spread/total → home_xg/away_xg via derive.goal_expectations) mot
     folkets resultatfördelning (svenskaFolket-marginaler) → värdekvot per resultat.
     app/bomben.py + /api/bomben + BombenView (resultat-heatmap). Degraderar till
-    folk-only när Pinnacle nere. KVAR: radbyggare/Egna rader-export för Bomben
-    (kombinationer av resultat; annan filrubrik), och modell-tier-flagga utanför CLV.
+    folk-only när Pinnacle nere. Radbyggare + export klar: build_bomben_system
+    rangordnar resultat-rader efter EV (pott = oms×0.65 + rullpott ur fund.rolloverIn),
+    /api/bomben/system + BombenBuilder-UI, Egna rader-fil "Bomben"+"E,h-a,h-a,h-a"
+    (filrubrik OVERIFIERAD — inloggningsskyddad sida; kopiera-fallback finns).
+    KVAR: verifiera Bomben-filrubriken vid skarp uppladdning; modell-tier utanför CLV.
 11. Måltipset (pid 8) — samma API-familj som Bomben (mål-tips), kan återanvända motorn.
 11. ~~Notifiering vid 🔥~~ (klar): app/notify.py pushar via ntfy.sh när en match
     får 🔥 (sen markant oddssänkning) och omgången stänger inom 8 h; dedup per

@@ -631,13 +631,19 @@ const kr = (v) => (v == null ? '–' : Math.round(v).toLocaleString('sv-SE') + '
    Vi enumererar konkreta rader (E) – korrekt även för reducerade system där
    vi måste behålla exakt de raderna (ett M-system skulle spela hela produkten). */
 function egnaRaderUrl(product) {
-  if (product === 'stryktipset' || product === 'europatipset') {
+  if (product === 'stryktipset' || product === 'europatipset' || product === 'bomben') {
     return `https://spela.svenskaspel.se/${product}/externa-systemspel`
   }
   if (product?.startsWith('topptipset')) {
     return 'https://spela.svenskaspel.se/topptipset/externa-systemspel'
   }
   return null
+}
+// Bomben Egna rader: rubrikrad + en rad per spelrad med exakt resultat per match.
+// OBS: Bombens filspec är inloggningsskyddad — rubrik/format här är rekonstruerat
+// efter SvS mönster och bör verifieras vid första uppladdningen.
+function egnaRaderBombenText(rows) {
+  return 'Bomben\r\n' + rows.map((r) => 'E,' + r.join(',')).join('\r\n') + '\r\n'
 }
 function cartesianRows(groups) {
   let rows = [[]]
@@ -1253,6 +1259,71 @@ class ErrBoundary extends Component {
   }
 }
 
+function BombenBuilder({ draw }) {
+  const [budget, setBudget] = useState(50)
+  const [sys, setSys] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const build = () => {
+    setBusy(true)
+    fetch(`/api/bomben/system?draw=${draw}&budget=${budget}&_t=${Date.now()}`, { cache: 'no-store' })
+      .then((r) => r.json()).then((s) => { setSys(s); setBusy(false) })
+      .catch(() => { setSys(null); setBusy(false) })
+  }
+  const download = () => downloadText(`bomben_omg${draw}_egnarader.txt`, egnaRaderBombenText(sys.rows))
+  const copy = () => {
+    navigator.clipboard?.writeText(sys.rows.map((r) => r.join(' ')).join('\n'))
+    setCopied(true); setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <div className="bbuild">
+      <div className="controls">
+        <label className="budget">Max budget <b>{budget} kr</b>
+          <input type="range" min="0" max={BUDGET_STOPS.length - 1}
+            value={BUDGET_STOPS.reduce((b, v, i) => Math.abs(v - budget) < Math.abs(BUDGET_STOPS[b] - budget) ? i : b, 0)}
+            onChange={(e) => setBudget(BUDGET_STOPS[Number(e.target.value)])} /></label>
+        <button className="primary" onClick={build} disabled={busy}>{busy ? 'Bygger…' : 'Föreslå rader'}</button>
+      </div>
+      {sys && sys.rows?.length > 0 && (
+        <>
+          <div className="coupon-kpis">
+            <div className="kpi"><span>{sys.num_rows}</span>rader</div>
+            <div className="kpi"><span>{kr(sys.cost)}</span>insats (1 kr/rad)</div>
+            <div className="kpi"><span>{pct(sys.p_all)}</span>chans alla rätt</div>
+            <div className="kpi" title="Sannolikhetsviktad förväntad utdelning över de valda raderna (pott = omsättning×andel + rullpott).">
+              <span>{kr(sys.ev_payout)}</span>förv. utdelning</div>
+            <div className="kpi"><span className={sys.ev >= 0 ? 'pos' : 'neg'}>{sys.ev >= 0 ? '+' : ''}{kr(sys.ev)}</span>EV (netto)</div>
+          </div>
+          <div className="bused">Resultat som används:
+            {sys.used.map((u) => (
+              <span key={u.event_number} className="bchip" title={u.description}>{u.description.split('-')[0].trim()}: {u.scores.join(' ')}</span>
+            ))}</div>
+          <div className="svs-row">
+            <a className="svs-link" href={egnaRaderUrl('bomben')} target="_blank" rel="noreferrer">▶ Externa systemspel ↗</a>
+            <button onClick={download}>⬇ Egna rader-fil ({sys.num_rows} rader)</button>
+            <button onClick={copy}>{copied ? '✓ Kopierad' : 'Kopiera rader'}</button>
+          </div>
+          <p className="hint">{sys.note} · OBS: Bombens filformat är inloggningsskyddat och kunde inte
+            verifieras — rubriken är "Bomben" och raderna "E,2-1,1-1,0-2". Stämmer det inte vid uppladdning,
+            använd "Kopiera rader" och fyll i manuellt. EV-nivån antar 65 % återbetalning (skalar bara siffran).</p>
+          <table className="grid compact"><thead><tr><th>#</th>
+            {sys.used.map((u) => <th key={u.event_number}>{u.description}</th>)}
+            <th>chans</th><th>utd. om rätt</th></tr></thead>
+            <tbody>
+              {sys.detail.slice(0, 40).map((row, i) => (
+                <tr key={i}><td>{i + 1}</td>
+                  {row.scores.map((s, j) => <td key={j} className="signs">{s}</td>)}
+                  <td>{pct(row.p)}</td><td>{kr(row.dividend)}</td></tr>
+              ))}
+            </tbody></table>
+          {sys.num_rows > 40 && <p className="hint">Visar 40 av {sys.num_rows} rader (filen/kopian innehåller alla).</p>}
+        </>
+      )}
+      {sys && !sys.rows?.length && <p className="hint">Kunde inte bygga rader för omgången.</p>}
+    </div>
+  )
+}
+
 function BombenView({ draw, nonce }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -1278,6 +1349,10 @@ function BombenView({ draw, nonce }) {
         rött = överspelat. Rader = hemmamål, kolumner = bortamål. Håll muspekaren för folk-/modell-%.
         Modellen är sharp-ankrad men modell-härledd — använd som vägledning, inte facit.</p>
       {data.matches.map((m) => <BombenMatch key={m.event_number} m={m} />)}
+      <h2>Bygg rader & export</h2>
+      <p className="hint">Rangordnar konkreta resultat-rader efter popularitetsjusterad EV
+        (modellens sannolikhet vs hur många du delar potten med) och tar budgetens bästa.</p>
+      <BombenBuilder draw={data.draw_number} />
     </section>
   )
 }

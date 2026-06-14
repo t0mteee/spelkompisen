@@ -23,6 +23,8 @@ from .svenskaspel import SvenskaSpel, _f
 
 MAX_GOALS = 7          # rutnät 0..7 mål per lag (täcker i praktiken allt)
 _POISSON_N = 12        # beräkna pmf längre för korrekt normalisering
+RATIO = 0.65           # antagen återbetalningsandel (Oddset-pool); skalar bara EV-nivån
+BUILD_CAND = 6         # kandidatresultat per match i radbyggaren (6^3 = 216 rader)
 
 
 def _poisson_pmf(mu: float, n: int = MAX_GOALS) -> list[float]:
@@ -108,11 +110,75 @@ def analyze_bomben(draw: dict, pin_index: Optional[list[dict]] = None) -> dict:
 
     if matcher:
         matcher.close()
+    fund = draw.get("fund") or {}
+    rullpott = (_f(fund.get("rolloverIn")) or 0.0) + (_f(fund.get("extraMoney")) or 0.0)
     return {
         "draw_number": draw.get("drawNumber"),
         "state": draw.get("drawState"),
         "reg_close_time": draw.get("regCloseTime"),
         "turnover": _f(draw.get("currentNetSales")),
+        "rullpott": rullpott,
         "match_count": draw.get("matchCount"),
         "matches": matches,
+    }
+
+
+def build_bomben_system(analysis: dict, budget: float = 50.0,
+                        row_price: float = 1.0) -> dict:
+    """Rangordna konkreta Bomben-rader (ett exakt resultat per match) efter
+    popularitetsjusterad EV och ta budgetens bästa. EV = P_modell(rad) ×
+    pott/(fält × folk(rad) + 1); pott = omsättning×andel + rullpott. För matcher
+    utan sharp-modell används folkfördelningen som proxy (neutral)."""
+    matches = analysis.get("matches") or []
+    if not matches:
+        return {"rows": [], "note": "Ingen data."}
+    turnover = analysis.get("turnover") or 0.0
+    pott = turnover * RATIO + (analysis.get("rullpott") or 0.0)
+    field = (turnover / row_price) if (turnover and row_price) else 0.0
+    target = max(1, int(budget / row_price))
+
+    # per match: modellsannolikhet (folk som fallback) + folk, samt kandidatresultat
+    per = []
+    for m in matches:
+        model_p, folk_p = {}, {}
+        for g in m["grid"]:
+            folk_p[g["score"]] = g["folk"] or 0.0
+            model_p[g["score"]] = g["model"] if g["model"] is not None else (g["folk"] or 0.0)
+        cands = sorted(model_p, key=lambda s: model_p[s], reverse=True)[:BUILD_CAND]
+        per.append({"ev": m["event_number"], "desc": m["description"],
+                    "model": model_p, "folk": folk_p, "cands": cands})
+
+    # enumerera kandidatrader (kartesisk produkt) och EV-värdera
+    rows = [[]]
+    for p in per:
+        rows = [r + [s] for r in rows for s in p["cands"]]
+    scored = []
+    for r in rows:
+        pm = pf = 1.0
+        for p, s in zip(per, r):
+            pm *= p["model"][s]
+            pf *= p["folk"][s]
+        div = min(pott, pott / (field * pf + 1.0)) if (pott and field) else 0.0
+        scored.append({"scores": r, "p": pm, "folk": pf, "ev": pm * div, "dividend": div})
+    scored.sort(key=lambda x: x["ev"], reverse=True)
+    chosen = scored[:target]
+
+    ev_sum = sum(c["ev"] for c in chosen)
+    cost = len(chosen) * row_price
+    # vilka resultat används per match (för sammanfattning)
+    used = []
+    for i, p in enumerate(per):
+        s_used = sorted({c["scores"][i] for c in chosen})
+        used.append({"event_number": p["ev"], "description": p["desc"], "scores": s_used})
+    return {
+        "rows": [c["scores"] for c in chosen],
+        "detail": chosen,
+        "used": used,
+        "num_rows": len(chosen), "cost": round(cost, 2),
+        "ev_payout": round(ev_sum, 0), "ev": round(ev_sum - cost, 0),
+        "pott": round(pott, 0),
+        "p_all": round(sum(c["p"] for c in chosen), 5),
+        "note": f"Topp {len(chosen)} rader (av {len(scored)} kandidater) efter EV "
+                f"vid {turnover:,.0f} kr oms + {analysis.get('rullpott') or 0:,.0f} kr rullpott."
+                .replace(",", " "),
     }

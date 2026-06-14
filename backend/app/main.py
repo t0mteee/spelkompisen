@@ -159,6 +159,26 @@ def bomben(draw: int | None = None):
     return res
 
 
+@app.get("/api/bomben/system")
+def bomben_system(draw: int, budget: float = 50.0, row_price: float = 1.0):
+    """Radbyggare för Bomben: rangordnar konkreta resultat-rader efter EV."""
+    from . import bomben as bomben_mod
+    with SvenskaSpel() as ss:
+        draws = ss.bomben_draws()
+    d = next((x for x in draws if x["drawNumber"] == draw), None)
+    if not d:
+        raise HTTPException(404, f"Bomben-omgång {draw} hittades inte")
+    try:
+        with Pinnacle() as p:
+            idx = p.soccer_index(include_without_odds=True)
+    except Exception:  # noqa: BLE001
+        idx = None
+    res = bomben_mod.analyze_bomben(d, idx)
+    sysm = bomben_mod.build_bomben_system(res, budget=budget, row_price=row_price)
+    sysm["draw_number"] = draw
+    return sysm
+
+
 # Svenska Spels officiella vinstplaner: återbetalningsandel + andel per nivå.
 # (Validerat mot faktiska utfall.) Topptipset: bara 8 rätt delar potten.
 PRIZE_PLANS = {
