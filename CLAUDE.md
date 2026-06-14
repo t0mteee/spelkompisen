@@ -80,6 +80,10 @@ start.sh / stop.sh    kör/stoppa båda lokalt
   toppnivå-EV, finrankar topp ~4k med full nivå-EV, tar budgetens bästa.
 - Strategi (säker/medel/tuff) styr garderingssammansättning; **EV-reglaget är enda risk-axeln**
   (strategin sätter reglagets startpunkt 20/50/80 — ingen dold bias i backend).
+- **Streck-allokering** (`_size_to_budget`): värde/kostnads-girig — uppgradera matchen med högst
+  Δlog(täckt sannolikhet)/Δlog(rader). Spikar klara favoriter (slipp ×2), garderar djupt där det
+  täcker mest. Gäller math/reducerat/garanti; EV-topp & Bomben rankar redan hela rader på EV.
+- SystemView visar **"Fyll i så här på Svenska Spel"** (tecken per match + kopiera) för manuell ifyllnad.
 - Teckenpoäng `_sign_score`: sharp-sannolikhet före SvS, bonus för tecken marknaden backar
   (fallande odds/ss_undervärderad) så de inte petas pga tillfällig överstreckning.
 - **Steam** (`app/steam.py`): devigade sannolikhetsskift (pp) över 6/24/72 h — jämförbart

@@ -475,6 +475,7 @@ function ColorLab({ sys, onRecalc }) {
 }
 
 function SystemView({ sys, matches, payouts, onRecalc, onUse }) {
+  const [mfCopied, setMfCopied] = useState(false)
   if (!sys) return null
   const roleClass = { spik: 'r-spik', halvgardering: 'r-half', helgardering: 'r-full' }
   const st = systemStats(sys, matches, payouts)
@@ -559,6 +560,21 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse }) {
           ))}
         </tbody>
       </table>
+      <div className="manualfill">
+        <b>Fyll i så här på Svenska Spel:</b>
+        <span className="mf-rows">{sys.picks.map((p) => (
+          <span key={p.event_number} className="mf-m">
+            <em>{p.event_number}</em> {p.signs.join('')}</span>
+        ))}</span>
+        <button onClick={() => {
+          navigator.clipboard?.writeText(sys.picks.map((p) => `${p.event_number}: ${p.signs.join('')}`).join('\n'))
+          setMfCopied(true); setTimeout(() => setMfCopied(false), 2000)
+        }}>{mfCopied ? '✓ Kopierad' : 'Kopiera'}</button>
+        {rowsList && fullCombos > sys.num_rows && (
+          <span className="hint"> · OBS: markerar du alla dessa tecken spelar du hela systemet
+            ({fullCombos} rader). För den reducerade ({sys.num_rows} rader) – använd Egna rader-filen i kupongen.</span>
+        )}
+      </div>
       <div className="svs-row">
         <button className="primary" onClick={onUse}>⬇ Lägg i kupongen</button>
         <span className="hint">Kupongen är navet — där finns export till Svenska Spel, EV-detaljer och raderna.</span>

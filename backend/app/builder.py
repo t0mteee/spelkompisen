@@ -142,36 +142,53 @@ def _reason(m: MatchAnalysis, count: int) -> str:
 # ---------- dimensionering mot budget ----------
 
 def _size_to_budget(analysis: DrawAnalysis, cfg: StrategyConfig,
-                    budget: float, row_price: float) -> dict[int, int]:
+                    budget: float, row_price: float,
+                    value_weight: float = 0.5) -> dict[int, int]:
     """Returnera {event_number: antal_tecken} dimensionerat mot budget.
 
-    Greedy: börja med spik överallt (1 rad). Uppgradera de öppnaste matcherna
-    först till halv-, sedan helgardering, så länge radantalet ryms i budget."""
+    Värde/kostnads-girig: i varje steg uppgradera den match där NÄSTA tecken
+    ger mest täckt sannolikhet per kostnadsökning, dvs maximera
+    Δlog(täckt sannolikhet) / Δlog(antal rader). Det betyder att en match med
+    klar favorit (litet 2:a-tecken) hellre SPIKAS — och budgeten läggs på
+    matcher där garderingen täcker mer — i stället för att blint fördubbla
+    kostnaden överallt. Tecknen som faktiskt tas väljs sedan av _pick_signs."""
+    import math
     target = max(1, int(budget / row_price))
     counts = {m.event_number: 1 for m in analysis.matches}
-    order = [m for m in sorted(analysis.matches, key=lambda m: m.open_score, reverse=True)
-             if not m.cancelled]
+    # sannolikhet per tecken i pick-ordning (samma ordning som _pick_signs)
+    probs: dict[int, list[float]] = {}
+    for m in analysis.matches:
+        if m.cancelled:
+            continue
+        order = _signs_by_score(m, value_weight)
+        probs[m.event_number] = [max(1e-4, m.outcomes[s].fair_prob or 1e-4) for s in order]
+
+    def _gain(ev: int) -> Optional[float]:
+        c = counts[ev]
+        cap = 3 if cfg.allow_full else 2
+        if c >= cap:
+            return None
+        p = probs.get(ev)
+        if not p or c >= len(p):
+            return None
+        cov = sum(p[:c])
+        added = p[c]
+        # effektivitet = täckningsvinst (log) per kostnadsökning (log)
+        return math.log((cov + added) / cov) / math.log((c + 1) / c)
+
     rows = 1
-    # Budgeten är ett tak som ska fyllas; strategierna skiljs åt av *hur* den
-    # fylls (halv vs hel + värde), inte genom att kapa radantalet.
-    # 1) Helgardera de öppnaste matcherna först om strategin tillåter — det ger
-    #    tuff/medel högre varians (tröskeln full_open styr hur djärvt).
-    if cfg.allow_full:
-        for m in order:
-            if m.open_score >= cfg.full_open and rows * 3 <= target:
-                counts[m.event_number] = 3
-                rows *= 3
-    # 2) Halvgardera de öppnaste återstående tills budgeten (nästan) är fylld.
-    for m in order:
-        if counts[m.event_number] == 1 and rows * 2 <= target:
-            counts[m.event_number] = 2
-            rows *= 2
-    # 3) Budget kvar? Uppgradera fler halvor till hel (mest öppna först).
-    if cfg.allow_full:
-        for m in order:
-            if counts[m.event_number] == 2 and rows // 2 * 3 <= target:
-                counts[m.event_number] = 3
-                rows = rows // 2 * 3
+    while True:
+        best, best_eff = None, 0.0
+        for ev in counts:
+            if rows * (counts[ev] + 1) / counts[ev] > target:
+                continue                       # ryms inte i budget
+            eff = _gain(ev)
+            if eff is not None and eff > best_eff:
+                best, best_eff = ev, eff
+        if best is None:
+            break
+        rows = int(round(rows * (counts[best] + 1) / counts[best]))
+        counts[best] += 1
     return counts
 
 
@@ -207,7 +224,7 @@ def build_math_system(analysis: DrawAnalysis, strategy: str = "medel",
                       budget: float = 100.0, row_price: float = ROW_PRICE,
                       enumerate_rows: bool = False, value_weight: float = 0.5) -> System:
     cfg = STRATEGIES[strategy]
-    counts = _size_to_budget(analysis, cfg, budget, row_price)
+    counts = _size_to_budget(analysis, cfg, budget, row_price, value_weight)
     picks = _build_picks(analysis, cfg, counts, value_weight)
     n = _num_rows(picks)
     rows: list[list[str]] = []
@@ -233,7 +250,7 @@ def build_reduced_system(analysis: DrawAnalysis, strategy: str = "medel",
     [lo, hi]. Det skär bort de mest osannolika kombinationerna (alla skrällar
     samtidigt) men behåller bredden — klassisk färg-/villkorsreducering."""
     cfg = STRATEGIES[strategy]
-    counts = _size_to_budget(analysis, cfg, budget * expand, row_price)
+    counts = _size_to_budget(analysis, cfg, budget * expand, row_price, value_weight)
     picks = _build_picks(analysis, cfg, counts, value_weight)
     full_rows = _num_rows(picks)
 
@@ -618,7 +635,7 @@ def build_color_system(analysis: DrawAnalysis, strategy: str = "medel",
     target = max(1, int(budget / row_price))
 
     # generösare grundsystem än budgeten — reduceringen skär ner kostnaden
-    counts = _size_to_budget(analysis, cfg, budget * 6, row_price)
+    counts = _size_to_budget(analysis, cfg, budget * 6, row_price, value_weight)
     picks = _build_picks(analysis, cfg, counts, value_weight)
     while _num_rows(picks) > EV_UNIVERSE_CAP:      # håll enumereringen hanterbar
         for m in sorted(analysis.matches, key=lambda x: x.open_score):
