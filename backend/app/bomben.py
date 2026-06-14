@@ -125,10 +125,12 @@ def analyze_bomben(draw: dict, pin_index: Optional[list[dict]] = None) -> dict:
 
 def build_bomben_system(analysis: dict, budget: float = 50.0,
                         row_price: float = 1.0) -> dict:
-    """Rangordna konkreta Bomben-rader (ett exakt resultat per match) efter
-    popularitetsjusterad EV och ta budgetens bästa. EV = P_modell(rad) ×
-    pott/(fält × folk(rad) + 1); pott = omsättning×andel + rullpott. För matcher
-    utan sharp-modell används folkfördelningen som proxy (neutral)."""
+    """Bygg ett KOLUMN-baserat Bomben-system: per match väljs hemmamål- och
+    bortamål-kolumner (det kupongen faktiskt markerar). Radantalet = produkten
+    av kolumnerna = exakt vad du fyller i OCH betalar OCH får i filen — inga
+    förvirrande reduceringar. Kolumnerna väljs girigt EV-viktat: lägg till den
+    mål-kolumn som ökar systemets förväntade utdelning mest per ny rad.
+    EV = Σ_rader P_modell(rad) × pott/(fält × folk(rad)+1); pott = oms×andel + rullpott."""
     matches = analysis.get("matches") or []
     if not matches:
         return {"rows": [], "note": "Ingen data."}
@@ -136,62 +138,108 @@ def build_bomben_system(analysis: dict, budget: float = 50.0,
     pott = turnover * RATIO + (analysis.get("rullpott") or 0.0)
     field = (turnover / row_price) if (turnover and row_price) else 0.0
     target = max(1, int(budget / row_price))
-    # kandidatresultat per match skalas med budgeten så större budget faktiskt
-    # ger fler rader (annars planar antalet ut vid BUILD_CAND^n)
-    n = len(matches)
-    cand_n = max(BUILD_CAND, min(20, int(math.ceil(target ** (1.0 / max(1, n)))) + 1))
 
-    # per match: modellsannolikhet (folk som fallback) + folk, samt kandidatresultat
+    # marginalfördelningar per match (mål-kolumner): modell (folk som fallback) + folk
     per = []
     for m in matches:
-        model_p, folk_p = {}, {}
+        hp, ap, hf, af = {}, {}, {}, {}
         for g in m["grid"]:
-            folk_p[g["score"]] = g["folk"] or 0.0
-            model_p[g["score"]] = g["model"] if g["model"] is not None else (g["folk"] or 0.0)
-        cands = sorted(model_p, key=lambda s: model_p[s], reverse=True)[:cand_n]
+            mod = g["model"] if g["model"] is not None else (g["folk"] or 0.0)
+            hp[g["h"]] = hp.get(g["h"], 0.0) + mod
+            ap[g["a"]] = ap.get(g["a"], 0.0) + mod
+            hf[g["h"]] = hf.get(g["h"], 0.0) + (g["folk"] or 0.0)
+            af[g["a"]] = af.get(g["a"], 0.0) + (g["folk"] or 0.0)
+        home_order = sorted([k for k in hp if hp[k] > 0.003], key=lambda k: hp[k], reverse=True) or [0]
+        away_order = sorted([k for k in ap if ap[k] > 0.003], key=lambda k: ap[k], reverse=True) or [0]
         per.append({"ev": m["event_number"], "desc": m["description"],
-                    "model": model_p, "folk": folk_p, "cands": cands})
+                    "hp": hp, "ap": ap, "hf": hf, "af": af,
+                    "home_order": home_order, "away_order": away_order,
+                    # börja med varje matchs mest sannolika hemma- och bortamål
+                    "H": home_order[:1], "A": away_order[:1]})
 
-    # enumerera kandidatrader (kartesisk produkt) och EV-värdera
-    rows = [[]]
+    def system_ev() -> tuple[float, float, float, int]:
+        """Enumerera produktraderna -> (EV-utdelning, P(alla rätt), Σfolk, antal rader)."""
+        ev = pall = 0.0
+        combos = [(1.0, 1.0)]   # (P_modell, folk) ackumulerat
+        for p in per:
+            nxt = []
+            for h in p["H"]:
+                for a in p["A"]:
+                    pm = p["hp"].get(h, 0.0) * p["ap"].get(a, 0.0)
+                    pf = p["hf"].get(h, 0.0) * p["af"].get(a, 0.0)
+                    for cpm, cpf in combos:
+                        nxt.append((cpm * pm, cpf * pf))
+            combos = nxt
+        for pm, pf in combos:
+            div = min(pott, pott / (field * pf + 1.0)) if (pott and field) else 0.0
+            ev += pm * div
+            pall += pm
+        return ev, pall, 0.0, len(combos)
+
+    def rows_count() -> int:
+        r = 1
+        for p in per:
+            r *= len(p["H"]) * len(p["A"])
+        return r
+
+    # girigt: lägg till den kolumn (hemma/borta i någon match) som ger mest
+    # EV-ökning per ny rad, så länge radantalet ryms i budget
+    cur_ev = system_ev()[0]
+    while True:
+        best, best_eff = None, 0.0
+        base_rows = rows_count()
+        for p in per:
+            for axis, order, sel in (("H", p["home_order"], p["H"]), ("A", p["away_order"], p["A"])):
+                nxt = next((g for g in order if g not in sel), None)
+                if nxt is None:
+                    continue
+                new_rows = base_rows // (len(sel)) * (len(sel) + 1)
+                if new_rows > target:
+                    continue
+                sel.append(nxt)
+                ev2 = system_ev()[0]
+                sel.pop()
+                eff = (ev2 - cur_ev) / (new_rows - base_rows) if new_rows > base_rows else 0.0
+                if eff > best_eff:
+                    best, best_eff = (p, axis, nxt, ev2), eff
+        if best is None:
+            break
+        p, axis, g, ev2 = best
+        p[axis].append(g)
+        p[axis].sort()
+        cur_ev = ev2
+
+    # bygg de konkreta produktraderna (för fil/kopia/tabell) + EV per rad
+    detail = []
+    combos = [[]]
     for p in per:
-        rows = [r + [s] for r in rows for s in p["cands"]]
-    scored = []
-    for r in rows:
+        combos = [c + [f"{h}-{a}"] for c in combos for h in p["H"] for a in p["A"]]
+    for r in combos:
         pm = pf = 1.0
         for p, s in zip(per, r):
-            pm *= p["model"][s]
-            pf *= p["folk"][s]
+            h, a = (int(x) for x in s.split("-"))
+            pm *= p["hp"].get(h, 0.0) * p["ap"].get(a, 0.0)
+            pf *= p["hf"].get(h, 0.0) * p["af"].get(a, 0.0)
         div = min(pott, pott / (field * pf + 1.0)) if (pott and field) else 0.0
-        scored.append({"scores": r, "p": pm, "folk": pf, "ev": pm * div, "dividend": div})
-    scored.sort(key=lambda x: x["ev"], reverse=True)
-    chosen = scored[:target]
+        detail.append({"scores": r, "p": pm, "folk": pf, "ev": pm * div, "dividend": div})
+    detail.sort(key=lambda x: x["ev"], reverse=True)
 
-    ev_sum = sum(c["ev"] for c in chosen)
-    cost = len(chosen) * row_price
-    # vilka resultat används per match. På SvS-kupongen markeras hemmamål- och
-    # bortamål-kolumnerna separat (man kan inte välja enskilda exakta resultat),
-    # så manuell ifyllnad = hemmamål-mängd × bortamål-mängd (= hela produkten).
-    used = []
-    for i, p in enumerate(per):
-        s_used = sorted({c["scores"][i] for c in chosen})
-        home_g = sorted({int(s.split("-")[0]) for s in s_used})
-        away_g = sorted({int(s.split("-")[1]) for s in s_used})
-        used.append({"event_number": p["ev"], "description": p["desc"], "scores": s_used,
-                     "home_goals": home_g, "away_goals": away_g})
-    manual_rows = 1
-    for u in used:
-        manual_rows *= len(u["home_goals"]) * len(u["away_goals"])
+    num_rows = len(detail)
+    cost = num_rows * row_price
+    ev_sum = sum(c["ev"] for c in detail)
+    used = [{"event_number": p["ev"], "description": p["desc"],
+             "home_goals": sorted(p["H"]), "away_goals": sorted(p["A"]),
+             "scores": sorted({f"{h}-{a}" for h in p["H"] for a in p["A"]})}
+            for p in per]
     return {
-        "rows": [c["scores"] for c in chosen],
-        "detail": chosen,
-        "used": used,
-        "num_rows": len(chosen), "cost": round(cost, 2),
-        "manual_rows": manual_rows,
+        "rows": [c["scores"] for c in detail],
+        "detail": detail, "used": used,
+        "num_rows": num_rows, "cost": round(cost, 2),
+        "manual_rows": num_rows,   # kolumn-system: manuell = fil = exakt detta
         "ev_payout": round(ev_sum, 0), "ev": round(ev_sum - cost, 0),
         "pott": round(pott, 0),
-        "p_all": round(sum(c["p"] for c in chosen), 5),
-        "note": f"Topp {len(chosen)} rader (av {len(scored)} kandidater) efter EV "
-                f"vid {turnover:,.0f} kr oms + {analysis.get('rullpott') or 0:,.0f} kr rullpott."
+        "p_all": round(sum(c["p"] for c in detail), 5),
+        "note": f"{num_rows} rader (kolumnval, EV-optimerat) vid "
+                f"{turnover:,.0f} kr oms + {analysis.get('rullpott') or 0:,.0f} kr rullpott."
                 .replace(",", " "),
     }

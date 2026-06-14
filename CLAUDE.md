@@ -7,7 +7,10 @@ Personligt lokalt verktyg för att hitta **+EV-rader** på Svenska Spels poolspe
 **Bomben** är en egen speltyp: tippa exakt resultat, INGA SvS-odds. Värdet =
 Poisson-målmodell (Pinnacle spread/total → förv. mål, `app/bomben.py`) mot folkets
 resultatfördelning. Egen vy (resultat-heatmap), inte 1X2-motorn. Modell-härledd
-(sharp-ankrad) → hålls utanför CLV-facitet.
+(sharp-ankrad) → hålls utanför CLV-facitet. Radbyggaren är **kolumn-baserad**
+(SvS-kupongen markeras hemmamål- × bortamål-kolumner) så rader = manuell ifyllnad
+= fil = kostnad; kolumner väljs girigt EV-viktat inom budget. INGEN exakt-rad-
+reducering (den gick ej att fylla i manuellt).
 
 ## Arkitektur
 

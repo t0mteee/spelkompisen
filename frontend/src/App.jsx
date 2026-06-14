@@ -1321,9 +1321,8 @@ function BombenBuilder({ draw }) {
               navigator.clipboard?.writeText(sys.used.map((u) => `${u.description}: hemmamål ${u.home_goals.join(' ')} | bortamål ${u.away_goals.join(' ')}`).join('\n'))
               setMfCopied(true); setTimeout(() => setMfCopied(false), 2000)
             }}>{mfCopied ? '✓ Kopierad' : 'Kopiera ifyllning'}</button>
-            <span className="hint"> · OBS: på kupongen markerar du hemma- och bortamål var för sig,
-              så detta spelar alla {sys.manual_rows} kombinationer. Vill du ha exakt de {sys.num_rows}
-              EV-bästa raderna ({kr(sys.cost)}) – ladda upp Egna rader-filen nedan i stället.</span>
+            <span className="hint"> · Detta ger exakt {sys.num_rows} rader = {kr(sys.cost)} —
+              samma som Egna rader-filen. (Bomben-kupongen markeras kolumnvis, så systemet är kolumnval.)</span>
           </div>
           <div className="svs-row">
             <a className="svs-link" href={egnaRaderUrl('bomben')} target="_blank" rel="noreferrer">▶ Externa systemspel ↗</a>
