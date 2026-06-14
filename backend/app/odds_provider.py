@@ -33,11 +33,14 @@ HOME_AWAY_MIN = 0.60     # minsta likhet per sida
 COMBINED_MIN = 0.72      # minsta snittlikhet
 TIME_WINDOW_H = 36       # extern match måste starta inom X timmar från SS-matchen
 
-# Football-specifika ISO->namn-överstyrningar där pycountry skiljer sig
+# Football-specifika ISO->namn-överstyrningar där pycountry skiljer sig från
+# hur oddsbolagen (Pinnacle m.fl.) skriver landslagsnamnen
 _ISO_OVERRIDE = {
     "KOR": "South Korea", "PRK": "North Korea", "USA": "USA",
     "GBR": "England", "CZE": "Czech Republic", "RUS": "Russia",
     "IRN": "Iran", "BOL": "Bolivia", "VEN": "Venezuela",
+    "CIV": "Ivory Coast", "CPV": "Cape Verde", "CUW": "Curacao",
+    "COD": "DR Congo", "TUR": "Turkey", "MKD": "North Macedonia",
 }
 
 
