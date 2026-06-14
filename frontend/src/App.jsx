@@ -1280,6 +1280,7 @@ function BombenBuilder({ draw }) {
   const [sys, setSys] = useState(null)
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [mfCopied, setMfCopied] = useState(false)
   const build = () => {
     setBusy(true)
     fetch(`/api/bomben/system?draw=${draw}&budget=${budget}&_t=${Date.now()}`, { cache: 'no-store' })
@@ -1310,14 +1311,24 @@ function BombenBuilder({ draw }) {
               <span>{kr(sys.ev_payout)}</span>förv. utdelning</div>
             <div className="kpi"><span className={sys.ev >= 0 ? 'pos' : 'neg'}>{sys.ev >= 0 ? '+' : ''}{kr(sys.ev)}</span>EV (netto)</div>
           </div>
-          <div className="bused">Resultat som används:
-            {sys.used.map((u) => (
-              <span key={u.event_number} className="bchip" title={u.description}>{u.description.split('-')[0].trim()}: {u.scores.join(' ')}</span>
-            ))}</div>
+          <div className="manualfill bfill">
+            <b>Fyll i så här på Svenska Spel:</b> markera dessa resultat per match
+            <span className="mf-rows">{sys.used.map((u) => (
+              <span key={u.event_number} className="bfill-m">
+                <em>{u.description}</em> {u.scores.join('  ')}</span>
+            ))}</span>
+            <button onClick={() => {
+              navigator.clipboard?.writeText(sys.used.map((u) => `${u.description}: ${u.scores.join('  ')}`).join('\n'))
+              setMfCopied(true); setTimeout(() => setMfCopied(false), 2000)
+            }}>{mfCopied ? '✓ Kopierad' : 'Kopiera ifyllning'}</button>
+            <span className="hint"> · OBS: markerar du alla dessa resultat spelar du varje
+              kombination ({sys.used.reduce((a, u) => a * u.scores.length, 1)} rader). För exakt
+              de {sys.num_rows} EV-bästa raderna – ladda upp Egna rader-filen nedan.</span>
+          </div>
           <div className="svs-row">
             <a className="svs-link" href={egnaRaderUrl('bomben')} target="_blank" rel="noreferrer">▶ Externa systemspel ↗</a>
             <button onClick={download}>⬇ Egna rader-fil ({sys.num_rows} rader)</button>
-            <button onClick={copy}>{copied ? '✓ Kopierad' : 'Kopiera rader'}</button>
+            <button onClick={copy}>{copied ? '✓ Kopierad' : 'Kopiera raderna'}</button>
           </div>
           <p className="hint">{sys.note} · OBS: Bombens filformat är inloggningsskyddat och kunde inte
             verifieras — rubriken är "Bomben" och raderna "E,2-1,1-1,0-2". Stämmer det inte vid uppladdning,

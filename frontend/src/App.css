@@ -342,6 +342,9 @@ tr.sel td { background: rgba(74,163,223,0.08); }
 .manualfill .mf-m { font-weight: 700; letter-spacing: 1px; }
 
 .bbuild { margin-top: 4px; }
+.manualfill.bfill { flex-direction: column; align-items: flex-start; }
+.manualfill .bfill-m { display: inline-block; margin-right: 14px; font-variant-numeric: tabular-nums; }
+.manualfill .bfill-m em { color: var(--muted); font-style: normal; font-weight: 600; margin-right: 4px; }
 .bused { margin: 8px 0; color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .bused .bchip { background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 2px 8px; color: var(--text); }
 
