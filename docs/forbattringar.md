@@ -108,7 +108,13 @@ P4. ~~**Backtest mot football-data.co.uk**~~ → `cli.py fdbacktest` (klar).
    Kupongen ärver numera systemets exakta rader ("radläge") i stället för att
    explodera till alla kombinationer vid "Fyll från förslag".
 9. Andelsspels-läge: dela systemkostnad, visa per-andel-EV.
-10. Måltipset (pid 6?) — samma API-familj, annan radstruktur.
+10. ~~Bomben~~ (klar, v1): exakt-resultat-spel utan SvS-odds. Poisson-målmodell
+    (Pinnacle spread/total → home_xg/away_xg via derive.goal_expectations) mot
+    folkets resultatfördelning (svenskaFolket-marginaler) → värdekvot per resultat.
+    app/bomben.py + /api/bomben + BombenView (resultat-heatmap). Degraderar till
+    folk-only när Pinnacle nere. KVAR: radbyggare/Egna rader-export för Bomben
+    (kombinationer av resultat; annan filrubrik), och modell-tier-flagga utanför CLV.
+11. Måltipset (pid 8) — samma API-familj som Bomben (mål-tips), kan återanvända motorn.
 11. ~~Notifiering vid 🔥~~ (klar): app/notify.py pushar via ntfy.sh när en match
     får 🔥 (sen markant oddssänkning) och omgången stänger inom 8 h; dedup per
     match. Kräver NTFY_TOPIC i backend/.env + ntfy-appen.

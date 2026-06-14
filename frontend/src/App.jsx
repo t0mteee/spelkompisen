@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Component, Fragment, useEffect, useState } from 'react'
 import './App.css'
 
 const STRATEGIES = ['säker', 'medel', 'tuff']
@@ -575,6 +575,7 @@ const GAMES = [
   { id: 'topptipset', label: 'Topptipset' },
   { id: 'stryktipset', label: 'Stryktipset' },
   { id: 'europatipset', label: 'Europatipset' },
+  { id: 'bomben', label: 'Bomben' },
 ]
 // kort variantnamn i omgångsväljaren (Topptipset-gruppen består av flera produkter)
 const VARIANT = {
@@ -1190,6 +1191,97 @@ function ClvPanel({ group }) {
   )
 }
 
+/* Bomben: exakt-resultat-spel utan SvS-odds. En match = en resultat-heatmap där
+   värde = vår Poisson-målmodell (Pinnacle förv. mål) mot folkets fördelning. */
+function BombenMatch({ m }) {
+  const G = 5   // visa 0..5 mål per lag (svansen är försumbar)
+  const at = (h, a) => m.grid.find((g) => g.h === h && g.a === a) || {}
+  const tint = (g) => {
+    if (g.ratio == null) return undefined
+    if (g.ratio >= 1.05) return `rgba(61,220,132,${Math.min(0.55, (g.ratio - 1) * 0.5).toFixed(2)})`
+    if (g.ratio <= 0.95) return `rgba(224,107,107,${Math.min(0.55, (1 - g.ratio) * 0.6).toFixed(2)})`
+    return undefined
+  }
+  return (
+    <div className="bmatch">
+      <div className="bmatch-head">
+        <strong>{m.description}</strong>
+        {m.has_model
+          ? <span className="muted"> · förv. mål {m.home_xg?.toFixed(2)}–{m.away_xg?.toFixed(2)}{m.matched ? ` · Pinnacle: ${m.matched}` : ''}</span>
+          : <span className="st-miss"> · ingen sharp-modell – visar bara folket</span>}
+      </div>
+      <div className="bgrid-wrap">
+        <table className="bgrid">
+          <thead><tr><th className="corner">H\B</th>{Array.from({ length: G + 1 }, (_, a) => <th key={a}>{a}</th>)}</tr></thead>
+          <tbody>
+            {Array.from({ length: G + 1 }, (_, h) => (
+              <tr key={h}><th>{h}</th>
+                {Array.from({ length: G + 1 }, (_, a) => {
+                  const g = at(h, a)
+                  return (
+                    <td key={a} style={{ background: tint(g) }}
+                      title={`${h}–${a}: folk ${((g.folk || 0) * 100).toFixed(1)} %`
+                        + (g.model != null ? ` · modell ${(g.model * 100).toFixed(1)} % · värdekvot ${g.ratio}` : '')}>
+                      {m.has_model && g.ratio != null
+                        ? <span className="bratio">{g.ratio}</span>
+                        : <span className="bfolk">{((g.folk || 0) * 100).toFixed(0)}%</span>}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {m.has_model && m.top_value.length > 0 && (
+        <div className="bvalue">Mest underspelade resultat:
+          {m.top_value.slice(0, 4).map((g) => (
+            <span key={g.score} className="bchip" title={`modell ${(g.model * 100).toFixed(1)} % vs folk ${(g.folk * 100).toFixed(1)} %`}>
+              {g.score} <b>{g.ratio}×</b></span>
+          ))}</div>
+      )}
+    </div>
+  )
+}
+
+class ErrBoundary extends Component {
+  constructor(p) { super(p); this.state = { err: null } }
+  static getDerivedStateFromError(err) { return { err } }
+  render() {
+    if (this.state.err) return <div className="error">Fel: {String(this.state.err?.stack || this.state.err).slice(0, 600)}</div>
+    return this.props.children
+  }
+}
+
+function BombenView({ draw, nonce }) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  useEffect(() => {
+    if (!draw) return
+    setLoading(true)
+    fetch(`/api/bomben?draw=${draw}&_t=${Date.now()}`, { cache: 'no-store' })
+      .then((r) => r.json()).then((d) => { setData(d); setLoading(false) })
+      .catch(() => { setData(null); setLoading(false) })
+  }, [draw, nonce])
+  if (!data || !Array.isArray(data.matches)) return <div className="loading">{loading ? 'Hämtar Bomben…' : 'Ingen Bomben-data för vald omgång.'}</div>
+  return (
+    <section>
+      <div className="topinfo">
+        <span>Omsättning <b>{kr(data.turnover)}</b></span>
+        <span>{data.match_count} matcher · tippa exakt resultat</span>
+        {data.jackpot > 0 && <span className="jackpot">💰 <b>Jackpot {kr(data.jackpot)}</b></span>}
+        {!data.sharp_available && <span className="st-wait">⚠ Pinnacle nere – ingen värdemodell, bara folkets streck</span>}
+      </div>
+      <p className="hint">Bomben saknar SvS-odds, så värdet = vår <b>Poisson-målmodell</b> (Pinnacles förväntade
+        mål) mot <b>folkets resultatfördelning</b>. Rutan visar värdekvoten (modell ÷ folk):
+        {' '}<span className="sg-bla">grönt = underspelat</span> (modellen tror mer än folket = köpläge),
+        rött = överspelat. Rader = hemmamål, kolumner = bortamål. Håll muspekaren för folk-/modell-%.
+        Modellen är sharp-ankrad men modell-härledd — använd som vägledning, inte facit.</p>
+      {data.matches.map((m) => <BombenMatch key={m.event_number} m={m} />)}
+    </section>
+  )
+}
+
 // sparat tillstånd (iOS slänger hemskärms-appen ur minnet och laddar om vid
 // återkomst – vi återställer val/kupong/inställningar så omladdningen blir osynlig)
 const SAVED = (() => {
@@ -1214,6 +1306,7 @@ export default function App() {
   const [picks, setPicks] = useState(SAVED.picks || {})
   const [pickRows, setPickRows] = useState(SAVED.pickRows || null)  // radläge: exakta rader från förslaget
   const [payouts, setPayouts] = useState(null)
+  const [bombenNonce, setBombenNonce] = useState(0)  // ↻ Uppdatera för Bomben-vyn
 
   const toggleSign = (ev, sign) => {
     setPickRows(null)   // manuell ändring -> tillbaka till kombinationsläge
@@ -1284,7 +1377,10 @@ export default function App() {
       .then((r) => r.json()).then(setPayouts).catch(() => { if (!silent) setPayouts(null) })
   }
 
-  const refresh = () => { loadAnalysis(); loadPayouts() }
+  const refresh = () => {
+    if (group === 'bomben') { setBombenNonce((n) => n + 1); return }
+    loadAnalysis(); loadPayouts()
+  }
 
   // tyst auto-uppdatering: bakgrundsjobbet skriver till DB:n var 5–30:e min, men
   // den öppna sidan visade gammal data tills man tryckte Uppdatera. Polla var 2:a
@@ -1292,7 +1388,7 @@ export default function App() {
   useEffect(() => {
     if (!draw) return
     const tick = () => {
-      if (document.visibilityState !== 'visible') return
+      if (group === 'bomben' || document.visibilityState !== 'visible') return
       loadAnalysis(product, draw, true)
       loadPayouts(product, draw, true)
     }
@@ -1310,14 +1406,15 @@ export default function App() {
       const first = list[0]
       if (first) {
         setProduct(first.product); setDraw(first.draw_number)
-        loadAnalysis(first.product, first.draw_number); loadPayouts(first.product, first.draw_number)
+        if (g !== 'bomben') { loadAnalysis(first.product, first.draw_number); loadPayouts(first.product, first.draw_number) }
+        else setLoading(false)   // Bomben har egen vy som hämtar själv
       } else { setLoading(false); setErr('Inga öppna omgångar just nu.') }
     } catch (e) { setErr(String(e)); setLoading(false) }
   }
 
   const changeDraw = (slug, dn) => {
     setProduct(slug); setDraw(dn); setSys(null); setPicks({}); setPickRows(null)
-    loadAnalysis(slug, dn); loadPayouts(slug, dn)
+    if (slug !== 'bomben') { loadAnalysis(slug, dn); loadPayouts(slug, dn) }
   }
 
   const loadSystem = async (extra = '') => {
@@ -1347,8 +1444,10 @@ export default function App() {
       if (chosen) {
         setProduct(chosen.product); setDraw(chosen.draw_number)
         if (!restored) { setPicks({}); setPickRows(null) }   // annan omgång -> börja om med tom kupong
-        loadAnalysis(chosen.product, chosen.draw_number)
-        loadPayouts(chosen.product, chosen.draw_number)
+        if (g !== 'bomben') {
+          loadAnalysis(chosen.product, chosen.draw_number)
+          loadPayouts(chosen.product, chosen.draw_number)
+        } else setLoading(false)
       } else { setLoading(false); setErr('Inga öppna omgångar just nu.') }
     } catch (e) { setErr(String(e)); setLoading(false) }
   }
@@ -1415,6 +1514,9 @@ export default function App() {
       {err && <div className="error">{err}</div>}
       {loading && <div className="loading">Hämtar…</div>}
 
+      {group === 'bomben' && <ErrBoundary><BombenView draw={draw} nonce={bombenNonce} /></ErrBoundary>}
+
+      {group !== 'bomben' && (<>
       <section>
         <div className="analys-head">
           <h2>Analys</h2>
@@ -1487,6 +1589,7 @@ export default function App() {
           <ClvPanel group={group} />
         </section>
       </div>
+      </>)}
 
       <footer>Lokal data från Svenska Spel + Pinnacle · personligt verktyg</footer>
     </div>

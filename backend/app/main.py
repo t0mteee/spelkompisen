@@ -27,6 +27,7 @@ from .builder import (build_math_system, build_reduced_system,
                       build_ev_system, build_color_system, SVS_R12, system_to_dict)
 from .collector import collector
 from . import sharp_service
+from .pinnacle import Pinnacle
 from .storage import Storage
 from .svenskaspel import SvenskaSpel, draw_to_dict, GAME_GROUPS
 
@@ -102,6 +103,15 @@ def draws(product: str = "stryktipset"):
     """Lista tillgängliga omgångar för spelet/gruppen (för omgångsväljaren).
     Topptipset-gruppen aggregerar flera produkter; varje omgång bär sin egen
     'product' (slug) så efterföljande anrop använder rätt produkt."""
+    if product == "bomben":
+        with SvenskaSpel() as ss:
+            raw = ss.bomben_draws()
+        ds = [{"product": "bomben", "draw_number": d["drawNumber"],
+               "state": d.get("drawState"), "reg_close_time": d.get("regCloseTime")}
+              for d in raw]
+        ds.sort(key=lambda d: d.get("reg_close_time") or "")
+        return {"product": "bomben", "draws": ds,
+                "open": [d for d in ds if d["state"] == "Open"]}
     slugs = GAME_GROUPS.get(product, [product])
     all_draws = []
     with SvenskaSpel() as ss:
@@ -117,6 +127,36 @@ def draws(product: str = "stryktipset"):
 @app.get("/api/draw")
 def draw(product: str = "stryktipset", draw: int | None = None):
     return draw_to_dict(_get_draw(product, draw))
+
+
+@app.get("/api/bomben")
+def bomben(draw: int | None = None):
+    """Bomben-analys: exakt-resultat-modell (Pinnacle-xg → Poisson) vs folkets
+    resultatfördelning. Separat speltyp — inga 1X2-odds från Svenska Spel."""
+    from . import bomben as bomben_mod
+    with SvenskaSpel() as ss:
+        draws = ss.bomben_draws()
+    if not draws:
+        raise HTTPException(404, "Inga Bomben-omgångar")
+    d = next((x for x in draws if x["drawNumber"] == draw), None) if draw \
+        else next((x for x in draws if x.get("drawState") == "Open"), draws[0])
+    if not d:
+        raise HTTPException(404, f"Bomben-omgång {draw} hittades inte")
+    try:
+        with Pinnacle() as p:
+            idx = p.soccer_index(include_without_odds=True)
+    except Exception:  # noqa: BLE001 — Pinnacle kan Cloudflare-blockas; folk-only då
+        idx = None
+    res = bomben_mod.analyze_bomben(d, idx)
+    jp = 0.0
+    with SvenskaSpel() as ss:
+        try:
+            jp = ss.get_jackpot("bomben", d["drawNumber"]) or 0.0
+        except Exception:  # noqa: BLE001
+            jp = 0.0
+    res["jackpot"] = jp
+    res["sharp_available"] = idx is not None
+    return res
 
 
 # Svenska Spels officiella vinstplaner: återbetalningsandel + andel per nivå.

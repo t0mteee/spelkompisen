@@ -124,6 +124,12 @@ class SvenskaSpel:
         r.raise_for_status()
         return r.json()
 
+    def bomben_draws(self) -> list[dict]:
+        """Råa Bomben-omgångar (annan struktur än tipsspelen: exakt resultat,
+        inga odds, folk-fördelning per mål). bomben.py parsar dem."""
+        data = self._get_or_none(f"/draw/{API_VER}/bomben/draws")
+        return (data or {}).get("draws", []) if data else []
+
     @staticmethod
     def _summary(raw: dict, product: str) -> dict:
         return {
@@ -231,7 +237,9 @@ class SvenskaSpel:
         data = self._get_or_none(f"/draw/{API_VER}/jackpots")
         if not data:
             return None
-        pid = PRODUCTS[product].get("pid")
+        pid = PRODUCTS.get(product, {}).get("pid")
+        if pid is None:
+            return None
         total = 0.0
         for j in data.get("jackpots") or []:
             if j.get("productId") == pid and j.get("drawNumber") == draw_number:

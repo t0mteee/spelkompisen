@@ -77,15 +77,24 @@ def _poisson(k: int, lam: float) -> float:
     return math.exp(-lam) * lam ** k / math.factorial(k)
 
 
-def derive_1x2(spread_prices: list[dict], total_prices: list[dict],
-               max_goals: int = 12) -> Optional[dict]:
-    """Returnerar {'1','X','2'} decimalodds eller None om underlag saknas."""
+def goal_expectations(spread_prices: list[dict],
+                      total_prices: list[dict]) -> Optional[tuple[float, float]]:
+    """Förväntade mål (home_xg, away_xg) ur Pinnacles spread + total.
+    Underlag för både derive_1x2 och Bombens resultatmodell (oberoende Poisson)."""
     sup = _supremacy(spread_prices)
     mu = _expected_total(total_prices)
     if sup is None or mu is None or mu <= 0:
         return None
-    home_xg = max(0.03, (mu + sup) / 2)
-    away_xg = max(0.03, (mu - sup) / 2)
+    return max(0.03, (mu + sup) / 2), max(0.03, (mu - sup) / 2)
+
+
+def derive_1x2(spread_prices: list[dict], total_prices: list[dict],
+               max_goals: int = 12) -> Optional[dict]:
+    """Returnerar {'1','X','2'} decimalodds eller None om underlag saknas."""
+    xg = goal_expectations(spread_prices, total_prices)
+    if xg is None:
+        return None
+    home_xg, away_xg = xg
     ph = pd = pa = 0.0
     home_pmf = [_poisson(i, home_xg) for i in range(max_goals + 1)]
     away_pmf = [_poisson(j, away_xg) for j in range(max_goals + 1)]

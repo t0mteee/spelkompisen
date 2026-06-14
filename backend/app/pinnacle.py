@@ -18,7 +18,7 @@ import httpx
 
 from .odds_provider import (_best_side, _hours_apart, english_name,
                             COMBINED_MIN, HOME_AWAY_MIN, TIME_WINDOW_H)
-from .derive import derive_1x2
+from .derive import derive_1x2, goal_expectations
 
 BASE = "https://guest.api.arcadia.pinnacle.com/0.1"
 GUEST_KEY = "CmX2KcMrXuFmNg6YFbmTxE0y9CIrOi0R"  # publik guest-nyckel som webben använder
@@ -106,8 +106,12 @@ class Pinnacle:
             has_odds = odds["1"] is not None or odds["2"] is not None
             if not has_odds and not include_without_odds:
                 continue
+            # förväntade mål (för Bombens resultatmodell) ur spread+total
+            xg = goal_expectations(spread.get(mid, []), total.get(mid, []))
             out.append({"home": home, "away": away, "start": m.get("startTime"),
-                        "odds": odds, "odds_source": source})
+                        "odds": odds, "odds_source": source,
+                        "home_xg": round(xg[0], 3) if xg else None,
+                        "away_xg": round(xg[1], 3) if xg else None})
         return out
 
     def match(self, home: str, away: str, home_iso: Optional[str],
@@ -141,4 +145,6 @@ class Pinnacle:
             odds = {"1": odds["2"], "X": odds["X"], "2": odds["1"]}
         return {"home": best["home"], "away": best["away"], "start": best.get("start"),
                 "odds": odds, "confidence": round(best_score, 3),
-                "swapped": best_swapped, "odds_source": best.get("odds_source")}
+                "swapped": best_swapped, "odds_source": best.get("odds_source"),
+                # rå xg i Pinnacles orientering — bomben.py speglar vid swapped
+                "home_xg": best.get("home_xg"), "away_xg": best.get("away_xg")}

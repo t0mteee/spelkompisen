@@ -1,8 +1,13 @@
 # SvS kompisen
 
 Personligt lokalt verktyg för att hitta **+EV-rader** på Svenska Spels poolspel
-(Stryktipset, Europatipset, Topptipset) via odds, oddsrörelser, sharp-odds
+(Stryktipset, Europatipset, Topptipset, Bomben) via odds, oddsrörelser, sharp-odds
 (Pinnacle) och folkets streck. Ingen inloggning, ingen automatisk spelläggning.
+
+**Bomben** är en egen speltyp: tippa exakt resultat, INGA SvS-odds. Värdet =
+Poisson-målmodell (Pinnacle spread/total → förv. mål, `app/bomben.py`) mot folkets
+resultatfördelning. Egen vy (resultat-heatmap), inte 1X2-motorn. Modell-härledd
+(sharp-ankrad) → hålls utanför CLV-facitet.
 
 ## Arkitektur
 

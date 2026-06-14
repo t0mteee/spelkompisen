@@ -315,6 +315,24 @@ tr.sel td { background: rgba(74,163,223,0.08); }
 .cax { fill: var(--muted); font-size: 9px; }
 .caxis { stroke: var(--line); stroke-width: 1; }
 
+/* Bomben: resultat-heatmap */
+.bmatch { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 12px 14px; margin-bottom: 14px; }
+.bmatch-head { margin-bottom: 8px; }
+.bmatch-head .muted { color: var(--muted); font-weight: 400; }
+.bgrid-wrap { overflow-x: auto; }
+.bgrid { border-collapse: collapse; }
+.bgrid th { color: var(--muted); font-size: 11px; font-weight: 600; padding: 2px 6px; text-align: center; }
+.bgrid th.corner { font-size: 10px; color: var(--muted); }
+.bgrid td { width: 46px; height: 30px; text-align: center; border: 1px solid var(--line);
+  font-variant-numeric: tabular-nums; }
+.bgrid .bratio { font-weight: 700; font-size: 12px; }
+.bgrid .bfolk { color: var(--muted); font-size: 11px; }
+.bvalue { margin-top: 8px; color: var(--muted); font-size: 13px; }
+.bvalue .bchip { display: inline-block; margin-left: 8px; background: rgba(61,220,132,0.14);
+  border: 1px solid rgba(61,220,132,0.4); border-radius: 7px; padding: 2px 8px; color: var(--text); }
+.bvalue .bchip b { color: #3ddc84; }
+
 .error { background: #5b1d1d; padding: 10px; border-radius: 7px; margin-bottom: 12px; }
 .loading { color: var(--muted); }
 footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line); padding-top: 12px; font-size: 12px; }
