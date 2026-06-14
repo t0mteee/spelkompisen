@@ -1312,18 +1312,18 @@ function BombenBuilder({ draw }) {
             <div className="kpi"><span className={sys.ev >= 0 ? 'pos' : 'neg'}>{sys.ev >= 0 ? '+' : ''}{kr(sys.ev)}</span>EV (netto)</div>
           </div>
           <div className="manualfill bfill">
-            <b>Fyll i så här på Svenska Spel:</b> markera dessa resultat per match
+            <b>Fyll i så här på Svenska Spel-kupongen:</b> markera målkolumnerna per match
             <span className="mf-rows">{sys.used.map((u) => (
               <span key={u.event_number} className="bfill-m">
-                <em>{u.description}</em> {u.scores.join('  ')}</span>
+                <em>{u.description}</em> hemma <b>{u.home_goals.join(' ')}</b> · borta <b>{u.away_goals.join(' ')}</b></span>
             ))}</span>
             <button onClick={() => {
-              navigator.clipboard?.writeText(sys.used.map((u) => `${u.description}: ${u.scores.join('  ')}`).join('\n'))
+              navigator.clipboard?.writeText(sys.used.map((u) => `${u.description}: hemmamål ${u.home_goals.join(' ')} | bortamål ${u.away_goals.join(' ')}`).join('\n'))
               setMfCopied(true); setTimeout(() => setMfCopied(false), 2000)
             }}>{mfCopied ? '✓ Kopierad' : 'Kopiera ifyllning'}</button>
-            <span className="hint"> · OBS: markerar du alla dessa resultat spelar du varje
-              kombination ({sys.used.reduce((a, u) => a * u.scores.length, 1)} rader). För exakt
-              de {sys.num_rows} EV-bästa raderna – ladda upp Egna rader-filen nedan.</span>
+            <span className="hint"> · OBS: på kupongen markerar du hemma- och bortamål var för sig,
+              så detta spelar alla {sys.manual_rows} kombinationer. Vill du ha exakt de {sys.num_rows}
+              EV-bästa raderna ({kr(sys.cost)}) – ladda upp Egna rader-filen nedan i stället.</span>
           </div>
           <div className="svs-row">
             <a className="svs-link" href={egnaRaderUrl('bomben')} target="_blank" rel="noreferrer">▶ Externa systemspel ↗</a>

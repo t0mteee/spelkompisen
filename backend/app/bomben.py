@@ -136,6 +136,10 @@ def build_bomben_system(analysis: dict, budget: float = 50.0,
     pott = turnover * RATIO + (analysis.get("rullpott") or 0.0)
     field = (turnover / row_price) if (turnover and row_price) else 0.0
     target = max(1, int(budget / row_price))
+    # kandidatresultat per match skalas med budgeten så större budget faktiskt
+    # ger fler rader (annars planar antalet ut vid BUILD_CAND^n)
+    n = len(matches)
+    cand_n = max(BUILD_CAND, min(20, int(math.ceil(target ** (1.0 / max(1, n)))) + 1))
 
     # per match: modellsannolikhet (folk som fallback) + folk, samt kandidatresultat
     per = []
@@ -144,7 +148,7 @@ def build_bomben_system(analysis: dict, budget: float = 50.0,
         for g in m["grid"]:
             folk_p[g["score"]] = g["folk"] or 0.0
             model_p[g["score"]] = g["model"] if g["model"] is not None else (g["folk"] or 0.0)
-        cands = sorted(model_p, key=lambda s: model_p[s], reverse=True)[:BUILD_CAND]
+        cands = sorted(model_p, key=lambda s: model_p[s], reverse=True)[:cand_n]
         per.append({"ev": m["event_number"], "desc": m["description"],
                     "model": model_p, "folk": folk_p, "cands": cands})
 
@@ -165,16 +169,25 @@ def build_bomben_system(analysis: dict, budget: float = 50.0,
 
     ev_sum = sum(c["ev"] for c in chosen)
     cost = len(chosen) * row_price
-    # vilka resultat används per match (för sammanfattning)
+    # vilka resultat används per match. På SvS-kupongen markeras hemmamål- och
+    # bortamål-kolumnerna separat (man kan inte välja enskilda exakta resultat),
+    # så manuell ifyllnad = hemmamål-mängd × bortamål-mängd (= hela produkten).
     used = []
     for i, p in enumerate(per):
         s_used = sorted({c["scores"][i] for c in chosen})
-        used.append({"event_number": p["ev"], "description": p["desc"], "scores": s_used})
+        home_g = sorted({int(s.split("-")[0]) for s in s_used})
+        away_g = sorted({int(s.split("-")[1]) for s in s_used})
+        used.append({"event_number": p["ev"], "description": p["desc"], "scores": s_used,
+                     "home_goals": home_g, "away_goals": away_g})
+    manual_rows = 1
+    for u in used:
+        manual_rows *= len(u["home_goals"]) * len(u["away_goals"])
     return {
         "rows": [c["scores"] for c in chosen],
         "detail": chosen,
         "used": used,
         "num_rows": len(chosen), "cost": round(cost, 2),
+        "manual_rows": manual_rows,
         "ev_payout": round(ev_sum, 0), "ev": round(ev_sum - cost, 0),
         "pott": round(pott, 0),
         "p_all": round(sum(c["p"] for c in chosen), 5),
