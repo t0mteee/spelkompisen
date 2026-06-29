@@ -348,6 +348,12 @@ tr.sel td { background: rgba(74,163,223,0.08); }
 .bused { margin: 8px 0; color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .bused .bchip { background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 2px 8px; color: var(--text); }
 
+.restored { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: rgba(46,139,87,0.12); border: 1px solid rgba(46,139,87,0.4);
+  border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
+.restored b { color: var(--text); }
+.restored button { margin-left: auto; }
+
 .error { background: #5b1d1d; padding: 10px; border-radius: 7px; margin-bottom: 12px; }
 .loading { color: var(--muted); }
 footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line); padding-top: 12px; font-size: 12px; }

@@ -1624,6 +1624,14 @@ export default function App() {
           <span className="hovertip">💡 håll muspekaren över ett odds för hela rörelsen (SvS + Pinnacle), eller över en badge för förklaring</span>
         </div>
         <Legend />
+        {analysis && (Object.keys(picks).length > 0 || pickRows) && (
+          <div className="restored">
+            🔁 Grönmarkeringarna är din <b>sparade kupong</b> sedan förra besöket
+            {pickRows ? ` (${pickRows.length} rader)` : ` (${Object.keys(picks).length} matcher)`}
+            {' '}— sparas så en omladdning inte tappar den.
+            <button onClick={clearCoupon}>Rensa</button>
+          </div>
+        )}
         {analysis && (
           <AnalysisTable matches={analysis.matches} product={product} drawNumber={analysis.draw_number}
             selected={selected} onSelect={setSelected} picks={picks} onToggleSign={toggleSign} movement={movement}
