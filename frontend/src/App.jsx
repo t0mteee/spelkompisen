@@ -27,17 +27,12 @@ function Collection() {
 
   const active = st?.active
   return (
-    <div className="collection">
+    <span className="colstat"
+      title={`Bakgrundsinsamlingen (launchd var 30:e min, var 5:e nära spelstopp) loggar odds & streck — driver rörelser, steam, 🔥-notiser och CLV-facit.${st ? ` ${st.snapshot_count} mättillfällen totalt.` : ''}`}>
       <span className={`dot ${active ? 'on' : 'off'}`} />
-      <strong>Datainsamling</strong>
-      <span className="cstatus">
-        {active ? 'aktiv' : 'stoppad'} (launchd, var 30:e min)
-        {st ? ` · senaste: ${timeAgo(st.last_snapshot)} · ${st.snapshot_count} mättillfällen` : ''}
-      </span>
-      {active
-        ? <button onClick={stop}>⏹ Stoppa insamling</button>
-        : <button className="primary" onClick={start}>▶ Starta insamling</button>}
-    </div>
+      insamling {active ? 'aktiv' : 'stoppad'}{st?.last_snapshot ? ` · ${timeAgo(st.last_snapshot)}` : ''}
+      <button className="linkbtn" onClick={active ? stop : start}>{active ? 'stoppa' : 'starta'}</button>
+    </span>
   )
 }
 
@@ -69,6 +64,9 @@ function Legend() {
             {' '}<b className="m-sharp">S</b> sharp ser värde folket missat ·
             {' '}<b className="m-edge">▲</b> Svenska Spels odds högre än Pinnacle (felprisat) ·
             {' '}<b className="m-move-down">⇊</b> oddset har stärkts i våra mätningar · ↓ fallande mot startodds.</div>
+          <div>RLM (folket och sharp åt olika håll): <b className="m-rlm-go">◆</b> smart pengar —
+            folket lämnar tecknet medan sharp köper (dubbelt köpläge) ·
+            {' '}<b className="m-rlm-fade">⚠</b> folket strömmar in medan sharp säljer — undvik/fadea.</div>
           <div><b>Grön ram</b> på en odds-cell = tecknet ligger i din kupong.
             {' '}Grön <b>ton + ×N</b> (radläge) = N av förslagets rader använder tecknet — starkare ton, fler rader.</div>
           <div>Rörelse-flaggor (håll muspekaren för detaljer):
@@ -247,6 +245,8 @@ function OddsCell({ o, derived, picked, onToggle, valueOk, series, rowCount, row
         {o.tags?.includes('rörelse_ner') && <span className="m-move-down" title={`stärks i snapshots: ${o.move_from}→${o.move_to}`}>⇊</span>}
         {o.tags?.includes('rörelse_upp') && <span className="m-move-up" title={`försvagas: ${o.move_from}→${o.move_to}`}>⇈</span>}
         {o.tags?.includes('fallande_odds') && <span title="fallande vs startodds">↓</span>}
+        {o.tags?.includes('rlm_go') && <span className="m-rlm-go" title={`Smart pengar (RLM): folket lämnar (${o.streck_move} pp) medan sharp köper (+${o.steam_pp} pp devigad) — dubbelt köpläge`}>◆</span>}
+        {o.tags?.includes('rlm_fade') && <span className="m-rlm-fade" title={`Varning (RLM): folket strömmar in (+${o.streck_move} pp) medan sharp säljer (${o.steam_pp} pp devigad) — undvik/fadea`}>⚠</span>}
       </div>
     </td>
   )
@@ -494,6 +494,7 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse }) {
       <div className="system-head">
         <strong>{sys.system_type}</strong> · {sys.strategy} ·
         <span className="rows"> {sys.num_rows} rader = {sys.cost} kr</span>
+        <button className="primary useb" onClick={onUse}>⬇ Lägg i kupongen</button>
         <span className="note"> {sys.note}</span>
       </div>
       {sys.rule && <div className="rule">{sys.rule}</div>}
@@ -575,10 +576,6 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse }) {
             ({fullCombos} rader). För den reducerade ({sys.num_rows} rader) – använd Egna rader-filen i kupongen.</span>
         )}
       </div>
-      <div className="svs-row">
-        <button className="primary" onClick={onUse}>⬇ Lägg i kupongen</button>
-        <span className="hint">Kupongen är navet — där finns export till Svenska Spel, EV-detaljer och raderna.</span>
-      </div>
       {sys.system_type?.includes('Svenska Spel-system') && (
         <p className="hint">Tips: namngivna R-system kan också spelas direkt på Svenska Spels
           systemkupong (markera hel-/halvgarderingarna och välj R-systemet) – ibland billigare.</p>
@@ -607,7 +604,7 @@ function svsUrl(product, draw) {
 }
 
 const SYSTEM_BASE = [
-  { id: 'ev', label: 'EV-topp (bäst betalda raderna)', q: 'ev=true' },
+  { id: 'ev', label: 'Värderader (EV × träffchans)', q: 'ev=true' },
   { id: 'farg', label: 'Färgreducering (min/max per färg)', q: 'color=true' },
   { id: 'math', label: 'Matematiskt (alla kombinationer)', q: 'reduced=false' },
   { id: 'red', label: 'Reducerat (värde)', q: 'reduced=true' },
@@ -1590,37 +1587,39 @@ export default function App() {
         <button onClick={refresh}>↻ Uppdatera</button>
       </header>
 
-      {analysis && (
-        <div className="topinfo">
-          <span>Omsättning <b>{analysis.turnover ? kr(analysis.turnover) : '–'}</b></span>
-          <span>odds, streck & omsättning hämtade <b>{fmtFetched(analysis.fetched_at)}</b></span>
-          {payouts?.available && <span>prispott (alla rätt) <b>{kr(payouts.tiers?.[0]?.pool)}</b></span>}
-          {payouts?.available && (
-            <span title="Andel av omsättningen som betalas tillbaka, inkl. ev. jackpot. 'Nu' räknar mot nuvarande omsättning; prognosen mot medianen av senaste omgångarnas slutomsättning — den siffran är den ärliga.">
-              spelvärde nu <b>{Math.round((payouts.spelvarde || payouts.ratio || 0) * 100)} %</b>
-              {payouts.projected_turnover > payouts.turnover && (
-                <> · vid förv. slutoms. ({kr(payouts.projected_turnover)}) <b>{Math.round((payouts.spelvarde_proj || 0) * 100)} %</b></>
-              )}
-            </span>
-          )}
-          {payouts?.jackpot > 0 && (
-            <span className="jackpot" title={payouts.extra_info || 'Jackpot/rullpott läggs på toppvinsten'}>
-              💰 <b>Jackpot {kr(payouts.jackpot)}</b> — höjt spelvärde!
-            </span>
-          )}
-        </div>
-      )}
-
-      <Collection />
+      <div className="topinfo statusbar">
+        {analysis && group !== 'bomben' && (
+          <>
+            <span>Omsättning <b>{analysis.turnover ? kr(analysis.turnover) : '–'}</b></span>
+            <span>hämtat <b>{fmtFetched(analysis.fetched_at)}</b></span>
+            {payouts?.available && <span>prispott <b>{kr(payouts.tiers?.[0]?.pool)}</b></span>}
+            {payouts?.available && (
+              <span title="Andel av omsättningen som betalas tillbaka, inkl. ev. jackpot. 'Nu' räknar mot nuvarande omsättning; prognosen mot medianen av senaste omgångarnas slutomsättning — den siffran är den ärliga.">
+                spelvärde <b>{Math.round((payouts.spelvarde || payouts.ratio || 0) * 100)} %</b>
+                {payouts.projected_turnover > payouts.turnover && (
+                  <> → <b>{Math.round((payouts.spelvarde_proj || 0) * 100)} %</b> vid slutoms. {kr(payouts.projected_turnover)}</>
+                )}
+              </span>
+            )}
+            {payouts?.jackpot > 0 && (
+              <span className="jackpot" title={payouts.extra_info || 'Jackpot/rullpott läggs på toppvinsten'}>
+                💰 <b>Jackpot {kr(payouts.jackpot)}</b>
+              </span>
+            )}
+          </>
+        )}
+        <Collection />
+      </div>
       {err && <div className="error">{err}</div>}
       {loading && <div className="loading">Hämtar…</div>}
 
       {group === 'bomben' && <ErrBoundary><BombenView draw={draw} nonce={bombenNonce} /></ErrBoundary>}
 
       {group !== 'bomben' && (<>
+      <div className="cols main-cols">
       <section>
         <div className="analys-head">
-          <h2>Analys</h2>
+          <h2>Analys — klicka tecken för kupong</h2>
           <span className="hovertip">💡 håll muspekaren över ett odds för hela rörelsen (SvS + Pinnacle), eller över en badge för förklaring</span>
         </div>
         <Legend />
@@ -1639,9 +1638,8 @@ export default function App() {
         )}
       </section>
 
-      <div className="cols">
-        <section>
-          <h2>1 · Bygg förslag</h2>
+        <section className="buildbar">
+          <h2>Bygg förslag</h2>
           <div className="controls">
             {STRATEGIES.map((s) => (
               <label key={s} className={strategy === s ? 'active' : ''}>
@@ -1660,31 +1658,29 @@ export default function App() {
             </select>
             <button className="primary" onClick={loadSystem}>Föreslå rad</button>
           </div>
-          {sysType !== 'ev' && (
-            <div className="evscale" title="Samma risk-axel som strategin. Lågt = lågoddsare/favoriter (hög träffchans, lägre EV). Högt = värde/skräll (lägre chans, högre EV långsiktigt). Strategin sätter startpunkten – dra för att finjustera. (Dold i EV-toppläget — där rankas raderna redan på ren EV.)">
-              <span>Träffchans <em>(säker)</em></span>
-              <input type="range" min="0" max="100" step="5" value={valueWeight}
-                onChange={(e) => setValueWeight(Number(e.target.value))} />
-              <span><em>(tuff)</em> Värde/EV</span>
-              <span className="evval">{valueWeight}%</span>
-              {valueWeight !== STRATEGY_EV[strategy] && (
-                <button className="evreset" title={`Återställ till ${strategy} (${STRATEGY_EV[strategy]}%)`}
-                  onClick={() => setValueWeight(STRATEGY_EV[strategy])}>↺ följ {strategy}</button>
-              )}
-            </div>
-          )}
+          <div className="evscale" title="Risk-axeln. I Värderader rankas raderna på träffchans^k × EV: lågt reglage = träffsäkra värderader (spelbart för 100–500 kr), mitten = balans (≈ max P×EV), högt = max EV (skrälltungt, sällan träff). I övriga system styr reglaget teckenvalet. Strategin sätter startpunkten – dra för att finjustera.">
+            <span>Träffbart <em>(säker)</em></span>
+            <input type="range" min="0" max="100" step="5" value={valueWeight}
+              onChange={(e) => setValueWeight(Number(e.target.value))} />
+            <span><em>(tuff)</em> Max EV</span>
+            <span className="evval">{valueWeight}%</span>
+            {valueWeight !== STRATEGY_EV[strategy] && (
+              <button className="evreset" title={`Återställ till ${strategy} (${STRATEGY_EV[strategy]}%)`}
+                onClick={() => setValueWeight(STRATEGY_EV[strategy])}>↺ följ {strategy}</button>
+            )}
+          </div>
           <SystemView sys={sys} matches={analysis?.matches} payouts={payouts}
             onRecalc={loadSystem} onUse={useSystem} />
         </section>
-
-        <section id="kupong">
-          <h2>2 · Din kupong — granska & lämna in</h2>
-          {analysis && (
-            <CouponPanel matches={analysis.matches} picks={picks} pickRows={pickRows} payouts={payouts}
-              product={product} draw={draw} onClear={clearCoupon} />
-          )}
-        </section>
       </div>
+
+      <section id="kupong">
+        <h2>Din kupong — granska & lämna in</h2>
+        {analysis && (
+          <CouponPanel matches={analysis.matches} picks={picks} pickRows={pickRows} payouts={payouts}
+            product={product} draw={draw} onClear={clearCoupon} />
+        )}
+      </section>
 
       <div className="cols">
         <section>

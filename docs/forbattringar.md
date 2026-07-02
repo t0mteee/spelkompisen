@@ -1,5 +1,18 @@
 # Förbättringsbacklog — mot bättre +EV
 
+## STATUS (juli 2026) — läge just nu
+**Klart & committat:** power-devig, Värderader (P^k × EV, reglagestyrt — ren EV
+var ospelbar), smart streck-allokering, färgreducering + ColorLab, kupong-radläge
+med överlevnadsvisualisering, Egna rader-export (alla spel inkl. Bomben, med
+verifierade filrubriker utom Bombens), Bomben (kolumn-baserad byggare, Poisson-
+modell), jackpot/spelvärde + projicerad slutomsättning, Kelly, CLV-facit, steam
+i devigade pp, RLM-signal (◆/⚠), 🔥-notiser (ntfy, kräver NTFY_TOPIC i .env),
+smart snapshot-förtätning, backtest (SvS-facit + football-data: beslutsregeln
+validerad), UI v2 (kort-design, statusrad, byggpanel sticky bredvid kupongen).
+**Nästa i kö (användarens riktning):** mer UI-polish → sedan S2 (Oddset-fliken).
+**Öppna frågor:** Bombens filrubrik overifierad (inloggningsskyddad spec);
+RLM-trösklar ovaliderade; κ per produkt när backtest-data växt.
+
 Prioriterad lista från projektgenomgång + poolspels-research (juni 2026).
 Teorin i korthet: i poolspel tas ~35 % (Stryk/Europa) av omsättningen — för +EV
 krävs att folket felprisar tillräckligt, dvs **P_marknad/P_folk per RAD** måste
@@ -14,6 +27,8 @@ sitter i rader folket inte spelar, inte i enskilda tecken.
 - [x] **EV-topp-system** — ranka konkreta kandidatrader efter popularitetsjusterad
       EV (toppnivå-grov + full nivå-finrankning), ta budgetens bästa. Detta är den
       poolspels-optimala radvalsmetoden (rad-nivå, inte tecken-nivå).
+      **Uppdaterad till "Värderader"**: rankas nu på P^k × EV (k styrs av EV-
+      reglaget) — ren EV var ospelbar för 100–500 kr; balansen är default.
 - [x] Sharp-medveten teckenpoäng, markant-rörelse-flaggor, utdelningsspann
       (min/medel/max), Egna rader-export, strategi↔EV-koppling.
 
@@ -99,6 +114,26 @@ P4. ~~**Backtest mot football-data.co.uk**~~ → `cli.py fdbacktest` (klar).
   slår stängningslinjen per match.
 - Dixon-Coles rho: −0.13 (klubblitteratur) rimligt för klubbar; vm fittade
   −0.04 för landslag. Fitta mot egen data före användning.
+
+## Nya signaler & källor (från v2-diskussionen, juni 2026)
+
+S1. ~~**RLM — reverse line movement**~~ (klar): folket och devigad sharp åt olika
+    håll. `rlm_go` ◆ (folk −3pp, sharp +2pp = smart pengar) / `rlm_fade` ⚠
+    (folk +4pp, sharp −2pp = undvik). Taggar + märken + boost/straff i
+    teckenpoängen. Gratis — bygger på egna serier. Trösklarna är gissningar:
+    validera mot CLV/backtest när data växt.
+S2. **Oddset som egen del**: SvS sportsbok (enskilda matcher, fotboll) som ny
+    flik — leta utstick soft (Oddset) vs sharp (Pinnacle devigad) ≥ X %, dvs
+    klassisk soft-book-värdejakt fast hos SvS. Kräver API-recon i Chrome
+    (Oddset är Kambi-baserat, annan API-familj än tipsspelen). Störst nya yta.
+S3. **Polymarket som andra sharp-källa** (vm har klient): prediction markets
+    prissätter stora matcher/turneringar väl — bra korsreferens när Pinnacle
+    tvekar/blockas. Tunn täckning för klubbfotboll i lägre serier.
+S4. **Opening line-ankare**: spara första Pinnacle-priset per omgång explicit
+    och visa total drift opening→nu (utöver våra fönster) — "vem hade rätt
+    från början"-vy. Litet jobb, egna data.
+S5. **ClubElo (P3)** kvarstår som marknads-oberoende sanity-check för
+    Stryktipset/Europatipset (klubbar).
 
 ## Låg prioritet / idéer
 

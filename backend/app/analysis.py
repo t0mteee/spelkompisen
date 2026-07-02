@@ -88,6 +88,13 @@ STARK_ODDS = 0.13         # oddsfall >= 13% = stark
 # jämförbart mellan favoriter och skrällar, marginalbrus borttaget
 STEAM_MARKANT_PP = 3.5
 STEAM_STARK_PP = 6.0
+
+# RLM (reverse line movement): folket och sharp-marknaden rör sig åt OLIKA håll.
+# Klassisk smart pengar-signal — kräver ingen ny källa, bara våra egna serier.
+RLM_FOLK_IN = 4        # folket +≥4 pp streck …
+RLM_SHARP_UT = -2.0    # … medan devigad sharp −≥2 pp  => fadea folket
+RLM_FOLK_UT = -3       # folket −≥3 pp streck …
+RLM_SHARP_IN = 2.0     # … medan devigad sharp +≥2 pp  => smart pengar-läge
 # streck driver ofta brett över veckan -> högre tröskel så flaggan förblir meningsfull
 MARKANT_STRECK = 10       # folket svängt >= 10 procentenheter = markant
 STARK_STRECK = 16         # >= 16 procentenheter = stark
@@ -209,6 +216,12 @@ def analyze_outcome(o: Outcome, fair: Optional[float],
         tags.append("rörelse_ner")    # stärkts sedan vi började logga
     if move_pct is not None and move_pct <= -MOVE_MIN:
         tags.append("rörelse_upp")
+    # RLM: folket och sharp åt olika håll (reverse line movement)
+    if streck_move is not None and steam_pp is not None:
+        if streck_move >= RLM_FOLK_IN and steam_pp <= RLM_SHARP_UT:
+            tags.append("rlm_fade")   # folket strömmar in, sharp säljer -> undvik
+        elif streck_move <= RLM_FOLK_UT and steam_pp >= RLM_SHARP_IN:
+            tags.append("rlm_go")     # folket lämnar, sharp köper -> dubbelt värde
 
     return OutcomeAnalysis(
         sign=o.sign,

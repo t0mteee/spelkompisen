@@ -106,6 +106,10 @@ def _sign_score(m: MatchAnalysis, s: str, value_weight: float) -> float:
     tags = o.tags or []
     if any(t in tags for t in ("ss_undervärderad", "rörelse_ner", "fallande_odds")):
         score *= 1.0 + 0.15 * (1.0 + max(0.0, value_weight))
+    if "rlm_go" in tags:      # smart pengar: sharp in medan folket lämnar
+        score *= 1.25
+    if "rlm_fade" in tags:    # folket in, sharp ut — straffa tecknet
+        score *= 0.80
     return score
 
 
@@ -518,10 +522,15 @@ def _poisson_binomial(probs: list[float]) -> list[float]:
 def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
                     budget: float = 100.0, row_price: float = ROW_PRICE,
                     value_weight: float = 0.5, plan: Optional[dict] = None) -> System:
-    """Ranka konkreta rader efter popularitetsjusterad EV och ta de bästa
-    som ryms i budgeten. Kandidater = topp-2 tecken per match (topp-3 för de
-    öppnaste så långt taket räcker), rankade i två steg: först toppnivå-EV,
-    sedan full EV över alla vinstnivåer för de bästa."""
+    """Ranka konkreta rader efter EV **balanserat mot träffchans** och ta de
+    bästa som ryms i budgeten.
+
+    Ren EV-maximering väljer skrällrader som nästan aldrig går in — matematiskt
+    rätt på oändlig sikt men ospelbart för 100–500 kr-insatser. Därför rankas
+    raderna på score = P(rad)^k × EV(rad), där k styrs av EV-reglaget
+    (value_weight): 1.0 → k=0 (ren EV, gamla beteendet), 0.5 → k=1 (balans,
+    ≈ maximera P×EV ~ log-tillväxt), 0.0 → k=2 (träffsäkra värderader).
+    EV rapporteras alltid ärligt oavsett ranking."""
     turnover = analysis.turnover or 0.0
     if not plan or turnover <= 0:
         raise ValueError("EV-rankning kräver aktuell omsättning och vinstplan.")
@@ -530,6 +539,7 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
     field = turnover / row_price
     pools = {c: turnover * plan["ratio"] * share for c, share in plan["splits"].items()}
     top_tier = max(pools)
+    k = 2.0 * (1.0 - max(0.0, min(1.0, value_weight)))   # träffchans-exponent
 
     # p (marknadens sannolikhet) och q (folkets) per match och tecken
     def _pq(m: MatchAnalysis, s: str) -> tuple[float, float]:
@@ -562,7 +572,8 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
     def _walk(i: int, p: float, q: float, acc: list[str]):
         if i == n:
             div = min(pools[top_tier], pools[top_tier] / (field * q + 1.0))
-            scored.append((p * div, p, q, tuple(acc)))
+            # grovranka på balans-scoren så spelbara rader inte filtreras bort
+            scored.append(((p ** k) * p * div, p, q, tuple(acc)))
             return
         ev = ms[i].event_number
         for s in cand[ev]:
@@ -572,22 +583,23 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
     _walk(0, 1.0, 1.0, [])
     scored.sort(key=lambda t: t[0], reverse=True)
 
-    # steg 2: full EV (alla vinstnivåer) för de bästa kandidaterna
+    # steg 2: full EV (alla vinstnivåer) för de bästa kandidaterna;
+    # välj på balans-score, rapportera ärlig EV
     refine = scored[:max(EV_REFINE_CAP, min(len(scored), target * 2))]
-    full: list[tuple[float, tuple]] = []
-    for _, _, _, row in refine:
+    full: list[tuple[float, float, tuple]] = []   # (score, ev_total, rad)
+    for _, p_row, _, row in refine:
         pf = _poisson_binomial([pq[(m.event_number, s)][0] for m, s in zip(ms, row)])
         pk = _poisson_binomial([pq[(m.event_number, s)][1] for m, s in zip(ms, row)])
         ev_total = 0.0
         for c, pool in pools.items():
             div = min(pool, pool / (field * pk[c] + 1.0))
             ev_total += pf[c] * div
-        full.append((ev_total, row))
+        full.append(((p_row ** k) * ev_total, ev_total, row))
     full.sort(key=lambda t: t[0], reverse=True)
     chosen = full[:target]
 
-    rows = [list(r) for _, r in chosen]
-    ev_sum = sum(e for e, _ in chosen)
+    rows = [list(r) for _, _, r in chosen]
+    ev_sum = sum(e for _, e, _ in chosen)
     cost = len(rows) * row_price
 
     # picks-sammanfattning: vilka tecken som faktiskt används per match
@@ -601,14 +613,17 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
                        m.favourite, _reason(m, len(used[m.event_number])))
              for m in ms]
 
+    profile = ("max EV (skrälltungt)" if k < 0.4
+               else "balans EV × träffchans" if k < 1.4 else "träffsäkra värderader")
     return System(
-        strategy=strategy, system_type="EV-topp", budget=budget,
+        strategy=strategy, system_type="värderader", budget=budget,
         row_price=row_price, num_rows=len(rows), cost=round(cost, 2),
         picks=picks, rows=rows,
-        rule=f"Så valdes raderna: alla {universe} möjliga rader med tecknen nedan rankades "
-             f"efter EV = radens sannolikhet × förväntad utdelning (utdelningen stiger ju "
-             f"färre andra som spelat raden). De {len(rows)} bästa behölls — bort åker både "
-             f"folkrader (många delar potten) och rena skrällbomber (för osannolika).",
+        rule=f"Så valdes raderna: alla {universe} möjliga rader rankades på "
+             f"träffchans^{k:.1f} × EV — läge: {profile} (styrs av reglaget). "
+             f"EV = radens sannolikhet × förväntad utdelning (utdelningen stiger ju färre "
+             f"andra som spelat raden). Bort åker folkrader (många delar potten) och, "
+             f"utom i max EV-läget, rena skrällbomber.",
         note=f"Förv. utdelning ≈ {ev_sum:.0f} kr mot {cost:.0f} kr insats "
              f"(EV {ev_sum - cost:+.0f} kr) vid {turnover:,.0f} kr omsättning "
              f"och nuvarande streck.".replace(",", " "),

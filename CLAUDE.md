@@ -79,10 +79,15 @@ start.sh / stop.sh    kör/stoppa båda lokalt
   cappad vid potten; fält = omsättning/radpris. P_folk = produkt av streck (oberoende-antagande).
   Medvinnare per nivå via Poisson-binomial. +1 = du själv. Detta är `evalRows` (frontend)
   och `build_ev_system` (backend) — håll dem konsistenta.
-- **EV-topp-systemet** rankar kandidatrader (topp-2/3 tecken per match, cap 60k) efter
-  toppnivå-EV, finrankar topp ~4k med full nivå-EV, tar budgetens bästa.
+- **Värderader** (f.d. EV-topp) rankar kandidatrader (topp-2/3 tecken per match, cap 60k) på
+  **score = P(rad)^k × EV(rad)** där k = 2·(1−value_weight): reglaget 0 → k=2 (träffsäkert),
+  50 → k=1 (balans ≈ max P×EV), 100 → k=0 (ren EV, skrälltungt). EV rapporteras alltid ärligt.
+  Ren EV-maximering är ospelbar för 100–500 kr — balansen är poängen.
 - Strategi (säker/medel/tuff) styr garderingssammansättning; **EV-reglaget är enda risk-axeln**
   (strategin sätter reglagets startpunkt 20/50/80 — ingen dold bias i backend).
+- **RLM** (reverse line movement, `rlm_go`/`rlm_fade`-taggar): folket och devigad sharp åt
+  olika håll (folk −3pp & sharp +2pp = smart pengar ◆; folk +4pp & sharp −2pp = fadea ⚠).
+  Boostas/straffas i _sign_score. Kräver inga nya källor — egna streck-/sharp-serier.
 - **Streck-allokering** (`_size_to_budget`): värde/kostnads-girig — uppgradera matchen med högst
   Δlog(täckt sannolikhet)/Δlog(rader). Spikar klara favoriter (slipp ×2), garderar djupt där det
   täcker mest. Gäller math/reducerat/garanti; EV-topp & Bomben rankar redan hela rader på EV.
@@ -119,6 +124,9 @@ start.sh / stop.sh    kör/stoppa båda lokalt
 
 ## UI-konventioner
 
+- **v2-design**: 13px bas, sektioner är kort (`section` = --panel, inre ytor = --panel2),
+  pill-tabbar i kompakt header, EN statusrad (omsättning/spelvärde/jackpot + insamlings-
+  status med dot till höger). Inga fristående paneler mellan header och Analys.
 - Bred skärm (≥1280px): sektionspar i `.cols`-grid (Bygg förslag | Kupong,
   Sharp | Signal-facit). Kupongen är navet — export/inlämning finns BARA där
   (förslagsvyn har "Lägg i kupongen", inga dubblettknappar).
