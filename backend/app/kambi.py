@@ -13,9 +13,12 @@ from typing import Optional
 
 import httpx
 
-BASE = "https://eu-offering-api.kambicdn.com/offering/v2018/svenskaspel"
+BASE_TPL = "https://eu-offering-api.kambicdn.com/offering/v2018/{op}"
+BASE = BASE_TPL.format(op="svenskaspel")   # bakåtkompatibelt default
 HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
 PARAMS = {"lang": "sv_SE", "market": "SE"}
+# Fler svenska Kambi-operatörer (verifierade 2026-07-12): expektse (Expekt), atg (ATG).
+# Kambis event-id:n är globala — samma match har samma id hos alla operatörer.
 
 
 def _milli(o: Optional[float]) -> Optional[float]:
@@ -34,11 +37,12 @@ def _main_pair(pairs: list[tuple]) -> Optional[dict]:
     return best
 
 
-def league_events(path: str, timeout: float = 25.0) -> list[dict]:
+def league_events(path: str, timeout: float = 25.0,
+                  operator: str = "svenskaspel") -> list[dict]:
     """Matcher + 1X2 för en ligaväg (t.ex. 'football/sweden/allsvenskan').
     Returnerar [{id, home, away, start, odds{'1','X','2'}}]. Tom lista vid fel."""
     try:
-        r = httpx.get(f"{BASE}/listView/{path}.json", params=PARAMS,
+        r = httpx.get(f"{BASE_TPL.format(op=operator)}/listView/{path}.json", params=PARAMS,
                       headers=HEADERS, timeout=timeout)
         r.raise_for_status()
         data = r.json()
@@ -99,10 +103,20 @@ def event_markets(event_id: str, home: str, away: str, timeout: float = 25.0) ->
         return {}
 
     ah_pairs, ou_pairs = [], []
+    cor: dict[float, dict] = {}                 # {linje: {'O': odds, 'U': odds}}
     for bo in bos:
         label = ((bo.get("criterion") or {}).get("label") or "").strip()
         outs = bo.get("outcomes") or []
-        if label == "Asian handicap":
+        if label == "Antal hörnor":             # totala hörnor, alla linjer
+            for o in outs:
+                ln, od = o.get("line"), _milli(o.get("odds"))
+                if ln is None or not od:
+                    continue
+                side = ("O" if o.get("type") == "OT_OVER"
+                        else "U" if o.get("type") == "OT_UNDER" else None)
+                if side:
+                    cor.setdefault(ln / 1000, {})[side] = od
+        elif label == "Asian handicap":
             by_line: dict[float, dict] = {}
             for o in outs:
                 if o.get("line") is None:
@@ -130,8 +144,12 @@ def event_markets(event_id: str, home: str, away: str, timeout: float = 25.0) ->
     res = {}
     ah = _main_pair(ah_pairs)
     ou = _main_pair(ou_pairs)
+    co = _main_pair([(v["O"], v["U"], ln) for ln, v in cor.items()
+                     if v.get("O") and v.get("U")])
     if ah:
         res["ah"] = {"H": ah["a"], "A": ah["b"], "line": ah["line"]}
     if ou:
         res["ou"] = {"O": ou["a"], "U": ou["b"], "line": ou["line"]}
+    if co:
+        res["cor"] = {"O": co["a"], "U": co["b"], "line": co["line"]}
     return res

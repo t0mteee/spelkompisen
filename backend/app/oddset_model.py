@@ -23,7 +23,9 @@ from . import oddset_data
 from .analysis import _power_probs
 from .storage import Storage
 
-DC_RHO_CLUB = -0.13     # klubblitteraturens värde; refittas mot facit i Etapp 5
+DC_RHO_CLUB = -0.01     # REFITTAD i Etapp 5-backtesten (2026-07-12): grid-minimum
+                        # −0.01/+0.02 i BÅDA ligorna — klubblitteraturens −0.13
+                        # överkorrigerar här precis som för landslag (vm: −0.04)
 MAX_GOALS = 12
 XG_WEIGHT = 0.65        # effektiva mål = 0.65·xG + 0.35·mål (när xG finns)
 DECAY_DAYS = 240.0      # vikt = exp(-ålder/240 d) — ~1 säsong halveringstid
@@ -60,7 +62,8 @@ def total_over(m: list[list[float]], line: float) -> float:
 
 # --- styrkefit -------------------------------------------------------------------
 
-def fit_league(results: list[dict], now: Optional[dt.date] = None) -> Optional[dict]:
+def fit_league(results: list[dict], now: Optional[dt.date] = None,
+               iters: int = FIT_ITER) -> Optional[dict]:
     """Iterativ Poisson-fit: λ_hemma = base·hf·att_h·def_a, λ_borta = base·att_a·def_h.
     Returnerar {'teams': {namn: {'att','def','n'}}, 'home_adv', 'base'}."""
     now = now or dt.date.today()
@@ -87,7 +90,7 @@ def fit_league(results: list[dict], now: Optional[dt.date] = None) -> Optional[d
     wsum = sum(w for *_, w in rows)
     base = sum((eh + ea) * w for _, _, eh, ea, w in rows) / (2 * wsum)
     home_adv = 1.25
-    for _ in range(FIT_ITER):
+    for _ in range(iters):
         exp_h = {t: 1e-9 for t in teams}
         exp_a = {t: 1e-9 for t in teams}
         obs_h = {t: 1e-9 for t in teams}
@@ -172,10 +175,13 @@ def attach_model(store: Storage, matches: list[dict]) -> None:
     from .oddset import norm_team
     fits: dict[str, Optional[dict]] = {}
     elo = oddset_data.get_elo(store)
+    now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     for m in matches:
         lg = m.get("league")
         if lg not in oddset_data.FD_URLS:      # bara ligor med resultatdata
             continue
+        if (m.get("start") or "9") <= now_iso:
+            continue   # startad match — modell-edges mot live-odds är meningslösa
         if lg not in fits:
             fits[lg] = fit_league(oddset_data.merged_results(store, lg))
         fit = fits[lg]

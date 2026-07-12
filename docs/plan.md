@@ -48,8 +48,44 @@ Etapp 3 (samma dag) — egen modell, allt amber-tier:
   modell-edge ≥5 % (högre ribba än sharp), Elo/μ i tooltip på matchnamnet.
   Modellen är UTANFÖR värdelistan och CLV-facitet (vm-metodregeln).
 - `cli.py modeldata` tvingar datauppdatering; insamlingen kör refresh_all throttlat.
-**Nästa:** Etapp 4 (nyheter/lineups per lag, X-konton) och/eller Etapp 5 (backtest
-mot football-data-stängningsodds: validera modellen + kalibrera trösklar, refit rho).
+**Etapp 4 SKIPPAD (Samans beslut 2026-07-12):** nyheter/lineups som egen funktion
+tillför inte — det vi jagar är ODDSRÖRELSEN när lineups släpps, och den fångas
+redan av steam-flaggan + ntfy (Etapp 2). Bevaka inte nyheter.
+
+**Etapp 5 KLAR (2026-07-12)** — `app/oddset_backtest.py` + `cli.py oddsetbacktest`:
+walk-forward mot Pinnacle-STÄNGNING (football-data PSC), fit endast på matcher före
+resp. matchdag, eval 2024-07→ (n=351 Allsvenskan, 330 Eliteserien). **Domen:**
+- Allsvenskan: modell-logloss 1.029 vs marknadens 1.010 — nästan marknadskvalitet;
+  optimal blandvikt w=0.1; beslutsregel-ROI −1..−2 % mot Pinnacle-pris, ±0..+1 %
+  mot bästa pris. Imponerande för ren DC, men INTE bättre än sharpen.
+- Eliteserien: klart sämre (0.991 vs 0.958, w=0, ROI −11..−15 %) — giftig som
+  spelregel. Amber-status är alltså RÄTT och kvarstår; grön = sharp-ankrat förblir
+  enda spelbara signalen. Obs: backtestens säsonger saknar xG (Sofascore täcker
+  bara nuvarande) — live-modellen med xG-viktning kan vara något bättre.
+- **rho REFITTAD: −0.01** (grid-minimum i BÅDA ligorna; klubblitteraturens −0.13
+  överkorrigerar — samma mönster som vm fann för landslag). DC_RHO_CLUB uppdaterad.
+- Kalibreringstabellen ser sund ut (deciler pred ≈ verklig träff ±3 pp).
+
+**Samma pass (Samans önskemål):**
+- **Expekt** tillagd som sidobok: Kambi-operatör `expektse` (verifierad — samma
+  event-id:n som svenskaspel, trivial matchning). `BOOKS`-listan i oddset.py;
+  1X2 sparas som source `expekt`; värdemotorn räknar edge mot BÄSTA bok-odds och
+  posten säger vilken bok (💰-listan: "@ 15.00 hos Expekt"). ATG (`atg`) verifierad
+  och kan läggas till som en rad till i BOOKS.
+- **Altenar VÄNTAR**: deras API kräver operatörens `integration`-namn (webdemo/
+  pixelbet gav 400; sb2.altenar.com svarar ej). Behöver veta VILKEN Altenar-sajt
+  Saman spelar hos — då är det en BOOKS-rad + liten klient.
+- **Hörnor tillagda**: Pinnacle hörn-specials (units='Corners', barn-matchup →
+  förälder, huvudlinje) + Kambi "Antal hörnor" → market `cor`, egen kolumn i UI,
+  med i värdemotorn (samma-linje-regeln). Verifierat live: P och SvS båda på
+  9.5/10.5 för dagens matcher.
+- **Live-skydd**: startade matcher sparas ej (odds), värderas ej, modelleras ej —
+  och 54 live-förorenade rader städades ur DB (räddade rörelseserierna).
+- **Översikts-UI**: ℹ-förklaringspanel (vad raderna/pillsen/pilarna/🔥 betyder, vad
+  som är spelbart vs spaning, backtest-domen inbakad), 🧪-amber-lista med modell-
+  avvikelser under 💰-listan, bok-namn i värdelistan, backtest-ärlighet i tooltips.
+**Nästa:** Altenar när integrationsnamnet finns; hörn-modell (Sofascore-data finns
+i oddset_results); Superettan/fler ligor; backtest v2 med xG när säsongen samlats.
 
 ## Beslut (Saman, 2026-07-12)
 
@@ -122,7 +158,7 @@ Oddset-flik (platshållare), detta dokument, CLAUDE.md omskriven.
 - Träningsmatcher: modellen får låg vikt (rotationsrisk) — där är steam/lineup-signalen
   (Etapp 2/4) huvudverktyget.
 
-### Etapp 4 — Skador, lineups, nyheter
+### Etapp 4 — Skador, lineups, nyheter ⛔ SKIPPAD (beslut 2026-07-12: steam täcker caset)
 - Google News RSS per lag/match (vm-mönstret: sv+en, dedup, cap).
 - X syndication-flödet (vm `twitter.py`): klubbkonton + relevanta journalister; 429-paca.
 - Lineup-bevakning: källa oklar — undersök gratis-vägar (klubbarnas konton är mest
@@ -130,7 +166,7 @@ Oddset-flik (platshållare), detta dokument, CLAUDE.md omskriven.
   "lineup-nyhet + sharp-rörelse + bok står still" är guldsignalen för träningsmatcher.
 - Skador: nyhetsbaserat (fritext-flaggor per lag), inte strukturerad data (betalspår).
 
-### Etapp 5 — Backtest + kalibrering
+### Etapp 5 — Backtest + kalibrering ✅ (2026-07-12 — resultat i STATUS-blocket)
 - football-data.co.uk SWE/NOR: modell mot historiska stängningsodds — samma beslutsregel-
   validering som svs backtest. Kalibrera trösklar (edge-%, steam-pp) innan de blir "gröna".
 - CLV-uppföljning: håller flaggorna mot stängningslinjen? (Facit växer från Etapp 2.)

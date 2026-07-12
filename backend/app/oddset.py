@@ -29,6 +29,13 @@ LEAGUES = [
      "kambi": "football/club_friendly_matches"},
 ]
 
+# Fler svenska böcker (jämförelse + hitta boken som hänger efter). Kambi-operatörer
+# delar event-id:n med svenskaspel → matchning är trivial. 1X2 räcker (deep-marknader
+# hämtas bara från SvS). Altenar kräver operatörens integrationsnamn — väntar på det.
+BOOKS = [
+    {"key": "expekt", "name": "Expekt", "kambi_op": "expektse"},
+]
+
 DEEP_MARKETS_DAYS = 7      # Kambi AH/ÖU per event bara för matcher inom N dygn
 LIST_WINDOW_H_BACK = 2     # visa matcher som startat för < 2 h sedan
 LIST_WINDOW_D_FWD = 10
@@ -119,16 +126,24 @@ def _main_pair(prices: list[dict], key_a: str, key_b: str) -> Optional[dict]:
 
 def pinnacle_league_index(pin: Pinnacle, league_id: int) -> list[dict]:
     """Ligans matcher i decimalodds (2 anrop). Moneyline i första hand; saknas den
-    härleds 1X2 ur spread+total (odds_source='derived'). AH/ÖU = huvudlinan."""
+    härleds 1X2 ur spread+total (odds_source='derived'). AH/ÖU/hörnor = huvudlinan.
+    Hörn-specials är barn-matchups (units='Corners') som mappas till föräldern."""
     matchups = pin._get(f"/leagues/{league_id}/matchups")
     markets = pin._get(f"/leagues/{league_id}/markets/straight")
+    cor_parent = {m["id"]: m.get("parentId") for m in matchups
+                  if m.get("units") == "Corners" and m.get("parentId")}
     ml: dict = {}
     spread: dict[int, list] = {}
     total: dict[int, list] = {}
+    cor_total: dict[int, list] = {}
     for x in markets:
         if x.get("period") != 0:
             continue
         mid, t = x.get("matchupId"), x.get("type")
+        if mid in cor_parent:
+            if t == "total":
+                cor_total.setdefault(cor_parent[mid], []).extend(x.get("prices", []))
+            continue
         if t == "moneyline":
             ml[mid] = x
         elif t == "spread":
@@ -157,12 +172,14 @@ def pinnacle_league_index(pin: Pinnacle, league_id: int) -> list[dict]:
             odds = odds or {"1": None, "X": None, "2": None}
         ah = _main_pair(spread.get(mid, []), "home", "away")
         ou = _main_pair(total.get(mid, []), "over", "under")
+        co = _main_pair(cor_total.get(mid, []), "over", "under")
         out.append({
             "id": str(mid), "home": home, "away": away,
             "start": m.get("startTime"), "status": m.get("status"),
             "odds": odds, "odds_source": source,
             "ah": {"H": ah["a"], "A": ah["b"], "line": ah["line"]} if ah else None,
             "ou": {"O": ou["a"], "U": ou["b"], "line": ou["line"]} if ou else None,
+            "cor": {"O": co["a"], "U": co["b"], "line": co["line"]} if co else None,
         })
     out.sort(key=lambda r: r.get("start") or "")
     return out
@@ -170,18 +187,17 @@ def pinnacle_league_index(pin: Pinnacle, league_id: int) -> list[dict]:
 
 # --- insamling -----------------------------------------------------------------
 
+_PAIR_KEYS = {"ah": ("H", "A"), "ou": ("O", "U"), "cor": ("O", "U")}
+
+
 def _save_pair_markets(store: Storage, mid: str, source: str, row: dict, at: str) -> int:
     n = 0
-    if row.get("ah"):
-        ah = row["ah"]
-        n += store.oddset_save_market(mid, source, "ah", {
-            "H": {"odds": ah["H"], "line": ah["line"]},
-            "A": {"odds": ah["A"], "line": ah["line"]}}, at)
-    if row.get("ou"):
-        ou = row["ou"]
-        n += store.oddset_save_market(mid, source, "ou", {
-            "O": {"odds": ou["O"], "line": ou["line"]},
-            "U": {"odds": ou["U"], "line": ou["line"]}}, at)
+    for market, (k1, k2) in _PAIR_KEYS.items():
+        v = row.get(market)
+        if v:
+            n += store.oddset_save_market(mid, source, market, {
+                k1: {"odds": v[k1], "line": v["line"]},
+                k2: {"odds": v[k2], "line": v["line"]}}, at)
     return n
 
 
@@ -215,6 +231,8 @@ def collect(store: Storage) -> dict:
                     cands.append(m)
                 elif not ex.get("pinnacle_id"):
                     ex["pinnacle_id"] = r["id"]
+                if (r.get("start") or "9") <= at:
+                    continue   # startad match = live-odds — förorena inte serierna
                 if r["odds_source"]:
                     rows_saved += store.oddset_save_odds(mid, r["odds_source"], r["odds"], at)
                 rows_saved += _save_pair_markets(store, mid, "pinnacle", r, at)
@@ -235,6 +253,8 @@ def collect(store: Storage) -> dict:
                     cands.append(m)
                 elif not ex.get("kambi_id"):
                     ex["kambi_id"] = e["id"]
+                if (e.get("start") or "9") <= at:
+                    continue   # live — spara inte
                 rows_saved += store.oddset_save_odds(mid, "svenskaspel", e["odds"], at)
                 if (e.get("start") or "9") <= deep_until:
                     mk = kambi.event_markets(e["id"], e["home"], e["away"])
@@ -242,8 +262,20 @@ def collect(store: Storage) -> dict:
                     time.sleep(0.25)   # paca CDN:et
                 n_kambi += 1
 
+            # sidoböcker (1X2): samma Kambi-event-id:n som svenskaspel
+            n_books = 0
+            for book in BOOKS:
+                for e in kambi.league_events(lg["kambi"], operator=book["kambi_op"]):
+                    ex = next((c for c in cands if c.get("kambi_id") == e["id"]), None) \
+                        or _resolve(cands, e["home"], e["away"], e["start"])
+                    if not ex or (e.get("start") or "9") <= at:
+                        continue   # skapa inga matcher från sidoböcker; hoppa live
+                    rows_saved += store.oddset_save_odds(ex["id"], book["key"], e["odds"], at)
+                    n_books += 1
+
             report["leagues"][lg["key"]] = {
-                "pinnacle": n_pin, "kambi": n_kambi, "saved_rows": rows_saved}
+                "pinnacle": n_pin, "kambi": n_kambi, "books": n_books,
+                "saved_rows": rows_saved}
     finally:
         pin.close()
     store.meta_set("oddset_last_run", at)

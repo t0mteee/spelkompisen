@@ -605,6 +605,49 @@ const GAMES = [
 // Rörelse-konvention (från vm): röd ↓ = oddset NER (ökad vinstchans), grön ↑ = UPP.
 const ODDSET_HIDDEN_KEY = 'svs_oddset_hidden'
 
+function OddsetLegend() {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="legendbox">
+      <button className="legend-toggle" onClick={() => setOpen(!open)}>
+        ℹ Vad betyder siffrorna — och vad är värde? {open ? '▲' : '▼'}
+      </button>
+      {open && (
+        <div className="legend">
+          <div><b>Raderna i varje oddscell</b> — <b>stort odds</b> = Svenska Spel (det du kan
+            spela på) · <b>P</b> = Pinnacle, världens skarpaste bok = vår referens för
+            "sant" pris (<b>P~</b> = härlett ur handikapp när 1X2 inte öppnats) ·
+            <b> E</b> = Expekt · <b>M</b> = vår egen modell (amber, se nedan).</div>
+          <div><b>Värde</b> = när en spelbar bok betalar MER än det sharpa priset.
+            Vi räknar bort Pinnacles marginal (power-devig) och får en "fair" sannolikhet;
+            edge = fair sannolikhet × bokens odds − 1.
+            {' '}<span className="epill">+5%</span> = grön pill = <b>sharp-ankrat värde ≥2 %</b> —
+            den starkaste signalen härinne, loggas i facitet. Samlas även i 💰-listan.</div>
+          <div><b>AH / Ö/U / Hörnor</b> visas som <i>linje · odds/odds</i> (t.ex. −0.5 · 1.79/1.89 =
+            hemmalaget −0,5 mål). Värde räknas ENDAST när boken och Pinnacle har samma linje —
+            olika linjer går inte att jämföra ärligt. Hörnor prissätts av Pinnacle först nära
+            avspark; utan P-rad finns inget ankare.</div>
+          <div><b>Pilar</b> = oddsrörelse sedan första notering: <span className="mv down">↓5%</span> =
+            oddset har SJUNKIT (marknaden tror mer på utfallet — hann du före är det bra tecken) ·
+            <span className="mv up"> ↑5%</span> = stigit. Hovra för hela serien med tidsstämplar.
+            {' '}<b>🔥</b> = steam: Pinnacles devigade sannolikhet har flyttat ≥3,5 procentenheter
+            på 6/24 h — typiskt lineup-nyheter. Kolla då direkt om någon spelbar bok står kvar
+            på gamla oddset (det är träningsmatch-caset).</div>
+          <div><b>M-raden (modellen)</b> — egen Dixon-Coles per liga: lagstyrkor ur resultat
+            sedan 2024 + Sofascore-xG, totalnivå ankrad mot sharp Ö/U. Backtest mot två års
+            Pinnacle-stängningar: nästan marknadskvalitet i Allsvenskan (±0 % mot bästa pris),
+            sämre i Eliteserien (−11 %). Därför <b>amber</b>: <span className="apill">+8%</span> =
+            "modellen avviker — kolla varför", INTE "spela". Hålls utanför facitet tills den
+            bevisat sig. Störst nytta: prisuppfattning för matcher där Pinnacle inte öppnat än.</div>
+          <div><b>📒 Signal-loggen</b> längst ner är domaren: varje grön flagga jämförs efteråt
+            med Pinnacles stängningslinje (CLV). Positivt snitt = flaggorna ligger före
+            marknaden på riktigt; negativt = brus. Lita på facit, inte på känsla.</div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function OddsetView() {
   const [data, setData] = useState(null)
   const [clv, setClv] = useState(null)
@@ -682,18 +725,27 @@ function OddsetView() {
   const cell1x2 = (m, sign) => {
     const svs = m.odds?.svenskaspel?.['1x2']
     const pin = m.odds?.pinnacle?.['1x2']
+    const exp = m.odds?.expekt?.['1x2']
     const mv = m.movement?.svenskaspel?.['1x2']?.[sign]
     const mvP = m.movement?.pinnacle?.['1x2']?.[sign]
+    const mvE = m.movement?.expekt?.['1x2']?.[sign]
+    const v = m.value?.['1x2']?.[sign]
     const md = m.model
     const mEdge = md?.edges?.[sign]
     return (
       <td className="oc" key={sign}>
         <div className="o" title={mv?.pts?.length > 1 ? serie(mv) : undefined}>
-          {svs?.[sign] ? svs[sign].toFixed(2) : '–'}{arrow(mv)}{edgePill(m.value?.['1x2']?.[sign])}
+          {svs?.[sign] ? svs[sign].toFixed(2) : '–'}{arrow(mv)}
+          {(v?.book ?? 'svenskaspel') === 'svenskaspel' && edgePill(v)}
         </div>
         {pin?.[sign] && (
           <div className="p" title={mvP?.pts?.length > 1 ? `Pinnacle:\n${serie(mvP)}` : 'Pinnacle (sharp)'}>
             P{pin.derived ? '~' : ''} {pin[sign].toFixed(2)}{arrow(mvP)}
+          </div>
+        )}
+        {exp?.[sign] && (
+          <div className="p" title={mvE?.pts?.length > 1 ? `Expekt:\n${serie(mvE)}` : 'Expekt'}>
+            E {exp[sign].toFixed(2)}{arrow(mvE)}{v?.book === 'expekt' && edgePill(v)}
           </div>
         )}
         {showModel && md?.fair?.[sign] && (
@@ -722,7 +774,8 @@ function OddsetView() {
     )
   }
 
-  const MARKET_LABEL = { '1x2': '1X2', ah: 'AH', ou: 'Ö/U' }
+  const MARKET_LABEL = { '1x2': '1X2', ah: 'AH', ou: 'Ö/U', cor: 'Hörnor' }
+  const BOOK_NAME = { svenskaspel: 'SvS', expekt: 'Expekt' }
 
   if (err) return <section><h2>Oddset</h2><div className="error">{err}</div></section>
   if (!data) return <section><h2>Oddset</h2><div className="loading">Hämtar…</div></section>
@@ -753,9 +806,10 @@ function OddsetView() {
     <section className="oddset">
       <div className="analys-head">
         <h2>Oddset — enskilda matcher</h2>
-        <span className="hovertip">💡 stort odds = Svenska Spel, P = Pinnacle (sharp, P~ = härlett) ·
-          röd ↓ = oddset sjunker (ökad vinstchans) · håll muspekaren över för hela rörelsen</span>
+        <span className="hovertip">💡 grön pill = sharp-ankrat värde (spelbart) · amber = modell (spaning) ·
+          🔥 = snabb sharp-rörelse · hovra på allt för detaljer</span>
       </div>
+      <OddsetLegend />
       <div className="oddset-bar">
         {data.leagues.map((l) => (
           <button key={l.key} className={hidden.includes(l.key) ? 'lg off' : 'lg'}
@@ -777,12 +831,12 @@ function OddsetView() {
       {signals.length > 0 && (
         <div className="valuelist">
           <div className="valhead"><b>💰 Värdespel just nu</b>
-            <span className="hint"> SvS-odds över devigad Pinnacle (sharp-ankrat) · ° = härlett sharp-pris</span></div>
+            <span className="hint"> bok-odds över devigad Pinnacle (sharp-ankrat = spelbart) · ° = härlett sharp-pris</span></div>
           {signals.slice(0, 10).map(({ m, mk, sg, v }, i) => (
             <div key={i} className="valrow">
               <span className="epill big">+{(v.edge * 100).toFixed(1)}%{v.derived ? '°' : ''}</span>
-              <b>{MARKET_LABEL[mk]}{mk === 'ah' ? ` ${fmtAh(v.line)}` : mk === 'ou' ? ` ${v.line}` : ''} {sg}</b>
-              <span>@ {v.odds.toFixed(2)}</span>
+              <b>{MARKET_LABEL[mk]}{mk === 'ah' ? ` ${fmtAh(v.line)}` : (mk === 'ou' || mk === 'cor') ? ` ${v.line}` : ''} {sg}</b>
+              <span>@ {v.odds.toFixed(2)} hos <b>{BOOK_NAME[v.book] || v.book}</b></span>
               <span className="hint">fair {(1 / v.fair).toFixed(2)}</span>
               <span className="vteams">{m.home} – {m.away}</span>
               <span className="hint">{fmtDay(m.start)} {fmtTime(m.start)}</span>
@@ -790,16 +844,43 @@ function OddsetView() {
           ))}
         </div>
       )}
+      {showModel && (() => {
+        const msig = []
+        for (const m of visible) {
+          for (const [sg, e] of Object.entries(m.model?.edges || {})) {
+            if (e >= 0.05 && (!m.start || new Date(m.start) > new Date())) {
+              msig.push({ m, sg, e })
+            }
+          }
+        }
+        msig.sort((a, b) => b.e - a.e)
+        return msig.length > 0 && (
+          <div className="valuelist amberlist">
+            <div className="valhead"><b>🧪 Modell-avvikelser (amber)</b>
+              <span className="hint"> egen modell vs SvS-odds — EXPERIMENTELLT: backtesten säger ±0 % ROI i Allsvenskan, −11 % i Eliteserien. Signalspaning, inte spelrekommendation.</span></div>
+            {msig.slice(0, 6).map(({ m, sg, e }, i) => (
+              <div key={i} className="valrow">
+                <span className="apill big">+{(e * 100).toFixed(1)}%</span>
+                <b>1X2 {sg}</b>
+                <span>modell {(m.model.p[sg] * 100).toFixed(0)}% (fair {m.model.fair[sg]?.toFixed(2)})</span>
+                <span className="vteams">{m.home} – {m.away}</span>
+                <span className="hint">{fmtDay(m.start)} {fmtTime(m.start)}</span>
+              </div>
+            ))}
+          </div>
+        )
+      })()}
       {days.length === 0 && <p className="hint">Inga kommande matcher i synliga ligor.</p>}
       <table className="oddset-table">
         <thead>
           <tr><th>Tid</th><th>Match</th><th>1</th><th>X</th><th>2</th>
             <th title="Asian handicap (hemmalinje) · odds hemma / borta">AH</th>
-            <th title="Asiatisk total · odds över / under">Ö/U</th></tr>
+            <th title="Asiatisk total (mål) · odds över / under">Ö/U</th>
+            <th title="Totala hörnor · odds över / under. Pinnacle prissätter hörnor först nära avspark — saknas P-rad finns inget sharp-ankare.">Hörnor</th></tr>
         </thead>
         {days.map((d) => (
           <tbody key={d.key}>
-            <tr className="dayrow"><td colSpan={7}>{d.label}</td></tr>
+            <tr className="dayrow"><td colSpan={8}>{d.label}</td></tr>
             {d.matches.map((m) => (
               <tr key={m.id} className={m.start && new Date(m.start) < new Date() ? 'started' : ''}>
                 <td className="time">{fmtTime(m.start)}</td>
@@ -813,6 +894,7 @@ function OddsetView() {
                 {['1', 'X', '2'].map((s) => cell1x2(m, s))}
                 {cellPair(m, 'ah', 'H', 'A', fmtAh)}
                 {cellPair(m, 'ou', 'O', 'U', (l) => l)}
+                {cellPair(m, 'cor', 'O', 'U', (l) => l)}
               </tr>
             ))}
           </tbody>

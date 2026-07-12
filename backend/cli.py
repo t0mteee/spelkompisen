@@ -445,6 +445,11 @@ def main() -> None:
         cmd_oddset()
     elif cmd == "modeldata":
         cmd_modeldata()
+    elif cmd == "oddsetbacktest":
+        from app import oddset_backtest
+        for lg in (rest or ["allsvenskan", "eliteserien"]):
+            preds = oddset_backtest.run_league(lg)
+            oddset_backtest.print_report(lg, oddset_backtest.report(preds))
     else:
         print(__doc__)
 

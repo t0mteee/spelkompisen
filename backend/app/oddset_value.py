@@ -22,7 +22,9 @@ STEAM_FLAG_PP = 3.5    # 🔥 markant (6h- eller 24h-skift)
 STEAM_STRONG_PP = 6.0
 STEAM_NOTIFY_PP = 5.0  # push på 6h-skiftet (snabb rörelse = träningsmatch-caset)
 
-_MARKET_SIGNS = {"1x2": ("1", "X", "2"), "ah": ("H", "A"), "ou": ("O", "U")}
+_MARKET_SIGNS = {"1x2": ("1", "X", "2"), "ah": ("H", "A"), "ou": ("O", "U"),
+                 "cor": ("O", "U")}
+MARKET_LABEL = {"1x2": "1X2", "ah": "AH", "ou": "Ö/U", "cor": "Hörnor"}
 
 
 def _devig(odds: dict, signs: tuple) -> Optional[dict[str, float]]:
@@ -36,30 +38,43 @@ def _devig(odds: dict, signs: tuple) -> Optional[dict[str, float]]:
 
 
 def attach_value(matches: list[dict]) -> None:
-    """Sätter m['value'] = {market: {sign: {edge, fair, odds}}} per match (in place).
-    1X2 kräver komplett Pinnacle-trio; AH/ÖU kräver samma linje hos båda källorna."""
+    """Sätter m['value'] = {market: {sign: {edge, fair, odds, book}}} (in place).
+    Fair = devigad Pinnacle; edge räknas mot BÄSTA odds bland övriga böcker
+    (svenskaspel, expekt, ...) — posten säger vilken bok. AH/ÖU/hörnor kräver
+    samma linje som sharpen. Startade matcher hoppas över (live-odds ljuger)."""
+    now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     for m in matches:
-        pin = (m.get("odds") or {}).get("pinnacle") or {}
-        svs = (m.get("odds") or {}).get("svenskaspel") or {}
         val: dict = {}
+        m["value"] = val
+        if (m.get("start") or "9") <= now:
+            continue
+        odds = m.get("odds") or {}
+        pin = odds.get("pinnacle") or {}
+        books = {src: v for src, v in odds.items() if src != "pinnacle"}
         for market, signs in _MARKET_SIGNS.items():
-            p, s = pin.get(market), svs.get(market)
-            if not p or not s:
+            p = pin.get(market)
+            if not p:
                 continue
-            if market != "1x2" and p.get("line") != s.get("line"):
-                continue   # olika linjer = inte jämförbart
             fair = _devig(p, signs)
             if not fair:
                 continue
             for sign in signs:
-                so = s.get(sign)
-                if not so:
+                best = None   # (bok, odds)
+                for bk, bo in books.items():
+                    s = bo.get(market)
+                    if not s or not s.get(sign):
+                        continue
+                    if market != "1x2" and p.get("line") != s.get("line"):
+                        continue   # olika linjer = inte jämförbart
+                    if best is None or s[sign] > best[1]:
+                        best = (bk, s[sign])
+                if not best:
                     continue
-                edge = fair[sign] * so - 1.0
+                edge = fair[sign] * best[1] - 1.0
                 val.setdefault(market, {})[sign] = {
-                    "edge": round(edge, 4), "fair": round(fair[sign], 4), "odds": so,
+                    "edge": round(edge, 4), "fair": round(fair[sign], 4),
+                    "odds": best[1], "book": best[0],
                     "line": p.get("line"), "derived": bool(p.get("derived"))}
-        m["value"] = val
 
 
 def _probs_at(pts: dict[str, list], signs: tuple,
@@ -134,17 +149,19 @@ def log_and_notify(store: Storage, matches: list[dict]) -> dict:
                     "line": v.get("line"), "league": m.get("league"),
                     "description": desc, "match_start": m.get("start"),
                     "at": at, "odds": v["odds"], "fair": v["fair"],
-                    "edge": v["edge"]})
+                    "edge": v["edge"], "book": v.get("book")})
                 n_logged += 1
                 if v["edge"] >= EDGE_NOTIFY and notify.enabled():
                     key = f"oddset_ntfy_edge:{m['id']}:{market}:{sign}"
                     if not store.meta_get(key):
                         lt = f" {v['line']:+g}" if market == "ah" else \
-                             f" {v['line']:g}" if market == "ou" else ""
+                             f" {v['line']:g}" if market in ("ou", "cor") else ""
+                        bok = {"svenskaspel": "SvS"}.get(v.get("book"),
+                                                         (v.get("book") or "?").title())
                         notify.push(
                             f"Värde: {desc}",
-                            f"{market.upper()}{lt} {sign} @ {v['odds']:.2f} hos SvS — "
-                            f"fair {1 / v['fair']:.2f} (Pinnacle) = {_fmt_pct(v['edge'])} edge",
+                            f"{MARKET_LABEL[market]}{lt} {sign} @ {v['odds']:.2f} hos {bok}"
+                            f" — fair {1 / v['fair']:.2f} (Pinnacle) = {_fmt_pct(v['edge'])} edge",
                             tags="moneybag")
                         store.meta_set(key, at)
                         n_pushed += 1
