@@ -330,6 +330,12 @@ def matches_payload(store: Storage) -> dict:
     oddset_value.attach_value(out)
     oddset_value.attach_steam(out)
     try:
+        from . import oddset_data
+        for mid, ab in oddset_data.get_absences(store, ids).items():
+            next(m for m in out if m["id"] == mid)["absences"] = ab
+    except Exception:  # noqa: BLE001
+        pass
+    try:
         from . import oddset_model
         oddset_model.attach_model(store, out)
     except Exception:  # noqa: BLE001 — modellen (amber) får aldrig fälla listan

@@ -157,6 +157,24 @@ resp. matchdag, eval 2024-07→ (n=351 Allsvenskan, 330 Eliteserien). **Domen:**
   T=0.85** (underkonfident — skärpning förbättrar logloss 0.981→0.980).
   Kvar mot grönt: forward-loggens facit (M3-kriteriet ≥50 stängda, positivt snitt).
 
+**Mer modelldata — utredning + Sofascore-frånvaro (2026-07-12 sen kväll):**
+- **Opta (performfeeds)**: vm-outleten är scopad till VM-flödena — 403 på
+  tournamentcalendar/authorized. Stängd väg för våra ligor utan ny outlet-nyckel.
+- **allsvenskan.se**: wp-json ger 403 (botskydd). Flashscore: feed svarar men
+  odokumenterat teckenprotokoll och inget vi saknar (resultat/xG/hörnor har vi
+  bättre via Sofascore). Båda nedprioriterade.
+- **Den verkliga guldådern: Sofascore /event/{id}/lineups** — strukturerade
+  FRÅNVAROLISTOR (missingPlayers med orsakskod) + bekräftade elvor, gratis från
+  källan vi redan kör. `refresh_absences` (2h-throttle, matcher <48 h, pacad):
+  meta oddset_abs:{match_id} → payload `absences` → 🚑N-märke med spelarnamn i
+  tooltip + ✓XI när elvorna bekräftats (= kolla radarn för sen sharp-rörelse!)
+  + lista i detaljvyn. Verifierad live: DIF–HBK fick Marqués/Boman direkt.
+  Orsakskoder mappas allteftersom (1 skada/3 avstängd; kod 13 observerad, ännu
+  omappad — visas ärligt som "kod 13"). Nästa steg när data samlats: viktad
+  frånvaro-styrka in i modellen (amber tills facit).
+- **Buggfix**: .lgtag-CSS:en var scopad till tabellen — utanför den klistrades
+  ligataggen mot lagnamnet ("SÖsters IF"). Nu global chip-stil.
+
 ## Modellplan — vägen till en modell att lita på (efter backtest-domen)
 
 Backtesten visade: DC-modellen är nära marknaden i Allsvenskan men slår den inte,

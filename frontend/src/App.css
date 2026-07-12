@@ -464,7 +464,7 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
 .oddset-table tr.started { opacity: 0.55; }
 .oddset-table .time { color: var(--muted); white-space: nowrap; width: 42px; }
 .oddset-table .teams { font-weight: 600; }
-.oddset-table .lgtag { display: inline-block; min-width: 16px; text-align: center; margin-right: 6px;
+.lgtag { display: inline-block; min-width: 16px; text-align: center; margin-right: 6px;
   background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
   color: var(--muted); font-size: 10px; font-weight: 700; padding: 1px 3px; }
 .oddset-table .oc { white-space: nowrap; }
@@ -486,6 +486,7 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
 .valuelist.amberlist { border-color: #e0853b; }
 .valuelist.moverlist { border-color: var(--line); }
 .lshift { color: #e0853b; font-weight: 700; font-size: 11px; margin-left: 4px; }
+.absb { margin-left: 5px; font-size: 10.5px; color: #e0853b; font-weight: 700; }
 
 /* Spelkort i värdelistan */
 .tipgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));

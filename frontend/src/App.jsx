@@ -812,6 +812,20 @@ function OddsetView() {
     </span>
   )
 
+  const absBadge = (m) => {
+    const ab = m.absences
+    if (!ab) return null
+    const n = (ab.home?.length || 0) + (ab.away?.length || 0)
+    if (!n && !ab.confirmed) return null
+    const lines = []
+    for (const [side, team] of [['home', m.home], ['away', m.away]]) {
+      for (const p of ab[side] || []) lines.push(`${team}: ${p.name} (${p.reason})`)
+    }
+    return <span className="absb"
+      title={`${ab.confirmed ? 'Elvorna är BEKRÄFTADE — kolla radarn för sen sharp-rörelse\n' : ''}${lines.join('\n') || 'Inga rapporterade frånvaron'}`}>
+      {ab.confirmed ? '✓XI' : ''}{n ? `🚑${n}` : ''}</span>
+  }
+
   const steamBadge = (m) => {
     const st = m.steam
     if (!st) return null
@@ -1146,7 +1160,7 @@ function OddsetView() {
                       m.model && `Modell-μ: ${m.model.mu[0]}–${m.model.mu[1]}${m.model.anchored ? ' (ankrad mot sharp)' : ''}`]
                       .filter(Boolean).join('\n')}>
                     <span className="lgtag">{(leagueName[m.league] || m.league).slice(0, 1)}</span>
-                    {m.home} – {m.away}{steamBadge(m)}
+                    {m.home} – {m.away}{steamBadge(m)}{absBadge(m)}
                   </td>
                   {['1', 'X', '2'].map((s) => cell1x2(m, s))}
                   {cellPair(m, 'ah', 'H', 'A', fmtAh)}
@@ -1176,6 +1190,11 @@ function OddsetView() {
                       })}
                       {m.model && <span>Modell: μ {m.model.mu[0]}–{m.model.mu[1]} · fair {m.model.fair['1']}/{m.model.fair['X']}/{m.model.fair['2']}{m.model.cal_t ? ` · T=${m.model.cal_t}` : ''}{m.model.prior ? ' · Elo-prior' : ''}</span>}
                       {m.elo && <span>Elo {m.elo.h ?? '?'}–{m.elo.a ?? '?'}</span>}
+                      {m.absences?.confirmed && <span>✓ elvor bekräftade</span>}
+                      {m.absences && ['home', 'away'].map((side) => (
+                        m.absences[side]?.length
+                          ? <span key={side}>🚑 {side === 'home' ? m.home : m.away}: {m.absences[side].map((p) => `${p.name} (${p.reason})`).join(', ')}</span>
+                          : null))}
                       {(clv?.rows || []).filter((r) => r.match_id === m.id).map((r, j) => (
                         <span key={j} className={r.tier === 'model' ? 'apill' : 'epill'}>
                           {r.market} {r.sign} @{r.first_odds} {r.first_edge > 0 ? '+' : ''}{Math.round(r.first_edge * 100)}%

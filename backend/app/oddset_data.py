@@ -36,7 +36,9 @@ SOFA_UT = {"allsvenskan": 40, "eliteserien": 20, "superettan": 46,
 MODEL_LEAGUES = set(FD_URLS) | {"superettan", "obosligaen"}
 SOFA_MAX_PAGES = 4            # events/last/{page} per körning (backfill tar några pass)
 
-FD_TTL_H, XG_TTL_H, ELO_TTL_H = 12, 6, 24
+FD_TTL_H, XG_TTL_H, ELO_TTL_H, ABS_TTL_H = 12, 6, 24, 2
+# missingPlayers-orsakskoder (Sofascore): observerade typer
+_ABS_REASON = {1: "skada", 2: "tveksam", 3: "avstängd", 11: "annat"}
 
 
 def _now() -> dt.datetime:
@@ -243,11 +245,75 @@ def get_elo(store: Storage) -> dict[str, int]:
         return {}
 
 
+def refresh_absences(store: Storage, force: bool = False) -> dict:
+    """Frånvarolistor (skador/avstängningar/tveksamma) + bekräftade elvor från
+    Sofascore /event/{id}/lineups för kommande matcher (<48 h). Strukturerad
+    skadedata — gratis, från källan vi redan kör. 404 = elvor ej publicerade än.
+    Sparas i meta oddset_abs:{match_id}; visas i UI (🚑) och detaljvyn."""
+    if not force and not _stale(store, "oddset_abs_at", ABS_TTL_H):
+        return {}
+    from .oddset import norm_team, _team_sim
+    now = _now()
+    frm = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    to = (now + dt.timedelta(hours=48)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    ms = [m for m in store.oddset_matches(since=frm, until=to)
+          if m["league"] in SOFA_UT]
+    out = {"checked": 0, "found": 0}
+    ev_index: dict[str, list] = {}
+    for lg in {m["league"] for m in ms}:
+        sid = _sofa_season(store, lg)
+        if not sid:
+            continue
+        try:
+            evs = _sofa_get(f"/unique-tournament/{SOFA_UT[lg]}/season/{sid}"
+                            f"/events/next/0").get("events") or []
+        except Exception:  # noqa: BLE001
+            continue
+        ev_index[lg] = [(e["id"], norm_team(e["homeTeam"]["name"]),
+                         norm_team(e["awayTeam"]["name"])) for e in evs]
+    for m in ms:
+        cands = ev_index.get(m["league"]) or []
+        hn, an = norm_team(m["home"]), norm_team(m["away"])
+        eid = next((i for i, h, a in cands
+                    if _team_sim(hn, h) >= 0.75 and _team_sim(an, a) >= 0.75), None)
+        if not eid:
+            continue
+        out["checked"] += 1
+        time.sleep(1.0)
+        try:
+            lu = _sofa_get(f"/event/{eid}/lineups")
+        except Exception:  # noqa: BLE001 — 404 tills lineups/frånvaro publicerats
+            continue
+        rec = {"at": frm, "confirmed": bool(lu.get("confirmed"))}
+        for side in ("home", "away"):
+            rec[side] = [{"name": (p.get("player") or {}).get("name"),
+                          "reason": _ABS_REASON.get(p.get("reason"),
+                                                    f"kod {p.get('reason')}")}
+                         for p in (lu.get(side) or {}).get("missingPlayers") or []]
+        store.meta_set(f"oddset_abs:{m['id']}", json.dumps(rec, ensure_ascii=False))
+        out["found"] += 1
+    _mark(store, "oddset_abs_at")
+    return out
+
+
+def get_absences(store: Storage, match_ids: list[str]) -> dict[str, dict]:
+    out = {}
+    for mid in match_ids:
+        raw = store.meta_get(f"oddset_abs:{mid}")
+        if raw:
+            try:
+                out[mid] = json.loads(raw)
+            except ValueError:
+                pass
+    return out
+
+
 def refresh_all(store: Storage, force: bool = False) -> dict:
     """Körs i varje insamlingspass — throttlarna gör det billigt."""
     return {"results": refresh_results(store, force),
             "xg": refresh_xg(store, force),
-            "elo": refresh_elo(store, force)}
+            "elo": refresh_elo(store, force),
+            "absences": refresh_absences(store, force)}
 
 
 def merged_results(store: Storage, league: str) -> list[dict]:
