@@ -387,7 +387,7 @@ def cmd_modeldata() -> None:
     try:
         rep = oddset_data.refresh_all(store, force=True)
         print("data:", rep)
-        for lg in oddset_data.FD_URLS:
+        for lg in sorted(oddset_data.MODEL_LEAGUES):
             res = oddset_data.merged_results(store, lg)
             n_xg = sum(1 for r in res if r.get("xg_h") is not None)
             fit = oddset_model.fit_league(res)

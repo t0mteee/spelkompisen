@@ -117,9 +117,11 @@ och är svag i Eliteserien. Att slå Pinnacles STÄNGNING på 1X2 är fel mål �
   giftig (−16..−20 %). rho-grid: −0.01/−0.04 bekräftad. Beslut: amber kvarstår,
   modell-loggtröskeln sänkt till 2 % (2–8 %-bandet är det intressanta) så
   forward-facitet (M3) byggs snabbare.
-- **M2 — Elo-prior för tunna lag**: nykomlingar/lag med <8 viktade matcher får
-  prior från ClubElo (som täcker division 2) i stället för ingen prediktion —
-  borde hjälpa mest i Eliteserien där fitten var svagast.
+- **M2 — Elo-prior för tunna lag ✅ (2026-07-12)**: lag som saknas i fitten eller
+  har <8 viktade matcher får styrkor ur ClubElo relativt liga-medlet
+  (q = 10^(Δelo/400); att = q^0.35, def = q^−0.35; tunna lag blandas
+  proportionellt). `_ensure_priors` i oddset_model; ⚠-not i M-radens tooltip
+  (`model.prior`). Grov mappning — forward-loggen utvärderar även denna.
 - **M3 — forward-test i produktion (IGÅNG)**: modell-flaggor loggas live
   (tier='model', aldrig notis/spel) och jämförs med Pinnacle-stängningen.
   **Grönt-kriteriet per liga: ≥50 stängda modell-flaggor med positivt snitt
@@ -127,7 +129,10 @@ och är svag i Eliteserien. Att slå Pinnacles STÄNGNING på 1X2 är fel mål �
 - **M4 — marknader där böcker är slöa**: modellens realistiska nisch är inte
   Pinnacles 1X2 utan (a) tidiga linjer innan sharpen öppnat (redan synligt:
   modell + Elo finns för nästa omgång före Pinnacle), (b) hörnor/lagmål där
-  vi har egen Sofascore-data, (c) mindre ligor (Superettan — Altenar 4825).
+  vi har egen Sofascore-data, (c) mindre ligor. **Superettan TILLAGD som liga
+  (2026-07-12)**: Pinnacle 2476 + Kambi `football/sweden/superettan` + Altenar
+  4825 + Sofascore ut 46 (MED xG!); ingen football-data → Sofascore är
+  resultatkälla (MODEL_LEAGUES-gaten). Egen flik, full värdemotor + modell.
 - **M5 — blend som referens**: backtesten fann w=0.1 modell + 0.9 marknad ≥
   marknaden ensam i Allsvenskan — modellen bär EN nypa egen information.
   När M1–M2 höjt den kan blenden bli "husets fair" för matcher med tunn sharp.
@@ -218,6 +223,11 @@ Oddset-flik (platshållare), detta dokument, CLAUDE.md omskriven.
 - Först härefter kan modell-tips ev. flyttas från amber till grönt, marknad för marknad.
 
 ### Senare / backlog
+
+- **Cross-liga-fit**: upp-/nedflyttare (Västerås/Kalmar: Superettan 2025 →
+  Allsvenskan 2026) har splittrad historik per liga — en gemensam fit med
+  liga-styrkeoffset skulle använda all data. OBS även: ClubElo täcker bara
+  ~7/23 Superettan-lag, så M2-priorn når inte alla där.
 - Hörnor: Pinnacle hörn-specials (units='Corners', ~nära avspark) = sharp referens;
   vm-lärdomen: totalen är nästan konstant (~8.5–10.6), lag-hörnor följer favoritskapet
   (0.507 + 0.108·supremacy, R²≈0.97) — lag-hörnor är den intressanta marknaden.

@@ -23,12 +23,13 @@ from .storage import Storage
 LEAGUES = [
     {"key": "allsvenskan", "name": "Allsvenskan", "pin_id": 1728,
      "kambi": "football/sweden/allsvenskan", "altenar": 3537},
+    {"key": "superettan", "name": "Superettan", "pin_id": 2476,
+     "kambi": "football/sweden/superettan", "altenar": 4825},
     {"key": "eliteserien", "name": "Eliteserien", "pin_id": 2333,
      "kambi": "football/norway/eliteserien", "altenar": 3458},
     {"key": "friendlies", "name": "Träningsmatcher", "pin_id": 1863,
      "kambi": "football/club_friendly_matches", "altenar": None},
 ]
-# Altenar har även Superettan (champ 4825) — kandidat när ligan får egen flik.
 
 # Fler böcker (jämförelse + hitta boken som hänger efter). Kambi-operatörer delar
 # event-id:n med svenskaspel (trivial matchning); Altenar-böcker matchas fuzzy på

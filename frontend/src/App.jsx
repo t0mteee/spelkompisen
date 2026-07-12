@@ -754,7 +754,7 @@ function OddsetView() {
         })}
         {showModel && md?.fair?.[sign] && (
           <div className="m"
-            title={`Egen modell (Dixon-Coles, xG-viktad): ${(md.p[sign] * 100).toFixed(1)}%\nμ ${md.mu[0]}–${md.mu[1]}${md.anchored ? ' · totalnivå ankrad mot sharp Ö/U' : ' · OANKRAD (ingen sharp-linje ännu)'}\nAmber-tier: experimentell, utanför facitet`}>
+            title={`Egen modell (Dixon-Coles, xG-viktad): ${(md.p[sign] * 100).toFixed(1)}%\nμ ${md.mu[0]}–${md.mu[1]}${md.anchored ? ' · totalnivå ankrad mot sharp Ö/U' : ' · OANKRAD (ingen sharp-linje ännu)'}${md.prior ? '\n⚠ Elo-prior: minst ett lag har tunn historik — styrka skattad ur ClubElo' : ''}\nAmber-tier: experimentell, utanför facitet`}>
             M {md.fair[sign].toFixed(2)}
             {mEdge >= 0.05 && <span className="apill"
               title={`Modellen tror ${(md.p[sign] * 100).toFixed(1)}% — SvS betalar ${(m.odds?.svenskaspel?.['1x2']?.[sign] || 0).toFixed(2)} = ${(mEdge * 100).toFixed(1)}% modell-edge.\nAmber = okalibrerad signal, spela inte blint på den.`}>

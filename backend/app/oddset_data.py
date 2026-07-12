@@ -27,7 +27,9 @@ from .storage import Storage
 FD_URLS = {"allsvenskan": "https://www.football-data.co.uk/new/SWE.csv",
            "eliteserien": "https://www.football-data.co.uk/new/NOR.csv"}
 FD_MIN_SEASON = 2024          # fit-fönster: ~2,5 säsonger räcker med tidsviktning
-SOFA_UT = {"allsvenskan": 40, "eliteserien": 20}
+SOFA_UT = {"allsvenskan": 40, "eliteserien": 20, "superettan": 46}
+# Superettan saknar football-data — Sofascore är enda resultatkällan (xG finns!).
+MODEL_LEAGUES = set(FD_URLS) | {"superettan"}
 SOFA_MAX_PAGES = 4            # events/last/{page} per körning (backfill tar några pass)
 
 FD_TTL_H, XG_TTL_H, ELO_TTL_H = 12, 6, 24

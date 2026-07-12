@@ -31,7 +31,10 @@ XG_WEIGHT = 0.65        # effektiva mål = 0.65·xG + 0.35·mål (när xG finns)
 DECAY_DAYS = 240.0      # vikt = exp(-ålder/240 d) — ~1 säsong halveringstid
 FIT_ITER = 80
 MODEL_EDGE_SHOW = 0.05  # amber-pill först vid ≥5 % (högre ribba än sharp — okalibrerad)
-MIN_MATCHES = 8         # lag med färre viktade matcher får ingen prediktion
+MIN_MATCHES = 8         # lag med färre viktade matcher får Elo-prior (M2) i stället
+ELO_K = 0.35            # M2: styrka ur ClubElo: att = q^k, def = q^-k där
+                        # q = 10^((elo − liga-medel)/400). Grov mappning (+100 Elo
+                        # ≈ 1.5× λ-kvot) — forward-loggen utvärderar, inte tron.
 
 
 def _pois(k: int, lam: float) -> float:
@@ -152,6 +155,42 @@ def predict(fit: dict, home_norm: str, away_norm: str) -> Optional[tuple[float, 
     return mu_h, mu_a
 
 
+def _ensure_priors(fit: dict, elo: dict, names: tuple[str, ...]) -> bool:
+    """M2: lag som saknas i fitten eller har < MIN_MATCHES viktade matcher får
+    styrkor ur ClubElo relativt ligans medel (tunna lag blandas proportionellt).
+    Muterar fitten (n sätts till MIN_MATCHES så priorn inte dubbelappliceras)."""
+    if "_mean_elo" not in fit:
+        vals = []
+        for t in fit["teams"]:
+            ev = elo.get(t) or elo.get(_find_team({"teams": elo}, t) or "")
+            if ev:
+                vals.append(ev)
+        fit["_mean_elo"] = sum(vals) / len(vals) if vals else None
+    if not fit["_mean_elo"]:
+        return False
+    used = False
+    for nm in names:
+        t = _find_team(fit, nm)
+        cur = fit["teams"].get(t) if t else None
+        if cur and cur["n"] >= MIN_MATCHES:
+            continue
+        ev = elo.get(nm) or elo.get(_find_team({"teams": elo}, nm) or "")
+        if not ev:
+            continue
+        q = 10 ** ((ev - fit["_mean_elo"]) / 400)
+        att_e, def_e = q ** ELO_K, q ** -ELO_K
+        if cur:
+            w = cur["n"] / MIN_MATCHES
+            cur["att"] = round(w * cur["att"] + (1 - w) * att_e, 3)
+            cur["def"] = round(w * cur["def"] + (1 - w) * def_e, 3)
+            cur["n"] = MIN_MATCHES
+        else:
+            fit["teams"][nm] = {"att": round(att_e, 3), "def": round(def_e, 3),
+                                "n": MIN_MATCHES}
+        used = True
+    return used
+
+
 def _anchor_total(mu_h: float, mu_a: float, line: float,
                   p_over: float) -> tuple[float, float]:
     """Skala (mu_h, mu_a) med gemensam faktor s så att P(Över linjen) = sharp-prob.
@@ -178,7 +217,7 @@ def attach_model(store: Storage, matches: list[dict]) -> None:
     now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     for m in matches:
         lg = m.get("league")
-        if lg not in oddset_data.FD_URLS:      # bara ligor med resultatdata
+        if lg not in oddset_data.MODEL_LEAGUES:   # bara ligor med resultatdata
             continue
         if (m.get("start") or "9") <= now_iso:
             continue   # startad match — modell-edges mot live-odds är meningslösa
@@ -188,6 +227,7 @@ def attach_model(store: Storage, matches: list[dict]) -> None:
         if not fit:
             continue
         hn, an = norm_team(m["home"]), norm_team(m["away"])
+        prior_used = _ensure_priors(fit, elo, (hn, an))
         mus = predict(fit, hn, an)
         eh, ea = elo.get(hn) or elo.get(_find_team({"teams": elo}, hn) or ""), \
             elo.get(an) or elo.get(_find_team({"teams": elo}, an) or "")
@@ -215,4 +255,4 @@ def attach_model(store: Storage, matches: list[dict]) -> None:
             "fair": {s: round(1 / p, 2) if p > 0.001 else None
                      for s, p in probs.items()},
             "mu": [round(mu_h, 2), round(mu_a, 2)],
-            "anchored": anchored, "edges": edges}
+            "anchored": anchored, "edges": edges, "prior": prior_used}
