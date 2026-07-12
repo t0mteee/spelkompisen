@@ -60,10 +60,13 @@ def fetch_rows(league: str, min_season: int = 2023) -> list[dict]:
 
 
 def run_league(league: str, eval_from: str = EVAL_FROM,
-               fit_iter: int = 40, use_store_xg: bool = False) -> list[dict]:
+               fit_iter: int = 40, use_store_xg: bool = False,
+               pool_extra: tuple = ()) -> list[dict]:
     """Prediktioner (mu_h, mu_a, marknadsprobs, stängningsodds, facit) per match.
     use_store_xg: lägg på Sofascore-xG från databasen (efter xgbackfill) så
-    fitten blir xG-viktad — mäter om xG lyfter modellen (backtest v2)."""
+    fitten blir xG-viktad — mäter om xG lyfter modellen (backtest v2).
+    pool_extra: extra ligor (t.ex. superettan) vars resultat poolas in i fitten
+    med egen liga-nyckel — mäter cross-liga-fitten (backtest v3)."""
     rows = fetch_rows(league)
     if use_store_xg:
         from .storage import Storage
@@ -81,11 +84,25 @@ def run_league(league: str, eval_from: str = EVAL_FROM,
                 r["xg_h"], r["xg_a"] = xg
                 n_hit += 1
         print(f"  ({league}: xG kopplad till {n_hit}/{len(rows)} matcher)")
+    hist_src = rows
+    if pool_extra:
+        from .storage import Storage
+        from .oddset_data import merged_results
+        store = Storage()
+        try:
+            extra = []
+            for plg in pool_extra:
+                extra.extend(merged_results(store, plg))
+        finally:
+            store.close()
+        hist_src = sorted(rows + extra, key=lambda r: r["date"])
+        print(f"  ({league}: poolar in {len(extra)} matcher från {'+'.join(pool_extra)})")
+
     dates = sorted({r["date"] for r in rows if r["date"] >= eval_from})
     preds, hist_ptr, hist = [], 0, []
     for d in dates:
-        while hist_ptr < len(rows) and rows[hist_ptr]["date"] < d:
-            hist.append(rows[hist_ptr])
+        while hist_ptr < len(hist_src) and hist_src[hist_ptr]["date"] < d:
+            hist.append(hist_src[hist_ptr])
             hist_ptr += 1
         fit = oddset_model.fit_league(hist, now=dt.date.fromisoformat(d),
                                       iters=fit_iter)
@@ -94,7 +111,7 @@ def run_league(league: str, eval_from: str = EVAL_FROM,
         for r in rows:
             if r["date"] != d or not r["ps"]:
                 continue
-            mus = oddset_model.predict(fit, r["home"], r["away"])
+            mus = oddset_model.predict(fit, r["home"], r["away"], league="")
             if not mus:
                 continue
             mkt = _power_probs({s: 1 / o for s, o in zip(SIGNS, r["ps"])})

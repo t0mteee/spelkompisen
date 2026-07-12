@@ -769,11 +769,18 @@ function OddsetView() {
     const svs = m.odds?.svenskaspel?.[market]
     const pin = m.odds?.pinnacle?.[market]
     const v1 = m.value?.[market]?.[k1], v2 = m.value?.[market]?.[k2]
+    const mc = market === 'cor' && showModel ? m.model?.corners : null
     return (
       <td className="oc pair">
         <div className="o">{svs ? `${fmtL(svs.line)} · ${svs[k1].toFixed(2)} / ${svs[k2].toFixed(2)}` : '–'}
           {edgePill(v1) || edgePill(v2)}</div>
         {pin && <div className="p">P {fmtL(pin.line)} · {pin[k1].toFixed(2)} / {pin[k2].toFixed(2)}</div>}
+        {mc && (
+          <div className="m"
+            title={'Förväntade hörnor ur egen liga-data (Sofascore): liga-snitt + favoritskap via modell-μ.\nENDAST förväntan — hörn-VÄRDE kräver sharp linje (vm-lärdomen: modell-hörnedges blev +120% okalibrerat).'}>
+            M {mc.tot} · {mc.h}/{mc.a}
+          </div>
+        )}
       </td>
     )
   }

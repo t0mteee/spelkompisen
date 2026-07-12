@@ -67,8 +67,11 @@ def total_over(m: list[list[float]], line: float) -> float:
 
 def fit_league(results: list[dict], now: Optional[dt.date] = None,
                iters: int = FIT_ITER) -> Optional[dict]:
-    """Iterativ Poisson-fit: λ_hemma = base·hf·att_h·def_a, λ_borta = base·att_a·def_h.
-    Returnerar {'teams': {namn: {'att','def','n'}}, 'home_adv', 'base'}."""
+    """Iterativ Poisson-fit: λ_hemma = base_liga·hf_liga·att_h·def_a,
+    λ_borta = base_liga·att_a·def_h. Lagstyrkor (att/def) är GEMENSAMMA över
+    alla ligor i indata (cross-liga-fit: upp-/nedflyttare länkar populationerna
+    mellan säsonger); base och hemmafördel skattas PER liga (rad-nyckeln
+    'league', '' om saknas). Returnerar {'teams', 'home_adv': {lg}, 'base': {lg}}."""
     now = now or dt.date.today()
     rows = []
     for r in results:
@@ -83,16 +86,19 @@ def fit_league(results: list[dict], now: Optional[dt.date] = None,
               if r.get("xg_h") is not None else float(r["hg"]))
         ea = (XG_WEIGHT * r["xg_a"] + (1 - XG_WEIGHT) * r["ag"]
               if r.get("xg_a") is not None else float(r["ag"]))
-        rows.append((r["home"], r["away"], eh, ea, w))
+        rows.append((r["home"], r["away"], eh, ea, w, r.get("league") or ""))
     if len(rows) < 40:
         return None
 
     teams = sorted({t for h, a, *_ in rows for t in (h, a)})
+    leagues = sorted({lg for *_, lg in rows})
     att = {t: 1.0 for t in teams}
     dfn = {t: 1.0 for t in teams}
-    wsum = sum(w for *_, w in rows)
-    base = sum((eh + ea) * w for _, _, eh, ea, w in rows) / (2 * wsum)
-    home_adv = 1.25
+    base, home_adv = {}, {}
+    for lg in leagues:
+        lw = sum(w for *_, w, l in rows if l == lg) or 1e-9
+        base[lg] = sum((eh + ea) * w for _, _, eh, ea, w, l in rows if l == lg) / (2 * lw)
+        home_adv[lg] = 1.25
     for _ in range(iters):
         exp_h = {t: 1e-9 for t in teams}
         exp_a = {t: 1e-9 for t in teams}
@@ -102,15 +108,19 @@ def fit_league(results: list[dict], now: Optional[dt.date] = None,
         exp_da = {t: 1e-9 for t in teams}
         obs_dh = {t: 1e-9 for t in teams}
         obs_da = {t: 1e-9 for t in teams}
-        tot_home_exp = tot_home_obs = 1e-9
-        for h, a, eh, ea, w in rows:
-            lh = base * home_adv * att[h] * dfn[a]
-            la = base * att[a] * dfn[h]
+        th_exp = {lg: 1e-9 for lg in leagues}
+        th_obs = {lg: 1e-9 for lg in leagues}
+        tt_exp = {lg: 1e-9 for lg in leagues}
+        tt_obs = {lg: 1e-9 for lg in leagues}
+        for h, a, eh, ea, w, lg in rows:
+            lh = base[lg] * home_adv[lg] * att[h] * dfn[a]
+            la = base[lg] * att[a] * dfn[h]
             exp_h[h] += w * lh; obs_h[h] += w * eh
             exp_a[a] += w * la; obs_a[a] += w * ea
             exp_dh[a] += w * lh; obs_dh[a] += w * eh   # bortalagets försvar möter lh
             exp_da[h] += w * la; obs_da[h] += w * ea
-            tot_home_exp += w * lh; tot_home_obs += w * eh
+            th_exp[lg] += w * lh; th_obs[lg] += w * eh
+            tt_exp[lg] += w * (lh + la); tt_obs[lg] += w * (eh + ea)
         for t in teams:
             att[t] *= ((obs_h[t] + obs_a[t]) / (exp_h[t] + exp_a[t])) ** 0.5
             dfn[t] *= ((obs_dh[t] + obs_da[t]) / (exp_dh[t] + exp_da[t])) ** 0.5
@@ -119,15 +129,17 @@ def fit_league(results: list[dict], now: Optional[dt.date] = None,
         for t in teams:
             att[t] /= m_att
             dfn[t] /= m_dfn
-        base *= m_att * m_dfn
-        home_adv *= (tot_home_obs / tot_home_exp) ** 0.5
+        for lg in leagues:
+            base[lg] *= m_att * m_dfn * (tt_obs[lg] / tt_exp[lg]) ** 0.25
+            home_adv[lg] *= (th_obs[lg] / th_exp[lg]) ** 0.5
 
     nw = {t: 0.0 for t in teams}
-    for h, a, _, _, w in rows:
+    for h, a, _, _, w, _ in rows:
         nw[h] += w; nw[a] += w
     return {"teams": {t: {"att": round(att[t], 3), "def": round(dfn[t], 3),
                           "n": round(nw[t], 1)} for t in teams},
-            "home_adv": round(home_adv, 3), "base": round(base, 3)}
+            "home_adv": {lg: round(v, 3) for lg, v in home_adv.items()},
+            "base": {lg: round(v, 3) for lg, v in base.items()}}
 
 
 def _find_team(fit: dict, norm_name: str) -> Optional[str]:
@@ -143,15 +155,24 @@ def _find_team(fit: dict, norm_name: str) -> Optional[str]:
     return best
 
 
-def predict(fit: dict, home_norm: str, away_norm: str) -> Optional[tuple[float, float]]:
+def _lg_param(d: dict, league: Optional[str]) -> float:
+    if league in d:
+        return d[league]
+    return sum(d.values()) / len(d)
+
+
+def predict(fit: dict, home_norm: str, away_norm: str,
+            league: Optional[str] = None) -> Optional[tuple[float, float]]:
     h, a = _find_team(fit, home_norm), _find_team(fit, away_norm)
     if not h or not a:
         return None
     th, ta = fit["teams"][h], fit["teams"][a]
     if th["n"] < MIN_MATCHES or ta["n"] < MIN_MATCHES:
         return None
-    mu_h = fit["base"] * fit["home_adv"] * th["att"] * ta["def"]
-    mu_a = fit["base"] * ta["att"] * th["def"]
+    base = _lg_param(fit["base"], league)
+    hf = _lg_param(fit["home_adv"], league)
+    mu_h = base * hf * th["att"] * ta["def"]
+    mu_a = base * ta["att"] * th["def"]
     return mu_h, mu_a
 
 
@@ -206,7 +227,51 @@ def _anchor_total(mu_h: float, mu_a: float, line: float,
     return s * mu_h, s * mu_a
 
 
+# --- hörn-modell (M4b) ---------------------------------------------------------------
+# vm-lärdomen står fast: hörn-VÄRDE kräver sharp linje (modell-edges blev +120 %
+# okalibrerat). Därför är detta enbart FÖRVÄNTAN (visning) — inga pills, ingen logg.
+
+def corner_model(results: list[dict]) -> Optional[dict]:
+    """Liga-nivå ur egen Sofascore-data: snitt-total + hemmaandel ~ supremacy (OLS).
+    Supremacy-proxy för historiska matcher = xG-differens (mindre brusig än mål)."""
+    rows = []
+    for r in results:
+        if r.get("cor_h") is None or r.get("cor_a") is None:
+            continue
+        tot = r["cor_h"] + r["cor_a"]
+        if tot <= 0:
+            continue
+        sup = ((r["xg_h"] - r["xg_a"]) if r.get("xg_h") is not None
+               else float(r["hg"] - r["ag"]))
+        rows.append((tot, r["cor_h"] / tot, max(-2.5, min(2.5, sup))))
+    if len(rows) < 60:
+        return None
+    n = len(rows)
+    mean_tot = sum(t for t, _, _ in rows) / n
+    xbar = sum(s for _, _, s in rows) / n
+    ybar = sum(sh for _, sh, _ in rows) / n
+    var = sum((s - xbar) ** 2 for _, _, s in rows) or 1e-9
+    cov = sum((s - xbar) * (sh - ybar) for _, sh, s in rows)
+    b = cov / var
+    return {"tot": round(mean_tot, 2), "a": round(ybar - b * xbar, 4),
+            "b": round(b, 4), "n": n}
+
+
+def expected_corners(cm: dict, mu_h: float, mu_a: float) -> dict:
+    sup = max(-2.5, min(2.5, mu_h - mu_a))
+    share = max(0.25, min(0.75, cm["a"] + cm["b"] * sup))
+    return {"tot": round(cm["tot"], 1), "h": round(cm["tot"] * share, 1),
+            "a": round(cm["tot"] * (1 - share), 1)}
+
+
 # --- payload-koppling ---------------------------------------------------------------
+
+# Sverige poolas (Allsvenskan + Superettan delar lagpopulation via upp-/nedflyttning);
+# hörn-statistik hålls per liga (tempot skiljer mellan ligor).
+FIT_POOLS = {"allsvenskan": ("allsvenskan", "superettan"),
+             "superettan": ("allsvenskan", "superettan"),
+             "eliteserien": ("eliteserien",)}
+
 
 def attach_model(store: Storage, matches: list[dict]) -> None:
     """Sätter m['model'] (amber-tier) på liga-matcher: sannolikheter, fair odds,
@@ -215,20 +280,27 @@ def attach_model(store: Storage, matches: list[dict]) -> None:
     fits: dict[str, Optional[dict]] = {}
     elo = oddset_data.get_elo(store)
     now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    corner_ms: dict[str, Optional[dict]] = {}
     for m in matches:
         lg = m.get("league")
         if lg not in oddset_data.MODEL_LEAGUES:   # bara ligor med resultatdata
             continue
         if (m.get("start") or "9") <= now_iso:
             continue   # startad match — modell-edges mot live-odds är meningslösa
-        if lg not in fits:
-            fits[lg] = fit_league(oddset_data.merged_results(store, lg))
-        fit = fits[lg]
+        pool = FIT_POOLS.get(lg, (lg,))
+        if pool not in fits:
+            rows = []
+            for plg in pool:
+                rows.extend(oddset_data.merged_results(store, plg))
+            fits[pool] = fit_league(rows)
+        fit = fits[pool]
         if not fit:
             continue
+        if lg not in corner_ms:
+            corner_ms[lg] = corner_model(oddset_data.merged_results(store, lg))
         hn, an = norm_team(m["home"]), norm_team(m["away"])
         prior_used = _ensure_priors(fit, elo, (hn, an))
-        mus = predict(fit, hn, an)
+        mus = predict(fit, hn, an, league=lg)
         eh, ea = elo.get(hn) or elo.get(_find_team({"teams": elo}, hn) or ""), \
             elo.get(an) or elo.get(_find_team({"teams": elo}, an) or "")
         if eh or ea:
@@ -256,3 +328,6 @@ def attach_model(store: Storage, matches: list[dict]) -> None:
                      for s, p in probs.items()},
             "mu": [round(mu_h, 2), round(mu_a, 2)],
             "anchored": anchored, "edges": edges, "prior": prior_used}
+        cm = corner_ms.get(lg)
+        if cm:
+            m["model"]["corners"] = expected_corners(cm, mu_h, mu_a)

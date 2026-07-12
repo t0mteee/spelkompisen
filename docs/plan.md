@@ -224,10 +224,16 @@ Oddset-flik (platshållare), detta dokument, CLAUDE.md omskriven.
 
 ### Senare / backlog
 
-- **Cross-liga-fit**: upp-/nedflyttare (Västerås/Kalmar: Superettan 2025 →
-  Allsvenskan 2026) har splittrad historik per liga — en gemensam fit med
-  liga-styrkeoffset skulle använda all data. OBS även: ClubElo täcker bara
-  ~7/23 Superettan-lag, så M2-priorn når inte alla där.
+- ~~Cross-liga-fit~~ ✅ KLAR (2026-07-12): fit_league tar nu rader från flera
+  ligor — lagstyrkor delas, base + hemmafördel per liga (FIT_POOLS: Allsvenskan
+  + Superettan = Sverige-pool; Eliteserien egen). Backtest v3 (xG + pool,
+  Allsvenskan): samma precision (logloss 1.0216 vs 1.0217) men **+8 matcher
+  täckta** = nyuppflyttades matcher som tidigare saknade prediktion. Behållen.
+- **Hörn-förväntan (M4b)** ✅ (2026-07-12): `corner_model` per liga ur egen
+  Sofascore-data (~1400 matcher med hörnor): liga-snitt-total + hemmaandel ~
+  xG-supremacy (OLS). Visas som M-rad i Hörnor-kolumnen (modell-toggle).
+  ENDAST förväntan — inga pills/logg (vm-lärdomen: hörn-värde kräver sharp linje).
+  OBS: ClubElo täcker bara ~7/23 Superettan-lag, så M2-priorn når inte alla där.
 - Hörnor: Pinnacle hörn-specials (units='Corners', ~nära avspark) = sharp referens;
   vm-lärdomen: totalen är nästan konstant (~8.5–10.6), lag-hörnor följer favoritskapet
   (0.507 + 0.108·supremacy, R²≈0.97) — lag-hörnor är den intressanta marknaden.

@@ -448,10 +448,15 @@ def main() -> None:
     elif cmd == "oddsetbacktest":
         from app import oddset_backtest
         use_xg = "xg" in rest
-        for lg in [a for a in (rest or []) if a != "xg"] or ["allsvenskan", "eliteserien"]:
-            preds = oddset_backtest.run_league(lg, use_store_xg=use_xg)
-            oddset_backtest.print_report(lg + (" +xG" if use_xg else ""),
-                                         oddset_backtest.report(preds))
+        pool = "pool" in rest
+        lgs = [a for a in (rest or []) if a not in ("xg", "pool")] \
+            or ["allsvenskan", "eliteserien"]
+        for lg in lgs:
+            extra = ("superettan",) if pool and lg == "allsvenskan" else ()
+            preds = oddset_backtest.run_league(lg, use_store_xg=use_xg,
+                                               pool_extra=extra)
+            tag = (" +xG" if use_xg else "") + (" +pool" if extra else "")
+            oddset_backtest.print_report(lg + tag, oddset_backtest.report(preds))
     elif cmd == "xgbackfill":
         from app import oddset_data
         store = Storage()
