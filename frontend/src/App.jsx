@@ -733,6 +733,23 @@ function OddsetView() {
       title={`${who}-linjen har FLYTTATS ${sh.from} → ${sh.to} — linjeflytt är ofta en starkare signal än prisjusteringen (hela serien i pilens tooltip)`}>⇄{sh.to > sh.from ? '↑' : '↓'}</span>
   }
 
+  // mini-graf över sharp-seriens väg (röd = oddset ner = sannolikheten upp)
+  const Spark = ({ pts }) => {
+    if (!pts || pts.length < 2) return null
+    const os = pts.map((p) => p.o)
+    const min = Math.min(...os), max = Math.max(...os)
+    const W = 64, H = 16
+    const xy = os.map((o, i) =>
+      `${(i / (os.length - 1) * W).toFixed(1)},${(max === min ? H / 2 : H - 1 - (o - min) / (max - min) * (H - 2)).toFixed(1)}`)
+    const falling = os[os.length - 1] < os[0]
+    return (
+      <svg className="spark" width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+        <polyline points={xy.join(' ')} fill="none"
+          stroke={falling ? '#e06b6b' : 'var(--green)'} strokeWidth="1.5" />
+      </svg>
+    )
+  }
+
   // grön edge-pill: devigad Pinnacle (fair) säger att SvS-oddset är för högt
   const edgePill = (v) => v && v.edge >= 0.02 && (
     <span className="epill" title={`Devigad Pinnacle: ${(v.fair * 100).toFixed(1)}% (fair odds ${(1 / v.fair).toFixed(2)})\nSvS betalar ${v.odds.toFixed(2)} → ${(v.edge * 100).toFixed(1)}% övervärde${v.derived ? '\n(P~ = härlett ur handikapp — ta med en nypa salt)' : ''}`}>
@@ -775,6 +792,7 @@ function OddsetView() {
         {[['expekt', 'E', 'Expekt'], ['betinia', 'B', 'Betinia']].map(([bk, tag, label]) => {
           const bo = m.odds?.[bk]?.['1x2']
           const mvB = m.movement?.[bk]?.['1x2']?.[sign]
+          if (bo?.[sign] && bo[sign] === svs?.[sign]) return null  // identiskt med SvS = brus
           return bo?.[sign] ? (
             <div className="p" key={bk} title={mvB?.pts?.length > 1 ? `${label}:\n${serie(mvB)}` : label}>
               {tag} {bo[sign].toFixed(2)}{arrow(mvB)}{v?.book === bk && edgePill(v)}
@@ -902,17 +920,52 @@ function OddsetView() {
       {signals.length > 0 && (
         <div className="valuelist">
           <div className="valhead"><b>💰 Värdespel just nu</b>
-            <span className="hint"> bok-odds över devigad Pinnacle (sharp-ankrat = spelbart) · ° = härlett sharp-pris</span></div>
-          {signals.slice(0, 10).map(({ m, mk, sg, v }, i) => (
-            <div key={i} className="valrow">
-              <span className="epill big">+{(v.edge * 100).toFixed(1)}%{v.derived ? '°' : ''}</span>
-              <b>{MARKET_LABEL[mk]}{mk === 'ah' ? ` ${fmtAh(v.line)}` : (mk === 'ou' || mk === 'cor') ? ` ${v.line}` : ''} {sg}</b>
-              <span>@ {v.odds.toFixed(2)} hos <b>{BOOK_NAME[v.book] || v.book}</b></span>
-              <span className="hint">fair {(1 / v.fair).toFixed(2)}</span>
-              <span className="vteams">{m.home} – {m.away}</span>
-              <span className="hint">{fmtDay(m.start)} {fmtTime(m.start)}</span>
-            </div>
-          ))}
+            <span className="hint"> bok-odds över devigad Pinnacle (sharp-ankrat = spelbart) · ° = härlett sharp-pris ·
+              ★ = flera oberoende signaler pekar åt samma håll</span></div>
+          <div className="tipgrid">
+            {signals.slice(0, 8).map(({ m, mk, sg, v }, i) => {
+              const tier = v.edge >= 0.07 ? ['STARK EDGE', 't3'] : v.edge >= 0.04 ? ['EDGE', 't2'] : ['SVAG EDGE', 't1']
+              const mvP = m.movement?.pinnacle?.[mk]?.[sg]
+              const support = []
+              if (mk === '1x2') {
+                const st = m.steam?.[sg]
+                const stpp = st && ((Math.abs(st.h6 ?? 0) >= Math.abs(st.h24 ?? 0)) ? st.h6 : st.h24)
+                if (stpp != null && stpp >= 1.5) support.push(['⚡ sharpen kortar', `Pinnacle har flyttat ${sg} ${stpp > 0 ? '+' : ''}${stpp} pp åt spelets håll — edgen är färsk, inte gammal skåpmat`])
+                const me = m.model?.edges?.[sg]
+                if (me != null && me >= 0.02) support.push(['🧪 modellen håller med', `Egen modell ser också värde här (+${(me * 100).toFixed(1)}%) — oberoende av sharp-jämförelsen`])
+              } else {
+                const me = m.model?.[mk]?.edges?.[sg]
+                if (me != null && me >= 0.02) support.push(['🧪 modellen håller med', `Egen modell ser också värde här (+${(me * 100).toFixed(1)}%)`])
+                const sh = lineShift(mvP)
+                if (sh) support.push(['⇄ sharp-linjen flyttad', `Pinnacle har flyttat linjen ${sh.from} → ${sh.to}`])
+              }
+              return (
+                <div key={i} className={`tipcard ${tier[1]}`}>
+                  <div className="tiphead">
+                    <b className="tipsel">{MARKET_LABEL[mk]}{mk === 'ah' ? ` ${fmtAh(v.line)}` : (mk === 'ou' || mk === 'cor') ? ` ${v.line}` : ''} {sg} @ {v.odds.toFixed(2)}</b>
+                    {v.book !== 'svenskaspel' && <span className="tipbook">hos {BOOK_NAME[v.book] || v.book}</span>}
+                    <span className={`edgechip ${tier[1]}`}>{tier[0]} +{(v.edge * 100).toFixed(1)}%{v.derived ? '°' : ''}</span>
+                  </div>
+                  <div className="tipmatch">
+                    <span className="lgtag">{(leagueName[m.league] || m.league).slice(0, 1)}</span>
+                    {m.home} – {m.away}
+                    <span className="hint">{fmtDay(m.start)} {fmtTime(m.start)}</span>
+                    <Spark pts={mvP?.pts} />
+                  </div>
+                  <div className="tipwhy hint">
+                    Devigad Pinnacle: {(v.fair * 100).toFixed(1)} % (fair {(1 / v.fair).toFixed(2)}) —
+                    {' '}{BOOK_NAME[v.book] || v.book} betalar {v.odds.toFixed(2)}.
+                  </div>
+                  {support.length > 0 && (
+                    <div className="tipsupport">
+                      {support.map(([lbl, tip], j) => <span key={j} className="schip" title={tip}>{lbl}</span>)}
+                      {support.length >= 2 && <span className="schip star" title="Sharp-edge + flera oberoende medhåll — starkast stödda spelet just nu">★ starkast stödd</span>}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
       {movers.length > 0 && (

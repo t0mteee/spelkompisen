@@ -486,6 +486,27 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
 .valuelist.amberlist { border-color: #e0853b; }
 .valuelist.moverlist { border-color: var(--line); }
 .lshift { color: #e0853b; font-weight: 700; font-size: 11px; margin-left: 4px; }
+
+/* Spelkort i värdelistan */
+.tipgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 8px; margin-top: 6px; }
+.tipcard { background: var(--panel); border: 1px solid var(--line);
+  border-left: 3px solid var(--green); border-radius: 8px; padding: 8px 10px; }
+.tipcard.t1 { border-left-color: rgba(46, 139, 87, 0.45); }
+.tipcard.t3 { box-shadow: inset 0 0 0 1px rgba(46, 139, 87, 0.35); }
+.tiphead { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.tipsel { font-size: 14.5px; letter-spacing: 0.2px; }
+.tipbook { color: #e0c04b; font-weight: 700; font-size: 12px; }
+.edgechip { margin-left: auto; background: var(--green); color: #0b0e12; border-radius: 4px;
+  padding: 2px 8px; font-size: 10.5px; font-weight: 800; letter-spacing: 0.6px; white-space: nowrap; }
+.edgechip.t1 { background: transparent; color: var(--green); border: 1px solid var(--green); }
+.tipmatch { display: flex; gap: 6px; align-items: center; font-weight: 600; margin: 4px 0 2px; flex-wrap: wrap; }
+.tipmatch .spark { margin-left: auto; }
+.tipwhy { font-size: 11.5px; }
+.tipsupport { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
+.schip { border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px;
+  font-size: 10.5px; color: var(--muted); }
+.schip.star { border-color: #e0c04b; color: #e0c04b; font-weight: 700; }
 .epill.big { font-size: 11px; padding: 2px 8px; margin-left: 0; }
 .steam { margin-left: 5px; font-size: 12px; }
 .steam.strong { filter: drop-shadow(0 0 3px #e0853b); }

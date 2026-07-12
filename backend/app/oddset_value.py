@@ -59,8 +59,9 @@ def attach_value(matches: list[dict]) -> None:
             if not fair:
                 continue
             for sign in signs:
-                best = None   # (bok, odds)
-                for bk, bo in books.items():
+                best = None   # (bok, odds) — SvS först så ties inte visas som sidobok
+                for bk in sorted(books, key=lambda b: b != "svenskaspel"):
+                    bo = books[bk]
                     s = bo.get(market)
                     if not s or not s.get(sign):
                         continue
