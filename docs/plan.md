@@ -28,7 +28,28 @@ inte svs:s) — EJ satt ännu = avstängt.** Starta-knappen fixad: installerar p
 själv + laddar; launchd-jobbet är LADDAT och kör (verifierat).
 Första riktiga fynden direkt: SvS 10.0 på Kalmar borta vs fair 7.78 (+28,6 %),
 IFK Göteborg borta 4.10 vs fair 3.70 (+10,8 %) — loggade i facitet.
-**Nästa:** Etapp 3 (egen modell: DC per liga, ClubElo, Sofascore-xG via Playwright).
+Etapp 3 (samma dag) — egen modell, allt amber-tier:
+- **curl_cffi ERSATTE Playwright**: Sofascore-API:t svarar 200 med Chrome-TLS-
+  imitation (`impersonate='chrome'`) — xG-hämtningen kör direkt i pipelinen,
+  inget browserberoende. (Ny dep i requirements.txt.)
+- `app/oddset_data.py`: football-data.co.uk bulk (SWE/NOR, säsonger ≥2024, 12h-
+  throttle), Sofascore-xG + hörnor + resultat (6h-throttle, pacad 1.2 s/anrop,
+  ~90 matcher/liga backfillade), ClubElo hela rankingen dagligen (SWE+NOR-filter).
+  `merged_results()` kanoniserar Sofascore-namn till football-data-namnen och
+  dedupar (annars splittras lag som djurgardens/djurgarden i fitten — hittad bugg).
+- `app/oddset_model.py`: iterativ DC-fit per liga (att/def per lag, hemmafördel,
+  tidsavklingning 240 d, effektiva mål = 0.65·xG + 0.35·mål), rho −0.13 (klubb-
+  litteratur, refit i Etapp 5), MIN 8 viktade matcher per lag. Totalnivån ankras
+  mot devigad sharp Ö/U-linje när Pinnacle finns (bisektion på skalfaktor,
+  bevarar modellens styrkeförhållande). Sanity: modell 1.49/5.29/7.04 vs
+  Pinnacle 1.38/5.48/7.02 (Hammarby–Kalmar); prediktioner + Elo även för nästa
+  omgång INNAN Pinnacle öppnat.
+- UI: 🧪 Modell-toggle (localStorage), amber M-rad under P-raden, amber-pill vid
+  modell-edge ≥5 % (högre ribba än sharp), Elo/μ i tooltip på matchnamnet.
+  Modellen är UTANFÖR värdelistan och CLV-facitet (vm-metodregeln).
+- `cli.py modeldata` tvingar datauppdatering; insamlingen kör refresh_all throttlat.
+**Nästa:** Etapp 4 (nyheter/lineups per lag, X-konton) och/eller Etapp 5 (backtest
+mot football-data-stängningsodds: validera modellen + kalibrera trösklar, refit rho).
 
 ## Beslut (Saman, 2026-07-12)
 
@@ -83,7 +104,7 @@ Oddset-flik (platshållare), detta dokument, CLAUDE.md omskriven.
 - CLV-logg från dag 1 (first/best, stängning = sista devigade Pinnacle före avspark) —
   bara sharp-ankrade flaggor får logga.
 
-### Etapp 3 — Egen modell
+### Etapp 3 — Egen modell ✅ (2026-07-12)
 - Datainsamling per liga: resultat, tabeller, form. Kandidater: ESPN (`swe.1`, `nor.1` —
   scoreboard + `/summary` med skott/hörnor/possession), football-data.co.uk (SWE.csv,
   NOR.csv — resultat + historiska odds, perfekt backtest-facit), ClubElo (klubbstyrkor,

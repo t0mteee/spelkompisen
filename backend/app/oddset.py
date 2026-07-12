@@ -247,6 +247,12 @@ def collect(store: Storage) -> dict:
     finally:
         pin.close()
     store.meta_set("oddset_last_run", at)
+    # Etapp 3: resultat/xG/Elo till modellen (throttlat i modulen — oftast no-op)
+    try:
+        from . import oddset_data
+        report["data"] = oddset_data.refresh_all(store)
+    except Exception as e:  # noqa: BLE001
+        report["errors"].append(f"modeldata: {e}")
     # Etapp 2: värde-flaggor → CLV-logg + ntfy, och stängningar för startade matcher
     try:
         payload = matches_payload(store)
@@ -276,6 +282,11 @@ def matches_payload(store: Storage) -> dict:
     out.sort(key=lambda r: (r.get("start") or "9", r["id"]))
     oddset_value.attach_value(out)
     oddset_value.attach_steam(out)
+    try:
+        from . import oddset_model
+        oddset_model.attach_model(store, out)
+    except Exception:  # noqa: BLE001 — modellen (amber) får aldrig fälla listan
+        pass
     return {"matches": out,
             "leagues": [{"key": lg["key"], "name": lg["name"]} for lg in LEAGUES],
             "last_run": store.meta_get("oddset_last_run")}

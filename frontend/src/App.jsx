@@ -613,6 +613,13 @@ function OddsetView() {
   const [hidden, setHidden] = useState(() => {
     try { return JSON.parse(localStorage.getItem(ODDSET_HIDDEN_KEY)) || [] } catch { return [] }
   })
+  const [showModel, setShowModel] = useState(() => {
+    try { return localStorage.getItem('svs_oddset_model') === '1' } catch { return false }
+  })
+  const toggleModel = () => {
+    setShowModel(!showModel)
+    try { localStorage.setItem('svs_oddset_model', showModel ? '0' : '1') } catch { /* ok */ }
+  }
 
   const load = () =>
     Promise.all([
@@ -677,6 +684,8 @@ function OddsetView() {
     const pin = m.odds?.pinnacle?.['1x2']
     const mv = m.movement?.svenskaspel?.['1x2']?.[sign]
     const mvP = m.movement?.pinnacle?.['1x2']?.[sign]
+    const md = m.model
+    const mEdge = md?.edges?.[sign]
     return (
       <td className="oc" key={sign}>
         <div className="o" title={mv?.pts?.length > 1 ? serie(mv) : undefined}>
@@ -685,6 +694,15 @@ function OddsetView() {
         {pin?.[sign] && (
           <div className="p" title={mvP?.pts?.length > 1 ? `Pinnacle:\n${serie(mvP)}` : 'Pinnacle (sharp)'}>
             P{pin.derived ? '~' : ''} {pin[sign].toFixed(2)}{arrow(mvP)}
+          </div>
+        )}
+        {showModel && md?.fair?.[sign] && (
+          <div className="m"
+            title={`Egen modell (Dixon-Coles, xG-viktad): ${(md.p[sign] * 100).toFixed(1)}%\nμ ${md.mu[0]}–${md.mu[1]}${md.anchored ? ' · totalnivå ankrad mot sharp Ö/U' : ' · OANKRAD (ingen sharp-linje ännu)'}\nAmber-tier: experimentell, utanför facitet`}>
+            M {md.fair[sign].toFixed(2)}
+            {mEdge >= 0.05 && <span className="apill"
+              title={`Modellen tror ${(md.p[sign] * 100).toFixed(1)}% — SvS betalar ${(m.odds?.svenskaspel?.['1x2']?.[sign] || 0).toFixed(2)} = ${(mEdge * 100).toFixed(1)}% modell-edge.\nAmber = okalibrerad signal, spela inte blint på den.`}>
+              +{Math.round(mEdge * 100)}%</span>}
           </div>
         )}
       </td>
@@ -746,6 +764,10 @@ function OddsetView() {
             {l.name} {counts[l.key] ? `(${counts[l.key]})` : '(0)'}
           </button>
         ))}
+        <button className={showModel ? 'lg model on' : 'lg model'} onClick={toggleModel}
+          title="Egen målmodell (Dixon-Coles per liga, xG-viktad via Sofascore, totalnivå ankrad mot sharp Ö/U när Pinnacle finns). AMBER-TIER: experimentell och okalibrerad — visas som M-rad + amber-pills, hålls utanför värdelistan och facitet tills backtesten (Etapp 5) godkänt den.">
+          🧪 Modell {showModel ? 'på' : 'av'}
+        </button>
         <span className="spacer" />
         <span className="hint">
           {data.last_run ? `hämtat ${new Date(data.last_run).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}` : 'inga odds hämtade ännu'}
@@ -781,7 +803,10 @@ function OddsetView() {
             {d.matches.map((m) => (
               <tr key={m.id} className={m.start && new Date(m.start) < new Date() ? 'started' : ''}>
                 <td className="time">{fmtTime(m.start)}</td>
-                <td className="teams">
+                <td className="teams"
+                  title={[m.elo && `ClubElo: ${m.elo.h ?? '?'} vs ${m.elo.a ?? '?'}`,
+                    m.model && `Modell-μ: ${m.model.mu[0]}–${m.model.mu[1]}${m.model.anchored ? ' (ankrad mot sharp)' : ''}`]
+                    .filter(Boolean).join('\n') || undefined}>
                   <span className="lgtag">{(leagueName[m.league] || m.league).slice(0, 1)}</span>
                   {m.home} – {m.away}{steamBadge(m)}
                 </td>

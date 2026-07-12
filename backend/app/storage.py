@@ -127,6 +127,20 @@ CREATE TABLE IF NOT EXISTS oddset_odds (
 CREATE INDEX IF NOT EXISTS idx_oddset_odds
     ON oddset_odds (match_id, source, market, sign, fetched_at);
 
+CREATE TABLE IF NOT EXISTS oddset_results (
+    league    TEXT NOT NULL,
+    date      TEXT NOT NULL,            -- YYYY-MM-DD
+    home      TEXT NOT NULL,            -- normaliserat (oddset.norm_team)
+    away      TEXT NOT NULL,
+    home_raw  TEXT,
+    away_raw  TEXT,
+    hg INTEGER, ag INTEGER,
+    xg_h REAL, xg_a REAL,
+    cor_h REAL, cor_a REAL,
+    source    TEXT,
+    PRIMARY KEY (league, date, home, away)
+);
+
 CREATE TABLE IF NOT EXISTS oddset_value_log (
     match_id     TEXT NOT NULL,
     market       TEXT NOT NULL,
@@ -598,6 +612,32 @@ class Storage:
                 a["min"], a["max"] = min(a["min"], o), max(a["max"], o)
                 a["pts"].append({"t": t, "o": o})
         return out
+
+    def oddset_save_result(self, r: dict) -> None:
+        """COALESCE-upsert: xG från Sofascore fyller på football-data-rader
+        (samma PK tack vare normaliserade namn) utan att skriva över mål."""
+        self.conn.execute(
+            "INSERT INTO oddset_results(league, date, home, away, home_raw, away_raw, "
+            "hg, ag, xg_h, xg_a, cor_h, cor_a, source) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(league, date, home, away) DO UPDATE SET "
+            "hg=COALESCE(oddset_results.hg, excluded.hg), "
+            "ag=COALESCE(oddset_results.ag, excluded.ag), "
+            "xg_h=COALESCE(excluded.xg_h, oddset_results.xg_h), "
+            "xg_a=COALESCE(excluded.xg_a, oddset_results.xg_a), "
+            "cor_h=COALESCE(excluded.cor_h, oddset_results.cor_h), "
+            "cor_a=COALESCE(excluded.cor_a, oddset_results.cor_a)",
+            (r["league"], r["date"], r["home"], r["away"], r.get("home_raw"),
+             r.get("away_raw"), r.get("hg"), r.get("ag"), r.get("xg_h"),
+             r.get("xg_a"), r.get("cor_h"), r.get("cor_a"), r.get("source")))
+        self.conn.commit()
+
+    def oddset_results(self, league: str, since: Optional[str] = None) -> list[dict]:
+        q, args = "SELECT * FROM oddset_results WHERE league=? AND hg IS NOT NULL", [league]
+        if since:
+            q += " AND date >= ?"
+            args.append(since)
+        q += " ORDER BY date"
+        return [dict(r) for r in self.conn.execute(q, args).fetchall()]
 
     def oddset_log_flag(self, r: dict) -> None:
         """First/best per (match, marknad, tecken) — first skrivs aldrig över."""

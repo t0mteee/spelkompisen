@@ -380,6 +380,29 @@ def cmd_fdbacktest(rest: list[str]) -> None:
           "\nbokmarginal att äta upp — där räcker det att slå folket.")
 
 
+def cmd_modeldata() -> None:
+    """Tvinga uppdatering av modellens dataunderlag (resultat/xG/Elo) + visa fit."""
+    from app import oddset_data, oddset_model
+    store = Storage()
+    try:
+        rep = oddset_data.refresh_all(store, force=True)
+        print("data:", rep)
+        for lg in oddset_data.FD_URLS:
+            res = oddset_data.merged_results(store, lg)
+            n_xg = sum(1 for r in res if r.get("xg_h") is not None)
+            fit = oddset_model.fit_league(res)
+            print(f"{lg}: {len(res)} resultat ({n_xg} med xG)", end="")
+            if fit:
+                top = sorted(fit["teams"].items(),
+                             key=lambda kv: -kv[1]["att"] / kv[1]["def"])[:3]
+                print(f" · hemmafördel {fit['home_adv']} · bäst: "
+                      + ", ".join(f"{t} (a{v['att']}/f{v['def']})" for t, v in top))
+            else:
+                print(" · för lite data för fit")
+    finally:
+        store.close()
+
+
 def cmd_oddset() -> None:
     """Hämta odds för Oddset-ligorna (Pinnacle + Kambi) — körs av launchd."""
     from app import oddset
@@ -420,6 +443,8 @@ def main() -> None:
         cmd_fdbacktest(rest)
     elif cmd == "oddset":
         cmd_oddset()
+    elif cmd == "modeldata":
+        cmd_modeldata()
     else:
         print(__doc__)
 
