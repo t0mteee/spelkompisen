@@ -589,7 +589,24 @@ const GAMES = [
   { id: 'stryktipset', label: 'Stryktipset' },
   { id: 'europatipset', label: 'Europatipset' },
   { id: 'bomben', label: 'Bomben' },
+  { id: 'oddset', label: 'Oddset' },
 ]
+
+// Oddset-delen (Etapp 1 i docs/plan.md): matchlista med sharp- vs Svenska Spel-odds
+// för Allsvenskan, Eliteserien och träningsmatcher. Platshållare tills backend finns.
+function OddsetView() {
+  return (
+    <section>
+      <h2>Oddset — enskilda matcher</h2>
+      <p className="hint">
+        Här kommer matchlistan i tidsordning (Allsvenskan, norska Eliteserien och
+        träningsmatcher till att börja med): aktuella odds, oddsrörelser, sharp-jämförelse
+        (Pinnacle vs Svenska Spel) och tips på värdespel — 1X2, asian handicap, över/under.
+        Byggs i Etapp 1–3, se docs/plan.md.
+      </p>
+    </section>
+  )
+}
 // kort variantnamn i omgångsväljaren (Topptipset-gruppen består av flera produkter)
 const VARIANT = {
   topptipset: 'Dagens', topptipsetstryk: 'Stryk', topptipsetextra: 'Extra',
@@ -1476,6 +1493,7 @@ export default function App() {
   }
 
   const refresh = () => {
+    if (group === 'oddset') return
     if (group === 'bomben') { setBombenNonce((n) => n + 1); return }
     loadAnalysis(); loadPayouts()
   }
@@ -1486,7 +1504,7 @@ export default function App() {
   useEffect(() => {
     if (!draw) return
     const tick = () => {
-      if (group === 'bomben' || document.visibilityState !== 'visible') return
+      if (group === 'bomben' || group === 'oddset' || document.visibilityState !== 'visible') return
       loadAnalysis(product, draw, true)
       loadPayouts(product, draw, true)
     }
@@ -1497,6 +1515,7 @@ export default function App() {
 
   const switchGame = async (g) => {
     setGroup(g); setSys(null); setAnalysis(null); setMovement(null); setErr(null); setSysType('ev'); setPicks({}); setLoading(true)
+    if (g === 'oddset') { setDraws([]); setLoading(false); return }  // egen vy, inga omgångar
     try {
       const d = await (await fetch(`/api/draws?product=${g}&_t=${Date.now()}`, { cache: 'no-store' })).json()
       const list = d.open?.length ? d.open : d.draws
@@ -1532,6 +1551,7 @@ export default function App() {
   // finns kvar i listan (annars första öppna). Gör iOS-omladdningen osynlig.
   const bootstrap = async () => {
     const g = SAVED.group || 'topptipset'
+    if (g === 'oddset') return  // egen vy, inga omgångar att hämta
     setLoading(true); setErr(null)
     try {
       const d = await (await fetch(`/api/draws?product=${g}&_t=${Date.now()}`, { cache: 'no-store' })).json()
@@ -1566,7 +1586,7 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <h1>⚽ SvS kompisen</h1>
+        <h1>⚽ Spelkompisen</h1>
         <div className="games">
           {GAMES.map((g) => (
             <button key={g.id} className={group === g.id ? 'game active' : 'game'}
@@ -1615,7 +1635,9 @@ export default function App() {
 
       {group === 'bomben' && <ErrBoundary><BombenView draw={draw} nonce={bombenNonce} /></ErrBoundary>}
 
-      {group !== 'bomben' && (<>
+      {group === 'oddset' && <ErrBoundary><OddsetView /></ErrBoundary>}
+
+      {group !== 'bomben' && group !== 'oddset' && (<>
       <div className="cols main-cols">
       <section>
         <div className="analys-head">

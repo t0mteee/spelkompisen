@@ -1,16 +1,20 @@
-# SvS kompisen
+# Spelkompisen
 
-Personligt lokalt verktyg för att hitta **+EV-rader** på Svenska Spels poolspel
-(Stryktipset, Europatipset, Topptipset, Bomben) via odds, oddsrörelser, sharp-odds
-(Pinnacle) och folkets streck. Ingen inloggning, ingen automatisk spelläggning.
+Personligt lokalt verktyg som kombinerar **SvS kompisen** (poolspels-analys: Stryktipset,
+Europatipset, Topptipset, Bomben) med en ny **Oddset-del**: enskilda matcher (Allsvenskan,
+norska Eliteserien, träningsmatcher till att börja med) med sharp-odds, oddsrörelser,
+egen modell och värdespels-tips (1X2, asian handicap, över/under, hörnor på sikt).
 
-**Bomben** är en egen speltyp: tippa exakt resultat, INGA SvS-odds. Värdet =
-Poisson-målmodell (Pinnacle spread/total → förv. mål, `app/bomben.py`) mot folkets
-resultatfördelning. Egen vy (resultat-heatmap), inte 1X2-motorn. Modell-härledd
-(sharp-ankrad) → hålls utanför CLV-facitet. Radbyggaren är **kolumn-baserad**
-(SvS-kupongen markeras hemmamål- × bortamål-kolumner) så rader = manuell ifyllnad
-= fil = kostnad; kolumner väljs girigt EV-viktat inom budget. INGEN exakt-rad-
-reducering (den gick ej att fylla i manuellt).
+**Läge:** Etapp 0 klar (skelett). Färdplanen bor i `docs/plan.md` — LÄS DEN FÖRST i ny
+session. Poolspelsdelen är en fullt fungerande kopia av svs; Oddset-fliken är platshållare.
+
+**Relationen till syskonprojekten:**
+- `/Users/saman/svs` (SvS kompisen, portar 8000/5173) — ursprunget. Fryses när spelkompisen
+  nått paritet; tills dess är svs produktions-appen för poolspel. RÖR ALDRIG svs härifrån.
+- `/Users/saman/vm` (Boll boll kollen, portar 8001/5174) — VM-bevakning, mönsterkälla för
+  Oddset-delen (Pinnacle AH/ÖU/hörnor, Kambi-klient, värdescreen, steam, Dixon-Coles, CLV).
+  Läs vm-koden som referens vid portning men RÖR den inte.
+- Portar här: **backend 8002, frontend 5175, preview 5181** — krockar aldrig med svs/vm.
 
 ## Arkitektur
 
@@ -20,33 +24,36 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/pinnacle.py     Pinnacle Arcadia (gratis guest-API), + derive.py (1X2 ur spread/total)
   app/analysis.py     fair_prob (power-metod), värde, taggar, speltyp, mover-flagga
   app/builder.py      radbyggare: matematiskt/reducerat/garanti/SvS R-system/EV-topp
-  app/storage.py      SQLite (data/svs.db): snapshots, sharp_snapshots, dedup, movement
+  app/bomben.py       Poisson-målmodell för Bomben
+  app/storage.py      SQLite (data/stryktips.db): snapshots, sharp_snapshots, dedup, movement
   app/main.py         API-endpoints + PRIZE_PLANS (officiella vinstplaner)
-  cli.py              show|spikar|snapshot|history|rad (snapshot körs av launchd)
+  cli.py              show|spikar|snapshot|history|rad
 frontend/ React + Vite, ALLT i src/App.jsx + App.css (mörkt tema)
-start.sh / stop.sh    kör/stoppa båda lokalt
+start.sh / stop.sh    kör/stoppa båda lokalt (8002 + 5175)
+docs/plan.md          FÄRDPLANEN: etapper, datakällor, beslut — projektets sanning
+docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltiga)
 ```
 
 ## Kommandon
 
-- Starta allt: `./start.sh` (backend :8000, frontend :5173). Stoppa: `./stop.sh`.
+- Starta allt: `./start.sh` (backend :8002, frontend :5175). Stoppa: `./stop.sh`.
 - **Backend har INGEN auto-reload** — efter ändring:
-  `lsof -ti:8000 | xargs kill -9; cd backend && nohup .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 &`
+  `lsof -ti:8002 -sTCP:LISTEN | xargs kill -9; cd backend && nohup .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8002 &`
+- ALDRIG `pkill -f uvicorn` (dödar svs 8000 och vm 8001 — samma kommando).
+  ALDRIG `lsof -ti:<port>` utan `-sTCP:LISTEN` (dödar annars webbläsare med öppna sockets).
 - Frontend nås via Tailscale/LAN (vite.config: `host:true, allowedHosts:true`).
-  Stoppa ALDRIG 5173-servern utan att starta om den — användaren kör mot den från mobilen.
-- Verifiering i browser: preview-servern `frontend-preview` (port 5180) i `.claude/launch.json`.
-- Bakgrundsinsamling: launchd `com.saman.svs.snapshot` var 30:e min → `backend/scripts/snapshot.sh`
-  → `cli.py snapshot-smart` (alla produkter; förtätar SJÄLV till var 5:e min när någon omgång
-  stänger inom 2 h, max ~25 min per körning). Skriv inte plist-filer åt användaren
-  (behörighetsklassaren blockerar) — be hen köra `launchctl load`.
-- Push-notiser (🔥 sen oddssänkning ≤8 h före spelstopp): `app/notify.py` via ntfy.sh.
-  Aktiveras med `NTFY_TOPIC=<hemligt-namn>` i gitignore:ade `backend/.env` + prenumeration
-  på samma topic i ntfy-appen. Utan topic = avstängt. Dedup per match via meta-tabellen.
-- Projicerad slutomsättning: `_projected_turnover` i main.py (median av senaste avgjorda
-  omgångars slutomsättning, cachad 6 h i meta). /api/payouts ger `projected_turnover` +
-  `spelvarde_proj`; EV-/färgsystem räknar mot prognosen. EV mot dagens omsättning är glädjesiffror.
+- Verifiering i browser: preview-servern `frontend-preview` (port 5181) i `.claude/launch.json`.
+- **Ingen launchd-insamling är laddad för spelkompisen ännu** (svs egna jobb kör kvar och
+  matar svs — INTE den här databasen). Egna jobb (`com.saman.spelkompisen.*`) skapas i
+  Etapp 1. Skriv inte plist-filer åt användaren (behörighetsklassaren blockerar) — be hen
+  köra `launchctl load`. Databasen seedades från svs 2026-07-12; poolspels-datat uppdateras
+  bara vid manuella snapshots tills egna jobb finns.
+- Push-notiser: `app/notify.py` via ntfy.sh, kräver `NTFY_TOPIC` i gitignore:ade
+  `backend/.env`. Använd ett EGET topic (inte samma som svs — annars dubbla notiser).
 
-## Svenska Spel-API:t (öppet, inga nycklar)
+## Poolspelen (ärvt från svs — allt gäller oförändrat)
+
+### Svenska Spel-API:t (öppet, inga nycklar)
 
 - `https://api.spela.svenskaspel.se/draw/1/{slug}/draws` (lista) och `/draws/{nr}` (en omgång).
   Prefixet är ALLTID `1` (API-version, inte productId). Nyckel i svaret: `draws` (lista) / `draw` (singular).
@@ -55,91 +62,77 @@ start.sh / stop.sh    kör/stoppa båda lokalt
   aggregerar alla tre via `GAME_GROUPS`; varje omgång bär sin egen `product`-slug.
 - Svenska decimaler: "5,50" → 5.50 (`_f` i svenskaspel.py). `svenskaFolket` = streck %,
   `currentNetSale` = omsättning, `drawEvents[].match.participants[].isoCode` = flaggor.
-- `/draws/{nr}/result` ger `distribution` (faktiska vinstnivåer/utdelningar) — användbart för backtest.
+- `/draws/{nr}/result` ger `distribution` (faktiska vinstnivåer/utdelningar).
 - **Jackpot**: `/draw/1/jackpots` (matcha på productId + drawNumber — `fund` på draws är
-  opålitligt och productName byter skepnad, t.ex. Europatipset = "VM-tipset" under VM).
-  Belopp som svensk decimalsträng ("6000000,00").
-- Vinstplaner (validerade mot utfall): Stryk/Europa 65 % åter, split 13/12/11/10 = 40/15/12/25 %.
+  opålitligt). Belopp som svensk decimalsträng ("6000000,00").
+- Vinstplaner (validerade): Stryk/Europa 65 % åter, split 13/12/11/10 = 40/15/12/25 %.
   Topptipset 70 %, bara 8 rätt delar potten. Finns i `PRIZE_PLANS` i main.py.
 
-## Pinnacle (sharp-odds, gratis)
+### Pinnacle (sharp-odds, gratis)
 
 - `https://guest.api.arcadia.pinnacle.com/0.1`, header `X-API-Key: CmX2KcMrXuFmNg6YFbmTxE0y9CIrOi0R`,
   soccer = sport 29. `/sports/29/matchups` + `/sports/29/markets/straight` (moneyline period 0).
   Amerikanska odds → decimal. Matchning via ISO/pycountry + fuzzy + tidsfönster + spegling 1↔2.
 - Saknas moneyline härleds 1X2 ur spread/total (derive.py) — märks `P~` i UI.
+- OBS (vm-lärdom): Arcadia Cloudflare-blockar i perioder på IP-nivå — headers/TLS hjälper EJ.
+  vm:s fallback via the-odds-api är mönstret om det blir akut.
 
-## Domänmodell (kärnformler)
+### Domänmodell (kärnformler)
 
-- **fair_prob**: overround bort med **power-metoden** (lös k så att Σ(1/odds)^k = 1) —
-  korrigerar favorit/longshot-bias, bättre kalibrerad än proportionell normalisering.
+- **fair_prob**: overround bort med **power-metoden** (lös k så att Σ(1/odds)^k = 1).
   Sannolikhetskälla i prioritetsordning: SvS-odds → sharp (Pinnacle) → streck.
 - **Värde-kvot** = fair_prob ÷ (streck/100). > 1.08 grönt (köpläge), < 0.92 rött (överspelat).
 - **EV per rad** (poolspel): P(rad) × utdelning där utdelning = pott_nivå / (fält × P_folk(rad) + 1),
-  cappad vid potten; fält = omsättning/radpris. P_folk = produkt av streck (oberoende-antagande).
-  Medvinnare per nivå via Poisson-binomial. +1 = du själv. Detta är `evalRows` (frontend)
-  och `build_ev_system` (backend) — håll dem konsistenta.
-- **Värderader** (f.d. EV-topp) rankar kandidatrader (topp-2/3 tecken per match, cap 60k) på
-  **score = P(rad)^k × EV(rad)** där k = 2·(1−value_weight): reglaget 0 → k=2 (träffsäkert),
-  50 → k=1 (balans ≈ max P×EV), 100 → k=0 (ren EV, skrälltungt). EV rapporteras alltid ärligt.
-  Ren EV-maximering är ospelbar för 100–500 kr — balansen är poängen.
-- Strategi (säker/medel/tuff) styr garderingssammansättning; **EV-reglaget är enda risk-axeln**
-  (strategin sätter reglagets startpunkt 20/50/80 — ingen dold bias i backend).
-- **RLM** (reverse line movement, `rlm_go`/`rlm_fade`-taggar): folket och devigad sharp åt
-  olika håll (folk −3pp & sharp +2pp = smart pengar ◆; folk +4pp & sharp −2pp = fadea ⚠).
-  Boostas/straffas i _sign_score. Kräver inga nya källor — egna streck-/sharp-serier.
-- **Streck-allokering** (`_size_to_budget`): värde/kostnads-girig — uppgradera matchen med högst
-  Δlog(täckt sannolikhet)/Δlog(rader). Spikar klara favoriter (slipp ×2), garderar djupt där det
-  täcker mest. Gäller math/reducerat/garanti; EV-topp & Bomben rankar redan hela rader på EV.
-- SystemView visar **"Fyll i så här på Svenska Spel"** (tecken per match + kopiera) för manuell ifyllnad.
-- Teckenpoäng `_sign_score`: sharp-sannolikhet före SvS, bonus för tecken marknaden backar
-  (fallande odds/ss_undervärderad) så de inte petas pga tillfällig överstreckning.
-- **Steam** (`app/steam.py`): devigade sannolikhetsskift (pp) över 6/24/72 h — jämförbart
-  favorit/skräll, marginalbrus borta. 🔥-flaggan + ntfy triggar på 24h-skiftet
-  (≥3,5 pp markant, ≥6 pp stark); rå oddsrörelse är bara fallback utan sharp-serie.
-  `movement_with_steam` är den delade rörelse-helpern (API + notiser — håll dem i synk).
+  cappad vid potten. Medvinnare per nivå via Poisson-binomial. +1 = du själv.
+  `evalRows` (frontend) och `build_ev_system` (backend) — håll dem konsistenta.
+- **Värderader**: score = P(rad)^k × EV(rad) där k = 2·(1−value_weight); reglaget är enda
+  risk-axeln (strategin sätter bara startpunkten 20/50/80).
+- **RLM**: folket och devigad sharp åt olika håll (◆ smart pengar / ⚠ fadea).
+- **Streck-allokering** (`_size_to_budget`): värde/kostnads-girig per Δlog(täckt sannolikhet)/Δlog(rader).
+- **Steam** (`app/steam.py`): devigade sannolikhetsskift (pp) över 6/24/72 h; 🔥 + ntfy på
+  24h-skiftet (≥3,5 pp markant, ≥6 pp stark). `movement_with_steam` är delade helpern.
+- Bomben: kolumn-baserad byggare (rader = manuell ifyllnad = fil = kostnad), Poisson-modell,
+  hålls utanför CLV-facitet (modell-härledd). INGEN exakt-rad-reducering.
+- Projicerad slutomsättning: `_projected_turnover` i main.py — EV-/färgsystem räknar mot
+  prognosen; EV mot dagens omsättning är glädjesiffror.
 
-## Export till Svenska Spel ("Egna rader")
+### Export till Svenska Spel ("Egna rader")
 
-- `.txt` (CRLF) med **obligatorisk rubrikrad** (annars "Produktnamnet verkar inte stämma"):
-  Stryktipset/Europatipset = bara produktnamnet (`Stryktipset`); Topptipset =
-  `Topptipset[,Stryk|,Europa],Omg=<nr>,Insats=<1–10>` (Stryk=topptipsetstryk,
-  Europa=topptipsetextra). Därefter en rad per spelrad: `E,1,X,2,...`.
-  Filspecen står på resp. produkts `/externa-systemspel`-sida (verifierad där).
-  Uppladdning på `spela.svenskaspel.se/{stryktipset|europatipset|topptipset}/externa-systemspel`
-  (alla Topptipset-varianter går via topptipset-sidan).
-- Exportera alltid **konkreta enumererade rader** (E), aldrig M-system — annars förloras reduceringen.
-- R 4-0-9 / R 0-7-16 / R 4-4-144 är exakta Hamming-täckningar (= SvS officiella rader).
-  R 3-3-24 är greedy (38 rader) — spelas billigare direkt på SvS systemkupong.
+- `.txt` (CRLF) med obligatorisk rubrikrad: Stryktipset/Europatipset = produktnamnet;
+  Topptipset = `Topptipset[,Stryk|,Europa],Omg=<nr>,Insats=<1–10>`. Därefter `E,1,X,2,...`.
+- Exportera alltid konkreta enumererade rader (E), aldrig M-system.
+- Uppladdning på `spela.svenskaspel.se/{produkt}/externa-systemspel`.
+- R 4-0-9 / R 0-7-16 / R 4-4-144 är exakta Hamming-täckningar; R 3-3-24 är greedy (38 rader).
 
-## CLV-facit (signalvalidering)
+### CLV-facit (signalvalidering)
 
-- `app/clv.py` + `value_log`-tabellen: snapshot-pollen loggar tecken med grön
-  värde-kvot (≥1.08) eller sharp-edge (≥2 %) — first/best per selektion.
-  Stängning = devigad Pinnacle (sista sharp-snapshot före avspark); facit från
-  resultat-API:t. `/api/clv` + "Signal-facit"-panelen i UI.
-- Metodregel (från VM-projektet): ENDAST marknadspriser får logga flaggor —
-  modellhärledda sannolikheter förorenar facitet. Se docs/forbattringar.md
-  för fler metodlärdomar (steam i devigade pp, ClubElo, football-data-backtest).
+- `app/clv.py` + `value_log`-tabellen: gröna värde-kvoter (≥1.08) / sharp-edge (≥2 %) loggas
+  first/best per selektion; stängning = devigad Pinnacle; facit från resultat-API:t.
+- **Metodregel (dyrast lärdom från vm):** ENDAST marknadspriser får logga flaggor —
+  modellhärledda sannolikheter förorenar facitet.
+
+## Oddset-delen (byggs nu — se docs/plan.md för detaljer)
+
+- Mönsterkälla: `/Users/saman/vm/backend/app/` — `pinnacle.py` (AH/ÖU/hörn-specials via
+  units='Corners'), Kambi-klienten (Svenska Spel Sport, operator `svenskaspel`, milliodds:
+  1420=1.42, line i milli: 2500=2.5), `value.py`/`service.value_screen` (power-devig sharp
+  vs bok), `model.py` (Dixon-Coles, μ KALIBRERAS mot sharp ÖU-linje ≈ median), steam/CLV/
+  notify-mönstren, `elo.py` (ClubElo), `oddsapi.py` (the-odds-api, vilande).
+- Enbart gratiskällor (användarbeslut 2026-07-12); rena betalspår = framtida projekt.
+- Tier-regel för tips: **sharp-ankrat = actionable (grönt, in i CLV); modell-utan-sharp =
+  amber (bakom toggle, UR CLV)** — vm bevisade tre gånger att modell-edges utan sharp-ankare
+  blir systematiskt uppblåsta (DC alt-totaler +40–55 %, hörnor +120 % okalibrerat).
 
 ## UI-konventioner
 
-- **v2-design**: 13px bas, sektioner är kort (`section` = --panel, inre ytor = --panel2),
-  pill-tabbar i kompakt header, EN statusrad (omsättning/spelvärde/jackpot + insamlings-
-  status med dot till höger). Inga fristående paneler mellan header och Analys.
-- Bred skärm (≥1280px): sektionspar i `.cols`-grid (Bygg förslag | Kupong,
-  Sharp | Signal-facit). Kupongen är navet — export/inlämning finns BARA där
-  (förslagsvyn har "Lägg i kupongen", inga dubblettknappar).
-- Inga bakgrundstoner på odds-celler för värde/edge — kvot-pillret och märkena
-  (★ S ▲ ⇊ ↓) bär den infon. Grön ram = i kupongen; grön ton + ×N = radläge.
-
-- Mobil: ALLT i `@media (max-width:760px)` — desktop får inte ändras. Analystabellen blir kort
-  (klass `analysis`, `data-sign` på odds-celler). OBS: `td:first-child`-regler måste exkludera
-  `.chartrow` (grafradens enda td är också :first-child).
+- v2-design: 13px bas, sektioner är kort (`section` = --panel, inre ytor = --panel2),
+  pill-tabbar i kompakt header, EN statusrad. Bred skärm (≥1280px): sektionspar i `.cols`-grid.
+- Mobil: ALLT i `@media (max-width:760px)` — desktop får inte ändras. OBS:
+  `td:first-child`-regler måste exkludera `.chartrow`.
 - Alla GET-fetch: `cache:'no-store'` + `&_t=${Date.now()}` (annars cachar webbläsare/iOS).
-- Tillstånd (flik/omgång/kupong/inställningar) sparas i `localStorage` (`svs_state`) —
-  iOS hemskärms-app slänger sidan ur minnet; bootstrap återställer om omgången är öppen.
-- Inga `cursor: help`-frågetecken; förklaringar som title-tooltips på badges/pills/odds.
+- Tillstånd sparas i `localStorage` (`svs_state`); bootstrap återställer.
+- Inga `cursor: help`-frågetecken; förklaringar som title-tooltips.
+- Oddset-delen: röd = oddset NER (ökad vinstchans), grön = UPP (vm-konvention).
 
 ## Regler
 
@@ -147,5 +140,6 @@ start.sh / stop.sh    kör/stoppa båda lokalt
 - Klicka inte i cookie-/samtyckesrutor åt användaren.
 - Committa endast när användaren ber om det. Commit-meddelanden på svenska,
   imperativ rubrik, avsluta med `Co-Authored-By: Claude <modell>`.
-- API-nycklar i gitignore:ad `backend/.env` (ODDS_API_KEY finns där, the-odds-api är vilande).
-- Användarens långsiktiga backlog: `docs/forbattringar.md`.
+- API-nycklar i gitignore:ad `backend/.env` (ODDS_API_KEY finns, the-odds-api är vilande).
+- Rör ALDRIG `/Users/saman/svs` eller `/Users/saman/vm` från detta projekt.
+- Uppdatera STATUS-blocket i `docs/plan.md` när en etapp/delmål blir klar.

@@ -1,15 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Proxar /api -> FastAPI på localhost:8000 så frontend kan köra på 5173.
+// Proxar /api -> FastAPI på localhost:8002 så frontend kan köra på 5175.
 // host:true + allowedHosts:true => nåbar från andra enheter (Tailscale/LAN).
+// Portar: svs = 8000/5173, vm = 8001/5174, spelkompisen = 8002/5175.
 export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
     allowedHosts: true,
+    port: 5175,
     proxy: {
-      '/api': 'http://127.0.0.1:8000',
+      '/api': 'http://127.0.0.1:8002',
     },
   },
 })
