@@ -449,3 +449,57 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
   .svs-row { flex-direction: column; align-items: stretch; }
   .svs-link { text-align: center; }
 }
+
+/* ---------- Oddset-fliken (enskilda matcher) ---------- */
+.oddset-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 10px; }
+.oddset-bar .spacer { flex: 1; }
+.oddset-bar .lg { border-radius: 999px; padding: 4px 12px; }
+.oddset-bar .lg.off { opacity: 0.4; text-decoration: line-through; }
+.oddset-table { width: 100%; border-collapse: collapse; background: var(--panel2); border-radius: 8px; }
+.oddset-table th { text-align: left; color: var(--muted); font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.4px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.oddset-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.oddset-table tr.dayrow td { background: var(--panel); color: var(--muted); font-weight: 700;
+  text-transform: capitalize; font-size: 12px; padding: 5px 8px; }
+.oddset-table tr.started { opacity: 0.55; }
+.oddset-table .time { color: var(--muted); white-space: nowrap; width: 42px; }
+.oddset-table .teams { font-weight: 600; }
+.oddset-table .lgtag { display: inline-block; min-width: 16px; text-align: center; margin-right: 6px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+  color: var(--muted); font-size: 10px; font-weight: 700; padding: 1px 3px; }
+.oddset-table .oc { white-space: nowrap; }
+.oddset-table .oc .o { font-weight: 700; }
+.oddset-table .oc .p { color: var(--muted); font-size: 11px; }
+.oddset-table .oc.pair .o, .oddset-table .oc.pair .p { font-weight: 400; font-size: 12px; }
+.oddset-table .oc.pair .p { font-size: 11px; }
+.mv { font-size: 10.5px; font-weight: 700; margin-left: 4px; }
+.mv.down { color: #e06b6b; }   /* oddset NER = ökad vinstchans */
+.mv.up { color: var(--green); }
+.epill { background: var(--green); color: #0b0e12; font-size: 10px; font-weight: 700;
+  border-radius: 999px; padding: 1px 6px; margin-left: 5px; vertical-align: 1px; }
+.epill.big { font-size: 11px; padding: 2px 8px; margin-left: 0; }
+.steam { margin-left: 5px; font-size: 12px; }
+.steam.strong { filter: drop-shadow(0 0 3px #e0853b); }
+.valuelist { background: var(--panel2); border: 1px solid var(--green);
+  border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; }
+.valuelist .valhead { margin-bottom: 4px; }
+.valuelist .valrow { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  padding: 3px 0; border-top: 1px solid var(--line); }
+.valuelist .vteams { font-weight: 600; }
+.clvline .pos { color: var(--green); }
+.clvline .neg { color: #e06b6b; }
+
+@media (max-width: 760px) {
+  /* matchlistan blir kort: tid+match på egen rad, 1X2 under, AH/ÖU sist */
+  .oddset-table thead { display: none; }
+  .oddset-table, .oddset-table tbody { display: block; }
+  .oddset-table td { border-bottom: none; padding: 2px 4px; }
+  .oddset-table tr { display: flex; flex-wrap: wrap; align-items: baseline;
+    column-gap: 8px; border-bottom: 1px solid var(--line); padding: 6px 4px; }
+  .oddset-table tr.dayrow { display: block; padding: 0; }
+  .oddset-table .time { width: auto; }
+  .oddset-table .teams { flex: 1 1 calc(100% - 60px); }
+  .oddset-table .oc { flex: 0 0 auto; }
+  .oddset-table .oc.pair { flex: 1 0 100%; }
+  .oddset-table .oc.pair .o, .oddset-table .oc.pair .p { display: inline-block; margin-right: 10px; }
+}

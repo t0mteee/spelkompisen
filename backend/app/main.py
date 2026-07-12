@@ -342,6 +342,42 @@ def rsystems():
     return {"systems": [{"name": k, **v} for k, v in SVS_R12.items()]}
 
 
+@app.get("/api/oddset/matches")
+def oddset_matches():
+    """Oddset-fliken: matcher i tidsordning med senaste odds (Pinnacle + Svenska Spel)
+    och rörelseserier. Läser bara DB — insamlingen sker via /api/oddset/refresh
+    eller launchd-jobbet."""
+    from . import oddset as oddset_mod
+    store = Storage()
+    try:
+        return oddset_mod.matches_payload(store)
+    finally:
+        store.close()
+
+
+@app.get("/api/oddset/clv")
+def oddset_clv():
+    """Signal-facit för Oddset: loggade sharp-edges vs devigad Pinnacle-stängning."""
+    from . import oddset_value
+    store = Storage()
+    try:
+        oddset_value.resolve_closings(store)
+        return oddset_value.clv_report(store)
+    finally:
+        store.close()
+
+
+@app.post("/api/oddset/refresh")
+def oddset_refresh():
+    """Hämta färska odds från Pinnacle + Kambi för alla Oddset-ligor (tar ~10-30 s)."""
+    from . import oddset as oddset_mod
+    store = Storage()
+    try:
+        return oddset_mod.collect(store)
+    finally:
+        store.close()
+
+
 @app.post("/api/snapshot")
 def snapshot(product: str = "stryktipset", draw: int | None = None):
     d = _get_draw(product, draw)
@@ -433,7 +469,7 @@ def history(draw: int, event: int, sign: str | None = None,
 
 # ---- bakgrundsinsamling via launchd (den som körs även när appen är stängd) ----
 
-LAUNCHD_LABEL = "com.saman.svs.snapshot"
+LAUNCHD_LABEL = "com.saman.spelkompisen.snapshot"
 LAUNCHD_PLIST = Path.home() / "Library" / "LaunchAgents" / f"{LAUNCHD_LABEL}.plist"
 
 
@@ -458,10 +494,28 @@ def collection_status():
 
 @app.post("/api/collection/start")
 def collection_start():
+    """Installerar plisten från backend/scripts/ vid behov och laddar den.
+    Returnerar status + ev. felmeddelande (tidigare no-op:ades tyst utan plist)."""
+    error = None
+    if not LAUNCHD_PLIST.exists():
+        src = Path(__file__).resolve().parent.parent / "scripts" / f"{LAUNCHD_LABEL}.plist"
+        if src.exists():
+            try:
+                LAUNCHD_PLIST.parent.mkdir(parents=True, exist_ok=True)
+                LAUNCHD_PLIST.write_bytes(src.read_bytes())
+            except OSError as e:
+                error = f"kunde inte installera plist: {e}"
+        else:
+            error = f"plist-mallen saknas: {src}"
     if LAUNCHD_PLIST.exists():
-        subprocess.run(["launchctl", "load", str(LAUNCHD_PLIST)],
-                       capture_output=True, text=True, timeout=10)
-    return collection_status()
+        r = subprocess.run(["launchctl", "load", str(LAUNCHD_PLIST)],
+                           capture_output=True, text=True, timeout=10)
+        if r.returncode != 0 and r.stderr.strip():
+            error = f"launchctl: {r.stderr.strip()}"
+    st = collection_status()
+    if error:
+        st["error"] = error
+    return st
 
 
 @app.post("/api/collection/stop")

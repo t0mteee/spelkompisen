@@ -4,12 +4,12 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.saman.svs.snapshot</string>
+    <string>com.saman.spelkompisen.snapshot</string>
 
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/saman/svs/backend/scripts/snapshot.sh</string>
+        <string>/Users/saman/spelkompisen/backend/scripts/snapshot.sh</string>
     </array>
 
     <!-- Kör var 30:e minut. Dedup i koden gör att inget sparas om inget ändrats. -->
@@ -20,8 +20,8 @@
     <true/>
 
     <key>StandardOutPath</key>
-    <string>/Users/saman/svs/backend/data/launchd.out.log</string>
+    <string>/Users/saman/spelkompisen/backend/data/launchd.out.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/saman/svs/backend/data/launchd.err.log</string>
+    <string>/Users/saman/spelkompisen/backend/data/launchd.err.log</string>
 </dict>
 </plist>

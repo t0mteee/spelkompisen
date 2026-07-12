@@ -2,13 +2,33 @@
 
 ## STATUS (uppdatera löpande — läses först i varje ny session)
 
-**2026-07-12 — Etapp 0 KLAR.** Repo klonat från svs, portar bytta (8002/5175/5181),
-eget venv, DB seedad från svs (stryktips.db), titel/rubrik "Spelkompisen", Oddset-flik
-med platshållarvy i menyn (verifierad i browser, desktop + mobil 375px). Inga launchd-jobb
-laddade ännu. Prober körda — alla gröna, se "Prober" nedan; omtestning av "blockade"
-källor gav genombrottet **Sofascore-xG i browser-kontext** (xG-risken struken).
-App-URL från mobilen (Tailscale): `http://100.122.85.66:5175`.
-**Nästa:** Etapp 1 (matchlista + odds) — id:n och vägar är redan verifierade.
+**2026-07-12 — Etapp 0 + Etapp 1 KLARA.**
+Etapp 0: repo klonat från svs, portar 8002/5175/5181, eget venv, DB seedad, Oddset-flik.
+Prober gröna; omtestning av "blockade" källor gav genombrottet **Sofascore-xG i
+browser-kontext** (xG-risken struken). App-URL (Tailscale): `http://100.122.85.66:5175`.
+Etapp 1: `app/kambi.py` + `app/oddset.py` (LEAGUES, Pinnacle-ligaindex, klubbnamns-
+matchning, insamling med dedup), tabeller `oddset_matches`/`oddset_odds`,
+`/api/oddset/matches` + `/api/oddset/refresh`, `cli.py oddset`, OddsetView (tidsordnad
+lista, dagrubriker, liga-visa/dölj i localStorage, SvS + P-odds, AH/ÖU huvudlinor,
+rörelsepilar med serie-tooltip). Verifierad i browser (desktop + mobil): 23 matcher,
+11 med båda källorna korrekt ihopslagna (KFUM↔KFUM Oslo, HamKam↔Hamarkameratene).
+launchd-plist + snapshot.sh (oddset + snapshot-smart) klara — EJ laddade: Saman kör
+`cp backend/scripts/com.saman.spelkompisen.snapshot.plist ~/Library/LaunchAgents/ &&
+launchctl load ~/Library/LaunchAgents/com.saman.spelkompisen.snapshot.plist`.
+OBS: Kambis träningsmatch-listView är tom just nu (SvS lägger upp nära avspark) —
+Pinnacle-only-matcher visas med P-odds tills dess. Rörelsepilar syns när serien växer.
+Etapp 2 (samma dag): `app/oddset_value.py` — power-devigad Pinnacle = fair; edge =
+fair × SvS-odds − 1; AH/ÖU bara på samma linje; P~ (härlett) visas med ° men loggas
+ALDRIG i CLV. UI: 💰 Värdespel-panel (edges ≥2 % sorterade), gröna edge-pills i
+tabellen, 🔥 steam-badge (devigade pp-skift 6/24 h, ≥3,5 markant / ≥6 stark),
+📒 Signal-logg-rad (CLV: first/best per flagga, stängning = devigad Pinnacle före
+avspark, close-EV i rapporten). ntfy-notiser: edge ≥3 % (💰) + 6h-steam ≥5 pp (🔥,
+träningsmatch-caset), dedup i meta — **kräver NTFY_TOPIC i backend/.env (EGET topic,
+inte svs:s) — EJ satt ännu = avstängt.** Starta-knappen fixad: installerar plisten
+själv + laddar; launchd-jobbet är LADDAT och kör (verifierat).
+Första riktiga fynden direkt: SvS 10.0 på Kalmar borta vs fair 7.78 (+28,6 %),
+IFK Göteborg borta 4.10 vs fair 3.70 (+10,8 %) — loggade i facitet.
+**Nästa:** Etapp 3 (egen modell: DC per liga, ClubElo, Sofascore-xG via Playwright).
 
 ## Beslut (Saman, 2026-07-12)
 
@@ -35,7 +55,7 @@ xG-proxy, form, skador) — alltid med vm-lärdomen: modell utan sharp-ankare = 
 Klon, portar (backend 8002, frontend 5175, preview 5181), venv, DB-seed, namnbyte,
 Oddset-flik (platshållare), detta dokument, CLAUDE.md omskriven.
 
-### Etapp 1 — Matchlista + odds (nästa)
+### Etapp 1 — Matchlista + odds ✅ (2026-07-12)
 - Porta från vm: `pinnacle.py`-utökningarna (matchups + straight för AH/ÖU, inte bara
   moneyline), Kambi-klienten (operator `svenskaspel`, listView + betoffer per event),
   `odds_snapshot`-tabellen med dedup (skriv bara när odds/linje ändrats) och `movement()`.
@@ -53,7 +73,7 @@ Oddset-flik (platshållare), detta dokument, CLAUDE.md omskriven.
 - Launchd: `com.saman.spelkompisen.snapshot` (30 min; förtäta nära avspark som svs
   snapshot-smart). Saman kör `launchctl load` själv.
 
-### Etapp 2 — Värde + steam + notiser
+### Etapp 2 — Värde + steam + notiser ✅ (2026-07-12)
 - Porta `value.py`-mönstret: power-devigad Pinnacle = fair; edge mot Svenska Spel (Kambi)
   per marknad. AH/ÖU jämförs ENDAST på samma linje.
 - Steam i devigade procentenheter (6/24/72 h) per match/marknad; 🔥-flaggor i listan.

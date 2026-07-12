@@ -11,6 +11,7 @@ snapshots   : en rad per (draw, event, sign, mättidpunkt)
 """
 from __future__ import annotations
 
+import datetime as dt
 import sqlite3
 from pathlib import Path
 from typing import Optional
@@ -97,6 +98,53 @@ CREATE TABLE IF NOT EXISTS value_log (
     closing_note  TEXT,
     outcome       INTEGER,
     PRIMARY KEY (product, draw_number, event_number, sign)
+);
+
+-- Oddset-delen (enskilda matcher, se app/oddset.py)
+CREATE TABLE IF NOT EXISTS oddset_matches (
+    id           TEXT PRIMARY KEY,      -- 'pin:<matchupId>' | 'svs:<eventId>'
+    league       TEXT NOT NULL,         -- nyckel i oddset.LEAGUES
+    home         TEXT NOT NULL,
+    away         TEXT NOT NULL,
+    start        TEXT,                  -- UTC ISO
+    pinnacle_id  TEXT,
+    kambi_id     TEXT,
+    status       TEXT,
+    updated_at   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_oddset_matches_start ON oddset_matches (start);
+
+CREATE TABLE IF NOT EXISTS oddset_odds (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    match_id    TEXT NOT NULL,
+    source      TEXT NOT NULL,          -- 'pinnacle' | 'derived' | 'svenskaspel'
+    market      TEXT NOT NULL,          -- '1x2' | 'ah' | 'ou'
+    sign        TEXT NOT NULL,          -- 1x2: 1/X/2 · ah: H/A · ou: O/U
+    line        REAL,                   -- handikapp (hemmaperspektiv) / totallinje
+    odds        REAL,
+    fetched_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_oddset_odds
+    ON oddset_odds (match_id, source, market, sign, fetched_at);
+
+CREATE TABLE IF NOT EXISTS oddset_value_log (
+    match_id     TEXT NOT NULL,
+    market       TEXT NOT NULL,
+    sign         TEXT NOT NULL,
+    line         REAL,
+    league       TEXT,
+    description  TEXT,
+    match_start  TEXT,
+    first_at     TEXT,
+    first_odds   REAL,
+    first_fair   REAL,
+    first_edge   REAL,
+    best_edge    REAL,
+    best_at      TEXT,
+    closing_fair REAL,
+    closing_odds REAL,
+    closing_note TEXT,
+    PRIMARY KEY (match_id, market, sign)
 );
 """
 
@@ -427,3 +475,171 @@ class Storage:
             "SELECT DISTINCT fetched_at FROM snapshots WHERE product=? AND draw_number=? "
             "ORDER BY fetched_at", (product, draw_number)).fetchall()
         return [r["fetched_at"] for r in rows]
+
+    # ---------------- Oddset (enskilda matcher, app/oddset.py) ----------------
+
+    ODDSET_SIGNS = {"1x2": ("1", "X", "2"), "ah": ("H", "A"), "ou": ("O", "U")}
+
+    def oddset_upsert_match(self, m: dict, prefer_names: bool = False) -> None:
+        """Inkrementell upsert: None skriver aldrig över. prefer_names=True låter
+        källans namn (Kambis svenska) ersätta befintliga visningsnamn."""
+        now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        self.conn.execute(
+            "INSERT INTO oddset_matches(id, league, home, away, start, pinnacle_id, "
+            "kambi_id, status, updated_at) VALUES(?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(id) DO UPDATE SET "
+            + ("home=excluded.home, away=excluded.away, "
+               if prefer_names else
+               "home=COALESCE(oddset_matches.home, excluded.home), "
+               "away=COALESCE(oddset_matches.away, excluded.away), ")
+            + "start=COALESCE(excluded.start, oddset_matches.start), "
+              "pinnacle_id=COALESCE(excluded.pinnacle_id, oddset_matches.pinnacle_id), "
+              "kambi_id=COALESCE(excluded.kambi_id, oddset_matches.kambi_id), "
+              "status=COALESCE(excluded.status, oddset_matches.status), "
+              "updated_at=excluded.updated_at",
+            (m["id"], m["league"], m.get("home"), m.get("away"), m.get("start"),
+             m.get("pinnacle_id"), m.get("kambi_id"), m.get("status"), now))
+        self.conn.commit()
+
+    def oddset_matches(self, since: Optional[str] = None,
+                       until: Optional[str] = None) -> list[dict]:
+        q, args = "SELECT * FROM oddset_matches WHERE 1=1", []
+        if since:
+            q += " AND start >= ?"
+            args.append(since)
+        if until:
+            q += " AND start <= ?"
+            args.append(until)
+        q += " ORDER BY start"
+        return [dict(r) for r in self.conn.execute(q, args).fetchall()]
+
+    def _oddset_latest_values(self, match_id: str, source: str,
+                              market: str) -> dict[str, tuple]:
+        rows = self.conn.execute(
+            "SELECT sign, odds, line FROM oddset_odds s WHERE match_id=? AND source=? "
+            "AND market=? AND fetched_at=(SELECT MAX(fetched_at) FROM oddset_odds WHERE "
+            "match_id=s.match_id AND source=s.source AND market=s.market AND sign=s.sign)",
+            (match_id, source, market)).fetchall()
+        return {r["sign"]: (r["odds"], r["line"]) for r in rows}
+
+    def oddset_save_market(self, match_id: str, source: str, market: str,
+                           rows: dict, fetched_at: str) -> int:
+        """rows: {sign: {'odds': float, 'line': float|None}}. Sparar bara förändring."""
+        prev = self._oddset_latest_values(match_id, source, market)
+        n = 0
+        for sign in self.ODDSET_SIGNS.get(market, ()):
+            val = rows.get(sign)
+            if not val or val.get("odds") is None:
+                continue
+            cur = (val.get("odds"), val.get("line"))
+            if prev.get(sign) == cur:
+                continue
+            self.conn.execute(
+                "INSERT INTO oddset_odds(match_id, source, market, sign, line, odds, "
+                "fetched_at) VALUES(?,?,?,?,?,?,?)",
+                (match_id, source, market, sign, val.get("line"), val.get("odds"),
+                 fetched_at))
+            n += 1
+        self.conn.commit()
+        return n
+
+    def oddset_save_odds(self, match_id: str, source: str,
+                         odds: dict, fetched_at: str) -> int:
+        """Bekvämlighet för 1X2."""
+        rows = {s: {"odds": odds.get(s), "line": None} for s in ("1", "X", "2")}
+        return self.oddset_save_market(match_id, source, "1x2", rows, fetched_at)
+
+    @staticmethod
+    def _oddset_ids_clause(ids: list[str]) -> tuple[str, list]:
+        if not ids:
+            return "1=0", []
+        return f"match_id IN ({','.join('?' * len(ids))})", list(ids)
+
+    def oddset_latest(self, ids: list[str]) -> dict[str, dict]:
+        """{match_id: {source: {market: {sign: odds, 'line': line, 'fetched_at': ts}}}}
+        — 'derived' viks in under 'pinnacle' (samma boks härledda 1X2)."""
+        where, args = self._oddset_ids_clause(ids)
+        rows = self.conn.execute(
+            f"SELECT match_id, source, market, sign, odds, line, fetched_at "
+            f"FROM oddset_odds s WHERE {where} AND fetched_at=("
+            f"SELECT MAX(fetched_at) FROM oddset_odds WHERE match_id=s.match_id "
+            f"AND source=s.source AND market=s.market AND sign=s.sign)", args).fetchall()
+        out: dict[str, dict] = {}
+        for r in rows:
+            src = "pinnacle" if r["source"] == "derived" else r["source"]
+            m = out.setdefault(r["match_id"], {}).setdefault(src, {}).setdefault(r["market"], {})
+            m[r["sign"]] = r["odds"]
+            if r["line"] is not None:
+                m["line"] = r["line"]
+            m["fetched_at"] = r["fetched_at"]
+            if r["source"] == "derived":
+                m["derived"] = True
+        return out
+
+    def oddset_movement(self, ids: list[str]) -> dict[str, dict]:
+        """Rörelse (first/last/min/max/n + punktserie) för alla givna matcher i en
+        fråga. -> {match_id: {source: {market: {sign: agg}}}}. 'derived' → 'pinnacle'."""
+        where, args = self._oddset_ids_clause(ids)
+        rows = self.conn.execute(
+            f"SELECT match_id, source, market, sign, odds, fetched_at FROM oddset_odds "
+            f"WHERE {where} AND odds IS NOT NULL ORDER BY fetched_at", args).fetchall()
+        out: dict[str, dict] = {}
+        for r in rows:
+            src = "pinnacle" if r["source"] == "derived" else r["source"]
+            agg = out.setdefault(r["match_id"], {}).setdefault(src, {}) \
+                     .setdefault(r["market"], {})
+            a = agg.get(r["sign"])
+            o, t = r["odds"], r["fetched_at"]
+            if a is None:
+                agg[r["sign"]] = {"first": o, "last": o, "min": o, "max": o, "n": 1,
+                                  "first_t": t, "last_t": t, "pts": [{"t": t, "o": o}]}
+            else:
+                a["last"], a["last_t"], a["n"] = o, t, a["n"] + 1
+                a["min"], a["max"] = min(a["min"], o), max(a["max"], o)
+                a["pts"].append({"t": t, "o": o})
+        return out
+
+    def oddset_log_flag(self, r: dict) -> None:
+        """First/best per (match, marknad, tecken) — first skrivs aldrig över."""
+        self.conn.execute(
+            "INSERT INTO oddset_value_log(match_id, market, sign, line, league, "
+            "description, match_start, first_at, first_odds, first_fair, first_edge, "
+            "best_edge, best_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(match_id, market, sign) DO UPDATE SET "
+            "best_edge=CASE WHEN excluded.best_edge > oddset_value_log.best_edge "
+            "THEN excluded.best_edge ELSE oddset_value_log.best_edge END, "
+            "best_at=CASE WHEN excluded.best_edge > oddset_value_log.best_edge "
+            "THEN excluded.best_at ELSE oddset_value_log.best_at END",
+            (r["match_id"], r["market"], r["sign"], r.get("line"), r.get("league"),
+             r.get("description"), r.get("match_start"), r["at"], r["odds"],
+             r["fair"], r["edge"], r["edge"], r["at"]))
+        self.conn.commit()
+
+    def oddset_unresolved_closings(self, now_iso: str) -> list[dict]:
+        return [dict(r) for r in self.conn.execute(
+            "SELECT * FROM oddset_value_log WHERE closing_fair IS NULL "
+            "AND closing_note IS NULL AND match_start IS NOT NULL AND match_start < ?",
+            (now_iso,)).fetchall()]
+
+    def oddset_history_before(self, match_id: str, market: str,
+                              before_iso: str) -> list[dict]:
+        """Pinnacle-serien (inkl. derived) före en tidpunkt, i tidsordning."""
+        return [dict(r) for r in self.conn.execute(
+            "SELECT sign, odds, line, fetched_at FROM oddset_odds WHERE match_id=? "
+            "AND market=? AND source IN ('pinnacle','derived') AND fetched_at < ? "
+            "AND odds IS NOT NULL ORDER BY fetched_at",
+            (match_id, market, before_iso)).fetchall()]
+
+    def oddset_set_closing(self, match_id: str, market: str, sign: str,
+                           fair: Optional[float], odds: Optional[float],
+                           note: Optional[str]) -> None:
+        self.conn.execute(
+            "UPDATE oddset_value_log SET closing_fair=?, closing_odds=?, closing_note=? "
+            "WHERE match_id=? AND market=? AND sign=?",
+            (fair, odds, note, match_id, market, sign))
+        self.conn.commit()
+
+    def oddset_clv_rows(self, limit: int = 300) -> list[dict]:
+        return [dict(r) for r in self.conn.execute(
+            "SELECT * FROM oddset_value_log ORDER BY first_at DESC LIMIT ?",
+            (limit,)).fetchall()]

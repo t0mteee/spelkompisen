@@ -380,6 +380,21 @@ def cmd_fdbacktest(rest: list[str]) -> None:
           "\nbokmarginal att äta upp — där räcker det att slå folket.")
 
 
+def cmd_oddset() -> None:
+    """Hämta odds för Oddset-ligorna (Pinnacle + Kambi) — körs av launchd."""
+    from app import oddset
+    store = Storage()
+    try:
+        rep = oddset.collect(store)
+    finally:
+        store.close()
+    for key, st in rep["leagues"].items():
+        print(f"{key:14} pinnacle={st['pinnacle']:3d} kambi={st['kambi']:3d} "
+              f"nya rader={st['saved_rows']}")
+    for err in rep["errors"]:
+        print(f"  ⚠ {err}")
+
+
 def main() -> None:
     args = sys.argv[1:]
     cmd = args[0] if args else "show"
@@ -403,6 +418,8 @@ def main() -> None:
         cmd_backtest(rest, product)
     elif cmd == "fdbacktest":
         cmd_fdbacktest(rest)
+    elif cmd == "oddset":
+        cmd_oddset()
     else:
         print(__doc__)
 

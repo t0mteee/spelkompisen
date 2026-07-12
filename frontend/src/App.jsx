@@ -20,9 +20,16 @@ function timeAgo(iso) {
 /* ---------- insamling (launchd – körs även när appen är stängd) ---------- */
 function Collection() {
   const [st, setSt] = useState(null)
+  const [err, setErr] = useState(null)
   const refresh = async () => { try { setSt(await (await fetch('/api/collection/status')).json()) } catch { /* */ } }
-  const start = async () => { await fetch('/api/collection/start', { method: 'POST' }); refresh() }
-  const stop = async () => { await fetch('/api/collection/stop', { method: 'POST' }); refresh() }
+  const start = async () => {
+    try {
+      const r = await (await fetch('/api/collection/start', { method: 'POST' })).json()
+      setErr(r.error || (!r.active ? 'gick inte att ladda jobbet — se launchd-loggen' : null))
+      setSt(r)
+    } catch (e) { setErr(String(e)) }
+  }
+  const stop = async () => { setErr(null); await fetch('/api/collection/stop', { method: 'POST' }); refresh() }
   useEffect(() => { refresh(); const id = setInterval(refresh, 10000); return () => clearInterval(id) }, [])
 
   const active = st?.active
@@ -31,6 +38,7 @@ function Collection() {
       title={`Bakgrundsinsamlingen (launchd var 30:e min, var 5:e nära spelstopp) loggar odds & streck — driver rörelser, steam, 🔥-notiser och CLV-facit.${st ? ` ${st.snapshot_count} mättillfällen totalt.` : ''}`}>
       <span className={`dot ${active ? 'on' : 'off'}`} />
       insamling {active ? 'aktiv' : 'stoppad'}{st?.last_snapshot ? ` · ${timeAgo(st.last_snapshot)}` : ''}
+      {err && !active && <span className="neg"> {err}</span>}
       <button className="linkbtn" onClick={active ? stop : start}>{active ? 'stoppa' : 'starta'}</button>
     </span>
   )
@@ -592,18 +600,206 @@ const GAMES = [
   { id: 'oddset', label: 'Oddset' },
 ]
 
-// Oddset-delen (Etapp 1 i docs/plan.md): matchlista med sharp- vs Svenska Spel-odds
-// för Allsvenskan, Eliteserien och träningsmatcher. Platshållare tills backend finns.
+// Oddset-delen (Etapp 1 i docs/plan.md): matchlista i tidsordning med Svenska Spel-odds
+// (Kambi) + sharp (Pinnacle) för Allsvenskan, Eliteserien och träningsmatcher.
+// Rörelse-konvention (från vm): röd ↓ = oddset NER (ökad vinstchans), grön ↑ = UPP.
+const ODDSET_HIDDEN_KEY = 'svs_oddset_hidden'
+
 function OddsetView() {
+  const [data, setData] = useState(null)
+  const [clv, setClv] = useState(null)
+  const [err, setErr] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [hidden, setHidden] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(ODDSET_HIDDEN_KEY)) || [] } catch { return [] }
+  })
+
+  const load = () =>
+    Promise.all([
+      fetch(`/api/oddset/matches?_t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()),
+      fetch(`/api/oddset/clv?_t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
+    ]).then(([d, c]) => { setData(d); setClv(c); setErr(null) })
+      .catch((e) => setErr(String(e)))
+  useEffect(() => { load() }, [])  // eslint-disable-line
+
+  const refresh = async () => {
+    setBusy(true)
+    try {
+      const r = await fetch(`/api/oddset/refresh?_t=${Date.now()}`, { method: 'POST', cache: 'no-store' })
+      if (!r.ok) throw new Error(`Hämtning ${r.status}`)
+      await load()
+    } catch (e) { setErr(String(e)) } finally { setBusy(false) }
+  }
+
+  const toggleLeague = (k) => {
+    const h = hidden.includes(k) ? hidden.filter((x) => x !== k) : [...hidden, k]
+    setHidden(h)
+    try { localStorage.setItem(ODDSET_HIDDEN_KEY, JSON.stringify(h)) } catch { /* ok */ }
+  }
+
+  const fmtTime = (iso) => iso ? new Date(iso).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }) : ''
+  const fmtDay = (iso) => iso ? new Date(iso).toLocaleDateString('sv-SE', { weekday: 'long', day: 'numeric', month: 'numeric' }) : '?'
+  const serie = (mv) => (mv?.pts || []).map((p) => `${new Date(p.t).toLocaleString('sv-SE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}  ${p.o.toFixed(2)}`).join('\n')
+
+  const arrow = (mv) => {
+    if (!mv || mv.n < 2 || Math.abs(mv.last - mv.first) < 0.01) return null
+    const down = mv.last < mv.first
+    const pct = Math.round(Math.abs(mv.last / mv.first - 1) * 100)
+    return <span className={down ? 'mv down' : 'mv up'}
+      title={`${down ? 'Oddset har sjunkit' : 'Oddset har stigit'} ${mv.first.toFixed(2)} → ${mv.last.toFixed(2)}\n${serie(mv)}`}>
+      {down ? '↓' : '↑'}{pct >= 1 ? `${pct}%` : ''}</span>
+  }
+
+  const fmtAh = (l) => (l > 0 ? `+${l}` : `${l}`)
+
+  // grön edge-pill: devigad Pinnacle (fair) säger att SvS-oddset är för högt
+  const edgePill = (v) => v && v.edge >= 0.02 && (
+    <span className="epill" title={`Devigad Pinnacle: ${(v.fair * 100).toFixed(1)}% (fair odds ${(1 / v.fair).toFixed(2)})\nSvS betalar ${v.odds.toFixed(2)} → ${(v.edge * 100).toFixed(1)}% övervärde${v.derived ? '\n(P~ = härlett ur handikapp — ta med en nypa salt)' : ''}`}>
+      +{Math.round(v.edge * 100)}%{v.derived ? '°' : ''}
+    </span>
+  )
+
+  const steamBadge = (m) => {
+    const st = m.steam
+    if (!st) return null
+    const parts = Object.entries(st).flatMap(([sg, sh]) =>
+      [['6h', sh.h6], ['24h', sh.h24]].filter(([, pp]) => pp != null && Math.abs(pp) >= 3.5)
+        .map(([w, pp]) => `${sg}: ${pp > 0 ? '+' : ''}${pp} pp/${w}`))
+    if (!parts.length) return null
+    const strong = Object.values(st).some((sh) =>
+      Math.abs(sh.h6 || 0) >= 6 || Math.abs(sh.h24 || 0) >= 6)
+    return <span className={strong ? 'steam strong' : 'steam'}
+      title={`Sharp-steam (devigad Pinnacle-sannolikhet):\n${parts.join('\n')}\nPositivt = tecknet kortas — kolla om SvS hängt med`}>🔥</span>
+  }
+
+  const cell1x2 = (m, sign) => {
+    const svs = m.odds?.svenskaspel?.['1x2']
+    const pin = m.odds?.pinnacle?.['1x2']
+    const mv = m.movement?.svenskaspel?.['1x2']?.[sign]
+    const mvP = m.movement?.pinnacle?.['1x2']?.[sign]
+    return (
+      <td className="oc" key={sign}>
+        <div className="o" title={mv?.pts?.length > 1 ? serie(mv) : undefined}>
+          {svs?.[sign] ? svs[sign].toFixed(2) : '–'}{arrow(mv)}{edgePill(m.value?.['1x2']?.[sign])}
+        </div>
+        {pin?.[sign] && (
+          <div className="p" title={mvP?.pts?.length > 1 ? `Pinnacle:\n${serie(mvP)}` : 'Pinnacle (sharp)'}>
+            P{pin.derived ? '~' : ''} {pin[sign].toFixed(2)}{arrow(mvP)}
+          </div>
+        )}
+      </td>
+    )
+  }
+
+  const cellPair = (m, market, k1, k2, fmtL) => {
+    const svs = m.odds?.svenskaspel?.[market]
+    const pin = m.odds?.pinnacle?.[market]
+    const v1 = m.value?.[market]?.[k1], v2 = m.value?.[market]?.[k2]
+    return (
+      <td className="oc pair">
+        <div className="o">{svs ? `${fmtL(svs.line)} · ${svs[k1].toFixed(2)} / ${svs[k2].toFixed(2)}` : '–'}
+          {edgePill(v1) || edgePill(v2)}</div>
+        {pin && <div className="p">P {fmtL(pin.line)} · {pin[k1].toFixed(2)} / {pin[k2].toFixed(2)}</div>}
+      </td>
+    )
+  }
+
+  const MARKET_LABEL = { '1x2': '1X2', ah: 'AH', ou: 'Ö/U' }
+
+  if (err) return <section><h2>Oddset</h2><div className="error">{err}</div></section>
+  if (!data) return <section><h2>Oddset</h2><div className="loading">Hämtar…</div></section>
+
+  const counts = {}
+  for (const m of data.matches) counts[m.league] = (counts[m.league] || 0) + 1
+  const visible = data.matches.filter((m) => !hidden.includes(m.league))
+  const leagueName = Object.fromEntries(data.leagues.map((l) => [l.key, l.name]))
+  const days = []
+  for (const m of visible) {
+    const key = (m.start || '').slice(0, 10)
+    const d = days[days.length - 1]
+    if (d && d.key === key) d.matches.push(m)
+    else days.push({ key, label: fmtDay(m.start), matches: [m] })
+  }
+
+  const signals = []
+  for (const m of visible) {
+    for (const [mk, per] of Object.entries(m.value || {})) {
+      for (const [sg, v] of Object.entries(per)) {
+        if (v.edge >= 0.02) signals.push({ m, mk, sg, v })
+      }
+    }
+  }
+  signals.sort((a, b) => b.v.edge - a.v.edge)
+
   return (
-    <section>
-      <h2>Oddset — enskilda matcher</h2>
-      <p className="hint">
-        Här kommer matchlistan i tidsordning (Allsvenskan, norska Eliteserien och
-        träningsmatcher till att börja med): aktuella odds, oddsrörelser, sharp-jämförelse
-        (Pinnacle vs Svenska Spel) och tips på värdespel — 1X2, asian handicap, över/under.
-        Byggs i Etapp 1–3, se docs/plan.md.
-      </p>
+    <section className="oddset">
+      <div className="analys-head">
+        <h2>Oddset — enskilda matcher</h2>
+        <span className="hovertip">💡 stort odds = Svenska Spel, P = Pinnacle (sharp, P~ = härlett) ·
+          röd ↓ = oddset sjunker (ökad vinstchans) · håll muspekaren över för hela rörelsen</span>
+      </div>
+      <div className="oddset-bar">
+        {data.leagues.map((l) => (
+          <button key={l.key} className={hidden.includes(l.key) ? 'lg off' : 'lg'}
+            onClick={() => toggleLeague(l.key)}
+            title={hidden.includes(l.key) ? 'Visa ligan' : 'Dölj ligan'}>
+            {l.name} {counts[l.key] ? `(${counts[l.key]})` : '(0)'}
+          </button>
+        ))}
+        <span className="spacer" />
+        <span className="hint">
+          {data.last_run ? `hämtat ${new Date(data.last_run).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}` : 'inga odds hämtade ännu'}
+        </span>
+        <button onClick={refresh} disabled={busy}>{busy ? 'Hämtar…' : '↻ Hämta färska odds'}</button>
+      </div>
+      {signals.length > 0 && (
+        <div className="valuelist">
+          <div className="valhead"><b>💰 Värdespel just nu</b>
+            <span className="hint"> SvS-odds över devigad Pinnacle (sharp-ankrat) · ° = härlett sharp-pris</span></div>
+          {signals.slice(0, 10).map(({ m, mk, sg, v }, i) => (
+            <div key={i} className="valrow">
+              <span className="epill big">+{(v.edge * 100).toFixed(1)}%{v.derived ? '°' : ''}</span>
+              <b>{MARKET_LABEL[mk]}{mk === 'ah' ? ` ${fmtAh(v.line)}` : mk === 'ou' ? ` ${v.line}` : ''} {sg}</b>
+              <span>@ {v.odds.toFixed(2)}</span>
+              <span className="hint">fair {(1 / v.fair).toFixed(2)}</span>
+              <span className="vteams">{m.home} – {m.away}</span>
+              <span className="hint">{fmtDay(m.start)} {fmtTime(m.start)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {days.length === 0 && <p className="hint">Inga kommande matcher i synliga ligor.</p>}
+      <table className="oddset-table">
+        <thead>
+          <tr><th>Tid</th><th>Match</th><th>1</th><th>X</th><th>2</th>
+            <th title="Asian handicap (hemmalinje) · odds hemma / borta">AH</th>
+            <th title="Asiatisk total · odds över / under">Ö/U</th></tr>
+        </thead>
+        {days.map((d) => (
+          <tbody key={d.key}>
+            <tr className="dayrow"><td colSpan={7}>{d.label}</td></tr>
+            {d.matches.map((m) => (
+              <tr key={m.id} className={m.start && new Date(m.start) < new Date() ? 'started' : ''}>
+                <td className="time">{fmtTime(m.start)}</td>
+                <td className="teams">
+                  <span className="lgtag">{(leagueName[m.league] || m.league).slice(0, 1)}</span>
+                  {m.home} – {m.away}{steamBadge(m)}
+                </td>
+                {['1', 'X', '2'].map((s) => cell1x2(m, s))}
+                {cellPair(m, 'ah', 'H', 'A', fmtAh)}
+                {cellPair(m, 'ou', 'O', 'U', (l) => l)}
+              </tr>
+            ))}
+          </tbody>
+        ))}
+      </table>
+      {clv && clv.n > 0 && (
+        <p className="hint clvline"
+          title="Varje sharp-edge ≥2% loggas (först/bäst per marknad). När matchen startar jämförs mot devigad Pinnacle-stängning: positivt snitt = flaggorna ligger före marknaden (äkta signal), negativt = brus. Facit byggs automatiskt av insamlingen.">
+          📒 Signal-logg: {clv.n} flaggade edges · {clv.n_resolved} med stängning
+          {clv.avg_close_ev != null && <> · snitt-EV mot stängningen <b className={clv.avg_close_ev >= 0 ? 'pos' : 'neg'}>{(clv.avg_close_ev * 100).toFixed(1)}%</b></>}
+        </p>
+      )}
     </section>
   )
 }
