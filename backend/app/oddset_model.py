@@ -53,6 +53,17 @@ def dc_matrix(mu_h: float, mu_a: float, rho: float = DC_RHO_CLUB) -> list[list[f
     return [[c / s for c in row] for row in m]
 
 
+def temper(matrix: list[list[float]], t: float) -> list[list[float]]:
+    """Temperatur-kalibrering av HELA målmatrisen: p^(1/T), renormaliserad.
+    T > 1 = modellen var överkonfident (extremer krymps). T fittas per liga i
+    walk-forward-backtesten (cli oddsetcalibrate) — steget mot icke-amber."""
+    if abs(t - 1.0) < 1e-6:
+        return matrix
+    m = [[c ** (1 / t) for c in row] for row in matrix]
+    s = sum(sum(row) for row in m) or 1.0
+    return [[c / s for c in row] for row in m]
+
+
 def matrix_1x2(m: list[list[float]]) -> dict[str, float]:
     p1 = sum(m[i][j] for i in range(len(m)) for j in range(len(m)) if i > j)
     p2 = sum(m[i][j] for i in range(len(m)) for j in range(len(m)) if i < j)
@@ -330,6 +341,21 @@ def attach_model(store: Storage, matches: list[dict]) -> None:
     elo = oddset_data.get_elo(store)
     now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     corner_ms: dict[str, Optional[dict]] = {}
+    cals: dict[str, dict] = {}
+
+    def _cal(league: str) -> dict:
+        if league not in cals:
+            import json as _json
+            raw = store.meta_get(f"oddset_cal:{league}")
+            if not raw:   # ärv pool-huvudligans kalibrering (Superettan/OBOS saknar
+                pool = FIT_POOLS.get(league, (league,))   # stängningsodds att fitta mot)
+                raw = store.meta_get(f"oddset_cal:{pool[0]}")
+            try:
+                cals[league] = _json.loads(raw) if raw else {}
+            except ValueError:
+                cals[league] = {}
+        return cals[league]
+
     for m in matches:
         lg = m.get("league")
         if lg not in oddset_data.MODEL_LEAGUES:   # bara ligor med resultatdata
@@ -365,6 +391,8 @@ def attach_model(store: Storage, matches: list[dict]) -> None:
             mu_h, mu_a = _anchor_total(mu_h, mu_a, pin_ou["line"], p_over)
             anchored = True
         matrix = dc_matrix(mu_h, mu_a)
+        cal_t = _cal(lg).get("t") or 1.0
+        matrix = temper(matrix, cal_t)
         probs = matrix_1x2(matrix)
         svs_all = (m.get("odds") or {}).get("svenskaspel") or {}
         svs = svs_all.get("1x2") or {}
@@ -392,7 +420,8 @@ def attach_model(store: Storage, matches: list[dict]) -> None:
             "fair": {s: round(1 / p, 2) if p > 0.001 else None
                      for s, p in probs.items()},
             "mu": [round(mu_h, 2), round(mu_a, 2)],
-            "anchored": anchored, "edges": edges, "prior": prior_used, **pairs}
+            "anchored": anchored, "edges": edges, "prior": prior_used,
+            "cal_t": cal_t if cal_t != 1.0 else None, **pairs}
         cm = corner_ms.get(lg)
         if cm:
             m["model"]["corners"] = expected_corners(cm, mu_h, mu_a)

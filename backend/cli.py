@@ -457,6 +457,23 @@ def main() -> None:
                                                pool_extra=extra)
             tag = (" +xG" if use_xg else "") + (" +pool" if extra else "")
             oddset_backtest.print_report(lg + tag, oddset_backtest.report(preds))
+    elif cmd == "oddsetcalibrate":
+        import datetime as _dt
+        import json as _json
+        from app import oddset_backtest
+        store = Storage()
+        try:
+            for lg, extra in (("allsvenskan", ("superettan",)), ("eliteserien", ())):
+                preds = oddset_backtest.run_league(lg, use_store_xg=True,
+                                                   pool_extra=extra)
+                t, ll, ll1 = oddset_backtest.fit_temperature(preds)
+                store.meta_set(f"oddset_cal:{lg}", _json.dumps(
+                    {"t": t, "logloss": ll, "logloss_t1": ll1, "n": len(preds),
+                     "at": _dt.datetime.now(_dt.timezone.utc)
+                     .strftime("%Y-%m-%dT%H:%M:%SZ")}))
+                print(f"{lg}: T={t} (logloss {ll} vs {ll1} vid T=1, n={len(preds)}) — sparad")
+        finally:
+            store.close()
     elif cmd == "xgbackfill":
         from app import oddset_data
         store = Storage()

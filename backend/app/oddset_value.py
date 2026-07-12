@@ -9,6 +9,7 @@ Metodregler (dyrt vunna i vm-projektet):
 from __future__ import annotations
 
 import datetime as dt
+import json
 from typing import Optional
 
 from . import notify
@@ -159,20 +160,22 @@ def log_and_notify(store: Storage, matches: list[dict]) -> dict:
                     "at": at, "odds": v["odds"], "fair": v["fair"],
                     "edge": v["edge"], "book": v.get("book")})
                 n_logged += 1
-                if v["edge"] >= EDGE_NOTIFY and notify.enabled():
+                if v["edge"] >= EDGE_NOTIFY:
                     key = f"oddset_ntfy_edge:{m['id']}:{market}:{sign}"
                     if not store.meta_get(key):
                         lt = f" {v['line']:+g}" if market == "ah" else \
                              f" {v['line']:g}" if market in ("ou", "cor") else ""
                         bok = {"svenskaspel": "SvS"}.get(v.get("book"),
                                                          (v.get("book") or "?").title())
-                        notify.push(
-                            f"Värde: {desc}",
-                            f"{MARKET_LABEL[market]}{lt} {sign} @ {v['odds']:.2f} hos {bok}"
-                            f" — fair {1 / v['fair']:.2f} (Pinnacle) = {_fmt_pct(v['edge'])} edge",
-                            tags="moneybag")
-                        store.meta_set(key, at)
-                        n_pushed += 1
+                        title = f"Värde: {desc}"
+                        msg = (f"{MARKET_LABEL[market]}{lt} {sign} @ {v['odds']:.2f} hos {bok}"
+                               f" — fair {1 / v['fair']:.2f} (Pinnacle) = {_fmt_pct(v['edge'])} edge")
+                        # trigga alltid (historiken i UI); pusha bara med NTFY_TOPIC
+                        sent = notify.enabled() and notify.push(title, msg, tags="moneybag")
+                        store.meta_set(key, json.dumps(
+                            {"at": at, "title": title, "msg": msg, "sent": bool(sent)},
+                            ensure_ascii=False))
+                        n_pushed += bool(sent)
         # modellens forward-logg (amber-tier, market 'm1x2'): loggas för facit,
         # notifierar ALDRIG. Det här är vägen mot grönt — modellen får grön status
         # per liga först när dess loggade flaggor visar positiv close-EV över tid.
@@ -206,16 +209,18 @@ def log_and_notify(store: Storage, matches: list[dict]) -> dict:
         # snabb sharp-rörelse (6h) — boken kan hänga efter (träningsmatch-caset)
         for sign, sh in (m.get("steam") or {}).items():
             pp = sh.get("h6")
-            if pp is None or abs(pp) < STEAM_NOTIFY_PP or not notify.enabled():
+            if pp is None or abs(pp) < STEAM_NOTIFY_PP:
                 continue
             key = f"oddset_ntfy_steam:{m['id']}:{sign}"
             if not store.meta_get(key):
-                notify.push(
-                    f"Steam: {desc}",
-                    f"Pinnacle har flyttat {sign} {pp:+.1f} pp på 6 h — "
-                    f"kolla om SvS/andra böcker hängt med", tags="fire")
-                store.meta_set(key, at)
-                n_pushed += 1
+                title = f"Steam: {desc}"
+                msg = (f"Pinnacle har flyttat {sign} {pp:+.1f} pp på 6 h — "
+                       f"kolla om SvS/andra böcker hängt med")
+                sent = notify.enabled() and notify.push(title, msg, tags="fire")
+                store.meta_set(key, json.dumps(
+                    {"at": at, "title": title, "msg": msg, "sent": bool(sent)},
+                    ensure_ascii=False))
+                n_pushed += bool(sent)
     return {"logged": n_logged, "pushed": n_pushed}
 
 

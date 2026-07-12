@@ -196,6 +196,27 @@ def report(preds: list[dict], rho: float = oddset_model.DC_RHO_CLUB) -> dict:
     return out
 
 
+def fit_temperature(preds: list[dict],
+                    rho: float = oddset_model.DC_RHO_CLUB) -> tuple[float, float, float]:
+    """Grid-sök temperatur T som minimerar 1X2-logloss på walk-forward-
+    prediktionerna. Returnerar (T, logloss_vid_T, logloss_vid_1.0)."""
+    base_ll = None
+    best = (1.0, 1e9)
+    for ti in range(70, 185, 5):
+        t = ti / 100
+        rows = []
+        for p in preds:
+            mx = oddset_model.temper(
+                oddset_model.dc_matrix(p["mu_h"], p["mu_a"], rho), t)
+            rows.append((oddset_model.matrix_1x2(mx), p["res"]))
+        ll = _logloss(rows)
+        if abs(t - 1.0) < 1e-6:
+            base_ll = ll
+        if ll < best[1]:
+            best = (t, ll)
+    return best[0], best[1], base_ll
+
+
 def print_report(league: str, rep: dict) -> None:
     print(f"\n=== {league} (n={rep['n']}) ===")
     print(f"logloss  modell {rep['logloss_model']}  vs marknad {rep['logloss_market']}"

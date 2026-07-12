@@ -650,6 +650,10 @@ class Storage:
         q += " ORDER BY date"
         return [dict(r) for r in self.conn.execute(q, args).fetchall()]
 
+    def meta_like(self, prefix: str) -> list[tuple[str, str]]:
+        return [(r["key"], r["value"]) for r in self.conn.execute(
+            "SELECT key, value FROM meta WHERE key LIKE ?", (prefix + "%",)).fetchall()]
+
     def oddset_log_flag(self, r: dict) -> None:
         """First/best per (match, marknad, tecken) — first skrivs aldrig över."""
         self.conn.execute(

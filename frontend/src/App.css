@@ -507,6 +507,25 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
 .schip { border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px;
   font-size: 10.5px; color: var(--muted); }
 .schip.star { border-color: #e0c04b; color: #e0c04b; font-weight: 700; }
+.idot { display: inline-block; min-width: 14px; text-align: center; margin-left: 6px;
+  border: 1px solid var(--line); border-radius: 50%; color: var(--muted);
+  font-size: 10px; font-style: italic; font-weight: 700; cursor: default; }
+.valhead { display: flex; align-items: center; gap: 6px; }
+.valhead .spacer { flex: 1; }
+.bankin { width: 70px; background: var(--panel); color: var(--text);
+  border: 1px solid var(--line); border-radius: 5px; padding: 2px 6px; font-size: 12px; }
+.teams.clickable, .clvline.clickable { cursor: pointer; }
+.detailrow td { background: var(--panel); }
+.dcharts { display: flex; gap: 14px; flex-wrap: wrap; padding: 6px 4px 2px; }
+.dchart .drange { color: var(--muted); margin-left: 6px; }
+.dmeta { display: flex; gap: 12px; flex-wrap: wrap; padding: 4px; align-items: center; }
+.clvbox .logtable { width: 100%; border-collapse: collapse; background: var(--panel2);
+  border-radius: 8px; font-size: 12px; margin-top: 4px; }
+.clvbox .logtable th { text-align: left; color: var(--muted); font-size: 10.5px;
+  text-transform: uppercase; padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.clvbox .logtable td { padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.clvbox .pos { color: var(--green); }
+.clvbox .neg { color: #e06b6b; }
 .epill.big { font-size: 11px; padding: 2px 8px; margin-left: 0; }
 .steam { margin-left: 5px; font-size: 12px; }
 .steam.strong { filter: drop-shadow(0 0 3px #e0853b); }

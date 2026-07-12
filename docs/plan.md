@@ -136,6 +136,27 @@ resp. matchdag, eval 2024-07→ (n=351 Allsvenskan, 330 Eliteserien). **Domen:**
   finns). 370 handbollsrader utrensade, ombackfill körd. Läxa inskriven i
   oddset_data: verifiera ALLTID sporten på Sofascore-id:n.
 
+**UI 2.0 + kalibrering (2026-07-12 kväll, Samans 5 punkter + mer):**
+- **Spelkort med mänskliga etiketter**: "2 · Halmstads BK @ 14.00" i stället för
+  "1X2 2" (tecknet smälte in i marknadsnamnet), "Degerfors +0.5 AH", "Under 3.5 mål".
+  `selLabel()` används i kort, radar, amber-lista.
+- **¼-Kelly på korten** (bank-input i panelhuvudet, localStorage svs_oddset_bank).
+- **Matchdetalj vid klick**: 3 odds-grafer (SvS grön/Pinnacle blå per tecken),
+  parmarknadsserier med linjer, modell-μ/fair/T/Elo, matchens alla loggade flaggor.
+- **Signal-loggen som tabell**: klick på 📒-raden → full tabell (flagga, bok, odds,
+  edge, bäst, stängnings-EV, tier).
+- **🎯 Bara signaler**-läge (filtrerar tabellen till matcher med någon signal).
+- **🔔 Larm-historik**: ALLA triggade larm loggas nu i meta (JSON med sent-flagga)
+  även utan NTFY_TOPIC ("ej pushad") — /api/oddset/notices + panel.
+- **Info-städning**: all förklaringstext borta från ytan — ℹ-prickar (hover) per
+  panel + legenden som full referens.
+- **Temperatur-kalibrering (steget mot icke-amber)**: `cli.py oddsetcalibrate`
+  fittar T per liga på walk-forward-prediktioner (hela målmatrisen p^(1/T)) och
+  sparar i meta; attach_model tillämpar live (Superettan/OBOS ärver pool-huvud-
+  ligans T). Resultat: **Allsvenskan T=1.0 (redan välkalibrerad!), Eliteserien
+  T=0.85** (underkonfident — skärpning förbättrar logloss 0.981→0.980).
+  Kvar mot grönt: forward-loggens facit (M3-kriteriet ≥50 stängda, positivt snitt).
+
 ## Modellplan — vägen till en modell att lita på (efter backtest-domen)
 
 Backtesten visade: DC-modellen är nära marknaden i Allsvenskan men slår den inte,

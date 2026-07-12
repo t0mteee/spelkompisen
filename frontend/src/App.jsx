@@ -657,6 +657,10 @@ function OddsetLegend() {
 function OddsetView() {
   const [data, setData] = useState(null)
   const [clv, setClv] = useState(null)
+  const [notices, setNotices] = useState(null)
+  const [showNotices, setShowNotices] = useState(false)
+  const [showLog, setShowLog] = useState(false)
+  const [expanded, setExpanded] = useState(null)
   const [err, setErr] = useState(null)
   const [busy, setBusy] = useState(false)
   const [hidden, setHidden] = useState(() => {
@@ -665,16 +669,31 @@ function OddsetView() {
   const [showModel, setShowModel] = useState(() => {
     try { return localStorage.getItem('svs_oddset_model') === '1' } catch { return false }
   })
+  const [onlySignals, setOnlySignals] = useState(() => {
+    try { return localStorage.getItem('svs_oddset_only') === '1' } catch { return false }
+  })
+  const [bank, setBank] = useState(() => {
+    try { return Number(localStorage.getItem('svs_oddset_bank')) || 1000 } catch { return 1000 }
+  })
   const toggleModel = () => {
     setShowModel(!showModel)
     try { localStorage.setItem('svs_oddset_model', showModel ? '0' : '1') } catch { /* ok */ }
+  }
+  const toggleOnly = () => {
+    setOnlySignals(!onlySignals)
+    try { localStorage.setItem('svs_oddset_only', onlySignals ? '0' : '1') } catch { /* ok */ }
+  }
+  const saveBank = (v) => {
+    setBank(v)
+    try { localStorage.setItem('svs_oddset_bank', String(v)) } catch { /* ok */ }
   }
 
   const load = () =>
     Promise.all([
       fetch(`/api/oddset/matches?_t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()),
       fetch(`/api/oddset/clv?_t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
-    ]).then(([d, c]) => { setData(d); setClv(c); setErr(null) })
+      fetch(`/api/oddset/notices?_t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
+    ]).then(([d, c, n]) => { setData(d); setClv(c); setNotices(n?.notices || []); setErr(null) })
       .catch((e) => setErr(String(e)))
   useEffect(() => { load() }, [])  // eslint-disable-line
 
@@ -731,6 +750,42 @@ function OddsetView() {
     const sh = lineShift(mv)
     return sh && <span className="lshift"
       title={`${who}-linjen har FLYTTATS ${sh.from} → ${sh.to} — linjeflytt är ofta en starkare signal än prisjusteringen (hela serien i pilens tooltip)`}>⇄{sh.to > sh.from ? '↑' : '↓'}</span>
+  }
+
+  // mänsklig spel-etikett: "2 · Halmstads BK", "Degerfors +0.5 AH", "Under 3.5"
+  const selLabel = (m, mk, sg, line) => {
+    if (mk === '1x2') return sg === '1' ? `1 · ${m.home}` : sg === '2' ? `2 · ${m.away}` : 'X · Kryss'
+    if (mk === 'ah') return `${sg === 'H' ? m.home : m.away} ${fmtAh(sg === 'H' ? line : -line)} AH`
+    if (mk === 'ou') return `${sg === 'O' ? 'Över' : 'Under'} ${line} mål`
+    return `${sg === 'O' ? 'Över' : 'Under'} ${line} hörnor`
+  }
+  const kelly = (v) => {
+    const f = Math.max(0, (v.fair * v.odds - 1) / (v.odds - 1)) / 4
+    return Math.round(bank * f)
+  }
+  const InfoDot = ({ text }) => <span className="idot" title={text}>i</span>
+
+  const DetailChart = ({ label, series }) => {
+    const all = series.flatMap((s) => s.pts || [])
+    if (all.length < 2) return null
+    const ts = all.map((p) => new Date(p.t).getTime())
+    const os = all.map((p) => p.o)
+    const t0 = Math.min(...ts), t1 = Math.max(...ts)
+    const o0 = Math.min(...os), o1 = Math.max(...os)
+    const W = 250, H = 64, PAD = 5
+    const X = (t) => t1 === t0 ? W / 2 : PAD + (t - t0) / (t1 - t0) * (W - 2 * PAD)
+    const Y = (o) => o1 === o0 ? H / 2 : H - PAD - (o - o0) / (o1 - o0) * (H - 2 * PAD)
+    return (
+      <div className="dchart">
+        <div className="hint">{label} <span className="drange">{o0.toFixed(2)}–{o1.toFixed(2)}</span></div>
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+          {series.map((s, i) => (s.pts?.length > 1
+            ? <polyline key={i} fill="none" stroke={s.color} strokeWidth="1.5"
+              points={s.pts.map((p) => `${X(new Date(p.t).getTime()).toFixed(1)},${Y(p.o).toFixed(1)}`).join(' ')} />
+            : null))}
+        </svg>
+      </div>
+    )
   }
 
   // mini-graf över sharp-seriens väg (röd = oddset ner = sannolikheten upp)
@@ -858,8 +913,23 @@ function OddsetView() {
   for (const m of data.matches) counts[m.league] = (counts[m.league] || 0) + 1
   const visible = data.matches.filter((m) => !hidden.includes(m.league))
   const leagueName = Object.fromEntries(data.leagues.map((l) => [l.key, l.name]))
+  const hasSignal = (m) => {
+    if (Object.values(m.value || {}).some((per) => Object.values(per).some((v) => v.edge >= 0.02))) return true
+    if (Object.values(m.steam || {}).some((sh) => Math.abs(sh.h6 ?? 0) >= 1.5 || Math.abs(sh.h24 ?? 0) >= 1.5)) return true
+    if (Object.values(m.model?.edges || {}).some((e) => e >= 0.05)) return true
+    for (const mk of ['ah', 'ou']) {
+      if (Object.values(m.model?.[mk]?.edges || {}).some((e) => e >= 0.05)) return true
+    }
+    for (const mk of ['ah', 'ou', 'cor']) {
+      const mv = m.movement?.pinnacle?.[mk]
+      if (mv && lineShift(mv.H || mv.O)) return true
+    }
+    return false
+  }
+  const listed = onlySignals ? visible.filter(hasSignal) : visible
+
   const days = []
-  for (const m of visible) {
+  for (const m of listed) {
     const key = (m.start || '').slice(0, 10)
     const d = days[days.length - 1]
     if (d && d.key === key) d.matches.push(m)
@@ -895,8 +965,6 @@ function OddsetView() {
     <section className="oddset">
       <div className="analys-head">
         <h2>Oddset — enskilda matcher</h2>
-        <span className="hovertip">💡 grön pill = sharp-ankrat värde (spelbart) · amber = modell (spaning) ·
-          🔥 = snabb sharp-rörelse · hovra på allt för detaljer</span>
       </div>
       <OddsetLegend />
       <div className="oddset-bar">
@@ -908,8 +976,16 @@ function OddsetView() {
           </button>
         ))}
         <button className={showModel ? 'lg model on' : 'lg model'} onClick={toggleModel}
-          title="Egen målmodell (Dixon-Coles per liga, xG-viktad via Sofascore, totalnivå ankrad mot sharp Ö/U när Pinnacle finns). AMBER-TIER: experimentell och okalibrerad — visas som M-rad + amber-pills, hålls utanför värdelistan och facitet tills backtesten (Etapp 5) godkänt den.">
+          title="Egen målmodell (Dixon-Coles per liga, xG-viktad, temperatur-kalibrerad mot backtest). Amber-tier: M-rader + amber-pills, utanför facitet tills forward-loggen godkänt den.">
           🧪 Modell {showModel ? 'på' : 'av'}
+        </button>
+        <button className={onlySignals ? 'lg on' : 'lg'} onClick={toggleOnly}
+          title="Visa bara matcher med någon signal: sharp-värde, steam, linjeflytt eller modellavvikelse. Snabbkollen på mobilen.">
+          🎯 Bara signaler
+        </button>
+        <button className={showNotices ? 'lg on' : 'lg'} onClick={() => setShowNotices(!showNotices)}
+          title="Historik över triggade larm (värde ≥3 % / steam ≥5 pp) — även de som INTE pushades för att NTFY_TOPIC saknas.">
+          🔔 {notices?.length || 0}
         </button>
         <span className="spacer" />
         <span className="hint">
@@ -917,11 +993,31 @@ function OddsetView() {
         </span>
         <button onClick={refresh} disabled={busy}>{busy ? 'Hämtar…' : '↻ Hämta färska odds'}</button>
       </div>
+      {showNotices && notices && (
+        <div className="valuelist noticelist">
+          <div className="valhead"><b>🔔 Larm-historik</b>
+            <InfoDot text={'Alla triggade larm (värde ≥3 % / steam ≥5 pp, dedup per selektion).\n"ej pushad" = NTFY_TOPIC saknas i backend/.env — sätt den + prenumerera i ntfy-appen för pushar till mobilen.'} /></div>
+          {notices.length === 0 && <div className="hint">Inga larm triggade ännu.</div>}
+          {notices.slice(0, 20).map((n, i) => (
+            <div key={i} className="valrow">
+              <span className="hint">{n.at ? new Date(n.at).toLocaleString('sv-SE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+              <b>{n.title}</b>
+              <span className="hint">{n.msg}</span>
+              <span className={n.sent ? 'epill' : 'schip'} title={n.sent ? 'Skickad via ntfy' : 'Inte skickad — NTFY_TOPIC saknas'}>
+                {n.sent ? 'pushad' : 'ej pushad'}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {signals.length > 0 && (
         <div className="valuelist">
           <div className="valhead"><b>💰 Värdespel just nu</b>
-            <span className="hint"> bok-odds över devigad Pinnacle (sharp-ankrat = spelbart) · ° = härlett sharp-pris ·
-              ★ = flera oberoende signaler pekar åt samma håll</span></div>
+            <InfoDot text={'Bok-odds över devigad Pinnacle (sharp-ankrat = den spelbara signalen).\n° = härlett sharp-pris · ★ = flera oberoende signaler pekar åt samma håll.\n¼-Kelly räknas på fair-sannolikheten och din bank.'} />
+            <span className="spacer" />
+            <span className="hint">bank</span>
+            <input className="bankin" type="number" value={bank} min="0"
+              onChange={(e) => saveBank(Number(e.target.value) || 0)} /> <span className="hint">kr</span>
+          </div>
           <div className="tipgrid">
             {signals.slice(0, 8).map(({ m, mk, sg, v }, i) => {
               const tier = v.edge >= 0.07 ? ['STARK EDGE', 't3'] : v.edge >= 0.04 ? ['EDGE', 't2'] : ['SVAG EDGE', 't1']
@@ -942,7 +1038,7 @@ function OddsetView() {
               return (
                 <div key={i} className={`tipcard ${tier[1]}`}>
                   <div className="tiphead">
-                    <b className="tipsel">{MARKET_LABEL[mk]}{mk === 'ah' ? ` ${fmtAh(v.line)}` : (mk === 'ou' || mk === 'cor') ? ` ${v.line}` : ''} {sg} @ {v.odds.toFixed(2)}</b>
+                    <b className="tipsel">{selLabel(m, mk, sg, v.line)} @ {v.odds.toFixed(2)}</b>
                     {v.book !== 'svenskaspel' && <span className="tipbook">hos {BOOK_NAME[v.book] || v.book}</span>}
                     <span className={`edgechip ${tier[1]}`}>{tier[0]} +{(v.edge * 100).toFixed(1)}%{v.derived ? '°' : ''}</span>
                   </div>
@@ -954,7 +1050,8 @@ function OddsetView() {
                   </div>
                   <div className="tipwhy hint">
                     Devigad Pinnacle: {(v.fair * 100).toFixed(1)} % (fair {(1 / v.fair).toFixed(2)}) —
-                    {' '}{BOOK_NAME[v.book] || v.book} betalar {v.odds.toFixed(2)}.
+                    {' '}{BOOK_NAME[v.book] || v.book} betalar {v.odds.toFixed(2)} ·
+                    {' '}¼-Kelly: <b>{kelly(v)} kr</b>
                   </div>
                   {support.length > 0 && (
                     <div className="tipsupport">
@@ -971,8 +1068,7 @@ function OddsetView() {
       {movers.length > 0 && (
         <div className="valuelist moverlist">
           <div className="valhead"><b>📈 Största rörelserna</b>
-            <span className="hint"> Pinnacles devigade sannolikhet, skift i procentenheter (6/24 h) ·
-              grönt till höger = en bok står kvar på gamla priset — det är läget att agera</span></div>
+            <InfoDot text={'Pinnacles devigade sannolikhet, skift i procentenheter (6/24 h), alla ligor oavsett flikfilter.\nGrönt till höger = en bok står kvar på gamla priset — det är läget att agera (träningsmatch-caset).'} /></div>
           {movers.slice(0, 8).map(({ m, sg, pp, win }, i) => {
             const mvP = m.movement?.pinnacle?.['1x2']?.[sg]
             const v = m.value?.['1x2']?.[sg]
@@ -980,7 +1076,7 @@ function OddsetView() {
               <div key={i} className="valrow">
                 <span className={Math.abs(pp) >= 3.5 ? 'steam strong' : 'steam'}>🔥</span>
                 <b className={pp > 0 ? 'mv down' : 'mv up'}>{pp > 0 ? '+' : ''}{pp} pp/{win}</b>
-                <b>{sg}</b>
+                <b>{selLabel(m, '1x2', sg)}</b>
                 <span className="hint">{mvP ? `P ${mvP.first.toFixed(2)} → ${mvP.last.toFixed(2)}` : ''}</span>
                 <span className="vteams">
                   <span className="lgtag">{(leagueName[m.league] || m.league).slice(0, 1)}</span>
@@ -1000,14 +1096,13 @@ function OddsetView() {
         for (const m of visible) {
           if (m.start && new Date(m.start) < new Date()) continue
           for (const [sg, e] of Object.entries(m.model?.edges || {})) {
-            if (e >= 0.05) msig.push({ m, label: '1X2', sg, e, p: m.model.p[sg], fair: m.model.fair[sg] })
+            if (e >= 0.05) msig.push({ m, label: selLabel(m, '1x2', sg), e, p: m.model.p[sg], fair: m.model.fair[sg] })
           }
           for (const mk of ['ah', 'ou']) {
             const mp = m.model?.[mk]
             for (const [sd, e] of Object.entries(mp?.edges || {})) {
               if (e >= 0.05) msig.push({
-                m, label: `${MARKET_LABEL[mk]} ${mk === 'ah' ? fmtAh(mp.line) : mp.line}`,
-                sg: sd, e, p: mp[`p${sd}`], fair: mp[sd],
+                m, label: selLabel(m, mk, sd, mp.line), e, p: mp[`p${sd}`], fair: mp[sd],
               })
             }
           }
@@ -1016,12 +1111,12 @@ function OddsetView() {
         return msig.length > 0 && (
           <div className="valuelist amberlist">
             <div className="valhead"><b>🧪 Modell-avvikelser (amber)</b>
-              <span className="hint"> egen modell (xG-viktad) vs SvS-odds, nu även AH/Ö-U — EXPERIMENTELLT: backtest v2 säger +10 % ROI i Allsvenskan vid låga trösklar (MEN inom bruset, n=326) och −17 % i Eliteserien; AH/Ö-U är obacktestade. Forward-loggen avgör — signalspaning, inte spelrekommendation.</span></div>
-            {msig.slice(0, 8).map(({ m, label, sg, e, p, fair }, i) => (
+              <InfoDot text={'Egen modell (xG-viktad, temperatur-kalibrerad) vs SvS-odds, inkl. AH/Ö-U.\nEXPERIMENTELLT: backtest v2 säger +10 % ROI i Allsvenskan vid låga trösklar (inom bruset, n=326), −17 % i Eliteserien; AH/Ö-U obacktestade.\nForward-loggen (📒) avgör om modellen släpps upp — signalspaning, inte spelrekommendation.'} /></div>
+            {msig.slice(0, 8).map(({ m, label, e, p, fair }, i) => (
               <div key={i} className="valrow">
                 <span className="apill big">+{(e * 100).toFixed(1)}%</span>
-                <b>{label} {sg}</b>
-                <span>modell {(p * 100).toFixed(0)}% (fair {fair?.toFixed(2)})</span>
+                <b>{label}</b>
+                <span className="hint">modell {(p * 100).toFixed(0)}% (fair {fair?.toFixed(2)})</span>
                 <span className="vteams">{m.home} – {m.away}</span>
                 <span className="hint">{fmtDay(m.start)} {fmtTime(m.start)}</span>
               </div>
@@ -1041,32 +1136,93 @@ function OddsetView() {
           <tbody key={d.key}>
             <tr className="dayrow"><td colSpan={8}>{d.label}</td></tr>
             {d.matches.map((m) => (
-              <tr key={m.id} className={m.start && new Date(m.start) < new Date() ? 'started' : ''}>
-                <td className="time">{fmtTime(m.start)}</td>
-                <td className="teams"
-                  title={[m.elo && `ClubElo: ${m.elo.h ?? '?'} vs ${m.elo.a ?? '?'}`,
-                    m.model && `Modell-μ: ${m.model.mu[0]}–${m.model.mu[1]}${m.model.anchored ? ' (ankrad mot sharp)' : ''}`]
-                    .filter(Boolean).join('\n') || undefined}>
-                  <span className="lgtag">{(leagueName[m.league] || m.league).slice(0, 1)}</span>
-                  {m.home} – {m.away}{steamBadge(m)}
-                </td>
-                {['1', 'X', '2'].map((s) => cell1x2(m, s))}
-                {cellPair(m, 'ah', 'H', 'A', fmtAh)}
-                {cellPair(m, 'ou', 'O', 'U', (l) => l)}
-                {cellPair(m, 'cor', 'O', 'U', (l) => l)}
-              </tr>
+              <Fragment key={m.id}>
+                <tr className={m.start && new Date(m.start) < new Date() ? 'started' : ''}>
+                  <td className="time">{fmtTime(m.start)}</td>
+                  <td className="teams clickable"
+                    onClick={() => setExpanded(expanded === m.id ? null : m.id)}
+                    title={[`Klicka för detaljvy (grafer, serier, flaggor)`,
+                      m.elo && `ClubElo: ${m.elo.h ?? '?'} vs ${m.elo.a ?? '?'}`,
+                      m.model && `Modell-μ: ${m.model.mu[0]}–${m.model.mu[1]}${m.model.anchored ? ' (ankrad mot sharp)' : ''}`]
+                      .filter(Boolean).join('\n')}>
+                    <span className="lgtag">{(leagueName[m.league] || m.league).slice(0, 1)}</span>
+                    {m.home} – {m.away}{steamBadge(m)}
+                  </td>
+                  {['1', 'X', '2'].map((s) => cell1x2(m, s))}
+                  {cellPair(m, 'ah', 'H', 'A', fmtAh)}
+                  {cellPair(m, 'ou', 'O', 'U', (l) => l)}
+                  {cellPair(m, 'cor', 'O', 'U', (l) => l)}
+                </tr>
+                {expanded === m.id && (
+                  <tr className="detailrow"><td colSpan={8}>
+                    <div className="dcharts">
+                      {['1', 'X', '2'].map((sg) => (
+                        <DetailChart key={sg}
+                          label={sg === '1' ? `1 · ${m.home}` : sg === '2' ? `2 · ${m.away}` : 'X · Kryss'}
+                          series={[
+                            { color: 'var(--green)', pts: m.movement?.svenskaspel?.['1x2']?.[sg]?.pts },
+                            { color: '#5b9bd5', pts: m.movement?.pinnacle?.['1x2']?.[sg]?.pts },
+                          ]} />
+                      ))}
+                    </div>
+                    <div className="dmeta hint">
+                      <span><b style={{ color: 'var(--green)' }}>●</b> SvS · <b style={{ color: '#5b9bd5' }}>●</b> Pinnacle</span>
+                      {['ah', 'ou', 'cor'].map((mk) => {
+                        const mv = m.movement?.pinnacle?.[mk]
+                        const sgn = mk === 'ah' ? 'H' : 'O'
+                        const a = mv?.[sgn]
+                        if (!a) return null
+                        return <span key={mk}>{MARKET_LABEL[mk]} (P): [{a.first_l}] {a.first.toFixed(2)} → [{a.last_l}] {a.last.toFixed(2)} ({a.n} punkter)</span>
+                      })}
+                      {m.model && <span>Modell: μ {m.model.mu[0]}–{m.model.mu[1]} · fair {m.model.fair['1']}/{m.model.fair['X']}/{m.model.fair['2']}{m.model.cal_t ? ` · T=${m.model.cal_t}` : ''}{m.model.prior ? ' · Elo-prior' : ''}</span>}
+                      {m.elo && <span>Elo {m.elo.h ?? '?'}–{m.elo.a ?? '?'}</span>}
+                      {(clv?.rows || []).filter((r) => r.match_id === m.id).map((r, j) => (
+                        <span key={j} className={r.tier === 'model' ? 'apill' : 'epill'}>
+                          {r.market} {r.sign} @{r.first_odds} {r.first_edge > 0 ? '+' : ''}{Math.round(r.first_edge * 100)}%
+                          {r.closing_fair != null ? ` → close-EV ${((r.closing_fair * r.first_odds - 1) * 100).toFixed(0)}%` : ' · öppen'}
+                        </span>
+                      ))}
+                    </div>
+                  </td></tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         ))}
       </table>
       {clv && (clv.sharp?.n > 0 || clv.model?.n > 0) && (
-        <p className="hint clvline"
-          title="Varje flagga loggas (först/bäst per marknad) och jämförs efter avspark med devigad Pinnacle-stängning. Positivt snitt = signalen ligger före marknaden (äkta), negativt = brus. Sharp-raden är den spelbara signalen; modell-raden är forward-testet som avgör om modellen någonsin får bli grön (krav: positivt snitt över ≥50 stängda flaggor per liga).">
-          📒 Signal-logg — sharp: {clv.sharp?.n ?? 0} flaggor · {clv.sharp?.n_resolved ?? 0} stängda
-          {clv.sharp?.avg_close_ev != null && <> · snitt <b className={clv.sharp.avg_close_ev >= 0 ? 'pos' : 'neg'}>{(clv.sharp.avg_close_ev * 100).toFixed(1)}%</b></>}
-          {clv.model?.n > 0 && <> &nbsp;|&nbsp; 🧪 modell: {clv.model.n} flaggor · {clv.model.n_resolved} stängda
-            {clv.model.avg_close_ev != null && <> · snitt <b className={clv.model.avg_close_ev >= 0 ? 'pos' : 'neg'}>{(clv.model.avg_close_ev * 100).toFixed(1)}%</b></>}</>}
-        </p>
+        <div className="clvbox">
+          <p className="hint clvline clickable" onClick={() => setShowLog(!showLog)}
+            title="Varje flagga loggas (först/bäst per marknad) och jämförs efter avspark med devigad Pinnacle-stängning. Positivt snitt = signalen ligger före marknaden. Klicka för hela tabellen.">
+            📒 Signal-logg — sharp: {clv.sharp?.n ?? 0} flaggor · {clv.sharp?.n_resolved ?? 0} stängda
+            {clv.sharp?.avg_close_ev != null && <> · snitt <b className={clv.sharp.avg_close_ev >= 0 ? 'pos' : 'neg'}>{(clv.sharp.avg_close_ev * 100).toFixed(1)}%</b></>}
+            {clv.model?.n > 0 && <> &nbsp;|&nbsp; 🧪 modell: {clv.model.n} flaggor · {clv.model.n_resolved} stängda
+              {clv.model.avg_close_ev != null && <> · snitt <b className={clv.model.avg_close_ev >= 0 ? 'pos' : 'neg'}>{(clv.model.avg_close_ev * 100).toFixed(1)}%</b></>}</>}
+            {' '}{showLog ? '▲' : '▼'}
+          </p>
+          {showLog && (
+            <table className="logtable">
+              <thead><tr><th>flagga</th><th>match</th><th>bok</th><th>odds</th><th>edge</th><th>bäst</th><th>stängning</th><th>tier</th></tr></thead>
+              <tbody>
+                {(clv.rows || []).slice(0, 40).map((r, i) => (
+                  <tr key={i}>
+                    <td>{r.market} {r.sign}{r.line != null ? ` (${r.line})` : ''}</td>
+                    <td>{r.description}</td>
+                    <td>{BOOK_NAME[r.book] || r.book || 'SvS'}</td>
+                    <td>{r.first_odds}</td>
+                    <td>{r.first_edge > 0 ? '+' : ''}{(r.first_edge * 100).toFixed(1)}%</td>
+                    <td>{r.best_edge > 0 ? '+' : ''}{(r.best_edge * 100).toFixed(1)}%</td>
+                    <td>{r.closing_fair != null
+                      ? <b className={(r.closing_fair * r.first_odds - 1) >= 0 ? 'pos' : 'neg'}>
+                        {((r.closing_fair * r.first_odds - 1) * 100).toFixed(1)}%</b>
+                      : (r.closing_note || 'öppen')}</td>
+                    <td>{r.tier === 'model' ? '🧪' : '💰'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       )}
     </section>
   )

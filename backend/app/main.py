@@ -367,6 +367,28 @@ def oddset_clv():
         store.close()
 
 
+@app.get("/api/oddset/notices")
+def oddset_notices():
+    """Notis-historik: alla triggade värde-/steam-larm (skickade OCH torrkörda
+    utan NTFY_TOPIC) ur meta-tabellens dedup-nycklar."""
+    import json as _json
+    store = Storage()
+    try:
+        rows = store.meta_like("oddset_ntfy_")
+    finally:
+        store.close()
+    out = []
+    for k, v in rows:
+        try:
+            d = _json.loads(v)
+        except ValueError:   # gammalt format: bara tidsstämpel
+            d = {"at": v, "title": k.split(":", 1)[-1], "msg": "", "sent": True}
+        d["kind"] = "steam" if "steam" in k else "värde"
+        out.append(d)
+    out.sort(key=lambda x: x.get("at") or "", reverse=True)
+    return {"notices": out[:50]}
+
+
 @app.post("/api/oddset/refresh")
 def oddset_refresh():
     """Hämta färska odds från Pinnacle + Kambi för alla Oddset-ligor (tar ~10-30 s)."""
