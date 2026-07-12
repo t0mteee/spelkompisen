@@ -107,9 +107,16 @@ Backtesten visade: DC-modellen är nära marknaden i Allsvenskan men slår den i
 och är svag i Eliteserien. Att slå Pinnacles STÄNGNING på 1X2 är fel mål — planen
 är att vinna där marknaden är svag:
 
-- **M1 — xG-viktad fit, mätt**: Sofascore-xG backfillas för 2024–2025
-  (`cli.py xgbackfill`, klar/pågår) → `oddsetbacktest xg` (backtest v2) mäter om
-  xG-viktningen lyfter logloss/ROI. Datadrivet beslut, ingen tro.
+- **M1 — xG-viktad fit ✅ MÄTT (backtest v2, 2026-07-12)**: backfill klar
+  (978 nya matcher; totalt ~574+390 med xG). Dom: **xG lyfter modellen i BÅDA
+  ligorna** (logloss 1.029→1.022 Allsvenskan, 0.991→0.980 Eliteserien; bättre
+  kalibrering). Allsvenskan blev t.o.m. lönsam vid låga trösklar: **+13,4 % ROI
+  vid edge ≥2 % (n=326), +10,4 % vid ≥5 %** mot Pinnacle-stängning — MEN bara
+  ~1,4σ från noll (snittodds ~4) = inom bruset, och ≥8 % vänder negativt
+  (modellens största avvikelser är dess största fel). Eliteserien fortsatt
+  giftig (−16..−20 %). rho-grid: −0.01/−0.04 bekräftad. Beslut: amber kvarstår,
+  modell-loggtröskeln sänkt till 2 % (2–8 %-bandet är det intressanta) så
+  forward-facitet (M3) byggs snabbare.
 - **M2 — Elo-prior för tunna lag**: nykomlingar/lag med <8 viktade matcher får
   prior från ClubElo (som täcker division 2) i stället för ingen prediktion —
   borde hjälpa mest i Eliteserien där fitten var svagast.

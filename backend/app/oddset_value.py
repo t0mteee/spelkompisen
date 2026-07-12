@@ -168,9 +168,12 @@ def log_and_notify(store: Storage, matches: list[dict]) -> dict:
         # modellens forward-logg (amber-tier, market 'm1x2'): loggas för facit,
         # notifierar ALDRIG. Det här är vägen mot grönt — modellen får grön status
         # per liga först när dess loggade flaggor visar positiv close-EV över tid.
+        # loggtröskel 2 % (lägre än UI-pillens 5 %): backtest v2 visade att just
+        # 2–8 %-bandet var det intressanta i Allsvenskan — och fler loggade
+        # flaggor ger snabbare facit (grönt-kriteriet kräver ≥50 stängda).
         md = m.get("model") or {}
         for sign, e in (md.get("edges") or {}).items():
-            if e < 0.05:
+            if e < 0.02:
                 continue
             svs_odds = (((m.get("odds") or {}).get("svenskaspel") or {})
                         .get("1x2") or {}).get(sign)

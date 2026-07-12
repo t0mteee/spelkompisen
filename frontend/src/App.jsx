@@ -634,11 +634,13 @@ function OddsetLegend() {
             på 6/24 h — typiskt lineup-nyheter. Kolla då direkt om någon spelbar bok står kvar
             på gamla oddset (det är träningsmatch-caset).</div>
           <div><b>M-raden (modellen)</b> — egen Dixon-Coles per liga: lagstyrkor ur resultat
-            sedan 2024 + Sofascore-xG, totalnivå ankrad mot sharp Ö/U. Backtest mot två års
-            Pinnacle-stängningar: nästan marknadskvalitet i Allsvenskan (±0 % mot bästa pris),
-            sämre i Eliteserien (−11 %). Därför <b>amber</b>: <span className="apill">+8%</span> =
-            "modellen avviker — kolla varför", INTE "spela". Hålls utanför facitet tills den
-            bevisat sig. Störst nytta: prisuppfattning för matcher där Pinnacle inte öppnat än.</div>
+            sedan 2024, xG-viktade (Sofascore, ~1000 matcher), totalnivå ankrad mot sharp Ö/U.
+            Backtest v2 mot två års Pinnacle-stängningar: xG lyfte modellen i båda ligorna;
+            Allsvenskan +10 % ROI vid låga trösklar men inom bruset (n=326), Eliteserien −17 %.
+            Därför <b>amber</b>: <span className="apill">+8%</span> = "modellen avviker — kolla
+            varför", INTE "spela". Modellflaggor forward-loggas (🧪-raden i loggen) och grönt
+            släpps per liga först vid ≥50 stängda flaggor med positivt facit. Störst nytta idag:
+            prisuppfattning för matcher där Pinnacle inte öppnat än.</div>
           <div><b>📒 Signal-loggen</b> längst ner är domaren: varje grön flagga jämförs efteråt
             med Pinnacles stängningslinje (CLV). Positivt snitt = flaggorna ligger före
             marknaden på riktigt; negativt = brus. Lita på facit, inte på känsla.</div>
@@ -859,7 +861,7 @@ function OddsetView() {
         return msig.length > 0 && (
           <div className="valuelist amberlist">
             <div className="valhead"><b>🧪 Modell-avvikelser (amber)</b>
-              <span className="hint"> egen modell vs SvS-odds — EXPERIMENTELLT: backtesten säger ±0 % ROI i Allsvenskan, −11 % i Eliteserien. Signalspaning, inte spelrekommendation.</span></div>
+              <span className="hint"> egen modell (xG-viktad) vs SvS-odds — EXPERIMENTELLT: backtest v2 säger +10 % ROI i Allsvenskan vid låga trösklar (MEN inom bruset, n=326) och −17 % i Eliteserien. Forward-loggen avgör — signalspaning, inte spelrekommendation.</span></div>
             {msig.slice(0, 6).map(({ m, sg, e }, i) => (
               <div key={i} className="valrow">
                 <span className="apill big">+{(e * 100).toFixed(1)}%</span>
