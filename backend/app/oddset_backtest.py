@@ -60,9 +60,27 @@ def fetch_rows(league: str, min_season: int = 2023) -> list[dict]:
 
 
 def run_league(league: str, eval_from: str = EVAL_FROM,
-               fit_iter: int = 40) -> list[dict]:
-    """Prediktioner (mu_h, mu_a, marknadsprobs, stängningsodds, facit) per match."""
+               fit_iter: int = 40, use_store_xg: bool = False) -> list[dict]:
+    """Prediktioner (mu_h, mu_a, marknadsprobs, stängningsodds, facit) per match.
+    use_store_xg: lägg på Sofascore-xG från databasen (efter xgbackfill) så
+    fitten blir xG-viktad — mäter om xG lyfter modellen (backtest v2)."""
     rows = fetch_rows(league)
+    if use_store_xg:
+        from .storage import Storage
+        from .oddset_data import merged_results
+        store = Storage()
+        try:
+            xmap = {(r["date"], r["home"], r["away"]): (r.get("xg_h"), r.get("xg_a"))
+                    for r in merged_results(store, league) if r.get("xg_h") is not None}
+        finally:
+            store.close()
+        n_hit = 0
+        for r in rows:
+            xg = xmap.get((r["date"], r["home"], r["away"]))
+            if xg:
+                r["xg_h"], r["xg_a"] = xg
+                n_hit += 1
+        print(f"  ({league}: xG kopplad till {n_hit}/{len(rows)} matcher)")
     dates = sorted({r["date"] for r in rows if r["date"] >= eval_from})
     preds, hist_ptr, hist = [], 0, []
     for d in dates:

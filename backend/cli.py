@@ -447,9 +447,18 @@ def main() -> None:
         cmd_modeldata()
     elif cmd == "oddsetbacktest":
         from app import oddset_backtest
-        for lg in (rest or ["allsvenskan", "eliteserien"]):
-            preds = oddset_backtest.run_league(lg)
-            oddset_backtest.print_report(lg, oddset_backtest.report(preds))
+        use_xg = "xg" in rest
+        for lg in [a for a in (rest or []) if a != "xg"] or ["allsvenskan", "eliteserien"]:
+            preds = oddset_backtest.run_league(lg, use_store_xg=use_xg)
+            oddset_backtest.print_report(lg + (" +xG" if use_xg else ""),
+                                         oddset_backtest.report(preds))
+    elif cmd == "xgbackfill":
+        from app import oddset_data
+        store = Storage()
+        try:
+            print("backfill:", oddset_data.xg_backfill(store))
+        finally:
+            store.close()
     else:
         print(__doc__)
 

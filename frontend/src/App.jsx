@@ -617,7 +617,7 @@ function OddsetLegend() {
           <div><b>Raderna i varje oddscell</b> — <b>stort odds</b> = Svenska Spel (det du kan
             spela på) · <b>P</b> = Pinnacle, världens skarpaste bok = vår referens för
             "sant" pris (<b>P~</b> = härlett ur handikapp när 1X2 inte öppnats) ·
-            <b> E</b> = Expekt · <b>M</b> = vår egen modell (amber, se nedan).</div>
+            <b> E</b> = Expekt · <b>B</b> = Betinia · <b>M</b> = vår egen modell (amber, se nedan).</div>
           <div><b>Värde</b> = när en spelbar bok betalar MER än det sharpa priset.
             Vi räknar bort Pinnacles marginal (power-devig) och får en "fair" sannolikhet;
             edge = fair sannolikhet × bokens odds − 1.
@@ -725,10 +725,8 @@ function OddsetView() {
   const cell1x2 = (m, sign) => {
     const svs = m.odds?.svenskaspel?.['1x2']
     const pin = m.odds?.pinnacle?.['1x2']
-    const exp = m.odds?.expekt?.['1x2']
     const mv = m.movement?.svenskaspel?.['1x2']?.[sign]
     const mvP = m.movement?.pinnacle?.['1x2']?.[sign]
-    const mvE = m.movement?.expekt?.['1x2']?.[sign]
     const v = m.value?.['1x2']?.[sign]
     const md = m.model
     const mEdge = md?.edges?.[sign]
@@ -743,11 +741,15 @@ function OddsetView() {
             P{pin.derived ? '~' : ''} {pin[sign].toFixed(2)}{arrow(mvP)}
           </div>
         )}
-        {exp?.[sign] && (
-          <div className="p" title={mvE?.pts?.length > 1 ? `Expekt:\n${serie(mvE)}` : 'Expekt'}>
-            E {exp[sign].toFixed(2)}{arrow(mvE)}{v?.book === 'expekt' && edgePill(v)}
-          </div>
-        )}
+        {[['expekt', 'E', 'Expekt'], ['betinia', 'B', 'Betinia']].map(([bk, tag, label]) => {
+          const bo = m.odds?.[bk]?.['1x2']
+          const mvB = m.movement?.[bk]?.['1x2']?.[sign]
+          return bo?.[sign] ? (
+            <div className="p" key={bk} title={mvB?.pts?.length > 1 ? `${label}:\n${serie(mvB)}` : label}>
+              {tag} {bo[sign].toFixed(2)}{arrow(mvB)}{v?.book === bk && edgePill(v)}
+            </div>
+          ) : null
+        })}
         {showModel && md?.fair?.[sign] && (
           <div className="m"
             title={`Egen modell (Dixon-Coles, xG-viktad): ${(md.p[sign] * 100).toFixed(1)}%\nμ ${md.mu[0]}–${md.mu[1]}${md.anchored ? ' · totalnivå ankrad mot sharp Ö/U' : ' · OANKRAD (ingen sharp-linje ännu)'}\nAmber-tier: experimentell, utanför facitet`}>
@@ -775,7 +777,7 @@ function OddsetView() {
   }
 
   const MARKET_LABEL = { '1x2': '1X2', ah: 'AH', ou: 'Ö/U', cor: 'Hörnor' }
-  const BOOK_NAME = { svenskaspel: 'SvS', expekt: 'Expekt' }
+  const BOOK_NAME = { svenskaspel: 'SvS', expekt: 'Expekt', betinia: 'Betinia' }
 
   if (err) return <section><h2>Oddset</h2><div className="error">{err}</div></section>
   if (!data) return <section><h2>Oddset</h2><div className="loading">Hämtar…</div></section>
@@ -900,11 +902,13 @@ function OddsetView() {
           </tbody>
         ))}
       </table>
-      {clv && clv.n > 0 && (
+      {clv && (clv.sharp?.n > 0 || clv.model?.n > 0) && (
         <p className="hint clvline"
-          title="Varje sharp-edge ≥2% loggas (först/bäst per marknad). När matchen startar jämförs mot devigad Pinnacle-stängning: positivt snitt = flaggorna ligger före marknaden (äkta signal), negativt = brus. Facit byggs automatiskt av insamlingen.">
-          📒 Signal-logg: {clv.n} flaggade edges · {clv.n_resolved} med stängning
-          {clv.avg_close_ev != null && <> · snitt-EV mot stängningen <b className={clv.avg_close_ev >= 0 ? 'pos' : 'neg'}>{(clv.avg_close_ev * 100).toFixed(1)}%</b></>}
+          title="Varje flagga loggas (först/bäst per marknad) och jämförs efter avspark med devigad Pinnacle-stängning. Positivt snitt = signalen ligger före marknaden (äkta), negativt = brus. Sharp-raden är den spelbara signalen; modell-raden är forward-testet som avgör om modellen någonsin får bli grön (krav: positivt snitt över ≥50 stängda flaggor per liga).">
+          📒 Signal-logg — sharp: {clv.sharp?.n ?? 0} flaggor · {clv.sharp?.n_resolved ?? 0} stängda
+          {clv.sharp?.avg_close_ev != null && <> · snitt <b className={clv.sharp.avg_close_ev >= 0 ? 'pos' : 'neg'}>{(clv.sharp.avg_close_ev * 100).toFixed(1)}%</b></>}
+          {clv.model?.n > 0 && <> &nbsp;|&nbsp; 🧪 modell: {clv.model.n} flaggor · {clv.model.n_resolved} stängda
+            {clv.model.avg_close_ev != null && <> · snitt <b className={clv.model.avg_close_ev >= 0 ? 'pos' : 'neg'}>{(clv.model.avg_close_ev * 100).toFixed(1)}%</b></>}</>}
         </p>
       )}
     </section>

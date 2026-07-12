@@ -117,8 +117,44 @@ def _sofa_season(store: Storage, lg: str) -> Optional[int]:
         return None
 
 
+def _ingest_event(store: Storage, lg: str, e: dict) -> bool:
+    """Spara ett avslutat Sofascore-event (resultat + xG + hörnor). False om känt."""
+    if e.get("status", {}).get("type") != "finished":
+        return False
+    eid = e["id"]
+    if store.meta_get(f"oddset_sofa_seen:{eid}"):
+        return False
+    date = dt.datetime.fromtimestamp(
+        e["startTimestamp"], dt.timezone.utc).strftime("%Y-%m-%d")
+    row = {"league": lg, "date": date,
+           "home": norm_team(e["homeTeam"]["name"]),
+           "away": norm_team(e["awayTeam"]["name"]),
+           "home_raw": e["homeTeam"]["name"],
+           "away_raw": e["awayTeam"]["name"],
+           "hg": e.get("homeScore", {}).get("current"),
+           "ag": e.get("awayScore", {}).get("current"),
+           "source": "sofa"}
+    time.sleep(1.1)
+    try:
+        groups = _sofa_get(f"/event/{eid}/statistics") \
+            .get("statistics", [{}])[0].get("groups", [])
+        for g in groups:
+            for s in g.get("statisticsItems", []):
+                if s.get("name") == "Expected goals":
+                    row["xg_h"] = float(s["home"])
+                    row["xg_a"] = float(s["away"])
+                elif s.get("name") == "Corner kicks":
+                    row["cor_h"] = float(s["home"])
+                    row["cor_a"] = float(s["away"])
+    except Exception:  # noqa: BLE001 — äldre matcher kan sakna statistik
+        pass
+    store.oddset_save_result(row)
+    store.meta_set(f"oddset_sofa_seen:{eid}", row["date"])
+    return True
+
+
 def refresh_xg(store: Storage, force: bool = False) -> dict:
-    """Hämta xG/hörnor för färdigspelade matcher som saknas. Pacas (~1.2 s/anrop)."""
+    """Hämta xG/hörnor för färdigspelade matcher som saknas (innevarande säsong)."""
     out = {}
     for lg, ut in SOFA_UT.items():
         if not force and not _stale(store, f"oddset_xg_at:{lg}", XG_TTL_H):
@@ -127,57 +163,47 @@ def refresh_xg(store: Storage, force: bool = False) -> dict:
         if not sid:
             out[lg] = "ingen säsong"
             continue
-        n_new, done = 0, False
+        n_new = 0
         try:
             for page in range(SOFA_MAX_PAGES):
                 evs = _sofa_get(f"/unique-tournament/{ut}/season/{sid}/events/last/{page}") \
                     .get("events") or []
-                page_known = 0
-                for e in evs:
-                    if e.get("status", {}).get("type") != "finished":
-                        continue
-                    eid = e["id"]
-                    if store.meta_get(f"oddset_sofa_seen:{eid}"):
-                        page_known += 1
-                        continue
-                    date = dt.datetime.fromtimestamp(
-                        e["startTimestamp"], dt.timezone.utc).strftime("%Y-%m-%d")
-                    row = {"league": lg, "date": date,
-                           "home": norm_team(e["homeTeam"]["name"]),
-                           "away": norm_team(e["awayTeam"]["name"]),
-                           "home_raw": e["homeTeam"]["name"],
-                           "away_raw": e["awayTeam"]["name"],
-                           "hg": e.get("homeScore", {}).get("current"),
-                           "ag": e.get("awayScore", {}).get("current"),
-                           "source": "sofa"}
-                    time.sleep(1.2)
-                    try:
-                        groups = _sofa_get(f"/event/{eid}/statistics") \
-                            .get("statistics", [{}])[0].get("groups", [])
-                        for g in groups:
-                            for s in g.get("statisticsItems", []):
-                                if s.get("name") == "Expected goals":
-                                    row["xg_h"] = float(s["home"])
-                                    row["xg_a"] = float(s["away"])
-                                elif s.get("name") == "Corner kicks":
-                                    row["cor_h"] = float(s["home"])
-                                    row["cor_a"] = float(s["away"])
-                    except Exception:  # noqa: BLE001 — äldre matcher kan sakna statistik
-                        pass
-                    store.oddset_save_result(row)
-                    store.meta_set(f"oddset_sofa_seen:{eid}", row["date"])
-                    n_new += 1
-                if evs and page_known == sum(
-                        1 for e in evs if e.get("status", {}).get("type") == "finished"):
-                    done = True   # hela sidan redan känd -> äldre sidor också
-                    break
                 if not evs:
                     break
+                new_on_page = sum(_ingest_event(store, lg, e) for e in evs)
+                n_new += new_on_page
+                if new_on_page == 0:
+                    break   # hela sidan redan känd -> äldre sidor också
         except Exception as e:  # noqa: BLE001
             out[lg] = f"fel: {e}"
             continue
         _mark(store, f"oddset_xg_at:{lg}")
         out[lg] = n_new
+    return out
+
+
+def xg_backfill(store: Storage, seasons_back: int = 2, max_pages: int = 12) -> dict:
+    """Engångs-backfill: xG/hörnor för TIDIGARE säsonger (till backtest v2 och
+    hörn-modellen). ~240 matcher/säsong/liga, pacat — kör i bakgrunden."""
+    out = {}
+    for lg, ut in SOFA_UT.items():
+        n = 0
+        try:
+            seasons = _sofa_get(f"/unique-tournament/{ut}/seasons")["seasons"]
+        except Exception as e:  # noqa: BLE001
+            out[lg] = f"fel: {e}"
+            continue
+        for s in seasons[:1 + seasons_back]:   # inkl. innevarande (djupa sidor)
+            try:
+                for page in range(max_pages):
+                    evs = _sofa_get(f"/unique-tournament/{ut}/season/{s['id']}"
+                                    f"/events/last/{page}").get("events") or []
+                    if not evs:
+                        break
+                    n += sum(_ingest_event(store, lg, e) for e in evs)
+            except Exception:  # noqa: BLE001 — nästa säsong ändå
+                continue
+        out[lg] = n
     return out
 
 

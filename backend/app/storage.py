@@ -170,10 +170,12 @@ class Storage:
         self.conn = sqlite3.connect(self.db_path)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(_SCHEMA)
-        try:   # migrering: bok-kolumn i signal-loggen (befintliga DB:er)
-            self.conn.execute("ALTER TABLE oddset_value_log ADD COLUMN book TEXT")
-        except sqlite3.OperationalError:
-            pass
+        for mig in ("ALTER TABLE oddset_value_log ADD COLUMN book TEXT",
+                    "ALTER TABLE oddset_value_log ADD COLUMN tier TEXT DEFAULT 'sharp'"):
+            try:   # migreringar för befintliga DB:er
+                self.conn.execute(mig)
+            except sqlite3.OperationalError:
+                pass
         self.conn.commit()
 
     def close(self) -> None:
@@ -649,7 +651,7 @@ class Storage:
         self.conn.execute(
             "INSERT INTO oddset_value_log(match_id, market, sign, line, league, "
             "description, match_start, first_at, first_odds, first_fair, first_edge, "
-            "best_edge, best_at, book) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+            "best_edge, best_at, book, tier) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
             "ON CONFLICT(match_id, market, sign) DO UPDATE SET "
             "best_edge=CASE WHEN excluded.best_edge > oddset_value_log.best_edge "
             "THEN excluded.best_edge ELSE oddset_value_log.best_edge END, "
@@ -657,7 +659,8 @@ class Storage:
             "THEN excluded.best_at ELSE oddset_value_log.best_at END",
             (r["match_id"], r["market"], r["sign"], r.get("line"), r.get("league"),
              r.get("description"), r.get("match_start"), r["at"], r["odds"],
-             r["fair"], r["edge"], r["edge"], r["at"], r.get("book")))
+             r["fair"], r["edge"], r["edge"], r["at"], r.get("book"),
+             r.get("tier", "sharp")))
         self.conn.commit()
 
     def oddset_unresolved_closings(self, now_iso: str) -> list[dict]:

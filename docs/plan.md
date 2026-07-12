@@ -84,8 +84,46 @@ resp. matchdag, eval 2024-07→ (n=351 Allsvenskan, 330 Eliteserien). **Domen:**
 - **Översikts-UI**: ℹ-förklaringspanel (vad raderna/pillsen/pilarna/🔥 betyder, vad
   som är spelbart vs spaning, backtest-domen inbakad), 🧪-amber-lista med modell-
   avvikelser under 💰-listan, bok-namn i värdelistan, backtest-ärlighet i tooltips.
-**Nästa:** Altenar när integrationsnamnet finns; hörn-modell (Sofascore-data finns
-i oddset_results); Superettan/fler ligor; backtest v2 med xG när säsongen samlats.
+**Senare samma dag:**
+- **Betinia (Altenar) LÖST**: `integration=betinia` mot
+  `sb2frontend-altenar2.biahosted.com/api/Widget` — GetSportMenu → soccer=66,
+  champ-id:n Allsvenskan **3537**, Eliteserien **3458**, Superettan **4825** (!).
+  `app/altenar.py`; BOOKS har nu expekt + betinia; matchning fuzzy namn+avspark.
+- **Expekt ÄR Kambi, bekräftat**: LeoVegas Group (inkl. Expekt) kör Kambi Turnkey
+  t.o.m. 2027 (Kambi-pressrelease). `expektse`-flödet = produktionsodds.
+- **Live-flagg-sanering**: 14:52-körningen (före live-skyddet) hann flagga live-odds
+  mot förmatch-fair (+112 % "edges") — 4 rader raderade; guards finns nu i BÅDE
+  collect (inga live-sparningar), attach_value och attach_model. Kvarvarande facit
+  är rent (2 äkta stängda flaggor, båda positiva).
+- **Modellens forward-logg**: modell-edges ≥5 % loggas som tier='model'
+  (market 'm1x2'), notifierar aldrig, egen rad i 📒-panelen. Grönt-kriteriet
+  nedan avgörs av denna logg.
+**Nästa:** se "Modellplan" nedan; Superettan som egen flik (Altenar 4825 + Pinnacle
++ Kambi-väg finns); hörn-modell på Sofascore-datat.
+
+## Modellplan — vägen till en modell att lita på (efter backtest-domen)
+
+Backtesten visade: DC-modellen är nära marknaden i Allsvenskan men slår den inte,
+och är svag i Eliteserien. Att slå Pinnacles STÄNGNING på 1X2 är fel mål — planen
+är att vinna där marknaden är svag:
+
+- **M1 — xG-viktad fit, mätt**: Sofascore-xG backfillas för 2024–2025
+  (`cli.py xgbackfill`, klar/pågår) → `oddsetbacktest xg` (backtest v2) mäter om
+  xG-viktningen lyfter logloss/ROI. Datadrivet beslut, ingen tro.
+- **M2 — Elo-prior för tunna lag**: nykomlingar/lag med <8 viktade matcher får
+  prior från ClubElo (som täcker division 2) i stället för ingen prediktion —
+  borde hjälpa mest i Eliteserien där fitten var svagast.
+- **M3 — forward-test i produktion (IGÅNG)**: modell-flaggor loggas live
+  (tier='model', aldrig notis/spel) och jämförs med Pinnacle-stängningen.
+  **Grönt-kriteriet per liga: ≥50 stängda modell-flaggor med positivt snitt
+  close-EV.** Facitet avgör — inte känsla, inte backtest ensam.
+- **M4 — marknader där böcker är slöa**: modellens realistiska nisch är inte
+  Pinnacles 1X2 utan (a) tidiga linjer innan sharpen öppnat (redan synligt:
+  modell + Elo finns för nästa omgång före Pinnacle), (b) hörnor/lagmål där
+  vi har egen Sofascore-data, (c) mindre ligor (Superettan — Altenar 4825).
+- **M5 — blend som referens**: backtesten fann w=0.1 modell + 0.9 marknad ≥
+  marknaden ensam i Allsvenskan — modellen bär EN nypa egen information.
+  När M1–M2 höjt den kan blenden bli "husets fair" för matcher med tunn sharp.
 
 ## Beslut (Saman, 2026-07-12)
 

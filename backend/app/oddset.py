@@ -22,18 +22,21 @@ from .storage import Storage
 
 LEAGUES = [
     {"key": "allsvenskan", "name": "Allsvenskan", "pin_id": 1728,
-     "kambi": "football/sweden/allsvenskan"},
+     "kambi": "football/sweden/allsvenskan", "altenar": 3537},
     {"key": "eliteserien", "name": "Eliteserien", "pin_id": 2333,
-     "kambi": "football/norway/eliteserien"},
+     "kambi": "football/norway/eliteserien", "altenar": 3458},
     {"key": "friendlies", "name": "Träningsmatcher", "pin_id": 1863,
-     "kambi": "football/club_friendly_matches"},
+     "kambi": "football/club_friendly_matches", "altenar": None},
 ]
+# Altenar har även Superettan (champ 4825) — kandidat när ligan får egen flik.
 
-# Fler svenska böcker (jämförelse + hitta boken som hänger efter). Kambi-operatörer
-# delar event-id:n med svenskaspel → matchning är trivial. 1X2 räcker (deep-marknader
-# hämtas bara från SvS). Altenar kräver operatörens integrationsnamn — väntar på det.
+# Fler böcker (jämförelse + hitta boken som hänger efter). Kambi-operatörer delar
+# event-id:n med svenskaspel (trivial matchning); Altenar-böcker matchas fuzzy på
+# namn+avspark. 1X2 räcker (deep-marknader hämtas bara från SvS).
+# Expekt kör Kambi via LeoVegas-avtalet (verifierat: Kambi-pressrelease, t.o.m. 2027).
 BOOKS = [
     {"key": "expekt", "name": "Expekt", "kambi_op": "expektse"},
+    {"key": "betinia", "name": "Betinia", "altenar": "betinia"},
 ]
 
 DEEP_MARKETS_DAYS = 7      # Kambi AH/ÖU per event bara för matcher inom N dygn
@@ -262,12 +265,21 @@ def collect(store: Storage) -> dict:
                     time.sleep(0.25)   # paca CDN:et
                 n_kambi += 1
 
-            # sidoböcker (1X2): samma Kambi-event-id:n som svenskaspel
+            # sidoböcker (1X2): Kambi-operatörer delar event-id:n, Altenar matchas fuzzy
             n_books = 0
             for book in BOOKS:
-                for e in kambi.league_events(lg["kambi"], operator=book["kambi_op"]):
+                if book.get("kambi_op"):
+                    b_rows = kambi.league_events(lg["kambi"], operator=book["kambi_op"])
+                elif book.get("altenar") and lg.get("altenar"):
+                    from . import altenar
+                    b_rows = altenar.league_events(lg["altenar"],
+                                                   integration=book["altenar"])
+                else:
+                    continue
+                for e in b_rows:
                     ex = next((c for c in cands if c.get("kambi_id") == e["id"]), None) \
-                        or _resolve(cands, e["home"], e["away"], e["start"])
+                        if book.get("kambi_op") else None
+                    ex = ex or _resolve(cands, e["home"], e["away"], e["start"])
                     if not ex or (e.get("start") or "9") <= at:
                         continue   # skapa inga matcher från sidoböcker; hoppa live
                     rows_saved += store.oddset_save_odds(ex["id"], book["key"], e["odds"], at)

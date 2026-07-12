@@ -165,6 +165,24 @@ def log_and_notify(store: Storage, matches: list[dict]) -> dict:
                             tags="moneybag")
                         store.meta_set(key, at)
                         n_pushed += 1
+        # modellens forward-logg (amber-tier, market 'm1x2'): loggas för facit,
+        # notifierar ALDRIG. Det här är vägen mot grönt — modellen får grön status
+        # per liga först när dess loggade flaggor visar positiv close-EV över tid.
+        md = m.get("model") or {}
+        for sign, e in (md.get("edges") or {}).items():
+            if e < 0.05:
+                continue
+            svs_odds = (((m.get("odds") or {}).get("svenskaspel") or {})
+                        .get("1x2") or {}).get(sign)
+            if not svs_odds:
+                continue
+            store.oddset_log_flag({
+                "match_id": m["id"], "market": "m1x2", "sign": sign,
+                "line": None, "league": m.get("league"), "description": desc,
+                "match_start": m.get("start"), "at": at, "odds": svs_odds,
+                "fair": md["p"][sign], "edge": e, "book": "svenskaspel",
+                "tier": "model"})
+            n_logged += 1
         # snabb sharp-rörelse (6h) — boken kan hänga efter (träningsmatch-caset)
         for sign, sh in (m.get("steam") or {}).items():
             pp = sh.get("h6")
@@ -187,8 +205,9 @@ def resolve_closings(store: Storage) -> int:
     now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     n = 0
     for f in store.oddset_unresolved_closings(now):
-        signs = _MARKET_SIGNS[f["market"]]
-        rows = store.oddset_history_before(f["match_id"], f["market"], f["match_start"])
+        hist_market = "1x2" if f["market"] == "m1x2" else f["market"]
+        signs = _MARKET_SIGNS[hist_market]
+        rows = store.oddset_history_before(f["match_id"], hist_market, f["match_start"])
         # senaste (odds, line) per tecken före avspark
         last: dict[str, dict] = {}
         for r in rows:                      # rows i tidsordning
@@ -213,15 +232,23 @@ def resolve_closings(store: Storage) -> int:
 
 
 def clv_report(store: Storage) -> dict:
-    """Facit: höll edgen till stängning? close_ev = closing_fair × first_odds − 1."""
+    """Facit per tier: höll edgen till stängning? close_ev = closing_fair ×
+    first_odds − 1. 'sharp' är den spelbara signalen; 'model' är forward-testet
+    som avgör om/när modellen får grön status."""
     rows = store.oddset_clv_rows()
-    resolved = [r for r in rows if r["closing_fair"] is not None]
     for r in rows:
         if r["closing_fair"] is not None and r["first_odds"]:
             r["close_ev"] = round(r["closing_fair"] * r["first_odds"] - 1.0, 4)
         else:
             r["close_ev"] = None
-    avg = (sum(r["close_ev"] for r in resolved if r["close_ev"] is not None)
-           / len(resolved)) if resolved else None
-    return {"rows": rows, "n": len(rows), "n_resolved": len(resolved),
-            "avg_close_ev": round(avg, 4) if avg is not None else None}
+    out = {"rows": rows}
+    for tier in ("sharp", "model"):
+        trows = [r for r in rows if (r.get("tier") or "sharp") == tier]
+        resolved = [r for r in trows if r["close_ev"] is not None]
+        avg = (sum(r["close_ev"] for r in resolved) / len(resolved)) if resolved else None
+        out[tier] = {"n": len(trows), "n_resolved": len(resolved),
+                     "avg_close_ev": round(avg, 4) if avg is not None else None}
+    # bakåtkompatibelt (UI:t före tier-uppdelningen)
+    out["n"], out["n_resolved"] = out["sharp"]["n"], out["sharp"]["n_resolved"]
+    out["avg_close_ev"] = out["sharp"]["avg_close_ev"]
+    return out
