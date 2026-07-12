@@ -622,7 +622,12 @@ function OddsetLegend() {
             Vi räknar bort Pinnacles marginal (power-devig) och får en "fair" sannolikhet;
             edge = fair sannolikhet × bokens odds − 1.
             {' '}<span className="epill">+5%</span> = grön pill = <b>sharp-ankrat värde ≥2 %</b> —
-            den starkaste signalen härinne, loggas i facitet. Samlas även i 💰-listan.</div>
+            den starkaste signalen härinne, loggas i facitet. Samlas även i 💰-listan.
+            {' '}<b>Men edge väger olika:</b> korten sorteras och nivåsätts på
+            <b> kvalitet = edge/(odds−1)</b> (Kelly-andelen) — samma edge är mycket
+            skörare på odds 15 än på 1.5 (ett halvt procentenhets fel i fair blåser
+            upp högoddsar-edges). Högoddsare kräver därför mycket större edge för
+            samma nivå, och notiser triggar på kvalitet, inte rå edge.</div>
           <div><b>AH / Ö/U / Hörnor</b> visas som <i>linje · odds/odds</i> (t.ex. −0.5 · 1.79/1.89 =
             hemmalaget −0,5 mål). Pilar = prisrörelse på NUVARANDE linje;
             {' '}<span className="lshift">⇄↑</span> = själva LINJEN har flyttats (ofta starkare signal
@@ -805,25 +810,30 @@ function OddsetView() {
     )
   }
 
-  // grön edge-pill: devigad Pinnacle (fair) säger att SvS-oddset är för högt
-  const edgePill = (v) => v && v.edge >= 0.02 && (
-    <span className="epill" title={`Devigad Pinnacle: ${(v.fair * 100).toFixed(1)}% (fair odds ${(1 / v.fair).toFixed(2)})\nSvS betalar ${v.odds.toFixed(2)} → ${(v.edge * 100).toFixed(1)}% övervärde${v.derived ? '\n(P~ = härlett ur handikapp — ta med en nypa salt)' : ''}`}>
+  // grön edge-pill: devigad Pinnacle säger att bok-oddset är för högt.
+  // Kräver även kvalitet (edge/(odds−1)) — högoddsar-edges under kvalitetsgolvet
+  // visas inte som pills (för sköra), men loggas ändå i facitet.
+  const edgePill = (v) => v && v.edge >= 0.02 && (v.q ?? 0) >= 0.0075 && (
+    <span className="epill" title={`Devigad Pinnacle: ${(v.fair * 100).toFixed(1)}% (fair odds ${(1 / v.fair).toFixed(2)})\nBoken betalar ${v.odds.toFixed(2)} → ${(v.edge * 100).toFixed(1)}% övervärde\nKvalitet (Kelly-andel): ${((v.q ?? 0) * 100).toFixed(1)}% — samma edge är skörare ju högre odds${v.derived ? '\n(P~ = härlett ur handikapp — ta med en nypa salt)' : ''}`}>
       +{Math.round(v.edge * 100)}%{v.derived ? '°' : ''}
     </span>
   )
 
+  const absLine = (p) => `${p.name} (${p.reason}${p.apps != null ? `, ${p.apps} matcher${p.rating ? `, ${p.rating}` : ''}` : ''})${p.apps != null && p.apps < 5 ? ' — marginell' : ''}`
   const absBadge = (m) => {
     const ab = m.absences
     if (!ab) return null
-    const n = (ab.home?.length || 0) + (ab.away?.length || 0)
-    if (!n && !ab.confirmed) return null
+    const all = [...(ab.home || []), ...(ab.away || [])]
+    // räkna bara spelare med etablerad roll (≥5 säsongsmatcher, eller okänd status)
+    const heavy = all.filter((p) => p.apps == null || p.apps >= 5).length
+    if (!all.length && !ab.confirmed) return null
     const lines = []
     for (const [side, team] of [['home', m.home], ['away', m.away]]) {
-      for (const p of ab[side] || []) lines.push(`${team}: ${p.name} (${p.reason})`)
+      for (const p of ab[side] || []) lines.push(`${team}: ${absLine(p)}`)
     }
     return <span className="absb"
-      title={`${ab.confirmed ? 'Elvorna är BEKRÄFTADE — kolla radarn för sen sharp-rörelse\n' : ''}${lines.join('\n') || 'Inga rapporterade frånvaron'}`}>
-      {ab.confirmed ? '✓XI' : ''}{n ? `🚑${n}` : ''}</span>
+      title={`${ab.confirmed ? 'Elvorna är BEKRÄFTADE — kolla radarn för sen sharp-rörelse\n' : ''}${lines.join('\n') || 'Inga rapporterade frånvaron'}${all.length > heavy ? `\n(${all.length - heavy} marginell(a) räknas inte i siffran)` : ''}`}>
+      {ab.confirmed ? '✓XI' : ''}{heavy ? `🚑${heavy}` : ''}</span>
   }
 
   const steamBadge = (m) => {
@@ -950,15 +960,17 @@ function OddsetView() {
     else days.push({ key, label: fmtDay(m.start), matches: [m] })
   }
 
+  // kvalitet q = edge/(odds−1) = Kelly-andelen: straffar högoddsare — samma edge
+  // är mycket skörare på odds 15 än på 1.5 (litet fel i fair blåser upp den)
   const signals = []
   for (const m of visible) {
     for (const [mk, per] of Object.entries(m.value || {})) {
       for (const [sg, v] of Object.entries(per)) {
-        if (v.edge >= 0.02) signals.push({ m, mk, sg, v })
+        if (v.edge >= 0.02 && (v.q ?? 0) >= 0.0075) signals.push({ m, mk, sg, v })
       }
     }
   }
-  signals.sort((a, b) => b.v.edge - a.v.edge)
+  signals.sort((a, b) => (b.v.q ?? 0) - (a.v.q ?? 0))
 
   // 📈 Rörelse-radarn: största devigade sharp-skiften — går över ALLA ligor
   // (även dolda flikar: träningsmatch-caset får inte missas för att fliken är av)
@@ -1034,7 +1046,8 @@ function OddsetView() {
           </div>
           <div className="tipgrid">
             {signals.slice(0, 8).map(({ m, mk, sg, v }, i) => {
-              const tier = v.edge >= 0.07 ? ['STARK EDGE', 't3'] : v.edge >= 0.04 ? ['EDGE', 't2'] : ['SVAG EDGE', 't1']
+              const q = v.q ?? 0
+              const tier = q >= 0.04 ? ['STARK EDGE', 't3'] : q >= 0.02 ? ['EDGE', 't2'] : ['SVAG EDGE', 't1']
               const mvP = m.movement?.pinnacle?.[mk]?.[sg]
               const support = []
               if (mk === '1x2') {
@@ -1193,7 +1206,7 @@ function OddsetView() {
                       {m.absences?.confirmed && <span>✓ elvor bekräftade</span>}
                       {m.absences && ['home', 'away'].map((side) => (
                         m.absences[side]?.length
-                          ? <span key={side}>🚑 {side === 'home' ? m.home : m.away}: {m.absences[side].map((p) => `${p.name} (${p.reason})`).join(', ')}</span>
+                          ? <span key={side}>🚑 {side === 'home' ? m.home : m.away}: {m.absences[side].map(absLine).join(', ')}</span>
                           : null))}
                       {(clv?.rows || []).filter((r) => r.match_id === m.id).map((r, j) => (
                         <span key={j} className={r.tier === 'model' ? 'apill' : 'epill'}>

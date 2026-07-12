@@ -175,6 +175,22 @@ resp. matchdag, eval 2024-07→ (n=351 Allsvenskan, 330 Eliteserien). **Domen:**
 - **Buggfix**: .lgtag-CSS:en var scopad till tabellen — utanför den klistrades
   ligataggen mot lagnamnet ("SÖsters IF"). Nu global chip-stil.
 
+**Kvalitetsviktning (2026-07-12 natt, Samans poäng):**
+- **Värdesignaler väger nu edge mot oddsnivån**: kvalitet q = edge/(odds−1)
+  (= Kelly-andelen). Samma edge är mycket skörare på höga odds — ett halvt
+  procentenhets fel i fair blåser upp en 15.0-edge enormt (och backtestens
+  ≥8 %-band var giftigt). Kort sorteras + nivåsätts på q (STARK ≥4 %, EDGE
+  ≥2 %, SVAG ≥0,75 %; under golvet visas ingen pill), notiser triggar på
+  q ≥1,5 % i stället för rå edge. Facit-LOGGEN förblir bred (edge ≥2 %
+  oavsett odds) så vi kan mäta högoddsar-flaggornas verkliga utfall per band.
+  Kvitto: Hammarby @1.33 +2,1 % toppar nu (q 6,4 %), Halmstad @14 +2,8 %
+  försvann ur korten (q 0,2 %).
+- **Frånvaro viktas efter spelarstatus**: refresh_absences hämtar säsongs-
+  matcher + rating per saknad spelare (Sofascore player-statistics, pacad);
+  🚑-siffran räknar bara etablerade (≥5 matcher eller okänd), marginella
+  listas i tooltip som "— marginell". Verifierat: Marqués 8 m/6.84,
+  Boman 11 m/6.65.
+
 ## Modellplan — vägen till en modell att lita på (efter backtest-domen)
 
 Backtesten visade: DC-modellen är nära marknaden i Allsvenskan men slår den inte,

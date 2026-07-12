@@ -285,11 +285,29 @@ def refresh_absences(store: Storage, force: bool = False) -> dict:
         except Exception:  # noqa: BLE001 — 404 tills lineups/frånvaro publicerats
             continue
         rec = {"at": frm, "confirmed": bool(lu.get("confirmed"))}
+        ut, sid = SOFA_UT[m["league"]], _sofa_season(store, m["league"])
         for side in ("home", "away"):
-            rec[side] = [{"name": (p.get("player") or {}).get("name"),
-                          "reason": _ABS_REASON.get(p.get("reason"),
-                                                    f"kod {p.get('reason')}")}
-                         for p in (lu.get(side) or {}).get("missingPlayers") or []]
+            rec[side] = []
+            for p in (lu.get(side) or {}).get("missingPlayers") or []:
+                pl = p.get("player") or {}
+                entry = {"name": pl.get("name"),
+                         "reason": _ABS_REASON.get(p.get("reason"),
+                                                   f"kod {p.get('reason')}")}
+                # spelarens säsongsstatus: få matcher = marginell frånvaro som
+                # inte ska väga tungt (Samans poäng — en reserv borta är inte
+                # samma sak som en ordinarie)
+                if pl.get("id"):
+                    time.sleep(0.8)
+                    try:
+                        st = _sofa_get(f"/player/{pl['id']}/unique-tournament/{ut}"
+                                       f"/season/{sid}/statistics/overall") \
+                            .get("statistics") or {}
+                        entry["apps"] = st.get("appearances")
+                        if st.get("rating"):
+                            entry["rating"] = round(st["rating"], 2)
+                    except Exception:  # noqa: BLE001 — ingen säsongsstatistik = okänd
+                        pass
+                rec[side].append(entry)
         store.meta_set(f"oddset_abs:{m['id']}", json.dumps(rec, ensure_ascii=False))
         out["found"] += 1
     _mark(store, "oddset_abs_at")

@@ -17,8 +17,11 @@ from .analysis import _power_probs
 from .storage import Storage
 
 EDGE_SHOW = 0.02       # visas i UI (grön markering)
-EDGE_LOG = 0.02        # loggas i CLV-facitet
-EDGE_NOTIFY = 0.03     # push-notis
+EDGE_LOG = 0.02        # loggas i CLV-facitet (brett — facitet ska mäta även svansen)
+Q_NOTIFY = 0.015       # push-notis på KVALITET q = edge/(odds−1) (Kelly-andelen):
+                       # samma edge är mycket mer pålitlig på låga odds — ett litet
+                       # fel i fair-sannolikheten blåser upp högoddsar-edges enormt.
+                       # 0.015 ≈ edge 1,5 % @ 2.0, 3 % @ 3.0, 21 % @ 15.0.
 STEAM_FLAG_PP = 3.5    # 🔥 markant (6h- eller 24h-skift)
 STEAM_STRONG_PP = 6.0
 STEAM_NOTIFY_PP = 5.0  # push på 6h-skiftet (snabb rörelse = träningsmatch-caset)
@@ -75,6 +78,7 @@ def attach_value(matches: list[dict]) -> None:
                 edge = fair[sign] * best[1] - 1.0
                 val.setdefault(market, {})[sign] = {
                     "edge": round(edge, 4), "fair": round(fair[sign], 4),
+                    "q": round(edge / max(best[1] - 1.0, 0.01), 4),  # Kelly-kvalitet
                     "odds": best[1], "book": best[0],
                     "line": p.get("line"), "derived": bool(p.get("derived"))}
 
@@ -160,7 +164,7 @@ def log_and_notify(store: Storage, matches: list[dict]) -> dict:
                     "at": at, "odds": v["odds"], "fair": v["fair"],
                     "edge": v["edge"], "book": v.get("book")})
                 n_logged += 1
-                if v["edge"] >= EDGE_NOTIFY:
+                if v.get("q", 0) >= Q_NOTIFY:
                     key = f"oddset_ntfy_edge:{m['id']}:{market}:{sign}"
                     if not store.meta_get(key):
                         lt = f" {v['line']:+g}" if market == "ah" else \
