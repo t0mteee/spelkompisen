@@ -77,17 +77,23 @@ def attach_value(matches: list[dict]) -> None:
                     "line": p.get("line"), "derived": bool(p.get("derived"))}
 
 
-def _probs_at(pts: dict[str, list], signs: tuple,
-              t: dt.datetime) -> Optional[dict[str, float]]:
-    """Devigade sannolikheter vid tidpunkt t ur punktserier {sign: [{'t','o'},...]}."""
+def _probs_at(pts: dict[str, list], signs: tuple, t: dt.datetime,
+              oldest_ok_after: Optional[dt.datetime] = None) -> Optional[dict[str, float]]:
+    """Devigade sannolikheter vid tidpunkt t ur punktserier {sign: [{'t','o'},...]}.
+    oldest_ok_after: om serien är yngre än fönstret men äldsta punkten är äldre än
+    denna gräns används den — skift över kortare tid är en STARKARE signal, och
+    utan fallback är steam blind tills insamlingen samlat ett helt fönster."""
     odds = {}
     for s in signs:
+        seq = pts.get(s) or []
         last = None
-        for p in pts.get(s) or []:
+        for p in seq:
             if p["t"] <= t:
                 last = p["o"]
             else:
                 break
+        if last is None and oldest_ok_after and seq and seq[0]["t"] <= oldest_ok_after:
+            last = seq[0]["o"]
         if not last:
             return None
         odds[s] = last
@@ -116,7 +122,8 @@ def attach_steam(matches: list[dict]) -> None:
             continue
         steam: dict = {}
         for hours, key in ((6, "h6"), (24, "h24")):
-            then = _probs_at(pts, signs, now - dt.timedelta(hours=hours))
+            then = _probs_at(pts, signs, now - dt.timedelta(hours=hours),
+                             oldest_ok_after=now - dt.timedelta(hours=hours / 2))
             if not then:
                 continue
             for s in signs:

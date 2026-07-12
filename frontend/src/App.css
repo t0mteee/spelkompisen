@@ -484,6 +484,7 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
 .oddset-bar .lg.model.on { border-color: #e0853b; color: #e0853b; }
 .apill.big { font-size: 11px; padding: 2px 8px; margin-left: 0; }
 .valuelist.amberlist { border-color: #e0853b; }
+.valuelist.moverlist { border-color: var(--line); }
 .epill.big { font-size: 11px; padding: 2px 8px; margin-left: 0; }
 .steam { margin-left: 5px; font-size: 12px; }
 .steam.strong { filter: drop-shadow(0 0 3px #e0853b); }

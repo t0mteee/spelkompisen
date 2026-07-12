@@ -27,6 +27,8 @@ LEAGUES = [
      "kambi": "football/sweden/superettan", "altenar": 4825},
     {"key": "eliteserien", "name": "Eliteserien", "pin_id": 2333,
      "kambi": "football/norway/eliteserien", "altenar": 3458},
+    {"key": "obosligaen", "name": "OBOS-ligaen", "pin_id": 2331,
+     "kambi": "football/norway/obos-ligaen", "altenar": None},
     {"key": "friendlies", "name": "Träningsmatcher", "pin_id": 1863,
      "kambi": "football/club_friendly_matches", "altenar": None},
 ]

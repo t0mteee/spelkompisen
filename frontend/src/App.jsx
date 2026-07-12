@@ -813,6 +813,21 @@ function OddsetView() {
   }
   signals.sort((a, b) => b.v.edge - a.v.edge)
 
+  // 📈 Rörelse-radarn: största devigade sharp-skiften — går över ALLA ligor
+  // (även dolda flikar: träningsmatch-caset får inte missas för att fliken är av)
+  const movers = []
+  for (const m of data.matches) {
+    if (m.start && new Date(m.start) < new Date()) continue
+    for (const [sg, sh] of Object.entries(m.steam || {})) {
+      const cands2 = [['6h', sh.h6], ['24h', sh.h24]].filter(([, v]) => v != null)
+      if (!cands2.length) continue
+      const [win, pp] = cands2.reduce((a, b) => (Math.abs(b[1]) > Math.abs(a[1]) ? b : a))
+      if (Math.abs(pp) < 1.5) continue
+      movers.push({ m, sg, pp, win })
+    }
+  }
+  movers.sort((a, b) => Math.abs(b.pp) - Math.abs(a.pp))
+
   return (
     <section className="oddset">
       <div className="analys-head">
@@ -853,6 +868,33 @@ function OddsetView() {
               <span className="hint">{fmtDay(m.start)} {fmtTime(m.start)}</span>
             </div>
           ))}
+        </div>
+      )}
+      {movers.length > 0 && (
+        <div className="valuelist moverlist">
+          <div className="valhead"><b>📈 Största rörelserna</b>
+            <span className="hint"> Pinnacles devigade sannolikhet, skift i procentenheter (6/24 h) ·
+              grönt till höger = en bok står kvar på gamla priset — det är läget att agera</span></div>
+          {movers.slice(0, 8).map(({ m, sg, pp, win }, i) => {
+            const mvP = m.movement?.pinnacle?.['1x2']?.[sg]
+            const v = m.value?.['1x2']?.[sg]
+            return (
+              <div key={i} className="valrow">
+                <span className={Math.abs(pp) >= 3.5 ? 'steam strong' : 'steam'}>🔥</span>
+                <b className={pp > 0 ? 'mv down' : 'mv up'}>{pp > 0 ? '+' : ''}{pp} pp/{win}</b>
+                <b>{sg}</b>
+                <span className="hint">{mvP ? `P ${mvP.first.toFixed(2)} → ${mvP.last.toFixed(2)}` : ''}</span>
+                <span className="vteams">
+                  <span className="lgtag">{(leagueName[m.league] || m.league).slice(0, 1)}</span>
+                  {m.home} – {m.away}
+                </span>
+                <span className="hint">{fmtDay(m.start)} {fmtTime(m.start)}</span>
+                {v && v.edge >= 0.02 && pp > 0
+                  ? <span className="epill">{BOOK_NAME[v.book] || v.book} kvar på {v.odds.toFixed(2)} (+{Math.round(v.edge * 100)}%)</span>
+                  : <span className="hint">böckerna har hängt med</span>}
+              </div>
+            )
+          })}
         </div>
       )}
       {showModel && (() => {

@@ -270,7 +270,8 @@ def expected_corners(cm: dict, mu_h: float, mu_a: float) -> dict:
 # hörn-statistik hålls per liga (tempot skiljer mellan ligor).
 FIT_POOLS = {"allsvenskan": ("allsvenskan", "superettan"),
              "superettan": ("allsvenskan", "superettan"),
-             "eliteserien": ("eliteserien",)}
+             "eliteserien": ("eliteserien", "obosligaen"),
+             "obosligaen": ("eliteserien", "obosligaen")}
 
 
 def attach_model(store: Storage, matches: list[dict]) -> None:

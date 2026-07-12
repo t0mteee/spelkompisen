@@ -101,6 +101,21 @@ resp. matchdag, eval 2024-07→ (n=351 Allsvenskan, 330 Eliteserien). **Domen:**
 **Nästa:** se "Modellplan" nedan; Superettan som egen flik (Altenar 4825 + Pinnacle
 + Kambi-väg finns); hörn-modell på Sofascore-datat.
 
+**Rörelse-radarn + OBOS-ligaen (2026-07-12 kväll):**
+- **📈 "Största rörelserna"-panel** i Oddset-vyn: största devigade Pinnacle-skiften
+  (6/24 h, ≥1,5 pp, sorterade) över ALLA ligor oavsett flikfilter (träningsmatch-
+  caset får inte missas). Varje rad visar P-oddsets väg + om någon bok står kvar
+  på gamla priset (grön pill = agera). Startade matcher exkluderas.
+  Verifierad live direkt: GAIS +3,5 pp/6h med "Expekt kvar på 1.87 (+2%)";
+  Yverdon–Sion (träningsmatch) flyttade 8,2 pp/6h.
+- **Steam-fallback**: _probs_at använder äldsta punkten när serien är yngre än
+  fönstret men äldre än halva (skift på kortare tid = starkare signal; annars
+  är steam blind tills 6/24 h-historik samlats — hittad när radarn var tom).
+- **OBOS-ligaen tillagd**: Pinnacle 2331, Kambi `football/norway/obos-ligaen`,
+  Sofascore ut 1420; FIT_POOLS: Norge-pool (Eliteserien + OBOS) — samma grepp
+  som Sverige-poolen, riktat mot Eliteseriens svaghet (nykomlingar). Ingen
+  Betinia/Altenar-champ för OBOS. Backfill av resultat/xG kör i bakgrunden.
+
 ## Modellplan — vägen till en modell att lita på (efter backtest-domen)
 
 Backtesten visade: DC-modellen är nära marknaden i Allsvenskan men slår den inte,
