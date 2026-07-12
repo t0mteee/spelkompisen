@@ -28,7 +28,10 @@ FD_URLS = {"allsvenskan": "https://www.football-data.co.uk/new/SWE.csv",
            "eliteserien": "https://www.football-data.co.uk/new/NOR.csv"}
 FD_MIN_SEASON = 2024          # fit-fönster: ~2,5 säsonger räcker med tidsviktning
 SOFA_UT = {"allsvenskan": 40, "eliteserien": 20, "superettan": 46,
-           "obosligaen": 1420}
+           "obosligaen": 22}
+# OBS: sök ALDRIG fram Sofascore-id:n utan att verifiera sporten — 1420 ("1.
+# Divisjon") visade sig vara HANDBOLL och 28937 volleyboll; fotbollens norska
+# andraliga är ut 22 ("Norwegian 1st Division", verifierad med lagnamn + xG).
 # Superettan/OBOS saknar football-data — Sofascore är enda resultatkällan.
 MODEL_LEAGUES = set(FD_URLS) | {"superettan", "obosligaen"}
 SOFA_MAX_PAGES = 4            # events/last/{page} per körning (backfill tar några pass)

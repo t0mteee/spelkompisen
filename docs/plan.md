@@ -116,6 +116,26 @@ resp. matchdag, eval 2024-07→ (n=351 Allsvenskan, 330 Eliteserien). **Domen:**
   som Sverige-poolen, riktat mot Eliteseriens svaghet (nykomlingar). Ingen
   Betinia/Altenar-champ för OBOS. Backfill av resultat/xG kör i bakgrunden.
 
+**Parmarknaderna kompletta (2026-07-12 kväll, Samans önskemål):**
+- **Rörelser på AH/ÖU/hörnor**: punktserierna bär nu LINJEN; UI visar pilar för
+  prisrörelse på nuvarande linje + ⇄-märke när själva linjen flyttats (ofta
+  starkare signal än priset) — för både SvS och Pinnacle. Serie-tooltip med
+  [linje] odds per punkt.
+- **Modell på AH/ÖU**: `pair_fair` prisar båda sidor vid SvS:s linje ur DC-
+  matrisen (push på hellinjer, kvartslinjer som split — asiatiska regler).
+  M-rad i cellerna + amber-pill ≥5 %; AH bär modellens egen supremacy (kan
+  avvika på riktigt), ankrad ÖU ligger nära sharpen per konstruktion (edgen
+  mäter mest bokens marginal — dokumenterat i tooltip). AH/ÖU-avvikelser med
+  i amber-listan och forward-loggas som market mah/mou (facit per marknad).
+- **Ridge-shrinkage i fitten** (att/def ^0.98 per iter): skydd mot skala-drift
+  i svagt kopplade pool-subgrupper. Sanity-backtest: logloss 1.0229 vs 1.0216
+  (brusnivå), ROI oförändrad/bättre — behållen.
+- **OBOS-datat**: Sofascore-id 1420 visade sig vara HANDBOLL (48–19-resultat
+  i fitten — base exploderade till 29 och avslöjade det), 28937 volleyboll;
+  rätt id är **ut 22 "Norwegian 1st Division"** (verifierad: riktiga lag + xG
+  finns). 370 handbollsrader utrensade, ombackfill körd. Läxa inskriven i
+  oddset_data: verifiera ALLTID sporten på Sofascore-id:n.
+
 ## Modellplan — vägen till en modell att lita på (efter backtest-domen)
 
 Backtesten visade: DC-modellen är nära marknaden i Allsvenskan men slår den inte,

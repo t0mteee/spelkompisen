@@ -599,10 +599,12 @@ class Storage:
 
     def oddset_movement(self, ids: list[str]) -> dict[str, dict]:
         """Rörelse (first/last/min/max/n + punktserie) för alla givna matcher i en
-        fråga. -> {match_id: {source: {market: {sign: agg}}}}. 'derived' → 'pinnacle'."""
+        fråga. -> {match_id: {source: {market: {sign: agg}}}}. 'derived' → 'pinnacle'.
+        Punkterna bär linjen (AH/ÖU/hörnor) — first_l/last_l visar linjeflytt."""
         where, args = self._oddset_ids_clause(ids)
         rows = self.conn.execute(
-            f"SELECT match_id, source, market, sign, odds, fetched_at FROM oddset_odds "
+            f"SELECT match_id, source, market, sign, odds, line, fetched_at "
+            f"FROM oddset_odds "
             f"WHERE {where} AND odds IS NOT NULL ORDER BY fetched_at", args).fetchall()
         out: dict[str, dict] = {}
         for r in rows:
@@ -610,14 +612,16 @@ class Storage:
             agg = out.setdefault(r["match_id"], {}).setdefault(src, {}) \
                      .setdefault(r["market"], {})
             a = agg.get(r["sign"])
-            o, t = r["odds"], r["fetched_at"]
+            o, t, ln = r["odds"], r["fetched_at"], r["line"]
             if a is None:
                 agg[r["sign"]] = {"first": o, "last": o, "min": o, "max": o, "n": 1,
-                                  "first_t": t, "last_t": t, "pts": [{"t": t, "o": o}]}
+                                  "first_t": t, "last_t": t, "first_l": ln, "last_l": ln,
+                                  "pts": [{"t": t, "o": o, "l": ln}]}
             else:
                 a["last"], a["last_t"], a["n"] = o, t, a["n"] + 1
+                a["last_l"] = ln
                 a["min"], a["max"] = min(a["min"], o), max(a["max"], o)
-                a["pts"].append({"t": t, "o": o})
+                a["pts"].append({"t": t, "o": o, "l": ln})
         return out
 
     def oddset_save_result(self, r: dict) -> None:

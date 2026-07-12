@@ -178,19 +178,28 @@ def log_and_notify(store: Storage, matches: list[dict]) -> dict:
         # loggtröskel 2 % (lägre än UI-pillens 5 %): backtest v2 visade att just
         # 2–8 %-bandet var det intressanta i Allsvenskan — och fler loggade
         # flaggor ger snabbare facit (grönt-kriteriet kräver ≥50 stängda).
+        # Även AH/ÖU forward-loggas (market mah/mou) — facit per marknad.
         md = m.get("model") or {}
-        for sign, e in (md.get("edges") or {}).items():
-            if e < 0.02:
+        svs_all = (m.get("odds") or {}).get("svenskaspel") or {}
+        model_flags = [("m1x2", None, sign, e, md.get("p", {}).get(sign),
+                        (svs_all.get("1x2") or {}).get(sign))
+                       for sign, e in (md.get("edges") or {}).items()]
+        for market in ("ah", "ou"):
+            mp = md.get(market)
+            if not mp:
                 continue
-            svs_odds = (((m.get("odds") or {}).get("svenskaspel") or {})
-                        .get("1x2") or {}).get(sign)
-            if not svs_odds:
+            sv = svs_all.get(market) or {}
+            model_flags += [(f"m{market}", mp.get("line"), sd, e,
+                             mp.get(f"p{sd}"), sv.get(sd))
+                            for sd, e in (mp.get("edges") or {}).items()]
+        for mkt, line, sign, e, fair, svs_odds in model_flags:
+            if e is None or e < 0.02 or not svs_odds or fair is None:
                 continue
             store.oddset_log_flag({
-                "match_id": m["id"], "market": "m1x2", "sign": sign,
-                "line": None, "league": m.get("league"), "description": desc,
+                "match_id": m["id"], "market": mkt, "sign": sign,
+                "line": line, "league": m.get("league"), "description": desc,
                 "match_start": m.get("start"), "at": at, "odds": svs_odds,
-                "fair": md["p"][sign], "edge": e, "book": "svenskaspel",
+                "fair": fair, "edge": e, "book": "svenskaspel",
                 "tier": "model"})
             n_logged += 1
         # snabb sharp-rörelse (6h) — boken kan hänga efter (träningsmatch-caset)
@@ -215,7 +224,8 @@ def resolve_closings(store: Storage) -> int:
     now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     n = 0
     for f in store.oddset_unresolved_closings(now):
-        hist_market = "1x2" if f["market"] == "m1x2" else f["market"]
+        # modell-flaggor (m1x2/mah/mou) stängs mot samma sharp-marknad utan m-prefix
+        hist_market = f["market"][1:] if f["market"].startswith("m") else f["market"]
         signs = _MARKET_SIGNS[hist_market]
         rows = store.oddset_history_before(f["match_id"], hist_market, f["match_start"])
         # senaste (odds, line) per tecken före avspark

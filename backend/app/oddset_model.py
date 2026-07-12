@@ -129,6 +129,11 @@ def fit_league(results: list[dict], now: Optional[dt.date] = None,
         for t in teams:
             att[t] /= m_att
             dfn[t] /= m_dfn
+            # mjuk ridge mot 1: i en pool där en liga är svagt kopplad (OBOS-lag
+            # möter bara varandra) är skalan oidentifierbar längs (att·c, def·c,
+            # base/c²) — utan dämpning driver base iväg (observerat: 28.9).
+            att[t] **= 0.98
+            dfn[t] **= 0.98
         for lg in leagues:
             base[lg] *= m_att * m_dfn * (tt_obs[lg] / tt_exp[lg]) ** 0.25
             home_adv[lg] *= (th_obs[lg] / th_exp[lg]) ** 0.5
@@ -227,6 +232,49 @@ def _anchor_total(mu_h: float, mu_a: float, line: float,
     return s * mu_h, s * mu_a
 
 
+# --- asiatiska marknader ur DC-matrisen ------------------------------------------------
+
+def _half_outcome(matrix: list[list[float]], kind: str, side: str,
+                  line: float) -> tuple[float, float]:
+    """(P_vinst, P_push) för en HEL- eller HALVLINJE. AH-linjen är hemmaperspektiv
+    (bortasidan spelar mot −linjen); ÖU: side 'O'/'U' mot totalen."""
+    pw = pp = 0.0
+    n = len(matrix)
+    for i in range(n):
+        for j in range(n):
+            p = matrix[i][j]
+            if kind == "ah":
+                v = (i - j) + line if side == "H" else (j - i) - line
+            else:
+                v = (i + j) - line if side == "O" else line - (i + j)
+            if v > 1e-9:
+                pw += p
+            elif abs(v) <= 1e-9:
+                pp += p
+    return pw, pp
+
+
+def pair_fair(matrix: list[list[float]], kind: str, line: float,
+              sides: tuple[str, str]) -> Optional[dict]:
+    """Fair decimalodds för båda sidor av en asiatisk linje (hel/halv/kvarts).
+    Kvartslinje = halva insatsen på var sin grannlinje; push återbetalar.
+    fair o löser: o·P_vinst + P_push = 1."""
+    quarter = abs(line * 2 - round(line * 2)) > 1e-9
+    halves = [line - 0.25, line + 0.25] if quarter else [line]
+    out = {"line": line}
+    for side in sides:
+        pw = pp = 0.0
+        for lh in halves:
+            w, p = _half_outcome(matrix, kind, side, lh)
+            pw += w / len(halves)
+            pp += p / len(halves)
+        if pw < 0.01:
+            return None
+        out[side] = round((1 - pp) / pw, 2)
+        out[f"p{side}"] = round(pw / (1 - pp) if pp < 1 else 0.0, 4)
+    return out
+
+
 # --- hörn-modell (M4b) ---------------------------------------------------------------
 # vm-lärdomen står fast: hörn-VÄRDE kräver sharp linje (modell-edges blev +120 %
 # okalibrerat). Därför är detta enbart FÖRVÄNTAN (visning) — inga pills, ingen logg.
@@ -316,19 +364,35 @@ def attach_model(store: Storage, matches: list[dict]) -> None:
             p_over = _power_probs(inv)["O"]
             mu_h, mu_a = _anchor_total(mu_h, mu_a, pin_ou["line"], p_over)
             anchored = True
-        probs = matrix_1x2(dc_matrix(mu_h, mu_a))
-        svs = ((m.get("odds") or {}).get("svenskaspel") or {}).get("1x2") or {}
+        matrix = dc_matrix(mu_h, mu_a)
+        probs = matrix_1x2(matrix)
+        svs_all = (m.get("odds") or {}).get("svenskaspel") or {}
+        svs = svs_all.get("1x2") or {}
         edges = {}
         for sign in ("1", "X", "2"):
             o = svs.get(sign)
             if o:
                 edges[sign] = round(probs[sign] * o - 1.0, 4)
+        # AH/ÖU vid SvS:s visade linje: fair ur samma matris + modell-edge.
+        # OBS: när totalen är sharp-ankrad är ÖU-fairen nära sharpen per
+        # konstruktion — AH bär modellens egen styrkebedömning (supremacy).
+        pairs = {}
+        for market, sides in (("ah", ("H", "A")), ("ou", ("O", "U"))):
+            sv = svs_all.get(market)
+            if not sv or sv.get("line") is None:
+                continue
+            pf = pair_fair(matrix, market, sv["line"], sides)
+            if not pf:
+                continue
+            pf["edges"] = {sd: round(pf[f"p{sd}"] * sv[sd] - 1.0, 4)
+                           for sd in sides if sv.get(sd)}
+            pairs[market] = pf
         m["model"] = {
             "p": {s: round(p, 4) for s, p in probs.items()},
             "fair": {s: round(1 / p, 2) if p > 0.001 else None
                      for s, p in probs.items()},
             "mu": [round(mu_h, 2), round(mu_a, 2)],
-            "anchored": anchored, "edges": edges, "prior": prior_used}
+            "anchored": anchored, "edges": edges, "prior": prior_used, **pairs}
         cm = corner_ms.get(lg)
         if cm:
             m["model"]["corners"] = expected_corners(cm, mu_h, mu_a)

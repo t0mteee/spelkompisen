@@ -624,9 +624,13 @@ function OddsetLegend() {
             {' '}<span className="epill">+5%</span> = grön pill = <b>sharp-ankrat värde ≥2 %</b> —
             den starkaste signalen härinne, loggas i facitet. Samlas även i 💰-listan.</div>
           <div><b>AH / Ö/U / Hörnor</b> visas som <i>linje · odds/odds</i> (t.ex. −0.5 · 1.79/1.89 =
-            hemmalaget −0,5 mål). Värde räknas ENDAST när boken och Pinnacle har samma linje —
-            olika linjer går inte att jämföra ärligt. Hörnor prissätts av Pinnacle först nära
-            avspark; utan P-rad finns inget ankare.</div>
+            hemmalaget −0,5 mål). Pilar = prisrörelse på NUVARANDE linje;
+            {' '}<span className="lshift">⇄↑</span> = själva LINJEN har flyttats (ofta starkare signal
+            än priset — hovra för hela serien med linjer). Värde räknas ENDAST när boken och
+            Pinnacle har samma linje. Hörnor prissätts av Pinnacle först nära avspark.
+            Med modellen på visas <b>M-rad</b> även här: fair vid SvS-linjen (push/kvartslinjer
+            hanterade) — AH bär modellens egen styrkebedömning, ÖU ligger nära sharpen när
+            totalen är ankrad. Amber-pillsen forward-loggas per marknad i facitet.</div>
           <div><b>Pilar</b> = oddsrörelse sedan första notering: <span className="mv down">↓5%</span> =
             oddset har SJUNKIT (marknaden tror mer på utfallet — hann du före är det bra tecken) ·
             <span className="mv up"> ↑5%</span> = stigit. Hovra för hela serien med tidsstämplar.
@@ -704,6 +708,31 @@ function OddsetView() {
 
   const fmtAh = (l) => (l > 0 ? `+${l}` : `${l}`)
 
+  // parmarknader: serie med linje per punkt, pil på NUVARANDE linje, ⇄ vid linjeflytt
+  const serieL = (mv) => (mv?.pts || []).map((p) =>
+    `${new Date(p.t).toLocaleString('sv-SE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}  ${p.l != null ? `[${p.l}] ` : ''}${p.o.toFixed(2)}`).join('\n')
+  const arrowAtLine = (mv, line) => {
+    const pts = (mv?.pts || []).filter((p) => p.l === line)
+    if (pts.length < 2) return null
+    const first = pts[0].o, last = pts[pts.length - 1].o
+    if (Math.abs(last - first) < 0.01) return null
+    const down = last < first
+    const pct = Math.round(Math.abs(last / first - 1) * 100)
+    return <span className={down ? 'mv down' : 'mv up'}
+      title={`${down ? 'Sjunkit' : 'Stigit'} på linje ${line}: ${first.toFixed(2)} → ${last.toFixed(2)}\n${serieL(mv)}`}>
+      {down ? '↓' : '↑'}{pct >= 1 ? `${pct}%` : ''}</span>
+  }
+  const lineShift = (mv) => {
+    const ls = (mv?.pts || []).map((p) => p.l).filter((l) => l != null)
+    return ls.length > 1 && ls[0] !== ls[ls.length - 1]
+      ? { from: ls[0], to: ls[ls.length - 1] } : null
+  }
+  const shiftBadge = (mv, who) => {
+    const sh = lineShift(mv)
+    return sh && <span className="lshift"
+      title={`${who}-linjen har FLYTTATS ${sh.from} → ${sh.to} — linjeflytt är ofta en starkare signal än prisjusteringen (hela serien i pilens tooltip)`}>⇄{sh.to > sh.from ? '↑' : '↓'}</span>
+  }
+
   // grön edge-pill: devigad Pinnacle (fair) säger att SvS-oddset är för högt
   const edgePill = (v) => v && v.edge >= 0.02 && (
     <span className="epill" title={`Devigad Pinnacle: ${(v.fair * 100).toFixed(1)}% (fair odds ${(1 / v.fair).toFixed(2)})\nSvS betalar ${v.odds.toFixed(2)} → ${(v.edge * 100).toFixed(1)}% övervärde${v.derived ? '\n(P~ = härlett ur handikapp — ta med en nypa salt)' : ''}`}>
@@ -769,12 +798,28 @@ function OddsetView() {
     const svs = m.odds?.svenskaspel?.[market]
     const pin = m.odds?.pinnacle?.[market]
     const v1 = m.value?.[market]?.[k1], v2 = m.value?.[market]?.[k2]
+    const mvS1 = m.movement?.svenskaspel?.[market]?.[k1]
+    const mvS2 = m.movement?.svenskaspel?.[market]?.[k2]
+    const mvP1 = m.movement?.pinnacle?.[market]?.[k1]
+    const mvP2 = m.movement?.pinnacle?.[market]?.[k2]
     const mc = market === 'cor' && showModel ? m.model?.corners : null
+    const mp = market !== 'cor' && showModel ? m.model?.[market] : null
+    const mpBest = mp && Object.entries(mp.edges || {})
+      .filter(([, e]) => e >= 0.05).sort((a, b) => b[1] - a[1])[0]
     return (
       <td className="oc pair">
-        <div className="o">{svs ? `${fmtL(svs.line)} · ${svs[k1].toFixed(2)} / ${svs[k2].toFixed(2)}` : '–'}
-          {edgePill(v1) || edgePill(v2)}</div>
-        {pin && <div className="p">P {fmtL(pin.line)} · {pin[k1].toFixed(2)} / {pin[k2].toFixed(2)}</div>}
+        <div className="o">
+          {svs ? <>{fmtL(svs.line)} · {svs[k1].toFixed(2)}{arrowAtLine(mvS1, svs.line)} / {svs[k2].toFixed(2)}{arrowAtLine(mvS2, svs.line)}{shiftBadge(mvS1, 'SvS')}</> : '–'}
+          {edgePill(v1) || edgePill(v2)}
+        </div>
+        {pin && <div className="p">P {fmtL(pin.line)} · {pin[k1].toFixed(2)}{arrowAtLine(mvP1, pin.line)} / {pin[k2].toFixed(2)}{arrowAtLine(mvP2, pin.line)}{shiftBadge(mvP1, 'Pinnacle')}</div>}
+        {mp && (
+          <div className="m"
+            title={`Modellens fair vid SvS-linjen ${fmtL(mp.line)} (push/kvartslinjer hanterade).${market === 'ou' && m.model?.anchored ? '\nÖU: totalen är ankrad mot sharp — fairen ligger nära Pinnacle per konstruktion; edgen mäter mest SvS marginal.' : ''}${market === 'ah' ? '\nAH bär modellens EGEN styrkebedömning (supremacy) — här kan modellen avvika på riktigt.' : ''}\nAmber: experimentell — forward-loggas i 📒-facitet, spela inte blint.`}>
+            M {mp[k1] ? mp[k1].toFixed(2) : '–'} / {mp[k2] ? mp[k2].toFixed(2) : '–'}
+            {mpBest && <span className="apill">{mpBest[0]} +{Math.round(mpBest[1] * 100)}%</span>}
+          </div>
+        )}
         {mc && (
           <div className="m"
             title={'Förväntade hörnor ur egen liga-data (Sofascore): liga-snitt + favoritskap via modell-μ.\nENDAST förväntan — hörn-VÄRDE kräver sharp linje (vm-lärdomen: modell-hörnedges blev +120% okalibrerat).'}>
@@ -900,9 +945,17 @@ function OddsetView() {
       {showModel && (() => {
         const msig = []
         for (const m of visible) {
+          if (m.start && new Date(m.start) < new Date()) continue
           for (const [sg, e] of Object.entries(m.model?.edges || {})) {
-            if (e >= 0.05 && (!m.start || new Date(m.start) > new Date())) {
-              msig.push({ m, sg, e })
+            if (e >= 0.05) msig.push({ m, label: '1X2', sg, e, p: m.model.p[sg], fair: m.model.fair[sg] })
+          }
+          for (const mk of ['ah', 'ou']) {
+            const mp = m.model?.[mk]
+            for (const [sd, e] of Object.entries(mp?.edges || {})) {
+              if (e >= 0.05) msig.push({
+                m, label: `${MARKET_LABEL[mk]} ${mk === 'ah' ? fmtAh(mp.line) : mp.line}`,
+                sg: sd, e, p: mp[`p${sd}`], fair: mp[sd],
+              })
             }
           }
         }
@@ -910,12 +963,12 @@ function OddsetView() {
         return msig.length > 0 && (
           <div className="valuelist amberlist">
             <div className="valhead"><b>🧪 Modell-avvikelser (amber)</b>
-              <span className="hint"> egen modell (xG-viktad) vs SvS-odds — EXPERIMENTELLT: backtest v2 säger +10 % ROI i Allsvenskan vid låga trösklar (MEN inom bruset, n=326) och −17 % i Eliteserien. Forward-loggen avgör — signalspaning, inte spelrekommendation.</span></div>
-            {msig.slice(0, 6).map(({ m, sg, e }, i) => (
+              <span className="hint"> egen modell (xG-viktad) vs SvS-odds, nu även AH/Ö-U — EXPERIMENTELLT: backtest v2 säger +10 % ROI i Allsvenskan vid låga trösklar (MEN inom bruset, n=326) och −17 % i Eliteserien; AH/Ö-U är obacktestade. Forward-loggen avgör — signalspaning, inte spelrekommendation.</span></div>
+            {msig.slice(0, 8).map(({ m, label, sg, e, p, fair }, i) => (
               <div key={i} className="valrow">
                 <span className="apill big">+{(e * 100).toFixed(1)}%</span>
-                <b>1X2 {sg}</b>
-                <span>modell {(m.model.p[sg] * 100).toFixed(0)}% (fair {m.model.fair[sg]?.toFixed(2)})</span>
+                <b>{label} {sg}</b>
+                <span>modell {(p * 100).toFixed(0)}% (fair {fair?.toFixed(2)})</span>
                 <span className="vteams">{m.home} – {m.away}</span>
                 <span className="hint">{fmtDay(m.start)} {fmtTime(m.start)}</span>
               </div>
