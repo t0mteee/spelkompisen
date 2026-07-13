@@ -384,14 +384,17 @@ def cmd_fdbacktest(rest: list[str]) -> None:
 
 
 def cmd_modeldata() -> None:
-    """Tvinga uppdatering av modellens dataunderlag (resultat/xG/Elo) + visa fit."""
+    """Tvinga uppdatering av modellens dataunderlag (resultat/xG/Elo) + visa fit
+    och identitets-granskningen (namn som inte kanoniserats, kvarvarande
+    datum-dubbletter) — förslag i stället för tysta beslut."""
     from app import oddset_data, oddset_model
     store = Storage()
     try:
         rep = oddset_data.refresh_all(store, force=True)
         print("data:", rep)
         for lg in sorted(oddset_data.MODEL_LEAGUES):
-            res = oddset_data.merged_results(store, lg)
+            audit: dict = {}
+            res = oddset_data.merged_results(store, lg, audit=audit)
             n_xg = sum(1 for r in res if r.get("xg_h") is not None)
             fit = oddset_model.fit_league(res)
             print(f"{lg}: {len(res)} resultat ({n_xg} med xG)", end="")
@@ -402,6 +405,11 @@ def cmd_modeldata() -> None:
                       + ", ".join(f"{t} (a{v['att']}/f{v['def']})" for t, v in top))
             else:
                 print(" · för lite data för fit")
+            for u in audit.get("unmatched", []):
+                print(f"    ⚠ okopplat namn: '{u['name']}' — förslag '{u['suggestion']}' "
+                      f"(likhet {u['sim']}) → lägg i TEAM_ALIAS/meta oddset_alias:{lg}")
+            for d in audit.get("date_dups", []):
+                print(f"    ⚠ datum-dubblett kvar: {d['pair']} {d['dates']} ({d['note']})")
     finally:
         store.close()
 

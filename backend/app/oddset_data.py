@@ -135,13 +135,17 @@ def _ingest_event(store: Storage, lg: str, e: dict) -> bool:
         return False
     date = dt.datetime.fromtimestamp(
         e["startTimestamp"], dt.timezone.utc).strftime("%Y-%m-%d")
+    # normaltime, inte current: för slutspel/cup inkluderar current straffar
+    # (Montreal–Atlanta 2024 blev "6-7" i stället för 2-2 — hittad av
+    # merge-vakten 2026-07-13)
+    hs, as_ = e.get("homeScore", {}), e.get("awayScore", {})
     row = {"league": lg, "date": date,
            "home": norm_team(e["homeTeam"]["name"]),
            "away": norm_team(e["awayTeam"]["name"]),
            "home_raw": e["homeTeam"]["name"],
            "away_raw": e["awayTeam"]["name"],
-           "hg": e.get("homeScore", {}).get("current"),
-           "ag": e.get("awayScore", {}).get("current"),
+           "hg": hs.get("normaltime", hs.get("current")),
+           "ag": as_.get("normaltime", as_.get("current")),
            "source": "sofa"}
     time.sleep(1.1)
     try:
@@ -335,23 +339,55 @@ def refresh_all(store: Storage, force: bool = False) -> dict:
             "absences": refresh_absences(store, force)}
 
 
-def merged_results(store: Storage, league: str) -> list[dict]:
+# Manuella lagnamns-alias (identitetslager, granskning 2026-07-13): källnamn →
+# football-data-kanoniskt namn, per liga. Fuzzy-tröskeln 0.7 missar dessa
+# (la galaxy↔los angeles galaxy = 0.67 → laget splittrades i två identiteter i
+# fitten). Runtime-tillägg utan deploy: meta-nyckeln oddset_alias:{liga} (JSON).
+TEAM_ALIAS = {"mls": {"la galaxy": "los angeles galaxy"}}
+
+
+def _alias_map(store: Storage, league: str) -> dict[str, str]:
+    m = dict(TEAM_ALIAS.get(league, {}))
+    try:
+        m.update(json.loads(store.meta_get(f"oddset_alias:{league}") or "{}"))
+    except ValueError:
+        pass
+    return m
+
+
+def merged_results(store: Storage, league: str,
+                   audit: Optional[dict] = None) -> list[dict]:
     """Resultat med källorna ihopslagna: Sofascore-lagnamn kanoniseras till
-    football-data-namnen (annars splittras lag som 'djurgardens'/'djurgarden'
-    i fitten) och dubblettrader för samma match slås ihop (xG vinner)."""
+    football-data-namnen (alias-tabell → exakt → fuzzy >0.7) och dubblettrader
+    för samma match slås ihop (xG vinner). Matchnyckeln tål ±1 dygns datumskillnad
+    mellan källorna (MLS: Sofascore = UTC-datum, football-data = lokalt/brittiskt
+    → 304 dubbletter i fitten före fixen) — kräver samma lagpar, olika källor och
+    samma mål. audit (dict) fylls med det som INTE avgjordes tyst:
+    'unmatched' = namn som inte kunde kanoniseras (med bästa förslag + likhet),
+    'date_dups' = kvarvarande par samma lag/olika källa inom ±1 dygn."""
     from .oddset import _team_sim
     rows = [dict(r) for r in store.oddset_results(league)]
+    alias = _alias_map(store, league)
     canon = sorted({r[side] for r in rows if r.get("source") == "fd"
                     for side in ("home", "away")})
 
     def to_canon(name: str) -> str:
-        if name in canon:
-            return name
+        if not canon or name in canon:
+            return name          # en-källe-liga (Superettan/OBOS) kanoniserar inte
+        if name in alias:
+            return alias[name]   # manuellt verifierad koppling vinner
         best, best_s = name, 0.7
         for c in canon:
             s = _team_sim(name, c)
             if s > best_s:
                 best, best_s = c, s
+        if best is name and audit is not None:
+            # föreslå i stället för att tyst lämna osammanslaget
+            cand = max(((c, _team_sim(name, c)) for c in canon),
+                       key=lambda t: t[1], default=(None, 0.0))
+            if cand[0] and cand[1] >= 0.5:
+                audit.setdefault("unmatched", []).append(
+                    {"name": name, "suggestion": cand[0], "sim": round(cand[1], 2)})
         return best
 
     merged: dict[tuple, dict] = {}
@@ -366,4 +402,50 @@ def merged_results(store: Storage, league: str) -> list[dict]:
         for k in ("xg_h", "xg_a", "cor_h", "cor_a", "hg", "ag"):
             if prev.get(k) is None and r.get(k) is not None:
                 prev[k] = r[k]
-    return sorted(merged.values(), key=lambda r: r["date"])
+
+    # datumtolerans: samma lagpar från OLIKA källor ±1 dygn med samma mål =
+    # samma match (fd-raden är bas — backtestens xG-koppling nycklar på fd-datum)
+    by_pair: dict[tuple, list[dict]] = {}
+    for r in merged.values():
+        by_pair.setdefault((r["home"], r["away"]), []).append(r)
+    out: list[dict] = []
+    for pair_rows in by_pair.values():
+        pair_rows.sort(key=lambda r: r["date"])
+        i = 0
+        while i < len(pair_rows):
+            r, nxt = pair_rows[i], pair_rows[i + 1] if i + 1 < len(pair_rows) else None
+            if nxt is not None and _same_match(r, nxt):
+                base, fill = (r, nxt) if r.get("source") == "fd" else (nxt, r)
+                for k in ("xg_h", "xg_a", "cor_h", "cor_a", "hg", "ag"):
+                    if base.get(k) is None and fill.get(k) is not None:
+                        base[k] = fill[k]
+                out.append(base)
+                i += 2
+                continue
+            if nxt is not None and audit is not None \
+                    and _date_gap(r, nxt) <= 1 and r.get("source") != nxt.get("source"):
+                audit.setdefault("date_dups", []).append(
+                    {"pair": f"{r['home']}–{r['away']}", "dates": [r["date"], nxt["date"]],
+                     "note": "olika mål — mergas ej"})
+            out.append(r)
+            i += 1
+    return sorted(out, key=lambda r: r["date"])
+
+
+def _date_gap(a: dict, b: dict) -> int:
+    try:
+        return abs((dt.date.fromisoformat(b["date"])
+                    - dt.date.fromisoformat(a["date"])).days)
+    except ValueError:
+        return 99
+
+
+def _same_match(a: dict, b: dict) -> bool:
+    """Samma lagpar inom ±1 dygn från olika källor räknas som samma match —
+    men bara om målen stämmer överens (skydd mot t.ex. omspel/felmatchning)."""
+    if a.get("source") == b.get("source") or _date_gap(a, b) > 1:
+        return False
+    for k in ("hg", "ag"):
+        if a.get(k) is not None and b.get(k) is not None and a[k] != b[k]:
+            return False
+    return True
