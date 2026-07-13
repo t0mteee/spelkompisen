@@ -28,7 +28,9 @@ DC_RHO_CLUB = -0.01     # REFITTAD i Etapp 5-backtesten (2026-07-12): grid-minim
                         # överkorrigerar här precis som för landslag (vm: −0.04)
 MAX_GOALS = 12
 XG_WEIGHT = 0.65        # effektiva mål = 0.65·xG + 0.35·mål (när xG finns)
-DECAY_DAYS = 240.0      # vikt = exp(-ålder/240 d) — ~1 säsong halveringstid
+DECAY_DAYS = 240.0      # vikt = exp(-ålder/240 d) — e-folding 240 d, dvs
+                        # HALVERINGSTID ≈ 166 d (beteendet behållet vid
+                        # granskningen 2026-07-13; bara benämningen var fel)
 FIT_ITER = 80
 MODEL_EDGE_SHOW = 0.05  # amber-pill först vid ≥5 % (högre ribba än sharp — okalibrerad)
 MIN_MATCHES = 8         # lag med färre viktade matcher får Elo-prior (M2) i stället

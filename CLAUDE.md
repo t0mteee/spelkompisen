@@ -7,9 +7,12 @@ egen modell och värdespels-tips (1X2, asian handicap, över/under, hörnor på 
 
 **Läge (2026-07-13):** Etapp 0–5 KLARA + långt därutöver. Oddset-delen är i full drift:
 6 ligor (Allsvenskan/Superettan/Eliteserien/OBOS/MLS/träningsmatcher), 4 bokkällor +
-Pinnacle, kvalitetsviktade värdesignaler, steam-radar, xG-viktad DC-modell (amber, T-
-kalibrerad), frånvarodata, CLV-facit per tier. **STATUS-SAMMANFATTNINGEN överst i
-`docs/plan.md` är sanningen — LÄS DEN FÖRST i ny session** (+ backloggen där, prioriterad).
+Pinnacle, kvalitetsviktade värdesignaler, steam-radar, xG-viktad Poisson-modell med
+DC-korrektion (amber, T-kalibrerad — kalla den inte DC-MLE), frånvarodata, CLV-facit
+per tier med grönt-kriterium v2 (≥50 stängda OCH undre bootstrap-KI-gräns > 0, per
+liga/marknad/modellversion). **STATUS-SAMMANFATTNINGEN överst i `docs/plan.md` är
+sanningen — LÄS DEN FÖRST i ny session** (+ WP-backloggen där, prioriterad; gransknings-
+evidens i `docs/granskning-2026-07-13.md`).
 
 **Relationen till syskonprojekten:**
 - `/Users/saman/svs` (SvS kompisen, portar 8000/5173) — ursprunget. Fryses när spelkompisen
@@ -125,6 +128,10 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
 - Tier-regel för tips: **sharp-ankrat = actionable (grönt, in i CLV); modell-utan-sharp =
   amber (bakom toggle, UR CLV)** — vm bevisade tre gånger att modell-edges utan sharp-ankare
   blir systematiskt uppblåsta (DC alt-totaler +40–55 %, hörnor +120 % okalibrerat).
+- Metodregler från granskningen 2026-07-13 (`docs/granskning-2026-07-13.md`):
+  asiatiska sannolikheter alltid settlement-aware (push/half-win) även i ankring;
+  notiser kräver närvaro-bekräftat bokpris (WP2); alla prediktioner loggas vid fasta
+  horisonter med modellversion — flaggor är urval för handling, inte utvärderingsunderlag.
 
 ## UI-konventioner
 

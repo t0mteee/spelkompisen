@@ -9,10 +9,14 @@
 - **Signaler**: grön = sharp-ankrat värde, KVALITETSVIKTAT q=edge/(odds−1) (Kelly-andel;
   högoddsare kräver mer); 🔥 steam (devigade pp, radar-panel); ⇄ linjeflytt; 🚑 frånvaro
   (Sofascore missingPlayers, spelarstatus-viktad); ✓XI bekräftade elvor.
-- **Modell (amber)**: DC per liga-pool (SWE/NOR-pooler), xG-viktad (~2200 matcher),
-  Elo-prior, temperatur-kalibrerad (Allsv T=1.0, Elite T=0.85), prisar 1X2+AH/ÖU+hörnor.
-  Backtest: nära marknaden i Allsvenskan (±0 % bästa pris), svag Eliteserien. GRÖNT-
-  KRITERIUM: forward-loggen (tier=model) ≥50 stängda flaggor med positivt snitt per liga.
+- **Modell (amber)**: xG-viktad **Poisson-styrkefit med DC-korrektion (ρ) i
+  prediktionen** (per liga-pool, SWE/NOR-pooler; kalla den inte "Dixon-Coles-MLE" —
+  granskningen 2026-07-13), Elo-prior, temperatur-kalibrerad (Allsv T=1.0, Elite
+  T=0.85), prisar 1X2+AH/ÖU+hörnor. Backtest: nära marknaden i Allsvenskan (±0 %
+  bästa pris), svag Eliteserien. **GRÖNT-KRITERIUM v2 (beslut 2026-07-13)**:
+  ≥50 stängda flaggor OCH undre 90 %-KI-gränsen > 0 (kluster-bootstrap per match,
+  close-EV winsoriserad ±20 %), per liga × marknad × modellversion — positivt
+  snitt ensamt räcker inte. Flaggor stämplas med git-hash (model_version).
 - **UI**: spelkort m. Kelly + stödchips, radar, amber-lista, detaljvy (klick på match),
   loggtabell (📒), 🔔 larmhistorik, 🎯 bara-signaler, ℹ-prickar + legend.
 - **Insamling (A1 ✅ 2026-07-13)**: launchd kör `cli.py smart` var 30:e min —
@@ -20,45 +24,101 @@
   var 4:e min så länge någon match startar inom 3 h (endast Pinnacle + böckernas
   1X2 för ligorna i fönstret; notiser pushas i samma varv = larm inom minuter).
   Poolspels-tätläget (var 5:e min när omgång stänger inom 2 h) väver i samma pass.
-- **EJ GJORT ÄNNU**: NTFY_TOPIC ej satt (inga pushar!); mobilpolish;
-  stora Europa-ligorna (plan nedan, aug).
+- **Granskningsrunda 2026-07-13** (Codex + Claude-verifiering, full rapport i
+  `docs/granskning-2026-07-13.md`): 8/10 områden bekräftade med evidens.
+  Åtgärdat samma dag: identitetslager light (WP3 — MLS-fitten 1648→1270 rader,
+  304 datum-dubbletter borta, LA Galaxy en identitet, xG 57→73 %, straff-
+  kontaminerade slutspelsresultat rättade/raderade, normaltime i stället för
+  current), grönt-kriterium v2 (KI + modellversion), ärlig decay-text.
+  **P0 härifrån = sanningslagret**: WP1 settlement-ankring, WP2 pris-närvaro,
+  WP4 CLV-linje, WP5 prediction ledger (se backloggen).
+- **EJ GJORT ÄNNU**: NTFY_TOPIC ej satt (inga pushar!); mobilpolish; WP-backloggen
+  nedan; stora Europa-ligorna **PAUSADE tills WP0–WP5 är klara** (beslut 2026-07-13).
 
-## Förbättringsbacklog (research-runda 2026-07-13, prioriterad)
+## Backlog (WP-struktur efter granskningen 2026-07-13, prioriterad)
 
 Research-grund: steam-värde dör på minuter, inte halvtimmar ("if you're seeing the
 same price after 10-20 min, the value is gone" — [SportBot om steam](https://www.sportbotai.com/blog/steam-moves-betting-explained-ai-data),
 [Arbusers teknisk analys](https://arbusers.com/how-to-find-value-bets-on-sharps-by-odds-movements-aka-technical-analysis-t10188/),
 [CLV-metodik](https://www.wunderdog.com/sports-betting/how-to-beat-the-closing-line-in-sports-betting));
-Dixon-Coles står sig som guldstandard — XGBoost m. 40–100 features slår den sällan
-med >1 pp ([Wilkens 2026, Bundesliga](https://journals.sagepub.com/doi/10.1177/22150218261416681),
-[DC-guide](https://predictionengine.app/learn/dixon-coles-soccer-model)) → jaga inte ML,
-jaga LATENS och DATA.
+Dixon-Coles-familjen står sig som guldstandard — XGBoost m. 40–100 features slår
+den sällan med >1 pp ([Wilkens 2026](https://journals.sagepub.com/doi/10.1177/22150218261416681)) →
+jaga inte ML, jaga LATENS, DATAKVALITET och ÄRLIGT FACIT. Granskningsevidens och
+acceptanskriterier per WP: `docs/granskning-2026-07-13.md`.
 
-**A. Signalskärpa (störst förväntad effekt)**
-1. ✅ **SNABBPOLL nära avspark** (2026-07-13) — `cli.py smart` ersätter
-   oddset+snapshot-smart i launchd-passet: fullt varv först, sedan snabbvarv
-   var 4:e min (endast Pinnacle + böckernas 1X2, bara ligor med match i
-   fönstret, `collect(deep=False)` = ingen Kambi-deep/modelldata/modell-
-   påhäng) så länge nästa avspark är inom **3 h** — notiser i samma varv.
-   OBS: punkten skrev "<36 h", men det = kontinuerlig polling dygnet runt
-   (Pinnacle IP-blockrisk); 3 h täcker lineup-fönstret + sena steamen.
-   Justeras i `FAST_WITHIN_H`/`FAST_SLEEP_S` (oddset.py). Poolspels-tätläget
-   delar passets ~25-min-budget (nedräkning mellan varven, inte omfrågning).
-2. **Öppningslinje-ankare**: spara öppningspriset per selektion (första snapshot);
-   visa "sedan öppning"-drift + flagga böcker som inte följt med; CLV även mot öppning.
-3. **Odds-band-facit**: 📒-rapport per oddsband (≤2.0/2–4/4–8/8+) — validerar
-   kvalitetsviktningen empiriskt när n växt.
-4. **Backtest v4**: beslutsregel på q-trösklar (i stället för rå edge) + X-frekvens
-   per liga (DC underskattar kryss systematiskt enligt litteraturen — verifiera).
+**Metodregler (tillägg 2026-07-13, viker aldrig):**
+- Asiatiska sannolikheter hanteras alltid settlement-aware (push/half-win) —
+  i ankring såväl som prissättning.
+- Notiser kräver närvaro-bekräftat bokpris (sett i senaste varvet) — aldrig larm
+  på pris som kan vara plockat/suspenderat (WP2 bygger mekanismen).
+- Alla prediktioner loggas vid fasta horisonter med modellversion — flaggor är
+  ett urval för handling, aldrig underlaget för utvärdering (WP5).
 
-**B. Modell**
-5. Frånvaro-justering (rating-viktad XI-styrka) när 🚑-datat samlats — amber tills facit.
-6. Vilodagar/resor ur results-tabellen (särskilt MLS) — visa först, modellera sen.
-7. MLS-kalibrering: kör `oddsetcalibrate` utökad med mls (USA.csv har PSC → backtestbar).
-8. Hörn-värde grön väg: Pinnacle hörn-specials vs SvS samma linje finns redan —
-   bygg facit-band för hörnor specifikt.
+**Klart ur granskningen (2026-07-13):** WP3 identitetslager light (alias +
+datumtolerans ±1 dygn + audit-lista; MLS-fitten sanerad inkl. straff-resultat,
+normaltime-fixen), grönt-kriterium v2 (kluster-bootstrap-KI + model_version),
+decay-benämningen. Sedan tidigare samma dag: A1-snabbpollen (`cli.py smart`,
+snabbvarv var 4:e min när avspark < 3 h, `FAST_WITHIN_H` i oddset.py).
 
-**C. UI/mobil (Samans punkt: inte optimalt än)**
+**P0 — sanningslager & matematik (i ordning):**
+- **WP0** (S): SQLite-robusthet — WAL, busy_timeout, batchade transaktioner
+  (commit per rad i dag; API + 25-min-smartpass skriver parallellt).
+- **WP1** (S/M): settlement-aware ÖU-ankring (fel på 72 % av linjerna: hel=23 %,
+  kvarts=49 %) + ordningen temper→ankare; test FÖRST (pair_fair-roundtrip);
+  omkör `oddsetcalibrate` efteråt.
+- **WP2** (M): pris-närvaro — last_seen_at per selektion (uppdateras vid
+  dedup-skip), available/suspended, source health i statusraden, åldersvakt i
+  värde/notiser, bekräftelseålder i UI.
+- **WP4** (S/M): CLV-identitet — line in i PK (recreate + kopiera; facit bevaras),
+  stängning på flaggans lina, "line moved" som egen facit-kategori (Δlina) i
+  stället för censur.
+- **WP5** (M/L): prediction ledger — ALLA prediktioner vid fasta horisonter
+  (T−24h/−3h/−20m, sammanfaller med pollpassen) med sharp-fair/modell-fair/
+  bokpris/availability/model_version; block-bootstrap-rapporten från grönt-
+  kriterium v2 körs på ledgern. Ersätter gamla A2 (öppningslinje = första
+  horisonten) och ger gamla A3 (odds-band-facit) gratis.
+
+**P1 — EV-ärlighet, integritet, validering:**
+- **WP6** (S+M): pool-EV — jackpot in i builderns radval (frontend visar redan
+  jackpot-EV på rader valda utan den); κ̂ från `cli.py backtest` som medvinnar-
+  korrektion; UI-text att nivå-EV under toppnivån är approximation. M-delen:
+  Monte-Carlo-portfolio (10k utfall, egna rader konkurrerar, E[pott/(W+1)]
+  exakt, percentiler).
+- **WP7** (S): ärliga benämningar — "xG-viktad Poisson-styrkefit med DC-
+  korrektion" i UI-tooltips (docs klart 2026-07-13); T:s in-sample-status noterad.
+- **WP8** (S/M): insamlingsintegritet — Sofascore seen-mark först efter lyckad
+  statistikhämtning (10 kända offer i dag) alt. retry-lista; frånvaro som
+  tidsstämplade snapshots MED spelar-ID/position (ger B5 data + "vilken frånvaro
+  flyttar linjen?"); daglig Elo-snapshot + historik-backfill (PIT-Elo).
+- **WP-test** (M, löpande): pytest för kritisk matematik — power-devig, asiatisk
+  settlement, eventmatchning/tidszon, closing-matchning, poolutdelning,
+  kalibrering. Testet skrivs FÖRE respektive fix (WP1 börjar).
+- Backtest v4 (gamla A4): beslutsregel på q-trösklar + X-frekvens per liga —
+  efter WP1 (annars mäter den ankringsbuggen).
+
+**P1 — datakällor (efter WP3, identiteten är förutsättningen):**
+- **WP9a**: ASA (American Soccer Analysis) som oberoende MLS-kontroll — **cert-
+  fel härifrån 2026-07-13** (hostname mismatch via både httpx och Chrome-TLS);
+  verifiera åtkomst innan planering. xG blandas ALDRIG mellan providers — egen
+  kolumn/tagg.
+- **WP9b**: Sofascore coverage-matrix per liga/säsong/endpoint/fält (script →
+  docs). Verifierat 2026-07-13: shot-xG+xGOT finns för Eliteserien (30/30),
+  saknas för Allsvenskan (0/31) — match-xG via /statistics finns för båda.
+- **WP9c**: Sofascore team-events (alla tävlingar per lag) → vilodagar/resor
+  (gamla B6) utan cup-blindhet.
+
+**P2 — senare:**
+- Frånvaro-modellering (gamla B5) — när WP8-historiken samlats; amber tills facit.
+- MLS-kalibrering `oddsetcalibrate` + mls (gamla B7) — efter WP1+WP3 (nu sanerad
+  data, men ankringen först).
+- Hörn-värde grön väg (gamla B8) — efter WP5.
+- Officiell MLS-frånvarorapport, NFF fiksId-sidor (JS-RE), Fogis-spaning,
+  Open-Meteo point-in-time-väder, domare/underlag — features med liten väntad
+  effekt; Betfair Historical: skip tills konkret behov.
+- Manuell spel-journal i appen (skild från forskningsfacitet) — Samans beslut B8
+  i granskningen, öppet.
+
+**C. UI/mobil (Samans punkt: inte optimalt än — parallellspår, blockerar inget)**
 9. Mobil: spelkorten 1 kolumn full bredd; panelerna (💰/📈/🧪) kollapsbara med
    sparade lägen; detaljvyns grafer skalar till skärmbredd (overflow nu); radar-
    raderna wrappar fult; 🎯 Bara signaler som DEFAULT på mobil.
@@ -66,7 +126,9 @@ jaga LATENS och DATA.
    liten expander per cell; sticky liga-bar vid scroll.
 11. PWA: manifest + ikon så hemskärms-appen får egen identitet (svs-mönstret).
 
-**D. Stora ligorna (drar igång aug 2026) — allt är EN rad + backfill per liga**
+**D. Stora ligorna — PAUSADE tills WP0–WP5 är klara (beslut 2026-07-13).**
+Fler ligor löser inte datakvalitet/facit/metod — id-tabellen behålls som
+förberedelse; omprövas efter WP5 (tidigast sen aug 2026).
 | Liga | football-data | Sofascore ut | Kambi-väg | Pinnacle |
 |---|---|---|---|---|
 | MLS ✅ (inlagd, i säsong) | new/USA.csv | 242 | football/usa/mls | 2663 |
@@ -436,6 +498,11 @@ Oddset-flik (platshållare), detta dokument, CLAUDE.md omskriven.
 | allsvenskan.se / eliteserien.no | officiell statistik | 🟡 WordPress med wp-json — undersök vid behov, låg prio |
 | FBref (browser-kontext) | tabeller/grundstats | 🟡 browser passerar Cloudflare (verifierat) men INGEN xG för Allsvenskan (22 tabeller kollade) — lågt värde, skippa |
 | Blockerade (omtestade 2026-07-12 från hemma-IP, slösa inte tid) | FotMob (gamla API:t 404:ar — kräver signerad `x-mas`-header numera), football-data.org (Allsvenskan i katalogen men datat kräver betald tier), Opta-webben (Akamai) | ⛔ — men Opta performfeeds data-API var öppet (showcase-outlet, `vm/backend/app/opta.py`) |
+| ASA (American Soccer Analysis) | MLS: xG/xPass/Goals Added/löner/domare/arenor — oberoende MLS-kvalitetskontroll | 🔴 certfel 2026-07-13 (hostname mismatch, både httpx & Chrome-TLS) — verifiera åtkomst innan planering (WP9a). Blanda aldrig providers' xG i samma fält. |
+| Sofascore shotmap | shot-xG + xGOT per skott | ✅ probat 2026-07-13: Eliteserien 30/30 skott med xG — Allsvenskan 0/31 (fältet saknas för SWE). Coverage-matrix (WP9b) innan features byggs. |
+| Sofascore team-events | lagets ALLA tävlingar (cup/Europa) | 🟡 ej probat — nyckeln till vilodagar/resor utan cup-blindhet (WP9c) |
+| Open-Meteo Historical Forecast | väder med äkta point-in-time-prognoser | 🟡 dokumenterat gratis-API; liten väntad effekt → P2 |
+| Betfair Historical | exchange-stängningar | ⛔ skip tills konkret behov — kontokrav, marginell nytta över Pinnacle-close för våra ligor |
 
 ## Kända risker
 
