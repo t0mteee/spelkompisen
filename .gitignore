@@ -23,3 +23,6 @@ frontend/dist/
 
 # Local machine-specific Claude settings (behåll launch.json)
 .claude/settings.local.json
+
+# Genererat ChatGPT-paket (byggs om med backend/scripts/chatgpt_paket.sh)
+docs/chatgpt-paket/
