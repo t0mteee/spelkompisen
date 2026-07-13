@@ -9,12 +9,29 @@ Metodregler (dyrt vunna i vm-projektet):
 from __future__ import annotations
 
 import datetime as dt
+import functools
 import json
+import pathlib
+import random
+import subprocess
 from typing import Optional
 
 from . import notify
 from .analysis import _power_probs
 from .storage import Storage
+
+
+@functools.lru_cache(maxsize=1)
+def _code_version() -> Optional[str]:
+    """Kort git-hash — stämplas på flaggor så facitet kan delas per kodversion
+    (grönt-kriterium v2: modellen har redan ändrats mitt i insamlingen)."""
+    try:
+        root = pathlib.Path(__file__).resolve().parents[2]
+        out = subprocess.run(["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
+                             capture_output=True, text=True, timeout=5)
+        return out.stdout.strip() or None
+    except Exception:  # noqa: BLE001 — utan git funkar allt utom versionstaggen
+        return None
 
 EDGE_SHOW = 0.02       # visas i UI (grön markering)
 EDGE_LOG = 0.02        # loggas i CLV-facitet (brett — facitet ska mäta även svansen)
@@ -150,6 +167,7 @@ def log_and_notify(store: Storage, matches: list[dict]) -> dict:
     """Logga sharp-edges i CLV-facitet (first/best) och pusha notiser (ntfy).
     Härledd fair (P~) loggas ALDRIG — bara riktiga marknadspriser."""
     at = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    ver = _code_version()
     n_logged = n_pushed = 0
     for m in matches:
         desc = f"{m['home']} – {m['away']}"
@@ -162,7 +180,8 @@ def log_and_notify(store: Storage, matches: list[dict]) -> dict:
                     "line": v.get("line"), "league": m.get("league"),
                     "description": desc, "match_start": m.get("start"),
                     "at": at, "odds": v["odds"], "fair": v["fair"],
-                    "edge": v["edge"], "book": v.get("book")})
+                    "edge": v["edge"], "book": v.get("book"),
+                    "model_version": ver})
                 n_logged += 1
                 if v.get("q", 0) >= Q_NOTIFY:
                     key = f"oddset_ntfy_edge:{m['id']}:{market}:{sign}"
@@ -208,7 +227,7 @@ def log_and_notify(store: Storage, matches: list[dict]) -> dict:
                 "line": line, "league": m.get("league"), "description": desc,
                 "match_start": m.get("start"), "at": at, "odds": svs_odds,
                 "fair": fair, "edge": e, "book": "svenskaspel",
-                "tier": "model"})
+                "tier": "model", "model_version": ver})
             n_logged += 1
         # snabb sharp-rörelse (6h) — boken kan hänga efter (träningsmatch-caset)
         for sign, sh in (m.get("steam") or {}).items():
@@ -261,23 +280,74 @@ def resolve_closings(store: Storage) -> int:
     return n
 
 
+GREEN_MIN_N = 50          # grönt-kriterium v2 (granskningen 2026-07-13):
+GREEN_CI_ALPHA = 0.10     # ≥50 stängda OCH undre 90 %-KI-gräns > 0 — KI via
+WINSOR_EV = 0.20          # kluster-bootstrap per MATCH (flaggor i samma match är
+                          # korrelerade); close-EV winsoriseras ±20 % så en enda
+                          # högoddsare inte kan bära (eller sänka) hela snittet
+
+
+def _cluster_ci(resolved: list[dict], iters: int = 1000,
+                alpha: float = GREEN_CI_ALPHA) -> Optional[tuple[float, float]]:
+    """Bootstrap-KI för snitt-close-EV med matchen som block (resampla matcher,
+    inte flaggor). Deterministiskt seedad — rapporten ska inte fladdra."""
+    by_match: dict[str, list[float]] = {}
+    for r in resolved:
+        by_match.setdefault(r["match_id"], []).append(r["close_ev_w"])
+    clusters = list(by_match.values())
+    if len(clusters) < 3:
+        return None
+    rng = random.Random(f"clv:{len(resolved)}:{len(clusters)}")
+    means = []
+    for _ in range(iters):
+        sample = [v for c in rng.choices(clusters, k=len(clusters)) for v in c]
+        means.append(sum(sample) / len(sample))
+    means.sort()
+    lo = means[int(len(means) * alpha / 2)]
+    hi = means[min(len(means) - 1, int(len(means) * (1 - alpha / 2)))]
+    return round(lo, 4), round(hi, 4)
+
+
+def _tier_stats(trows: list[dict]) -> dict:
+    resolved = [r for r in trows if r["close_ev"] is not None]
+    avg = (sum(r["close_ev"] for r in resolved) / len(resolved)) if resolved else None
+    avg_w = (sum(r["close_ev_w"] for r in resolved) / len(resolved)) if resolved else None
+    ci = _cluster_ci(resolved)
+    return {"n": len(trows), "n_resolved": len(resolved),
+            "avg_close_ev": round(avg, 4) if avg is not None else None,
+            "avg_close_ev_w": round(avg_w, 4) if avg_w is not None else None,
+            "ci": list(ci) if ci else None,
+            "green_ready": bool(len(resolved) >= GREEN_MIN_N and ci and ci[0] > 0)}
+
+
 def clv_report(store: Storage) -> dict:
     """Facit per tier: höll edgen till stängning? close_ev = closing_fair ×
-    first_odds − 1. 'sharp' är den spelbara signalen; 'model' är forward-testet
-    som avgör om/när modellen får grön status."""
+    first_odds − 1. 'sharp' är den spelbara signalen; 'model' är forward-testet.
+    Grönt-kriterium v2: n_resolved ≥ 50 OCH undre bootstrap-KI-gränsen > 0
+    (kluster per match, winsoriserad EV) — per tier och per liga/marknad i
+    'groups'. Positivt snitt ensamt räcker inte (brus, korrelation, extremodds)."""
     rows = store.oddset_clv_rows()
     for r in rows:
         if r["closing_fair"] is not None and r["first_odds"]:
-            r["close_ev"] = round(r["closing_fair"] * r["first_odds"] - 1.0, 4)
+            ev = r["closing_fair"] * r["first_odds"] - 1.0
+            r["close_ev"] = round(ev, 4)
+            r["close_ev_w"] = max(-WINSOR_EV, min(WINSOR_EV, ev))
         else:
             r["close_ev"] = None
     out = {"rows": rows}
     for tier in ("sharp", "model"):
         trows = [r for r in rows if (r.get("tier") or "sharp") == tier]
-        resolved = [r for r in trows if r["close_ev"] is not None]
-        avg = (sum(r["close_ev"] for r in resolved) / len(resolved)) if resolved else None
-        out[tier] = {"n": len(trows), "n_resolved": len(resolved),
-                     "avg_close_ev": round(avg, 4) if avg is not None else None}
+        out[tier] = _tier_stats(trows)
+    # nedbrutet facit: liga × marknad × version inom tier (bara grupper med data)
+    groups: dict[tuple, list[dict]] = {}
+    for r in rows:
+        key = ((r.get("tier") or "sharp"), r.get("league") or "?",
+               r.get("market") or "?", r.get("model_version") or "-")
+        groups.setdefault(key, []).append(r)
+    out["groups"] = [
+        {"tier": k[0], "league": k[1], "market": k[2], "version": k[3],
+         **_tier_stats(v)}
+        for k, v in sorted(groups.items()) if any(r["close_ev"] is not None for r in v)]
     # bakåtkompatibelt (UI:t före tier-uppdelningen)
     out["n"], out["n_resolved"] = out["sharp"]["n"], out["sharp"]["n_resolved"]
     out["avg_close_ev"] = out["sharp"]["avg_close_ev"]

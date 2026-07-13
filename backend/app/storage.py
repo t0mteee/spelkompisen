@@ -171,7 +171,8 @@ class Storage:
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(_SCHEMA)
         for mig in ("ALTER TABLE oddset_value_log ADD COLUMN book TEXT",
-                    "ALTER TABLE oddset_value_log ADD COLUMN tier TEXT DEFAULT 'sharp'"):
+                    "ALTER TABLE oddset_value_log ADD COLUMN tier TEXT DEFAULT 'sharp'",
+                    "ALTER TABLE oddset_value_log ADD COLUMN model_version TEXT"):
             try:   # migreringar för befintliga DB:er
                 self.conn.execute(mig)
             except sqlite3.OperationalError:
@@ -655,11 +656,14 @@ class Storage:
             "SELECT key, value FROM meta WHERE key LIKE ?", (prefix + "%",)).fetchall()]
 
     def oddset_log_flag(self, r: dict) -> None:
-        """First/best per (match, marknad, tecken) — first skrivs aldrig över."""
+        """First/best per (match, marknad, tecken) — first skrivs aldrig över.
+        model_version (git-hash vid first) gör facitet uppdelbart per kodversion
+        (grönt-kriterium v2) — modellen har redan ändrats mitt i insamlingen."""
         self.conn.execute(
             "INSERT INTO oddset_value_log(match_id, market, sign, line, league, "
             "description, match_start, first_at, first_odds, first_fair, first_edge, "
-            "best_edge, best_at, book, tier) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+            "best_edge, best_at, book, tier, model_version) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
             "ON CONFLICT(match_id, market, sign) DO UPDATE SET "
             "best_edge=CASE WHEN excluded.best_edge > oddset_value_log.best_edge "
             "THEN excluded.best_edge ELSE oddset_value_log.best_edge END, "
@@ -668,7 +672,7 @@ class Storage:
             (r["match_id"], r["market"], r["sign"], r.get("line"), r.get("league"),
              r.get("description"), r.get("match_start"), r["at"], r["odds"],
              r["fair"], r["edge"], r["edge"], r["at"], r.get("book"),
-             r.get("tier", "sharp")))
+             r.get("tier", "sharp"), r.get("model_version")))
         self.conn.commit()
 
     def oddset_unresolved_closings(self, now_iso: str) -> list[dict]:

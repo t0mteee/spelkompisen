@@ -1225,11 +1225,13 @@ function OddsetView() {
       {clv && (clv.sharp?.n > 0 || clv.model?.n > 0) && (
         <div className="clvbox">
           <p className="hint clvline clickable" onClick={() => setShowLog(!showLog)}
-            title="Varje flagga loggas (först/bäst per marknad) och jämförs efter avspark med devigad Pinnacle-stängning. Positivt snitt = signalen ligger före marknaden. Klicka för hela tabellen.">
+            title="Varje flagga loggas (först/bäst per marknad) och jämförs efter avspark med devigad Pinnacle-stängning. Grönt-krav (v2): minst 50 stängda OCH undre 90%-KI-gränsen över noll (bootstrap per match, EV capped ±20%) — positivt snitt ensamt räcker inte. Klicka för hela tabellen.">
             📒 Signal-logg — sharp: {clv.sharp?.n ?? 0} flaggor · {clv.sharp?.n_resolved ?? 0} stängda
             {clv.sharp?.avg_close_ev != null && <> · snitt <b className={clv.sharp.avg_close_ev >= 0 ? 'pos' : 'neg'}>{(clv.sharp.avg_close_ev * 100).toFixed(1)}%</b></>}
+            {clv.sharp?.ci && <> · KI [{(clv.sharp.ci[0] * 100).toFixed(1)}..{(clv.sharp.ci[1] * 100).toFixed(1)}]{clv.sharp.green_ready ? ' ✓' : ''}</>}
             {clv.model?.n > 0 && <> &nbsp;|&nbsp; 🧪 modell: {clv.model.n} flaggor · {clv.model.n_resolved} stängda
-              {clv.model.avg_close_ev != null && <> · snitt <b className={clv.model.avg_close_ev >= 0 ? 'pos' : 'neg'}>{(clv.model.avg_close_ev * 100).toFixed(1)}%</b></>}</>}
+              {clv.model.avg_close_ev != null && <> · snitt <b className={clv.model.avg_close_ev >= 0 ? 'pos' : 'neg'}>{(clv.model.avg_close_ev * 100).toFixed(1)}%</b></>}
+              {clv.model?.ci && <> · KI [{(clv.model.ci[0] * 100).toFixed(1)}..{(clv.model.ci[1] * 100).toFixed(1)}]{clv.model.green_ready ? ' ✓' : ''}</>}</>}
             {' '}{showLog ? '▲' : '▼'}
           </p>
           {showLog && (
