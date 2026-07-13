@@ -5,8 +5,11 @@ Europatipset, Topptipset, Bomben) med en ny **Oddset-del**: enskilda matcher (Al
 norska Eliteserien, träningsmatcher till att börja med) med sharp-odds, oddsrörelser,
 egen modell och värdespels-tips (1X2, asian handicap, över/under, hörnor på sikt).
 
-**Läge:** Etapp 0 klar (skelett). Färdplanen bor i `docs/plan.md` — LÄS DEN FÖRST i ny
-session. Poolspelsdelen är en fullt fungerande kopia av svs; Oddset-fliken är platshållare.
+**Läge (2026-07-13):** Etapp 0–5 KLARA + långt därutöver. Oddset-delen är i full drift:
+6 ligor (Allsvenskan/Superettan/Eliteserien/OBOS/MLS/träningsmatcher), 4 bokkällor +
+Pinnacle, kvalitetsviktade värdesignaler, steam-radar, xG-viktad DC-modell (amber, T-
+kalibrerad), frånvarodata, CLV-facit per tier. **STATUS-SAMMANFATTNINGEN överst i
+`docs/plan.md` är sanningen — LÄS DEN FÖRST i ny session** (+ backloggen där, prioriterad).
 
 **Relationen till syskonprojekten:**
 - `/Users/saman/svs` (SvS kompisen, portar 8000/5173) — ursprunget. Fryses när spelkompisen

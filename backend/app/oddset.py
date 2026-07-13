@@ -29,6 +29,8 @@ LEAGUES = [
      "kambi": "football/norway/eliteserien", "altenar": 3458},
     {"key": "obosligaen", "name": "OBOS-ligaen", "pin_id": 2331,
      "kambi": "football/norway/obos-ligaen", "altenar": None},
+    {"key": "mls", "name": "MLS", "pin_id": 2663,
+     "kambi": "football/usa/mls", "altenar": None},
     {"key": "friendlies", "name": "Träningsmatcher", "pin_id": 1863,
      "kambi": "football/club_friendly_matches", "altenar": None},
 ]

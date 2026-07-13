@@ -25,10 +25,11 @@ from .oddset import norm_team
 from .storage import Storage
 
 FD_URLS = {"allsvenskan": "https://www.football-data.co.uk/new/SWE.csv",
-           "eliteserien": "https://www.football-data.co.uk/new/NOR.csv"}
+           "eliteserien": "https://www.football-data.co.uk/new/NOR.csv",
+           "mls": "https://www.football-data.co.uk/new/USA.csv"}
 FD_MIN_SEASON = 2024          # fit-fönster: ~2,5 säsonger räcker med tidsviktning
 SOFA_UT = {"allsvenskan": 40, "eliteserien": 20, "superettan": 46,
-           "obosligaen": 22}
+           "obosligaen": 22, "mls": 242}
 # OBS: sök ALDRIG fram Sofascore-id:n utan att verifiera sporten — 1420 ("1.
 # Divisjon") visade sig vara HANDBOLL och 28937 volleyboll; fotbollens norska
 # andraliga är ut 22 ("Norwegian 1st Division", verifierad med lagnamn + xG).

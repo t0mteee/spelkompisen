@@ -330,7 +330,8 @@ def expected_corners(cm: dict, mu_h: float, mu_a: float) -> dict:
 FIT_POOLS = {"allsvenskan": ("allsvenskan", "superettan"),
              "superettan": ("allsvenskan", "superettan"),
              "eliteserien": ("eliteserien", "obosligaen"),
-             "obosligaen": ("eliteserien", "obosligaen")}
+             "obosligaen": ("eliteserien", "obosligaen"),
+             "mls": ("mls",)}
 
 
 def attach_model(store: Storage, matches: list[dict]) -> None:

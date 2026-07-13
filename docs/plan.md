@@ -1,6 +1,84 @@
 # Spelkompisen — färdplan
 
-## STATUS (uppdatera löpande — läses först i varje ny session)
+## STATUS-SAMMANFATTNING (2026-07-13 — läs detta först i ny session)
+
+**Appen är komplett och i drift** (backend 8002, frontend 5175, launchd var 30 min):
+- **6 ligor**: Allsvenskan, Superettan, Eliteserien, OBOS-ligaen, MLS (nytt 2026-07-13),
+  Träningsmatcher. Källor per match: SvS (Kambi), Pinnacle (sharp, AH/ÖU/hörnor),
+  Expekt (Kambi expektse — ≈identisk med SvS, visas bara vid diff), Betinia (Altenar).
+- **Signaler**: grön = sharp-ankrat värde, KVALITETSVIKTAT q=edge/(odds−1) (Kelly-andel;
+  högoddsare kräver mer); 🔥 steam (devigade pp, radar-panel); ⇄ linjeflytt; 🚑 frånvaro
+  (Sofascore missingPlayers, spelarstatus-viktad); ✓XI bekräftade elvor.
+- **Modell (amber)**: DC per liga-pool (SWE/NOR-pooler), xG-viktad (~2200 matcher),
+  Elo-prior, temperatur-kalibrerad (Allsv T=1.0, Elite T=0.85), prisar 1X2+AH/ÖU+hörnor.
+  Backtest: nära marknaden i Allsvenskan (±0 % bästa pris), svag Eliteserien. GRÖNT-
+  KRITERIUM: forward-loggen (tier=model) ≥50 stängda flaggor med positivt snitt per liga.
+- **UI**: spelkort m. Kelly + stödchips, radar, amber-lista, detaljvy (klick på match),
+  loggtabell (📒), 🔔 larmhistorik, 🎯 bara-signaler, ℹ-prickar + legend.
+- **EJ GJORT ÄNNU**: NTFY_TOPIC ej satt (inga pushar!); snabbpoll nära avspark (se
+  backlog A1 — VIKTIGAST); mobilpolish; stora Europa-ligorna (plan nedan, aug).
+
+## Förbättringsbacklog (research-runda 2026-07-13, prioriterad)
+
+Research-grund: steam-värde dör på minuter, inte halvtimmar ("if you're seeing the
+same price after 10-20 min, the value is gone" — [SportBot om steam](https://www.sportbotai.com/blog/steam-moves-betting-explained-ai-data),
+[Arbusers teknisk analys](https://arbusers.com/how-to-find-value-bets-on-sharps-by-odds-movements-aka-technical-analysis-t10188/),
+[CLV-metodik](https://www.wunderdog.com/sports-betting/how-to-beat-the-closing-line-in-sports-betting));
+Dixon-Coles står sig som guldstandard — XGBoost m. 40–100 features slår den sällan
+med >1 pp ([Wilkens 2026, Bundesliga](https://journals.sagepub.com/doi/10.1177/22150218261416681),
+[DC-guide](https://predictionengine.app/learn/dixon-coles-soccer-model)) → jaga inte ML,
+jaga LATENS och DATA.
+
+**A. Signalskärpa (störst förväntad effekt)**
+1. **SNABBPOLL nära avspark** — 30-min-pollen är för långsam för lag-fönstret.
+   Förtäta till var 3–5 min för matcher <36 h (mönster: svs snapshot-smart, max
+   ~25 min per launchd-pass): endast Pinnacle + bok-1X2 (billigt), deep-marknader
+   kvar på 30 min. Notiser pushas i samma pass = larm inom minuter i stället för
+   upp till 30. HÖGSTA PRIO.
+2. **Öppningslinje-ankare**: spara öppningspriset per selektion (första snapshot);
+   visa "sedan öppning"-drift + flagga böcker som inte följt med; CLV även mot öppning.
+3. **Odds-band-facit**: 📒-rapport per oddsband (≤2.0/2–4/4–8/8+) — validerar
+   kvalitetsviktningen empiriskt när n växt.
+4. **Backtest v4**: beslutsregel på q-trösklar (i stället för rå edge) + X-frekvens
+   per liga (DC underskattar kryss systematiskt enligt litteraturen — verifiera).
+
+**B. Modell**
+5. Frånvaro-justering (rating-viktad XI-styrka) när 🚑-datat samlats — amber tills facit.
+6. Vilodagar/resor ur results-tabellen (särskilt MLS) — visa först, modellera sen.
+7. MLS-kalibrering: kör `oddsetcalibrate` utökad med mls (USA.csv har PSC → backtestbar).
+8. Hörn-värde grön väg: Pinnacle hörn-specials vs SvS samma linje finns redan —
+   bygg facit-band för hörnor specifikt.
+
+**C. UI/mobil (Samans punkt: inte optimalt än)**
+9. Mobil: spelkorten 1 kolumn full bredd; panelerna (💰/📈/🧪) kollapsbara med
+   sparade lägen; detaljvyns grafer skalar till skärmbredd (overflow nu); radar-
+   raderna wrappar fult; 🎯 Bara signaler som DEFAULT på mobil.
+10. Städning: dölj Hörnor-kolumnen när alla rader är "–"; bokrader (E/B) bakom
+   liten expander per cell; sticky liga-bar vid scroll.
+11. PWA: manifest + ikon så hemskärms-appen får egen identitet (svs-mönstret).
+
+**D. Stora ligorna (drar igång aug 2026) — allt är EN rad + backfill per liga**
+| Liga | football-data | Sofascore ut | Kambi-väg | Pinnacle |
+|---|---|---|---|---|
+| MLS ✅ (inlagd, i säsong) | new/USA.csv | 242 | football/usa/mls | 2663 |
+| Premier League | mmz4281/{säsong}/E0.csv | 17 | football/england/premier_league | proba v. säsongsstart |
+| Bundesliga | .../D1.csv | 35 | football/germany/bundesliga | proba |
+| La Liga | .../SP1.csv | 8 | football/spain/la_liga | proba |
+| Serie A | .../I1.csv | 23 | football/italy/serie_a | proba |
+| Ligue 1 | .../F1.csv | 34 | football/france/ligue_1 | proba |
+OBS: huvudligornas filer ligger under mmz4281/-strukturen (inte new/) — parsern
+behöver ett litet format-grepp (Div/FTHG/FTAG-kolumner). FÖRVÄNTNING: dessa
+marknader är extremt effektiva — SvS/Pinnacle-gap blir mindre och stängs fortare;
+värdet sitter i tidiga linjer + mindre marknader. Kärnvärdet förblir Norden/MLS.
+Verifiera alltid Sofascore-id:ns SPORT (handbolls-läxan).
+
+**E. Infra/övrigt**
+12. NTFY_TOPIC — enda kvarvarande användarsteget för pushar.
+13. Betsson (egen oddsmotor) — kräver browser-RE av OBG-API:t.
+14. Servermigrering (Pi 5/N100, launchd→systemd) — beslut öppet sedan tidigare.
+15. Altenar-champ för träningsmatcher/MLS hos Betinia (GetSportMenu-sväng).
+
+## GAMMAL STATUS (historik — nyaste överst)
 
 **2026-07-12 — Etapp 0 + Etapp 1 KLARA.**
 Etapp 0: repo klonat från svs, portar 8002/5175/5181, eget venv, DB seedad, Oddset-flik.
