@@ -48,6 +48,16 @@ DEEP_MARKETS_DAYS = 7      # Kambi AH/ÖU per event bara för matcher inom N dyg
 LIST_WINDOW_H_BACK = 2     # visa matcher som startat för < 2 h sedan
 LIST_WINDOW_D_FWD = 10
 
+# Snabbpoll (backlog A1): 30-min-pollen är för långsam för lag-fönstret — när
+# avspark närmar sig körs lätta varv (endast Pinnacle + böckernas 1X2, ingen
+# Kambi-deep/modelldata) i samma launchd-pass, och notiserna pushas i varje varv.
+# OBS: backloggen skrev "<36 h" men det vore i praktiken kontinuerlig polling
+# dygnet runt (Pinnacle Cloudflare-blockar på IP-nivå) — 3 h täcker lineup-
+# fönstret + sena steamen och håller volymen nere. Bara ligor med match i
+# fönstret pollas.
+FAST_WITHIN_H = 3.0        # snabbvarv när nästa avspark är inom N h
+FAST_SLEEP_S = 240         # 4 min mellan snabbvarven (A1: 3–5 min)
+
 
 def _now_iso() -> str:
     return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -209,8 +219,13 @@ def _save_pair_markets(store: Storage, mid: str, source: str, row: dict, at: str
     return n
 
 
-def collect(store: Storage) -> dict:
-    """Hämta odds för alla ligor från båda källorna. Returnerar rapport per liga."""
+def collect(store: Storage, leagues: Optional[list[dict]] = None,
+            deep: bool = True) -> dict:
+    """Hämta odds för alla ligor från båda källorna. Returnerar rapport per liga.
+
+    deep=False är snabbvarvet (A1): endast Pinnacle + böckernas 1X2 — ingen
+    Kambi-deep (AH/ÖU per event), ingen modelldata, inget modellpåhäng i
+    värdesteget. leagues begränsar till ligor med match i snabbfönstret."""
     at = _now_iso()
     since = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=12)) \
         .strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -219,7 +234,7 @@ def collect(store: Storage) -> dict:
     report: dict = {"at": at, "leagues": {}, "errors": []}
     pin = Pinnacle()
     try:
-        for lg in LEAGUES:
+        for lg in (LEAGUES if leagues is None else leagues):
             cands = [m for m in store.oddset_matches(since=since) if m["league"] == lg["key"]]
             rows_saved, n_pin, n_kambi = 0, 0, 0
 
@@ -264,7 +279,7 @@ def collect(store: Storage) -> dict:
                 if (e.get("start") or "9") <= at:
                     continue   # live — spara inte
                 rows_saved += store.oddset_save_odds(mid, "svenskaspel", e["odds"], at)
-                if (e.get("start") or "9") <= deep_until:
+                if deep and (e.get("start") or "9") <= deep_until:
                     mk = kambi.event_markets(e["id"], e["home"], e["away"])
                     rows_saved += _save_pair_markets(store, mid, "svenskaspel", mk, at)
                     time.sleep(0.25)   # paca CDN:et
@@ -297,14 +312,15 @@ def collect(store: Storage) -> dict:
         pin.close()
     store.meta_set("oddset_last_run", at)
     # Etapp 3: resultat/xG/Elo till modellen (throttlat i modulen — oftast no-op)
-    try:
-        from . import oddset_data
-        report["data"] = oddset_data.refresh_all(store)
-    except Exception as e:  # noqa: BLE001
-        report["errors"].append(f"modeldata: {e}")
+    if deep:
+        try:
+            from . import oddset_data
+            report["data"] = oddset_data.refresh_all(store)
+        except Exception as e:  # noqa: BLE001
+            report["errors"].append(f"modeldata: {e}")
     # Etapp 2: värde-flaggor → CLV-logg + ntfy, och stängningar för startade matcher
     try:
-        payload = matches_payload(store)
+        payload = matches_payload(store, light=not deep)
         vs = oddset_value.log_and_notify(store, payload["matches"])
         vs["closings"] = oddset_value.resolve_closings(store)
         report["value"] = vs
@@ -313,10 +329,31 @@ def collect(store: Storage) -> dict:
     return report
 
 
+def hours_to_next_start(store: Storage) -> Optional[float]:
+    """Timmar till nästa framtida avspark (styr snabbpollen)."""
+    now = dt.datetime.now(dt.timezone.utc)
+    ms = store.oddset_matches(since=now.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    starts = [_parse_ts(m.get("start")) for m in ms]
+    hrs = [(t - now).total_seconds() / 3600 for t in starts if t]
+    return min(hrs) if hrs else None
+
+
+def fast_leagues(store: Storage) -> list[dict]:
+    """Ligorna med avspark inom FAST_WITHIN_H — bara de pollas i snabbvarven."""
+    now = dt.datetime.now(dt.timezone.utc)
+    ms = store.oddset_matches(
+        since=now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        until=(now + dt.timedelta(hours=FAST_WITHIN_H)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    keys = {m["league"] for m in ms}
+    return [lg for lg in LEAGUES if lg["key"] in keys]
+
+
 # --- läs-API ---------------------------------------------------------------------
 
-def matches_payload(store: Storage) -> dict:
-    """Matchlistan i tidsordning med senaste odds + rörelseserier per källa."""
+def matches_payload(store: Storage, light: bool = False) -> dict:
+    """Matchlistan i tidsordning med senaste odds + rörelseserier per källa.
+    light=True (snabbvarven) hoppar frånvaro + modell — modellfitten är dyr
+    och amber-flaggorna är inte tidskritiska; 30-min-varvet tar dem."""
     now = dt.datetime.now(dt.timezone.utc)
     frm = (now - dt.timedelta(hours=LIST_WINDOW_H_BACK)).strftime("%Y-%m-%dT%H:%M:%SZ")
     to = (now + dt.timedelta(days=LIST_WINDOW_D_FWD)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -331,17 +368,18 @@ def matches_payload(store: Storage) -> dict:
     out.sort(key=lambda r: (r.get("start") or "9", r["id"]))
     oddset_value.attach_value(out)
     oddset_value.attach_steam(out)
-    try:
-        from . import oddset_data
-        for mid, ab in oddset_data.get_absences(store, ids).items():
-            next(m for m in out if m["id"] == mid)["absences"] = ab
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        from . import oddset_model
-        oddset_model.attach_model(store, out)
-    except Exception:  # noqa: BLE001 — modellen (amber) får aldrig fälla listan
-        pass
+    if not light:
+        try:
+            from . import oddset_data
+            for mid, ab in oddset_data.get_absences(store, ids).items():
+                next(m for m in out if m["id"] == mid)["absences"] = ab
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            from . import oddset_model
+            oddset_model.attach_model(store, out)
+        except Exception:  # noqa: BLE001 — modellen (amber) får aldrig fälla listan
+            pass
     return {"matches": out,
             "leagues": [{"key": lg["key"], "name": lg["name"]} for lg in LEAGUES],
             "last_run": store.meta_get("oddset_last_run")}

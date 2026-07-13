@@ -1,8 +1,10 @@
 #!/bin/bash
-# Wrapper som launchd kör: Oddset-odds först (snabbt, ~30 s), sedan poolspels-
-# snapshot för alla produkter. "snapshot-smart" förtätar själv till var 5:e minut
-# när någon omgång stänger inom 2 h (kör max ~25 min, sedan tar nästa körning vid).
-# Loggar till backend/data/snapshot.log. Felfri exit även om inget sparas.
+# Wrapper som launchd kör var 30:e min: "cli.py smart" gör ett fullt varv
+# (Oddset-odds + poolspels-snapshots) och fortsätter sedan själv med snabbvarv
+# var 4:e min när någon oddset-match startar inom 3 h (endast Pinnacle +
+# böckernas 1X2, notiser i samma varv — backlog A1) och/eller tätvarv var 5:e
+# min när ett poolspel stänger inom 2 h. Kör max ~25 min, sedan tar nästa
+# launchd-körning vid. Loggar till backend/data/snapshot.log.
 set -euo pipefail
 
 BACKEND_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -12,7 +14,5 @@ mkdir -p "$BACKEND_DIR/data"
 
 cd "$BACKEND_DIR"
 TS="$(date '+%Y-%m-%d %H:%M:%S')"
-ODDSET_OUT="$("$PY" cli.py oddset 2>&1 | sed 's/^/  /' || echo '  FEL')"
-OUT="$("$PY" cli.py snapshot-smart 2>&1 | sed 's/^/  /' || echo '  FEL')"
-{ echo "[$TS] oddset:"; echo "$ODDSET_OUT";
-  echo "[$TS] snapshot-smart:"; echo "$OUT"; } >> "$LOG"
+OUT="$("$PY" cli.py smart 2>&1 | sed 's/^/  /' || echo '  FEL')"
+{ echo "[$TS] smart:"; echo "$OUT"; } >> "$LOG"

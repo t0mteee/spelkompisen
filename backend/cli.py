@@ -4,10 +4,13 @@ Användning (från backend/ med aktiverat venv):
     python cli.py show              # visa analyserad aktuell omgång
     python cli.py spikar            # topp-spikar sorterade
     python cli.py snapshot          # hämta + spara snapshot i SQLite
+    python cli.py smart             # launchd-passet: oddset + poolspel med
+                                    # snabbvarv nära avspark/spelstopp (A1)
+    python cli.py oddset [light]    # ett oddset-varv (light = snabbvarvet)
     python cli.py history 4956 1 1  # oddshistorik draw=4956 event=1 sign=1
     python cli.py backtest 25 stryktipset  # kalibrera modellen mot facit
 
-Tips: lägg 'snapshot' i en cron/launchd var 30:e min för att logga rörelse.
+Launchd kör 'smart' var 30:e min (backend/scripts/snapshot.sh).
 """
 from __future__ import annotations
 
@@ -403,19 +406,90 @@ def cmd_modeldata() -> None:
         store.close()
 
 
-def cmd_oddset() -> None:
-    """Hämta odds för Oddset-ligorna (Pinnacle + Kambi) — körs av launchd."""
-    from app import oddset
-    store = Storage()
-    try:
-        rep = oddset.collect(store)
-    finally:
-        store.close()
+def _print_oddset_report(rep: dict) -> None:
     for key, st in rep["leagues"].items():
         print(f"{key:14} pinnacle={st['pinnacle']:3d} kambi={st['kambi']:3d} "
               f"nya rader={st['saved_rows']}")
+    v = rep.get("value")
+    if v:
+        print(f"värde: {v.get('logged', 0)} loggade, {v.get('pushed', 0)} pushade, "
+              f"{v.get('closings', 0)} stängda")
     for err in rep["errors"]:
         print(f"  ⚠ {err}")
+
+
+def cmd_oddset(deep: bool = True) -> float | None:
+    """Hämta odds för Oddset-ligorna (Pinnacle + Kambi + sidoböcker).
+    deep=False = snabbvarv (A1): bara ligor med avspark inom snabbfönstret,
+    endast Pinnacle + böckernas 1X2. Returnerar timmar till nästa avspark."""
+    from app import oddset
+    store = Storage()
+    try:
+        leagues = None if deep else oddset.fast_leagues(store)
+        if not deep and not leagues:
+            return oddset.hours_to_next_start(store)
+        rep = oddset.collect(store, leagues=leagues, deep=deep)
+        _print_oddset_report(rep)
+        return oddset.hours_to_next_start(store)
+    finally:
+        store.close()
+
+
+def cmd_smart(max_seconds: int = DENSE_BUDGET_S) -> None:
+    """Ett launchd-pass (backlog A1): fullt oddset-varv + poolspels-snapshots,
+    därefter snabbvarv var 4:e min så länge någon oddset-match startar inom
+    FAST_WITHIN_H (endast Pinnacle + bok-1X2, notiser i samma varv) och/eller
+    tätvarv var 5:e min när ett poolspel stänger inom DENSE_WITHIN_H — tills
+    tidsbudgeten (~25 min) är slut och nästa launchd-körning tar vid."""
+    import time
+    from app import oddset
+    start = time.time()
+    try:
+        odd_h = cmd_oddset(deep=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"oddset: FEL {e}")
+        odd_h = None
+    odd_at = time.time()
+
+    def _pools() -> float | None:
+        mh = None
+        for product in PRODUCTS:
+            try:
+                h = cmd_snapshot(product)
+            except Exception as e:  # noqa: BLE001 — en produkt får inte stoppa resten
+                print(f"{product}: FEL {e}")
+                h = None
+            if h is not None:
+                mh = h if mh is None else min(mh, h)
+        return mh
+
+    pool_h = _pools()
+    pool_at = time.time()
+
+    while True:
+        # klockan tickar mellan varven — räkna ner utan nya anrop
+        odd_left = None if odd_h is None else odd_h - (time.time() - odd_at) / 3600
+        pool_left = None if pool_h is None else pool_h - (time.time() - pool_at) / 3600
+        odd_hot = odd_left is not None and odd_left <= oddset.FAST_WITHIN_H
+        pool_hot = pool_left is not None and 0 <= pool_left <= DENSE_WITHIN_H
+        if not odd_hot and not pool_hot:
+            break
+        sleep_s = oddset.FAST_SLEEP_S if odd_hot else DENSE_SLEEP_S
+        if time.time() - start + sleep_s > max_seconds:
+            break
+        why = " + ".join((["avspark om %.1f h" % odd_left] if odd_hot else [])
+                         + (["spelstopp om %.1f h" % pool_left] if pool_hot else []))
+        print(f"-- {why} -> nytt varv om {sleep_s // 60} min --")
+        time.sleep(sleep_s)
+        if odd_hot:
+            try:
+                odd_h = cmd_oddset(deep=False)
+            except Exception as e:  # noqa: BLE001
+                print(f"oddset: FEL {e}")
+            odd_at = time.time()
+        if pool_hot:
+            pool_h = _pools()
+            pool_at = time.time()
 
 
 def main() -> None:
@@ -442,7 +516,10 @@ def main() -> None:
     elif cmd == "fdbacktest":
         cmd_fdbacktest(rest)
     elif cmd == "oddset":
-        cmd_oddset()
+        cmd_oddset(deep="light" not in rest)
+    elif cmd == "smart":
+        secs = next((int(a) for a in rest if a.isdigit()), None)
+        cmd_smart(secs if secs is not None else DENSE_BUDGET_S)
     elif cmd == "modeldata":
         cmd_modeldata()
     elif cmd == "oddsetbacktest":

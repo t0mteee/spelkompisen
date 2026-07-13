@@ -15,8 +15,13 @@
   KRITERIUM: forward-loggen (tier=model) ≥50 stängda flaggor med positivt snitt per liga.
 - **UI**: spelkort m. Kelly + stödchips, radar, amber-lista, detaljvy (klick på match),
   loggtabell (📒), 🔔 larmhistorik, 🎯 bara-signaler, ℹ-prickar + legend.
-- **EJ GJORT ÄNNU**: NTFY_TOPIC ej satt (inga pushar!); snabbpoll nära avspark (se
-  backlog A1 — VIKTIGAST); mobilpolish; stora Europa-ligorna (plan nedan, aug).
+- **Insamling (A1 ✅ 2026-07-13)**: launchd kör `cli.py smart` var 30:e min —
+  fullt varv (alla källor + deep + modelldata + poolspel), och därefter SNABBVARV
+  var 4:e min så länge någon match startar inom 3 h (endast Pinnacle + böckernas
+  1X2 för ligorna i fönstret; notiser pushas i samma varv = larm inom minuter).
+  Poolspels-tätläget (var 5:e min när omgång stänger inom 2 h) väver i samma pass.
+- **EJ GJORT ÄNNU**: NTFY_TOPIC ej satt (inga pushar!); mobilpolish;
+  stora Europa-ligorna (plan nedan, aug).
 
 ## Förbättringsbacklog (research-runda 2026-07-13, prioriterad)
 
@@ -30,11 +35,15 @@ med >1 pp ([Wilkens 2026, Bundesliga](https://journals.sagepub.com/doi/10.1177/2
 jaga LATENS och DATA.
 
 **A. Signalskärpa (störst förväntad effekt)**
-1. **SNABBPOLL nära avspark** — 30-min-pollen är för långsam för lag-fönstret.
-   Förtäta till var 3–5 min för matcher <36 h (mönster: svs snapshot-smart, max
-   ~25 min per launchd-pass): endast Pinnacle + bok-1X2 (billigt), deep-marknader
-   kvar på 30 min. Notiser pushas i samma pass = larm inom minuter i stället för
-   upp till 30. HÖGSTA PRIO.
+1. ✅ **SNABBPOLL nära avspark** (2026-07-13) — `cli.py smart` ersätter
+   oddset+snapshot-smart i launchd-passet: fullt varv först, sedan snabbvarv
+   var 4:e min (endast Pinnacle + böckernas 1X2, bara ligor med match i
+   fönstret, `collect(deep=False)` = ingen Kambi-deep/modelldata/modell-
+   påhäng) så länge nästa avspark är inom **3 h** — notiser i samma varv.
+   OBS: punkten skrev "<36 h", men det = kontinuerlig polling dygnet runt
+   (Pinnacle IP-blockrisk); 3 h täcker lineup-fönstret + sena steamen.
+   Justeras i `FAST_WITHIN_H`/`FAST_SLEEP_S` (oddset.py). Poolspels-tätläget
+   delar passets ~25-min-budget (nedräkning mellan varven, inte omfrågning).
 2. **Öppningslinje-ankare**: spara öppningspriset per selektion (första snapshot);
    visa "sedan öppning"-drift + flagga böcker som inte följt med; CLV även mot öppning.
 3. **Odds-band-facit**: 📒-rapport per oddsband (≤2.0/2–4/4–8/8+) — validerar
