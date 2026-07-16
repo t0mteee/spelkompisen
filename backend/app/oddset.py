@@ -232,6 +232,11 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
     deep_until = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=DEEP_MARKETS_DAYS)) \
         .strftime("%Y-%m-%dT%H:%M:%SZ")
     report: dict = {"at": at, "leagues": {}, "errors": []}
+    # Notisvakten (WP2-mini, granskningen runda 2): allt som faktiskt sågs i
+    # DETTA varvs lyckade svar — (match_id, källa, marknad). Misslyckad källa
+    # eller saknad marknad hamnar aldrig här → notiser kan inte citera priser
+    # som kan vara plockade/suspenderade. Gamla priser i DB räcker inte.
+    present: set[tuple] = set()
     pin = Pinnacle()
     try:
         for lg in (LEAGUES if leagues is None else leagues):
@@ -258,7 +263,11 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     continue   # startad match = live-odds — förorena inte serierna
                 if r["odds_source"]:
                     rows_saved += store.oddset_save_odds(mid, r["odds_source"], r["odds"], at)
+                    present.add((mid, "pinnacle", "1x2"))
                 rows_saved += _save_pair_markets(store, mid, "pinnacle", r, at)
+                for mk_ in _PAIR_KEYS:
+                    if r.get(mk_):
+                        present.add((mid, "pinnacle", mk_))
                 n_pin += 1
 
             kambi_rows = kambi.league_events(lg["kambi"])
@@ -279,9 +288,14 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 if (e.get("start") or "9") <= at:
                     continue   # live — spara inte
                 rows_saved += store.oddset_save_odds(mid, "svenskaspel", e["odds"], at)
+                if any(e["odds"].values()):
+                    present.add((mid, "svenskaspel", "1x2"))
                 if deep and (e.get("start") or "9") <= deep_until:
                     mk = kambi.event_markets(e["id"], e["home"], e["away"])
                     rows_saved += _save_pair_markets(store, mid, "svenskaspel", mk, at)
+                    for mk_ in _PAIR_KEYS:
+                        if mk.get(mk_):
+                            present.add((mid, "svenskaspel", mk_))
                     time.sleep(0.25)   # paca CDN:et
                 n_kambi += 1
 
@@ -303,6 +317,8 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     if not ex or (e.get("start") or "9") <= at:
                         continue   # skapa inga matcher från sidoböcker; hoppa live
                     rows_saved += store.oddset_save_odds(ex["id"], book["key"], e["odds"], at)
+                    if any(e["odds"].values()):
+                        present.add((ex["id"], book["key"], "1x2"))
                     n_books += 1
 
             report["leagues"][lg["key"]] = {
@@ -321,7 +337,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
     # Etapp 2: värde-flaggor → CLV-logg + ntfy, och stängningar för startade matcher
     try:
         payload = matches_payload(store, light=not deep)
-        vs = oddset_value.log_and_notify(store, payload["matches"])
+        vs = oddset_value.log_and_notify(store, payload["matches"], present=present)
         vs["closings"] = oddset_value.resolve_closings(store)
         report["value"] = vs
     except Exception as e:  # noqa: BLE001 — får inte fälla insamlingen

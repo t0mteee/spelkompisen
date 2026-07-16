@@ -335,6 +335,17 @@ FIT_POOLS = {"allsvenskan": ("allsvenskan", "superettan"),
              "obosligaen": ("eliteserien", "obosligaen"),
              "mls": ("mls",)}
 
+# Prognos-relevanta parametrar — grunden för modellens signal_version-finger-
+# avtryck (granskningspunkt 5): ändras någon av dessa (eller T-kalibreringen/
+# DATA_VERSION) byts version och facitet delas. Docs/CSS/UI-commits gör det INTE.
+MODEL_PARAMS = {
+    "algo": "poisson-iterativ + dc-tau i prediktion",
+    "rho": DC_RHO_CLUB, "xg_w": XG_WEIGHT, "decay_d": DECAY_DAYS,
+    "iters": FIT_ITER, "min_m": MIN_MATCHES, "elo_k": ELO_K, "ridge": 0.98,
+    "anchor": "total-ovillkorad-v1",   # byts till settlement-aware i WP1
+    "pools": sorted(f"{k}:{'+'.join(v)}" for k, v in FIT_POOLS.items()),
+}
+
 
 def attach_model(store: Storage, matches: list[dict]) -> None:
     """Sätter m['model'] (amber-tier) på liga-matcher: sannolikheter, fair odds,

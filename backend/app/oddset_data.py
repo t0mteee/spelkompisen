@@ -38,6 +38,11 @@ MODEL_LEAGUES = set(FD_URLS) | {"superettan", "obosligaen"}
 SOFA_MAX_PAGES = 4            # events/last/{page} per körning (backfill tar några pass)
 
 FD_TTL_H, XG_TTL_H, ELO_TTL_H, ABS_TTL_H = 12, 6, 24, 2
+
+# Databehandlingens version — ingår i signal_version-fingeravtrycken (gransknings-
+# punkt 5): bumpa MANUELLT när semantiken i datat ändras utan att en parameter gör
+# det. 1 = ursprunglig; 2 = normaltime + identitetsmerge (alias/±1 dygn), 2026-07-13.
+DATA_VERSION = 2
 # missingPlayers-orsakskoder (Sofascore): observerade typer
 _ABS_REASON = {1: "skada", 2: "tveksam", 3: "avstängd", 11: "annat"}
 
@@ -76,21 +81,22 @@ def refresh_results(store: Storage, force: bool = False) -> dict:
             continue
         n = 0
         reader = csv.DictReader(io.StringIO(r.text.lstrip("﻿")))
-        for row in reader:
-            try:
-                season = int((row.get("Season") or "0")[:4])
-                if season < FD_MIN_SEASON:
+        with store.bulk():   # WP0: EN transaktion i stället för ~1 700 commits
+            for row in reader:
+                try:
+                    season = int((row.get("Season") or "0")[:4])
+                    if season < FD_MIN_SEASON:
+                        continue
+                    d = dt.datetime.strptime(row["Date"], "%d/%m/%Y").strftime("%Y-%m-%d")
+                    hg, ag = int(row["HG"]), int(row["AG"])
+                except (ValueError, KeyError):
                     continue
-                d = dt.datetime.strptime(row["Date"], "%d/%m/%Y").strftime("%Y-%m-%d")
-                hg, ag = int(row["HG"]), int(row["AG"])
-            except (ValueError, KeyError):
-                continue
-            store.oddset_save_result({
-                "league": lg, "date": d,
-                "home": norm_team(row["Home"]), "away": norm_team(row["Away"]),
-                "home_raw": row["Home"], "away_raw": row["Away"],
-                "hg": hg, "ag": ag, "source": "fd"})
-            n += 1
+                store.oddset_save_result({
+                    "league": lg, "date": d,
+                    "home": norm_team(row["Home"]), "away": norm_team(row["Away"]),
+                    "home_raw": row["Home"], "away_raw": row["Away"],
+                    "hg": hg, "ag": ag, "source": "fd"})
+                n += 1
         _mark(store, f"oddset_fd_at:{lg}")
         out[lg] = n
     return out

@@ -420,8 +420,9 @@ def _print_oddset_report(rep: dict) -> None:
               f"nya rader={st['saved_rows']}")
     v = rep.get("value")
     if v:
+        gated = f", {v['gated']} stoppade av notisvakten" if v.get("gated") else ""
         print(f"värde: {v.get('logged', 0)} loggade, {v.get('pushed', 0)} pushade, "
-              f"{v.get('closings', 0)} stängda")
+              f"{v.get('closings', 0)} stängda{gated}")
     for err in rep["errors"]:
         print(f"  ⚠ {err}")
 

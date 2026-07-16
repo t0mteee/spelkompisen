@@ -23,8 +23,9 @@ from .storage import Storage
 
 @functools.lru_cache(maxsize=1)
 def _code_version() -> Optional[str]:
-    """Kort git-hash — stämplas på flaggor så facitet kan delas per kodversion
-    (grönt-kriterium v2: modellen har redan ändrats mitt i insamlingen)."""
+    """Kort git-hash — full reproducerbarhet (kolumnen git_hash). Som statistisk
+    version är den för grov (en docs-commit fragmenterar facitet) — därför
+    grupperas facitet på signal_version (fingeravtryck) i stället."""
     try:
         root = pathlib.Path(__file__).resolve().parents[2]
         out = subprocess.run(["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
@@ -32,6 +33,30 @@ def _code_version() -> Optional[str]:
         return out.stdout.strip() or None
     except Exception:  # noqa: BLE001 — utan git funkar allt utom versionstaggen
         return None
+
+
+def _fingerprint(prefix: str, params: dict) -> str:
+    import hashlib
+    raw = json.dumps(params, sort_keys=True, ensure_ascii=False, default=str)
+    return f"{prefix}-{hashlib.sha1(raw.encode()).hexdigest()[:8]}"
+
+
+def signal_versions(store: Storage) -> dict[str, str]:
+    """Semantiska versioner per tier (granskningspunkt 5): byts ENDAST när
+    prognos-/signalalgoritm, parametrar, T-kalibrering eller databehandling
+    (DATA_VERSION) ändras — inte av docs/UI-commits. Sharp och modell har
+    separata namnrymder (s-/m-prefix)."""
+    from . import oddset_data, oddset_model
+    cal = {}
+    for lg in sorted(oddset_data.MODEL_LEAGUES):
+        try:
+            cal[lg] = (json.loads(store.meta_get(f"oddset_cal:{lg}") or "{}")).get("t")
+        except ValueError:
+            cal[lg] = None
+    data_v = oddset_data.DATA_VERSION
+    return {"sharp": _fingerprint("s", {**SHARP_PARAMS, "data": data_v}),
+            "model": _fingerprint("m", {**oddset_model.MODEL_PARAMS,
+                                        "cal_t": cal, "data": data_v})}
 
 EDGE_SHOW = 0.02       # visas i UI (grön markering)
 EDGE_LOG = 0.02        # loggas i CLV-facitet (brett — facitet ska mäta även svansen)
@@ -46,6 +71,12 @@ STEAM_NOTIFY_PP = 5.0  # push på 6h-skiftet (snabb rörelse = träningsmatch-ca
 _MARKET_SIGNS = {"1x2": ("1", "X", "2"), "ah": ("H", "A"), "ou": ("O", "U"),
                  "cor": ("O", "U")}
 MARKET_LABEL = {"1x2": "1X2", "ah": "AH", "ou": "Ö/U", "cor": "Hörnor"}
+
+# Signal-relevanta parametrar för SHARP-tiern (devig + trösklar + linjeregel) —
+# grunden för sharp-sidans signal_version. Notisvakten ingår INTE: den styr
+# larm, inte vilka flaggor som väljs/värderas.
+SHARP_PARAMS = {"devig": "power", "edge_log": EDGE_LOG,
+                "same_line": True, "best_book": True}
 
 
 def _devig(odds: dict, signs: tuple) -> Optional[dict[str, float]]:
@@ -163,12 +194,28 @@ def _fmt_pct(x: float) -> str:
     return f"{x * 100:+.1f}%"
 
 
-def log_and_notify(store: Storage, matches: list[dict]) -> dict:
+def log_and_notify(store: Storage, matches: list[dict],
+                   present: Optional[set] = None) -> dict:
     """Logga sharp-edges i CLV-facitet (first/best) och pusha notiser (ntfy).
-    Härledd fair (P~) loggas ALDRIG — bara riktiga marknadspriser."""
+    Härledd fair (P~) loggas ALDRIG — bara riktiga marknadspriser.
+
+    present = notisvakten (WP2-mini): mängden (match_id, källa, marknad) som
+    observerades i det aktuella lyckade insamlingsvarvet. En notis (inkl.
+    🔔-historikposten) skapas BARA om både bokpriset och Pinnacle-priset för
+    marknaden är närvarobekräftade — ett pris som försvunnit ur källans svar
+    (suspenderat/plockat/källfel) kan inte larmas på. None = ingen vakt
+    (bakåtkompatibelt för direktanrop); CLV-loggningen berörs inte (facitets
+    färskhet hanteras av fulla WP2)."""
     at = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    ver = _code_version()
-    n_logged = n_pushed = 0
+    git = _code_version()
+    vers = signal_versions(store)
+    n_logged = n_pushed = n_gated = 0
+
+    def _fresh(mid: str, book: Optional[str], market: str) -> bool:
+        if present is None:
+            return True
+        return ((mid, book, market) in present
+                and (mid, "pinnacle", market) in present)
     for m in matches:
         desc = f"{m['home']} – {m['away']}"
         for market, per_sign in (m.get("value") or {}).items():
@@ -181,9 +228,12 @@ def log_and_notify(store: Storage, matches: list[dict]) -> dict:
                     "description": desc, "match_start": m.get("start"),
                     "at": at, "odds": v["odds"], "fair": v["fair"],
                     "edge": v["edge"], "book": v.get("book"),
-                    "model_version": ver})
+                    "model_version": vers["sharp"], "git_hash": git})
                 n_logged += 1
                 if v.get("q", 0) >= Q_NOTIFY:
+                    if not _fresh(m["id"], v.get("book"), market):
+                        n_gated += 1   # priset ej sett i detta varv — larma inte
+                        continue
                     key = f"oddset_ntfy_edge:{m['id']}:{market}:{sign}"
                     if not store.meta_get(key):
                         lt = f" {v['line']:+g}" if market == "ah" else \
@@ -227,13 +277,16 @@ def log_and_notify(store: Storage, matches: list[dict]) -> dict:
                 "line": line, "league": m.get("league"), "description": desc,
                 "match_start": m.get("start"), "at": at, "odds": svs_odds,
                 "fair": fair, "edge": e, "book": "svenskaspel",
-                "tier": "model", "model_version": ver})
+                "tier": "model", "model_version": vers["model"], "git_hash": git})
             n_logged += 1
         # snabb sharp-rörelse (6h) — boken kan hänga efter (träningsmatch-caset)
         for sign, sh in (m.get("steam") or {}).items():
             pp = sh.get("h6")
             if pp is None or abs(pp) < STEAM_NOTIFY_PP:
                 continue
+            if present is not None and (m["id"], "pinnacle", "1x2") not in present:
+                n_gated += 1   # steam-siffran bygger på en serie som inte
+                continue       # bekräftades i detta varv — larma inte
             key = f"oddset_ntfy_steam:{m['id']}:{sign}"
             if not store.meta_get(key):
                 title = f"Steam: {desc}"
@@ -244,7 +297,7 @@ def log_and_notify(store: Storage, matches: list[dict]) -> dict:
                     {"at": at, "title": title, "msg": msg, "sent": bool(sent)},
                     ensure_ascii=False))
                 n_pushed += bool(sent)
-    return {"logged": n_logged, "pushed": n_pushed}
+    return {"logged": n_logged, "pushed": n_pushed, "gated": n_gated}
 
 
 def resolve_closings(store: Storage) -> int:

@@ -11,6 +11,7 @@ snapshots   : en rad per (draw, event, sign, mättidpunkt)
 """
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 import sqlite3
 from pathlib import Path
@@ -167,20 +168,47 @@ class Storage:
     def __init__(self, db_path: Path | str = DEFAULT_DB):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(self.db_path)
+        self._bulk = False
+        # WP0 (granskningen): WAL = läsare blockeras inte av skrivare (API:t +
+        # 25-min-smartpasset kör parallellt); busy_timeout i stället för
+        # "database is locked" vid krock.
+        self.conn = sqlite3.connect(self.db_path, timeout=10)
         self.conn.row_factory = sqlite3.Row
+        self.conn.execute("PRAGMA journal_mode=WAL")
+        self.conn.execute("PRAGMA busy_timeout=10000")
+        self.conn.execute("PRAGMA synchronous=NORMAL")
         self.conn.executescript(_SCHEMA)
         for mig in ("ALTER TABLE oddset_value_log ADD COLUMN book TEXT",
                     "ALTER TABLE oddset_value_log ADD COLUMN tier TEXT DEFAULT 'sharp'",
-                    "ALTER TABLE oddset_value_log ADD COLUMN model_version TEXT"):
+                    "ALTER TABLE oddset_value_log ADD COLUMN model_version TEXT",
+                    "ALTER TABLE oddset_value_log ADD COLUMN git_hash TEXT"):
             try:   # migreringar för befintliga DB:er
                 self.conn.execute(mig)
             except sqlite3.OperationalError:
                 pass
-        self.conn.commit()
+        self._commit()
 
     def close(self) -> None:
         self.conn.close()
+
+    def _commit(self) -> None:
+        """Commit per operation — utom inne i bulk(), då committas allt på slutet."""
+        if not self._bulk:
+            self.conn.commit()
+
+    @contextlib.contextmanager
+    def bulk(self):
+        """Batcha många skrivningar i EN transaktion (WP0) — commit per rad gav
+        ~1 700 commits per football-data-refresh. Rollback vid fel."""
+        self._bulk = True
+        try:
+            yield
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
+        finally:
+            self._bulk = False
 
     def save_snapshot(self, draw: Draw) -> int:
         """Spara hela omgången som ett snapshot. Returnerar antal rader."""
@@ -200,7 +228,7 @@ class Storage:
                      o.odds, o.start_odds, o.streck, draw.fetched_at),
                 )
                 rows += 1
-        self.conn.commit()
+        self._commit()
         return rows
 
     def _latest_values(self, product: str, draw_number: int) -> dict[tuple[int, str], tuple]:
@@ -237,7 +265,7 @@ class Storage:
                      o.odds, o.start_odds, o.streck, draw.fetched_at),
                 )
                 rows += 1
-        self.conn.commit()
+        self._commit()
         return rows
 
     def history(self, product: str, draw_number: int,
@@ -260,7 +288,7 @@ class Storage:
         self.conn.execute(
             "INSERT INTO meta(key, value) VALUES(?,?) "
             "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
-        self.conn.commit()
+        self._commit()
 
     # --- sharp-odds (cache från the-odds-api) ---
     def save_sharp(self, product: str, draw_number: int, hits: list[dict]) -> int:
@@ -281,7 +309,7 @@ class Storage:
                  h.get("matched"), h.get("fetched_at")),
             )
             n += 1
-        self.conn.commit()
+        self._commit()
         return n
 
     def save_sharp_snapshot(self, product: str, draw_number: int, hits: dict[int, dict],
@@ -306,7 +334,7 @@ class Storage:
                     "INSERT INTO sharp_snapshots(product, draw_number, event_number, sign, odds, fetched_at) "
                     "VALUES(?,?,?,?,?,?)", (product, draw_number, ev, sign, val, fetched_at))
                 n += 1
-        self.conn.commit()
+        self._commit()
         return n
 
     def sharp_movement(self, product: str, draw_number: int) -> dict[tuple[int, str], dict]:
@@ -435,7 +463,7 @@ class Storage:
                 "AND draw_number=? AND event_number=? AND sign=?",
                 (r.get("ratio"), at, r["product"], r["draw_number"],
                  r["event_number"], r["sign"]))
-        self.conn.commit()
+        self._commit()
 
     def unresolved_closings(self) -> list[dict]:
         rows = self.conn.execute(
@@ -450,7 +478,7 @@ class Storage:
             "UPDATE value_log SET closing_prob=?, closing_odds=?, closing_note=? "
             "WHERE product=? AND draw_number=? AND event_number=? AND sign=?",
             (prob, odds, note, product, draw_number, event_number, sign))
-        self.conn.commit()
+        self._commit()
 
     def draws_missing_outcome(self) -> list[tuple[str, int]]:
         rows = self.conn.execute(
@@ -470,7 +498,7 @@ class Storage:
                     (1 if r["sign"] == f else 0, product, draw_number,
                      r["event_number"], r["sign"]))
                 n += 1
-        self.conn.commit()
+        self._commit()
         return n
 
     def clv_rows(self, product: Optional[str] = None, limit: int = 300) -> list[dict]:
@@ -521,7 +549,7 @@ class Storage:
               "updated_at=excluded.updated_at",
             (m["id"], m["league"], m.get("home"), m.get("away"), m.get("start"),
              m.get("pinnacle_id"), m.get("kambi_id"), m.get("status"), now))
-        self.conn.commit()
+        self._commit()
 
     def oddset_matches(self, since: Optional[str] = None,
                        until: Optional[str] = None) -> list[dict]:
@@ -562,7 +590,7 @@ class Storage:
                 (match_id, source, market, sign, val.get("line"), val.get("odds"),
                  fetched_at))
             n += 1
-        self.conn.commit()
+        self._commit()
         return n
 
     def oddset_save_odds(self, match_id: str, source: str,
@@ -641,7 +669,7 @@ class Storage:
             (r["league"], r["date"], r["home"], r["away"], r.get("home_raw"),
              r.get("away_raw"), r.get("hg"), r.get("ag"), r.get("xg_h"),
              r.get("xg_a"), r.get("cor_h"), r.get("cor_a"), r.get("source")))
-        self.conn.commit()
+        self._commit()
 
     def oddset_results(self, league: str, since: Optional[str] = None) -> list[dict]:
         q, args = "SELECT * FROM oddset_results WHERE league=? AND hg IS NOT NULL", [league]
@@ -657,13 +685,14 @@ class Storage:
 
     def oddset_log_flag(self, r: dict) -> None:
         """First/best per (match, marknad, tecken) — first skrivs aldrig över.
-        model_version (git-hash vid first) gör facitet uppdelbart per kodversion
-        (grönt-kriterium v2) — modellen har redan ändrats mitt i insamlingen."""
+        model_version = semantiskt signal-fingeravtryck (facitet delas på den);
+        git_hash = exakt kodversion vid first (reproducerbarhet). Granskningen
+        punkt 5: docs-commits får inte fragmentera facitet."""
         self.conn.execute(
             "INSERT INTO oddset_value_log(match_id, market, sign, line, league, "
             "description, match_start, first_at, first_odds, first_fair, first_edge, "
-            "best_edge, best_at, book, tier, model_version) "
-            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+            "best_edge, best_at, book, tier, model_version, git_hash) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
             "ON CONFLICT(match_id, market, sign) DO UPDATE SET "
             "best_edge=CASE WHEN excluded.best_edge > oddset_value_log.best_edge "
             "THEN excluded.best_edge ELSE oddset_value_log.best_edge END, "
@@ -672,8 +701,8 @@ class Storage:
             (r["match_id"], r["market"], r["sign"], r.get("line"), r.get("league"),
              r.get("description"), r.get("match_start"), r["at"], r["odds"],
              r["fair"], r["edge"], r["edge"], r["at"], r.get("book"),
-             r.get("tier", "sharp"), r.get("model_version")))
-        self.conn.commit()
+             r.get("tier", "sharp"), r.get("model_version"), r.get("git_hash")))
+        self._commit()
 
     def oddset_unresolved_closings(self, now_iso: str) -> list[dict]:
         return [dict(r) for r in self.conn.execute(
@@ -697,7 +726,7 @@ class Storage:
             "UPDATE oddset_value_log SET closing_fair=?, closing_odds=?, closing_note=? "
             "WHERE match_id=? AND market=? AND sign=?",
             (fair, odds, note, match_id, market, sign))
-        self.conn.commit()
+        self._commit()
 
     def oddset_clv_rows(self, limit: int = 300) -> list[dict]:
         return [dict(r) for r in self.conn.execute(
