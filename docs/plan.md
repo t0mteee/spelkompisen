@@ -31,8 +31,7 @@
   304 datum-dubbletter borta, LA Galaxy en identitet, xG 57→73 %, straff-
   kontaminerade slutspelsresultat rättade/raderade, normaltime i stället för
   current), grönt-kriterium v2 (KI + modellversion), ärlig decay-text.
-  **P0 härifrån = sanningslagret**: WP5 prediction ledger (WP4 CLV-identitet
-  klar 2026-07-16; se backloggen).
+  **P0-sanningslagret är nu klart:** WP0–WP5 ✅ (se backloggen).
 - **Granskningen runda 2 åtgärdad (2026-07-16)**: WP0 klar (WAL, busy_timeout,
   batch-transaktioner), WP2-mini klar (**notisvakten**: notiser kräver att både
   bok- och Pinnacle-priset observerades i det aktuella lyckade varvet — presence-
@@ -48,7 +47,7 @@
   tester och 35 aktuella ankrade matcher (linjer 2.25–3.75). Akuta delen av WP8
   klar: transient Sofascore-statistikfel sparar resultatet men lämnar eventet
   för retry; 404/410 avslutas som permanent statistik-saknad. Första automatiska
-  sviten finns i `backend/tests/` (22 `unittest`-fall, inga nya dependencies).
+  sviten finns i `backend/tests/` (29 `unittest`-fall, inga nya dependencies).
   **WP2 full klar:** prisförändring (`fetched_at`) och senaste bekräftelse
   (`last_seen_at`) är separerade; lyckade svar markerar plockade/suspenderade
   priser, källfel gör det inte. Värde, steam, modellkanter och closing-facit
@@ -59,9 +58,16 @@
   signalversion. Stängning sparar både flagglina och slutlina; linjeflytt blir
   ett eget, selektionsriktat facit i stället för censur. 110/110 gamla rader
   bevarades vid migreringen och nya versionsrader loggas separat.
+  **WP5 klar:** prediction-ledgern fryser alla sharp-/modellprediktioner och
+  oflaggade kontroller en gång vid T−24 h/T−3 h/T−20 min. Separata
+  capture-markörer bevarar även källfrånvaro; sena starter sparas men får inte
+  kvalificera en grupp. V3-statusen är amber → candidate → out-of-time green,
+  med kluster-KI per match, kluster-signflip-p-värde och BH-FDR 10 % för
+  utforskande grupper. Träningsmatcher är utforskande, aldrig primär "liga".
 - **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
-  2026-07-16**; mobilpolish; WP-backloggen nedan; stora Europa-ligorna **PAUSADE tills
-  WP0–WP5 är klara** (beslut 2026-07-13).
+  2026-07-16**; mobilpolish; P1/P2-backloggen nedan. Villkoret WP0–WP5 för att
+  ompröva stora Europa-ligor är uppfyllt, men expansionen startar inte utan ett
+  separat produktbeslut (fler ligor är inte automatiskt nästa prioritet).
 
 ## Backlog (WP-struktur efter granskningen 2026-07-13, prioriterad)
 
@@ -96,7 +102,7 @@ decay-benämningen, A1-snabbpollen (`cli.py smart`). *(2026-07-16, runda 2)*
 WP0 (WAL/busy_timeout/`bulk()`), WP2-mini (notisvakten), version-split
 (signal_version + git_hash, migrerad). *(2026-07-16, Codex)* WP1 settlement-
 ankring + testgrund, WP2 full prisnärvaro/källhälsa, WP4 CLV-identitet +
-linjeflytt-facit, WP8a Sofascore seen/retry.
+linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
 
 **P0 — sanningslager & matematik (i ordning):**
 - **WP1 ✅ 2026-07-16**: settlement-aware ÖU-ankring för hel/halv/kvart;
@@ -116,15 +122,20 @@ linjeflytt-facit, WP8a Sofascore seen/retry.
   `line_move_score` (>0 = marknaden rörde sig med spelet). Finns inte färsk
   exakt lina redovisas `linje flyttad`, aldrig ett fabricerat close-EV.
   Skript, backup och produktionsutfall finns i `docs/db-atgarder.md`.
-- **WP5** (M/L): prediction ledger — ALLA prediktioner vid fasta horisonter
-  (T−24h/−3h/−20m, sammanfaller med pollpassen) med sharp-fair/modell-fair/
-  bokpris/availability/signal_version. **Grönt-kriterium v3 på ledgern**:
+- **WP5 ✅ 2026-07-16**: prediction ledger — ALLA prediktioner vid fasta
+  horisonter (T−24h/−3h/−20m) med sharp-fair/modell-fair, bästa bokpris,
+  availability, kontrollgrupp och komposit signalversion. Capture-markören är
+  atomär och skrivs även vid tomt källutfall; missade horisonter bakfylls aldrig.
+  Timingvakt: max 45/15/10 min sen för 24h/3h/20m i valideringsfacitet.
+  **Grönt-kriterium v3 på ledgern**:
   status per grupp amber → candidate (n_flags ≥ 50 OCH n_matches ≥ 30 OCH
   span ≥ 28 d OCH undre 90 %-KI > 0) → green (bekräftad out-of-time: ≥15 nya
   matcher EFTER candidate-datumet med KI_lo > 0); förregistrerade primära
-  grupper = sharp × 1x2 × per liga, övriga är utforskande och kräver
-  BH-FDR-korrigering (10 %) före candidate. Rapportera n_flags/n_matches/
-  n_weeks/span per grupp; KI märks instabilt under 10 matcher. Ersätter gamla
+  grupper = sharp × 1x2 × de fem riktiga ligorna, övriga (inkl.
+  träningsmatcher) är utforskande och kräver BH-FDR-korrigering (10 %) på
+  kluster-signflip-p-värden före candidate. Rapporten visar n_flags/n_matches/
+  n_weeks/span, kontrollantal och timing; KI märks instabilt under 10 matcher.
+  Modellen fittas i snabbvarv endast när en ny horisont saknas. Ersätter gamla
   A2 (öppningslinje = första horisonten) och ger gamla A3 (odds-band-facit)
   gratis.
 
@@ -142,7 +153,7 @@ linjeflytt-facit, WP8a Sofascore seen/retry.
   spelar-ID/position (ger B5 data + "vilken frånvaro flyttar linjen?"); daglig
   Elo-snapshot + historik-backfill (PIT-Elo).
 - **WP-test** (M, löpande): testgrund ✅ med standardbibliotekets `unittest`
-  (pytest-kompatibel, ingen dependency). 22 fall täcker bland annat
+  (pytest-kompatibel, ingen dependency). 29 fall täcker bland annat
   settlement/push/kvart, temperatur-roundtrip, normaltime, seen-retry/404,
   bulk-rollback, prisnärvaro samt CLV-identitet/linjeflytt. Återstår:
   power-devig, eventmatchning/tidszon, closing-matchning, poolutdelning,
@@ -185,9 +196,10 @@ linjeflytt-facit, WP8a Sofascore seen/retry.
    liten expander per cell; sticky liga-bar vid scroll.
 11. PWA: manifest + ikon så hemskärms-appen får egen identitet (svs-mönstret).
 
-**D. Stora ligorna — PAUSADE tills WP0–WP5 är klara (beslut 2026-07-13).**
-Fler ligor löser inte datakvalitet/facit/metod — id-tabellen behålls som
-förberedelse; omprövas efter WP5 (tidigast sen aug 2026).
+**D. Stora ligorna — FORTSATT PAUSADE; WP0–WP5-gaten är nu uppfylld.**
+Fler ligor löser inte automatiskt nästa problem och ledgerserierna behöver tid
+att mogna. Id-tabellen behålls som förberedelse; expansion kräver ett separat
+produktbeslut, inte bara att den tekniska gaten passerats.
 | Liga | football-data | Sofascore ut | Kambi-väg | Pinnacle |
 |---|---|---|---|---|
 | MLS ✅ (inlagd, i säsong) | new/USA.csv | 242 | football/usa/mls | 2663 |

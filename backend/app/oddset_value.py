@@ -336,17 +336,8 @@ def log_and_notify(store: Storage, matches: list[dict],
     return {"logged": n_logged, "pushed": n_pushed, "gated": n_gated}
 
 
-def resolve_closings(store: Storage) -> int:
-    """Stäng flaggor mot Pinnacle före avspark.
-
-    1X2 använder senaste färska marknad. AH/ÖU/hörnor söker senaste färska
-    pris på EXAKT flaggans lina. Om huvudlinan har flyttat sparas slutlina,
-    delta och ett selektionsriktat score (>0 = rörelse med spelet) även när
-    exakt-line-priset är för gammalt för ett jämförbart close-EV.
-    """
-    now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    n = 0
-
+def closing_snapshot(store: Storage, row: dict) -> dict:
+    """Rent marknadsfacit för en flagga/prediktion, utan att skriva i DB."""
     def _seen_after(row: dict, threshold: dt.datetime) -> bool:
         try:
             return dt.datetime.fromisoformat(
@@ -359,73 +350,79 @@ def resolve_closings(store: Storage) -> int:
             return -delta if sign == "H" else delta
         return delta if sign == "O" else -delta
 
-    for f in store.oddset_unresolved_closings(now):
-        # modell-flaggor (m1x2/mah/mou) stängs mot samma sharp-marknad utan m-prefix
-        hist_market = f["market"][1:] if f["market"].startswith("m") else f["market"]
-        signs = _MARKET_SIGNS[hist_market]
-        rows = store.oddset_history_before(f["match_id"], hist_market, f["match_start"])
-        # senaste (odds, line) per tecken före avspark
-        last: dict[str, dict] = {}
-        for r in rows:                      # rows i tidsordning
-            last[r["sign"]] = r
-        if len(last) < len(signs):
-            store.oddset_set_closing(f, None, None, "ingen sharp-stängning")
-            n += 1
-            continue
-        if any(not r.get("available") for r in last.values()):
-            store.oddset_set_closing(
-                f, None, None, "sharp-stängning ej tillgänglig")
-            n += 1
-            continue
-        start = dt.datetime.fromisoformat(f["match_start"].replace("Z", "+00:00"))
-        fresh_after = start - dt.timedelta(minutes=PRICE_MAX_AGE_MIN)
-        if any(not _seen_after(r, fresh_after) for r in last.values()):
-            store.oddset_set_closing(
-                f, None, None, f"sharp-stängning äldre än {PRICE_MAX_AGE_MIN} min")
-            n += 1
-            continue
+    # modell-flaggor (m1x2/mah/mou) stängs mot samma sharp-marknad utan m-prefix
+    hist_market = (row["market"][1:] if row["market"].startswith("m")
+                   else row["market"])
+    signs = _MARKET_SIGNS.get(hist_market)
+    if not signs:
+        return {"fair": None, "odds": None, "note": "okänd sharp-marknad"}
+    rows = store.oddset_history_before(
+        row["match_id"], hist_market, row["match_start"])
+    last: dict[str, dict] = {}
+    for price in rows:
+        last[price["sign"]] = price
+    if len(last) < len(signs):
+        return {"fair": None, "odds": None, "note": "ingen sharp-stängning"}
+    if any(not price.get("available") for price in last.values()):
+        return {"fair": None, "odds": None,
+                "note": "sharp-stängning ej tillgänglig"}
+    start = dt.datetime.fromisoformat(row["match_start"].replace("Z", "+00:00"))
+    fresh_after = start - dt.timedelta(minutes=PRICE_MAX_AGE_MIN)
+    if any(not _seen_after(price, fresh_after) for price in last.values()):
+        return {"fair": None, "odds": None,
+                "note": f"sharp-stängning äldre än {PRICE_MAX_AGE_MIN} min"}
 
-        if hist_market == "1x2":
-            target = last
-            closing_line = line_delta = move_score = None
-            note = None
-        else:
-            closing_lines = {last[s].get("line") for s in signs}
-            if len(closing_lines) != 1 or None in closing_lines:
-                store.oddset_set_closing(
-                    f, None, None, "inkonsistent sharp-stängningslina")
-                n += 1
-                continue
-            closing_line = closing_lines.pop()
-            flag_line = f.get("line")
-            if flag_line is None:
-                store.oddset_set_closing(f, None, None, "flagglina saknas")
-                n += 1
-                continue
-            line_delta = round(closing_line - flag_line, 4)
-            move_score = round(_move_score(hist_market, f["sign"], line_delta), 4)
-            target = {}
-            target_key = int(round(float(flag_line) * 1000))
-            for r in rows:
-                if r.get("line") is not None and int(round(float(r["line"]) * 1000)) == target_key:
-                    target[r["sign"]] = r
-            same_line_fresh = (len(target) == len(signs)
-                               and all(_seen_after(r, fresh_after) for r in target.values()))
-            note = None if same_line_fresh else (
-                "linje flyttad" if line_delta else
-                f"sharp-stängning äldre än {PRICE_MAX_AGE_MIN} min")
+    if hist_market == "1x2":
+        target = last
+        closing_line = line_delta = move_score = None
+        note = None
+    else:
+        closing_lines = {last[s].get("line") for s in signs}
+        if len(closing_lines) != 1 or None in closing_lines:
+            return {"fair": None, "odds": None,
+                    "note": "inkonsistent sharp-stängningslina"}
+        closing_line = closing_lines.pop()
+        flag_line = row.get("line")
+        if flag_line is None:
+            return {"fair": None, "odds": None, "note": "flagglina saknas"}
+        line_delta = round(closing_line - flag_line, 4)
+        move_score = round(_move_score(hist_market, row["sign"], line_delta), 4)
+        target = {}
+        target_key = int(round(float(flag_line) * 1000))
+        for price in rows:
+            line = price.get("line")
+            if line is not None and int(round(float(line) * 1000)) == target_key:
+                target[price["sign"]] = price
+        same_line_fresh = (len(target) == len(signs)
+                           and all(_seen_after(price, fresh_after)
+                                   for price in target.values()))
+        note = None if same_line_fresh else (
+            "linje flyttad" if line_delta else
+            f"sharp-stängning äldre än {PRICE_MAX_AGE_MIN} min")
 
-        fair = _devig({s: target[s]["odds"] for s in signs}, signs) \
-            if len(target) == len(signs) and note is None else None
-        if not fair:
-            store.oddset_set_closing(
-                f, None, None, note or "ingen sharp-stängning på flaggans lina",
-                closing_line, line_delta, move_score)
-            n += 1
-            continue
+    fair = (_devig({s: target[s]["odds"] for s in signs}, signs)
+            if len(target) == len(signs) and note is None else None)
+    if not fair:
+        return {"fair": None, "odds": None,
+                "note": note or "ingen sharp-stängning på flaggans lina",
+                "closing_line": closing_line, "line_delta": line_delta,
+                "line_move_score": move_score}
+    return {"fair": round(fair[row["sign"]], 4),
+            "odds": target[row["sign"]]["odds"], "note": None,
+            "closing_line": closing_line, "line_delta": line_delta,
+            "line_move_score": move_score}
+
+
+def resolve_closings(store: Storage) -> int:
+    """Stäng flaggor mot färsk Pinnacle-marknad strax före avspark."""
+    now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    n = 0
+    for flag in store.oddset_unresolved_closings(now):
+        close = closing_snapshot(store, flag)
         store.oddset_set_closing(
-            f, round(fair[f["sign"]], 4), target[f["sign"]]["odds"], None,
-            closing_line, line_delta, move_score)
+            flag, close.get("fair"), close.get("odds"), close.get("note"),
+            close.get("closing_line"), close.get("line_delta"),
+            close.get("line_move_score"))
         n += 1
     return n
 

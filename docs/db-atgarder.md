@@ -8,6 +8,24 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-07-16 — WP5 prediction ledger
+
+- **Skript:** `backend/scripts/migrera_prediction_ledger.py` (idempotent,
+  kräver backup; enbart additiva tabeller/index).
+- **Backup:** `backend/data/backups/stryktips-2026-07-16-fore-wp5.db` (SQLite
+  online-backup före schemaändringen).
+- **Vad:** skapade `oddset_prediction_capture`, `oddset_prediction_log` och
+  `oddset_prediction_group_state`. Capture är unik per match × horisont × tier
+  × semantisk kompositversion och skrivs även vid noll prediktionsrader;
+  ledgerrader är immutabla point-in-time-observationer.
+- **Migrering:** 0 gamla rader bakfylldes (avsiktligt — historiska odds kan inte
+  göras om till äkta T−24h/T−3h/T−20m-snapshots),
+  `PRAGMA integrity_check = ok`.
+- **Kopietest före live:** 58 aktuella matcher gav 30 tier-captures och 220
+  prediktioner (8 captures i 3h-bucket, 22 i 24h-bucket); identisk omkörning
+  gav 0 captures/0 rader. Dessa kopierader är testdata och finns inte i
+  produktionsdatabasen.
+
 ## 2026-07-16 — WP4 CLV-identitet och linjeflytt
 
 - **Skript:** `backend/scripts/migrera_clv_identitet.py` (idempotent, kräver

@@ -21,6 +21,76 @@ from .svenskaspel import Draw
 
 DEFAULT_DB = Path(__file__).resolve().parent.parent / "data" / "stryktips.db"
 
+PREDICTION_SCHEMA = """
+CREATE TABLE IF NOT EXISTS oddset_prediction_capture (
+    match_id       TEXT NOT NULL,
+    horizon        TEXT NOT NULL,          -- h24 | h3 | m20
+    tier           TEXT NOT NULL,          -- sharp | model
+    signal_version TEXT NOT NULL,
+    base_version   TEXT NOT NULL,
+    match_start    TEXT NOT NULL,
+    target_at      TEXT NOT NULL,
+    captured_at    TEXT NOT NULL,
+    offset_minutes REAL NOT NULL,          -- faktisk tid kvar till avspark
+    delay_minutes  REAL NOT NULL,          -- hur sent efter nominell horisont
+    row_count      INTEGER NOT NULL,
+    PRIMARY KEY (match_id, horizon, tier, signal_version)
+);
+
+CREATE TABLE IF NOT EXISTS oddset_prediction_log (
+    match_id       TEXT NOT NULL,
+    horizon        TEXT NOT NULL,
+    tier           TEXT NOT NULL,
+    market         TEXT NOT NULL,
+    sign           TEXT NOT NULL,
+    line           REAL,
+    line_key       INTEGER NOT NULL,
+    league         TEXT,
+    description    TEXT,
+    match_start    TEXT NOT NULL,
+    target_at      TEXT NOT NULL,
+    captured_at    TEXT NOT NULL,
+    offset_minutes REAL NOT NULL,
+    fair_prob      REAL NOT NULL,
+    fair_source    TEXT NOT NULL,           -- pinnacle | derived | model
+    fair_available INTEGER NOT NULL,
+    fair_fresh     INTEGER NOT NULL,
+    model_anchored INTEGER,
+    book           TEXT,
+    book_odds      REAL,
+    book_available INTEGER NOT NULL,
+    book_fresh     INTEGER NOT NULL,
+    edge           REAL,
+    eligible       INTEGER NOT NULL,        -- får ingå i signalutvärdering
+    is_flag        INTEGER NOT NULL,        -- förregistrerad regel vid capture
+    signal_version TEXT NOT NULL,
+    base_version   TEXT NOT NULL,
+    git_hash       TEXT,
+    closing_fair   REAL,
+    closing_odds   REAL,
+    closing_line   REAL,
+    line_delta     REAL,
+    line_move_score REAL,
+    closing_note   TEXT,
+    PRIMARY KEY (match_id, horizon, tier, market, sign, signal_version)
+);
+CREATE INDEX IF NOT EXISTS idx_prediction_open
+    ON oddset_prediction_log (match_start, closing_fair, closing_note);
+CREATE INDEX IF NOT EXISTS idx_prediction_group
+    ON oddset_prediction_log (tier, league, market, signal_version, is_flag);
+
+CREATE TABLE IF NOT EXISTS oddset_prediction_group_state (
+    tier           TEXT NOT NULL,
+    league         TEXT NOT NULL,
+    market         TEXT NOT NULL,
+    signal_version TEXT NOT NULL,
+    status         TEXT NOT NULL DEFAULT 'amber',
+    candidate_at   TEXT,
+    green_at       TEXT,
+    PRIMARY KEY (tier, league, market, signal_version)
+);
+"""
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS draws (
     product       TEXT NOT NULL,
@@ -182,7 +252,7 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
     git_hash     TEXT,
     PRIMARY KEY (match_id, market, sign, line_key, model_version)
 );
-"""
+""" + PREDICTION_SCHEMA
 
 
 class Storage:
@@ -865,3 +935,107 @@ class Storage:
         return [dict(r) for r in self.conn.execute(
             "SELECT * FROM oddset_value_log ORDER BY first_at DESC LIMIT ?",
             (limit,)).fetchall()]
+
+    # --- WP5 prediction ledger -------------------------------------------------
+
+    def oddset_prediction_captured(self, match_id: str, horizon: str, tier: str,
+                                   signal_version: str) -> bool:
+        return self.conn.execute(
+            "SELECT 1 FROM oddset_prediction_capture WHERE match_id=? AND horizon=? "
+            "AND tier=? AND signal_version=?",
+            (match_id, horizon, tier, signal_version)).fetchone() is not None
+
+    def oddset_capture_predictions(self, capture: dict, rows: list[dict]) -> int:
+        """Spara en horisont atomärt och exakt en gång.
+
+        Capture-raden skrivs även när rows är tom: källfrånvaro får inte
+        senare maskeras som en skenbart exakt horisont. Returnerar antal nya
+        prediktionsrader; 0 om horisonten redan var fångad.
+        """
+        with self.bulk():
+            cur = self.conn.execute(
+                "INSERT OR IGNORE INTO oddset_prediction_capture(match_id, horizon, "
+                "tier, signal_version, base_version, match_start, target_at, "
+                "captured_at, offset_minutes, delay_minutes, row_count) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (capture["match_id"], capture["horizon"], capture["tier"],
+                 capture["signal_version"], capture["base_version"],
+                 capture["match_start"], capture["target_at"],
+                 capture["captured_at"], capture["offset_minutes"],
+                 capture["delay_minutes"], len(rows)))
+            if cur.rowcount == 0:
+                return 0
+            for r in rows:
+                self.conn.execute(
+                    "INSERT INTO oddset_prediction_log(match_id, horizon, tier, market, "
+                    "sign, line, line_key, league, description, match_start, target_at, "
+                    "captured_at, offset_minutes, fair_prob, fair_source, fair_available, "
+                    "fair_fresh, model_anchored, book, book_odds, book_available, "
+                    "book_fresh, edge, eligible, is_flag, signal_version, base_version, "
+                    "git_hash) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (capture["match_id"], capture["horizon"], capture["tier"],
+                     r["market"], r["sign"], r.get("line"), r["line_key"],
+                     capture.get("league"), capture.get("description"),
+                     capture["match_start"], capture["target_at"],
+                     capture["captured_at"], capture["offset_minutes"],
+                     r["fair_prob"], r["fair_source"], int(r["fair_available"]),
+                     int(r["fair_fresh"]), r.get("model_anchored"), r.get("book"),
+                     r.get("book_odds"), int(r["book_available"]),
+                     int(r["book_fresh"]), r.get("edge"), int(r["eligible"]),
+                     int(r["is_flag"]), capture["signal_version"],
+                     capture["base_version"], capture.get("git_hash")))
+        return len(rows)
+
+    def oddset_unresolved_predictions(self, now_iso: str) -> list[dict]:
+        return [dict(r) for r in self.conn.execute(
+            "SELECT * FROM oddset_prediction_log WHERE closing_fair IS NULL "
+            "AND closing_note IS NULL AND match_start < ?",
+            (now_iso,)).fetchall()]
+
+    def oddset_set_prediction_closing(
+            self, row: dict, fair: Optional[float], odds: Optional[float],
+            note: Optional[str], closing_line: Optional[float] = None,
+            line_delta: Optional[float] = None,
+            line_move_score: Optional[float] = None) -> None:
+        self.conn.execute(
+            "UPDATE oddset_prediction_log SET closing_fair=?, closing_odds=?, "
+            "closing_note=?, closing_line=?, line_delta=?, line_move_score=? "
+            "WHERE match_id=? AND horizon=? AND tier=? AND market=? AND sign=? "
+            "AND signal_version=?",
+            (fair, odds, note, closing_line, line_delta, line_move_score,
+             row["match_id"], row["horizon"], row["tier"], row["market"],
+             row["sign"], row["signal_version"]))
+        self._commit()
+
+    def oddset_prediction_rows(self) -> list[dict]:
+        return [dict(r) for r in self.conn.execute(
+            "SELECT p.*, c.delay_minutes FROM oddset_prediction_log p "
+            "JOIN oddset_prediction_capture c ON c.match_id=p.match_id "
+            "AND c.horizon=p.horizon AND c.tier=p.tier "
+            "AND c.signal_version=p.signal_version "
+            "ORDER BY p.captured_at, p.match_id, p.tier, p.market, p.sign").fetchall()]
+
+    def oddset_prediction_captures(self) -> list[dict]:
+        return [dict(r) for r in self.conn.execute(
+            "SELECT * FROM oddset_prediction_capture ORDER BY captured_at, match_id, tier"
+        ).fetchall()]
+
+    def oddset_prediction_states(self) -> dict[tuple, dict]:
+        rows = self.conn.execute("SELECT * FROM oddset_prediction_group_state").fetchall()
+        return {(r["tier"], r["league"], r["market"], r["signal_version"]): dict(r)
+                for r in rows}
+
+    def oddset_set_prediction_state(self, key: tuple, status: str, at: str) -> None:
+        tier, league, market, version = key
+        candidate = at if status == "candidate" else None
+        green = at if status == "green" else None
+        self.conn.execute(
+            "INSERT INTO oddset_prediction_group_state(tier, league, market, "
+            "signal_version, status, candidate_at, green_at) VALUES(?,?,?,?,?,?,?) "
+            "ON CONFLICT(tier,league,market,signal_version) DO UPDATE SET "
+            "status=excluded.status, "
+            "candidate_at=COALESCE(oddset_prediction_group_state.candidate_at, "
+            "excluded.candidate_at), green_at=COALESCE(oddset_prediction_group_state.green_at, "
+            "excluded.green_at)",
+            (tier, league, market, version, status, candidate, green))
+        self._commit()

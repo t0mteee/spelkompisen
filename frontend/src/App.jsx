@@ -647,12 +647,15 @@ function OddsetLegend() {
             Backtest v2 mot två års Pinnacle-stängningar: xG lyfte modellen i båda ligorna;
             Allsvenskan +10 % ROI vid låga trösklar men inom bruset (n=326), Eliteserien −17 %.
             Därför <b>amber</b>: <span className="apill">+8%</span> = "modellen avviker — kolla
-            varför", INTE "spela". Modellflaggor forward-loggas (🧪-raden i loggen) och grönt
-            släpps per liga först vid ≥50 stängda flaggor med positivt facit. Störst nytta idag:
+            varför", INTE "spela". Prognosledgern loggar alla modellprediktioner och
+            kontrollutfall vid tre fasta horisonter. Candidate kräver ≥50 stängda
+            flaggor, ≥30 matcher, ≥28 dagar och positiv undre KI-gräns; grönt kräver
+            dessutom 15 nya out-of-time-matcher. Störst nytta idag:
             prisuppfattning för matcher där Pinnacle inte öppnat än.</div>
-          <div><b>📒 Signal-loggen</b> längst ner är domaren: varje grön flagga jämförs efteråt
-            med Pinnacles stängningslinje (CLV). Positivt snitt = flaggorna ligger före
-            marknaden på riktigt; negativt = brus. Lita på facit, inte på känsla.</div>
+          <div><b>🧭 Prognosledgern</b> är forskningsdomaren: alla prediktioner, även
+            oflaggade kontroller, jämförs med Pinnacles stängningslinje per version och
+            grupp. <b>📒 Signal-loggen</b> under den visar i stället vad som faktiskt
+            flaggades. Lita på ledgerfacitet, inte på känsla.</div>
         </div>
       )}
     </div>
@@ -662,9 +665,11 @@ function OddsetLegend() {
 function OddsetView() {
   const [data, setData] = useState(null)
   const [clv, setClv] = useState(null)
+  const [ledger, setLedger] = useState(null)
   const [notices, setNotices] = useState(null)
   const [showNotices, setShowNotices] = useState(false)
   const [showLog, setShowLog] = useState(false)
+  const [showLedger, setShowLedger] = useState(false)
   const [expanded, setExpanded] = useState(null)
   const [err, setErr] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -698,7 +703,8 @@ function OddsetView() {
       fetch(`/api/oddset/matches?_t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()),
       fetch(`/api/oddset/clv?_t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
       fetch(`/api/oddset/notices?_t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
-    ]).then(([d, c, n]) => { setData(d); setClv(c); setNotices(n?.notices || []); setErr(null) })
+      fetch(`/api/oddset/predictions?_t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
+    ]).then(([d, c, n, l]) => { setData(d); setClv(c); setNotices(n?.notices || []); setLedger(l); setErr(null) })
       .catch((e) => setErr(String(e)))
   useEffect(() => { load() }, [])  // eslint-disable-line
 
@@ -787,6 +793,9 @@ function OddsetView() {
     return <span className={`priceage ${market.fresh ? '' : 'stale'}`} title={title}>· {label}</span>
   }
   const clvLine = (market, line) => market?.endsWith('ah') ? fmtAh(line) : line
+  const ledgerTiming = Object.values(ledger?.capture_quality || {}).reduce(
+    (sum, h) => ({ n: sum.n + (h.n || 0), timely: sum.timely + (h.n_timely || 0) }),
+    { n: 0, timely: 0 })
   const clvMoveText = (r) => {
     if (r.line_delta == null || Math.abs(r.line_delta) < 0.0001) return ''
     const direction = r.line_move_score > 0 ? 'med' : r.line_move_score < 0 ? 'emot' : 'neutralt'
@@ -1270,6 +1279,32 @@ function OddsetView() {
           </tbody>
         ))}
       </table>
+      {ledger?.n_captures > 0 && (
+        <div className="clvbox ledgerbox">
+          <p className="hint clvline clickable" onClick={() => setShowLedger(!showLedger)}
+            title="Alla tillgängliga sharp- och modellprediktioner fryses en gång vid T−24 h, T−3 h och T−20 min. Även oflaggade selektioner sparas som kontrollgrupp. Status avgörs per liga × marknad × tier × semantisk version, aldrig av ett tier-aggregat.">
+            🧭 Prognosledger — {ledger.n_predictions} prediktioner · {ledger.n_captures} fångster
+            {' '}({ledger.horizons?.h24 || 0}×24h · {ledger.horizons?.h3 || 0}×3h · {ledger.horizons?.m20 || 0}×20m)
+            {ledgerTiming.n > 0 && <> · {ledgerTiming.timely}/{ledgerTiming.n} i tid</>}
+            {ledger.n_empty_captures > 0 && <> · {ledger.n_empty_captures} utan tillgänglig prognos</>}
+            {' '}{showLedger ? '▲' : '▼'}
+          </p>
+          {showLedger && <div className="tablewrap"><table className="logtable">
+            <thead><tr><th>status</th><th>grupp</th><th>pred/kontroll</th><th>flaggor</th><th>bredd</th><th>close-EV</th><th>90 % KI</th></tr></thead>
+            <tbody>{(ledger.groups || []).map((g) => (
+              <tr key={`${g.tier}-${g.league}-${g.market}-${g.version}`}>
+                <td className={`ledgerstatus ${g.status}`}>{g.status === 'green' ? '✓ grön' : g.status === 'candidate' ? '◐ kandidat' : '● amber'}</td>
+                <td>{g.tier === 'model' ? '🧪' : '💰'} {g.league} · {g.market}{g.primary ? ' · primär' : ''}<span className="hint"> · {g.version}</span></td>
+                <td>{g.n_timely}/{g.n_controls}{g.n_late > 0 ? ` · ${g.n_late} sena` : ''}</td>
+                <td>{g.n_resolved}/{g.n_flags} stängda</td>
+                <td>{g.n_matches} matcher · {g.n_weeks} v · {g.span_days} d</td>
+                <td className={g.avg_close_ev == null ? '' : g.avg_close_ev >= 0 ? 'pos' : 'neg'}>{g.avg_close_ev == null ? '–' : `${g.avg_close_ev >= 0 ? '+' : ''}${(g.avg_close_ev * 100).toFixed(1)}%`}</td>
+                <td>{g.ci ? `[${(g.ci[0] * 100).toFixed(1)}..${(g.ci[1] * 100).toFixed(1)}]${g.ci_stable ? '' : ' · instabilt'}` : '–'}</td>
+              </tr>
+            ))}</tbody>
+          </table></div>}
+        </div>
+      )}
       {clv && (clv.sharp?.n > 0 || clv.model?.n > 0) && (
         <div className="clvbox">
           <p className="hint clvline clickable" onClick={() => setShowLog(!showLog)}

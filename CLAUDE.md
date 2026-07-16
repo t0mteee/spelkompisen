@@ -128,6 +128,14 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
   semantisk signalversion. Stäng alltid mot flaggans lina när ett färskt pris
   finns; spara annars slutlinans delta som `linje flyttad` utan fabricerat
   close-EV. Positivt `line_move_score` betyder rörelse med selektionen.
+- WP5-ledgern (`app/oddset_ledger.py`) är forskningsfacitet: alla prediktioner
+  och oflaggade kontroller fryses vid T−24 h/T−3 h/T−20 min. Bakfyll aldrig en
+  missad horisont; capture-markören bevarar även tomt källutfall. Endast captures
+  inom 45/15/10 min timingtolerans får bidra till candidate/green.
+- Primära grupper är sharp × 1X2 × Allsvenskan/Superettan/Eliteserien/OBOS/
+  MLS. Träningsmatcher och alla andra grupper är utforskande och kräver
+  BH-FDR 10 %. Candidate är sticky; green kräver out-of-time-data efter
+  candidate-datumet. Aggregat får aldrig ändra gruppstatus.
 
 ## Oddset-delen (byggs nu — se docs/plan.md för detaljer)
 

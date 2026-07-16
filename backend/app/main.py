@@ -367,6 +367,18 @@ def oddset_clv():
         store.close()
 
 
+@app.get("/api/oddset/predictions")
+def oddset_predictions():
+    """WP5-ledger: alla fasta horisontprediktioner och v3-status per grupp."""
+    from . import oddset_ledger
+    store = Storage()
+    try:
+        oddset_ledger.resolve_closings(store)
+        return oddset_ledger.prediction_report(store)
+    finally:
+        store.close()
+
+
 @app.get("/api/oddset/notices")
 def oddset_notices():
     """Notis-historik: alla triggade värde-/steam-larm (skickade OCH torrkörda

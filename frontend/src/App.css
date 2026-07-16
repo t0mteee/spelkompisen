@@ -535,6 +535,13 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
 .clvbox .logtable td { padding: 4px 8px; border-bottom: 1px solid var(--line); }
 .clvbox .pos { color: var(--green); }
 .clvbox .neg { color: #e06b6b; }
+.ledgerbox { margin-bottom: 7px; }
+.ledgerbox .tablewrap { overflow-x: auto; }
+.ledgerbox .logtable { min-width: 880px; }
+.ledgerstatus { white-space: nowrap; font-weight: 700; }
+.ledgerstatus.amber { color: #dca85e; }
+.ledgerstatus.candidate { color: #7db9e8; }
+.ledgerstatus.green { color: var(--green); }
 .epill.big { font-size: 11px; padding: 2px 8px; margin-left: 0; }
 .steam { margin-left: 5px; font-size: 12px; }
 .steam.strong { filter: drop-shadow(0 0 3px #e0853b); }

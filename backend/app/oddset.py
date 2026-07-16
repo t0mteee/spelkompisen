@@ -422,14 +422,38 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
             report["data"] = oddset_data.refresh_all(store)
         except Exception as e:  # noqa: BLE001
             report["errors"].append(f"modeldata: {e}")
-    # Etapp 2: värde-flaggor → CLV-logg + ntfy, och stängningar för startade matcher
+    # Etapp 2/WP5: samma point-in-time-payload driver både handlingsloggen och
+    # forskningsledgern. Snabbvarvet fittar modellen ENDAST när en ny fast
+    # horisont öppnas; annars förblir det lätt.
     try:
         payload = matches_payload(store, light=not deep)
+        from . import oddset_ledger
+        if deep:
+            report["ledger_capture"] = oddset_ledger.capture_predictions(
+                store, payload["matches"])
+        else:
+            sharp_capture = oddset_ledger.capture_predictions(
+                store, payload["matches"], tiers=("sharp",))
+            due_model = oddset_ledger.due_model_matches(store, payload["matches"])
+            if due_model:
+                from . import oddset_model
+                oddset_model.attach_model(store, due_model)
+            model_capture = oddset_ledger.capture_predictions(
+                store, due_model, tiers=("model",))
+            report["ledger_capture"] = {
+                key: sharp_capture[key] + model_capture[key]
+                for key in sharp_capture}
         vs = oddset_value.log_and_notify(store, payload["matches"], present=present)
         vs["closings"] = oddset_value.resolve_closings(store)
         report["value"] = vs
     except Exception as e:  # noqa: BLE001 — får inte fälla insamlingen
         report["errors"].append(f"värde/notiser: {e}")
+    try:
+        from . import oddset_ledger
+        report["ledger_closings"] = oddset_ledger.resolve_closings(store)
+        oddset_ledger.prediction_report(store, update_states=True)
+    except Exception as e:  # noqa: BLE001 — ledgern får inte fälla insamlingen
+        report["errors"].append(f"prediction-ledger: {e}")
     return report
 
 
