@@ -42,8 +42,12 @@ FD_TTL_H, XG_TTL_H, ELO_TTL_H, ABS_TTL_H = 12, 6, 24, 2
 
 # Databehandlingens version — ingår i signal_version-fingeravtrycken (gransknings-
 # punkt 5): bumpa MANUELLT när semantiken i datat ändras utan att en parameter gör
-# det. 1 = ursprunglig; 2 = normaltime + identitetsmerge (alias/±1 dygn), 2026-07-13.
+# det. 1 = ursprunglig; 2 = normaltime + identitetsmerge (alias/±1 dygn),
+# 2026-07-13. Gemensam version hålls stabil när bara modellfitten påverkas.
 DATA_VERSION = 2
+# Målmodellens resultatsammanslagning: 3 = fuzzy 0,70→0,75 så review-bandet
+# aldrig auto-mergas (Egersund→Haugesund var en bevislig felkoppling vid 0,706).
+MODEL_DATA_VERSION = 3
 # missingPlayers-orsakskoder (Sofascore): observerade typer
 _ABS_REASON = {0: "annat", 1: "skada", 2: "tveksam", 3: "avstängd",
                11: "avstängd", 12: "avstängd", 13: "avstängd"}
@@ -459,7 +463,26 @@ def refresh_all(store: Storage, force: bool = False) -> dict:
 # football-data-kanoniskt namn, per liga. Fuzzy-tröskeln 0.7 missar dessa
 # (la galaxy↔los angeles galaxy = 0.67 → laget splittrades i två identiteter i
 # fitten). Runtime-tillägg utan deploy: meta-nyckeln oddset_alias:{liga} (JSON).
-TEAM_ALIAS = {"mls": {"la galaxy": "los angeles galaxy"}}
+TEAM_ALIAS = {
+    "allsvenskan": {
+        "halmstads": "halmstad", "ifk goteborg": "goteborg",
+        "djurgardens": "djurgarden", "ifk norrkoping": "norrkoping",
+        "ifk varnamo": "varnamo", "osters": "oster",
+        "landskrona bois": "landskrona",
+    },
+    "eliteserien": {
+        "tromso il": "tromso", "sandefjord fotball": "sandefjord",
+        "odds": "odd", "aalesunds": "aalesund",
+    },
+    "mls": {
+        "la galaxy": "los angeles galaxy", "atlanta united": "atlanta utd",
+    },
+}
+TEAM_REJECTED_LINKS = {
+    "eliteserien": {("egersund", "haugesund")},
+}
+FUZZY_AUTO_MIN = 0.75
+FUZZY_SUGGEST_MIN = 0.55
 
 
 def _alias_map(store: Storage, league: str) -> dict[str, str]:
@@ -478,7 +501,9 @@ def merged_results(store: Storage, league: str,
     för samma match slås ihop (xG vinner). Matchnyckeln tål ±1 dygns datumskillnad
     mellan källorna (MLS: Sofascore = UTC-datum, football-data = lokalt/brittiskt
     → 304 dubbletter i fitten före fixen) — kräver samma lagpar, olika källor och
-    samma mål. audit (dict) fylls med det som INTE avgjordes tyst:
+    samma mål. audit (dict) fylls med alla automatiska/öppna identitetsbeslut:
+    'fuzzy_links' = alla icke-exakta/icke-alias-länkar med likhet, antal berörda
+    matcher och verified=False (godkänd länk ska flyttas till alias-tabellen),
     'unmatched' = namn som inte kunde kanoniseras (med bästa förslag + likhet),
     'date_dups' = kvarvarande par samma lag/olika källa inom ±1 dygn."""
     from .oddset import _team_sim
@@ -486,30 +511,48 @@ def merged_results(store: Storage, league: str,
     alias = _alias_map(store, league)
     canon = sorted({r[side] for r in rows if r.get("source") == "fd"
                     for side in ("home", "away")})
+    fuzzy_links: dict[tuple[str, str], dict] = {}
+    unmatched_links: dict[tuple[str, str], dict] = {}
+    rejected_links: dict[tuple[str, str], dict] = {}
 
-    def to_canon(name: str) -> str:
+    def to_canon(name: str, match_key: tuple) -> str:
         if not canon or name in canon:
             return name          # en-källe-liga (Superettan/OBOS) kanoniserar inte
         if name in alias:
             return alias[name]   # manuellt verifierad koppling vinner
-        best, best_s = name, 0.7
+        best, best_s = name, FUZZY_AUTO_MIN
         for c in canon:
             s = _team_sim(name, c)
             if s > best_s:
                 best, best_s = c, s
-        if best is name and audit is not None:
+        if best != name and audit is not None:
+            link = fuzzy_links.setdefault((name, best), {
+                "source_name": name, "target_name": best,
+                "sim": round(best_s, 3), "verified": False,
+                "_matches": set(),
+            })
+            link["_matches"].add(match_key)
+        elif best == name and audit is not None:
             # föreslå i stället för att tyst lämna osammanslaget
             cand = max(((c, _team_sim(name, c)) for c in canon),
                        key=lambda t: t[1], default=(None, 0.0))
-            if cand[0] and cand[1] >= 0.5:
-                audit.setdefault("unmatched", []).append(
-                    {"name": name, "suggestion": cand[0], "sim": round(cand[1], 2)})
+            if cand[0] and cand[1] >= FUZZY_SUGGEST_MIN:
+                pair = (name, cand[0])
+                rejected = pair in TEAM_REJECTED_LINKS.get(league, set())
+                bucket = rejected_links if rejected else unmatched_links
+                link = bucket.setdefault(pair, {
+                    "name": name, "suggestion": cand[0],
+                    "sim": round(cand[1], 2), "_matches": set(),
+                })
+                link["_matches"].add(match_key)
         return best
 
     merged: dict[tuple, dict] = {}
     for r in rows:
         if r.get("source") != "fd":
-            r["home"], r["away"] = to_canon(r["home"]), to_canon(r["away"])
+            raw_match = (r["source"], r["date"], r["home"], r["away"])
+            r["home"], r["away"] = (to_canon(r["home"], raw_match),
+                                      to_canon(r["away"], raw_match))
         key = (r["date"], r["home"], r["away"])
         prev = merged.get(key)
         if not prev:
@@ -518,6 +561,31 @@ def merged_results(store: Storage, league: str,
         for k in ("xg_h", "xg_a", "cor_h", "cor_a", "hg", "ag"):
             if prev.get(k) is None and r.get(k) is not None:
                 prev[k] = r[k]
+
+    if audit is not None:
+        links = []
+        for link in fuzzy_links.values():
+            links.append({
+                "source_name": link["source_name"],
+                "target_name": link["target_name"],
+                "sim": link["sim"], "matches": len(link["_matches"]),
+                "verified": link["verified"],
+            })
+        audit["fuzzy_links"] = sorted(
+            links, key=lambda link: (-link["matches"], link["source_name"]))
+        if unmatched_links:
+            audit["unmatched"] = sorted(({
+                "name": link["name"], "suggestion": link["suggestion"],
+                "sim": link["sim"], "matches": len(link["_matches"]),
+            } for link in unmatched_links.values()),
+                key=lambda link: (-link["matches"], link["name"]))
+        if rejected_links:
+            audit["rejected_links"] = sorted(({
+                "source_name": link["name"], "target_name": link["suggestion"],
+                "sim": link["sim"], "matches": len(link["_matches"]),
+                "verified": True, "decision": "rejected",
+            } for link in rejected_links.values()),
+                key=lambda link: (-link["matches"], link["source_name"]))
 
     # datumtolerans: samma lagpar från OLIKA källor ±1 dygn med samma mål =
     # samma match (fd-raden är bas — backtestens xG-koppling nycklar på fd-datum)

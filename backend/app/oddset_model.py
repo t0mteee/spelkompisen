@@ -373,12 +373,13 @@ FIT_POOLS = {"allsvenskan": ("allsvenskan", "superettan"),
 
 # Prognos-relevanta parametrar — grunden för modellens signal_version-finger-
 # avtryck (granskningspunkt 5): ändras någon av dessa (eller T-kalibreringen/
-# DATA_VERSION) byts version och facitet delas. Docs/CSS/UI-commits gör det INTE.
+# relevant dataversion) byts version och facitet delas. Docs/UI gör det INTE.
 MODEL_PARAMS = {
     "algo": "poisson-iterativ + dc-tau i prediktion",
     "rho": DC_RHO_CLUB, "xg_w": XG_WEIGHT, "decay_d": DECAY_DAYS,
     "iters": FIT_ITER, "min_m": MIN_MATCHES, "elo_k": ELO_K, "ridge": 0.98,
     "anchor": "settlement-aware-tempered-v2",
+    "result_merge_v": oddset_data.MODEL_DATA_VERSION,
     "pools": sorted(f"{k}:{'+'.join(v)}" for k, v in FIT_POOLS.items()),
 }
 

@@ -2,8 +2,9 @@ import datetime as dt
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from app import oddset_value
+from app import oddset_model, oddset_value
 from app.storage import Storage
 
 
@@ -44,6 +45,22 @@ class PriceFreshnessTests(unittest.TestCase):
         oddset_value.attach_value([match])
         self.assertTrue(match["odds"]["svenskaspel"]["1x2"]["fresh"])
         self.assertIn("1", match["value"]["1x2"])
+
+
+class SignalVersionTests(unittest.TestCase):
+    def test_model_data_change_does_not_fragment_sharp_version(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                before = oddset_value.signal_versions(store)
+                with mock.patch.dict(oddset_model.MODEL_PARAMS,
+                                     {"result_merge_v": 999}):
+                    after = oddset_value.signal_versions(store)
+            finally:
+                store.close()
+
+        self.assertEqual(before["sharp"], after["sharp"])
+        self.assertNotEqual(before["model"], after["model"])
 
 
 class ClosingFreshnessTests(unittest.TestCase):

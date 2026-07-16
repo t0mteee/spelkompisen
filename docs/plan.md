@@ -47,7 +47,7 @@
   tester och 35 aktuella ankrade matcher (linjer 2.25–3.75). Akuta delen av WP8
   klar: transient Sofascore-statistikfel sparar resultatet men lämnar eventet
   för retry; 404/410 avslutas som permanent statistik-saknad. Första automatiska
-  sviten finns i `backend/tests/` (52 `unittest`-fall, inga nya dependencies).
+  sviten finns i `backend/tests/` (57 `unittest`-fall, inga nya dependencies).
   **WP2 full klar:** prisförändring (`fetched_at`) och senaste bekräftelse
   (`last_seen_at`) är separerade; lyckade svar markerar plockade/suspenderade
   priser, källfel gör det inte. Värde, steam, modellkanter och closing-facit
@@ -87,6 +87,13 @@
   Effektiv täckning med modellens namnmatchning: Allsvenskan 507/581 (87,3 %),
   Eliteserien 483/587 (82,3 %), men Superettan 19/600 och OBOS 11/600 — Elo får
   därför fortsatt bara vara en sporadisk prior i andradivisionerna.
+  **WP3-tillägg fuzzy-audit klar:** varje automatisk icke-exakt/icke-alias-länk
+  redovisar likhet, berörda matcher och verified-status. Tolv entydiga
+  provider-varianter flyttades till verifierade alias. Auditen hittade en riktig
+  felkoppling: Egersund hade blivit Haugesund i 3 kvalmatcher vid likhet 0,706.
+  Auto-gränsen är nu 0,75; länken är explicit verifierad som avvisad och kan
+  inte mergas. Modellversionen byts till `m-c00f8a09`; sharp ligger kvar på
+  `s-0f1355fb` eftersom dess facit inte påverkas.
 - **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
   2026-07-16**; mobilpolish; P1/P2-backloggen nedan. Villkoret WP0–WP5 för att
   ompröva stora Europa-ligor är uppfyllt, men expansionen startar inte utan ett
@@ -179,16 +186,17 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
   källtimeout lämnar klubben omarkerad för retry. Tre klubbhistoriker är ännu
   partiella enligt statusblocket, aldrig tyst klassade som kompletta.
 - **WP-test** (M, löpande): testgrund ✅ med standardbibliotekets `unittest`
-  (pytest-kompatibel, ingen dependency). 52 fall täcker bland annat
+  (pytest-kompatibel, ingen dependency). 57 fall täcker bland annat
   settlement/push/kvart, temperatur-roundtrip, normaltime, seen-retry/404,
   bulk-rollback, prisnärvaro, Elo-PIT/retry samt CLV-identitet/linjeflytt. Återstår:
   power-devig, eventmatchning/tidszon, closing-matchning, poolutdelning,
   bootstrap-kluster, grupp-vs-tier och versionsstabilitet. Test före varje fix.
-- **WP3-tillägg** (S): fuzzy-links-audit — ALLA icke-exakta/icke-alias-länkar
-  (likhet + antal berörda matcher + verified-flagga) i audit-listan, inte bara
-  missarna; godkänd länk flyttas till TEAM_ALIAS/meta. Scope-markering: WP3
-  light löser resultatmergen — INTE pre-match-eventidentitet/spelare/arenor/
-  provider-ID generellt.
+- **WP3-tillägg ✅ 2026-07-16** (S): fuzzy-links-audit — ALLA icke-exakta/
+  icke-alias-länkar visar likhet + antal berörda matcher + verified-flagga.
+  Godkända länkar ligger i TEAM_ALIAS/meta; kända falska länkar ligger i en
+  verifierad avvisningslista. Auto-gräns 0,75, review-band 0,55–0,75. Scope:
+  WP3 light löser resultatmergen — INTE pre-match-eventidentitet/spelare/
+  arenor/provider-ID generellt.
 - Backtest v4 (gamla A4): beslutsregel på q-trösklar + X-frekvens per liga —
   efter WP1 (annars mäter den ankringsbuggen).
 

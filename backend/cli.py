@@ -474,9 +474,19 @@ def cmd_modeldata() -> None:
                       + ", ".join(f"{t} (a{v['att']}/f{v['def']})" for t, v in top))
             else:
                 print(" · för lite data för fit")
+            for link in audit.get("fuzzy_links", []):
+                print(f"    ⚠ overifierad fuzzy-länk: '{link['source_name']}' → "
+                      f"'{link['target_name']}' (likhet {link['sim']}, "
+                      f"{link['matches']} matcher, verified={link['verified']}) "
+                      f"→ lägg i TEAM_ALIAS/meta oddset_alias:{lg} efter kontroll")
+            for link in audit.get("rejected_links", []):
+                print(f"    ✗ verifierat skilda lag: '{link['source_name']}' ≠ "
+                      f"'{link['target_name']}' (likhet {link['sim']}, "
+                      f"{link['matches']} matcher, verified={link['verified']})")
             for u in audit.get("unmatched", []):
                 print(f"    ⚠ okopplat namn: '{u['name']}' — förslag '{u['suggestion']}' "
-                      f"(likhet {u['sim']}) → lägg i TEAM_ALIAS/meta oddset_alias:{lg}")
+                      f"(likhet {u['sim']}, {u.get('matches', 1)} matcher) "
+                      f"→ lägg i TEAM_ALIAS/meta oddset_alias:{lg} efter kontroll")
             for d in audit.get("date_dups", []):
                 print(f"    ⚠ datum-dubblett kvar: {d['pair']} {d['dates']} ({d['note']})")
     finally:

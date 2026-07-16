@@ -186,5 +186,85 @@ class ClubEloTests(unittest.TestCase):
                          oddset_data.get_elo(self.store, "2026-07-16T18:00:00Z"))
 
 
+class ResultIdentityAuditTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+
+    def tearDown(self) -> None:
+        self.store.close()
+        self.tmp.cleanup()
+
+    def _save_pair(self, date: str) -> None:
+        base = {"league": "test", "date": date, "away": "malmo",
+                "hg": 2, "ag": 1}
+        self.store.oddset_save_result(
+            {**base, "home": "djurgardens", "source": "fd"})
+        self.store.oddset_save_result({
+            **base, "home": "djurgarden", "source": "sofa",
+            "xg_h": 1.6, "xg_a": 0.8,
+        })
+
+    def test_every_fuzzy_link_is_audited_with_affected_match_count(self) -> None:
+        self._save_pair("2026-04-01")
+        self._save_pair("2026-04-08")
+        audit = {}
+
+        rows = oddset_data.merged_results(self.store, "test", audit=audit)
+
+        self.assertEqual(2, len(rows))
+        self.assertEqual(2, audit["fuzzy_links"][0]["matches"])
+        self.assertEqual("djurgarden", audit["fuzzy_links"][0]["source_name"])
+        self.assertEqual("djurgardens", audit["fuzzy_links"][0]["target_name"])
+        self.assertFalse(audit["fuzzy_links"][0]["verified"])
+
+    def test_verified_alias_removes_link_from_fuzzy_audit(self) -> None:
+        self._save_pair("2026-04-01")
+        self.store.meta_set("oddset_alias:test", json.dumps(
+            {"djurgarden": "djurgardens"}))
+        audit = {}
+
+        rows = oddset_data.merged_results(self.store, "test", audit=audit)
+
+        self.assertEqual(1, len(rows))
+        self.assertEqual([], audit["fuzzy_links"])
+
+    def test_review_band_is_suggested_but_never_auto_merged(self) -> None:
+        base = {"league": "test", "date": "2026-11-23", "away": "kongsvinger",
+                "hg": 1, "ag": 2}
+        self.store.oddset_save_result(
+            {**base, "home": "haugesund", "source": "fd"})
+        self.store.oddset_save_result(
+            {**base, "home": "egersund", "source": "sofa"})
+        audit = {}
+
+        rows = oddset_data.merged_results(self.store, "test", audit=audit)
+
+        self.assertEqual(2, len(rows))
+        self.assertEqual([], audit["fuzzy_links"])
+        suggestion = next(u for u in audit["unmatched"] if u["name"] == "egersund")
+        self.assertEqual("haugesund", suggestion["suggestion"])
+        self.assertEqual(1, suggestion["matches"])
+        self.assertGreaterEqual(suggestion["sim"], 0.55)
+        self.assertLess(suggestion["sim"], oddset_data.FUZZY_AUTO_MIN)
+
+    def test_known_false_link_is_audited_as_verified_rejection(self) -> None:
+        base = {"league": "eliteserien", "date": "2026-11-23",
+                "away": "kongsvinger", "hg": 1, "ag": 2}
+        self.store.oddset_save_result(
+            {**base, "home": "haugesund", "source": "fd"})
+        self.store.oddset_save_result(
+            {**base, "home": "egersund", "source": "sofa"})
+        audit = {}
+
+        rows = oddset_data.merged_results(
+            self.store, "eliteserien", audit=audit)
+
+        self.assertEqual(2, len(rows))
+        self.assertNotIn("unmatched", audit)
+        self.assertEqual("rejected", audit["rejected_links"][0]["decision"])
+        self.assertTrue(audit["rejected_links"][0]["verified"])
+
+
 if __name__ == "__main__":
     unittest.main()

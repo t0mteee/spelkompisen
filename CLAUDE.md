@@ -179,6 +179,10 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
   `oddset_elo_history` är providerintervall för historisk `as_of`-läsning.
   Retroanalys får aldrig använda dagens meta-ranking. Backfill markerar bara en
   klubb klar efter ett entydigt lyckat svar; timeout/502 ska förbli retrybart.
+- Resultatidentitet: fuzzy auto-merge kräver >0,75 och ALLA sådana länkar ska
+  synas i `cli.py modeldata` tills de flyttats till `TEAM_ALIAS`/meta. Förslag i
+  0,55–0,75 mergas aldrig. Kända falska par läggs i `TEAM_REJECTED_LINKS` och
+  redovisas som verifierade avvisningar (Egersund ≠ Haugesund).
 
 ## Regler
 
