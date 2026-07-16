@@ -612,17 +612,32 @@ def main() -> None:
     elif cmd == "modeldata":
         cmd_modeldata()
     elif cmd == "oddsetbacktest":
+        import json as _json
         from app import oddset_backtest
         use_xg = "xg" in rest
         pool = "pool" in rest
         lgs = [a for a in (rest or []) if a not in ("xg", "pool")] \
             or ["allsvenskan", "eliteserien"]
+        store = Storage()
+        try:
+            temperatures = {}
+            for lg in lgs:
+                try:
+                    temperatures[lg] = float(_json.loads(
+                        store.meta_get(f"oddset_cal:{lg}") or "{}"
+                    ).get("t") or 1.0)
+                except (ValueError, TypeError):
+                    temperatures[lg] = 1.0
+        finally:
+            store.close()
         for lg in lgs:
             extra = ("superettan",) if pool and lg == "allsvenskan" else ()
             preds = oddset_backtest.run_league(lg, use_store_xg=use_xg,
                                                pool_extra=extra)
             tag = (" +xG" if use_xg else "") + (" +pool" if extra else "")
-            oddset_backtest.print_report(lg + tag, oddset_backtest.report(preds))
+            oddset_backtest.print_report(
+                lg + tag, oddset_backtest.report(
+                    preds, temperature=temperatures[lg]))
     elif cmd == "oddsetcalibrate":
         import datetime as _dt
         import json as _json

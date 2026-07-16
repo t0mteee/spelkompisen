@@ -18,8 +18,10 @@ from __future__ import annotations
 
 import csv
 import datetime as dt
+import hashlib
 import io
 import math
+import random
 from typing import Optional
 
 import httpx
@@ -31,6 +33,23 @@ from .oddset_data import FD_URLS
 
 EVAL_FROM = "2024-07-01"
 SIGNS = ("1", "X", "2")
+Q_EDGE_MIN = 0.02
+Q_THRESHOLDS = (0.0075, 0.01, 0.015, 0.02, 0.03)
+Q_POLICY = 0.015
+ROI_BOOTSTRAP_ITERS = 2000
+
+
+def _odds_from_sets(row: dict, column_sets: tuple[tuple[str, tuple[str, ...]], ...]
+                    ) -> tuple[Optional[list[float]], Optional[str]]:
+    """Första kompletta oddsuppsättningen, normalt closing före opening."""
+    for label, columns in column_sets:
+        try:
+            odds = [float(row[column]) for column in columns]
+        except (ValueError, KeyError, TypeError):
+            continue
+        if all(odd > 1.0 for odd in odds):
+            return odds, label
+    return None, None
 
 
 def fetch_rows(league: str, min_season: int = 2023) -> list[dict]:
@@ -47,13 +66,18 @@ def fetch_rows(league: str, min_season: int = 2023) -> list[dict]:
                    "hg": int(row["HG"]), "ag": int(row["AG"])}
         except (ValueError, KeyError):
             continue
-        for src, cols in (("ps", ("PSCH", "PSCD", "PSCA")),
-                          ("mx", ("MaxCH", "MaxCD", "MaxCA")),
-                          ("av", ("AvgCH", "AvgCD", "AvgCA"))):
-            try:
-                rec[src] = [float(row[c]) for c in cols]
-            except (ValueError, KeyError, TypeError):
-                rec[src] = None
+        sources = {
+            "ps": (("close", ("PSCH", "PSCD", "PSCA")),
+                   ("open", ("PSH", "PSD", "PSA"))),
+            "mx": (("close", ("MaxCH", "MaxCD", "MaxCA")),
+                   ("open", ("MaxH", "MaxD", "MaxA"))),
+            "av": (("close", ("AvgCH", "AvgCD", "AvgCA")),
+                   ("open", ("AvgH", "AvgD", "AvgA"))),
+            "b365": (("close", ("B365CH", "B365CD", "B365CA")),
+                     ("open", ("B365H", "B365D", "B365A"))),
+        }
+        for src, column_sets in sources.items():
+            rec[src], rec[f"{src}_timing"] = _odds_from_sets(row, column_sets)
         rows.append(rec)
     rows.sort(key=lambda x: x["date"])
     return rows
@@ -116,27 +140,148 @@ def run_league(league: str, eval_from: str = EVAL_FROM,
                 continue
             mkt = _power_probs({s: 1 / o for s, o in zip(SIGNS, r["ps"])})
             res = "1" if r["hg"] > r["ag"] else "2" if r["hg"] < r["ag"] else "X"
-            preds.append({"mu_h": mus[0], "mu_a": mus[1], "mkt": mkt, "res": res,
+            preds.append({"match_id": f"{r['date']}|{r['home']}|{r['away']}",
+                          "date": r["date"], "home": r["home"], "away": r["away"],
+                          "mu_h": mus[0], "mu_a": mus[1], "mkt": mkt, "res": res,
                           "ps": dict(zip(SIGNS, r["ps"])),
+                          "ps_timing": r.get("ps_timing"),
                           "mx": dict(zip(SIGNS, r["mx"])) if r["mx"] else None,
+                          "mx_timing": r.get("mx_timing"),
+                          "b365": (dict(zip(SIGNS, r["b365"]))
+                                   if r.get("b365") else None),
+                          "b365_timing": r.get("b365_timing"),
                           "hg": r["hg"], "ag": r["ag"]})
     return preds
 
 
-def _model_probs(p: dict, rho: float) -> dict[str, float]:
-    return oddset_model.matrix_1x2(
-        oddset_model.dc_matrix(p["mu_h"], p["mu_a"], rho))
+def _model_probs(p: dict, rho: float,
+                 temperature: float = 1.0) -> dict[str, float]:
+    matrix = oddset_model.dc_matrix(p["mu_h"], p["mu_a"], rho)
+    if abs(temperature - 1.0) > 1e-9:
+        matrix = oddset_model.temper(matrix, temperature)
+    return oddset_model.matrix_1x2(matrix)
 
 
 def _logloss(prob_rows: list[tuple[dict, str]]) -> float:
     return -sum(math.log(max(pr[r], 1e-9)) for pr, r in prob_rows) / len(prob_rows)
 
 
-def report(preds: list[dict], rho: float = oddset_model.DC_RHO_CLUB) -> dict:
+def _quality(edge: float, odds: float) -> float:
+    """Kelly-andelen q: samma edge kräver mer på höga odds."""
+    return edge / max(odds - 1.0, 0.01)
+
+
+def _roi_ci(blocks: dict[str, tuple[int, float]], key: str,
+            iters: int = ROI_BOOTSTRAP_ITERS) -> Optional[list[float]]:
+    """90 %-KI för ROI med matchen som block; deterministiskt seedad."""
+    values = list(blocks.values())
+    if len(values) < 5 or iters <= 0:
+        return None
+    seed = int(hashlib.sha1(key.encode()).hexdigest()[:8], 16)
+    rng = random.Random(seed)
+    draws = []
+    for _ in range(iters):
+        sample = [rng.choice(values) for _ in values]
+        stake = sum(item[0] for item in sample)
+        if stake:
+            draws.append(sum(item[1] for item in sample) / stake)
+    draws.sort()
+    return [round(draws[int(len(draws) * 0.05)], 4),
+            round(draws[min(len(draws) - 1, int(len(draws) * 0.95))], 4)]
+
+
+def _bet_stats(bets: list[dict], key: str) -> dict:
+    blocks: dict[str, list[float]] = {}
+    for bet in bets:
+        block = blocks.setdefault(bet["match_id"], [0, 0.0])
+        block[0] += 1
+        block[1] += bet["pnl"]
+    n = len(bets)
+    pnl = sum(bet["pnl"] for bet in bets)
+    return {
+        "n": n, "n_matches": len(blocks),
+        "hit": round(sum(bet["won"] for bet in bets) / n, 4) if n else None,
+        "roi": round(pnl / n, 4) if n else None,
+        "roi_ci": _roi_ci(
+            {match_id: (int(values[0]), values[1])
+             for match_id, values in blocks.items()}, key) if n else None,
+        "avg_edge": round(sum(bet["edge"] for bet in bets) / n, 4) if n else None,
+        "avg_q": round(sum(bet["q"] for bet in bets) / n, 4) if n else None,
+        "avg_odds": round(sum(bet["odds"] for bet in bets) / n, 2) if n else None,
+    }
+
+
+def quality_report(preds: list[dict], price_key: str = "b365",
+                   thresholds: tuple[float, ...] = Q_THRESHOLDS) -> dict:
+    """Backtest v4: förregistrerad q-regel, känslighetsgrid och krysskalibrering.
+
+    Pinnacle-close devigas till fair; B365 är den mjuka boken och vinst/förlust
+    räknas till dess odds. Edge måste alltid vara minst 2 % precis som liveloggen.
+    Tröskelgridden är känslighetsanalys — runtimepolicyn 1,5 % väljs inte om på
+    samma data som den utvärderas på.
+    """
+    bets = []
+    draw_rows = []
+    timing = {"close": 0, "open": 0}
+    for index, pred in enumerate(preds):
+        # q-facitet definieras mot sharp closing. Modellen får jämföras mot en
+        # äldre prisproxy, men en Pinnacle-opening får aldrig bli facit av misstag.
+        if pred.get("ps_timing", "close") != "close":
+            continue
+        soft = pred.get(price_key)
+        if not soft or not all(soft.get(sign) for sign in SIGNS):
+            continue
+        timing_key = pred.get(f"{price_key}_timing") or "open"
+        timing[timing_key] = timing.get(timing_key, 0) + 1
+        soft_fair = _power_probs({sign: 1 / soft[sign] for sign in SIGNS})
+        draw_rows.append({"actual": int(pred["res"] == "X"),
+                          "sharp": pred["mkt"]["X"], "soft": soft_fair["X"]})
+        match_id = pred.get("match_id") or str(index)
+        for sign in SIGNS:
+            edge = pred["mkt"][sign] * soft[sign] - 1.0
+            q = _quality(edge, soft[sign])
+            won = sign == pred["res"]
+            bets.append({
+                "match_id": match_id, "sign": sign, "edge": edge, "q": q,
+                "odds": soft[sign], "won": won,
+                "pnl": soft[sign] - 1.0 if won else -1.0,
+            })
+
+    eligible = [bet for bet in bets if bet["edge"] >= Q_EDGE_MIN]
+    grid = {}
+    for threshold in thresholds:
+        selected = [bet for bet in eligible if bet["q"] >= threshold]
+        grid[f"{threshold:.4f}"] = _bet_stats(
+            selected, f"q:{threshold:.4f}")
+    policy = [bet for bet in eligible if bet["q"] >= Q_POLICY]
+    by_sign = {sign: _bet_stats(
+        [bet for bet in policy if bet["sign"] == sign], f"q-policy:{sign}")
+        for sign in SIGNS}
+    n_draw = len(draw_rows)
+    draw = {
+        "n": n_draw,
+        "actual": (round(sum(row["actual"] for row in draw_rows) / n_draw, 4)
+                   if n_draw else None),
+        "sharp": (round(sum(row["sharp"] for row in draw_rows) / n_draw, 4)
+                  if n_draw else None),
+        "soft": (round(sum(row["soft"] for row in draw_rows) / n_draw, 4)
+                 if n_draw else None),
+    }
+    return {"price_key": price_key, "n_predictions": len(preds),
+            "n_priced": n_draw,
+            "coverage": round(n_draw / len(preds), 4) if preds else 0.0,
+            "edge_min": Q_EDGE_MIN, "policy_q": Q_POLICY,
+            "soft_timing": timing, "grid": grid,
+            "policy_by_sign": by_sign, "draw": draw}
+
+
+def report(preds: list[dict], rho: float = oddset_model.DC_RHO_CLUB,
+           temperature: float = 1.0) -> dict:
     n = len(preds)
-    model = [(_model_probs(p, rho), p["res"]) for p in preds]
+    model = [(_model_probs(p, rho, temperature), p["res"]) for p in preds]
     market = [(p["mkt"], p["res"]) for p in preds]
-    out = {"n": n, "logloss_model": round(_logloss(model), 4),
+    out = {"n": n, "temperature": temperature,
+           "logloss_model": round(_logloss(model), 4),
            "logloss_market": round(_logloss(market), 4)}
     out["brier_model"] = round(sum(
         sum((pr[s] - (1 if s == r else 0)) ** 2 for s in SIGNS)
@@ -148,7 +293,7 @@ def report(preds: list[dict], rho: float = oddset_model.DC_RHO_CLUB) -> dict:
     # rho-grid (bästa 1X2-logloss)
     grid = {}
     for rh in [x / 100 for x in range(-25, 6, 3)]:
-        rows = [(_model_probs(p, rh), p["res"]) for p in preds]
+        rows = [(_model_probs(p, rh, temperature), p["res"]) for p in preds]
         grid[rh] = round(_logloss(rows), 4)
     out["rho_grid"] = grid
     out["rho_best"] = min(grid, key=grid.get)
@@ -193,6 +338,12 @@ def report(preds: list[dict], rho: float = oddset_model.DC_RHO_CLUB) -> dict:
             if stake:
                 out["roi"][f"{label}@{th:.0%}"] = {
                     "n": stake, "roi": round((ret - stake) / stake, 4)}
+    out["quality_v4"] = {
+        "b365": quality_report(preds, "b365"),
+        # Max closing är ett optimistiskt tak: det liknar livevalet av bästa bok
+        # men omfattar fler böcker än appen och får aldrig ensam ändra policyn.
+        "max": quality_report(preds, "mx"),
+    }
     return out
 
 
@@ -219,6 +370,7 @@ def fit_temperature(preds: list[dict],
 
 def print_report(league: str, rep: dict) -> None:
     print(f"\n=== {league} (n={rep['n']}) ===")
+    print(f"temperatur T={rep['temperature']:.2f} (samma som live för ligan)")
     print(f"logloss  modell {rep['logloss_model']}  vs marknad {rep['logloss_market']}"
           f"  (lägre = bättre; marknaden är riktmärket)")
     print(f"brier    modell {rep['brier_model']}  vs marknad {rep['brier_market']}")
@@ -230,3 +382,30 @@ def print_report(league: str, rep: dict) -> None:
     print("beslutsregel-ROI (satsa på modell-edge mot Pinnacle-stängning):")
     for k, v in rep["roi"].items():
         print(f"  {k:>22}: n={v['n']:4d} ROI {v['roi']*100:+.1f}%")
+    print("backtest v4 — sharp-fair, edge ≥2 % och q-grid:")
+    for source, source_label in (("b365", "B365 (spelbar proxy)"),
+                                 ("max", "Max closing (optimistiskt tak)")):
+        qrep = rep["quality_v4"][source]
+        timing = qrep["soft_timing"]
+        print(f"  {source_label}: {qrep['n_priced']}/{qrep['n_predictions']} matcher "
+              f"({qrep['coverage']:.1%}) · {timing.get('close', 0)} closing · "
+              f"{timing.get('open', 0)} opening")
+        for threshold, stats in qrep["grid"].items():
+            if not stats["n"]:
+                continue
+            ci = (f" · 90% KI [{stats['roi_ci'][0]*100:+.1f}.."
+                  f"{stats['roi_ci'][1]*100:+.1f}]" if stats["roi_ci"] else "")
+            marker = (" ← policy" if abs(float(threshold) - qrep["policy_q"]) < 1e-9
+                      else "")
+            print(f"    q≥{float(threshold)*100:4.2f}%: n={stats['n']:4d} · "
+                  f"ROI {stats['roi']*100:+.1f}%{ci} · odds "
+                  f"{stats['avg_odds']:.2f}{marker}")
+        draw = qrep["draw"]
+        if draw["n"]:
+            print(f"    X-frekvens: utfall {draw['actual']*100:.1f}% · "
+                  f"Pinnacle {draw['sharp']*100:.1f}% · proxy {draw['soft']*100:.1f}% "
+                  f"(n={draw['n']})")
+            xstats = qrep["policy_by_sign"]["X"]
+            if xstats["n"]:
+                print(f"    q-policy på X: n={xstats['n']} · ROI "
+                      f"{xstats['roi']*100:+.1f}%")

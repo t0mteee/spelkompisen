@@ -2,7 +2,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from app.builder import _prize_pools, build_ev_system
+from app.builder import (_poisson_binomial, _prize_pools,
+                         _row_expected_value, build_ev_system)
 
 
 class PrizePoolTests(unittest.TestCase):
@@ -38,6 +39,23 @@ class PrizePoolTests(unittest.TestCase):
         prize_pools.assert_called_once_with(1_000.0, plan, 500)
         self.assertEqual(500, system.jackpot)
         self.assertIn("Jackpot 500 kr ingår", system.rule)
+
+    def test_poisson_binomial_is_normalized_and_exact(self) -> None:
+        distribution = _poisson_binomial([0.6, 0.25])
+
+        self.assertAlmostEqual(1.0, sum(distribution), places=12)
+        self.assertEqual([0.3, 0.55, 0.15],
+                         [round(value, 10) for value in distribution])
+
+    def test_row_ev_uses_pool_division_and_our_hit_probability(self) -> None:
+        # En match: vi träffar med 60 %, fältet med 50 %. Tio fältrader ger
+        # förväntad utdelning 100/(10*0,5+1), viktad med vår träffchans.
+        pf = _poisson_binomial([0.6])
+        pk = _poisson_binomial([0.5])
+
+        value = _row_expected_value(pf, pk, {1: 100.0}, field=10.0)
+
+        self.assertAlmostEqual(10.0, value, places=10)
 
 
 if __name__ == "__main__":

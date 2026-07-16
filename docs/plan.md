@@ -106,6 +106,14 @@
   lågchansutfall och håller radbyggaren synlig på desktop/nåbar från mobil.
   PWA-manifest, maskbar 1–X–2-ikon och Apple-hemskärmsmetadata ger appidentitet
   i fristående läge utan offline-cache som kan göra oddsdata missvisande gammal.
+- **Kvalitetspaket + Backtest v4 klart (2026-07-16):** 75 tester täcker nu även
+  power-devig, event/tidszon, post-kickoff/closinglina, analytisk poolutdelning,
+  klusterbootstrap, signalgrupp och versionsisolering. Backtest v4 mäter den
+  förregistrerade q-policyn med matchblock-KI och X-frekvens per liga; full rapport
+  i `docs/backtest-v4-2026-07-16.md`. Beslut: q=1,5 % och edgegolv 2 % behålls,
+  ingen X-korrigering, modellen fortsatt amber. B365 täcker bara ~20 %; Max
+  closing är ett optimistiskt tak, så prediction-ledgern förblir domaren.
+  Pinnacle-opening avvisas uttryckligen från q-facitet.
 - **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
   2026-07-16**; beslut om mobil-default för `Bara signaler` återstår;
   P1/P2-backloggen finns nedan. Villkoret WP0–WP5 för att
@@ -199,19 +207,20 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
   källtimeout lämnar klubben omarkerad för retry. Tre klubbhistoriker är ännu
   partiella enligt statusblocket, aldrig tyst klassade som kompletta.
 - **WP-test** (M, löpande): testgrund ✅ med standardbibliotekets `unittest`
-  (pytest-kompatibel, ingen dependency). 57 fall täcker bland annat
+  (pytest-kompatibel, ingen dependency). 75 fall täcker bland annat
   settlement/push/kvart, temperatur-roundtrip, normaltime, seen-retry/404,
   bulk-rollback, prisnärvaro, Elo-PIT/retry samt CLV-identitet/linjeflytt. Återstår:
-  power-devig, eventmatchning/tidszon, closing-matchning, poolutdelning,
-  bootstrap-kluster, grupp-vs-tier och versionsstabilitet. Test före varje fix.
+  WP6-Monte-Carlo mot den nu testlåsta analytiska poolutdelningen samt nya
+  regressionsfall före varje framtida fix.
 - **WP3-tillägg ✅ 2026-07-16** (S): fuzzy-links-audit — ALLA icke-exakta/
   icke-alias-länkar visar likhet + antal berörda matcher + verified-flagga.
   Godkända länkar ligger i TEAM_ALIAS/meta; kända falska länkar ligger i en
   verifierad avvisningslista. Auto-gräns 0,75, review-band 0,55–0,75. Scope:
   WP3 light löser resultatmergen — INTE pre-match-eventidentitet/spelare/
   arenor/provider-ID generellt.
-- Backtest v4 (gamla A4): beslutsregel på q-trösklar + X-frekvens per liga —
-  efter WP1 (annars mäter den ankringsbuggen).
+- **Backtest v4 ✅ 2026-07-16:** q-grid med förregistrerad policy q=1,5 %,
+  edgegolv 2 %, matchblock-KI, B365-täckning/Max-tak och X-frekvens per liga.
+  Ingen policyändring; se `docs/backtest-v4-2026-07-16.md`.
 
 **P1 — datakällor (efter WP3, identiteten är förutsättningen):**
 - **WP9a**: ASA (American Soccer Analysis) som oberoende MLS-kontroll — **cert-

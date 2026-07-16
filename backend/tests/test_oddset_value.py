@@ -128,6 +128,39 @@ class ClosingFreshnessTests(unittest.TestCase):
         self.assertIsNone(row["closing_note"])
         self.assertIsNotNone(row["closing_fair"])
 
+    def test_post_kickoff_price_is_never_used_as_closing(self) -> None:
+        start = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1)
+        pre = (start - dt.timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        post = (start + dt.timedelta(seconds=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        self.store.oddset_save_odds(
+            "m1", "pinnacle", {"1": 2.0, "X": 3.5, "2": 3.8}, pre)
+        self.store.oddset_save_odds(
+            "m1", "pinnacle", {"1": 1.6, "X": 4.2, "2": 5.0}, post)
+        self._flag(start)
+
+        oddset_value.resolve_closings(self.store)
+        row = self.store.oddset_clv_rows()[0]
+
+        self.assertEqual(2.0, row["closing_odds"])
+        expected = oddset_value._devig(
+            {"1": 2.0, "X": 3.5, "2": 3.8}, ("1", "X", "2"))["1"]
+        self.assertAlmostEqual(expected, row["closing_fair"], places=4)
+
+    def test_pair_closing_requires_both_signs_on_one_line(self) -> None:
+        start = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1)
+        at = (start - dt.timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        self.store.oddset_save_market(
+            "m1", "pinnacle", "ou",
+            {"O": {"odds": 1.9, "line": 3.25},
+             "U": {"odds": 1.95, "line": 3.5}}, at)
+        self._pair_flag(start, "mou", "O", 3.25)
+
+        oddset_value.resolve_closings(self.store)
+        row = self.store.oddset_clv_rows()[0]
+
+        self.assertEqual("inkonsistent sharp-stängningslina", row["closing_note"])
+        self.assertIsNone(row["closing_fair"])
+
     def test_line_move_is_resolved_category_when_flag_line_is_old(self) -> None:
         start = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1)
         self._pair_prices("ou", 3.25, start - dt.timedelta(hours=2))

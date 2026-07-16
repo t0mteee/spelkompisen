@@ -110,10 +110,12 @@ class PredictionStateTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def _resolved_flag(self, match_id: str, horizon: str,
-                       captured: dt.datetime, start: dt.datetime) -> None:
+                       captured: dt.datetime, start: dt.datetime,
+                       *, market: str = "1x2", version: str = "s-test",
+                       closing_fair: float = 0.55) -> None:
         capture = {
             "match_id": match_id, "horizon": horizon, "tier": "sharp",
-            "signal_version": "s-test", "base_version": "s-base",
+            "signal_version": version, "base_version": "s-base",
             "league": "allsvenskan", "description": f"{match_id} A – B",
             "match_start": oddset_ledger._iso(start),
             "target_at": oddset_ledger._iso(captured),
@@ -121,8 +123,10 @@ class PredictionStateTests(unittest.TestCase):
             "offset_minutes": 180.0, "delay_minutes": 0.0, "git_hash": "abc",
         }
         prediction = {
-            "market": "1x2", "sign": "1", "line": None,
-            "line_key": Storage.ODDSET_NO_LINE_KEY, "fair_prob": 0.55,
+            "market": market, "sign": "1" if market == "1x2" else "O",
+            "line": None if market == "1x2" else 2.5,
+            "line_key": (Storage.ODDSET_NO_LINE_KEY if market == "1x2" else 2500),
+            "fair_prob": 0.55,
             "fair_source": "pinnacle", "fair_available": True,
             "fair_fresh": True, "model_anchored": None,
             "book": "svenskaspel", "book_odds": 2.0,
@@ -131,8 +135,9 @@ class PredictionStateTests(unittest.TestCase):
         }
         self.store.oddset_capture_predictions(capture, [prediction])
         row = next(row for row in self.store.oddset_prediction_rows()
-                   if row["match_id"] == match_id and row["horizon"] == horizon)
-        self.store.oddset_set_prediction_closing(row, 0.55, 1.8, None)
+                   if row["match_id"] == match_id and row["horizon"] == horizon
+                   and row["signal_version"] == version)
+        self.store.oddset_set_prediction_closing(row, closing_fair, 1.8, None)
 
     def test_primary_group_requires_out_of_time_confirmation(self) -> None:
         base = dt.datetime(2026, 5, 1, 12, tzinfo=UTC)
@@ -181,6 +186,53 @@ class PredictionStateTests(unittest.TestCase):
 
     def test_friendlies_are_not_a_preregistered_primary_league(self) -> None:
         self.assertNotIn("friendlies", oddset_ledger.PRIMARY_LEAGUES)
+
+    def test_report_never_aggregates_signal_versions(self) -> None:
+        start = dt.datetime(2026, 7, 20, 12, tzinfo=UTC)
+        captured = start - dt.timedelta(hours=3)
+        self._resolved_flag("v1-match", "h3", captured, start, version="s-v1")
+        self._resolved_flag("v2-match", "h3", captured, start, version="s-v2")
+
+        groups = oddset_ledger.prediction_report(self.store)["groups"]
+
+        self.assertEqual({"s-v1", "s-v2"}, {group["version"] for group in groups})
+        self.assertTrue(all(group["n_resolved"] == 1 for group in groups))
+
+    def test_candidate_state_is_per_market_group_not_whole_tier(self) -> None:
+        base = dt.datetime(2026, 5, 1, 12, tzinfo=UTC)
+        for i in range(50):
+            start = base + dt.timedelta(days=i % 30)
+            captured = start - dt.timedelta(hours=3)
+            horizon = "h3" if i < 30 else "h24"
+            self._resolved_flag(f"good-{i % 30}", horizon, captured, start)
+            self._resolved_flag(
+                f"bad-{i % 30}", horizon, captured, start,
+                market="ou", closing_fair=0.40,
+            )
+
+        groups = oddset_ledger.prediction_report(
+            self.store, update_states=True,
+            now=dt.datetime(2026, 6, 15, 12, tzinfo=UTC))["groups"]
+        status = {group["market"]: group["status"] for group in groups}
+
+        self.assertEqual("candidate", status["1x2"])
+        self.assertEqual("amber", status["ou"])
+
+
+class ClusterBootstrapTests(unittest.TestCase):
+    def test_correlated_flags_in_one_match_do_not_create_false_certainty(self) -> None:
+        rows = [
+            {"match_id": "positive", "close_ev_w": 0.20}
+            for _ in range(100)
+        ] + [
+            {"match_id": "negative-1", "close_ev_w": -0.20},
+            {"match_id": "negative-2", "close_ev_w": -0.20},
+        ]
+
+        ci, _ = oddset_ledger._bootstrap(rows, ("cluster-test",), iters=1000)
+
+        self.assertIsNotNone(ci)
+        self.assertLess(ci[0], 0)
 
 
 if __name__ == "__main__":

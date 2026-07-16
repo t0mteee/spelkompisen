@@ -529,6 +529,21 @@ def _poisson_binomial(probs: list[float]) -> list[float]:
     return d
 
 
+def _row_expected_value(pf: list[float], pk: list[float],
+                        pools: dict[int, float], field: float) -> float:
+    """Nuvarande analytiska rad-EV, separerad så utdelningsregeln kan testas.
+
+    `pf[c]` är vår sannolikhet för exakt c rätt och `pk[c]` fältets motsvarande
+    sannolikhet. WP6-Monte-Carlo kommer senare att jämföra denna konservativa
+    approximation med simulerade vinnare och konkurrens mellan egna rader.
+    """
+    total = 0.0
+    for correct, pool in pools.items():
+        dividend = min(pool, pool / (field * pk[correct] + 1.0))
+        total += pf[correct] * dividend
+    return total
+
+
 def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
                     budget: float = 100.0, row_price: float = ROW_PRICE,
                     value_weight: float = 0.5, plan: Optional[dict] = None,
@@ -601,10 +616,7 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
     for _, p_row, _, row in refine:
         pf = _poisson_binomial([pq[(m.event_number, s)][0] for m, s in zip(ms, row)])
         pk = _poisson_binomial([pq[(m.event_number, s)][1] for m, s in zip(ms, row)])
-        ev_total = 0.0
-        for c, pool in pools.items():
-            div = min(pool, pool / (field * pk[c] + 1.0))
-            ev_total += pf[c] * div
+        ev_total = _row_expected_value(pf, pk, pools, field)
         full.append(((p_row ** k) * ev_total, ev_total, row))
     full.sort(key=lambda t: t[0], reverse=True)
     chosen = full[:target]
