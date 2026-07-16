@@ -1,4 +1,4 @@
-"""Egen målmodell för Oddset-delen (Etapp 3): Dixon-Coles per liga.
+"""Egen målmodell: xG-viktad Poisson-styrkefit per liga, med DC-korrektion.
 
 Styrkor (anfall/försvar per lag + hemmafördel per liga) fittas iterativt på
 resultat sedan 2024 med exponentiell tidsavklingning. Där Sofascore-xG finns
@@ -11,6 +11,9 @@ systematiskt uppblåsta → allt härifrån är AMBER-tier: bakom toggle i UI,
 ALDRIG in i CLV-facitet. Grön blir modellen först om backtesten (Etapp 5) håller.
 
 Träningsmatcher modelleras INTE (rotationsrisk — där är steam/nyheter verktyget).
+
+Detta är inte en Dixon-Coles-MLE: lagstyrkorna fittas iterativt med Poisson-
+momentekvationer och DC:s rho-korrektion appliceras först i prediktionsmatrisen.
 """
 from __future__ import annotations
 
@@ -58,7 +61,9 @@ def dc_matrix(mu_h: float, mu_a: float, rho: float = DC_RHO_CLUB) -> list[list[f
 def temper(matrix: list[list[float]], t: float) -> list[list[float]]:
     """Temperatur-kalibrering av HELA målmatrisen: p^(1/T), renormaliserad.
     T > 1 = modellen var överkonfident (extremer krymps). T fittas per liga i
-    walk-forward-backtesten (cli oddsetcalibrate) — steget mot icke-amber."""
+    walk-forward-backtesten (cli oddsetcalibrate), men valdes och rapporterades
+    på samma historiska prediktionsmängd. Ledgern gör den oberoende forward-
+    valideringen innan modellen kan lämna amber."""
     if abs(t - 1.0) < 1e-6:
         return matrix
     m = [[c ** (1 / t) for c in row] for row in matrix]

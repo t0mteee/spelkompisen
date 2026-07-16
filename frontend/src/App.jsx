@@ -642,10 +642,13 @@ function OddsetLegend() {
             {' '}<b>🔥</b> = steam: Pinnacles devigade sannolikhet har flyttat ≥3,5 procentenheter
             på 6/24 h — typiskt lineup-nyheter. Kolla då direkt om någon spelbar bok står kvar
             på gamla oddset (det är träningsmatch-caset).</div>
-          <div><b>M-raden (modellen)</b> — egen Dixon-Coles per liga: lagstyrkor ur resultat
-            sedan 2024, xG-viktade (Sofascore, ~1000 matcher), totalnivå ankrad mot sharp Ö/U.
+          <div><b>M-raden (modellen)</b> — xG-viktad Poisson-styrkefit per liga, med
+            DC-korrektion (ρ) i prediktionen: lagstyrkor ur resultat sedan 2024,
+            xG-viktade (Sofascore, ~1000 matcher), totalnivå ankrad mot sharp Ö/U.
             Backtest v2 mot två års Pinnacle-stängningar: xG lyfte modellen i båda ligorna;
             Allsvenskan +10 % ROI vid låga trösklar men inom bruset (n=326), Eliteserien −17 %.
+            Temperatur T valdes på samma historiska backtestmaterial; den oberoende
+            forward-valideringen sker därför i prognosledgern.
             Därför <b>amber</b>: <span className="apill">+8%</span> = "modellen avviker — kolla
             varför", INTE "spela". Prognosledgern loggar alla modellprediktioner och
             kontrollutfall vid tre fasta horisonter. Candidate kräver ≥50 stängda
@@ -913,7 +916,7 @@ function OddsetView() {
         })}
         {showModel && md?.fair?.[sign] && (
           <div className="m"
-            title={`Egen modell (Dixon-Coles, xG-viktad): ${(md.p[sign] * 100).toFixed(1)}%\nμ ${md.mu[0]}–${md.mu[1]}${md.anchored ? ' · totalnivå ankrad mot sharp Ö/U' : ' · OANKRAD (ingen sharp-linje ännu)'}${md.prior ? '\n⚠ Elo-prior: minst ett lag har tunn historik — styrka skattad ur ClubElo' : ''}\nAmber-tier: experimentell, utanför facitet`}>
+            title={`Egen modell (xG-viktad Poisson-styrkefit; DC-korrektion i prediktionen): ${(md.p[sign] * 100).toFixed(1)}%\nμ ${md.mu[0]}–${md.mu[1]} · T=${md.cal_t || 1}${md.anchored ? ' · totalnivå ankrad mot sharp Ö/U' : ' · OANKRAD (ingen sharp-linje ännu)'}${md.prior ? '\n⚠ Elo-prior: minst ett lag har tunn historik — styrka skattad ur ClubElo' : ''}\nT valdes på samma historiska backtestmaterial; ledgern är oberoende forward-facit.\nAmber-tier: experimentell`}>
             M {md.fair[sign].toFixed(2)}
             {mEdge >= 0.05 && <span className="apill"
               title={`Modellen tror ${(md.p[sign] * 100).toFixed(1)}% — SvS betalar ${(m.odds?.svenskaspel?.['1x2']?.[sign] || 0).toFixed(2)} = ${(mEdge * 100).toFixed(1)}% modell-edge.\nAmber = okalibrerad signal, spela inte blint på den.`}>
@@ -1052,7 +1055,7 @@ function OddsetView() {
           </button>
         ))}
         <button className={showModel ? 'lg model on' : 'lg model'} onClick={toggleModel}
-          title="Egen målmodell (Dixon-Coles per liga, xG-viktad, temperatur-kalibrerad mot backtest). Amber-tier: M-rader + amber-pills, utanför facitet tills forward-loggen godkänt den.">
+          title="XG-viktad Poisson-styrkefit per liga med DC-korrektion i prediktionen. Temperatur T valdes på historiska backtestmaterialet; prognosledgern är oberoende forward-facit. Amber-tier tills ledgern godkänt den.">
           🧪 Modell {showModel ? 'på' : 'av'}
         </button>
         <button className={onlySignals ? 'lg on' : 'lg'} onClick={toggleOnly}
@@ -1194,7 +1197,7 @@ function OddsetView() {
         return msig.length > 0 && (
           <div className="valuelist amberlist">
             <div className="valhead"><b>🧪 Modell-avvikelser (amber)</b>
-              <InfoDot text={'Egen modell (xG-viktad, temperatur-kalibrerad) vs SvS-odds, inkl. AH/Ö-U.\nEXPERIMENTELLT: backtest v2 säger +10 % ROI i Allsvenskan vid låga trösklar (inom bruset, n=326), −17 % i Eliteserien; AH/Ö-U obacktestade.\nForward-loggen (📒) avgör om modellen släpps upp — signalspaning, inte spelrekommendation.'} /></div>
+              <InfoDot text={'XG-viktad Poisson-styrkefit med DC-korrektion i prediktionen vs SvS-odds, inkl. AH/Ö-U.\nTemperatur T valdes och utvärderades på samma historiska backtestmaterial. EXPERIMENTELLT: +10 % ROI i Allsvenskan vid låga trösklar (inom bruset, n=326), −17 % i Eliteserien; AH/Ö-U obacktestade.\nPrognosledgern är oberoende forward-facit — signalspaning, inte spelrekommendation.'} /></div>
             {msig.slice(0, 8).map(({ m, label, e, p, fair }, i) => (
               <div key={i} className="valrow">
                 <span className="apill big">+{(e * 100).toFixed(1)}%</span>

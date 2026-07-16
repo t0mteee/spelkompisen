@@ -156,8 +156,10 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
   M-delen:
   Monte-Carlo-portfolio (10k utfall, egna rader konkurrerar, E[pott/(W+1)]
   exakt, percentiler).
-- **WP7** (S): ärliga benämningar — "xG-viktad Poisson-styrkefit med DC-
-  korrektion" i UI-tooltips (docs klart 2026-07-13); T:s in-sample-status noterad.
+- **WP7 ✅ 2026-07-16** (S): ärliga benämningar — "xG-viktad Poisson-
+  styrkefit med DC-korrektion i prediktionen" i kod och alla centrala UI-
+  förklaringar; T:s in-sample-status visas och ledgern pekas ut som oberoende
+  forward-facit.
 - **WP8** (S/M): insamlingsintegritet — **seen/retry ✅ 2026-07-16** (transienta
   statistikfel markeras aldrig färdiga; retry-status med försök/tid/fel; 404/410
   permanent utan stats). Återstår: frånvaro som tidsstämplade snapshots MED
@@ -519,7 +521,8 @@ Oddset-flik (platshållare), detta dokument, CLAUDE.md omskriven.
 - ~~Undersök fler källor~~ GJORT 2026-07-12 (se Prober): **Sofascore = xG-källan**
   (Playwright-hämtare); Flashscore/FBref/FotMob/football-data.org skippas (detaljer i
   källtabellen); allsvenskan.se kvar som lågprio-spår.
-- Modell: Dixon-Coles per liga (vm:s `model.py` som bas; rho refittas för klubbfotboll,
+- Modell: xG-viktad Poisson-styrkefit per liga med DC-korrektion i prediktionen
+  (vm:s `model.py` som bas; rho refittas för klubbfotboll,
   vm fann −0.04 landslag vs litteraturens −0.13 klubbar), hemmafördel per liga,
   ClubElo som prior/korsreferens. **xG från Sofascore** som primär offensiv-/defensiv-
   styrkesignal; ESPN-skottdata som fallback-proxy.
