@@ -97,7 +97,8 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
   Sannolikhetskälla i prioritetsordning: SvS-odds → sharp (Pinnacle) → streck.
 - **Värde-kvot** = fair_prob ÷ (streck/100). > 1.08 grönt (köpläge), < 0.92 rött (överspelat).
 - **EV per rad** (poolspel): P(rad) × utdelning där utdelning = pott_nivå / (fält × P_folk(rad) + 1),
-  cappad vid potten. Medvinnare per nivå via Poisson-binomial. +1 = du själv.
+  cappad vid potten. Jackpot/rullpott läggs på toppnivån **före radvalet**.
+  Medvinnare per nivå via Poisson-binomial. +1 = du själv.
   `evalRows` (frontend) och `build_ev_system` (backend) — håll dem konsistenta.
 - **Värderader**: score = P(rad)^k × EV(rad) där k = 2·(1−value_weight); reglaget är enda
   risk-axeln (strategin sätter bara startpunkten 20/50/80).

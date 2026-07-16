@@ -76,6 +76,7 @@ class System:
     rule: Optional[str] = None
     note: Optional[str] = None
     color_bounds: Optional[dict] = None   # {blo,bhi,glo,ghi,nb_max,ng_max} vid färgreducering
+    jackpot: float = 0.0                  # jackpot som faktiskt styrde EV-radvalet
 
 
 # ---------- val av tecken per match ----------
@@ -508,6 +509,15 @@ EV_UNIVERSE_CAP = 60_000     # max kandidatrader att enumerera
 EV_REFINE_CAP = 4_000        # rader som får full vinstnivå-EV (Poisson-binomial)
 
 
+def _prize_pools(turnover: float, plan: dict, jackpot: float = 0.0) -> dict[int, float]:
+    """Vinstplanens potter; jackpot/rullpott tillhör endast toppnivån."""
+    pools = {c: turnover * plan["ratio"] * share
+             for c, share in plan["splits"].items()}
+    if pools:
+        pools[max(pools)] += max(0.0, jackpot)
+    return pools
+
+
 def _poisson_binomial(probs: list[float]) -> list[float]:
     d = [1.0]
     for p in probs:
@@ -521,7 +531,8 @@ def _poisson_binomial(probs: list[float]) -> list[float]:
 
 def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
                     budget: float = 100.0, row_price: float = ROW_PRICE,
-                    value_weight: float = 0.5, plan: Optional[dict] = None) -> System:
+                    value_weight: float = 0.5, plan: Optional[dict] = None,
+                    jackpot: float = 0.0) -> System:
     """Ranka konkreta rader efter EV **balanserat mot träffchans** och ta de
     bästa som ryms i budgeten.
 
@@ -537,7 +548,7 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
     n = len(analysis.matches)
     target = max(1, int(budget / row_price))
     field = turnover / row_price
-    pools = {c: turnover * plan["ratio"] * share for c, share in plan["splits"].items()}
+    pools = _prize_pools(turnover, plan, jackpot)
     top_tier = max(pools)
     k = 2.0 * (1.0 - max(0.0, min(1.0, value_weight)))   # träffchans-exponent
 
@@ -623,10 +634,13 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
              f"träffchans^{k:.1f} × EV — läge: {profile} (styrs av reglaget). "
              f"EV = radens sannolikhet × förväntad utdelning (utdelningen stiger ju färre "
              f"andra som spelat raden). Bort åker folkrader (många delar potten) och, "
-             f"utom i max EV-läget, rena skrällbomber.",
+             f"utom i max EV-läget, rena skrällbomber."
+             + (f" Jackpot {jackpot:,.0f} kr ingår i toppnivåns radval."
+                if jackpot > 0 else "").replace(",", " "),
         note=f"Förv. utdelning ≈ {ev_sum:.0f} kr mot {cost:.0f} kr insats "
              f"(EV {ev_sum - cost:+.0f} kr) vid {turnover:,.0f} kr omsättning "
              f"och nuvarande streck.".replace(",", " "),
+        jackpot=max(0.0, jackpot),
     )
 
 
@@ -642,7 +656,8 @@ def build_color_system(analysis: DrawAnalysis, strategy: str = "medel",
                        budget: float = 100.0, row_price: float = ROW_PRICE,
                        value_weight: float = 0.5, plan: Optional[dict] = None,
                        colors_override: Optional[dict] = None,
-                       bounds_override: Optional[tuple] = None) -> System:
+                       bounds_override: Optional[tuple] = None,
+                       jackpot: float = 0.0) -> System:
     """colors_override: {(event_number, tecken): 'blå'|'gul'} — användarens egna färger.
     bounds_override: (blo, bhi, glo, ghi) — användarens egna min/max-gränser.
     Utan overrides väljs båda automatiskt för max EV inom budgeten."""
@@ -689,7 +704,7 @@ def build_color_system(analysis: DrawAnalysis, strategy: str = "medel",
     pool_top = 0.0
     if plan and turnover > 0:
         c_top = max(plan["splits"])
-        pool_top = turnover * plan["ratio"] * plan["splits"][c_top]
+        pool_top = _prize_pools(turnover, plan, jackpot)[c_top]
 
     def _pq(ev: int, s: str) -> tuple[float, float]:
         o = next(m for m in analysis.matches if m.event_number == ev).outcomes[s]
@@ -747,6 +762,7 @@ def build_color_system(analysis: DrawAnalysis, strategy: str = "medel",
                 note=f"Kostnad {full_rows * row_price:.0f} kr → {len(rows) * row_price:.0f} kr.",
                 color_bounds={"blo": 0, "bhi": nb_max, "glo": 0, "ghi": ng_max,
                               "nb_max": nb_max, "ng_max": ng_max},
+                jackpot=max(0.0, jackpot),
             )
         blo, bhi, glo, ghi = best
     rows = [list(r) for (nb, ng), v in buckets.items() if blo <= nb <= bhi and glo <= ng <= ghi
@@ -769,6 +785,7 @@ def build_color_system(analysis: DrawAnalysis, strategy: str = "medel",
                 else "Gränserna valda för max EV bland kvarvarande rader."),
         color_bounds={"blo": blo, "bhi": bhi, "glo": glo, "ghi": ghi,
                       "nb_max": nb_max, "ng_max": ng_max},
+        jackpot=max(0.0, jackpot),
     )
 
 

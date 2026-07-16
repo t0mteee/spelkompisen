@@ -534,7 +534,7 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse }) {
           })()}
           {payouts?.available && (
             <PayoutTable s={st} tiers={payTiers} effTurnover={payouts.turnover || 0}
-              turnoverOverridden={false} jackpot={0} />
+              turnoverOverridden={false} jackpot={sys.jackpot ?? payouts.jackpot ?? 0} />
           )}
         </>
       )}
@@ -1589,7 +1589,11 @@ function systemStats(sys, matches, payouts) {
   const ratio = payouts.ratio || 0
   const turnover = payouts.turnover || 0
   const field = turnover / rowPrice
-  const tiers = (payouts.tiers || []).map((t) => ({ correct: t.correct, pool: turnover * ratio * (t.share || 0) }))
+  const jackpot = sys.jackpot ?? payouts.jackpot ?? 0
+  const tiers = (payouts.tiers || []).map((t) => ({
+    correct: t.correct,
+    pool: turnover * ratio * (t.share || 0) + (t.correct === N ? jackpot : 0),
+  }))
   if (!tiers.length || field <= 0) return null
   const byEv = {}; matches.forEach((m) => { byEv[m.event_number] = m })
   const picks = sys.picks || []
@@ -2281,7 +2285,8 @@ export default function App() {
       let q = (systemTypes.find((t) => t.id === sysType) || SYSTEM_BASE[0]).q
       if (q.endsWith('guarantee=')) q += Math.max(1, nMatches - 1)  // garanti = n-1
       const vw = valueWeight / 100
-      const r = await fetch(`/api/system?product=${product}&draw=${draw}&strategy=${encodeURIComponent(strategy)}&budget=${budget}&value_weight=${vw}&${q}${extra}&_t=${Date.now()}`, { cache: 'no-store' })
+      const jp = payouts?.jackpot != null ? `&jackpot=${encodeURIComponent(payouts.jackpot)}` : ''
+      const r = await fetch(`/api/system?product=${product}&draw=${draw}&strategy=${encodeURIComponent(strategy)}&budget=${budget}&value_weight=${vw}&${q}${jp}${extra}&_t=${Date.now()}`, { cache: 'no-store' })
       if (!r.ok) throw new Error((await r.json()).detail || `System ${r.status}`)
       setSys(await r.json())
     } catch (e) { setErr(String(e)) }

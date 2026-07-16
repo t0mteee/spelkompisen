@@ -283,12 +283,21 @@ def system(product: str = "stryktipset",
            color: bool = False,
            colors: str = "",
            bounds: str = "",
+           jackpot: float | None = Query(None, ge=0),
            value_weight: float = 0.5):
     """value_weight 0..1 = EV-/värdeskala: 0 = lågoddsare/favoriter (hög träffchans),
     högre = mer värde/skräll (lägre chans, högre EV). sv_rsystem ger SvS R-system.
     ev=true rankar konkreta rader efter popularitetsjusterad EV (poolspels-optimal)."""
     a = _analyze(product, draw)
     vw = max(0.0, min(1.0, value_weight))
+    jp = jackpot
+    if (ev or color) and jp is None:
+        try:
+            with SvenskaSpel() as ss:
+                jp = ss.get_jackpot(product, a.draw_number) or 0.0
+        except Exception:  # jackpotfel ska inte blockera radbygget
+            jp = 0.0
+    jp = max(0.0, jp or 0.0)
     # EV-rankning/färgval räknar mot förväntad SLUTomsättning (tidig låg
     # omsättning gör annars +1:an i medvinnarformeln dominant = glädje-EV)
     if ev or color:
@@ -300,7 +309,7 @@ def system(product: str = "stryktipset",
             s = build_svs_rsystem(a, sv_rsystem, strategy, value_weight=vw)
         elif ev:
             s = build_ev_system(a, strategy, budget, row_price=a.row_price or 1.0,
-                                value_weight=vw, plan=PRIZE_PLANS.get(product))
+                                value_weight=vw, plan=PRIZE_PLANS.get(product), jackpot=jp)
         elif color:
             # manuella overrides: colors="1:X:b,5:2:g" (b=blå, g=gul), bounds="0-2,0-1"
             co = None
@@ -324,7 +333,7 @@ def system(product: str = "stryktipset",
                     bo = None
             s = build_color_system(a, strategy, budget, row_price=a.row_price or 1.0,
                                    value_weight=vw, plan=PRIZE_PLANS.get(product),
-                                   colors_override=co, bounds_override=bo)
+                                   colors_override=co, bounds_override=bo, jackpot=jp)
         elif reduced and guarantee:
             s = build_guarantee_system(a, strategy, budget, guarantee=guarantee, value_weight=vw)
         elif reduced:
