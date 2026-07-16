@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-07-13 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-07-16 — läs detta först i ny session)
 
 **Appen är komplett och i drift** (backend 8002, frontend 5175, launchd var 30 min):
 - **6 ligor**: Allsvenskan, Superettan, Eliteserien, OBOS-ligaen, MLS (nytt 2026-07-13),
@@ -16,7 +16,7 @@
   bästa pris), svag Eliteserien. **GRÖNT-KRITERIUM v2 (beslut 2026-07-13)**:
   ≥50 stängda flaggor OCH undre 90 %-KI-gränsen > 0 (kluster-bootstrap per match,
   close-EV winsoriserad ±20 %), per liga × marknad × modellversion — positivt
-  snitt ensamt räcker inte. Flaggor stämplas med git-hash (model_version).
+  snitt ensamt räcker inte. Flaggor stämplas med semantisk signalversion + git-hash.
 - **UI**: spelkort m. Kelly + stödchips, radar, amber-lista, detaljvy (klick på match),
   loggtabell (📒), 🔔 larmhistorik, 🎯 bara-signaler, ℹ-prickar + legend.
 - **Insamling (A1 ✅ 2026-07-13)**: launchd kör `cli.py smart` var 30:e min —
@@ -30,8 +30,8 @@
   304 datum-dubbletter borta, LA Galaxy en identitet, xG 57→73 %, straff-
   kontaminerade slutspelsresultat rättade/raderade, normaltime i stället för
   current), grönt-kriterium v2 (KI + modellversion), ärlig decay-text.
-  **P0 härifrån = sanningslagret**: WP1 settlement-ankring, WP2 pris-närvaro,
-  WP4 CLV-linje, WP5 prediction ledger (se backloggen).
+  **P0 härifrån = sanningslagret**: WP2 pris-närvaro, WP4 CLV-linje och WP5
+  prediction ledger (se backloggen).
 - **Granskningen runda 2 åtgärdad (2026-07-16)**: WP0 klar (WAL, busy_timeout,
   batch-transaktioner), WP2-mini klar (**notisvakten**: notiser kräver att både
   bok- och Pinnacle-priset observerades i det aktuella lyckade varvet — presence-
@@ -41,9 +41,15 @@
   `docs/db-atgarder.md`). Facitet är ett **interimistiskt flaggfacit** tills
   WP5-ledgern finns; grönt beslutas **per signalgrupp** (aldrig per tier) med
   v3-trappan i WP5. Överlämning till Codex: `docs/overlamning-2026-07-16.md`.
-- **EJ GJORT ÄNNU**: **NTFY_TOPIC — nu SÄKERT att sätta** (notisvakten på plats;
-  Samans steg: eget topic i `backend/.env` + prenumerera i ntfy-appen);
-  mobilpolish; WP-backloggen nedan; stora Europa-ligorna **PAUSADE tills
+- **Codex-fortsättning (2026-07-16)**: WP1 klar — Ö/U-ankringen matchar nu
+  settlement-sannolikheten för hel/halv/kvart **efter** temperaturjustering;
+  modellversionen byts automatiskt till `m-9b5389a7`. Verifierat med roundtrip-
+  tester och 35 aktuella ankrade matcher (linjer 2.25–3.75). Akuta delen av WP8
+  klar: transient Sofascore-statistikfel sparar resultatet men lämnar eventet
+  för retry; 404/410 avslutas som permanent statistik-saknad. Första automatiska
+  sviten finns i `backend/tests/` (7 `unittest`-fall, inga nya dependencies).
+- **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
+  2026-07-16**; mobilpolish; WP-backloggen nedan; stora Europa-ligorna **PAUSADE tills
   WP0–WP5 är klara** (beslut 2026-07-13).
 
 ## Backlog (WP-struktur efter granskningen 2026-07-13, prioriterad)
@@ -77,13 +83,15 @@ datumtolerans ±1 dygn + audit-lista; MLS-fitten sanerad inkl. straff-resultat,
 normaltime-fixen), grönt-kriterium v2 (kluster-bootstrap-KI + versionsstämpel),
 decay-benämningen, A1-snabbpollen (`cli.py smart`). *(2026-07-16, runda 2)*
 WP0 (WAL/busy_timeout/`bulk()`), WP2-mini (notisvakten), version-split
-(signal_version + git_hash, migrerad).
+(signal_version + git_hash, migrerad). *(2026-07-16, Codex)* WP1 settlement-
+ankring + testgrund, WP8a Sofascore seen/retry.
 
 **P0 — sanningslager & matematik (i ordning):**
-- **WP1** (S/M): settlement-aware ÖU-ankring (fel på 72 % av linjerna: hel=23 %,
-  kvarts=49 %) + ordningen temper→ankare; test FÖRST (pair_fair-roundtrip);
-  omkör `oddsetcalibrate` efteråt; bumpa `anchor` i MODEL_PARAMS (= ny
-  m-version automatiskt).
+- **WP1 ✅ 2026-07-16**: settlement-aware ÖU-ankring för hel/halv/kvart;
+  rotlösningen mäter den slutliga temperaturjusterade matrisen så T inte bryter
+  ankaret. `pair_fair` och ankaret delar settlement-matematik; `anchor` bumpad i
+  MODEL_PARAMS. Historisk T är fortfarande fittad på oankrade 1X2-prediktioner —
+  omkalibrera inte skenbart utan historiska Ö/U-linjer; WP5-ledgern ger PIT-data.
 - **WP2 full** (M): pris-närvaro persistent — last_seen_at per selektion
   (uppdateras vid dedup-skip), available/suspended-status, source health i
   statusraden, åldersvakt även i VÄRDE-visning/facit (notisvakten täcker i dag
@@ -112,16 +120,16 @@ WP0 (WAL/busy_timeout/`bulk()`), WP2-mini (notisvakten), version-split
   exakt, percentiler).
 - **WP7** (S): ärliga benämningar — "xG-viktad Poisson-styrkefit med DC-
   korrektion" i UI-tooltips (docs klart 2026-07-13); T:s in-sample-status noterad.
-- **WP8** (S/M): insamlingsintegritet — Sofascore seen-mark först efter lyckad
-  statistikhämtning (10 kända offer i dag) alt. retry-lista; frånvaro som
-  tidsstämplade snapshots MED spelar-ID/position (ger B5 data + "vilken frånvaro
-  flyttar linjen?"); daglig Elo-snapshot + historik-backfill (PIT-Elo).
-- **WP-test** (M, löpande): pytest för kritisk matematik — power-devig, asiatisk
-  settlement, eventmatchning/tidszon, closing-matchning, poolutdelning,
-  kalibrering. Testet skrivs FÖRE respektive fix (WP1 börjar). Tio designade
-  fall finns i `docs/overlamning-2026-07-16.md` (LA Galaxy-alias, ±1 dygn,
-  målvakt, fuzzy-audit, normaltime, seen-retry, bootstrap-kluster, grupp-vs-
-  tier, versionsstabilitet, settlement-roundtrip). pytest-beslutet (nr 10) öppet.
+- **WP8** (S/M): insamlingsintegritet — **seen/retry ✅ 2026-07-16** (transienta
+  statistikfel markeras aldrig färdiga; retry-status med försök/tid/fel; 404/410
+  permanent utan stats). Återstår: frånvaro som tidsstämplade snapshots MED
+  spelar-ID/position (ger B5 data + "vilken frånvaro flyttar linjen?"); daglig
+  Elo-snapshot + historik-backfill (PIT-Elo).
+- **WP-test** (M, löpande): testgrund ✅ med standardbibliotekets `unittest`
+  (pytest-kompatibel, ingen dependency). 7 fall täcker settlement/push/kvart,
+  temperatur-roundtrip, normaltime, seen-retry/404 och bulk-rollback. Återstår:
+  power-devig, eventmatchning/tidszon, closing-matchning, poolutdelning,
+  bootstrap-kluster, grupp-vs-tier och versionsstabilitet. Test före varje fix.
 - **WP3-tillägg** (S): fuzzy-links-audit — ALLA icke-exakta/icke-alias-länkar
   (likhet + antal berörda matcher + verified-flagga) i audit-listan, inte bara
   missarna; godkänd länk flyttas till TEAM_ALIAS/meta. Scope-markering: WP3
@@ -178,7 +186,7 @@ värdet sitter i tidiga linjer + mindre marknader. Kärnvärdet förblir Norden/
 Verifiera alltid Sofascore-id:ns SPORT (handbolls-läxan).
 
 **E. Infra/övrigt**
-12. NTFY_TOPIC — enda kvarvarande användarsteget för pushar.
+12. NTFY/notifieringar — pausat 2026-07-16; återuppta först när Saman ber om det.
 13. Betsson (egen oddsmotor) — kräver browser-RE av OBG-API:t.
 14. Servermigrering (Pi 5/N100, launchd→systemd) — beslut öppet sedan tidigare.
 15. Altenar-champ för träningsmatcher/MLS hos Betinia (GetSportMenu-sväng).

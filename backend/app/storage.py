@@ -290,6 +290,10 @@ class Storage:
             "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
         self._commit()
 
+    def meta_delete(self, key: str) -> None:
+        self.conn.execute("DELETE FROM meta WHERE key=?", (key,))
+        self._commit()
+
     # --- sharp-odds (cache från the-odds-api) ---
     def save_sharp(self, product: str, draw_number: int, hits: list[dict]) -> int:
         """Spara/uppdatera sharp-odds per match. `hits` är poster med

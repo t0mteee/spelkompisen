@@ -133,7 +133,14 @@ def _sofa_season(store: Storage, lg: str) -> Optional[int]:
 
 
 def _ingest_event(store: Storage, lg: str, e: dict) -> bool:
-    """Spara ett avslutat Sofascore-event (resultat + xG + hörnor). False om känt."""
+    """Spara ett avslutat Sofascore-event (resultat + xG + hörnor).
+
+    Resultatet är användbart även om statistik-anropet tillfälligt fallerar och
+    sparas därför direkt. Eventet markeras däremot inte som färdigbehandlat
+    förrän statistik-endpointen svarat (404/410 = permanent utan statistik).
+    På så vis kan nästa 6h-varv fylla xG/hörnor i stället för att luckan blir
+    permanent. False betyder känt/ej avslutat eller väntar på retry.
+    """
     if e.get("status", {}).get("type") != "finished":
         return False
     eid = e["id"]
@@ -153,21 +160,43 @@ def _ingest_event(store: Storage, lg: str, e: dict) -> bool:
            "hg": hs.get("normaltime", hs.get("current")),
            "ag": as_.get("normaltime", as_.get("current")),
            "source": "sofa"}
+    # Basresultatet ska inte gå förlorat bara för att detaljstatistiken ligger
+    # nere; COALESCE-upserten fyller xG/hörnor vid ett senare lyckat försök.
+    store.oddset_save_result(row)
     time.sleep(1.1)
     try:
-        groups = _sofa_get(f"/event/{eid}/statistics") \
-            .get("statistics", [{}])[0].get("groups", [])
-        for g in groups:
-            for s in g.get("statisticsItems", []):
-                if s.get("name") == "Expected goals":
-                    row["xg_h"] = float(s["home"])
-                    row["xg_a"] = float(s["away"])
-                elif s.get("name") == "Corner kicks":
-                    row["cor_h"] = float(s["home"])
-                    row["cor_a"] = float(s["away"])
-    except Exception:  # noqa: BLE001 — äldre matcher kan sakna statistik
-        pass
+        payload = _sofa_get(f"/event/{eid}/statistics")
+    except Exception as exc:  # noqa: BLE001 — 403/429/5xx ska försökas igen
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        if status not in (404, 410):
+            retry_key = f"oddset_sofa_retry:{eid}"
+            attempts = 0
+            try:
+                attempts = int(json.loads(store.meta_get(retry_key) or "{}").get(
+                    "attempts", 0))
+            except (ValueError, TypeError):
+                pass
+            store.meta_set(retry_key, json.dumps({
+                "attempts": attempts + 1,
+                "last_at": _now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "error": type(exc).__name__,
+                "status": status,
+            }))
+            return False
+        payload = {}  # permanent avsaknad: resultatet är komplett utan stats
+
+    stats = payload.get("statistics") or []
+    groups = (stats[0].get("groups", []) if stats else [])
+    for g in groups:
+        for s in g.get("statisticsItems", []):
+            if s.get("name") == "Expected goals":
+                row["xg_h"] = float(s["home"])
+                row["xg_a"] = float(s["away"])
+            elif s.get("name") == "Corner kicks":
+                row["cor_h"] = float(s["home"])
+                row["cor_a"] = float(s["away"])
     store.oddset_save_result(row)
+    store.meta_delete(f"oddset_sofa_retry:{eid}")
     store.meta_set(f"oddset_sofa_seen:{eid}", row["date"])
     return True
 

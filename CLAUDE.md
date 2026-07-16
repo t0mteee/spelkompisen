@@ -5,10 +5,10 @@ Europatipset, Topptipset, Bomben) med en ny **Oddset-del**: enskilda matcher (Al
 norska Eliteserien, träningsmatcher till att börja med) med sharp-odds, oddsrörelser,
 egen modell och värdespels-tips (1X2, asian handicap, över/under, hörnor på sikt).
 
-**Läge (2026-07-13):** Etapp 0–5 KLARA + långt därutöver. Oddset-delen är i full drift:
+**Läge (2026-07-16):** Etapp 0–5 KLARA + långt därutöver. Oddset-delen är i full drift:
 6 ligor (Allsvenskan/Superettan/Eliteserien/OBOS/MLS/träningsmatcher), 4 bokkällor +
 Pinnacle, kvalitetsviktade värdesignaler, steam-radar, xG-viktad Poisson-modell med
-DC-korrektion (amber, T-kalibrerad — kalla den inte DC-MLE), frånvarodata, CLV-facit
+DC-korrektion (amber, settlement-ankrad efter T — kalla den inte DC-MLE), frånvarodata, CLV-facit
 per tier med grönt-kriterium v2 (≥50 stängda OCH undre bootstrap-KI-gräns > 0, per
 liga/marknad/modellversion). **STATUS-SAMMANFATTNINGEN överst i `docs/plan.md` är
 sanningen — LÄS DEN FÖRST i ny session** (+ WP-backloggen där, prioriterad; gransknings-
@@ -43,6 +43,7 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
 ## Kommandon
 
 - Starta allt: `./start.sh` (backend :8002, frontend :5175). Stoppa: `./stop.sh`.
+- Tester: `cd backend && .venv/bin/python -B -m unittest discover -s tests -v`.
 - **Backend har INGEN auto-reload** — efter ändring:
   `lsof -ti:8002 -sTCP:LISTEN | xargs kill -9; cd backend && nohup .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8002 &`
 - ALDRIG `pkill -f uvicorn` (dödar svs 8000 och vm 8001 — samma kommando).
@@ -58,7 +59,7 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
   priset observerades i det aktuella lyckade varvet).
 - Push-notiser: `app/notify.py` via ntfy.sh, kräver `NTFY_TOPIC` i gitignore:ade
   `backend/.env`. Använd ett EGET topic (inte samma som svs — annars dubbla notiser).
-  Notisvakten är på plats (2026-07-16) — säkert att aktivera.
+  Notifieringsspåret är pausat på Samans begäran 2026-07-16 — återuppta inte utan besked.
 
 ## Poolspelen (ärvt från svs — allt gäller oförändrat)
 

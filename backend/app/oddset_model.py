@@ -72,10 +72,6 @@ def matrix_1x2(m: list[list[float]]) -> dict[str, float]:
     return {"1": p1, "X": max(0.0, 1 - p1 - p2), "2": p2}
 
 
-def total_over(m: list[list[float]], line: float) -> float:
-    return sum(m[i][j] for i in range(len(m)) for j in range(len(m)) if i + j > line)
-
-
 # --- styrkefit -------------------------------------------------------------------
 
 def fit_league(results: list[dict], now: Optional[dt.date] = None,
@@ -230,19 +226,39 @@ def _ensure_priors(fit: dict, elo: dict, names: tuple[str, ...]) -> bool:
     return used
 
 
-def _anchor_total(mu_h: float, mu_a: float, line: float,
-                  p_over: float) -> tuple[float, float]:
-    """Skala (mu_h, mu_a) med gemensam faktor s så att P(Över linjen) = sharp-prob.
-    Bevarar modellens styrkeförhållande; totalnivån tas från marknaden."""
-    lo, hi = 0.3, 3.0
-    for _ in range(40):
-        s = (lo + hi) / 2
-        if total_over(dc_matrix(s * mu_h, s * mu_a), line) < p_over:
-            lo = s
-        else:
-            hi = s
-    s = (lo + hi) / 2
-    return s * mu_h, s * mu_a
+def _anchor_total(mu_h: float, mu_a: float, line: float, p_over: float,
+                  temperature: float = 1.0) -> tuple[float, float]:
+    """Skala målmedlen tills slutmatrisens settlement-sannolikhet matchar sharp.
+
+    Marknadens tvåvägsprobabilitet motsvarar P(vinst | återbetalning borttagen),
+    inte den ovillkorade P(total > linje). Därför måste hel- och kvartslinjers
+    push/halv-push ingå. Temperaturjusteringen ligger inne i rotlösningen så att
+    den inte kan bryta ankaret efteråt. Modellens styrkeförhållande bevaras.
+    """
+    target = max(1e-6, min(1 - 1e-6, p_over))
+
+    def prob(scale: float) -> float:
+        matrix = temper(dc_matrix(scale * mu_h, scale * mu_a), temperature)
+        return _settlement_probability(matrix, "ou", "O", line)
+
+    lo, hi = 0.05, 5.0
+    while prob(lo) > target and lo > 1e-4:
+        lo /= 2
+    while prob(hi) < target and hi < 50:
+        hi *= 2
+    if target <= prob(lo):
+        scale = lo
+    elif target >= prob(hi):
+        scale = hi
+    else:
+        for _ in range(50):
+            scale = (lo + hi) / 2
+            if prob(scale) < target:
+                lo = scale
+            else:
+                hi = scale
+        scale = (lo + hi) / 2
+    return scale * mu_h, scale * mu_a
 
 
 # --- asiatiska marknader ur DC-matrisen ------------------------------------------------
@@ -267,24 +283,39 @@ def _half_outcome(matrix: list[list[float]], kind: str, side: str,
     return pw, pp
 
 
+def _settlement_terms(matrix: list[list[float]], kind: str, side: str,
+                      line: float) -> tuple[float, float]:
+    """Sammanvägd (P_vinst, P_push) för hel-, halv- eller kvartslinje."""
+    quarter = abs(line * 2 - round(line * 2)) > 1e-9
+    halves = [line - 0.25, line + 0.25] if quarter else [line]
+    pw = pp = 0.0
+    for half_line in halves:
+        win, push = _half_outcome(matrix, kind, side, half_line)
+        pw += win / len(halves)
+        pp += push / len(halves)
+    return pw, pp
+
+
+def _settlement_probability(matrix: list[list[float]], kind: str, side: str,
+                            line: float) -> float:
+    """Fair tvåvägsprobabilitet efter att push-delen räknats bort."""
+    pw, pp = _settlement_terms(matrix, kind, side, line)
+    return pw / (1 - pp) if pp < 1 else 0.0
+
+
 def pair_fair(matrix: list[list[float]], kind: str, line: float,
               sides: tuple[str, str]) -> Optional[dict]:
     """Fair decimalodds för båda sidor av en asiatisk linje (hel/halv/kvarts).
     Kvartslinje = halva insatsen på var sin grannlinje; push återbetalar.
     fair o löser: o·P_vinst + P_push = 1."""
-    quarter = abs(line * 2 - round(line * 2)) > 1e-9
-    halves = [line - 0.25, line + 0.25] if quarter else [line]
     out = {"line": line}
     for side in sides:
-        pw = pp = 0.0
-        for lh in halves:
-            w, p = _half_outcome(matrix, kind, side, lh)
-            pw += w / len(halves)
-            pp += p / len(halves)
+        pw, pp = _settlement_terms(matrix, kind, side, line)
         if pw < 0.01:
             return None
         out[side] = round((1 - pp) / pw, 2)
-        out[f"p{side}"] = round(pw / (1 - pp) if pp < 1 else 0.0, 4)
+        out[f"p{side}"] = round(_settlement_probability(
+            matrix, kind, side, line), 4)
     return out
 
 
@@ -342,7 +373,7 @@ MODEL_PARAMS = {
     "algo": "poisson-iterativ + dc-tau i prediktion",
     "rho": DC_RHO_CLUB, "xg_w": XG_WEIGHT, "decay_d": DECAY_DAYS,
     "iters": FIT_ITER, "min_m": MIN_MATCHES, "elo_k": ELO_K, "ridge": 0.98,
-    "anchor": "total-ovillkorad-v1",   # byts till settlement-aware i WP1
+    "anchor": "settlement-aware-tempered-v2",
     "pools": sorted(f"{k}:{'+'.join(v)}" for k, v in FIT_POOLS.items()),
 }
 
@@ -398,14 +429,15 @@ def attach_model(store: Storage, matches: list[dict]) -> None:
             continue
         mu_h, mu_a = mus
         anchored = False
+        cal_t = _cal(lg).get("t") or 1.0
         pin_ou = ((m.get("odds") or {}).get("pinnacle") or {}).get("ou")
         if pin_ou and pin_ou.get("O") and pin_ou.get("U"):
             inv = {"O": 1 / pin_ou["O"], "U": 1 / pin_ou["U"]}
             p_over = _power_probs(inv)["O"]
-            mu_h, mu_a = _anchor_total(mu_h, mu_a, pin_ou["line"], p_over)
+            mu_h, mu_a = _anchor_total(
+                mu_h, mu_a, pin_ou["line"], p_over, temperature=cal_t)
             anchored = True
         matrix = dc_matrix(mu_h, mu_a)
-        cal_t = _cal(lg).get("t") or 1.0
         matrix = temper(matrix, cal_t)
         probs = matrix_1x2(matrix)
         svs_all = (m.get("odds") or {}).get("svenskaspel") or {}
