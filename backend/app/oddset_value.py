@@ -337,10 +337,28 @@ def log_and_notify(store: Storage, matches: list[dict],
 
 
 def resolve_closings(store: Storage) -> int:
-    """Sätt stängning (devigad Pinnacle strax före avspark) på loggade flaggor
-    vars match startat. AH/ÖU kräver samma linje som vid flaggan."""
+    """Stäng flaggor mot Pinnacle före avspark.
+
+    1X2 använder senaste färska marknad. AH/ÖU/hörnor söker senaste färska
+    pris på EXAKT flaggans lina. Om huvudlinan har flyttat sparas slutlina,
+    delta och ett selektionsriktat score (>0 = rörelse med spelet) även när
+    exakt-line-priset är för gammalt för ett jämförbart close-EV.
+    """
     now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     n = 0
+
+    def _seen_after(row: dict, threshold: dt.datetime) -> bool:
+        try:
+            return dt.datetime.fromisoformat(
+                row["last_seen_at"].replace("Z", "+00:00")) >= threshold
+        except (AttributeError, ValueError):
+            return False
+
+    def _move_score(market: str, sign: str, delta: float) -> float:
+        if market == "ah":
+            return -delta if sign == "H" else delta
+        return delta if sign == "O" else -delta
+
     for f in store.oddset_unresolved_closings(now):
         # modell-flaggor (m1x2/mah/mou) stängs mot samma sharp-marknad utan m-prefix
         hist_market = f["market"][1:] if f["market"].startswith("m") else f["market"]
@@ -351,39 +369,63 @@ def resolve_closings(store: Storage) -> int:
         for r in rows:                      # rows i tidsordning
             last[r["sign"]] = r
         if len(last) < len(signs):
-            store.oddset_set_closing(f["match_id"], f["market"], f["sign"],
-                                     None, None, "ingen sharp-stängning")
+            store.oddset_set_closing(f, None, None, "ingen sharp-stängning")
             n += 1
             continue
         if any(not r.get("available") for r in last.values()):
-            store.oddset_set_closing(f["match_id"], f["market"], f["sign"],
-                                     None, None, "sharp-stängning ej tillgänglig")
+            store.oddset_set_closing(
+                f, None, None, "sharp-stängning ej tillgänglig")
             n += 1
             continue
         start = dt.datetime.fromisoformat(f["match_start"].replace("Z", "+00:00"))
         fresh_after = start - dt.timedelta(minutes=PRICE_MAX_AGE_MIN)
-        try:
-            stale = any(
-                dt.datetime.fromisoformat(r["last_seen_at"].replace("Z", "+00:00"))
-                < fresh_after for r in last.values())
-        except (AttributeError, ValueError):
-            stale = True
-        if stale:
-            store.oddset_set_closing(f["match_id"], f["market"], f["sign"],
-                                     None, None,
-                                     f"sharp-stängning äldre än {PRICE_MAX_AGE_MIN} min")
+        if any(not _seen_after(r, fresh_after) for r in last.values()):
+            store.oddset_set_closing(
+                f, None, None, f"sharp-stängning äldre än {PRICE_MAX_AGE_MIN} min")
             n += 1
             continue
-        if f["market"] != "1x2" and any(r.get("line") != f["line"] for r in last.values()):
-            store.oddset_set_closing(f["match_id"], f["market"], f["sign"],
-                                     None, None, "linje flyttad")
-            n += 1
-            continue
-        fair = _devig({s: last[s]["odds"] for s in signs}, signs)
+
+        if hist_market == "1x2":
+            target = last
+            closing_line = line_delta = move_score = None
+            note = None
+        else:
+            closing_lines = {last[s].get("line") for s in signs}
+            if len(closing_lines) != 1 or None in closing_lines:
+                store.oddset_set_closing(
+                    f, None, None, "inkonsistent sharp-stängningslina")
+                n += 1
+                continue
+            closing_line = closing_lines.pop()
+            flag_line = f.get("line")
+            if flag_line is None:
+                store.oddset_set_closing(f, None, None, "flagglina saknas")
+                n += 1
+                continue
+            line_delta = round(closing_line - flag_line, 4)
+            move_score = round(_move_score(hist_market, f["sign"], line_delta), 4)
+            target = {}
+            target_key = int(round(float(flag_line) * 1000))
+            for r in rows:
+                if r.get("line") is not None and int(round(float(r["line"]) * 1000)) == target_key:
+                    target[r["sign"]] = r
+            same_line_fresh = (len(target) == len(signs)
+                               and all(_seen_after(r, fresh_after) for r in target.values()))
+            note = None if same_line_fresh else (
+                "linje flyttad" if line_delta else
+                f"sharp-stängning äldre än {PRICE_MAX_AGE_MIN} min")
+
+        fair = _devig({s: target[s]["odds"] for s in signs}, signs) \
+            if len(target) == len(signs) and note is None else None
         if not fair:
+            store.oddset_set_closing(
+                f, None, None, note or "ingen sharp-stängning på flaggans lina",
+                closing_line, line_delta, move_score)
+            n += 1
             continue
-        store.oddset_set_closing(f["match_id"], f["market"], f["sign"],
-                                 round(fair[f["sign"]], 4), last[f["sign"]]["odds"], None)
+        store.oddset_set_closing(
+            f, round(fair[f["sign"]], 4), target[f["sign"]]["odds"], None,
+            closing_line, line_delta, move_score)
         n += 1
     return n
 
@@ -418,10 +460,16 @@ def _cluster_ci(resolved: list[dict], iters: int = 1000,
 
 def _tier_stats(trows: list[dict]) -> dict:
     resolved = [r for r in trows if r["close_ev"] is not None]
+    moved = [r for r in trows if r.get("line_move_score") is not None
+             and abs(r["line_move_score"]) > 1e-9]
     avg = (sum(r["close_ev"] for r in resolved) / len(resolved)) if resolved else None
     avg_w = (sum(r["close_ev_w"] for r in resolved) / len(resolved)) if resolved else None
     ci = _cluster_ci(resolved)
+    avg_move = (sum(r["line_move_score"] for r in moved) / len(moved)) if moved else None
     return {"n": len(trows), "n_resolved": len(resolved),
+            "n_line_moved": len(moved),
+            "n_line_moved_positive": sum(r["line_move_score"] > 0 for r in moved),
+            "avg_line_move_score": round(avg_move, 4) if avg_move is not None else None,
             "avg_close_ev": round(avg, 4) if avg is not None else None,
             "avg_close_ev_w": round(avg_w, 4) if avg_w is not None else None,
             "ci": list(ci) if ci else None,

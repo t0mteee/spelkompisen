@@ -160,6 +160,7 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
     market       TEXT NOT NULL,
     sign         TEXT NOT NULL,
     line         REAL,
+    line_key     INTEGER NOT NULL,       -- round(line*1000), sentinel för 1X2
     league       TEXT,
     description  TEXT,
     match_start  TEXT,
@@ -171,13 +172,22 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
     best_at      TEXT,
     closing_fair REAL,
     closing_odds REAL,
+    closing_line REAL,
+    line_delta   REAL,
+    line_move_score REAL,                -- >0 = linan rörde sig med selektionen
     closing_note TEXT,
-    PRIMARY KEY (match_id, market, sign)
+    book         TEXT,
+    tier         TEXT DEFAULT 'sharp',
+    model_version TEXT NOT NULL DEFAULT 'legacy',
+    git_hash     TEXT,
+    PRIMARY KEY (match_id, market, sign, line_key, model_version)
 );
 """
 
 
 class Storage:
+    ODDSET_NO_LINE_KEY = 2_147_483_647
+
     def __init__(self, db_path: Path | str = DEFAULT_DB):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -794,24 +804,31 @@ class Storage:
             "SELECT key, value FROM meta WHERE key LIKE ?", (prefix + "%",)).fetchall()]
 
     def oddset_log_flag(self, r: dict) -> None:
-        """First/best per (match, marknad, tecken) — first skrivs aldrig över.
+        """First/best per (match, marknad, tecken, lina, signalversion).
+
+        First skrivs aldrig över. Lina och version ingår i identiteten så en
+        edge på ny lina eller under ny algoritmregim inte blandas med den gamla.
         model_version = semantiskt signal-fingeravtryck (facitet delas på den);
         git_hash = exakt kodversion vid first (reproducerbarhet). Granskningen
         punkt 5: docs-commits får inte fragmentera facitet."""
+        line = r.get("line")
+        line_key = (self.ODDSET_NO_LINE_KEY if line is None
+                    else int(round(float(line) * 1000)))
+        version = r.get("model_version") or "legacy"
         self.conn.execute(
-            "INSERT INTO oddset_value_log(match_id, market, sign, line, league, "
+            "INSERT INTO oddset_value_log(match_id, market, sign, line, line_key, league, "
             "description, match_start, first_at, first_odds, first_fair, first_edge, "
             "best_edge, best_at, book, tier, model_version, git_hash) "
-            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
-            "ON CONFLICT(match_id, market, sign) DO UPDATE SET "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(match_id, market, sign, line_key, model_version) DO UPDATE SET "
             "best_edge=CASE WHEN excluded.best_edge > oddset_value_log.best_edge "
             "THEN excluded.best_edge ELSE oddset_value_log.best_edge END, "
             "best_at=CASE WHEN excluded.best_edge > oddset_value_log.best_edge "
             "THEN excluded.best_at ELSE oddset_value_log.best_at END",
-            (r["match_id"], r["market"], r["sign"], r.get("line"), r.get("league"),
+            (r["match_id"], r["market"], r["sign"], line, line_key, r.get("league"),
              r.get("description"), r.get("match_start"), r["at"], r["odds"],
              r["fair"], r["edge"], r["edge"], r["at"], r.get("book"),
-             r.get("tier", "sharp"), r.get("model_version"), r.get("git_hash")))
+             r.get("tier", "sharp"), version, r.get("git_hash")))
         self._commit()
 
     def oddset_unresolved_closings(self, now_iso: str) -> list[dict]:
@@ -830,13 +847,18 @@ class Storage:
             "AND odds IS NOT NULL ORDER BY fetched_at, id",
             (match_id, market, before_iso)).fetchall()]
 
-    def oddset_set_closing(self, match_id: str, market: str, sign: str,
-                           fair: Optional[float], odds: Optional[float],
-                           note: Optional[str]) -> None:
+    def oddset_set_closing(self, flag: dict, fair: Optional[float],
+                           odds: Optional[float], note: Optional[str],
+                           closing_line: Optional[float] = None,
+                           line_delta: Optional[float] = None,
+                           line_move_score: Optional[float] = None) -> None:
         self.conn.execute(
-            "UPDATE oddset_value_log SET closing_fair=?, closing_odds=?, closing_note=? "
-            "WHERE match_id=? AND market=? AND sign=?",
-            (fair, odds, note, match_id, market, sign))
+            "UPDATE oddset_value_log SET closing_fair=?, closing_odds=?, closing_note=?, "
+            "closing_line=?, line_delta=?, line_move_score=? WHERE match_id=? "
+            "AND market=? AND sign=? AND line_key=? AND model_version=?",
+            (fair, odds, note, closing_line, line_delta, line_move_score,
+             flag["match_id"], flag["market"], flag["sign"], flag["line_key"],
+             flag.get("model_version") or "legacy"))
         self._commit()
 
     def oddset_clv_rows(self, limit: int = 300) -> list[dict]:

@@ -124,6 +124,10 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
   first/best per selektion; stängning = devigad Pinnacle; facit från resultat-API:t.
 - **Metodregel (dyrast lärdom från vm):** ENDAST marknadspriser får logga flaggor —
   modellhärledda sannolikheter förorenar facitet.
+- Oddset-facitets identitet är match + marknad + tecken + normaliserad lina +
+  semantisk signalversion. Stäng alltid mot flaggans lina när ett färskt pris
+  finns; spara annars slutlinans delta som `linje flyttad` utan fabricerat
+  close-EV. Positivt `line_move_score` betyder rörelse med selektionen.
 
 ## Oddset-delen (byggs nu — se docs/plan.md för detaljer)
 

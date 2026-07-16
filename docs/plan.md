@@ -31,8 +31,8 @@
   304 datum-dubbletter borta, LA Galaxy en identitet, xG 57→73 %, straff-
   kontaminerade slutspelsresultat rättade/raderade, normaltime i stället för
   current), grönt-kriterium v2 (KI + modellversion), ärlig decay-text.
-  **P0 härifrån = sanningslagret**: WP4 CLV-identitet och WP5 prediction ledger
-  (se backloggen).
+  **P0 härifrån = sanningslagret**: WP5 prediction ledger (WP4 CLV-identitet
+  klar 2026-07-16; se backloggen).
 - **Granskningen runda 2 åtgärdad (2026-07-16)**: WP0 klar (WAL, busy_timeout,
   batch-transaktioner), WP2-mini klar (**notisvakten**: notiser kräver att både
   bok- och Pinnacle-priset observerades i det aktuella lyckade varvet — presence-
@@ -48,13 +48,17 @@
   tester och 35 aktuella ankrade matcher (linjer 2.25–3.75). Akuta delen av WP8
   klar: transient Sofascore-statistikfel sparar resultatet men lämnar eventet
   för retry; 404/410 avslutas som permanent statistik-saknad. Första automatiska
-  sviten finns i `backend/tests/` (18 `unittest`-fall, inga nya dependencies).
+  sviten finns i `backend/tests/` (22 `unittest`-fall, inga nya dependencies).
   **WP2 full klar:** prisförändring (`fetched_at`) och senaste bekräftelse
   (`last_seen_at`) är separerade; lyckade svar markerar plockade/suspenderade
   priser, källfel gör det inte. Värde, steam, modellkanter och closing-facit
   kräver tillgängligt pris bekräftat inom 45 min. Källhälsa + prisålder visas i
   UI och SvS-deep ingår i 3h-snabbvarvet. Slutliga signalversioner efter
   närvaroregeln: sharp `s-0f1355fb`, modell `m-fce3b64e`.
+  **WP4 klar:** CLV-identiteten är nu match × marknad × tecken × lina ×
+  signalversion. Stängning sparar både flagglina och slutlina; linjeflytt blir
+  ett eget, selektionsriktat facit i stället för censur. 110/110 gamla rader
+  bevarades vid migreringen och nya versionsrader loggas separat.
 - **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
   2026-07-16**; mobilpolish; WP-backloggen nedan; stora Europa-ligorna **PAUSADE tills
   WP0–WP5 är klara** (beslut 2026-07-13).
@@ -91,7 +95,8 @@ normaltime-fixen), grönt-kriterium v2 (kluster-bootstrap-KI + versionsstämpel)
 decay-benämningen, A1-snabbpollen (`cli.py smart`). *(2026-07-16, runda 2)*
 WP0 (WAL/busy_timeout/`bulk()`), WP2-mini (notisvakten), version-split
 (signal_version + git_hash, migrerad). *(2026-07-16, Codex)* WP1 settlement-
-ankring + testgrund, WP2 full prisnärvaro/källhälsa, WP8a Sofascore seen/retry.
+ankring + testgrund, WP2 full prisnärvaro/källhälsa, WP4 CLV-identitet +
+linjeflytt-facit, WP8a Sofascore seen/retry.
 
 **P0 — sanningslager & matematik (i ordning):**
 - **WP1 ✅ 2026-07-16**: settlement-aware ÖU-ankring för hel/halv/kvart;
@@ -104,11 +109,13 @@ ankring + testgrund, WP2 full prisnärvaro/källhälsa, WP8a Sofascore seen/retr
   i värde/modell/steam/facit, bekräftelseålder i UI och SvS-deep i 3h-varvet.
   Misslyckade källanrop ändrar aldrig availability. Migration + backup +
   rapport finns i `docs/db-atgarder.md`.
-- **WP4** (S/M): CLV-identitet — **signal_version + line** måste in i PK
-  (recreate + kopiera; facit bevaras). Dagens PK `(match_id, market, sign)` gör
-  annars att samma selektion inte kan loggas under en ny algoritmversion —
-  versionssplitten blir i praktiken blockerad. Stängning på flaggans lina;
-  "line moved" som egen facit-kategori (Δlina) i stället för censur.
+- **WP4 ✅ 2026-07-16**: CLV-identitet = `(match_id, market, sign, line_key,
+  model_version)`; `line_key` är heltalsnormaliserad lina och 1X2 har sentinel.
+  Stängningen använder färskt exakt-line-pris för jämförbart close-EV och
+  sparar samtidigt `closing_line`, `line_delta` och selektionsriktat
+  `line_move_score` (>0 = marknaden rörde sig med spelet). Finns inte färsk
+  exakt lina redovisas `linje flyttad`, aldrig ett fabricerat close-EV.
+  Skript, backup och produktionsutfall finns i `docs/db-atgarder.md`.
 - **WP5** (M/L): prediction ledger — ALLA prediktioner vid fasta horisonter
   (T−24h/−3h/−20m, sammanfaller med pollpassen) med sharp-fair/modell-fair/
   bokpris/availability/signal_version. **Grönt-kriterium v3 på ledgern**:
@@ -135,8 +142,9 @@ ankring + testgrund, WP2 full prisnärvaro/källhälsa, WP8a Sofascore seen/retr
   spelar-ID/position (ger B5 data + "vilken frånvaro flyttar linjen?"); daglig
   Elo-snapshot + historik-backfill (PIT-Elo).
 - **WP-test** (M, löpande): testgrund ✅ med standardbibliotekets `unittest`
-  (pytest-kompatibel, ingen dependency). 7 fall täcker settlement/push/kvart,
-  temperatur-roundtrip, normaltime, seen-retry/404 och bulk-rollback. Återstår:
+  (pytest-kompatibel, ingen dependency). 22 fall täcker bland annat
+  settlement/push/kvart, temperatur-roundtrip, normaltime, seen-retry/404,
+  bulk-rollback, prisnärvaro samt CLV-identitet/linjeflytt. Återstår:
   power-devig, eventmatchning/tidszon, closing-matchning, poolutdelning,
   bootstrap-kluster, grupp-vs-tier och versionsstabilitet. Test före varje fix.
 - **WP3-tillägg** (S): fuzzy-links-audit — ALLA icke-exakta/icke-alias-länkar

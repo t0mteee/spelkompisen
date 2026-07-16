@@ -786,6 +786,12 @@ function OddsetView() {
         : `Priset bekräftades senast ${timeAgo(market.last_seen_at)} och är för gammalt för värdesignaler/facit.`
     return <span className={`priceage ${market.fresh ? '' : 'stale'}`} title={title}>· {label}</span>
   }
+  const clvLine = (market, line) => market?.endsWith('ah') ? fmtAh(line) : line
+  const clvMoveText = (r) => {
+    if (r.line_delta == null || Math.abs(r.line_delta) < 0.0001) return ''
+    const direction = r.line_move_score > 0 ? 'med' : r.line_move_score < 0 ? 'emot' : 'neutralt'
+    return `lina ${clvLine(r.market, r.line)}→${clvLine(r.market, r.closing_line)} · ${direction} spelet ${r.line_move_score > 0 ? '+' : ''}${r.line_move_score}`
+  }
 
   const DetailChart = ({ label, series }) => {
     const all = series.flatMap((s) => s.pts || [])
@@ -1251,8 +1257,9 @@ function OddsetView() {
                           : null))}
                       {(clv?.rows || []).filter((r) => r.match_id === m.id).map((r, j) => (
                         <span key={j} className={r.tier === 'model' ? 'apill' : 'epill'}>
-                          {r.market} {r.sign} @{r.first_odds} {r.first_edge > 0 ? '+' : ''}{Math.round(r.first_edge * 100)}%
-                          {r.closing_fair != null ? ` → close-EV ${((r.closing_fair * r.first_odds - 1) * 100).toFixed(0)}%` : ' · öppen'}
+                          {r.market} {r.sign}{r.line != null ? ` (${clvLine(r.market, r.line)})` : ''} @{r.first_odds} {r.first_edge > 0 ? '+' : ''}{Math.round(r.first_edge * 100)}%
+                          {r.closing_fair != null ? ` → close-EV ${((r.closing_fair * r.first_odds - 1) * 100).toFixed(0)}%` : ''}
+                          {clvMoveText(r) ? ` · ${clvMoveText(r)}` : r.closing_fair == null ? ` · ${r.closing_note || 'öppen'}` : ''}
                         </span>
                       ))}
                     </div>
@@ -1268,9 +1275,11 @@ function OddsetView() {
           <p className="hint clvline clickable" onClick={() => setShowLog(!showLog)}
             title="Varje flagga loggas (först/bäst per marknad) och jämförs efter avspark med devigad Pinnacle-stängning. Grönt-krav (v2): minst 50 stängda OCH undre 90%-KI-gränsen över noll (bootstrap per match, EV capped ±20%) — positivt snitt ensamt räcker inte. Klicka för hela tabellen.">
             📒 Signal-logg — sharp: {clv.sharp?.n ?? 0} flaggor · {clv.sharp?.n_resolved ?? 0} stängda
+            {clv.sharp?.n_line_moved > 0 && <> · {clv.sharp.n_line_moved} linjeflytt{clv.sharp.n_line_moved === 1 ? '' : 'ar'}</>}
             {clv.sharp?.avg_close_ev != null && <> · snitt <b className={clv.sharp.avg_close_ev >= 0 ? 'pos' : 'neg'}>{(clv.sharp.avg_close_ev * 100).toFixed(1)}%</b></>}
             {clv.sharp?.ci && <> · KI [{(clv.sharp.ci[0] * 100).toFixed(1)}..{(clv.sharp.ci[1] * 100).toFixed(1)}]{clv.sharp.green_ready ? ' ✓' : ''}</>}
             {clv.model?.n > 0 && <> &nbsp;|&nbsp; 🧪 modell: {clv.model.n} flaggor · {clv.model.n_resolved} stängda
+              {clv.model.n_line_moved > 0 && <> · {clv.model.n_line_moved} linjeflytt{clv.model.n_line_moved === 1 ? '' : 'ar'}</>}
               {clv.model.avg_close_ev != null && <> · snitt <b className={clv.model.avg_close_ev >= 0 ? 'pos' : 'neg'}>{(clv.model.avg_close_ev * 100).toFixed(1)}%</b></>}
               {clv.model?.ci && <> · KI [{(clv.model.ci[0] * 100).toFixed(1)}..{(clv.model.ci[1] * 100).toFixed(1)}]{clv.model.green_ready ? ' ✓' : ''}</>}</>}
             {' '}{showLog ? '▲' : '▼'}
@@ -1279,18 +1288,19 @@ function OddsetView() {
             <table className="logtable">
               <thead><tr><th>flagga</th><th>match</th><th>bok</th><th>odds</th><th>edge</th><th>bäst</th><th>stängning</th><th>tier</th></tr></thead>
               <tbody>
-                {(clv.rows || []).slice(0, 40).map((r, i) => (
+                {(clv.rows || []).map((r, i) => (
                   <tr key={i}>
-                    <td>{r.market} {r.sign}{r.line != null ? ` (${r.line})` : ''}</td>
+                    <td>{r.market} {r.sign}{r.line != null ? ` (${clvLine(r.market, r.line)})` : ''}</td>
                     <td>{r.description}</td>
                     <td>{BOOK_NAME[r.book] || r.book || 'SvS'}</td>
                     <td>{r.first_odds}</td>
                     <td>{r.first_edge > 0 ? '+' : ''}{(r.first_edge * 100).toFixed(1)}%</td>
                     <td>{r.best_edge > 0 ? '+' : ''}{(r.best_edge * 100).toFixed(1)}%</td>
                     <td>{r.closing_fair != null
-                      ? <b className={(r.closing_fair * r.first_odds - 1) >= 0 ? 'pos' : 'neg'}>
+                      ? <><b className={(r.closing_fair * r.first_odds - 1) >= 0 ? 'pos' : 'neg'}>
                         {((r.closing_fair * r.first_odds - 1) * 100).toFixed(1)}%</b>
-                      : (r.closing_note || 'öppen')}</td>
+                        {clvMoveText(r) && <span className="hint"> · {clvMoveText(r)}</span>}</>
+                      : (clvMoveText(r) || r.closing_note || 'öppen')}</td>
                     <td>{r.tier === 'model' ? '🧪' : '💰'}</td>
                   </tr>
                 ))}

@@ -8,6 +8,26 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-07-16 — WP4 CLV-identitet och linjeflytt
+
+- **Skript:** `backend/scripts/migrera_clv_identitet.py` (idempotent, kräver
+  backup och recreatar tabellen atomärt).
+- **Backup:** `backend/data/backups/stryktips-2026-07-16-fore-wp4.db` (SQLite
+  online-backup före schemaändringen).
+- **Vad:** primärnyckeln byttes från `(match_id, market, sign)` till
+  `(match_id, market, sign, line_key, model_version)`. `line_key` är
+  `round(line×1000)`; marknader utan lina använder sentinel `2147483647`.
+  Closing-facitet fick `closing_line`, `line_delta` och `line_move_score`, där
+  positivt score betyder att marknaden rörde sig med selektionen.
+- **Migrering:** 110→110 rader, 110 unika nya identiteter,
+  `PRAGMA integrity_check = ok`. En tidigare censurerad Ö3,25-rad
+  (Djurgården–Halmstad) öppnades för omkörning och klassades mot slutlinan
+  3,50 som `linje flyttad`, delta/score `+0,25`; inget close-EV skapades eftersom
+  exakt-line-priset inte var färskt nog.
+- **Efterkontroll:** produktionen accepterade 41 nya version/lina-identiteter
+  (totalt 151/151 unika rader) som den gamla nyckeln hade blockerat. Rapporten
+  visar linjeflytten separat från de 16 jämförbara close-EV-raderna.
+
 ## 2026-07-16 — WP2 prisnärvaro och källhälsa
 
 - **Skript:** `backend/scripts/migrera_prisnarvaro.py` (idempotent, kräver backup).

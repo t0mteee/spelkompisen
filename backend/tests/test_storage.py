@@ -85,5 +85,34 @@ class OddsetPresenceTests(unittest.TestCase):
         self.assertEqual("blocked", health[0]["error"])
 
 
+class OddsetValueIdentityTests(unittest.TestCase):
+    def test_line_and_signal_version_are_independent_identities(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                base = {
+                    "match_id": "m1", "market": "ah", "sign": "H",
+                    "league": "mls", "description": "A – B",
+                    "match_start": "2026-07-17T10:00:00Z",
+                    "at": "2026-07-16T10:00:00Z", "odds": 2.1,
+                    "fair": 0.5, "edge": 0.05, "book": "svenskaspel",
+                    "tier": "sharp", "git_hash": "abc",
+                }
+                store.oddset_log_flag({**base, "line": -0.5, "model_version": "s-v1"})
+                store.oddset_log_flag({**base, "line": -0.75, "model_version": "s-v1"})
+                store.oddset_log_flag({**base, "line": -0.5, "model_version": "s-v2"})
+                store.oddset_log_flag({**base, "line": -0.5, "model_version": "s-v1",
+                                       "edge": 0.08, "at": "2026-07-16T10:30:00Z"})
+
+                rows = store.oddset_clv_rows()
+                self.assertEqual(3, len(rows))
+                v1 = next(r for r in rows if r["line"] == -0.5
+                          and r["model_version"] == "s-v1")
+                self.assertEqual(0.05, v1["first_edge"])
+                self.assertEqual(0.08, v1["best_edge"])
+            finally:
+                store.close()
+
+
 if __name__ == "__main__":
     unittest.main()

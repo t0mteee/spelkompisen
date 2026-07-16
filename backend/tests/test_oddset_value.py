@@ -65,6 +65,26 @@ class ClosingFreshnessTests(unittest.TestCase):
             "book": "svenskaspel", "model_version": "s-test", "git_hash": "abc",
         })
 
+    def _pair_flag(self, start: dt.datetime, market: str, sign: str,
+                   line: float) -> None:
+        self.store.oddset_log_flag({
+            "match_id": "m1", "market": market, "sign": sign, "line": line,
+            "league": "mls", "description": "A – B",
+            "match_start": start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "at": (start - dt.timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "odds": 2.0, "fair": 0.5, "edge": 0.05,
+            "book": "svenskaspel", "tier": "model",
+            "model_version": "m-test", "git_hash": "abc",
+        })
+
+    def _pair_prices(self, market: str, line: float, at: dt.datetime) -> None:
+        signs = ("H", "A") if market == "ah" else ("O", "U")
+        self.store.oddset_save_market(
+            "m1", "pinnacle", market,
+            {signs[0]: {"odds": 1.9, "line": line},
+             signs[1]: {"odds": 1.95, "line": line}},
+            at.strftime("%Y-%m-%dT%H:%M:%SZ"))
+
     def test_old_unconfirmed_sharp_price_is_not_used_as_closing(self) -> None:
         start = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1)
         old = (start - dt.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -90,6 +110,46 @@ class ClosingFreshnessTests(unittest.TestCase):
         row = self.store.oddset_clv_rows()[0]
         self.assertIsNone(row["closing_note"])
         self.assertIsNotNone(row["closing_fair"])
+
+    def test_line_move_is_resolved_category_when_flag_line_is_old(self) -> None:
+        start = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1)
+        self._pair_prices("ou", 3.25, start - dt.timedelta(hours=2))
+        self._pair_prices("ou", 3.5, start - dt.timedelta(minutes=10))
+        self._pair_flag(start, "mou", "O", 3.25)
+
+        self.assertEqual(1, oddset_value.resolve_closings(self.store))
+        row = self.store.oddset_clv_rows()[0]
+        self.assertEqual("linje flyttad", row["closing_note"])
+        self.assertEqual(3.5, row["closing_line"])
+        self.assertEqual(0.25, row["line_delta"])
+        self.assertEqual(0.25, row["line_move_score"])
+        self.assertIsNone(row["closing_fair"])
+        stats = oddset_value.clv_report(self.store)["model"]
+        self.assertEqual(1, stats["n_line_moved"])
+        self.assertEqual(1, stats["n_line_moved_positive"])
+
+    def test_fresh_exact_line_keeps_close_ev_and_records_later_move(self) -> None:
+        start = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1)
+        self._pair_prices("ou", 3.25, start - dt.timedelta(minutes=30))
+        self._pair_prices("ou", 3.5, start - dt.timedelta(minutes=10))
+        self._pair_flag(start, "mou", "O", 3.25)
+
+        oddset_value.resolve_closings(self.store)
+        row = self.store.oddset_clv_rows()[0]
+        self.assertIsNone(row["closing_note"])
+        self.assertIsNotNone(row["closing_fair"])
+        self.assertEqual(0.25, row["line_move_score"])
+
+    def test_home_handicap_shortening_has_positive_move_score(self) -> None:
+        start = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1)
+        self._pair_prices("ah", -0.5, start - dt.timedelta(minutes=30))
+        self._pair_prices("ah", -0.75, start - dt.timedelta(minutes=10))
+        self._pair_flag(start, "mah", "H", -0.5)
+
+        oddset_value.resolve_closings(self.store)
+        row = self.store.oddset_clv_rows()[0]
+        self.assertEqual(-0.25, row["line_delta"])
+        self.assertEqual(0.25, row["line_move_score"])
 
 
 if __name__ == "__main__":
