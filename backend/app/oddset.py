@@ -49,8 +49,8 @@ LIST_WINDOW_H_BACK = 2     # visa matcher som startat för < 2 h sedan
 LIST_WINDOW_D_FWD = 10
 
 # Snabbpoll (backlog A1): 30-min-pollen är för långsam för lag-fönstret — när
-# avspark närmar sig körs lätta varv (endast Pinnacle + böckernas 1X2, ingen
-# Kambi-deep/modelldata) i samma launchd-pass, och notiserna pushas i varje varv.
+# avspark närmar sig körs lätta varv (Pinnacle + böckernas 1X2 samt SvS-deep
+# för matcherna i 3h-fönstret; ingen modelldata) i samma launchd-pass.
 # OBS: backloggen skrev "<36 h" men det vore i praktiken kontinuerlig polling
 # dygnet runt (Pinnacle Cloudflare-blockar på IP-nivå) — 3 h täcker lineup-
 # fönstret + sena steamen och håller volymen nere. Bara ligor med match i
@@ -208,14 +208,21 @@ def pinnacle_league_index(pin: Pinnacle, league_id: int) -> list[dict]:
 _PAIR_KEYS = {"ah": ("H", "A"), "ou": ("O", "U"), "cor": ("O", "U")}
 
 
-def _save_pair_markets(store: Storage, mid: str, source: str, row: dict, at: str) -> int:
+def _observe_pair_markets(store: Storage, mid: str, source: str,
+                          row: dict, at: str) -> int:
+    """Registrera alla parmarknader efter ett lyckat källsvar.
+
+    Även en saknad marknad är information: en tidigare rad ska då markeras
+    unavailable i stället för att ligga kvar som ett spelbart spökpris.
+    """
     n = 0
     for market, (k1, k2) in _PAIR_KEYS.items():
         v = row.get(market)
-        if v:
-            n += store.oddset_save_market(mid, source, market, {
+        rows = ({
                 k1: {"odds": v[k1], "line": v["line"]},
-                k2: {"odds": v[k2], "line": v["line"]}}, at)
+                k2: {"odds": v[k2], "line": v["line"]}}
+                if v else {})
+        n += store.oddset_save_market(mid, source, market, rows, at)
     return n
 
 
@@ -223,14 +230,17 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
             deep: bool = True) -> dict:
     """Hämta odds för alla ligor från båda källorna. Returnerar rapport per liga.
 
-    deep=False är snabbvarvet (A1): endast Pinnacle + böckernas 1X2 — ingen
-    Kambi-deep (AH/ÖU per event), ingen modelldata, inget modellpåhäng i
-    värdesteget. leagues begränsar till ligor med match i snabbfönstret."""
+    deep=False är snabbvarvet (A1): Pinnacle + böckernas 1X2, samt Kambi-deep
+    endast för matcher i 3h-fönstret. Modelldata/modellfit hoppas över. leagues
+    begränsar till ligor med match i snabbfönstret."""
     at = _now_iso()
+    now = dt.datetime.now(dt.timezone.utc)
     since = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=12)) \
         .strftime("%Y-%m-%dT%H:%M:%SZ")
-    deep_until = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=DEEP_MARKETS_DAYS)) \
+    list_until = (now + dt.timedelta(days=LIST_WINDOW_D_FWD)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    deep_until = (now + dt.timedelta(days=DEEP_MARKETS_DAYS)) \
         .strftime("%Y-%m-%dT%H:%M:%SZ")
+    fast_until = (now + dt.timedelta(hours=FAST_WITHIN_H)).strftime("%Y-%m-%dT%H:%M:%SZ")
     report: dict = {"at": at, "leagues": {}, "errors": []}
     # Notisvakten (WP2-mini, granskningen runda 2): allt som faktiskt sågs i
     # DETTA varvs lyckade svar — (match_id, källa, marknad). Misslyckad källa
@@ -240,14 +250,20 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
     pin = Pinnacle()
     try:
         for lg in (LEAGUES if leagues is None else leagues):
-            cands = [m for m in store.oddset_matches(since=since) if m["league"] == lg["key"]]
+            cands = [m for m in store.oddset_matches(since=since, until=list_until)
+                     if m["league"] == lg["key"]]
             rows_saved, n_pin, n_kambi = 0, 0, 0
 
+            pin_ok, pin_error = True, None
             try:
                 pin_rows = pinnacle_league_index(pin, lg["pin_id"])
             except Exception as e:  # noqa: BLE001 — Arcadia Cloudflare-blockar ibland
                 pin_rows = []
+                pin_ok, pin_error = False, str(e)
                 report["errors"].append(f"pinnacle {lg['key']}: {e}")
+            store.oddset_record_source_health(
+                "pinnacle", lg["key"], "markets", at, pin_ok, len(pin_rows), pin_error)
+            pin_seen: set[str] = set()
             for r in pin_rows:
                 ex = next((c for c in cands if c.get("pinnacle_id") == r["id"]), None) \
                     or _resolve(cands, r["home"], r["away"], r["start"])
@@ -261,18 +277,45 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     ex["pinnacle_id"] = r["id"]
                 if (r.get("start") or "9") <= at:
                     continue   # startad match = live-odds — förorena inte serierna
+                pin_seen.add(str(r["id"]))
                 if r["odds_source"]:
                     rows_saved += store.oddset_save_odds(mid, r["odds_source"], r["odds"], at)
-                    present.add((mid, "pinnacle", "1x2"))
-                rows_saved += _save_pair_markets(store, mid, "pinnacle", r, at)
+                    other = "derived" if r["odds_source"] == "pinnacle" else "pinnacle"
+                    store.oddset_mark_market_unavailable(mid, other, "1x2")
+                    if all(r["odds"].get(s) for s in ("1", "X", "2")):
+                        present.add((mid, "pinnacle", "1x2"))
+                else:
+                    store.oddset_mark_market_unavailable(mid, "pinnacle", "1x2")
+                    store.oddset_mark_market_unavailable(mid, "derived", "1x2")
+                rows_saved += _observe_pair_markets(store, mid, "pinnacle", r, at)
                 for mk_ in _PAIR_KEYS:
                     if r.get(mk_):
                         present.add((mid, "pinnacle", mk_))
                 n_pin += 1
 
-            kambi_rows = kambi.league_events(lg["kambi"])
-            if not kambi_rows:
-                report["errors"].append(f"kambi {lg['key']}: inga events")
+            if pin_ok:
+                for c in cands:
+                    pid = c.get("pinnacle_id")
+                    if not pid or str(pid) in pin_seen or (c.get("start") or "9") <= at:
+                        continue
+                    store.oddset_mark_market_unavailable(c["id"], "pinnacle", "1x2")
+                    store.oddset_mark_market_unavailable(c["id"], "derived", "1x2")
+                    for market in _PAIR_KEYS:
+                        store.oddset_mark_market_unavailable(c["id"], "pinnacle", market)
+
+            kambi_ok, kambi_error = True, None
+            try:
+                kambi_rows = kambi.league_events(lg["kambi"], strict=True)
+            except Exception as e:  # noqa: BLE001
+                kambi_rows = []
+                kambi_ok, kambi_error = False, str(e)
+                report["errors"].append(f"kambi {lg['key']}: {e}")
+            store.oddset_record_source_health(
+                "svenskaspel", lg["key"], "1x2", at, kambi_ok,
+                len(kambi_rows), kambi_error)
+            kambi_seen: set[str] = set()
+            deep_errors: list[str] = []
+            deep_checked = 0
             for e in kambi_rows:
                 ex = next((c for c in cands if c.get("kambi_id") == e["id"]), None) \
                     or _resolve(cands, e["home"], e["away"], e["start"])
@@ -287,29 +330,67 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     ex["kambi_id"] = e["id"]
                 if (e.get("start") or "9") <= at:
                     continue   # live — spara inte
+                kambi_seen.add(str(e["id"]))
                 rows_saved += store.oddset_save_odds(mid, "svenskaspel", e["odds"], at)
-                if any(e["odds"].values()):
+                if all(e["odds"].get(s) for s in ("1", "X", "2")):
                     present.add((mid, "svenskaspel", "1x2"))
-                if deep and (e.get("start") or "9") <= deep_until:
-                    mk = kambi.event_markets(e["id"], e["home"], e["away"])
-                    rows_saved += _save_pair_markets(store, mid, "svenskaspel", mk, at)
-                    for mk_ in _PAIR_KEYS:
-                        if mk.get(mk_):
-                            present.add((mid, "svenskaspel", mk_))
+                market_until = deep_until if deep else fast_until
+                if (e.get("start") or "9") <= market_until:
+                    deep_checked += 1
+                    try:
+                        mk = kambi.event_markets(
+                            e["id"], e["home"], e["away"], strict=True)
+                        rows_saved += _observe_pair_markets(
+                            store, mid, "svenskaspel", mk, at)
+                        for mk_ in _PAIR_KEYS:
+                            if mk.get(mk_):
+                                present.add((mid, "svenskaspel", mk_))
+                    except Exception as exc:  # ett eventfel får inte dölja resten
+                        deep_errors.append(f"{e['id']}: {exc}")
+                        report["errors"].append(
+                            f"kambi-deep {lg['key']} {e['id']}: {exc}")
                     time.sleep(0.25)   # paca CDN:et
                 n_kambi += 1
+
+            if kambi_ok:
+                market_until = deep_until if deep else fast_until
+                for c in cands:
+                    kid = c.get("kambi_id")
+                    if not kid or str(kid) in kambi_seen or (c.get("start") or "9") <= at:
+                        continue
+                    store.oddset_mark_market_unavailable(
+                        c["id"], "svenskaspel", "1x2")
+                    if (c.get("start") or "9") <= market_until:
+                        for market in _PAIR_KEYS:
+                            store.oddset_mark_market_unavailable(
+                                c["id"], "svenskaspel", market)
+            store.oddset_record_source_health(
+                "svenskaspel", lg["key"], "deep", at,
+                kambi_ok and not deep_errors, deep_checked,
+                "; ".join(deep_errors) if deep_errors else kambi_error)
 
             # sidoböcker (1X2): Kambi-operatörer delar event-id:n, Altenar matchas fuzzy
             n_books = 0
             for book in BOOKS:
-                if book.get("kambi_op"):
-                    b_rows = kambi.league_events(lg["kambi"], operator=book["kambi_op"])
-                elif book.get("altenar") and lg.get("altenar"):
-                    from . import altenar
-                    b_rows = altenar.league_events(lg["altenar"],
-                                                   integration=book["altenar"])
-                else:
+                if not book.get("kambi_op") and not (book.get("altenar") and lg.get("altenar")):
                     continue
+                book_ok, book_error = True, None
+                try:
+                    if book.get("kambi_op"):
+                        b_rows = kambi.league_events(
+                            lg["kambi"], operator=book["kambi_op"], strict=True)
+                    else:
+                        from . import altenar
+                        b_rows = altenar.league_events(
+                            lg["altenar"], integration=book["altenar"], strict=True)
+                except Exception as exc:  # noqa: BLE001
+                    b_rows = []
+                    book_ok, book_error = False, str(exc)
+                    report["errors"].append(f"{book['key']} {lg['key']}: {exc}")
+                store.oddset_record_source_health(
+                    book["key"], lg["key"], "1x2", at, book_ok,
+                    len(b_rows), book_error)
+                book_seen: set[str] = set()
                 for e in b_rows:
                     ex = next((c for c in cands if c.get("kambi_id") == e["id"]), None) \
                         if book.get("kambi_op") else None
@@ -317,9 +398,16 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     if not ex or (e.get("start") or "9") <= at:
                         continue   # skapa inga matcher från sidoböcker; hoppa live
                     rows_saved += store.oddset_save_odds(ex["id"], book["key"], e["odds"], at)
-                    if any(e["odds"].values()):
+                    book_seen.add(ex["id"])
+                    if all(e["odds"].get(s) for s in ("1", "X", "2")):
                         present.add((ex["id"], book["key"], "1x2"))
                     n_books += 1
+                if book_ok:
+                    for c in cands:
+                        if c["id"] in book_seen or (c.get("start") or "9") <= at:
+                            continue
+                        store.oddset_mark_market_unavailable(
+                            c["id"], book["key"], "1x2")
 
             report["leagues"][lg["key"]] = {
                 "pinnacle": n_pin, "kambi": n_kambi, "books": n_books,
@@ -398,4 +486,5 @@ def matches_payload(store: Storage, light: bool = False) -> dict:
             pass
     return {"matches": out,
             "leagues": [{"key": lg["key"], "name": lg["name"]} for lg in LEAGUES],
-            "last_run": store.meta_get("oddset_last_run")}
+            "last_run": store.meta_get("oddset_last_run"),
+            "source_health": store.oddset_source_health()}

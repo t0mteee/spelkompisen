@@ -18,11 +18,12 @@
   close-EV winsoriserad ±20 %), per liga × marknad × modellversion — positivt
   snitt ensamt räcker inte. Flaggor stämplas med semantisk signalversion + git-hash.
 - **UI**: spelkort m. Kelly + stödchips, radar, amber-lista, detaljvy (klick på match),
-  loggtabell (📒), 🔔 larmhistorik, 🎯 bara-signaler, ℹ-prickar + legend.
+  loggtabell (📒), 🔔 larmhistorik, 🎯 bara-signaler, ℹ-prickar + legend;
+  källhälsa och prisets bekräftelseålder visas direkt i Oddset-vyn.
 - **Insamling (A1 ✅ 2026-07-13)**: launchd kör `cli.py smart` var 30:e min —
   fullt varv (alla källor + deep + modelldata + poolspel), och därefter SNABBVARV
-  var 4:e min så länge någon match startar inom 3 h (endast Pinnacle + böckernas
-  1X2 för ligorna i fönstret; notiser pushas i samma varv = larm inom minuter).
+  var 4:e min så länge någon match startar inom 3 h (Pinnacle + böckernas 1X2
+  för ligorna i fönstret samt SvS deep-marknader för just 3h-matcherna).
   Poolspels-tätläget (var 5:e min när omgång stänger inom 2 h) väver i samma pass.
 - **Granskningsrunda 2026-07-13** (Codex + Claude-verifiering, full rapport i
   `docs/granskning-2026-07-13.md`): 8/10 områden bekräftade med evidens.
@@ -30,8 +31,8 @@
   304 datum-dubbletter borta, LA Galaxy en identitet, xG 57→73 %, straff-
   kontaminerade slutspelsresultat rättade/raderade, normaltime i stället för
   current), grönt-kriterium v2 (KI + modellversion), ärlig decay-text.
-  **P0 härifrån = sanningslagret**: WP2 pris-närvaro, WP4 CLV-linje och WP5
-  prediction ledger (se backloggen).
+  **P0 härifrån = sanningslagret**: WP4 CLV-identitet och WP5 prediction ledger
+  (se backloggen).
 - **Granskningen runda 2 åtgärdad (2026-07-16)**: WP0 klar (WAL, busy_timeout,
   batch-transaktioner), WP2-mini klar (**notisvakten**: notiser kräver att både
   bok- och Pinnacle-priset observerades i det aktuella lyckade varvet — presence-
@@ -47,7 +48,13 @@
   tester och 35 aktuella ankrade matcher (linjer 2.25–3.75). Akuta delen av WP8
   klar: transient Sofascore-statistikfel sparar resultatet men lämnar eventet
   för retry; 404/410 avslutas som permanent statistik-saknad. Första automatiska
-  sviten finns i `backend/tests/` (7 `unittest`-fall, inga nya dependencies).
+  sviten finns i `backend/tests/` (18 `unittest`-fall, inga nya dependencies).
+  **WP2 full klar:** prisförändring (`fetched_at`) och senaste bekräftelse
+  (`last_seen_at`) är separerade; lyckade svar markerar plockade/suspenderade
+  priser, källfel gör det inte. Värde, steam, modellkanter och closing-facit
+  kräver tillgängligt pris bekräftat inom 45 min. Källhälsa + prisålder visas i
+  UI och SvS-deep ingår i 3h-snabbvarvet. Slutliga signalversioner efter
+  närvaroregeln: sharp `s-0f1355fb`, modell `m-fce3b64e`.
 - **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
   2026-07-16**; mobilpolish; WP-backloggen nedan; stora Europa-ligorna **PAUSADE tills
   WP0–WP5 är klara** (beslut 2026-07-13).
@@ -84,7 +91,7 @@ normaltime-fixen), grönt-kriterium v2 (kluster-bootstrap-KI + versionsstämpel)
 decay-benämningen, A1-snabbpollen (`cli.py smart`). *(2026-07-16, runda 2)*
 WP0 (WAL/busy_timeout/`bulk()`), WP2-mini (notisvakten), version-split
 (signal_version + git_hash, migrerad). *(2026-07-16, Codex)* WP1 settlement-
-ankring + testgrund, WP8a Sofascore seen/retry.
+ankring + testgrund, WP2 full prisnärvaro/källhälsa, WP8a Sofascore seen/retry.
 
 **P0 — sanningslager & matematik (i ordning):**
 - **WP1 ✅ 2026-07-16**: settlement-aware ÖU-ankring för hel/halv/kvart;
@@ -92,14 +99,16 @@ ankring + testgrund, WP8a Sofascore seen/retry.
   ankaret. `pair_fair` och ankaret delar settlement-matematik; `anchor` bumpad i
   MODEL_PARAMS. Historisk T är fortfarande fittad på oankrade 1X2-prediktioner —
   omkalibrera inte skenbart utan historiska Ö/U-linjer; WP5-ledgern ger PIT-data.
-- **WP2 full** (M): pris-närvaro persistent — last_seen_at per selektion
-  (uppdateras vid dedup-skip), available/suspended-status, source health i
-  statusraden, åldersvakt även i VÄRDE-visning/facit (notisvakten täcker i dag
-  bara larmen), bekräftelseålder i UI, deep-markets i snabbvarvet för matcher
-  i 3h-fönstret.
-- **WP4** (S/M): CLV-identitet — line in i PK (recreate + kopiera; facit bevaras),
-  stängning på flaggans lina, "line moved" som egen facit-kategori (Δlina) i
-  stället för censur.
+- **WP2 full ✅ 2026-07-16**: persistent `last_seen_at` per selektion
+  (uppdateras vid dedup-skip), available/suspended, källhälsa, 45-minutersvakt
+  i värde/modell/steam/facit, bekräftelseålder i UI och SvS-deep i 3h-varvet.
+  Misslyckade källanrop ändrar aldrig availability. Migration + backup +
+  rapport finns i `docs/db-atgarder.md`.
+- **WP4** (S/M): CLV-identitet — **signal_version + line** måste in i PK
+  (recreate + kopiera; facit bevaras). Dagens PK `(match_id, market, sign)` gör
+  annars att samma selektion inte kan loggas under en ny algoritmversion —
+  versionssplitten blir i praktiken blockerad. Stängning på flaggans lina;
+  "line moved" som egen facit-kategori (Δlina) i stället för censur.
 - **WP5** (M/L): prediction ledger — ALLA prediktioner vid fasta horisonter
   (T−24h/−3h/−20m, sammanfaller med pollpassen) med sharp-fair/modell-fair/
   bokpris/availability/signal_version. **Grönt-kriterium v3 på ledgern**:

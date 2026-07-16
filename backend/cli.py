@@ -430,7 +430,8 @@ def _print_oddset_report(rep: dict) -> None:
 def cmd_oddset(deep: bool = True) -> float | None:
     """Hämta odds för Oddset-ligorna (Pinnacle + Kambi + sidoböcker).
     deep=False = snabbvarv (A1): bara ligor med avspark inom snabbfönstret,
-    endast Pinnacle + böckernas 1X2. Returnerar timmar till nästa avspark."""
+    Pinnacle + böckernas 1X2 + SvS-deep för 3h-matcherna. Returnerar timmar
+    till nästa avspark."""
     from app import oddset
     store = Storage()
     try:
@@ -447,7 +448,7 @@ def cmd_oddset(deep: bool = True) -> float | None:
 def cmd_smart(max_seconds: int = DENSE_BUDGET_S) -> None:
     """Ett launchd-pass (backlog A1): fullt oddset-varv + poolspels-snapshots,
     därefter snabbvarv var 4:e min så länge någon oddset-match startar inom
-    FAST_WITHIN_H (endast Pinnacle + bok-1X2, notiser i samma varv) och/eller
+    FAST_WITHIN_H (Pinnacle + bok-1X2 + SvS-deep för 3h-matcher) och/eller
     tätvarv var 5:e min när ett poolspel stänger inom DENSE_WITHIN_H — tills
     tidsbudgeten (~25 min) är slut och nästa launchd-körning tar vid."""
     import time

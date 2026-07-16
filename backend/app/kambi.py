@@ -38,7 +38,7 @@ def _main_pair(pairs: list[tuple]) -> Optional[dict]:
 
 
 def league_events(path: str, timeout: float = 25.0,
-                  operator: str = "svenskaspel") -> list[dict]:
+                  operator: str = "svenskaspel", strict: bool = False) -> list[dict]:
     """Matcher + 1X2 för en ligaväg (t.ex. 'football/sweden/allsvenskan').
     Returnerar [{id, home, away, start, odds{'1','X','2'}}]. Tom lista vid fel."""
     try:
@@ -46,7 +46,9 @@ def league_events(path: str, timeout: float = 25.0,
                       headers=HEADERS, timeout=timeout)
         r.raise_for_status()
         data = r.json()
-    except Exception:  # noqa: BLE001 — best-effort, källan får inte fälla insamlingen
+    except Exception:  # noqa: BLE001 — best-effort för gamla direktanrop
+        if strict:
+            raise
         return []
 
     out: list[dict] = []
@@ -91,7 +93,8 @@ def _side(label: Optional[str], home: str, away: str) -> Optional[str]:
     return None
 
 
-def event_markets(event_id: str, home: str, away: str, timeout: float = 25.0) -> dict:
+def event_markets(event_id: str, home: str, away: str, timeout: float = 25.0,
+                  strict: bool = False) -> dict:
     """Asian handicap + asiatisk total (huvudlinan) för ett event.
     -> {'ah': {H,A,line}, 'ou': {O,U,line}} (nycklar bara när kompletta). Tom vid fel."""
     try:
@@ -100,6 +103,8 @@ def event_markets(event_id: str, home: str, away: str, timeout: float = 25.0) ->
         r.raise_for_status()
         bos = (r.json() or {}).get("betOffers") or []
     except Exception:  # noqa: BLE001
+        if strict:
+            raise
         return {}
 
     ah_pairs, ou_pairs = [], []

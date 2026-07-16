@@ -770,6 +770,23 @@ function OddsetView() {
   }
   const InfoDot = ({ text }) => <span className="idot" title={text}>i</span>
 
+  const quoteClass = (base, market) => `${base}${market && !market.fresh ? ' quote-stale' : ''}`
+  const priceStamp = (market) => {
+    if (!market) return null
+    const age = market.age_minutes
+    const label = !market.available ? 'pausad'
+      : age == null ? 'okänd'
+        : age < 1.5 ? 'nu'
+          : age < 60 ? `${Math.round(age)}m`
+            : `${Math.round(age / 60)}h`
+    const title = !market.available
+      ? `Priset saknades i källans senaste lyckade svar och räknas inte som spelbart. Senast sett ${timeAgo(market.last_seen_at)}.`
+      : market.fresh
+        ? `Priset bekräftades ${timeAgo(market.last_seen_at)}.`
+        : `Priset bekräftades senast ${timeAgo(market.last_seen_at)} och är för gammalt för värdesignaler/facit.`
+    return <span className={`priceage ${market.fresh ? '' : 'stale'}`} title={title}>· {label}</span>
+  }
+
   const DetailChart = ({ label, series }) => {
     const all = series.flatMap((s) => s.pts || [])
     if (all.length < 2) return null
@@ -859,13 +876,14 @@ function OddsetView() {
     const mEdge = md?.edges?.[sign]
     return (
       <td className="oc" key={sign}>
-        <div className="o" title={mv?.pts?.length > 1 ? serie(mv) : undefined}>
+        <div className={quoteClass('o', svs)} title={mv?.pts?.length > 1 ? serie(mv) : undefined}>
           {svs?.[sign] ? svs[sign].toFixed(2) : '–'}{arrow(mv)}
           {(v?.book ?? 'svenskaspel') === 'svenskaspel' && edgePill(v)}
+          {priceStamp(svs)}
         </div>
         {pin?.[sign] && (
-          <div className="p" title={mvP?.pts?.length > 1 ? `Pinnacle:\n${serie(mvP)}` : 'Pinnacle (sharp)'}>
-            P{pin.derived ? '~' : ''} {pin[sign].toFixed(2)}{arrow(mvP)}
+          <div className={quoteClass('p', pin)} title={mvP?.pts?.length > 1 ? `Pinnacle:\n${serie(mvP)}` : 'Pinnacle (sharp)'}>
+            P{pin.derived ? '~' : ''} {pin[sign].toFixed(2)}{arrow(mvP)}{priceStamp(pin)}
           </div>
         )}
         {[['expekt', 'E', 'Expekt'], ['betinia', 'B', 'Betinia']].map(([bk, tag, label]) => {
@@ -873,8 +891,8 @@ function OddsetView() {
           const mvB = m.movement?.[bk]?.['1x2']?.[sign]
           if (bo?.[sign] && bo[sign] === svs?.[sign]) return null  // identiskt med SvS = brus
           return bo?.[sign] ? (
-            <div className="p" key={bk} title={mvB?.pts?.length > 1 ? `${label}:\n${serie(mvB)}` : label}>
-              {tag} {bo[sign].toFixed(2)}{arrow(mvB)}{v?.book === bk && edgePill(v)}
+            <div className={quoteClass('p', bo)} key={bk} title={mvB?.pts?.length > 1 ? `${label}:\n${serie(mvB)}` : label}>
+              {tag} {bo[sign].toFixed(2)}{arrow(mvB)}{v?.book === bk && edgePill(v)}{priceStamp(bo)}
             </div>
           ) : null
         })}
@@ -905,11 +923,11 @@ function OddsetView() {
       .filter(([, e]) => e >= 0.05).sort((a, b) => b[1] - a[1])[0]
     return (
       <td className="oc pair">
-        <div className="o">
-          {svs ? <>{fmtL(svs.line)} · {svs[k1].toFixed(2)}{arrowAtLine(mvS1, svs.line)} / {svs[k2].toFixed(2)}{arrowAtLine(mvS2, svs.line)}{shiftBadge(mvS1, 'SvS')}</> : '–'}
+        <div className={quoteClass('o', svs)}>
+          {svs?.[k1] && svs?.[k2] ? <>{fmtL(svs.line)} · {svs[k1].toFixed(2)}{arrowAtLine(mvS1, svs.line)} / {svs[k2].toFixed(2)}{arrowAtLine(mvS2, svs.line)}{shiftBadge(mvS1, 'SvS')}{priceStamp(svs)}</> : '–'}
           {edgePill(v1) || edgePill(v2)}
         </div>
-        {pin && <div className="p">P {fmtL(pin.line)} · {pin[k1].toFixed(2)}{arrowAtLine(mvP1, pin.line)} / {pin[k2].toFixed(2)}{arrowAtLine(mvP2, pin.line)}{shiftBadge(mvP1, 'Pinnacle')}</div>}
+        {pin?.[k1] && pin?.[k2] && <div className={quoteClass('p', pin)}>P {fmtL(pin.line)} · {pin[k1].toFixed(2)}{arrowAtLine(mvP1, pin.line)} / {pin[k2].toFixed(2)}{arrowAtLine(mvP2, pin.line)}{shiftBadge(mvP1, 'Pinnacle')}{priceStamp(pin)}</div>}
         {mp && (
           <div className="m"
             title={`Modellens fair vid SvS-linjen ${fmtL(mp.line)} (push/kvartslinjer hanterade).${market === 'ou' && m.model?.anchored ? '\nÖU: totalen är ankrad mot sharp — fairen ligger nära Pinnacle per konstruktion; edgen mäter mest SvS marginal.' : ''}${market === 'ah' ? '\nAH bär modellens EGEN styrkebedömning (supremacy) — här kan modellen avvika på riktigt.' : ''}\nAmber: experimentell — forward-loggas i 📒-facitet, spela inte blint.`}>
@@ -933,10 +951,27 @@ function OddsetView() {
   if (err) return <section><h2>Oddset</h2><div className="error">{err}</div></section>
   if (!data) return <section><h2>Oddset</h2><div className="loading">Hämtar…</div></section>
 
+  const leagueName = Object.fromEntries(data.leagues.map((l) => [l.key, l.name]))
+  const healthDefs = [
+    ['pinnacle', 'markets', 'P'], ['svenskaspel', '1x2', 'SvS'],
+    ['svenskaspel', 'deep', 'SvS djup'], ['expekt', '1x2', 'E'],
+    ['betinia', '1x2', 'B'],
+  ]
+  const sourceHealth = healthDefs.flatMap(([source, scope, label]) => {
+    const rows = (data.source_health || []).filter((r) => r.source === source && r.scope === scope)
+    if (!rows.length) return []
+    const latest = rows.reduce((a, r) => !a || r.checked_at > a ? r.checked_at : a, null)
+    const failed = rows.filter((r) => !r.ok)
+    const stale = Date.now() - new Date(latest).getTime() > 45 * 60 * 1000
+    const details = failed.length
+      ? failed.map((r) => `${leagueName?.[r.league] || r.league}: ${r.error || 'källfel'}`).join('\n')
+      : `${rows.reduce((n, r) => n + (r.event_count || 0), 0)} events · kontrollerad ${timeAgo(latest)}`
+    return [{ source, scope, label, latest, ok: !failed.length && !stale, details }]
+  })
+
   const counts = {}
   for (const m of data.matches) counts[m.league] = (counts[m.league] || 0) + 1
   const visible = data.matches.filter((m) => !hidden.includes(m.league))
-  const leagueName = Object.fromEntries(data.leagues.map((l) => [l.key, l.name]))
   const hasSignal = (m) => {
     if (Object.values(m.value || {}).some((per) => Object.values(per).some((v) => v.edge >= 0.02))) return true
     if (Object.values(m.steam || {}).some((sh) => Math.abs(sh.h6 ?? 0) >= 1.5 || Math.abs(sh.h24 ?? 0) >= 1.5)) return true
@@ -1013,6 +1048,12 @@ function OddsetView() {
           title="Historik över triggade larm (värde ≥3 % / steam ≥5 pp) — även de som INTE pushades för att NTFY_TOPIC saknas.">
           🔔 {notices?.length || 0}
         </button>
+        {sourceHealth.map((h) => (
+          <span key={`${h.source}:${h.scope}`} className={`sourcehealth ${h.ok ? 'ok' : 'bad'}`}
+            title={`${h.label}: ${h.ok ? `frisk · ${timeAgo(h.latest)}` : 'fel eller för gammal'}\n${h.details}`}>
+            {h.ok ? '●' : '▲'} {h.label}
+          </span>
+        ))}
         <span className="spacer" />
         <span className="hint">
           {data.last_run ? `hämtat ${new Date(data.last_run).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}` : 'inga odds hämtade ännu'}

@@ -431,7 +431,7 @@ def attach_model(store: Storage, matches: list[dict]) -> None:
         anchored = False
         cal_t = _cal(lg).get("t") or 1.0
         pin_ou = ((m.get("odds") or {}).get("pinnacle") or {}).get("ou")
-        if pin_ou and pin_ou.get("O") and pin_ou.get("U"):
+        if pin_ou and pin_ou.get("fresh") and pin_ou.get("O") and pin_ou.get("U"):
             inv = {"O": 1 / pin_ou["O"], "U": 1 / pin_ou["U"]}
             p_over = _power_probs(inv)["O"]
             mu_h, mu_a = _anchor_total(
@@ -443,17 +443,18 @@ def attach_model(store: Storage, matches: list[dict]) -> None:
         svs_all = (m.get("odds") or {}).get("svenskaspel") or {}
         svs = svs_all.get("1x2") or {}
         edges = {}
-        for sign in ("1", "X", "2"):
-            o = svs.get(sign)
-            if o:
-                edges[sign] = round(probs[sign] * o - 1.0, 4)
+        if svs.get("fresh"):
+            for sign in ("1", "X", "2"):
+                o = svs.get(sign)
+                if o:
+                    edges[sign] = round(probs[sign] * o - 1.0, 4)
         # AH/ÖU vid SvS:s visade linje: fair ur samma matris + modell-edge.
         # OBS: när totalen är sharp-ankrad är ÖU-fairen nära sharpen per
         # konstruktion — AH bär modellens egen styrkebedömning (supremacy).
         pairs = {}
         for market, sides in (("ah", ("H", "A")), ("ou", ("O", "U"))):
             sv = svs_all.get(market)
-            if not sv or sv.get("line") is None:
+            if not sv or not sv.get("fresh") or sv.get("line") is None:
                 continue
             pf = pair_fair(matrix, market, sv["line"], sides)
             if not pf:

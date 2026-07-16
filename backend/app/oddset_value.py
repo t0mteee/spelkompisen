@@ -56,10 +56,14 @@ def signal_versions(store: Storage) -> dict[str, str]:
     data_v = oddset_data.DATA_VERSION
     return {"sharp": _fingerprint("s", {**SHARP_PARAMS, "data": data_v}),
             "model": _fingerprint("m", {**oddset_model.MODEL_PARAMS,
-                                        "cal_t": cal, "data": data_v})}
+                                        "cal_t": cal, "data": data_v,
+                                        "price_max_age_min": PRICE_MAX_AGE_MIN,
+                                        "price_presence": PRICE_PRESENCE_VERSION})}
 
 EDGE_SHOW = 0.02       # visas i UI (grön markering)
 EDGE_LOG = 0.02        # loggas i CLV-facitet (brett — facitet ska mäta även svansen)
+PRICE_MAX_AGE_MIN = 45 # pris måste ha bekräftats i ett lyckat svar inom detta fönster
+PRICE_PRESENCE_VERSION = "last-seen-available-v1"
 Q_NOTIFY = 0.015       # push-notis på KVALITET q = edge/(odds−1) (Kelly-andelen):
                        # samma edge är mycket mer pålitlig på låga odds — ett litet
                        # fel i fair-sannolikheten blåser upp högoddsar-edges enormt.
@@ -76,7 +80,9 @@ MARKET_LABEL = {"1x2": "1X2", "ah": "AH", "ou": "Ö/U", "cor": "Hörnor"}
 # grunden för sharp-sidans signal_version. Notisvakten ingår INTE: den styr
 # larm, inte vilka flaggor som väljs/värderas.
 SHARP_PARAMS = {"devig": "power", "edge_log": EDGE_LOG,
-                "same_line": True, "best_book": True}
+                "same_line": True, "best_book": True,
+                "price_max_age_min": PRICE_MAX_AGE_MIN,
+                "price_presence": PRICE_PRESENCE_VERSION}
 
 
 def _devig(odds: dict, signs: tuple) -> Optional[dict[str, float]]:
@@ -89,12 +95,39 @@ def _devig(odds: dict, signs: tuple) -> Optional[dict[str, float]]:
     return _power_probs(inv)
 
 
+def attach_price_status(matches: list[dict],
+                        now: Optional[dt.datetime] = None) -> None:
+    """Stämpla varje marknad med fresh/age_minutes från observationslagret.
+
+    Saknad provenance är avsiktligt inte färsk: en signal får hellre utebli än
+    byggas på ett pris vars fortsatta närvaro inte kan bevisas.
+    """
+    now = now or dt.datetime.now(dt.timezone.utc)
+    for match in matches:
+        for markets in (match.get("odds") or {}).values():
+            for market in markets.values():
+                if not isinstance(market, dict):
+                    continue
+                seen = market.get("last_seen_at")
+                try:
+                    seen_at = dt.datetime.fromisoformat(seen.replace("Z", "+00:00"))
+                    age = max(0.0, (now - seen_at).total_seconds() / 60)
+                except (AttributeError, ValueError):
+                    age = None
+                market["age_minutes"] = round(age, 1) if age is not None else None
+                market["fresh"] = bool(
+                    market.get("available") and age is not None
+                    and age <= PRICE_MAX_AGE_MIN)
+
+
 def attach_value(matches: list[dict]) -> None:
     """Sätter m['value'] = {market: {sign: {edge, fair, odds, book}}} (in place).
     Fair = devigad Pinnacle; edge räknas mot BÄSTA odds bland övriga böcker
     (svenskaspel, expekt, ...) — posten säger vilken bok. AH/ÖU/hörnor kräver
     samma linje som sharpen. Startade matcher hoppas över (live-odds ljuger)."""
-    now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_dt = dt.datetime.now(dt.timezone.utc)
+    attach_price_status(matches, now_dt)
+    now = now_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     for m in matches:
         val: dict = {}
         m["value"] = val
@@ -105,7 +138,7 @@ def attach_value(matches: list[dict]) -> None:
         books = {src: v for src, v in odds.items() if src != "pinnacle"}
         for market, signs in _MARKET_SIGNS.items():
             p = pin.get(market)
-            if not p:
+            if not p or not p.get("fresh"):
                 continue
             fair = _devig(p, signs)
             if not fair:
@@ -115,7 +148,7 @@ def attach_value(matches: list[dict]) -> None:
                 for bk in sorted(books, key=lambda b: b != "svenskaspel"):
                     bo = books[bk]
                     s = bo.get(market)
-                    if not s or not s.get(sign):
+                    if not s or not s.get("fresh") or not s.get(sign):
                         continue
                     if market != "1x2" and p.get("line") != s.get("line"):
                         continue   # olika linjer = inte jämförbart
@@ -160,6 +193,9 @@ def attach_steam(matches: list[dict]) -> None:
     now = dt.datetime.now(dt.timezone.utc)
     signs = _MARKET_SIGNS["1x2"]
     for m in matches:
+        current = ((m.get("odds") or {}).get("pinnacle") or {}).get("1x2") or {}
+        if not current.get("fresh"):
+            continue
         mv = ((m.get("movement") or {}).get("pinnacle") or {}).get("1x2") or {}
         pts = {}
         for s in signs:
@@ -317,6 +353,25 @@ def resolve_closings(store: Storage) -> int:
         if len(last) < len(signs):
             store.oddset_set_closing(f["match_id"], f["market"], f["sign"],
                                      None, None, "ingen sharp-stängning")
+            n += 1
+            continue
+        if any(not r.get("available") for r in last.values()):
+            store.oddset_set_closing(f["match_id"], f["market"], f["sign"],
+                                     None, None, "sharp-stängning ej tillgänglig")
+            n += 1
+            continue
+        start = dt.datetime.fromisoformat(f["match_start"].replace("Z", "+00:00"))
+        fresh_after = start - dt.timedelta(minutes=PRICE_MAX_AGE_MIN)
+        try:
+            stale = any(
+                dt.datetime.fromisoformat(r["last_seen_at"].replace("Z", "+00:00"))
+                < fresh_after for r in last.values())
+        except (AttributeError, ValueError):
+            stale = True
+        if stale:
+            store.oddset_set_closing(f["match_id"], f["market"], f["sign"],
+                                     None, None,
+                                     f"sharp-stängning äldre än {PRICE_MAX_AGE_MIN} min")
             n += 1
             continue
         if f["market"] != "1x2" and any(r.get("line") != f["line"] for r in last.values()):

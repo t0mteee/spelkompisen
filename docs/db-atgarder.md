@@ -8,6 +8,19 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-07-16 — WP2 prisnärvaro och källhälsa
+
+- **Skript:** `backend/scripts/migrera_prisnarvaro.py` (idempotent, kräver backup).
+- **Backup:** `backend/data/backups/stryktips-2026-07-16-fore-wp2.db` (SQLite
+  online-backup före schemaändringen).
+- **Vad:** `oddset_odds` fick `last_seen_at` och `available`; befintliga 16 400
+  rader backfillades konservativt med `last_seen_at=fetched_at`, `available=1`.
+  Tabellen `oddset_source_health` skapades. Inga prisrader raderades eller
+  skrevs om. `PRAGMA integrity_check = ok`, 0 NULL efter migrering.
+- **Efterkontroll:** ett fullt live-varv gav 27 källhälsorader utan fel,
+  349/349 aktuellt visade marknader färska och 72 nya prisförändringsrader
+  (16 400→16 472). Notifiering var avstängd; 0 pushar.
+
 ## 2026-07-16 — Versionsmigration av signal-facitet
 
 - **Skript:** `backend/scripts/migrera_signalversion.py` (idempotent, kräver backup).

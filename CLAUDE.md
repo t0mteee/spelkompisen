@@ -53,10 +53,14 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
 - **Insamling: launchd `com.saman.spelkompisen.snapshot` är LADDAT** och kör
   `backend/scripts/snapshot.sh` → `cli.py smart` var 30:e min: fullt varv (alla källor +
   Kambi-deep + modelldata + poolspel) och därefter snabbvarv var 4:e min så länge någon
-  match startar inom 3 h (endast Pinnacle + böckernas 1X2; `FAST_WITHIN_H` i oddset.py)
+  match startar inom 3 h (Pinnacle + böckernas 1X2 + SvS-deep för 3h-matcherna;
+  `FAST_WITHIN_H` i oddset.py)
   och/eller tätvarv var 5:e min när ett poolspel stänger inom 2 h — allt inom ~25 min
   budget. Notiser går i samma varv, bakom **notisvakten** (presence-set: larm kräver att
   priset observerades i det aktuella lyckade varvet).
+- **WP2-prisregel:** `fetched_at` = prisförändring, `last_seen_at` = senaste
+  lyckade bekräftelse. Värde/modell/steam/facit kräver `available` och högst
+  45 min gammal bekräftelse. Källfel får aldrig markera ett pris unavailable.
 - Push-notiser: `app/notify.py` via ntfy.sh, kräver `NTFY_TOPIC` i gitignore:ade
   `backend/.env`. Använd ett EGET topic (inte samma som svs — annars dubbla notiser).
   Notifieringsspåret är pausat på Samans begäran 2026-07-16 — återuppta inte utan besked.

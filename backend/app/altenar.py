@@ -26,7 +26,7 @@ def _params(integration: str) -> dict:
 
 
 def league_events(champ_id: int, integration: str = "betinia",
-                  timeout: float = 20.0) -> list[dict]:
+                  timeout: float = 20.0, strict: bool = False) -> list[dict]:
     """Matcher + 1X2 för en liga. [{id, home, away, start, odds{'1','X','2'}}].
     Tom lista vid fel (best-effort — sidoböcker får aldrig fälla insamlingen)."""
     try:
@@ -37,6 +37,8 @@ def league_events(champ_id: int, integration: str = "betinia",
         r.raise_for_status()
         data = r.json()
     except Exception:  # noqa: BLE001
+        if strict:
+            raise
         return []
 
     markets = {m["id"]: m for m in data.get("markets") or []}

@@ -472,6 +472,14 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
 .oddset-table .oc .p { color: var(--muted); font-size: 11px; }
 .oddset-table .oc.pair .o, .oddset-table .oc.pair .p { font-weight: 400; font-size: 12px; }
 .oddset-table .oc.pair .p { font-size: 11px; }
+.oddset-table .oc .quote-stale { opacity: 0.5; text-decoration: line-through; text-decoration-thickness: 1px; }
+.priceage { margin-left: 3px; color: var(--muted); font-size: 9px; font-weight: 400;
+  text-decoration: none; display: inline-block; }
+.priceage.stale { color: #e0a24b; font-weight: 700; }
+.sourcehealth { border: 1px solid var(--line); border-radius: 999px; padding: 2px 7px;
+  color: var(--muted); font-size: 10px; white-space: nowrap; }
+.sourcehealth.ok { color: var(--green); }
+.sourcehealth.bad { color: #e0a24b; border-color: #7a5828; }
 .mv { font-size: 10.5px; font-weight: 700; margin-left: 4px; }
 .mv.down { color: #e06b6b; }   /* oddset NER = ökad vinstchans */
 .mv.up { color: var(--green); }
