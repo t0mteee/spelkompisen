@@ -94,8 +94,19 @@
   Auto-gränsen är nu 0,75; länken är explicit verifierad som avvisad och kan
   inte mergas. Modellversionen byts till `m-c00f8a09`; sharp ligger kvar på
   `s-0f1355fb` eftersom dess facit inte påverkas.
+- **UI v3-pass klart (2026-07-16):** global status visar nu dataålder först och
+  teknisk insamlingsstatus i en expander; poolspelen prioriterar prognostiserat
+  spelvärde vid spelstopp och har fasta mobilgenvägar till byggare/kupong.
+  Oddset visar fyra viktigaste värdespel först, har kollapsad marknadsradar och
+  källhälsa, separata liga-/verktygsrader samt riktiga mobilkort utan sidscroll.
+  Liga-/verktygsraden är sticky, sekundära bokodds ligger bakom `Fler odds`,
+  tom Hörnor-kolumn döljs och detaljgraferna skalar med skärmen. Panelval sparas
+  mellan besök och laddning, tomt resultat samt fel har tydliga egna tillstånd.
+  Bomben visar faktisk modellsannolikhet bredvid värdekvoten, tonar ned extrema
+  lågchansutfall och håller radbyggaren synlig på desktop/nåbar från mobil.
 - **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
-  2026-07-16**; mobilpolish; P1/P2-backloggen nedan. Villkoret WP0–WP5 för att
+  2026-07-16**; PWA i C11 och beslut om mobil-default för `Bara signaler` återstår;
+  P1/P2-backloggen finns nedan. Villkoret WP0–WP5 för att
   ompröva stora Europa-ligor är uppfyllt, men expansionen startar inte utan ett
   separat produktbeslut (fler ligor är inte automatiskt nästa prioritet).
 
@@ -223,11 +234,12 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
   i granskningen, öppet.
 
 **C. UI/mobil (Samans punkt: inte optimalt än — parallellspår, blockerar inget)**
-9. Mobil: spelkorten 1 kolumn full bredd; panelerna (💰/📈/🧪) kollapsbara med
-   sparade lägen; detaljvyns grafer skalar till skärmbredd (overflow nu); radar-
-   raderna wrappar fult; 🎯 Bara signaler som DEFAULT på mobil.
-10. Städning: dölj Hörnor-kolumnen när alla rader är "–"; bokrader (E/B) bakom
-   liten expander per cell; sticky liga-bar vid scroll.
+9. ✅ UI v3-pass: spelkorten är 1 kolumn utan sidscroll; 💰 visar fyra först;
+   📈 är kollapsad; datakällor ligger i expander; pool/Bomben har fasta
+   mobilåtgärder; panelernas öppet/stängt-läge sparas och detaljgraferna är
+   responsiva. Kvar som produktbeslut: om 🎯 Bara signaler ska vara mobil-default.
+10. ✅ Oddset-städning: Hörnor-kolumnen döljs när allt innehåll saknas;
+   sekundära bokrader (E/B) styrs med `Fler odds`; liga-/verktygsraden är sticky.
 11. PWA: manifest + ikon så hemskärms-appen får egen identitet (svs-mönstret).
 
 **D. Stora ligorna — FORTSATT PAUSADE; WP0–WP5-gaten är nu uppfylld.**

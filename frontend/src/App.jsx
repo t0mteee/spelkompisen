@@ -17,10 +17,38 @@ function timeAgo(iso) {
   return `${Math.round(s / 86400)} dygn sedan`
 }
 
+function useStoredBool(key, initial = false) {
+  const [value, setValue] = useState(() => {
+    try {
+      const saved = localStorage.getItem(key)
+      return saved == null ? initial : saved === '1'
+    } catch { return initial }
+  })
+  const update = (next) => setValue((previous) => {
+    const resolved = typeof next === 'function' ? next(previous) : next
+    try { localStorage.setItem(key, resolved ? '1' : '0') } catch { /* ok */ }
+    return resolved
+  })
+  return [value, update]
+}
+
+function LoadingState({ label = 'Hämtar data…' }) {
+  return <div className="loading-state" role="status"><span className="spinner" aria-hidden="true" />{label}</div>
+}
+
+function EmptyState({ title, detail }) {
+  return <div className="empty-state"><b>{title}</b>{detail && <span>{detail}</span>}</div>
+}
+
+function ErrorState({ message }) {
+  return <div className="error state-error" role="alert"><b>Något gick fel</b><span>{message}</span></div>
+}
+
 /* ---------- insamling (launchd – körs även när appen är stängd) ---------- */
 function Collection() {
   const [st, setSt] = useState(null)
   const [err, setErr] = useState(null)
+  const [open, setOpen] = useState(false)
   const refresh = async () => { try { setSt(await (await fetch('/api/collection/status')).json()) } catch { /* */ } }
   const start = async () => {
     try {
@@ -37,16 +65,24 @@ function Collection() {
     <span className="colstat"
       title={`Bakgrundsinsamlingen (launchd var 30:e min, var 5:e nära spelstopp) loggar odds & streck — driver rörelser, steam, 🔥-notiser och CLV-facit.${st ? ` ${st.snapshot_count} mättillfällen totalt.` : ''}`}>
       <span className={`dot ${active ? 'on' : 'off'}`} />
-      insamling {active ? 'aktiv' : 'stoppad'}{st?.last_snapshot ? ` · ${timeAgo(st.last_snapshot)}` : ''}
-      {err && !active && <span className="neg"> {err}</span>}
-      <button className="linkbtn" onClick={active ? stop : start}>{active ? 'stoppa' : 'starta'}</button>
+      <span>Data {st?.last_snapshot ? `uppdaterad ${timeAgo(st.last_snapshot)}` : active ? 'samlas in' : 'inte uppdaterad'}</span>
+      <button className="collection-more" onClick={() => setOpen(!open)}
+        aria-expanded={open}>{open ? 'Dölj' : 'Detaljer'}</button>
+      {open && (
+        <span className="collection-detail">
+          {active ? 'Automatisk insamling aktiv' : 'Automatisk insamling stoppad'}
+          {st?.snapshot_count != null ? ` · ${st.snapshot_count} mätningar` : ''}
+          {err && !active && <span className="neg"> · {err}</span>}
+          <button className="linkbtn" onClick={active ? stop : start}>{active ? 'stoppa' : 'starta'}</button>
+        </span>
+      )}
     </span>
   )
 }
 
 /* ---------- folkfördelning (streck %) som 3-segmentsstapel ---------- */
 function Legend() {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useStoredBool('svs_ui_pool_legend')
   return (
     <div className="legendbox">
       <button className="legend-toggle" onClick={() => setOpen(!open)}>
@@ -606,7 +642,7 @@ const GAMES = [
 const ODDSET_HIDDEN_KEY = 'svs_oddset_hidden'
 
 function OddsetLegend() {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useStoredBool('svs_ui_oddset_legend')
   return (
     <div className="legendbox">
       <button className="legend-toggle" onClick={() => setOpen(!open)}>
@@ -671,6 +707,11 @@ function OddsetView() {
   const [ledger, setLedger] = useState(null)
   const [notices, setNotices] = useState(null)
   const [showNotices, setShowNotices] = useState(false)
+  const [showSources, setShowSources] = useStoredBool('svs_ui_oddset_sources')
+  const [showMovers, setShowMovers] = useStoredBool('svs_ui_oddset_movers')
+  const [showAllValues, setShowAllValues] = useStoredBool('svs_ui_oddset_values')
+  const [showAllModel, setShowAllModel] = useStoredBool('svs_ui_oddset_model_list')
+  const [showBooks, setShowBooks] = useStoredBool('svs_ui_oddset_books')
   const [showLog, setShowLog] = useState(false)
   const [showLedger, setShowLedger] = useState(false)
   const [expanded, setExpanded] = useState(null)
@@ -818,7 +859,7 @@ function OddsetView() {
     return (
       <div className="dchart">
         <div className="hint">{label} <span className="drange">{o0.toFixed(2)}–{o1.toFixed(2)}</span></div>
-        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+        <svg className="detail-chart-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Oddsrörelse för ${label}`}>
           {series.map((s, i) => (s.pts?.length > 1
             ? <polyline key={i} fill="none" stroke={s.color} strokeWidth="1.5"
               points={s.pts.map((p) => `${X(new Date(p.t).getTime()).toFixed(1)},${Y(p.o).toFixed(1)}`).join(' ')} />
@@ -894,7 +935,7 @@ function OddsetView() {
     const md = m.model
     const mEdge = md?.edges?.[sign]
     return (
-      <td className="oc" key={sign}>
+      <td className="oc" data-market={sign} key={sign}>
         <div className={quoteClass('o', svs)} title={mv?.pts?.length > 1 ? serie(mv) : undefined}>
           {svs?.[sign] ? svs[sign].toFixed(2) : '–'}{arrow(mv)}
           {(v?.book ?? 'svenskaspel') === 'svenskaspel' && edgePill(v)}
@@ -905,7 +946,7 @@ function OddsetView() {
             P{pin.derived ? '~' : ''} {pin[sign].toFixed(2)}{arrow(mvP)}{priceStamp(pin)}
           </div>
         )}
-        {[['expekt', 'E', 'Expekt'], ['betinia', 'B', 'Betinia']].map(([bk, tag, label]) => {
+        {showBooks && [['expekt', 'E', 'Expekt'], ['betinia', 'B', 'Betinia']].map(([bk, tag, label]) => {
           const bo = m.odds?.[bk]?.['1x2']
           const mvB = m.movement?.[bk]?.['1x2']?.[sign]
           if (bo?.[sign] && bo[sign] === svs?.[sign]) return null  // identiskt med SvS = brus
@@ -941,7 +982,7 @@ function OddsetView() {
     const mpBest = mp && Object.entries(mp.edges || {})
       .filter(([, e]) => e >= 0.05).sort((a, b) => b[1] - a[1])[0]
     return (
-      <td className="oc pair">
+      <td className="oc pair" data-market={MARKET_LABEL[market]}>
         <div className={quoteClass('o', svs)}>
           {svs?.[k1] && svs?.[k2] ? <>{fmtL(svs.line)} · {svs[k1].toFixed(2)}{arrowAtLine(mvS1, svs.line)} / {svs[k2].toFixed(2)}{arrowAtLine(mvS2, svs.line)}{shiftBadge(mvS1, 'SvS')}{priceStamp(svs)}</> : '–'}
           {edgePill(v1) || edgePill(v2)}
@@ -967,8 +1008,8 @@ function OddsetView() {
   const MARKET_LABEL = { '1x2': '1X2', ah: 'AH', ou: 'Ö/U', cor: 'Hörnor' }
   const BOOK_NAME = { svenskaspel: 'SvS', expekt: 'Expekt', betinia: 'Betinia' }
 
-  if (err) return <section><h2>Oddset</h2><div className="error">{err}</div></section>
-  if (!data) return <section><h2>Oddset</h2><div className="loading">Hämtar…</div></section>
+  if (err) return <section><h2>Oddset</h2><ErrorState message={err} /></section>
+  if (!data) return <section><h2>Oddset</h2><LoadingState label="Hämtar matcher och odds…" /></section>
 
   const leagueName = Object.fromEntries(data.leagues.map((l) => [l.key, l.name]))
   const healthDefs = [
@@ -1005,6 +1046,10 @@ function OddsetView() {
     return false
   }
   const listed = onlySignals ? visible.filter(hasSignal) : visible
+  const showCorners = listed.some((m) => {
+    const priced = Object.values(m.odds || {}).some((book) => book?.cor?.O && book?.cor?.U)
+    return priced || (showModel && m.model?.corners)
+  })
 
   const days = []
   for (const m of listed) {
@@ -1048,37 +1093,52 @@ function OddsetView() {
       </div>
       <OddsetLegend />
       <div className="oddset-bar">
-        {data.leagues.map((l) => (
-          <button key={l.key} className={hidden.includes(l.key) ? 'lg off' : 'lg'}
-            onClick={() => toggleLeague(l.key)}
-            title={hidden.includes(l.key) ? 'Visa ligan' : 'Dölj ligan'}>
-            {l.name} {counts[l.key] ? `(${counts[l.key]})` : '(0)'}
+        <div className="league-filter" aria-label="Ligafilter">
+          {data.leagues.map((l) => (
+            <button key={l.key} className={hidden.includes(l.key) ? 'lg off' : 'lg'}
+              onClick={() => toggleLeague(l.key)}
+              title={hidden.includes(l.key) ? 'Visa ligan' : 'Dölj ligan'}>
+              {l.name} {counts[l.key] ? `(${counts[l.key]})` : '(0)'}
+            </button>
+          ))}
+        </div>
+        <div className="oddset-tools">
+          <button className={showModel ? 'lg model on' : 'lg model'} onClick={toggleModel}
+            title="XG-viktad Poisson-styrkefit per liga med DC-korrektion i prediktionen. Temperatur T valdes på historiska backtestmaterialet; prognosledgern är oberoende forward-facit. Amber-tier tills ledgern godkänt den.">
+            🧪 Modell {showModel ? 'på' : 'av'}
           </button>
-        ))}
-        <button className={showModel ? 'lg model on' : 'lg model'} onClick={toggleModel}
-          title="XG-viktad Poisson-styrkefit per liga med DC-korrektion i prediktionen. Temperatur T valdes på historiska backtestmaterialet; prognosledgern är oberoende forward-facit. Amber-tier tills ledgern godkänt den.">
-          🧪 Modell {showModel ? 'på' : 'av'}
-        </button>
-        <button className={onlySignals ? 'lg on' : 'lg'} onClick={toggleOnly}
-          title="Visa bara matcher med någon signal: sharp-värde, steam, linjeflytt eller modellavvikelse. Snabbkollen på mobilen.">
-          🎯 Bara signaler
-        </button>
-        <button className={showNotices ? 'lg on' : 'lg'} onClick={() => setShowNotices(!showNotices)}
-          title="Historik över triggade larm (värde ≥3 % / steam ≥5 pp) — även de som INTE pushades för att NTFY_TOPIC saknas.">
-          🔔 {notices?.length || 0}
-        </button>
-        {sourceHealth.map((h) => (
-          <span key={`${h.source}:${h.scope}`} className={`sourcehealth ${h.ok ? 'ok' : 'bad'}`}
-            title={`${h.label}: ${h.ok ? `frisk · ${timeAgo(h.latest)}` : 'fel eller för gammal'}\n${h.details}`}>
-            {h.ok ? '●' : '▲'} {h.label}
+          <button className={onlySignals ? 'lg on' : 'lg'} onClick={toggleOnly}
+            title="Visa bara matcher med någon signal: sharp-värde, steam, linjeflytt eller modellavvikelse. Snabbkollen på mobilen.">
+            🎯 Bara signaler
+          </button>
+          <button className={showNotices ? 'lg on' : 'lg'} onClick={() => setShowNotices(!showNotices)}
+            title="Historik över triggade larm (värde ≥3 % / steam ≥5 pp) — även de som INTE pushades för att NTFY_TOPIC saknas.">
+            🔔 {notices?.length || 0}
+          </button>
+          <button className={showSources ? 'lg on' : 'lg'} onClick={() => setShowSources(!showSources)}
+            aria-expanded={showSources}>
+            Datakällor {sourceHealth.filter((h) => h.ok).length}/{sourceHealth.length}
+          </button>
+          <button className={showBooks ? 'lg on' : 'lg'} onClick={() => setShowBooks(!showBooks)}
+            aria-pressed={showBooks} title="Visa eller dölj Expekt och Betinia i matchtabellen. Värdesignaler från dem visas alltid i spelkorten.">
+            {showBooks ? '− Färre odds' : '+ Fler odds'}
+          </button>
+          <span className="hint odds-fetched">
+            {data.last_run ? `hämtat ${new Date(data.last_run).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}` : 'inga odds ännu'}
           </span>
-        ))}
-        <span className="spacer" />
-        <span className="hint">
-          {data.last_run ? `hämtat ${new Date(data.last_run).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}` : 'inga odds hämtade ännu'}
-        </span>
-        <button onClick={refresh} disabled={busy}>{busy ? 'Hämtar…' : '↻ Hämta färska odds'}</button>
+          <button onClick={refresh} disabled={busy}>{busy ? 'Hämtar…' : '↻ Färska odds'}</button>
+        </div>
       </div>
+      {showSources && (
+        <div className="source-health-list">
+          {sourceHealth.map((h) => (
+            <span key={`${h.source}:${h.scope}`} className={`sourcehealth ${h.ok ? 'ok' : 'bad'}`}
+              title={`${h.label}: ${h.ok ? `frisk · ${timeAgo(h.latest)}` : 'fel eller för gammal'}\n${h.details}`}>
+              {h.ok ? '●' : '▲'} {h.label} · {h.ok ? timeAgo(h.latest) : 'behöver tillsyn'}
+            </span>
+          ))}
+        </div>
+      )}
       {showNotices && notices && (
         <div className="valuelist noticelist">
           <div className="valhead"><b>🔔 Larm-historik</b>
@@ -1105,7 +1165,7 @@ function OddsetView() {
               onChange={(e) => saveBank(Number(e.target.value) || 0)} /> <span className="hint">kr</span>
           </div>
           <div className="tipgrid">
-            {signals.slice(0, 8).map(({ m, mk, sg, v }, i) => {
+            {signals.slice(0, showAllValues ? 8 : 4).map(({ m, mk, sg, v }, i) => {
               const q = v.q ?? 0
               const tier = q >= 0.04 ? ['STARK EDGE', 't3'] : q >= 0.02 ? ['EDGE', 't2'] : ['SVAG EDGE', 't1']
               const mvP = m.movement?.pinnacle?.[mk]?.[sg]
@@ -1150,12 +1210,20 @@ function OddsetView() {
               )
             })}
           </div>
+          {signals.length > 4 && (
+            <button className="show-more" onClick={() => setShowAllValues(!showAllValues)}>
+              {showAllValues ? 'Visa färre värdespel' : `Visa ${Math.min(4, signals.length - 4)} till`}
+            </button>
+          )}
         </div>
       )}
       {movers.length > 0 && (
-        <div className="valuelist moverlist">
-          <div className="valhead"><b>📈 Största rörelserna</b>
-            <InfoDot text={'Pinnacles devigade sannolikhet, skift i procentenheter (6/24 h), alla ligor oavsett flikfilter.\nGrönt till höger = en bok står kvar på gamla priset — det är läget att agera (träningsmatch-caset).'} /></div>
+        <div className={`valuelist moverlist ${showMovers ? 'open' : 'collapsed'}`}>
+          <button className="section-toggle" onClick={() => setShowMovers(!showMovers)} aria-expanded={showMovers}>
+            <span><b>📈 Marknadsradar</b> · {movers.length} större rörelser</span>
+            <span className="hint">{showMovers ? 'Dölj ▲' : 'Visa ▼'}</span>
+          </button>
+          {showMovers && <div className="mover-rows">
           {movers.slice(0, 8).map(({ m, sg, pp, win }, i) => {
             const mvP = m.movement?.pinnacle?.['1x2']?.[sg]
             const v = m.value?.['1x2']?.[sg]
@@ -1176,6 +1244,7 @@ function OddsetView() {
               </div>
             )
           })}
+          </div>}
         </div>
       )}
       {showModel && (() => {
@@ -1199,7 +1268,7 @@ function OddsetView() {
           <div className="valuelist amberlist">
             <div className="valhead"><b>🧪 Modell-avvikelser (amber)</b>
               <InfoDot text={'XG-viktad Poisson-styrkefit med DC-korrektion i prediktionen vs SvS-odds, inkl. AH/Ö-U.\nTemperatur T valdes och utvärderades på samma historiska backtestmaterial. EXPERIMENTELLT: +10 % ROI i Allsvenskan vid låga trösklar (inom bruset, n=326), −17 % i Eliteserien; AH/Ö-U obacktestade.\nPrognosledgern är oberoende forward-facit — signalspaning, inte spelrekommendation.'} /></div>
-            {msig.slice(0, 8).map(({ m, label, e, p, fair }, i) => (
+            {msig.slice(0, showAllModel ? 8 : 3).map(({ m, label, e, p, fair }, i) => (
               <div key={i} className="valrow">
                 <span className="apill big">+{(e * 100).toFixed(1)}%</span>
                 <b>{label}</b>
@@ -1208,20 +1277,27 @@ function OddsetView() {
                 <span className="hint">{fmtDay(m.start)} {fmtTime(m.start)}</span>
               </div>
             ))}
+            {msig.length > 3 && (
+              <button className="show-more" onClick={() => setShowAllModel(!showAllModel)}>
+                {showAllModel ? 'Visa färre modellavvikelser' : `Visa ${Math.min(5, msig.length - 3)} till`}
+              </button>
+            )}
           </div>
         )
       })()}
-      {days.length === 0 && <p className="hint">Inga kommande matcher i synliga ligor.</p>}
+      {days.length === 0 && <EmptyState title="Inga matcher att visa"
+        detail={onlySignals ? 'Inga synliga matcher har en aktuell signal. Stäng av Bara signaler för att se alla.' : 'Välj fler ligor eller hämta färska odds.'} />}
+      <div className="oddset-table-wrap">
       <table className="oddset-table">
         <thead>
           <tr><th>Tid</th><th>Match</th><th>1</th><th>X</th><th>2</th>
             <th title="Asian handicap (hemmalinje) · odds hemma / borta">AH</th>
             <th title="Asiatisk total (mål) · odds över / under">Ö/U</th>
-            <th title="Totala hörnor · odds över / under. Pinnacle prissätter hörnor först nära avspark — saknas P-rad finns inget sharp-ankare.">Hörnor</th></tr>
+            {showCorners && <th title="Totala hörnor · odds över / under. Pinnacle prissätter hörnor först nära avspark — saknas P-rad finns inget sharp-ankare.">Hörnor</th>}</tr>
         </thead>
         {days.map((d) => (
           <tbody key={d.key}>
-            <tr className="dayrow"><td colSpan={8}>{d.label}</td></tr>
+            <tr className="dayrow"><td colSpan={showCorners ? 8 : 7}>{d.label}</td></tr>
             {d.matches.map((m) => (
               <Fragment key={m.id}>
                 <tr className={m.start && new Date(m.start) < new Date() ? 'started' : ''}>
@@ -1238,10 +1314,10 @@ function OddsetView() {
                   {['1', 'X', '2'].map((s) => cell1x2(m, s))}
                   {cellPair(m, 'ah', 'H', 'A', fmtAh)}
                   {cellPair(m, 'ou', 'O', 'U', (l) => l)}
-                  {cellPair(m, 'cor', 'O', 'U', (l) => l)}
+                  {showCorners && cellPair(m, 'cor', 'O', 'U', (l) => l)}
                 </tr>
                 {expanded === m.id && (
-                  <tr className="detailrow"><td colSpan={8}>
+                  <tr className="detailrow"><td colSpan={showCorners ? 8 : 7}>
                     <div className="dcharts">
                       {['1', 'X', '2'].map((sg) => (
                         <DetailChart key={sg}
@@ -1283,6 +1359,7 @@ function OddsetView() {
           </tbody>
         ))}
       </table>
+      </div>
       {ledger?.n_captures > 0 && (
         <div className="clvbox ledgerbox">
           <p className="hint clvline clickable" onClick={() => setShowLedger(!showLedger)}
@@ -1984,10 +2061,17 @@ function BombenMatch({ m }) {
   const at = (h, a) => m.grid.find((g) => g.h === h && g.a === a) || {}
   const tint = (g) => {
     if (g.ratio == null) return undefined
-    if (g.ratio >= 1.05) return `rgba(61,220,132,${Math.min(0.55, (g.ratio - 1) * 0.5).toFixed(2)})`
-    if (g.ratio <= 0.95) return `rgba(224,107,107,${Math.min(0.55, (1 - g.ratio) * 0.6).toFixed(2)})`
+    // Extrem kvot på ett nästan omöjligt resultat ska inte lysa starkare än ett
+    // spelbart utfall. Sannolikheten dämpar bara färgen; kvoten visas oförändrad.
+    const probabilityWeight = Math.min(1, Math.sqrt((g.model || 0) / 0.05))
+    if (g.ratio >= 1.05) return `rgba(61,220,132,${(Math.min(0.55, (g.ratio - 1) * 0.5) * (0.25 + probabilityWeight * 0.75)).toFixed(2)})`
+    if (g.ratio <= 0.95) return `rgba(224,107,107,${(Math.min(0.55, (1 - g.ratio) * 0.6) * (0.25 + probabilityWeight * 0.75)).toFixed(2)})`
     return undefined
   }
+  const practical = [...(m.top_value || [])]
+    .sort((a, b) => (b.model || 0) * Math.max(0, (b.ratio || 1) - 1)
+      - (a.model || 0) * Math.max(0, (a.ratio || 1) - 1))
+    .slice(0, 4)
   return (
     <div className="bmatch">
       <div className="bmatch-head">
@@ -2009,7 +2093,8 @@ function BombenMatch({ m }) {
                       title={`${h}–${a}: folk ${((g.folk || 0) * 100).toFixed(1)} %`
                         + (g.model != null ? ` · modell ${(g.model * 100).toFixed(1)} % · värdekvot ${g.ratio}` : '')}>
                       {m.has_model && g.ratio != null
-                        ? <span className="bratio">{g.ratio}</span>
+                        ? <><span className="bratio">{g.ratio}</span>
+                          <span className="bprob">{((g.model || 0) * 100).toFixed((g.model || 0) < 0.01 ? 1 : 0)}%</span></>
                         : <span className="bfolk">{((g.folk || 0) * 100).toFixed(0)}%</span>}
                     </td>
                   )
@@ -2019,11 +2104,14 @@ function BombenMatch({ m }) {
           </tbody>
         </table>
       </div>
-      {m.has_model && m.top_value.length > 0 && (
-        <div className="bvalue">Mest underspelade resultat:
-          {m.top_value.slice(0, 4).map((g) => (
-            <span key={g.score} className="bchip" title={`modell ${(g.model * 100).toFixed(1)} % vs folk ${(g.folk * 100).toFixed(1)} %`}>
-              {g.score} <b>{g.ratio}×</b></span>
+      {m.has_model && practical.length > 0 && (
+        <div className="bvalue">Praktiskt intressanta resultat:
+          {practical.map((g) => (
+            <span key={g.score} className={`bchip ${g.model < 0.01 ? 'rare' : ''}`}
+              title={`modell ${(g.model * 100).toFixed(1)} % vs folk ${(g.folk * 100).toFixed(1)} %`}>
+              {g.score} <b>{g.ratio}×</b> <small>{(g.model * 100).toFixed(1)}%</small>
+              {g.model < 0.01 && <em>sällsynt</em>}
+            </span>
           ))}</div>
       )}
     </div>
@@ -2117,6 +2205,7 @@ function BombenBuilder({ draw }) {
 function BombenView({ draw, nonce }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [showHelp, setShowHelp] = useStoredBool('svs_ui_bomben_help')
   useEffect(() => {
     if (!draw) return
     setLoading(true)
@@ -2124,25 +2213,42 @@ function BombenView({ draw, nonce }) {
       .then((r) => r.json()).then((d) => { setData(d); setLoading(false) })
       .catch(() => { setData(null); setLoading(false) })
   }, [draw, nonce])
-  if (!data || !Array.isArray(data.matches)) return <div className="loading">{loading ? 'Hämtar Bomben…' : 'Ingen Bomben-data för vald omgång.'}</div>
+  if (!data || !Array.isArray(data.matches)) return loading
+    ? <LoadingState label="Hämtar Bomben…" />
+    : <EmptyState title="Ingen Bomben-data" detail="Det finns ingen analys för den valda omgången ännu." />
   return (
-    <section>
+    <section className="bomben-section">
       <div className="topinfo">
         <span>Omsättning <b>{kr(data.turnover)}</b></span>
         <span>{data.match_count} matcher · tippa exakt resultat</span>
         {data.jackpot > 0 && <span className="jackpot">💰 <b>Jackpot {kr(data.jackpot)}</b></span>}
         {!data.sharp_available && <span className="st-wait">⚠ Pinnacle nere – ingen värdemodell, bara folkets streck</span>}
       </div>
-      <p className="hint">Bomben saknar SvS-odds, så värdet = vår <b>Poisson-målmodell</b> (Pinnacles förväntade
-        mål) mot <b>folkets resultatfördelning</b>. Rutan visar värdekvoten (modell ÷ folk):
-        {' '}<span className="sg-bla">grönt = underspelat</span> (modellen tror mer än folket = köpläge),
-        rött = överspelat. Rader = hemmamål, kolumner = bortamål. Håll muspekaren för folk-/modell-%.
-        Modellen är sharp-ankrad men modell-härledd — använd som vägledning, inte facit.</p>
-      {data.matches.map((m) => <BombenMatch key={m.event_number} m={m} />)}
-      <h2>Bygg rader & export</h2>
-      <p className="hint">Rangordnar konkreta resultat-rader efter popularitetsjusterad EV
-        (modellens sannolikhet vs hur många du delar potten med) och tar budgetens bästa.</p>
-      <BombenBuilder draw={data.draw_number} />
+      <div className="bomben-intro">
+        <span><b>Kvoten</b> visar modellens chans jämfört med folkets. Procentsiffran visar hur troligt resultatet faktiskt är.</span>
+        <button className="legend-toggle" onClick={() => setShowHelp(!showHelp)} aria-expanded={showHelp}>
+          {showHelp ? 'Dölj förklaring ▲' : 'Så fungerar värdet ▼'}
+        </button>
+        {showHelp && <p className="hint">Bomben saknar SvS-odds, så värdet = vår <b>Poisson-målmodell</b>
+          {' '}(Pinnacles förväntade mål) mot <b>folkets resultatfördelning</b>. Grönt betyder att modellen
+          tror mer på resultatet än folket; rött betyder överspelat. Färgens styrka tar även hänsyn till faktisk
+          sannolikhet, så ett extremt men nästan omöjligt resultat inte ser ut som ett huvudval. Modellen är
+          sharp-ankrad men modell-härledd — använd som vägledning, inte facit.</p>}
+      </div>
+      <div className="bomben-layout">
+        <div className="bomben-matches">
+          {data.matches.map((m) => <BombenMatch key={m.event_number} m={m} />)}
+        </div>
+        <aside className="bomben-builder" id="bomben-bygg">
+          <h2>Bygg rader & export</h2>
+          <p className="hint">Väljer budgetens bästa konkreta resultatrader efter sannolikhet och förväntat värde.</p>
+          <BombenBuilder draw={data.draw_number} />
+        </aside>
+      </div>
+      <nav className="mobile-actionbar bomben-action" aria-label="Snabbåtgärd för Bomben">
+        <span><b>{data.match_count} matcher</b></span>
+        <a className="primary-link" href="#bomben-bygg">Bygg rader</a>
+      </nav>
     </section>
   )
 }
@@ -2338,12 +2444,12 @@ export default function App() {
     <div className="app">
       <header>
         <h1>⚽ Spelkompisen</h1>
-        <div className="games">
+        <nav className="games" aria-label="Spelform">
           {GAMES.map((g) => (
             <button key={g.id} className={group === g.id ? 'game active' : 'game'}
               onClick={() => switchGame(g.id)}>{g.label}</button>
           ))}
-        </div>
+        </nav>
         {draws.length > 0 && (
           <select className="drawsel" value={`${product}|${draw}`}
             onChange={(e) => { const [sl, dn] = e.target.value.split('|'); changeDraw(sl, Number(dn)) }}>
@@ -2355,7 +2461,9 @@ export default function App() {
             ))}
           </select>
         )}
-        <button onClick={refresh}>↻ Uppdatera</button>
+        <button className="refreshbtn" onClick={refresh} aria-label="Uppdatera data">
+          <span aria-hidden="true">↻</span> <span className="refreshtext">Uppdatera</span>
+        </button>
       </header>
 
       <div className="topinfo statusbar">
@@ -2365,11 +2473,14 @@ export default function App() {
             <span>hämtat <b>{fmtFetched(analysis.fetched_at)}</b></span>
             {payouts?.available && <span>prispott <b>{kr(payouts.tiers?.[0]?.pool)}</b></span>}
             {payouts?.available && (
-              <span title="Andel av omsättningen som betalas tillbaka, inkl. ev. jackpot. 'Nu' räknar mot nuvarande omsättning; prognosen mot medianen av senaste omgångarnas slutomsättning — den siffran är den ärliga.">
-                spelvärde <b>{Math.round((payouts.spelvarde || payouts.ratio || 0) * 100)} %</b>
-                {payouts.projected_turnover > payouts.turnover && (
-                  <> → <b>{Math.round((payouts.spelvarde_proj || 0) * 100)} %</b> vid slutoms. {kr(payouts.projected_turnover)}</>
-                )}
+              <span className="pool-value" title="Prognosen vid spelstopp är viktigast. Värdet just nu blir ofta missvisande högt tidigt eftersom omsättningen ännu är låg.">
+                {payouts.projected_turnover > payouts.turnover ? (
+                  <>
+                    spelvärde vid spelstopp <b className={(payouts.spelvarde_proj || 0) >= 1 ? 'pos' : 'neg'}>
+                      {Math.round((payouts.spelvarde_proj || 0) * 100)} %</b>
+                    <span className="current-value">nu {Math.round((payouts.spelvarde || payouts.ratio || 0) * 100)} % · prognos {kr(payouts.projected_turnover)}</span>
+                  </>
+                ) : <>spelvärde <b>{Math.round((payouts.spelvarde || payouts.ratio || 0) * 100)} %</b></>}
               </span>
             )}
             {payouts?.jackpot > 0 && (
@@ -2381,8 +2492,8 @@ export default function App() {
         )}
         <Collection />
       </div>
-      {err && <div className="error">{err}</div>}
-      {loading && <div className="loading">Hämtar…</div>}
+      {err && <ErrorState message={err} />}
+      {loading && <LoadingState label="Hämtar omgång och analys…" />}
 
       {group === 'bomben' && <ErrBoundary><BombenView draw={draw} nonce={bombenNonce} /></ErrBoundary>}
 
@@ -2392,8 +2503,9 @@ export default function App() {
       <div className="cols main-cols">
       <section>
         <div className="analys-head">
-          <h2>Analys — klicka tecken för kupong</h2>
-          <span className="hovertip">💡 håll muspekaren över ett odds för hela rörelsen (SvS + Pinnacle), eller över en badge för förklaring</span>
+          <h2>Analysera kupongen</h2>
+          <span className="hovertip desktop-only">Klicka tecken för att välja · håll över odds eller badge för detaljer</span>
+          <span className="hovertip mobile-only">Tryck ett tecken för att välja · tryck matchnamnet för detaljer</span>
         </div>
         <Legend />
         {analysis && (Object.keys(picks).length > 0 || pickRows) && (
@@ -2411,7 +2523,7 @@ export default function App() {
         )}
       </section>
 
-        <section className="buildbar">
+        <section className="buildbar" id="bygg">
           <h2>Bygg förslag</h2>
           <div className="controls">
             {STRATEGIES.map((s) => (
@@ -2446,6 +2558,12 @@ export default function App() {
             onRecalc={loadSystem} onUse={useSystem} />
         </section>
       </div>
+
+      <nav className="mobile-actionbar" aria-label="Snabbåtgärder för kupongen">
+        <span><b>{pickRows?.length ? `${pickRows.length} rader` : `${Object.keys(picks).length}/${nMatches} valda`}</b></span>
+        <a href="#bygg">Bygg förslag</a>
+        <a className="primary-link" href="#kupong">Granska kupong</a>
+      </nav>
 
       <section id="kupong">
         <h2>Din kupong — granska & lämna in</h2>

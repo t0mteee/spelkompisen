@@ -568,3 +568,196 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
   .oddset-table .oc.pair { flex: 1 0 100%; }
   .oddset-table .oc.pair .o, .oddset-table .oc.pair .p { display: inline-block; margin-right: 10px; }
 }
+
+/* =========================================================================
+   v3: tydligare informationshierarki och snabbare arbetsflöden
+   ========================================================================= */
+button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible {
+  outline: 2px solid #7cc1ee;
+  outline-offset: 2px;
+}
+.mobile-only, .mobile-actionbar { display: none; }
+.loading-state, .empty-state {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 82px; padding: 16px; color: var(--muted); background: var(--panel2);
+  border: 1px dashed var(--line); border-radius: 8px; text-align: center;
+}
+.empty-state { flex-direction: column; gap: 3px; }
+.empty-state b { color: var(--text); font-size: 14px; }
+.empty-state span { max-width: 520px; }
+.spinner {
+  width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--green);
+  border-radius: 50%; animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.state-error { display: flex; flex-direction: column; gap: 3px; border: 1px solid rgba(224,107,107,.55); }
+.state-error b { color: #ffd3d3; }
+.state-error span { color: #efb4b4; font-size: 12px; overflow-wrap: anywhere; }
+
+/* Datainsamlingen visas som användarnytta först; teknik och stopp finns i detaljer. */
+.collection-more {
+  background: none; border: 0; color: #4aa3df; padding: 0; font-size: 11px;
+}
+.collection-more:hover { border: 0; filter: brightness(1.15); }
+.collection-detail {
+  display: inline-flex; align-items: center; gap: 5px; padding-left: 8px;
+  border-left: 1px solid var(--line); white-space: normal;
+}
+.pool-value { display: inline-flex; gap: 5px; align-items: baseline; flex-wrap: wrap; }
+.pool-value .current-value { color: var(--muted); font-size: 11px; }
+
+/* Oddset: ligor och verktyg är två begripliga grupper. */
+.league-filter, .oddset-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.oddset-bar {
+  position: sticky; top: 0; z-index: 20; padding: 6px 8px;
+  background: rgba(21,28,37,.96); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(0,0,0,.18); backdrop-filter: blur(10px);
+}
+.league-filter { flex: 1 1 auto; }
+.oddset-tools { margin-left: auto; }
+.source-health-list {
+  display: flex; gap: 6px; flex-wrap: wrap; margin: -2px 0 10px;
+  padding: 8px 10px; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+}
+.oddset-table-wrap { max-width: 100%; overflow-x: auto; border-radius: 8px; }
+.moverlist.collapsed { border-color: var(--line); padding: 6px 10px; }
+.section-toggle {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: transparent; border: 0; padding: 2px 0; text-align: left;
+}
+.section-toggle:hover { border: 0; color: var(--green); }
+.mover-rows { margin-top: 5px; }
+.show-more {
+  display: block; margin: 8px auto 0; background: transparent; color: #7cc1ee;
+  border-color: var(--line); min-width: 150px;
+}
+.dchart { flex: 1 1 250px; min-width: 0; }
+.detail-chart-svg { display: block; width: 100%; height: auto; max-width: 360px; }
+
+/* Bomben: faktisk chans syns tillsammans med kvoten och byggaren hålls nära. */
+.bomben-intro {
+  display: flex; gap: 10px 18px; align-items: center; flex-wrap: wrap;
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 12px; margin-bottom: 12px; color: var(--muted);
+}
+.bomben-intro > .hint { flex: 1 1 100%; margin: 0; }
+.bomben-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 14px; align-items: start; }
+.bomben-matches { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 12px; }
+.bomben-matches .bmatch { margin-bottom: 0; min-width: 0; }
+.bomben-builder {
+  position: sticky; top: 10px; background: var(--panel2); border: 1px solid var(--line);
+  border-radius: 8px; padding: 12px;
+}
+.bgrid td { height: 38px; }
+.bgrid .bratio, .bgrid .bprob { display: block; line-height: 1.1; }
+.bgrid .bprob { color: var(--muted); font-size: 9px; font-weight: 500; margin-top: 2px; }
+.bvalue { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.bvalue .bchip { margin-left: 0; display: inline-flex; gap: 4px; align-items: baseline; }
+.bvalue .bchip small { color: var(--muted); font-size: 10px; }
+.bvalue .bchip em {
+  color: #dca85e; font-size: 9px; font-style: normal; text-transform: uppercase; letter-spacing: .04em;
+}
+.bvalue .bchip.rare { background: rgba(220,168,94,.08); border-color: rgba(220,168,94,.45); }
+
+@media (max-width: 1000px) {
+  .bomben-layout { grid-template-columns: minmax(0, 1fr) 340px; }
+  .bomben-matches { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 760px) {
+  body { font-size: 14px; }
+  .app { padding-bottom: 76px; }
+  .desktop-only { display: none !important; }
+  .mobile-only { display: inline; }
+
+  /* Titel + uppdatera på första raden, alla spelformer på en kompakt rad. */
+  header {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px;
+    align-items: center; position: relative;
+  }
+  header h1 { grid-column: 1; font-size: 17px; }
+  header .refreshbtn {
+    grid-column: 2; grid-row: 1; width: 40px; height: 40px; margin-left: 0;
+    padding: 0; font-size: 18px;
+  }
+  header .refreshtext { display: none; }
+  header .games {
+    grid-column: 1 / -1; width: 100%; display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; overflow: visible;
+  }
+  header .game { min-width: 0; min-height: 38px; padding: 6px 2px; font-size: 10.5px; }
+  header .drawsel { grid-column: 1 / -1; width: 100%; min-height: 42px; }
+
+  button, select { min-height: 40px; }
+  .legend-toggle, .linkbtn, .collection-more, .section-toggle { min-height: 32px; }
+  .topinfo.statusbar { padding: 8px 10px; }
+  .colstat { order: -1; width: 100%; }
+  .collection-detail {
+    flex: 1 1 100%; width: 100%; padding: 7px 0 0; margin-top: 2px;
+    border-left: 0; border-top: 1px solid var(--line);
+  }
+  .pool-value { flex: 1 1 100%; }
+  .pool-value .current-value { flex: 1 1 100%; }
+
+  .mobile-actionbar {
+    position: fixed; z-index: 40; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom));
+    display: flex; align-items: center; gap: 6px; min-height: 54px;
+    padding: 7px 8px; background: rgba(15,21,29,.96); border: 1px solid #3a4655;
+    border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.55); backdrop-filter: blur(12px);
+  }
+  .mobile-actionbar > span { margin-right: auto; color: var(--muted); font-size: 12px; padding-left: 4px; }
+  .mobile-actionbar a {
+    color: var(--text); text-decoration: none; border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 10px; font-size: 12px; font-weight: 700; white-space: nowrap;
+  }
+  .mobile-actionbar a.primary-link { background: var(--green); border-color: var(--green); color: #07100b; }
+  .bomben-action { left: auto; min-width: 230px; }
+
+  /* Oddset: filterrad kan svepas, verktygen bryts separat och inga 360px-kort skapar sidscroll. */
+  .oddset-bar { display: block; }
+  .league-filter {
+    width: 100%; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none;
+  }
+  .league-filter::-webkit-scrollbar { display: none; }
+  .league-filter .lg { flex: 0 0 auto; }
+  .oddset-tools { margin: 3px 0 0; gap: 6px; }
+  .oddset-tools .odds-fetched { margin-left: auto; }
+  .source-health-list { padding: 7px; }
+  .tipgrid { grid-template-columns: minmax(0, 1fr); }
+  .tipcard { min-width: 0; }
+  .detail-chart-svg { max-width: none; }
+  .tiphead .edgechip { margin-left: 0; }
+  .valuelist .valrow { padding: 7px 0; }
+
+  .oddset-table { background: transparent; }
+  .oddset-table-wrap { overflow: visible; }
+  .oddset-table tr:not(.dayrow):not(.detailrow) {
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px; margin-bottom: 8px; gap: 6px;
+  }
+  .oddset-table tr.dayrow td { padding: 8px 2px 4px; }
+  .oddset-table .time { order: 1; color: var(--text); font-weight: 700; }
+  .oddset-table .teams { order: 2; flex: 1 1 calc(100% - 58px); }
+  .oddset-table .oc { order: 3; flex: 1 1 28%; min-width: 0; overflow: hidden; white-space: normal; border: 1px solid var(--line); border-radius: 7px; padding: 5px; }
+  .oddset-table .oc .o, .oddset-table .oc .p { white-space: normal; overflow-wrap: anywhere; }
+  .oddset-table .oc::before {
+    content: attr(data-market); display: block; color: var(--muted); font-size: 9px;
+    text-transform: uppercase; margin-bottom: 2px;
+  }
+  .oddset-table .oc.pair { order: 4; flex: 1 1 100%; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 6px 0 0; }
+  .oddset-table .oc.pair .o, .oddset-table .oc.pair .p { display: block; margin-right: 0; }
+  .oddset-table .priceage:not(.stale) { display: none; }
+  .oddset-table tr.detailrow { display: block; margin: -8px 0 8px; }
+  .oddset-table tr.detailrow > td { display: block; }
+
+  /* Bomben staplas, men byggaren nås direkt från den fasta knappen. */
+  .bomben-layout { display: block; }
+  .bomben-matches { display: block; }
+  .bomben-matches .bmatch { margin-bottom: 10px; }
+  .bomben-builder { position: static; margin-top: 12px; }
+  .bomben-intro { align-items: flex-start; }
+  .bomben-intro .legend-toggle { flex: 1 1 100%; text-align: left; }
+  .bgrid { width: 100%; }
+  .bgrid td { width: auto; }
+  .bvalue { align-items: flex-start; }
+}
