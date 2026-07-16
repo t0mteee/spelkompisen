@@ -49,13 +49,16 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
   ALDRIG `lsof -ti:<port>` utan `-sTCP:LISTEN` (dödar annars webbläsare med öppna sockets).
 - Frontend nås via Tailscale/LAN (vite.config: `host:true, allowedHosts:true`).
 - Verifiering i browser: preview-servern `frontend-preview` (port 5181) i `.claude/launch.json`.
-- **Ingen launchd-insamling är laddad för spelkompisen ännu** (svs egna jobb kör kvar och
-  matar svs — INTE den här databasen). Egna jobb (`com.saman.spelkompisen.*`) skapas i
-  Etapp 1. Skriv inte plist-filer åt användaren (behörighetsklassaren blockerar) — be hen
-  köra `launchctl load`. Databasen seedades från svs 2026-07-12; poolspels-datat uppdateras
-  bara vid manuella snapshots tills egna jobb finns.
+- **Insamling: launchd `com.saman.spelkompisen.snapshot` är LADDAT** och kör
+  `backend/scripts/snapshot.sh` → `cli.py smart` var 30:e min: fullt varv (alla källor +
+  Kambi-deep + modelldata + poolspel) och därefter snabbvarv var 4:e min så länge någon
+  match startar inom 3 h (endast Pinnacle + böckernas 1X2; `FAST_WITHIN_H` i oddset.py)
+  och/eller tätvarv var 5:e min när ett poolspel stänger inom 2 h — allt inom ~25 min
+  budget. Notiser går i samma varv, bakom **notisvakten** (presence-set: larm kräver att
+  priset observerades i det aktuella lyckade varvet).
 - Push-notiser: `app/notify.py` via ntfy.sh, kräver `NTFY_TOPIC` i gitignore:ade
   `backend/.env`. Använd ett EGET topic (inte samma som svs — annars dubbla notiser).
+  Notisvakten är på plats (2026-07-16) — säkert att aktivera.
 
 ## Poolspelen (ärvt från svs — allt gäller oförändrat)
 
@@ -128,10 +131,14 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
 - Tier-regel för tips: **sharp-ankrat = actionable (grönt, in i CLV); modell-utan-sharp =
   amber (bakom toggle, UR CLV)** — vm bevisade tre gånger att modell-edges utan sharp-ankare
   blir systematiskt uppblåsta (DC alt-totaler +40–55 %, hörnor +120 % okalibrerat).
-- Metodregler från granskningen 2026-07-13 (`docs/granskning-2026-07-13.md`):
+- Metodregler från granskningen 2026-07-13/16 (`docs/granskning-2026-07-13.md`):
   asiatiska sannolikheter alltid settlement-aware (push/half-win) även i ankring;
-  notiser kräver närvaro-bekräftat bokpris (WP2); alla prediktioner loggas vid fasta
-  horisonter med modellversion — flaggor är urval för handling, inte utvärderingsunderlag.
+  notiser kräver närvaro-bekräftat bokpris (✅ notisvakten); alla prediktioner loggas vid
+  fasta horisonter med modellversion — flaggor är urval för handling, inte
+  utvärderingsunderlag; **grönt beslutas per signalgrupp, aldrig per tier/aggregat**;
+  versionspolicy: `signal_version` (s-/m-fingeravtryck) grupperar facitet, `git_hash`
+  ger reproducerbarhet — docs/UI-commits får inte fragmentera facitet.
+- **DB-ändringar = skript + backup + rapport** (`docs/db-atgarder.md`) — aldrig ad-hoc-SQL.
 
 ## UI-konventioner
 

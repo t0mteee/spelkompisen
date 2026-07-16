@@ -32,8 +32,19 @@
   current), grönt-kriterium v2 (KI + modellversion), ärlig decay-text.
   **P0 härifrån = sanningslagret**: WP1 settlement-ankring, WP2 pris-närvaro,
   WP4 CLV-linje, WP5 prediction ledger (se backloggen).
-- **EJ GJORT ÄNNU**: NTFY_TOPIC ej satt (inga pushar!); mobilpolish; WP-backloggen
-  nedan; stora Europa-ligorna **PAUSADE tills WP0–WP5 är klara** (beslut 2026-07-13).
+- **Granskningen runda 2 åtgärdad (2026-07-16)**: WP0 klar (WAL, busy_timeout,
+  batch-transaktioner), WP2-mini klar (**notisvakten**: notiser kräver att både
+  bok- och Pinnacle-priset observerades i det aktuella lyckade varvet — presence-
+  set genom collect→log_and_notify, gated-räknare i loggen), version-split klar
+  (`model_version` = semantiskt fingeravtryck `s-`/`m-` per tier; `git_hash` =
+  exakt kodversion; migration via `scripts/migrera_signalversion.py`, se
+  `docs/db-atgarder.md`). Facitet är ett **interimistiskt flaggfacit** tills
+  WP5-ledgern finns; grönt beslutas **per signalgrupp** (aldrig per tier) med
+  v3-trappan i WP5. Överlämning till Codex: `docs/overlamning-2026-07-16.md`.
+- **EJ GJORT ÄNNU**: **NTFY_TOPIC — nu SÄKERT att sätta** (notisvakten på plats;
+  Samans steg: eget topic i `backend/.env` + prenumerera i ntfy-appen);
+  mobilpolish; WP-backloggen nedan; stora Europa-ligorna **PAUSADE tills
+  WP0–WP5 är klara** (beslut 2026-07-13).
 
 ## Backlog (WP-struktur efter granskningen 2026-07-13, prioriterad)
 
@@ -46,37 +57,52 @@ den sällan med >1 pp ([Wilkens 2026](https://journals.sagepub.com/doi/10.1177/2
 jaga inte ML, jaga LATENS, DATAKVALITET och ÄRLIGT FACIT. Granskningsevidens och
 acceptanskriterier per WP: `docs/granskning-2026-07-13.md`.
 
-**Metodregler (tillägg 2026-07-13, viker aldrig):**
+**Metodregler (tillägg 2026-07-13/16, viker aldrig):**
 - Asiatiska sannolikheter hanteras alltid settlement-aware (push/half-win) —
   i ankring såväl som prissättning.
 - Notiser kräver närvaro-bekräftat bokpris (sett i senaste varvet) — aldrig larm
-  på pris som kan vara plockat/suspenderat (WP2 bygger mekanismen).
+  på pris som kan vara plockat/suspenderat (✅ notisvakten, 2026-07-16).
 - Alla prediktioner loggas vid fasta horisonter med modellversion — flaggor är
   ett urval för handling, aldrig underlaget för utvärdering (WP5).
+- **Grönt beslutas per signalgrupp** (tier × liga × marknad × version) — aldrig
+  per tier eller aggregat; aggregatraden är enbart översikt.
+- **DB-ändringar = skript + backup + rapport** (`docs/db-atgarder.md`) — aldrig
+  ad-hoc-SQL.
+- Versionspolicy: `signal_version` (s-/m-fingeravtryck av signalrelevanta
+  parametrar + T-kalibrering + DATA_VERSION) grupperar facitet; `git_hash` ger
+  reproducerbarhet. Docs/UI-commits får aldrig fragmentera facitet.
 
-**Klart ur granskningen (2026-07-13):** WP3 identitetslager light (alias +
+**Klart ur granskningen:** *(2026-07-13)* WP3 identitetslager light (alias +
 datumtolerans ±1 dygn + audit-lista; MLS-fitten sanerad inkl. straff-resultat,
-normaltime-fixen), grönt-kriterium v2 (kluster-bootstrap-KI + model_version),
-decay-benämningen. Sedan tidigare samma dag: A1-snabbpollen (`cli.py smart`,
-snabbvarv var 4:e min när avspark < 3 h, `FAST_WITHIN_H` i oddset.py).
+normaltime-fixen), grönt-kriterium v2 (kluster-bootstrap-KI + versionsstämpel),
+decay-benämningen, A1-snabbpollen (`cli.py smart`). *(2026-07-16, runda 2)*
+WP0 (WAL/busy_timeout/`bulk()`), WP2-mini (notisvakten), version-split
+(signal_version + git_hash, migrerad).
 
 **P0 — sanningslager & matematik (i ordning):**
-- **WP0** (S): SQLite-robusthet — WAL, busy_timeout, batchade transaktioner
-  (commit per rad i dag; API + 25-min-smartpass skriver parallellt).
 - **WP1** (S/M): settlement-aware ÖU-ankring (fel på 72 % av linjerna: hel=23 %,
   kvarts=49 %) + ordningen temper→ankare; test FÖRST (pair_fair-roundtrip);
-  omkör `oddsetcalibrate` efteråt.
-- **WP2** (M): pris-närvaro — last_seen_at per selektion (uppdateras vid
-  dedup-skip), available/suspended, source health i statusraden, åldersvakt i
-  värde/notiser, bekräftelseålder i UI.
+  omkör `oddsetcalibrate` efteråt; bumpa `anchor` i MODEL_PARAMS (= ny
+  m-version automatiskt).
+- **WP2 full** (M): pris-närvaro persistent — last_seen_at per selektion
+  (uppdateras vid dedup-skip), available/suspended-status, source health i
+  statusraden, åldersvakt även i VÄRDE-visning/facit (notisvakten täcker i dag
+  bara larmen), bekräftelseålder i UI, deep-markets i snabbvarvet för matcher
+  i 3h-fönstret.
 - **WP4** (S/M): CLV-identitet — line in i PK (recreate + kopiera; facit bevaras),
   stängning på flaggans lina, "line moved" som egen facit-kategori (Δlina) i
   stället för censur.
 - **WP5** (M/L): prediction ledger — ALLA prediktioner vid fasta horisonter
   (T−24h/−3h/−20m, sammanfaller med pollpassen) med sharp-fair/modell-fair/
-  bokpris/availability/model_version; block-bootstrap-rapporten från grönt-
-  kriterium v2 körs på ledgern. Ersätter gamla A2 (öppningslinje = första
-  horisonten) och ger gamla A3 (odds-band-facit) gratis.
+  bokpris/availability/signal_version. **Grönt-kriterium v3 på ledgern**:
+  status per grupp amber → candidate (n_flags ≥ 50 OCH n_matches ≥ 30 OCH
+  span ≥ 28 d OCH undre 90 %-KI > 0) → green (bekräftad out-of-time: ≥15 nya
+  matcher EFTER candidate-datumet med KI_lo > 0); förregistrerade primära
+  grupper = sharp × 1x2 × per liga, övriga är utforskande och kräver
+  BH-FDR-korrigering (10 %) före candidate. Rapportera n_flags/n_matches/
+  n_weeks/span per grupp; KI märks instabilt under 10 matcher. Ersätter gamla
+  A2 (öppningslinje = första horisonten) och ger gamla A3 (odds-band-facit)
+  gratis.
 
 **P1 — EV-ärlighet, integritet, validering:**
 - **WP6** (S+M): pool-EV — jackpot in i builderns radval (frontend visar redan
@@ -92,7 +118,15 @@ snabbvarv var 4:e min när avspark < 3 h, `FAST_WITHIN_H` i oddset.py).
   flyttar linjen?"); daglig Elo-snapshot + historik-backfill (PIT-Elo).
 - **WP-test** (M, löpande): pytest för kritisk matematik — power-devig, asiatisk
   settlement, eventmatchning/tidszon, closing-matchning, poolutdelning,
-  kalibrering. Testet skrivs FÖRE respektive fix (WP1 börjar).
+  kalibrering. Testet skrivs FÖRE respektive fix (WP1 börjar). Tio designade
+  fall finns i `docs/overlamning-2026-07-16.md` (LA Galaxy-alias, ±1 dygn,
+  målvakt, fuzzy-audit, normaltime, seen-retry, bootstrap-kluster, grupp-vs-
+  tier, versionsstabilitet, settlement-roundtrip). pytest-beslutet (nr 10) öppet.
+- **WP3-tillägg** (S): fuzzy-links-audit — ALLA icke-exakta/icke-alias-länkar
+  (likhet + antal berörda matcher + verified-flagga) i audit-listan, inte bara
+  missarna; godkänd länk flyttas till TEAM_ALIAS/meta. Scope-markering: WP3
+  light löser resultatmergen — INTE pre-match-eventidentitet/spelare/arenor/
+  provider-ID generellt.
 - Backtest v4 (gamla A4): beslutsregel på q-trösklar + X-frekvens per liga —
   efter WP1 (annars mäter den ankringsbuggen).
 
