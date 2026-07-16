@@ -854,7 +854,8 @@ function OddsetView() {
     </span>
   )
 
-  const absLine = (p) => `${p.name} (${p.reason}${p.apps != null ? `, ${p.apps} matcher${p.rating ? `, ${p.rating}` : ''}` : ''})${p.apps != null && p.apps < 5 ? ' — marginell' : ''}`
+  const absPos = { G: 'MV', D: 'B', M: 'MF', F: 'A' }
+  const absLine = (p) => `${p.name}${p.position ? ` · ${absPos[p.position] || p.position}` : ''} (${p.reason}${p.apps != null ? `, ${p.apps} matcher${p.rating ? `, ${p.rating}` : ''}` : ''})${p.apps != null && p.apps < 5 ? ' — marginell' : ''}`
   const absBadge = (m) => {
     const ab = m.absences
     if (!ab) return null

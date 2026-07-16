@@ -47,7 +47,7 @@
   tester och 35 aktuella ankrade matcher (linjer 2.25–3.75). Akuta delen av WP8
   klar: transient Sofascore-statistikfel sparar resultatet men lämnar eventet
   för retry; 404/410 avslutas som permanent statistik-saknad. Första automatiska
-  sviten finns i `backend/tests/` (35 `unittest`-fall, inga nya dependencies).
+  sviten finns i `backend/tests/` (42 `unittest`-fall, inga nya dependencies).
   **WP2 full klar:** prisförändring (`fetched_at`) och senaste bekräftelse
   (`last_seen_at`) är separerade; lyckade svar markerar plockade/suspenderade
   priser, källfel gör det inte. Värde, steam, modellkanter och closing-facit
@@ -74,6 +74,11 @@
   0,98 [0,90..1,05] och Europa 0,91 [0,81..0,97]. Eftersom κ<1 skulle höja
   visad EV lämnas runtime konservativt på 1,00 tills ett oberoende tidsfönster
   bekräftar effekten. UI:t märker nivåer under toppvinsten som approximationer.
+  **WP8b frånvarohistorik klar:** varje lyckat Sofascore-lineup-svar får en
+  tidsstämplad capture även vid tom lista; spelarrader bevarar provider-ID,
+  position, orsakskod/beskrivning, slutdatum, matcher och rating. Första
+  livevarvet gav 14 captures och 75/75 spelare med ID+position; 15 äldre
+  senaste-payloads backfylldes som legacy utan påhittade identiteter.
 - **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
   2026-07-16**; mobilpolish; P1/P2-backloggen nedan. Villkoret WP0–WP5 för att
   ompröva stora Europa-ligor är uppfyllt, men expansionen startar inte utan ett
@@ -160,13 +165,12 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
   styrkefit med DC-korrektion i prediktionen" i kod och alla centrala UI-
   förklaringar; T:s in-sample-status visas och ledgern pekas ut som oberoende
   forward-facit.
-- **WP8** (S/M): insamlingsintegritet — **seen/retry ✅ 2026-07-16** (transienta
-  statistikfel markeras aldrig färdiga; retry-status med försök/tid/fel; 404/410
-  permanent utan stats). Återstår: frånvaro som tidsstämplade snapshots MED
-  spelar-ID/position (ger B5 data + "vilken frånvaro flyttar linjen?"); daglig
-  Elo-snapshot + historik-backfill (PIT-Elo).
+- **WP8** (S/M): insamlingsintegritet — **seen/retry + tidsstämplad frånvaro
+  med spelar-ID/position ✅ 2026-07-16** (ger B5-data + framtida analys av
+  vilken frånvaro som flyttar linjen). Återstår: daglig Elo-snapshot +
+  historik-backfill (PIT-Elo).
 - **WP-test** (M, löpande): testgrund ✅ med standardbibliotekets `unittest`
-  (pytest-kompatibel, ingen dependency). 35 fall täcker bland annat
+  (pytest-kompatibel, ingen dependency). 42 fall täcker bland annat
   settlement/push/kvart, temperatur-roundtrip, normaltime, seen-retry/404,
   bulk-rollback, prisnärvaro samt CLV-identitet/linjeflytt. Återstår:
   power-devig, eventmatchning/tidszon, closing-matchning, poolutdelning,
@@ -399,12 +403,13 @@ resp. matchdag, eval 2024-07→ (n=351 Allsvenskan, 330 Eliteserien). **Domen:**
 - **Den verkliga guldådern: Sofascore /event/{id}/lineups** — strukturerade
   FRÅNVAROLISTOR (missingPlayers med orsakskod) + bekräftade elvor, gratis från
   källan vi redan kör. `refresh_absences` (2h-throttle, matcher <48 h, pacad):
-  meta oddset_abs:{match_id} → payload `absences` → 🚑N-märke med spelarnamn i
-  tooltip + ✓XI när elvorna bekräftats (= kolla radarn för sen sharp-rörelse!)
-  + lista i detaljvyn. Verifierad live: DIF–HBK fick Marqués/Boman direkt.
-  Orsakskoder mappas allteftersom (1 skada/3 avstängd; kod 13 observerad, ännu
-  omappad — visas ärligt som "kod 13"). Nästa steg när data samlats: viktad
-  frånvaro-styrka in i modellen (amber tills facit).
+  `oddset_absence_capture`/`oddset_absence_player` bevarar PIT-historik med
+  spelar-ID/position; meta `oddset_abs:{match_id}` är senaste-kompatibilitet.
+  🚑N-märke med spelarnamn/position i tooltip + ✓XI när elvorna bekräftats
+  (= kolla radarn för sen sharp-rörelse!) + lista i detaljvyn. Verifierat live:
+  första historikvarvet gav 75/75 spelare med ID+position. Orsakskoder verifierade
+  mot råbeskrivningen: 0 annat, 1 skada, 11/12/13 kortavstängningar. Nästa steg
+  när data samlats: viktad frånvaro-styrka in i modellen (amber tills facit).
 - **Buggfix**: .lgtag-CSS:en var scopad till tabellen — utanför den klistrades
   ligataggen mot lagnamnet ("SÖsters IF"). Nu global chip-stil.
 

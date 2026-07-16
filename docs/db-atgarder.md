@@ -8,6 +8,29 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-07-16 — WP8 tidsstämplad frånvarohistorik
+
+- **Skript:** `backend/scripts/migrera_franvarohistorik.py` (idempotent,
+  additiva tabeller/index, legacy-backfill utan påhittade identiteter).
+- **Backup:** `backend/data/backups/stryktips-2026-07-16-fore-wp8-franvaro.db`
+  (18 MB SQLite online-backup, `integrity_check = ok`, tagen innan tabellerna
+  fanns och innan backenden startades med ny kod).
+- **Vad:** `oddset_absence_capture` sparar varje lyckat lineup-svar, även tom
+  frånvarolista, med match/event/tid/bekräftelsestatus och payload-hash.
+  `oddset_absence_player` sparar sida, Sofascore player-ID, position, orsakskod,
+  beskrivning/slutdatum samt säsongsmatcher/rating. Detta gör frånvaron point-in-
+  time och möjlig att koppla till samma matchs oddshistorik.
+- **Backfill:** 15 befintliga `meta oddset_abs:*` → 15 legacy-captures och 77
+  spelarrader. Gamla payloads saknade ID/position; dessa lämnades NULL i stället
+  för att fyllas med namnmatchade gissningar. Identisk omkörning gav 0/0.
+- **Första livevarv:** 16 matcher kontrollerades, 14 hade lineup-svar och gav
+  14 nya captures + 75 spelarrader; **75/75 hade både provider-ID och position**.
+  Två källsvar saknades och skapade ingen falsk tom-observation. Totalt efter
+  varvet: 29 captures, 152 spelarrader, 15 matcher; `integrity_check = ok`.
+- **Källkorrigering:** råfälten verifierades mot Sofascore-lineups. Kod 0 =
+  annat; 1 = skada; 11/12/13 = kortavstängningar (tidigare visades 11 felaktigt
+  som "annat"). Rå `description` lagras också för framtida omklassning.
+
 ## 2026-07-16 — WP5 prediction ledger
 
 - **Skript:** `backend/scripts/migrera_prediction_ledger.py` (idempotent,

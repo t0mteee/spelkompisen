@@ -91,6 +91,42 @@ CREATE TABLE IF NOT EXISTS oddset_prediction_group_state (
 );
 """
 
+ABSENCE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS oddset_absence_capture (
+    match_id        TEXT NOT NULL,
+    captured_at     TEXT NOT NULL,
+    source_event_id TEXT,
+    match_start     TEXT,
+    confirmed       INTEGER NOT NULL,
+    payload_hash    TEXT NOT NULL,
+    home_missing    INTEGER NOT NULL,
+    away_missing    INTEGER NOT NULL,
+    missing_count   INTEGER NOT NULL,
+    PRIMARY KEY (match_id, captured_at)
+);
+CREATE INDEX IF NOT EXISTS idx_absence_capture_match
+    ON oddset_absence_capture (match_id, captured_at);
+
+CREATE TABLE IF NOT EXISTS oddset_absence_player (
+    match_id        TEXT NOT NULL,
+    captured_at     TEXT NOT NULL,
+    side            TEXT NOT NULL CHECK (side IN ('home', 'away')),
+    player_key      TEXT NOT NULL,
+    player_id       INTEGER,
+    name            TEXT NOT NULL,
+    position        TEXT,
+    reason_code     INTEGER,
+    reason          TEXT,
+    description     TEXT,
+    expected_end    TEXT,
+    appearances     INTEGER,
+    rating          REAL,
+    PRIMARY KEY (match_id, captured_at, side, player_key)
+);
+CREATE INDEX IF NOT EXISTS idx_absence_player_identity
+    ON oddset_absence_player (player_id, captured_at);
+"""
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS draws (
     product       TEXT NOT NULL,
@@ -252,7 +288,7 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
     git_hash     TEXT,
     PRIMARY KEY (match_id, market, sign, line_key, model_version)
 );
-""" + PREDICTION_SCHEMA
+""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA
 
 
 class Storage:
@@ -1039,3 +1075,75 @@ class Storage:
             "excluded.green_at)",
             (tier, league, market, version, status, candidate, green))
         self._commit()
+
+    # --- WP8 frånvaro-snapshots ---------------------------------------------
+
+    def oddset_save_absence_capture(self, capture: dict, players: list[dict]) -> int:
+        """Spara ett lyckat lineup-svar atomärt, även när frånvarolistan är tom.
+
+        Samma match/tid är idempotent. Separata spelarrader med stabilt provider-
+        ID gör att frånvaroförändringar senare kan kopplas till oddsrörelser.
+        """
+        home_n = sum(p.get("side") == "home" for p in players)
+        away_n = sum(p.get("side") == "away" for p in players)
+        with self.bulk():
+            cur = self.conn.execute(
+                "INSERT OR IGNORE INTO oddset_absence_capture(match_id, captured_at, "
+                "source_event_id, match_start, confirmed, payload_hash, home_missing, "
+                "away_missing, missing_count) VALUES(?,?,?,?,?,?,?,?,?)",
+                (capture["match_id"], capture["captured_at"],
+                 capture.get("source_event_id"), capture.get("match_start"),
+                 int(bool(capture.get("confirmed"))), capture["payload_hash"],
+                 home_n, away_n, home_n + away_n))
+            if cur.rowcount == 0:
+                return 0
+            for i, p in enumerate(players):
+                side = p.get("side")
+                if side not in ("home", "away"):
+                    raise ValueError(f"ogiltig frånvarosida: {side!r}")
+                player_id = p.get("player_id")
+                name = p.get("name") or f"okänd-{i + 1}"
+                player_key = (f"sofa:{player_id}" if player_id is not None
+                              else "name:" + name.casefold().strip())
+                self.conn.execute(
+                    "INSERT INTO oddset_absence_player(match_id, captured_at, side, "
+                    "player_key, player_id, name, position, reason_code, reason, "
+                    "description, expected_end, appearances, rating) "
+                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (capture["match_id"], capture["captured_at"], side, player_key,
+                     player_id, name, p.get("position"), p.get("reason_code"),
+                     p.get("reason"), p.get("description"), p.get("expected_end"),
+                     p.get("apps"), p.get("rating")))
+        return len(players)
+
+    def oddset_latest_absences(self, match_ids: list[str]) -> dict[str, dict]:
+        if not match_ids:
+            return {}
+        marks = ",".join("?" for _ in match_ids)
+        captures = self.conn.execute(
+            "SELECT c.* FROM oddset_absence_capture c JOIN ("
+            " SELECT match_id, MAX(captured_at) AS captured_at "
+            f" FROM oddset_absence_capture WHERE match_id IN ({marks}) GROUP BY match_id"
+            ") latest ON latest.match_id=c.match_id "
+            "AND latest.captured_at=c.captured_at",
+            match_ids).fetchall()
+        out: dict[str, dict] = {}
+        for c in captures:
+            rec = {"at": c["captured_at"], "confirmed": bool(c["confirmed"]),
+                   "source_event_id": c["source_event_id"], "home": [], "away": []}
+            rows = self.conn.execute(
+                "SELECT side, player_id, name, position, reason_code, reason, "
+                "description, expected_end, appearances AS apps, rating "
+                "FROM oddset_absence_player WHERE match_id=? AND captured_at=? "
+                "ORDER BY side, name",
+                (c["match_id"], c["captured_at"])).fetchall()
+            for row in rows:
+                player = {k: row[k] for k in row.keys() if k != "side" and row[k] is not None}
+                rec[row["side"]].append(player)
+            out[c["match_id"]] = rec
+        return out
+
+    def oddset_absence_history(self, match_id: str) -> list[dict]:
+        return [dict(r) for r in self.conn.execute(
+            "SELECT * FROM oddset_absence_capture WHERE match_id=? "
+            "ORDER BY captured_at", (match_id,)).fetchall()]

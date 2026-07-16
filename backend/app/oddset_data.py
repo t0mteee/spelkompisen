@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import csv
 import datetime as dt
+import hashlib
 import io
 import json
 import time
@@ -44,7 +45,8 @@ FD_TTL_H, XG_TTL_H, ELO_TTL_H, ABS_TTL_H = 12, 6, 24, 2
 # det. 1 = ursprunglig; 2 = normaltime + identitetsmerge (alias/±1 dygn), 2026-07-13.
 DATA_VERSION = 2
 # missingPlayers-orsakskoder (Sofascore): observerade typer
-_ABS_REASON = {1: "skada", 2: "tveksam", 3: "avstängd", 11: "annat"}
+_ABS_REASON = {0: "annat", 1: "skada", 2: "tveksam", 3: "avstängd",
+               11: "avstängd", 12: "avstängd", 13: "avstängd"}
 
 
 def _now() -> dt.datetime:
@@ -285,6 +287,21 @@ def get_elo(store: Storage) -> dict[str, int]:
         return {}
 
 
+def _absence_entry(raw: dict) -> dict:
+    """Normalisera ett Sofascore-missingPlayer utan att kasta provideridentitet."""
+    player = raw.get("player") or {}
+    code = raw.get("reason")
+    return {
+        "player_id": player.get("id"),
+        "name": player.get("name"),
+        "position": player.get("position"),
+        "reason_code": code,
+        "reason": _ABS_REASON.get(code, f"kod {code}"),
+        "description": raw.get("description"),
+        "expected_end": raw.get("expectedEndDate"),
+    }
+
+
 def refresh_absences(store: Storage, force: bool = False) -> dict:
     """Frånvarolistor (skador/avstängningar/tveksamma) + bekräftade elvor från
     Sofascore /event/{id}/lineups för kommande matcher (<48 h). Strukturerad
@@ -324,22 +341,22 @@ def refresh_absences(store: Storage, force: bool = False) -> dict:
             lu = _sofa_get(f"/event/{eid}/lineups")
         except Exception:  # noqa: BLE001 — 404 tills lineups/frånvaro publicerats
             continue
-        rec = {"at": frm, "confirmed": bool(lu.get("confirmed"))}
+        captured_at = _now().strftime("%Y-%m-%dT%H:%M:%SZ")
+        rec = {"at": captured_at, "confirmed": bool(lu.get("confirmed")),
+               "source_event_id": str(eid)}
+        players = []
         ut, sid = SOFA_UT[m["league"]], _sofa_season(store, m["league"])
         for side in ("home", "away"):
             rec[side] = []
             for p in (lu.get(side) or {}).get("missingPlayers") or []:
-                pl = p.get("player") or {}
-                entry = {"name": pl.get("name"),
-                         "reason": _ABS_REASON.get(p.get("reason"),
-                                                   f"kod {p.get('reason')}")}
+                entry = _absence_entry(p)
                 # spelarens säsongsstatus: få matcher = marginell frånvaro som
                 # inte ska väga tungt (Samans poäng — en reserv borta är inte
                 # samma sak som en ordinarie)
-                if pl.get("id"):
+                if entry.get("player_id"):
                     time.sleep(0.8)
                     try:
-                        st = _sofa_get(f"/player/{pl['id']}/unique-tournament/{ut}"
+                        st = _sofa_get(f"/player/{entry['player_id']}/unique-tournament/{ut}"
                                        f"/season/{sid}/statistics/overall") \
                             .get("statistics") or {}
                         entry["apps"] = st.get("appearances")
@@ -348,6 +365,15 @@ def refresh_absences(store: Storage, force: bool = False) -> dict:
                     except Exception:  # noqa: BLE001 — ingen säsongsstatistik = okänd
                         pass
                 rec[side].append(entry)
+                players.append({**entry, "side": side})
+        payload = json.dumps(rec, ensure_ascii=False, sort_keys=True,
+                             separators=(",", ":"))
+        store.oddset_save_absence_capture({
+            "match_id": m["id"], "captured_at": captured_at,
+            "source_event_id": str(eid), "match_start": m.get("start"),
+            "confirmed": rec["confirmed"],
+            "payload_hash": hashlib.sha256(payload.encode()).hexdigest(),
+        }, players)
         store.meta_set(f"oddset_abs:{m['id']}", json.dumps(rec, ensure_ascii=False))
         out["found"] += 1
     _mark(store, "oddset_abs_at")
@@ -355,8 +381,8 @@ def refresh_absences(store: Storage, force: bool = False) -> dict:
 
 
 def get_absences(store: Storage, match_ids: list[str]) -> dict[str, dict]:
-    out = {}
-    for mid in match_ids:
+    out = store.oddset_latest_absences(match_ids)
+    for mid in (m for m in match_ids if m not in out):
         raw = store.meta_get(f"oddset_abs:{mid}")
         if raw:
             try:

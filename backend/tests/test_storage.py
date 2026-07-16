@@ -114,5 +114,85 @@ class OddsetValueIdentityTests(unittest.TestCase):
                 store.close()
 
 
+class OddsetAbsenceSnapshotTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+
+    def tearDown(self) -> None:
+        self.store.close()
+        self.tmp.cleanup()
+
+    def test_latest_capture_roundtrips_player_identity_and_position(self) -> None:
+        capture = {
+            "match_id": "m1", "captured_at": "2026-07-16T10:00:00Z",
+            "source_event_id": "15171583", "match_start": "2026-07-17T02:30:00Z",
+            "confirmed": False, "payload_hash": "hash-1",
+        }
+        players = [{
+            "side": "away", "player_id": 794516, "name": "Yohei Takaoka",
+            "position": "G", "reason_code": 13, "reason": "avstängd",
+            "description": "red_card_suspension",
+            "expected_end": "2026-07-17T03:30:00+00:00",
+            "apps": 13, "rating": 6.91,
+        }]
+
+        self.assertEqual(1, self.store.oddset_save_absence_capture(capture, players))
+        latest = self.store.oddset_latest_absences(["m1"])["m1"]
+
+        self.assertFalse(latest["confirmed"])
+        self.assertEqual("15171583", latest["source_event_id"])
+        self.assertEqual([], latest["home"])
+        self.assertEqual(794516, latest["away"][0]["player_id"])
+        self.assertEqual("G", latest["away"][0]["position"])
+        self.assertEqual(13, latest["away"][0]["reason_code"])
+
+    def test_empty_new_capture_replaces_current_list_but_preserves_history(self) -> None:
+        base = {
+            "match_id": "m1", "source_event_id": "1",
+            "match_start": "2026-07-17T02:30:00Z", "confirmed": False,
+        }
+        self.store.oddset_save_absence_capture(
+            {**base, "captured_at": "2026-07-16T10:00:00Z", "payload_hash": "h1"},
+            [{"side": "home", "player_id": 7, "name": "A", "reason": "skada"}])
+        self.store.oddset_save_absence_capture(
+            {**base, "captured_at": "2026-07-16T12:00:00Z", "payload_hash": "h2"}, [])
+
+        latest = self.store.oddset_latest_absences(["m1"])["m1"]
+        history = self.store.oddset_absence_history("m1")
+
+        self.assertEqual([], latest["home"])
+        self.assertEqual([], latest["away"])
+        self.assertEqual(2, len(history))
+        self.assertEqual(1, history[0]["missing_count"])
+        self.assertEqual(0, history[1]["missing_count"])
+
+    def test_same_capture_is_idempotent(self) -> None:
+        capture = {
+            "match_id": "m1", "captured_at": "2026-07-16T10:00:00Z",
+            "source_event_id": "1", "match_start": None, "confirmed": False,
+            "payload_hash": "h1",
+        }
+        players = [{"side": "home", "name": "No id", "reason": "skada"}]
+
+        self.assertEqual(1, self.store.oddset_save_absence_capture(capture, players))
+        self.assertEqual(0, self.store.oddset_save_absence_capture(capture, players))
+        self.assertEqual(1, self.store.conn.execute(
+            "SELECT COUNT(*) FROM oddset_absence_player").fetchone()[0])
+
+    def test_invalid_player_rolls_back_capture_atomically(self) -> None:
+        capture = {
+            "match_id": "m1", "captured_at": "2026-07-16T10:00:00Z",
+            "source_event_id": "1", "match_start": None, "confirmed": False,
+            "payload_hash": "h1",
+        }
+        with self.assertRaises(ValueError):
+            self.store.oddset_save_absence_capture(
+                capture, [{"side": "unknown", "name": "A"}])
+
+        self.assertEqual(0, self.store.conn.execute(
+            "SELECT COUNT(*) FROM oddset_absence_capture").fetchone()[0])
+
+
 if __name__ == "__main__":
     unittest.main()

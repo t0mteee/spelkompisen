@@ -172,6 +172,9 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
 - Tillstånd sparas i `localStorage` (`svs_state`); bootstrap återställer.
 - Inga `cursor: help`-frågetecken; förklaringar som title-tooltips.
 - Oddset-delen: röd = oddset NER (ökad vinstchans), grön = UPP (vm-konvention).
+- Frånvaro: `oddset_absence_capture` + `oddset_absence_player` är PIT-historiken;
+  capture skrivs även för en lyckad tom lista. Sofascore `player.id` och position
+  bevaras. `meta oddset_abs:*` är bara senaste-payload för bakåtkompatibilitet.
 
 ## Regler
 

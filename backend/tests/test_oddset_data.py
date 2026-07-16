@@ -81,5 +81,72 @@ class SofaIngestTests(unittest.TestCase):
         self.assertIsNone(self.store.meta_get("oddset_sofa_retry:789"))
 
 
+class AbsenceSnapshotTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+
+    def tearDown(self) -> None:
+        self.store.close()
+        self.tmp.cleanup()
+
+    def test_absence_entry_keeps_provider_identity_and_maps_suspensions(self) -> None:
+        raw = {
+            "player": {"id": 794516, "name": "Yohei Takaoka", "position": "G"},
+            "reason": 13, "description": "red_card_suspension",
+            "expectedEndDate": "2026-07-17T03:30:00+00:00",
+        }
+
+        entry = oddset_data._absence_entry(raw)
+
+        self.assertEqual(794516, entry["player_id"])
+        self.assertEqual("G", entry["position"])
+        self.assertEqual(13, entry["reason_code"])
+        self.assertEqual("avstängd", entry["reason"])
+        self.assertEqual("red_card_suspension", entry["description"])
+        self.assertEqual("annat", oddset_data._absence_entry(
+            {"player": {"name": "Other"}, "reason": 0,
+             "description": "other"})["reason"])
+
+    def test_refresh_writes_structured_capture_and_latest_payload(self) -> None:
+        self.store.oddset_upsert_match({
+            "id": "m1", "league": "mls", "home": "Chicago Fire",
+            "away": "Vancouver Whitecaps", "start": "2026-07-17T02:30:00Z",
+        })
+        event_list = {"events": [{
+            "id": 15171583, "homeTeam": {"name": "Chicago Fire"},
+            "awayTeam": {"name": "Vancouver Whitecaps"},
+        }]}
+        lineup = {"confirmed": False, "home": {"missingPlayers": []}, "away": {
+            "missingPlayers": [{
+                "player": {"id": 794516, "name": "Yohei Takaoka", "position": "G"},
+                "reason": 13, "description": "red_card_suspension",
+            }]}}
+        statistics = {"statistics": {"appearances": 13, "rating": 6.91}}
+
+        def source(path: str):
+            if "/events/next/" in path:
+                return event_list
+            if path == "/event/15171583/lineups":
+                return lineup
+            if path.startswith("/player/794516/"):
+                return statistics
+            raise AssertionError(path)
+
+        fixed_now = oddset_data.dt.datetime(
+            2026, 7, 16, 10, 0, tzinfo=oddset_data.dt.timezone.utc)
+        with mock.patch.object(oddset_data, "_now", return_value=fixed_now), \
+                mock.patch.object(oddset_data, "_sofa_season", return_value=86668), \
+                mock.patch.object(oddset_data, "_sofa_get", side_effect=source), \
+                mock.patch.object(oddset_data.time, "sleep"):
+            result = oddset_data.refresh_absences(self.store, force=True)
+
+        self.assertEqual({"checked": 1, "found": 1}, result)
+        latest = oddset_data.get_absences(self.store, ["m1"])["m1"]
+        self.assertEqual(794516, latest["away"][0]["player_id"])
+        self.assertEqual("G", latest["away"][0]["position"])
+        self.assertEqual(1, len(self.store.oddset_absence_history("m1")))
+
+
 if __name__ == "__main__":
     unittest.main()
