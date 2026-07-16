@@ -77,6 +77,11 @@ def fetch_rows(league: str, min_season: int = 2023) -> list[dict]:
                      ("open", ("B365H", "B365D", "B365A"))),
         }
         for src, column_sets in sources.items():
+            # Behåll båda tidpunkterna separat för V2-B:s uttryckligt märkta
+            # utvecklingsproxy. Det befintliga backtestet fortsätter välja
+            # closing först och ändrar därmed inte sitt facit.
+            rec[f"{src}_close"], _ = _odds_from_sets(row, (column_sets[0],))
+            rec[f"{src}_open"], _ = _odds_from_sets(row, (column_sets[1],))
             rec[src], rec[f"{src}_timing"] = _odds_from_sets(row, column_sets)
         rows.append(rec)
     rows.sort(key=lambda x: x["date"])

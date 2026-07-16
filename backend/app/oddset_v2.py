@@ -38,7 +38,7 @@ ELO_TEAM_ALIAS = {
     "vasteras": "vaesteras",
 }
 FEATURE_POLICY = {
-    "schema": 4,
+    "schema": 5,
     "scope": {"leagues": LEAGUES, "market": "1x2"},
     "result_cutoff": "strictly-before-utc-capture-date",
     "result_merge": oddset_data.MODEL_DATA_VERSION,
@@ -194,7 +194,9 @@ class FeatureBuilder:
         home_last = _last_team_date(rows, home_link["key"])
         away_last = _last_team_date(rows, away_link["key"])
         attack_diff = defence_diff = None
-        if home_fit and away_fit:
+        if (home_fit and away_fit and home_fit.get("att", 0) > 0 and
+                away_fit.get("att", 0) > 0 and home_fit.get("def", 0) > 0 and
+                away_fit.get("def", 0) > 0):
             attack_diff = math.log(home_fit["att"] / away_fit["att"])
             # Högre värde betyder att bortalagets försvar släpper till mer än
             # hemmalagets, alltså en riktad fördel för hemmalaget.
@@ -325,6 +327,21 @@ def _probabilities(rows: list[dict], capture: Optional[dict], tier: str) -> Opti
     return {sign: picked[sign] / total for sign in SIGNS} if total > 0 else None
 
 
+def _book_odds(rows: list[dict], capture: Optional[dict]) -> Optional[dict]:
+    if not capture:
+        return None
+    picked = {}
+    for row in rows:
+        if (row["match_id"] == capture["match_id"] and
+                row["horizon"] == capture["horizon"] and row["tier"] == "sharp" and
+                row["signal_version"] == capture["signal_version"] and
+                row["market"] == "1x2" and row["sign"] in SIGNS and
+                row.get("book_odds") and row["book_odds"] > 1 and
+                row.get("book_available") and row.get("book_fresh")):
+            picked[row["sign"]] = float(row["book_odds"])
+    return picked if set(picked) == set(SIGNS) else None
+
+
 def _softmax_log(probabilities: dict) -> dict:
     values = {sign: math.exp(math.log(probabilities[sign])) for sign in SIGNS}
     total = sum(values.values())
@@ -392,6 +409,7 @@ def build_dataset(store: Storage, version: Optional[str] = None) -> dict:
         model_capture = captures.get((match_id, horizon, "model"))
         sharp = _probabilities(prediction_rows, sharp_capture, "sharp")
         model = _probabilities(prediction_rows, model_capture, "model")
+        book_odds = _book_odds(prediction_rows, sharp_capture)
         feature = (feature_rows.get((match_id, horizon,
                                     model_capture["signal_version"]))
                    if model_capture else None)
@@ -469,7 +487,7 @@ def build_dataset(store: Storage, version: Optional[str] = None) -> dict:
             "model_version": model_capture["signal_version"] if model_capture else None,
             "feature_version": version, "feature_capture_mode": (
                 feature["capture_mode"] if feature else None),
-            "sharp": sharp, "model": model,
+            "sharp": sharp, "model": model, "book_odds": book_odds,
             "model_market_log_residual": market_residual,
             "features": payload.get("features"), "feature_missing": payload.get("missing"),
             "feature_source": source or None, "feature_identity": payload.get("identity"),
@@ -480,7 +498,7 @@ def build_dataset(store: Storage, version: Optional[str] = None) -> dict:
             "issues": sorted(set(issues)),
         })
     digest = _hash(dataset)
-    return {"schema": 1, "feature_version": version, "manifest": manifest,
+    return {"schema": 2, "feature_version": version, "manifest": manifest,
             "rows": dataset, "dataset_hash": digest}
 
 

@@ -111,7 +111,7 @@
   lågchansutfall och håller radbyggaren synlig på desktop/nåbar från mobil.
   PWA-manifest, maskbar 1–X–2-ikon och Apple-hemskärmsmetadata ger appidentitet
   i fristående läge utan offline-cache som kan göra oddsdata missvisande gammal.
-- **Kvalitetspaket + Backtest v4 klart (2026-07-16; 89 tester efter V2-A):** tester täcker nu även
+- **Kvalitetspaket + Backtest v4 klart (2026-07-16; 98 tester efter V2-B):** tester täcker nu även
   power-devig, event/tidszon, post-kickoff/closinglina, analytisk poolutdelning,
   klusterbootstrap, signalgrupp och versionsisolering. Backtest v4 mäter den
   förregistrerade q-policyn med matchblock-KI och X-frekvens per liga; full rapport
@@ -128,8 +128,15 @@
   4 matcher, komplett fit+Elo, 0 läckor/dubbletter och marknadsidentitet
   max |Δp| 2,78e−17. Outer-manifestet är fryst före modellarbete. Rapport:
   `docs/v2-a-audit-2026-07-17.md`; plan: `docs/modell-v2-plan.md`.
-  **Nästa prioritet: V2-B ridge-motor/nested walk-forward mot development-data;
-  ingen live-modell ändras och outer-testet öppnas inte.**
+  **V2-B-motorn är klar men modellen STOPPAD (2026-07-17):** deterministisk
+  multinomial ridge, träningsfönster-standardisering/missing-indikatorer och
+  nested matchdags-walk-forward är verifierade. Äkta ledgermatcher har ännu
+  inget facit. Ett separat, icke-promoverbart Pinnacle-closing-upper-bound gav
+  1 097 OOT-developmentprediktioner: total Δlogloss −0,00126, KI
+  [−0,00745..+0,00511]; Allsv +0,00168, Elite −0,00437. Kompletta features var
+  positiva (+0,00230), missing-rader negativa (−0,00426), så kriteriet att alla
+  matcher ska hålla missades. **Ingen V2-C/skugga och ingen live-ändring.**
+  Rapport: `docs/v2-b-backtest-2026-07-17.md`.
 - **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
   2026-07-16**; beslut om mobil-default för `Bara signaler` återstår;
   P1/P2-backloggen finns nedan. Villkoret WP0–WP5 för att
@@ -222,7 +229,7 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
   källtimeout lämnar klubben omarkerad för retry. Tre klubbhistoriker är ännu
   partiella enligt statusblocket, aldrig tyst klassade som kompletta.
 - **WP-test** (M, löpande): testgrund ✅ med standardbibliotekets `unittest`
-  (pytest-kompatibel, ingen dependency). 89 fall täcker bland annat
+  (pytest-kompatibel, ingen dependency). 98 fall täcker bland annat
   settlement/push/kvart, temperatur-roundtrip, normaltime, seen-retry/404,
   bulk-rollback, prisnärvaro, Elo-PIT/retry samt CLV-identitet/linjeflytt och
   WP6:s Poissonandel, portföljkonkurrens, full enumeration och reproducerbar MC.

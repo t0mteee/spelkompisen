@@ -23,7 +23,9 @@ BACKUP = ROOT / "data" / "backups" / "stryktips-2026-07-17-fore-v2a.db"
 TABLE = "oddset_v2_feature_capture"
 # Endast featureversioner skapade lokalt under den ännu ocommittade V2-A-
 # utvecklingen. De har aldrig lästs av appen eller använts som facit.
-OBSOLETE_DEVELOPMENT_VERSIONS = ("f-f96ee90d", "f-97ea96d2", "f-ee0ef61f")
+OBSOLETE_DEVELOPMENT_VERSIONS = (
+    "f-f96ee90d", "f-97ea96d2", "f-ee0ef61f", "f-b0e73843",
+)
 
 
 def migrate(db: Path | str) -> dict:

@@ -8,6 +8,7 @@ Användning (från backend/ med aktiverat venv):
                                     # snabbvarv nära avspark/spelstopp (A1)
     python cli.py oddset [light]    # ett oddset-varv (light = snabbvarvet)
     python cli.py v2audit [backfill] # PIT-dataset/coverage; backfill är ej promotion
+    python cli.py v2backtest [proxy] # nested ridge; proxy kan aldrig promovera
     python cli.py history 4956 1 1  # oddshistorik draw=4956 event=1 sign=1
     python cli.py backtest 25 stryktipset  # kalibrera modellen mot facit
 
@@ -619,6 +620,31 @@ def main() -> None:
             if "backfill" in rest:
                 print("features:", oddset_v2.backfill_features(store))
             print(oddset_v2.format_audit(oddset_v2.audit(store)))
+        finally:
+            store.close()
+    elif cmd == "v2backtest":
+        from app import oddset_v2, oddset_v2_model
+        store = Storage()
+        try:
+            if "proxy" in rest:
+                from app import oddset_v2_proxy
+                proxy = oddset_v2_proxy.build_historical_proxy(store)
+                print("proxy coverage:", proxy["coverage"])
+                walk = oddset_v2_model.nested_walk_forward(
+                    proxy["rows"], horizon="proxy_close")
+                print(oddset_v2_model.format_report(
+                    oddset_v2_model.evaluation_report(
+                        walk, "historical_closing_upper_bound")))
+            else:
+                dataset = oddset_v2.build_dataset(store)["rows"]
+                for horizon in ("h24", "h3", "m20"):
+                    rows = [row for row in dataset
+                            if row["split"] == "development" and
+                            row["research_ready"]]
+                    walk = oddset_v2_model.nested_walk_forward(rows, horizon=horizon)
+                    print(oddset_v2_model.format_report(
+                        oddset_v2_model.evaluation_report(
+                            walk, "live_development")))
         finally:
             store.close()
     elif cmd == "oddsetbacktest":

@@ -138,7 +138,14 @@ måste först få coverage-matris, PIT-definition, saknas-policy och test.
    coverage-rapport, identitetsbaslinje och fryst outer-manifest. Första
    produktionsaudit i `v2-a-audit-2026-07-17.md`; live-underlaget växer nu
    automatiskt och retrospektiv rekonstruktion är spärrad från promotion.
-2. **V2-B modell/backtest:** ridge-residual, nested walk-forward och fryst dom.
+2. **V2-B motor/backtest ✅ 2026-07-17; modell STOPP:** deterministisk
+   ridge-residual, träningsfönster-imputation, nested matchdags-walk-forward,
+   bootstrap-/Brier-/kalibreringsdom och CLI är klara. Äkta ledgerdata har ännu
+   0 avgjorda developmentmatcher. Ett separat, aldrig promoverbart
+   Pinnacle-closing-upper-bound (1 097 OOT-developmentprediktioner) gav total
+   Δlogloss −0,00126, 90 % KI [−0,00745..+0,00511]; Allsvenskan +0,00168,
+   Eliteserien −0,00437. V2.1 går därför inte till V2-C. Se
+   `v2-b-backtest-2026-07-17.md`.
 3. **V2-C skuggläge:** versionerad ledgercapture och förklarande amber-UI.
 4. **V2-D forwardbeslut:** automatisk rapport mot de förregistrerade kriterierna.
 
