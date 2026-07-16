@@ -64,6 +64,9 @@
   kvalificera en grupp. V3-statusen är amber → candidate → out-of-time green,
   med kluster-KI per match, kluster-signflip-p-värde och BH-FDR 10 % för
   utforskande grupper. Träningsmatcher är utforskande, aldrig primär "liga".
+  Första livepasset: 220 prediktioner/30 tier-captures; bootstraprader som
+  startade mitt i en horisont sparades men timingvakten släpper bara 4 captures
+  till valideringsfacitet. Nya matcher bygger rena serier automatiskt.
 - **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
   2026-07-16**; mobilpolish; P1/P2-backloggen nedan. Villkoret WP0–WP5 för att
   ompröva stora Europa-ligor är uppfyllt, men expansionen startar inte utan ett

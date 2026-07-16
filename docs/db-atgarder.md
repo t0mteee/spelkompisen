@@ -25,6 +25,18 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
   prediktioner (8 captures i 3h-bucket, 22 i 24h-bucket); identisk omkörning
   gav 0 captures/0 rader. Dessa kopierader är testdata och finns inte i
   produktionsdatabasen.
+- **Första live-capture:** launchd skrev 30 tier-captures/220 prediktioner
+  2026-07-16 13:30:07Z. Timingvakten godkände 4/13 3h-captures och 0/17
+  bootstrap-24h-captures; sena rader finns kvar för coverage men kan inte
+  kvalificera en grupp. 220/220 prediktionsidentiteter är unika.
+- **Staging-race, metadata-only:** launchd hann köra fem minuter innan commit
+  `4cd0bb0` skapades och `_code_version()` skrev därför föräldrahashen
+  `6156f74`, trots att det exekverade WP5-trädet var exakt det staged träd som
+  blev `4cd0bb0`. `backend/scripts/korrigera_wp5_githash.py` verifierar HEAD,
+  diff på alla kärnfiler, exakt capture-tid och exakt 220 rader innan den ändrar
+  enbart `git_hash`. Separat backup:
+  `backend/data/backups/stryktips-2026-07-16-fore-wp5-githash.db`.
+  Utfall: 220 rader `6156f74→4cd0bb0`, `integrity_check = ok`.
 
 ## 2026-07-16 — WP4 CLV-identitet och linjeflytt
 
