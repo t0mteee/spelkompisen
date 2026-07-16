@@ -194,5 +194,65 @@ class OddsetAbsenceSnapshotTests(unittest.TestCase):
             "SELECT COUNT(*) FROM oddset_absence_capture").fetchone()[0])
 
 
+class OddsetEloHistoryTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+
+    def tearDown(self) -> None:
+        self.store.close()
+        self.tmp.cleanup()
+
+    @staticmethod
+    def _rating(club: str, elo: float, frm: str, to: str,
+                country: str = "SWE") -> dict:
+        return {"club_key": club.casefold(), "club_raw": club,
+                "country": country, "level": 1, "elo": elo,
+                "valid_from": frm, "valid_to": to}
+
+    def test_latest_daily_capture_ignores_historical_anchor(self) -> None:
+        daily = {"captured_at": "2026-07-16T10:00:00Z",
+                 "requested_date": "2026-07-16", "source": "daily",
+                 "payload_hash": "daily"}
+        anchor = {"captured_at": "2026-07-16T11:00:00Z",
+                  "requested_date": "2024-07-01", "source": "backfill-anchor",
+                  "payload_hash": "anchor"}
+        self.assertEqual(1, self.store.oddset_save_elo_capture(
+            daily, [self._rating("Hammarby", 1507.7, "2026-07-13", "2026-07-19")]))
+        self.store.oddset_save_elo_capture(
+            anchor, [self._rating("Hammarby", 1399.9, "2024-06-03", "2024-07-07")])
+
+        self.assertEqual({"hammarby": 1508}, self.store.oddset_latest_elo())
+        self.assertEqual(0, self.store.oddset_save_elo_capture(
+            daily, [self._rating("Hammarby", 1507.7, "2026-07-13", "2026-07-19")]))
+
+    def test_as_of_uses_inclusive_provider_intervals(self) -> None:
+        rows = [
+            self._rating("Hammarby", 1391.1, "2024-04-08", "2024-04-15"),
+            self._rating("Hammarby", 1405.3, "2024-04-16", "2024-04-21"),
+            self._rating("Brann", 1600.2, "2024-04-01", "2024-04-30", "NOR"),
+        ]
+        self.assertEqual(3, self.store.oddset_save_elo_history(
+            rows, "2026-07-16T10:00:00Z"))
+        self.assertEqual(0, self.store.oddset_save_elo_history(
+            rows, "2026-07-16T11:00:00Z"))
+
+        self.assertEqual({"brann": 1600, "hammarby": 1391},
+                         self.store.oddset_elo_as_of("2024-04-15"))
+        self.assertEqual({"brann": 1600, "hammarby": 1405},
+                         self.store.oddset_elo_as_of("2024-04-16"))
+
+    def test_invalid_country_rolls_back_capture_atomically(self) -> None:
+        capture = {"captured_at": "2026-07-16T10:00:00Z",
+                   "requested_date": "2026-07-16", "source": "daily",
+                   "payload_hash": "bad"}
+        with self.assertRaises(ValueError):
+            self.store.oddset_save_elo_capture(
+                capture, [self._rating("Ajax", 1700, "2026-01-01", "2026-12-31",
+                                       "NED")])
+        self.assertEqual(0, self.store.conn.execute(
+            "SELECT COUNT(*) FROM oddset_elo_capture").fetchone()[0])
+
+
 if __name__ == "__main__":
     unittest.main()

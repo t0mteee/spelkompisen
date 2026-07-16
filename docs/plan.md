@@ -47,7 +47,7 @@
   tester och 35 aktuella ankrade matcher (linjer 2.25–3.75). Akuta delen av WP8
   klar: transient Sofascore-statistikfel sparar resultatet men lämnar eventet
   för retry; 404/410 avslutas som permanent statistik-saknad. Första automatiska
-  sviten finns i `backend/tests/` (42 `unittest`-fall, inga nya dependencies).
+  sviten finns i `backend/tests/` (52 `unittest`-fall, inga nya dependencies).
   **WP2 full klar:** prisförändring (`fetched_at`) och senaste bekräftelse
   (`last_seen_at`) är separerade; lyckade svar markerar plockade/suspenderade
   priser, källfel gör det inte. Värde, steam, modellkanter och closing-facit
@@ -79,6 +79,14 @@
   position, orsakskod/beskrivning, slutdatum, matcher och rating. Första
   livevarvet gav 14 captures och 75/75 spelare med ID+position; 15 äldre
   senaste-payloads backfylldes som legacy utan påhittade identiteter.
+  **WP8c PIT-Elo klar:** dagliga rankingar sparas som immutabla captures och
+  ClubElos egna inkluderande From/To-intervall kan läsas med `as_of`. Tre
+  säsongsankare fann 39 klubbar; full historik hämtades för 36 och gav totalt
+  4 197 intervall. KFUM Oslo, Odd Grenland och Sirius har verifierade
+  ankarintervall men fulla klubbendpoints timeoutar och förblir retrybara.
+  Effektiv täckning med modellens namnmatchning: Allsvenskan 507/581 (87,3 %),
+  Eliteserien 483/587 (82,3 %), men Superettan 19/600 och OBOS 11/600 — Elo får
+  därför fortsatt bara vara en sporadisk prior i andradivisionerna.
 - **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
   2026-07-16**; mobilpolish; P1/P2-backloggen nedan. Villkoret WP0–WP5 för att
   ompröva stora Europa-ligor är uppfyllt, men expansionen startar inte utan ett
@@ -165,14 +173,15 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
   styrkefit med DC-korrektion i prediktionen" i kod och alla centrala UI-
   förklaringar; T:s in-sample-status visas och ledgern pekas ut som oberoende
   forward-facit.
-- **WP8** (S/M): insamlingsintegritet — **seen/retry + tidsstämplad frånvaro
-  med spelar-ID/position ✅ 2026-07-16** (ger B5-data + framtida analys av
-  vilken frånvaro som flyttar linjen). Återstår: daglig Elo-snapshot +
-  historik-backfill (PIT-Elo).
+- **WP8 ✅ 2026-07-16** (S/M): insamlingsintegritet — seen/retry,
+  tidsstämplad frånvaro med spelar-ID/position och PIT-Elo. Elo har både
+  observerade dagscaptures och providerintervall för historisk `as_of`-läsning;
+  källtimeout lämnar klubben omarkerad för retry. Tre klubbhistoriker är ännu
+  partiella enligt statusblocket, aldrig tyst klassade som kompletta.
 - **WP-test** (M, löpande): testgrund ✅ med standardbibliotekets `unittest`
-  (pytest-kompatibel, ingen dependency). 42 fall täcker bland annat
+  (pytest-kompatibel, ingen dependency). 52 fall täcker bland annat
   settlement/push/kvart, temperatur-roundtrip, normaltime, seen-retry/404,
-  bulk-rollback, prisnärvaro samt CLV-identitet/linjeflytt. Återstår:
+  bulk-rollback, prisnärvaro, Elo-PIT/retry samt CLV-identitet/linjeflytt. Återstår:
   power-devig, eventmatchning/tidszon, closing-matchning, poolutdelning,
   bootstrap-kluster, grupp-vs-tier och versionsstabilitet. Test före varje fix.
 - **WP3-tillägg** (S): fuzzy-links-audit — ALLA icke-exakta/icke-alias-länkar

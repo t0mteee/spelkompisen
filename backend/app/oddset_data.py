@@ -259,28 +259,83 @@ def xg_backfill(store: Storage, seasons_back: int = 2, max_pages: int = 12) -> d
 
 # --- ClubElo -----------------------------------------------------------------------
 
+CLUBELO_BASE = "http://api.clubelo.com"
+
+
+def parse_elo_csv(text: str) -> list[dict]:
+    """Läs ClubElos ranking/historik och bevara dess giltighetsintervall."""
+    rows = []
+    for row in csv.DictReader(io.StringIO(text.lstrip("﻿"))):
+        if row.get("Country") not in ("SWE", "NOR"):
+            continue
+        try:
+            club_raw = row["Club"].strip()
+            valid_from = dt.date.fromisoformat(row["From"]).isoformat()
+            valid_to = dt.date.fromisoformat(row["To"]).isoformat()
+            elo = float(row["Elo"])
+            level = int(row["Level"]) if row.get("Level") not in (None, "") else None
+        except (ValueError, KeyError, AttributeError):
+            continue
+        if not club_raw or valid_to < valid_from:
+            continue
+        rows.append({
+            "club_key": norm_team(club_raw), "club_raw": club_raw,
+            "country": row["Country"], "level": level, "elo": elo,
+            "valid_from": valid_from, "valid_to": valid_to,
+        })
+    return rows
+
+
+def fetch_elo_csv(identifier: str) -> str:
+    r = httpx.get(f"{CLUBELO_BASE}/{identifier}", timeout=60,
+                  follow_redirects=True,
+                  headers={"User-Agent": "spelkompisen/1.0 (local personal tool)"})
+    r.raise_for_status()
+    return r.text
+
+
+def save_elo_capture(store: Storage, requested_date: str, text: str,
+                     source: str = "daily", captured_at: Optional[str] = None) -> int:
+    """Spara endast ett komplett, icke-tomt SWE/NOR-svar."""
+    ratings = parse_elo_csv(text)
+    if not ratings:
+        return 0
+    at = captured_at or _now().strftime("%Y-%m-%dT%H:%M:%SZ")
+    payload_hash = hashlib.sha256(text.encode()).hexdigest()
+    saved = store.oddset_save_elo_capture({
+        "captured_at": at, "requested_date": requested_date,
+        "source": source, "payload_hash": payload_hash,
+    }, ratings)
+    # Datumrankingen bär själv providerintervallen From/To. Spara dem även i
+    # PIT-lagret så att daglig drift successivt fyller framtida historik och så
+    # att ett idempotent capture-retry kan reparera saknade intervall.
+    store.oddset_save_elo_history(ratings, at)
+    return saved
+
+
 def refresh_elo(store: Storage, force: bool = False) -> Optional[int]:
     if not force and not _stale(store, "oddset_elo_at", ELO_TTL_H):
         return None
+    requested_date = _now().strftime("%Y-%m-%d")
     try:
-        r = httpx.get(f"http://api.clubelo.com/{_now().strftime('%Y-%m-%d')}", timeout=30)
-        r.raise_for_status()
+        text = fetch_elo_csv(requested_date)
     except Exception:  # noqa: BLE001
         return None
-    elo = {}
-    for row in csv.DictReader(io.StringIO(r.text)):
-        if row.get("Country") in ("SWE", "NOR"):
-            try:
-                elo[norm_team(row["Club"])] = round(float(row["Elo"]))
-            except (ValueError, KeyError):
-                continue
+    ratings = parse_elo_csv(text)
+    elo = {r["club_key"]: round(r["elo"]) for r in ratings}
     if elo:
+        save_elo_capture(store, requested_date, text)
         store.meta_set("oddset_elo", json.dumps(elo, ensure_ascii=False))
         _mark(store, "oddset_elo_at")
     return len(elo)
 
 
-def get_elo(store: Storage) -> dict[str, int]:
+def get_elo(store: Storage, as_of: Optional[str] = None) -> dict[str, int]:
+    if as_of is not None:
+        return store.oddset_elo_as_of(as_of[:10])
+    latest = store.oddset_latest_elo()
+    if latest:
+        return latest
     try:
         return json.loads(store.meta_get("oddset_elo") or "{}")
     except ValueError:

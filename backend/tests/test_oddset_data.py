@@ -148,5 +148,43 @@ class AbsenceSnapshotTests(unittest.TestCase):
         self.assertEqual(1, len(self.store.oddset_absence_history("m1")))
 
 
+class ClubEloTests(unittest.TestCase):
+    CSV = """Rank,Club,Country,Level,Elo,From,To
+1,Hammarby,SWE,1,1507.6638,2026-07-13,2026-07-19
+2,Brann,NOR,1,1528.4,2026-07-13,2026-07-19
+3,Ajax,NED,1,1700,2026-07-13,2026-07-19
+4,Bad,SWE,1,not-a-number,2026-07-13,2026-07-19
+"""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+
+    def tearDown(self) -> None:
+        self.store.close()
+        self.tmp.cleanup()
+
+    def test_parser_keeps_provider_intervals_and_filters_countries(self) -> None:
+        rows = oddset_data.parse_elo_csv(self.CSV)
+
+        self.assertEqual(2, len(rows))
+        self.assertEqual("hammarby", rows[0]["club_key"])
+        self.assertAlmostEqual(1507.6638, rows[0]["elo"])
+        self.assertEqual("2026-07-19", rows[0]["valid_to"])
+
+    def test_capture_becomes_current_and_history_is_explicit_as_of(self) -> None:
+        count = oddset_data.save_elo_capture(
+            self.store, "2026-07-16", self.CSV,
+            captured_at="2026-07-16T10:00:00Z")
+
+        self.assertEqual(2, count)
+        self.assertEqual({"hammarby": 1508, "brann": 1528},
+                         oddset_data.get_elo(self.store))
+        self.assertEqual(2, self.store.conn.execute(
+            "SELECT COUNT(*) FROM oddset_elo_history").fetchone()[0])
+        self.assertEqual({"hammarby": 1508, "brann": 1528},
+                         oddset_data.get_elo(self.store, "2026-07-16T18:00:00Z"))
+
+
 if __name__ == "__main__":
     unittest.main()

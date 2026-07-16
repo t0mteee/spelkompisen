@@ -175,6 +175,10 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
 - Frånvaro: `oddset_absence_capture` + `oddset_absence_player` är PIT-historiken;
   capture skrivs även för en lyckad tom lista. Sofascore `player.id` och position
   bevaras. `meta oddset_abs:*` är bara senaste-payload för bakåtkompatibilitet.
+- ClubElo: `oddset_elo_capture`/`oddset_elo_rating` är observerade dagrankingar;
+  `oddset_elo_history` är providerintervall för historisk `as_of`-läsning.
+  Retroanalys får aldrig använda dagens meta-ranking. Backfill markerar bara en
+  klubb klar efter ett entydigt lyckat svar; timeout/502 ska förbli retrybart.
 
 ## Regler
 

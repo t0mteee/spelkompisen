@@ -127,6 +127,47 @@ CREATE INDEX IF NOT EXISTS idx_absence_player_identity
     ON oddset_absence_player (player_id, captured_at);
 """
 
+ELO_SCHEMA = """
+CREATE TABLE IF NOT EXISTS oddset_elo_capture (
+    captured_at   TEXT PRIMARY KEY,
+    requested_date TEXT NOT NULL,
+    source        TEXT NOT NULL,
+    payload_hash  TEXT NOT NULL,
+    row_count     INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_elo_capture_current
+    ON oddset_elo_capture (source, captured_at);
+
+CREATE TABLE IF NOT EXISTS oddset_elo_rating (
+    captured_at TEXT NOT NULL,
+    club_key    TEXT NOT NULL,
+    club_raw    TEXT NOT NULL,
+    country     TEXT,
+    level       INTEGER,
+    elo         REAL NOT NULL,
+    valid_from  TEXT,
+    valid_to    TEXT,
+    PRIMARY KEY (captured_at, club_key)
+);
+CREATE INDEX IF NOT EXISTS idx_elo_rating_club
+    ON oddset_elo_rating (club_key, captured_at);
+
+CREATE TABLE IF NOT EXISTS oddset_elo_history (
+    club_key         TEXT NOT NULL,
+    valid_from       TEXT NOT NULL,
+    valid_to         TEXT NOT NULL,
+    club_raw         TEXT NOT NULL,
+    country          TEXT NOT NULL,
+    level            INTEGER,
+    elo              REAL NOT NULL,
+    first_fetched_at TEXT NOT NULL,
+    last_fetched_at  TEXT NOT NULL,
+    PRIMARY KEY (club_key, valid_from)
+);
+CREATE INDEX IF NOT EXISTS idx_elo_history_asof
+    ON oddset_elo_history (valid_from, valid_to, club_key);
+"""
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS draws (
     product       TEXT NOT NULL,
@@ -288,7 +329,7 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
     git_hash     TEXT,
     PRIMARY KEY (match_id, market, sign, line_key, model_version)
 );
-""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA
+""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA
 
 
 class Storage:
@@ -1147,3 +1188,82 @@ class Storage:
         return [dict(r) for r in self.conn.execute(
             "SELECT * FROM oddset_absence_capture WHERE match_id=? "
             "ORDER BY captured_at", (match_id,)).fetchall()]
+
+    # --- WP8 ClubElo: observerade snapshots + historiska PIT-intervall -------
+
+    def oddset_save_elo_capture(self, capture: dict, ratings: list[dict]) -> int:
+        """Spara en lyckad ranking atomärt. Tomma/ogiltiga svar sparas aldrig."""
+        if not ratings:
+            raise ValueError("ClubElo-capture saknar ratings")
+        for rating in ratings:
+            country = rating.get("country")
+            if country not in (None, "SWE", "NOR"):
+                raise ValueError(f"ogiltigt ClubElo-land: {country!r}")
+            if not rating.get("club_key") or rating.get("elo") is None:
+                raise ValueError("ClubElo-rating saknar klubb eller Elo")
+        with self.bulk():
+            cur = self.conn.execute(
+                "INSERT OR IGNORE INTO oddset_elo_capture(captured_at, requested_date, "
+                "source, payload_hash, row_count) VALUES(?,?,?,?,?)",
+                (capture["captured_at"], capture["requested_date"],
+                 capture["source"], capture["payload_hash"], len(ratings)))
+            if cur.rowcount == 0:
+                return 0
+            for rating in ratings:
+                self.conn.execute(
+                    "INSERT INTO oddset_elo_rating(captured_at, club_key, club_raw, "
+                    "country, level, elo, valid_from, valid_to) VALUES(?,?,?,?,?,?,?,?)",
+                    (capture["captured_at"], rating["club_key"],
+                     rating.get("club_raw") or rating["club_key"],
+                     rating.get("country"), rating.get("level"), rating["elo"],
+                     rating.get("valid_from"), rating.get("valid_to")))
+        return len(ratings)
+
+    def oddset_latest_elo(self) -> dict[str, int]:
+        """Senaste observerade produktion/capture; backfill-ankare ignoreras."""
+        capture = self.conn.execute(
+            "SELECT captured_at FROM oddset_elo_capture "
+            "WHERE source IN ('daily', 'legacy') "
+            "ORDER BY julianday(captured_at) DESC, captured_at DESC LIMIT 1"
+        ).fetchone()
+        if not capture:
+            return {}
+        return {r["club_key"]: round(r["elo"]) for r in self.conn.execute(
+            "SELECT club_key, elo FROM oddset_elo_rating WHERE captured_at=?",
+            (capture["captured_at"],)).fetchall()}
+
+    def oddset_save_elo_history(self, ratings: list[dict], fetched_at: str) -> int:
+        """Upserta ClubElos giltighetsintervall; identisk omkörning ger noll."""
+        changed = 0
+        with self.bulk():
+            for rating in ratings:
+                if rating.get("country") not in ("SWE", "NOR"):
+                    raise ValueError(f"ogiltigt ClubElo-land: {rating.get('country')!r}")
+                cur = self.conn.execute(
+                    "INSERT INTO oddset_elo_history(club_key, valid_from, valid_to, "
+                    "club_raw, country, level, elo, first_fetched_at, last_fetched_at) "
+                    "VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(club_key, valid_from) DO "
+                    "UPDATE SET valid_to=excluded.valid_to, club_raw=excluded.club_raw, "
+                    "country=excluded.country, level=excluded.level, elo=excluded.elo, "
+                    "last_fetched_at=excluded.last_fetched_at WHERE "
+                    "oddset_elo_history.valid_to != excluded.valid_to OR "
+                    "oddset_elo_history.club_raw != excluded.club_raw OR "
+                    "oddset_elo_history.country != excluded.country OR "
+                    "COALESCE(oddset_elo_history.level,-1) != COALESCE(excluded.level,-1) OR "
+                    "ABS(oddset_elo_history.elo-excluded.elo) > 0.000001",
+                    (rating["club_key"], rating["valid_from"], rating["valid_to"],
+                     rating["club_raw"], rating["country"], rating.get("level"),
+                     rating["elo"], fetched_at, fetched_at))
+                changed += cur.rowcount
+        return changed
+
+    def oddset_elo_as_of(self, day: str) -> dict[str, int]:
+        """Rating vars providerintervall omfattar dagen (inklusive ändpunkter)."""
+        rows = self.conn.execute(
+            "SELECT club_key, elo, valid_from FROM oddset_elo_history "
+            "WHERE valid_from<=? AND valid_to>=? ORDER BY club_key, valid_from DESC",
+            (day, day)).fetchall()
+        out: dict[str, int] = {}
+        for row in rows:
+            out.setdefault(row["club_key"], round(row["elo"]))
+        return out

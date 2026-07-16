@@ -8,6 +8,34 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-07-16 — WP8 dagliga Elo-captures och PIT-historik
+
+- **Skript:** `backend/scripts/migrera_elohistorik.py` (additivt schema,
+  legacy endast när capture-tabellen är tom, idempotent) och
+  `backend/scripts/backfill_elohistorik.py` (återupptagningsbar klubbbackfill;
+  lyckat nätanrop krävs innan en klubb markeras klar).
+- **Backup:** `backend/data/backups/stryktips-2026-07-16-fore-wp8-elo.db`
+  (18 MB SQLite online-backup, `integrity_check = ok`, 0 Elo-tabeller före
+  migrationen).
+- **Vad:** `oddset_elo_capture` + `oddset_elo_rating` bevarar observerade
+  dagrankingar och payload-hash. `oddset_elo_history` bevarar ClubElos
+  inkluderande `From`/`To`-intervall; `get_elo(..., as_of=datum)` läser enbart
+  intervallet som gällde den dagen. Meta-rankingen är kompatibilitetscache.
+- **Migration:** befintlig meta-ranking → 1 legacy-capture + 32 ratings.
+  Identisk omkörning 0/0. En verifieringskörning efter att meta flyttats hittade
+  och rensade 1 sekundnära redundant legacy/daily-capture från en tidig
+  skriptversion; nästa körning rensade 0 och skapade 0. Kvar: 1 legacy, 2
+  backfill-ankare och 1 daily-capture (128 ratings totalt).
+- **Backfill:** rankningar 2024-07-01, 2025-07-01 och 2026-07-16 gav 39 unika
+  klubbar. Full klubbhistorik lyckades för 36; tillsammans med ankarintervallen
+  finns 4 197 intervall för alla 39 klubbnycklar. KFUM Oslo, Odd Grenland och
+  Sirius har bara 1–3 ankarintervall eftersom fulla endpoints timeoutade; deras
+  `oddset_elo_backfill:*`-markörer saknas avsiktligt så nästa körning retryar.
+- **Täckning:** med samma namnmatchning som modellen får 507/581 Allsvenskan-
+  matcher och 483/587 Eliteserien-matcher båda lagens as-of-Elo. Superettan
+  19/600 och OBOS 11/600 — ett dokumenterat skäl att inte behandla Elo som
+  heltäckande feature i andradivisionerna. Slutlig `integrity_check = ok`.
+
 ## 2026-07-16 — WP8 tidsstämplad frånvarohistorik
 
 - **Skript:** `backend/scripts/migrera_franvarohistorik.py` (idempotent,
