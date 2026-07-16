@@ -8,6 +8,26 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-07-17 — Modell v2-A point-in-time-features
+
+- **Skript:** `backend/scripts/migrera_v2_features.py` (idempotent, additiv
+  tabell/index, kräver namngiven backup).
+- **Backup:** `backend/data/backups/stryktips-2026-07-17-fore-v2a.db`, skapad
+  med SQLite online-backup före migrationen; `integrity_check = ok`.
+- **Vad:** `oddset_v2_feature_capture` fryser kanoniskt JSON + SHA-256 per match
+  × fast horisont × modellversion × featureversion. Payloaden innehåller
+  resultat/xG-inputhash och cutoff, PIT-Elo-intervall, råa features,
+  saknas-flaggor samt öppet redovisad lagidentitet.
+- **Migration:** tabellen skapades tom, inga historiska värden fabricerades.
+  Därefter skapades 6 uttryckligt `reconstructed` featurecaptures för att testa
+  pipeline på de 4 redan ledgerförda V2-ligamatcherna. De är kodmässigt spärrade
+  från promotion; framtida prediction-captures skriver `live` automatiskt.
+  18 rekonstruerade rader från tre semantiska utvecklingsversioner skapade före
+  slutversionen rensades explicit av samma skript; kvar är exakt 6 aktuella.
+- **Verifiering:** aktuell featureversion `f-b0e73843`; 5 dataset-rader/4 matcher,
+  0 post-kickoff-/featureläckor, 0 match-horisontdubbletter, identitetsmodellens
+  max `|Δp| = 2,78e−17`; slutlig `integrity_check = ok`.
+
 ## 2026-07-16 — WP8 dagliga Elo-captures och PIT-historik
 
 - **Skript:** `backend/scripts/migrera_elohistorik.py` (additivt schema,

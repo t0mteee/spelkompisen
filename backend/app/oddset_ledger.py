@@ -207,6 +207,7 @@ def capture_predictions(store: Storage, matches: list[dict],
     now = now or dt.datetime.now(dt.timezone.utc)
     versions = prediction_versions(store)
     result = {"captures": 0, "rows": 0, "empty": 0}
+    feature_builder = None
     for match in matches:
         if not match.get("start"):
             continue
@@ -223,6 +224,13 @@ def capture_predictions(store: Storage, matches: list[dict],
             rows = _sharp_rows(match) if tier == "sharp" else _model_rows(match)
             capture = _capture_meta(match, horizon, tier, version, now)
             added = store.oddset_capture_predictions(capture, rows)
+            if tier == "model" and match.get("league") in ("allsvenskan", "eliteserien"):
+                # V2-A fryser inputen vid exakt samma as_of. Funktionen ändrar
+                # inga sannolikheter och reconstructed backfill hålls separat.
+                if feature_builder is None:
+                    from .oddset_v2 import FeatureBuilder
+                    feature_builder = FeatureBuilder(store)
+                feature_builder.capture(match, capture, "live")
             result["captures"] += 1
             result["rows"] += added
             result["empty"] += int(not rows)

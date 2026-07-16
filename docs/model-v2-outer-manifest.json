@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "frozen_at": "2026-07-17T00:00:00Z",
+  "scope": {
+    "leagues": [
+      "allsvenskan",
+      "eliteserien"
+    ],
+    "market": "1x2",
+    "horizons": [
+      "h24",
+      "h3",
+      "m20"
+    ],
+    "unit": "unique_match"
+  },
+  "development": {
+    "start_at": "2026-07-16T13:30:00Z",
+    "end_before": "2027-01-01T00:00:00Z",
+    "allowed_uses": [
+      "coverage_audit",
+      "feature_debugging",
+      "inner_time_ordered_validation",
+      "regularization_choice"
+    ]
+  },
+  "outer_test": {
+    "start_at": "2027-01-01T00:00:00Z",
+    "minimum_matches": 300,
+    "minimum_matches_per_league": 100,
+    "close_rule": "earliest chronological cutoff satisfying both minimums",
+    "allowed_uses_before_final_fit": [
+      "data_integrity_only"
+    ]
+  },
+  "eligibility": {
+    "feature_capture_mode": "live",
+    "direct_fresh_pinnacle_1x2": true,
+    "paired_model_capture_max_minutes": 5,
+    "fixed_horizon_timing_required": true,
+    "verified_team_identity_required": true,
+    "post_kickoff_features_allowed": false,
+    "missing_features_drop_row": false
+  },
+  "notes": [
+    "Calendargränsen fryses före V2-B and får inte flyttas efter att resultat setts.",
+    "Retrospektivt rekonstruerade features får användas för pipeline-test men aldrig i outer-domen.",
+    "Historiska opening- eller closingodds med okänd exakt horisont ingår inte i detta facit."
+  ]
+}

@@ -134,8 +134,10 @@ måste först få coverage-matris, PIT-definition, saknas-policy och test.
 
 ## Leveransordning
 
-1. **V2-A dataset/audit:** featuretabell, läckagetester, coverage-rapport,
-   identitetsbaslinje.
+1. **V2-A dataset/audit ✅ 2026-07-17:** featuretabell, läckagetester,
+   coverage-rapport, identitetsbaslinje och fryst outer-manifest. Första
+   produktionsaudit i `v2-a-audit-2026-07-17.md`; live-underlaget växer nu
+   automatiskt och retrospektiv rekonstruktion är spärrad från promotion.
 2. **V2-B modell/backtest:** ridge-residual, nested walk-forward och fryst dom.
 3. **V2-C skuggläge:** versionerad ledgercapture och förklarande amber-UI.
 4. **V2-D forwardbeslut:** automatisk rapport mot de förregistrerade kriterierna.

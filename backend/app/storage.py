@@ -168,6 +168,24 @@ CREATE INDEX IF NOT EXISTS idx_elo_history_asof
     ON oddset_elo_history (valid_from, valid_to, club_key);
 """
 
+V2_FEATURE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS oddset_v2_feature_capture (
+    match_id            TEXT NOT NULL,
+    horizon             TEXT NOT NULL,
+    model_signal_version TEXT NOT NULL,
+    feature_version     TEXT NOT NULL,
+    captured_at         TEXT NOT NULL,
+    match_start         TEXT NOT NULL,
+    capture_mode        TEXT NOT NULL,       -- live | reconstructed
+    payload_hash        TEXT NOT NULL,
+    payload_json        TEXT NOT NULL,
+    created_at          TEXT NOT NULL,
+    PRIMARY KEY (match_id, horizon, model_signal_version, feature_version)
+);
+CREATE INDEX IF NOT EXISTS idx_v2_feature_version
+    ON oddset_v2_feature_capture (feature_version, captured_at, match_id);
+"""
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS draws (
     product       TEXT NOT NULL,
@@ -329,7 +347,7 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
     git_hash     TEXT,
     PRIMARY KEY (match_id, market, sign, line_key, model_version)
 );
-""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA
+""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA
 
 
 class Storage:
@@ -744,6 +762,11 @@ class Storage:
         q += " ORDER BY start"
         return [dict(r) for r in self.conn.execute(q, args).fetchall()]
 
+    def oddset_match(self, match_id: str) -> Optional[dict]:
+        row = self.conn.execute(
+            "SELECT * FROM oddset_matches WHERE id=?", (match_id,)).fetchone()
+        return dict(row) if row else None
+
     def _oddset_latest_values(self, match_id: str, source: str,
                               market: str) -> dict[str, dict]:
         rows = self.conn.execute(
@@ -1097,6 +1120,31 @@ class Storage:
             "SELECT * FROM oddset_prediction_capture ORDER BY captured_at, match_id, tier"
         ).fetchall()]
 
+    # --- Modell v2: frysta point-in-time-features -----------------------------
+
+    def oddset_save_v2_features(self, capture: dict) -> bool:
+        """Spara ett semantiskt versionerat feature-payload exakt en gång."""
+        cur = self.conn.execute(
+            "INSERT OR IGNORE INTO oddset_v2_feature_capture(match_id, horizon, "
+            "model_signal_version, feature_version, captured_at, match_start, "
+            "capture_mode, payload_hash, payload_json, created_at) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (capture["match_id"], capture["horizon"],
+             capture["model_signal_version"], capture["feature_version"],
+             capture["captured_at"], capture["match_start"],
+             capture["capture_mode"], capture["payload_hash"],
+             capture["payload_json"], capture["created_at"]))
+        self._commit()
+        return bool(cur.rowcount)
+
+    def oddset_v2_features(self, feature_version: Optional[str] = None) -> list[dict]:
+        q, args = "SELECT * FROM oddset_v2_feature_capture", []
+        if feature_version:
+            q += " WHERE feature_version=?"
+            args.append(feature_version)
+        q += " ORDER BY captured_at, match_id, horizon, model_signal_version"
+        return [dict(r) for r in self.conn.execute(q, args).fetchall()]
+
     def oddset_prediction_states(self) -> dict[tuple, dict]:
         rows = self.conn.execute("SELECT * FROM oddset_prediction_group_state").fetchall()
         return {(r["tier"], r["league"], r["market"], r["signal_version"]): dict(r)
@@ -1266,4 +1314,16 @@ class Storage:
         out: dict[str, int] = {}
         for row in rows:
             out.setdefault(row["club_key"], round(row["elo"]))
+        return out
+
+    def oddset_elo_details_as_of(self, day: str) -> dict[str, dict]:
+        """PIT-Elo med providerintervallet kvar för feature-audit."""
+        rows = self.conn.execute(
+            "SELECT club_key, club_raw, country, level, elo, valid_from, valid_to, "
+            "first_fetched_at, last_fetched_at FROM oddset_elo_history "
+            "WHERE valid_from<=? AND valid_to>=? "
+            "ORDER BY club_key, valid_from DESC", (day, day)).fetchall()
+        out: dict[str, dict] = {}
+        for row in rows:
+            out.setdefault(row["club_key"], dict(row))
         return out

@@ -7,6 +7,7 @@ Användning (från backend/ med aktiverat venv):
     python cli.py smart             # launchd-passet: oddset + poolspel med
                                     # snabbvarv nära avspark/spelstopp (A1)
     python cli.py oddset [light]    # ett oddset-varv (light = snabbvarvet)
+    python cli.py v2audit [backfill] # PIT-dataset/coverage; backfill är ej promotion
     python cli.py history 4956 1 1  # oddshistorik draw=4956 event=1 sign=1
     python cli.py backtest 25 stryktipset  # kalibrera modellen mot facit
 
@@ -611,6 +612,15 @@ def main() -> None:
         cmd_smart(secs if secs is not None else DENSE_BUDGET_S)
     elif cmd == "modeldata":
         cmd_modeldata()
+    elif cmd == "v2audit":
+        from app import oddset_v2
+        store = Storage()
+        try:
+            if "backfill" in rest:
+                print("features:", oddset_v2.backfill_features(store))
+            print(oddset_v2.format_audit(oddset_v2.audit(store)))
+        finally:
+            store.close()
     elif cmd == "oddsetbacktest":
         import json as _json
         from app import oddset_backtest
