@@ -74,6 +74,11 @@
   0,98 [0,90..1,05] och Europa 0,91 [0,81..0,97]. Eftersom κ<1 skulle höja
   visad EV lämnas runtime konservativt på 1,00 tills ett oberoende tidsfönster
   bekräftar effekten. UI:t märker nivåer under toppvinsten som approximationer.
+  **WP6c portfolio klar:** Topptipset räknar alla 6 561 utfall; 13-matchskuponger
+  använder reproducerbara 10 000 utfall. Utfallsberoende medvinnare integreras
+  som `E[1/(W+k)]`, egna rader delar potten och UI visar EV, pluschans, nollrisk,
+  percentiler och MC-fel. 2 048 rader tar ~0,38 s. Full metodrapport:
+  `docs/wp6-portfolio-2026-07-16.md`.
   **WP8b frånvarohistorik klar:** varje lyckat Sofascore-lineup-svar får en
   tidsstämplad capture även vid tom lista; spelarrader bevarar provider-ID,
   position, orsakskod/beskrivning, slutdatum, matcher och rating. Första
@@ -106,7 +111,7 @@
   lågchansutfall och håller radbyggaren synlig på desktop/nåbar från mobil.
   PWA-manifest, maskbar 1–X–2-ikon och Apple-hemskärmsmetadata ger appidentitet
   i fristående läge utan offline-cache som kan göra oddsdata missvisande gammal.
-- **Kvalitetspaket + Backtest v4 klart (2026-07-16):** 75 tester täcker nu även
+- **Kvalitetspaket + Backtest v4 klart (2026-07-16):** 83 tester täcker nu även
   power-devig, event/tidszon, post-kickoff/closinglina, analytisk poolutdelning,
   klusterbootstrap, signalgrupp och versionsisolering. Backtest v4 mäter den
   förregistrerade q-policyn med matchblock-KI och X-frekvens per liga; full rapport
@@ -114,6 +119,10 @@
   ingen X-korrigering, modellen fortsatt amber. B365 täcker bara ~20 %; Max
   closing är ett optimistiskt tak, så prediction-ledgern förblir domaren.
   Pinnacle-opening avvisas uttryckligen från q-facitet.
+- **Modell v2 planerad (2026-07-16):** marknadsankrad residualmodell med
+  PIT-dataset, nested walk-forward, fryst outer-testdom och forward-skuggläge.
+  Förregistrerad plan och promotionskriterier i `docs/modell-v2-plan.md`.
+  **Nästa prioritet: V2-A dataset/audit; ingen modellparameter ändras före den.**
 - **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
   2026-07-16**; beslut om mobil-default för `Bara signaler` återstår;
   P1/P2-backloggen finns nedan. Villkoret WP0–WP5 för att
@@ -191,12 +200,11 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
   gratis.
 
 **P1 — EV-ärlighet, integritet, validering:**
-- **WP6** (S+M): pool-EV — **S-delen ✅ 2026-07-16**
-  (jackpot före radvalet; κ̂-metod och 100-omgångsaudit enligt statusblocket;
-  runtime 1,00 enligt konservativ riktning; lägre nivåer märkta approximation).
-  M-delen:
-  Monte-Carlo-portfolio (10k utfall, egna rader konkurrerar, E[pott/(W+1)]
-  exakt, percentiler).
+- **WP6 ✅ 2026-07-16** (S+M): jackpot före radvalet; κ̂-metod och
+  100-omgångsaudit; runtime κ=1,00 enligt konservativ riktning. Portfolio-
+  värderingen räknar alla 6 561 Topptipsetutfall eller 10 000 reproducerbara
+  13-matchsutfall, utfallsberoende Poisson-medvinnare, egna raders konkurrens,
+  EV/risk/percentiler och jämförelse mot snabbformeln.
 - **WP7 ✅ 2026-07-16** (S): ärliga benämningar — "xG-viktad Poisson-
   styrkefit med DC-korrektion i prediktionen" i kod och alla centrala UI-
   förklaringar; T:s in-sample-status visas och ledgern pekas ut som oberoende
@@ -207,11 +215,11 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
   källtimeout lämnar klubben omarkerad för retry. Tre klubbhistoriker är ännu
   partiella enligt statusblocket, aldrig tyst klassade som kompletta.
 - **WP-test** (M, löpande): testgrund ✅ med standardbibliotekets `unittest`
-  (pytest-kompatibel, ingen dependency). 75 fall täcker bland annat
+  (pytest-kompatibel, ingen dependency). 83 fall täcker bland annat
   settlement/push/kvart, temperatur-roundtrip, normaltime, seen-retry/404,
-  bulk-rollback, prisnärvaro, Elo-PIT/retry samt CLV-identitet/linjeflytt. Återstår:
-  WP6-Monte-Carlo mot den nu testlåsta analytiska poolutdelningen samt nya
-  regressionsfall före varje framtida fix.
+  bulk-rollback, prisnärvaro, Elo-PIT/retry samt CLV-identitet/linjeflytt och
+  WP6:s Poissonandel, portföljkonkurrens, full enumeration och reproducerbar MC.
+  Nya regressionsfall läggs före varje framtida fix.
 - **WP3-tillägg ✅ 2026-07-16** (S): fuzzy-links-audit — ALLA icke-exakta/
   icke-alias-länkar visar likhet + antal berörda matcher + verified-flagga.
   Godkända länkar ligger i TEAM_ALIAS/meta; kända falska länkar ligger i en
@@ -473,6 +481,9 @@ resp. matchdag, eval 2024-07→ (n=351 Allsvenskan, 330 Eliteserien). **Domen:**
   Boman 11 m/6.65.
 
 ## Modellplan — vägen till en modell att lita på (efter backtest-domen)
+
+**Ersatt 2026-07-16 av den förregistrerade marknadsankrade v2-planen i
+`docs/modell-v2-plan.md`. Punkterna M1–M5 nedan bevaras som historik.**
 
 Backtesten visade: DC-modellen är nära marknaden i Allsvenskan men slår den inte,
 och är svag i Eliteserien. Att slå Pinnacles STÄNGNING på 1X2 är fel mål — planen

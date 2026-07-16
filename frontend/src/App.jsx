@@ -523,6 +523,7 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse }) {
   if (!sys) return null
   const roleClass = { spik: 'r-spik', halvgardering: 'r-half', helgardering: 'r-full' }
   const st = systemStats(sys, matches, payouts)
+  const mc = sys.portfolio_mc?.available ? sys.portfolio_mc : null
   const payTiers = (payouts?.tiers || []).filter((t) => t.correct != null).sort((a, b) => b.correct - a.correct)
   // rad-system (EV-topp/färg/reducerat): tecknen i tabellen är ett URVAL av rader,
   // inte ett kombinationssystem — visa per tecken hur många rader som använder det
@@ -544,6 +545,47 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse }) {
       {sys.rule && <div className="rule">{sys.rule}</div>}
       {sys.system_type === 'färgreducerat' && sys.color_bounds && onRecalc && (
         <ColorLab key={sys.rule} sys={sys} onRecalc={onRecalc} />
+      )}
+      {mc && (
+        <div className="portfolio-card">
+          <div className="portfolio-head">
+            <div>
+              <strong>WP6 · Simulerad portfölj</strong>
+              <span>{mc.method === 'exhaustive'
+                ? `Alla ${mc.iterations.toLocaleString('sv-SE')} möjliga utfall viktade`
+                : `${mc.iterations.toLocaleString('sv-SE')} reproducerbara utfall`}</span>
+            </div>
+            <span className="portfolio-turnover">
+              {mc.turnover_basis === 'projected' ? 'slutomsättning' : 'omsättning nu'} {kr(mc.turnover)}
+            </span>
+          </div>
+          <div className="portfolio-kpis">
+            <div className="portfolio-kpi"><span>{kr(mc.mean_return)}</span>förv. utdelning</div>
+            <div className="portfolio-kpi"><span className={mc.net_ev >= 0 ? 'pos' : 'neg'}>
+              {mc.net_ev >= 0 ? '+' : ''}{kr(mc.net_ev)}</span>EV · {(mc.roi * 100).toFixed(0)} % ROI</div>
+            <div className="portfolio-kpi"><span>{pct(mc.probability_profit)}</span>chans att gå plus</div>
+            <div className="portfolio-kpi"><span>{pct(mc.probability_zero)}</span>risk för 0 kr</div>
+            <div className="portfolio-kpi"><span>{kr(mc.percentiles?.p50)}</span>medianutfall</div>
+            <div className="portfolio-kpi"><span>{kr(mc.percentiles?.p90)}</span>90:e percentil</div>
+          </div>
+          <div className="portfolio-note">
+            Snabbformeln ger {kr(mc.analytical_return)}; portföljen ger {kr(mc.mean_return)}
+            {mc.difference_vs_analytical != null
+              ? ` (${mc.difference_vs_analytical >= 0 ? '+' : ''}${(mc.difference_vs_analytical * 100).toFixed(1)} %)` : ''}.
+            {' '}Egna rader delar samma lägre potter och minskar här utdelningen med
+            {' '}{kr(mc.own_competition_drag)} ({(mc.own_competition_drag_pct * 100).toFixed(1)} %).
+            {mc.method === 'monte_carlo' && mc.mc_error_90 > 0
+              ? ` Simuleringsosäkerhet för medelutdelningen: cirka ±${kr(mc.mc_error_90)} (90 %).` : ''}
+          </div>
+          <div className="portfolio-note muted">
+            Matchutfall dras från fair-sannolikheterna. Medvinnare beräknas som
+            Poisson kring utfallets faktiska streckkombination; κ={mc.kappa.toFixed(2)} är
+            fortsatt konservativt. Percentiler beskriver risk, inte en garanterad utdelning.
+          </div>
+        </div>
+      )}
+      {sys.portfolio_mc && !sys.portfolio_mc.available && (
+        <div className="rule">Portföljsimulering ej tillgänglig: {sys.portfolio_mc.reason}</div>
       )}
       {st && !st.tooBig && (
         <>
@@ -569,8 +611,12 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse }) {
             )
           })()}
           {payouts?.available && (
-            <PayoutTable s={st} tiers={payTiers} effTurnover={payouts.turnover || 0}
-              turnoverOverridden={false} jackpot={sys.jackpot ?? payouts.jackpot ?? 0} />
+            <>
+              {mc && <p className="hint">Detaljtabellen nedan är den snabba radvisa approximationen.
+                Portföljkortet ovan är huvudvärderingen för det genererade systemet.</p>}
+              <PayoutTable s={st} tiers={payTiers} effTurnover={payouts.turnover || 0}
+                turnoverOverridden={false} jackpot={sys.jackpot ?? payouts.jackpot ?? 0} />
+            </>
           )}
         </>
       )}

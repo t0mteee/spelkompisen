@@ -77,6 +77,7 @@ class System:
     note: Optional[str] = None
     color_bounds: Optional[dict] = None   # {blo,bhi,glo,ghi,nb_max,ng_max} vid färgreducering
     jackpot: float = 0.0                  # jackpot som faktiskt styrde EV-radvalet
+    portfolio_mc: Optional[dict] = None   # WP6: portföljrisk vid förväntad slutomsättning
 
 
 # ---------- val av tecken per match ----------
@@ -534,8 +535,8 @@ def _row_expected_value(pf: list[float], pk: list[float],
     """Nuvarande analytiska rad-EV, separerad så utdelningsregeln kan testas.
 
     `pf[c]` är vår sannolikhet för exakt c rätt och `pk[c]` fältets motsvarande
-    sannolikhet. WP6-Monte-Carlo kommer senare att jämföra denna konservativa
-    approximation med simulerade vinnare och konkurrens mellan egna rader.
+    sannolikhet. WP6-portföljen jämför denna konservativa approximation med
+    utfallsberoende medvinnare och konkurrens mellan egna rader.
     """
     total = 0.0
     for correct, pool in pools.items():

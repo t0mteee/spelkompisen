@@ -26,6 +26,7 @@ from .builder import (build_math_system, build_reduced_system,
                       build_guarantee_system, build_svs_rsystem,
                       build_ev_system, build_color_system, SVS_R12, system_to_dict)
 from .collector import collector
+from .pool_mc import materialize_system_rows, simulate_pool_portfolio
 from . import sharp_service
 from .pinnacle import Pinnacle
 from .storage import Storage
@@ -290,6 +291,7 @@ def system(product: str = "stryktipset",
     ev=true rankar konkreta rader efter popularitetsjusterad EV (poolspels-optimal)."""
     a = _analyze(product, draw)
     vw = max(0.0, min(1.0, value_weight))
+    plan = PRIZE_PLANS.get(product)
     jp = jackpot
     if (ev or color) and jp is None:
         try:
@@ -298,18 +300,30 @@ def system(product: str = "stryktipset",
         except Exception:  # jackpotfel ska inte blockera radbygget
             jp = 0.0
     jp = max(0.0, jp or 0.0)
-    # EV-rankning/färgval räknar mot förväntad SLUTomsättning (tidig låg
-    # omsättning gör annars +1:an i medvinnarformeln dominant = glädje-EV)
-    if ev or color:
-        proj = _projected_turnover(product, a.turnover or 0.0)
-        if proj and proj > (a.turnover or 0.0):
-            a.turnover = proj
+    # Radvalet för EV/färg och WP6-portföljvärderingen räknar mot förväntad
+    # SLUTomsättning. Tidig låg omsättning gör annars +1:an i medvinnarformeln
+    # dominant och skapar glädje-EV. Övriga byggare använder inte omsättningen
+    # för själva teckenvalet men får samma ärliga värderingshorisont efteråt.
+    current_turnover = a.turnover or 0.0
+    valuation_turnover = current_turnover
+    turnover_basis = "live"
+    if plan and valuation_turnover > 0:
+        try:
+            projected_turnover = (_projected_turnover(product, valuation_turnover)
+                                  or valuation_turnover)
+        except Exception:  # prognosfel ska inte blockera ett spelbart system
+            projected_turnover = valuation_turnover
+        if projected_turnover > valuation_turnover:
+            valuation_turnover = projected_turnover
+            turnover_basis = "projected"
+    if (ev or color) and valuation_turnover > (a.turnover or 0.0):
+        a.turnover = valuation_turnover
     try:
         if sv_rsystem and sv_rsystem in SVS_R12:
             s = build_svs_rsystem(a, sv_rsystem, strategy, value_weight=vw)
         elif ev:
             s = build_ev_system(a, strategy, budget, row_price=a.row_price or 1.0,
-                                value_weight=vw, plan=PRIZE_PLANS.get(product), jackpot=jp)
+                                value_weight=vw, plan=plan, jackpot=jp)
         elif color:
             # manuella overrides: colors="1:X:b,5:2:g" (b=blå, g=gul), bounds="0-2,0-1"
             co = None
@@ -332,7 +346,7 @@ def system(product: str = "stryktipset",
                 except ValueError:
                     bo = None
             s = build_color_system(a, strategy, budget, row_price=a.row_price or 1.0,
-                                   value_weight=vw, plan=PRIZE_PLANS.get(product),
+                                   value_weight=vw, plan=plan,
                                    colors_override=co, bounds_override=bo, jackpot=jp)
         elif reduced and guarantee:
             s = build_guarantee_system(a, strategy, budget, guarantee=guarantee, value_weight=vw)
@@ -342,6 +356,19 @@ def system(product: str = "stryktipset",
             s = build_math_system(a, strategy, budget, value_weight=vw)
     except ValueError as e:
         raise HTTPException(400, str(e))
+    if plan and valuation_turnover > 0:
+        concrete_rows = materialize_system_rows(s)
+        if concrete_rows is None:
+            s.portfolio_mc = {
+                "available": False,
+                "reason": "Systemet är större än portföljsimuleringens 5 000-radersgräns.",
+            }
+        else:
+            s.portfolio_mc = simulate_pool_portfolio(
+                a, concrete_rows, plan, turnover=valuation_turnover,
+                row_price=a.row_price or 1.0, jackpot=jp,
+                turnover_basis=turnover_basis,
+            )
     return system_to_dict(s)
 
 
