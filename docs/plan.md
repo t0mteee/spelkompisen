@@ -104,8 +104,10 @@
   mellan besök och laddning, tomt resultat samt fel har tydliga egna tillstånd.
   Bomben visar faktisk modellsannolikhet bredvid värdekvoten, tonar ned extrema
   lågchansutfall och håller radbyggaren synlig på desktop/nåbar från mobil.
+  PWA-manifest, maskbar 1–X–2-ikon och Apple-hemskärmsmetadata ger appidentitet
+  i fristående läge utan offline-cache som kan göra oddsdata missvisande gammal.
 - **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
-  2026-07-16**; PWA i C11 och beslut om mobil-default för `Bara signaler` återstår;
+  2026-07-16**; beslut om mobil-default för `Bara signaler` återstår;
   P1/P2-backloggen finns nedan. Villkoret WP0–WP5 för att
   ompröva stora Europa-ligor är uppfyllt, men expansionen startar inte utan ett
   separat produktbeslut (fler ligor är inte automatiskt nästa prioritet).
@@ -240,7 +242,10 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
    responsiva. Kvar som produktbeslut: om 🎯 Bara signaler ska vara mobil-default.
 10. ✅ Oddset-städning: Hörnor-kolumnen döljs när allt innehåll saknas;
    sekundära bokrader (E/B) styrs med `Fler odds`; liga-/verktygsraden är sticky.
-11. PWA: manifest + ikon så hemskärms-appen får egen identitet (svs-mönstret).
+11. ✅ PWA: manifest, maskbar SVG/PNG-ikon och Apple touch-ikon ger
+    hemskärms-appen egen identitet. Ingen offline-cache — odds ska vara färska.
+    iOS kan lägga sidan på hemskärmen direkt; Chromium kräver HTTPS utanför
+    localhost för att själv erbjuda installation (Tailscale Serve är separat).
 
 **D. Stora ligorna — FORTSATT PAUSADE; WP0–WP5-gaten är nu uppfylld.**
 Fler ligor löser inte automatiskt nästa problem och ledgerserierna behöver tid
