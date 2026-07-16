@@ -47,7 +47,7 @@
   tester och 35 aktuella ankrade matcher (linjer 2.25–3.75). Akuta delen av WP8
   klar: transient Sofascore-statistikfel sparar resultatet men lämnar eventet
   för retry; 404/410 avslutas som permanent statistik-saknad. Första automatiska
-  sviten finns i `backend/tests/` (32 `unittest`-fall, inga nya dependencies).
+  sviten finns i `backend/tests/` (35 `unittest`-fall, inga nya dependencies).
   **WP2 full klar:** prisförändring (`fetched_at`) och senaste bekräftelse
   (`last_seen_at`) är separerade; lyckade svar markerar plockade/suspenderade
   priser, källfel gör det inte. Värde, steam, modellkanter och closing-facit
@@ -69,6 +69,11 @@
   till valideringsfacitet. Nya matcher bygger rena serier automatiskt.
   **WP6a klar:** jackpot/rullpott ingår nu i EV-toppens och färgreduceringens
   toppnivå redan när rader väljs, och samma jackpot används i systemvyns EV/ROI.
+  **WP6b κ-audit klar:** backtestskattaren är nu exponeringsviktad
+  (`Σ vinnare/Σ prognos`) med 90 % blockbootstrap. 100 omgångar gav Stryk
+  0,98 [0,90..1,05] och Europa 0,91 [0,81..0,97]. Eftersom κ<1 skulle höja
+  visad EV lämnas runtime konservativt på 1,00 tills ett oberoende tidsfönster
+  bekräftar effekten. UI:t märker nivåer under toppvinsten som approximationer.
 - **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
   2026-07-16**; mobilpolish; P1/P2-backloggen nedan. Villkoret WP0–WP5 för att
   ompröva stora Europa-ligor är uppfyllt, men expansionen startar inte utan ett
@@ -145,10 +150,10 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
   gratis.
 
 **P1 — EV-ärlighet, integritet, validering:**
-- **WP6** (S+M): pool-EV — **jackpot i builderns radval ✅ 2026-07-16**
-  (toppnivån i EV-topp + färgreducering, API och UI använder samma belopp);
-  återstår κ̂ från `cli.py backtest` som medvinnar-
-  korrektion; UI-text att nivå-EV under toppnivån är approximation. M-delen:
+- **WP6** (S+M): pool-EV — **S-delen ✅ 2026-07-16**
+  (jackpot före radvalet; κ̂-metod och 100-omgångsaudit enligt statusblocket;
+  runtime 1,00 enligt konservativ riktning; lägre nivåer märkta approximation).
+  M-delen:
   Monte-Carlo-portfolio (10k utfall, egna rader konkurrerar, E[pott/(W+1)]
   exakt, percentiler).
 - **WP7** (S): ärliga benämningar — "xG-viktad Poisson-styrkefit med DC-
@@ -159,7 +164,7 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
   spelar-ID/position (ger B5 data + "vilken frånvaro flyttar linjen?"); daglig
   Elo-snapshot + historik-backfill (PIT-Elo).
 - **WP-test** (M, löpande): testgrund ✅ med standardbibliotekets `unittest`
-  (pytest-kompatibel, ingen dependency). 32 fall täcker bland annat
+  (pytest-kompatibel, ingen dependency). 35 fall täcker bland annat
   settlement/push/kvart, temperatur-roundtrip, normaltime, seen-retry/404,
   bulk-rollback, prisnärvaro samt CLV-identitet/linjeflytt. Återstår:
   power-devig, eventmatchning/tidszon, closing-matchning, poolutdelning,

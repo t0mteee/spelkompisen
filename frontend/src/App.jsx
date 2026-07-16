@@ -1650,7 +1650,9 @@ function PayoutTable({ s, tiers, effTurnover, turnoverOverridden, jackpot }) {
       </table>
       <p className="hint">*Prispott = omsättning ({kr(effTurnover)}{turnoverOverridden ? ', justerad' : ', live'})
         × Svenska Spels vinstplan{jackpot ? ` + jackpot ${kr(jackpot)}` : ''}. Lägsta/högsta = utdelningens
-        spann beroende på om en favorit-tung eller skräll-rad vinner; medel är sannolikhetsviktat.</p>
+        spann beroende på om en favorit-tung eller skräll-rad vinner; medel är sannolikhetsviktat.
+        Toppnivån bygger på radens exakta streckprodukt. Lägre nivåers medvinnare är en
+        oberoende-streck-approximation och kan avvika när det faktiska matchutfallet är känt.</p>
     </>
   )
 }

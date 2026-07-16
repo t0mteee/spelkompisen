@@ -11,7 +11,7 @@ smart snapshot-förtätning, backtest (SvS-facit + football-data: beslutsregeln
 validerad), UI v2 (kort-design, statusrad, byggpanel sticky bredvid kupongen).
 **Nästa i kö (användarens riktning):** mer UI-polish → sedan S2 (Oddset-fliken).
 **Öppna frågor:** Bombens filrubrik overifierad (inloggningsskyddad spec);
-RLM-trösklar ovaliderade; κ per produkt när backtest-data växt.
+RLM-trösklar ovaliderade; κ följs i nya oberoende tidsfönster.
 
 Prioriterad lista från projektgenomgång + poolspels-research (juni 2026).
 Teorin i korthet: i poolspel tas ~35 % (Stryk/Europa) av omsättningen — för +EV
@@ -35,7 +35,7 @@ sitter i rader folket inte spelar, inte i enskilda tecken.
 ## Hög prioritet
 
 1. ~~**Backtest & kalibrering mot facit**~~ → `cli.py backtest N produkt` (klar).
-   **Första körningen (30+30 omgångar, juni 2026):**
+   **Första körningen (30+30 omgångar, juni 2026; ersatt av audit nedan):**
    - Stryktipset: värdestreck (kvot ≥1.08) träffade **50 %** mot folkets 30.8 %
      streckade (n=20) — signalen ser äkta ut. Överspelade tecken (≤0.92) träffade
      bara **15.8 %** mot 30.1 % streckat — folket bränner pengar precis där
@@ -48,6 +48,14 @@ sitter i rader folket inte spelar, inte i enskilda tecken.
    - **Begränsning:** avgjorda omgångar behåller odds på bara ~1 match/omgång i
      API:t → kör om backtesten mot **våra egna snapshots** när databasen växt
      (några veckors data ger full odds-täckning). = backtest v2.
+   **κ-audit 2026-07-16 (100 omgångar/produkt):** gamla geometriska
+   `+1`-kvoten ersattes av Poisson-exponeringens naturliga skattare
+   `Σ vinnare/Σ prognos`, med omgången som block i 90 %-bootstrap. Stryk:
+   **0,98 [0,90..1,05]** (93 kompletta); Europa: **0,91 [0,81..0,97]**
+   (98 kompletta). Runtime behålls konservativt på 1,00: Europa-resultatet
+   skulle annars höja EV och kräver bekräftelse i ett nytt tidsfönster.
+   Värde-/X-tabellerna ska inte användas som beslutsfacit från historiska API:t:
+   odds-täckningen var bara 2–3 %, medan κ använder separata slutstreck.
 
 2. ~~**Spelvärdesindikator per omgång**~~ (klar): riktiga jackpotdata från
    `/draw/1/jackpots` (matcha productId + drawNumber; `fund` på draws är

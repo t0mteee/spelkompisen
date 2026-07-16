@@ -100,6 +100,10 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
   cappad vid potten. Jackpot/rullpott läggs på toppnivån **före radvalet**.
   Medvinnare per nivå via Poisson-binomial. +1 = du själv.
   `evalRows` (frontend) och `build_ev_system` (backend) — håll dem konsistenta.
+- **κ för poolmedvinnare** skattas som `Σ faktiska vinnare / Σ prognos` med
+  omgången som bootstrap-block, aldrig som medel/geometriskt medel av enskilda
+  kvoter. Nuvarande 100-omgångsfacit motiverar ingen optimistisk runtime-
+  korrektion; toppnivån kör κ=1,00. Lägre nivåer är uttryckligen approximationer.
 - **Värderader**: score = P(rad)^k × EV(rad) där k = 2·(1−value_weight); reglaget är enda
   risk-axeln (strategin sätter bara startpunkten 20/50/80).
 - **RLM**: folket och devigad sharp åt olika håll (◆ smart pengar / ⚠ fadea).

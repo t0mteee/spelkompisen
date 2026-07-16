@@ -205,13 +205,49 @@ def cmd_system(args: list[str], product: str) -> None:
     _print_system(s)
 
 
+def _winner_kappa(samples: list[tuple[int, float, float]],
+                  confidence: float = 0.90,
+                  bootstrap: int = 10_000,
+                  seed: int = 20260716) -> tuple[float, float, float]:
+    """Skatta faktisk/prognostiserad vinnartäthet med omgången som block.
+
+    Under W_i ~ Poisson(kappa * lambda_i) är sum(W)/sum(lambda) MLE. En
+    icke-parametrisk bootstrap över hela omgångar ger ett robustare intervall
+    än Poisson-standardfel när poolspelarnas rader är överdispersa/klustrade.
+    """
+    import random
+
+    valid = [(float(actual), float(predicted))
+             for _, actual, predicted in samples
+             if actual is not None and actual >= 0 and predicted > 0]
+    if not valid:
+        raise ValueError("κ kräver minst en omgång med positiv prognos.")
+    estimate = sum(a for a, _ in valid) / sum(p for _, p in valid)
+    if len(valid) == 1 or bootstrap <= 0:
+        return estimate, estimate, estimate
+
+    rng = random.Random(seed)
+    n = len(valid)
+    draws = []
+    for _ in range(bootstrap):
+        sample = [valid[rng.randrange(n)] for _ in range(n)]
+        denom = sum(p for _, p in sample)
+        if denom > 0:
+            draws.append(sum(a for a, _ in sample) / denom)
+    draws.sort()
+    alpha = (1.0 - confidence) / 2.0
+    lo = draws[max(0, int(alpha * len(draws)))]
+    hi = draws[min(len(draws) - 1, int((1.0 - alpha) * len(draws)))]
+    return estimate, lo, hi
+
+
 def cmd_backtest(rest: list[str], product: str) -> None:
     """Kalibrera modellen mot avgjorda omgångar: backtest [antal] [produkt].
 
     Mäter (a) träffsäkerhet per värde-bucket (slår 'värdestreck' folkets streck?),
     (b) kryss-bias, (c) vinnar-kalibrering: faktiska vinnare på toppnivån vs
     oberoende-antagandets prognos (fält × Π folk-streck på facit-raden)."""
-    import math
+    import httpx
     from app.analysis import _fair_probs
     count = next((int(a) for a in rest if a.isdigit()), 25)
     SIGNS = ("1", "X", "2")
@@ -220,6 +256,7 @@ def cmd_backtest(rest: list[str], product: str) -> None:
                ("överspelat (≤0.92)", 0.0, 0.92))
     rows: dict[str, list] = {b[0]: [] for b in BUCKETS}
     xs, kappas, done = [], [], 0
+    odds_matches = calibration_matches = 0
 
     with SvenskaSpel() as ss:
         ds = ss.list_draws(product)
@@ -227,13 +264,26 @@ def cmd_backtest(rest: list[str], product: str) -> None:
         tried = 0
         while nr and done < count and tried < count * 3:
             tried += 1
-            res = ss.get_result(product, nr)
+            try:
+                res = ss.get_result(product, nr)
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code in (429, 509):
+                    print(f"\n  Källans hastighetsgräns nådd efter {done} omgångar; "
+                          "rapporterar delurvalet utan fler anrop.")
+                    break
+                raise
             this = nr
             nr -= 1
             if not res or not res.get("outcomes"):
                 continue
             try:
                 d = ss.get_draw(this, product)
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code in (429, 509):
+                    print(f"\n  Källans hastighetsgräns nådd efter {done} omgångar; "
+                          "rapporterar delurvalet utan fler anrop.")
+                    break
+                continue
             except Exception:  # noqa: BLE001 — enstaka 500 från SvS, hoppa
                 continue
             facit, skip = res["outcomes"], set(res.get("cancelled") or [])
@@ -244,9 +294,11 @@ def cmd_backtest(rest: list[str], product: str) -> None:
                     continue
                 f = facit[m.event_number]
                 probs, src = _fair_probs(m.outcomes)
+                calibration_matches += 1
                 # bucket-statistik bara där riktiga odds finns (alla matcher har streck,
                 # men SvS sätter inte odds på alla — hoppa över de odds-lösa)
                 if src == "odds":
+                    odds_matches += 1
                     for s in SIGNS:
                         p, st = probs[s], m.outcomes[s].streck
                         if p is None or not st:
@@ -259,7 +311,10 @@ def cmd_backtest(rest: list[str], product: str) -> None:
                         if s == "X":
                             xs.append((p, st / 100.0, 1.0 if s == f else 0.0))
                 qf = m.outcomes[f].streck
-                row_q *= (qf / 100.0) if qf else (probs[f] or 1 / 3)
+                if qf is None or qf <= 0:
+                    kappa_ok = False
+                else:
+                    row_q *= qf / 100.0
             top = next((t for t in res["tiers"] if t["correct"] == len(d.matches)), None)
             turn = res.get("turnover") or d.net_sale
             if kappa_ok and top and turn and top.get("winners") is not None:
@@ -269,6 +324,12 @@ def cmd_backtest(rest: list[str], product: str) -> None:
             print(f"  omg {this} klar ({done}/{count})", end="\r")
 
     print(f"\n=== Backtest {product}: {done} avgjorda omgångar ===")
+    coverage = odds_matches / calibration_matches if calibration_matches else 0.0
+    print(f"Historisk odds-täckning: {odds_matches}/{calibration_matches} matcher "
+          f"({coverage:.1%}).")
+    if coverage < 0.80:
+        print("  OBS: värde-/X-tabellen är endast diagnostik vid denna täckning; "
+              "κ använder separata slutstreck och påverkas inte.")
     print(f"{'bucket':22} {'n':>6} {'modell-P':>9} {'folk-Q':>8} {'träff%':>8}")
     for name, *_ in BUCKETS:
         r = rows[name]
@@ -282,13 +343,21 @@ def cmd_backtest(rest: list[str], product: str) -> None:
         print(f"\nKryss (X): modell {sum(x[0] for x in xs)/n*100:.1f}% · "
               f"folket {sum(x[1] for x in xs)/n*100:.1f}% · träffade {sum(x[2] for x in xs)/n*100:.1f}% (n={n})")
     if kappas:
-        logs = [math.log((a + 1) / (p + 1)) for _, a, p in kappas]
-        kappa = math.exp(sum(logs) / len(logs))
+        kappa, lo, hi = _winner_kappa(kappas)
+        actual_total = sum(a for _, a, _ in kappas)
+        predicted_total = sum(p for _, _, p in kappas)
         print(f"\nVinnar-kalibrering toppnivån (n={len(kappas)}): "
-              f"faktiska vinnare ≈ {kappa:.2f} × oberoende-prognosen.")
-        print("  κ > 1 ⇒ folket klumpar ihop sig på folkrader mer än oberoende "
-              "streck antyder (utdelningen på folkrader överskattas av modellen).")
-        worst = sorted(kappas, key=lambda t: abs(math.log((t[1] + 1) / (t[2] + 1))), reverse=True)[:3]
+              f"κ̂={kappa:.2f}, 90 % blockbootstrap [{lo:.2f}..{hi:.2f}].")
+        print(f"  Summa faktiska vinnare {actual_total:.0f} mot prognos "
+              f"{predicted_total:.1f}; κ̂ = Σ faktiska / Σ prognos.")
+        if len(kappas) < 30:
+            print("  Under 30 kompletta omgångar ⇒ endast diagnostik, inget runtime-beslut.")
+        elif lo <= 1.0 <= hi:
+            print("  Intervallet innehåller 1,00 ⇒ ingen säker produktkorrektion ännu.")
+        else:
+            direction = "underskattar" if kappa > 1 else "överskattar"
+            print(f"  Oberoendemodellen {direction} vinnartätheten systematiskt.")
+        worst = sorted(kappas, key=lambda t: abs(t[1] - t[2]) / max(1.0, t[2]), reverse=True)[:3]
         for nr_, a, p in worst:
             print(f"  omg {nr_}: faktiskt {a} vinnare vs prognos {p:.1f}")
 
