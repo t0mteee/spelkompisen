@@ -23,7 +23,7 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
   unika matcher i 24 tävlingar. 94/94 lag har arenakoordinater. Den felaktiga
   gamla OBOS-säsongscachen 97377 förkastades; korrekt fotbollssäsong 87867/UT 22
   gav 16 lag och 687 relevanta event.
-- **Verifiering:** alla 40 kommande källligamatcher fick komplett exakt/
+- **Verifiering:** alla 48 kommande källligamatcher fick komplett exakt/
   aliasverifierad identitet, vila, belastning och reseproxy. Inga gamla
   `first_seen_at` fabricerades; backfillen är användbar först framåt.
   Slutlig `integrity_check = ok`. Metodrapport:

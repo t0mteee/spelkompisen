@@ -121,11 +121,16 @@ class ScheduleFeatureTests(unittest.TestCase):
         self.store.oddset_save_sofa_team(
             _team(4, "kfum oslo", None, None, observed), observed,
             league="eliteserien", season_id=1)
+        self.store.oddset_save_sofa_team(
+            _team(5, "hodd il", None, None, observed), observed,
+            league="obosligaen", season_id=1)
 
         self.assertEqual(3, oddset_schedule.resolve_team(
             self.store, "allsvenskan", "halmstad")["team_id"])
         self.assertEqual(4, oddset_schedule.resolve_team(
             self.store, "eliteserien", "KFUM")["team_id"])
+        self.assertEqual(5, oddset_schedule.resolve_team(
+            self.store, "obosligaen", "Hodd")["team_id"])
         self.assertIsNone(oddset_schedule.resolve_team(
             self.store, "allsvenskan", "halmstad city"))
 

@@ -140,7 +140,7 @@
 - **WP9c team-events klar (2026-07-17):** Sofascore-lagflödet samlar nu alla
   tävlingar per aktivt lag med provider-ID, tournament, första/senaste
   observation och basarena. 94 lag/94 arenor, 94 lyckade captures och 3 329
-  unika matcher i 24 tävlingar backfillades. Alla 40 kommande källligamatcher
+  unika matcher i 24 tävlingar backfillades. Alla 48 kommande källligamatcher
   hade komplett exakt/aliasverifierad vila, 7/14/30-dagars belastning och
   basarena-reseproxy. Backfillens `first_seen_at` är 2026-07-17 och kan därför
   aldrig bli historiskt promotionsbevis. **Ej inkopplat i modellen.** Rapport:
@@ -262,7 +262,7 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
   saknas för Allsvenskan (0/31) — match-xG via /statistics finns för båda.
 - **WP9c ✅ 2026-07-17**: Sofascore team-events (alla tävlingar per lag) ger
   PIT-säker vila, 7/14/30-dagars belastning och tydligt märkt basarena-reseproxy
-  utan cup-blindhet. 94/94 arenor; 40/40 kommande matcher komplett. Samlas
+  utan cup-blindhet. 94/94 arenor; 48/48 kommande matcher komplett. Samlas
   forward men är inte modellinput.
 
 **P2 — senare:**

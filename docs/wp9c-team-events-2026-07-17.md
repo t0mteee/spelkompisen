@@ -33,7 +33,7 @@ lyckade lag hämtas inte igen förrän deras 20-timmars-TTL löpt ut.
 Ordinarie drift hämtar en historiksida per lag. Engångsbackfillen hämtade två.
 Lagdetaljer/arenor uppdateras högst var 30:e dag. Captures stämplas med
 policyversion; första backfillen är `wp9c-6818e9c7`, medan den slutliga
-feature-/identitetspolicyn är `wp9c-17ddda77`.
+feature-/identitetspolicyn är `wp9c-35c856d5`.
 
 ## Features som nu kan beräknas
 
@@ -61,12 +61,12 @@ tävlingar. Eventspann: 2024-10-12 till 2026-07-17.
 | Allsvenskan | 16/16/16 | 671 | 9 | 339 | 8/8 |
 | Eliteserien | 16/16/16 | 661 | 9 | 330 | 8/8 |
 | Superettan | 16/16/16 | 708 | 6 | 382 | 8/8 |
-| OBOS-ligaen | 16/16/16 | 687 | 6 | 354 | 0/0 |
+| OBOS-ligaen | 16/16/16 | 687 | 6 | 354 | 8/8 |
 | MLS | 30/30/30 | 1 039 | 10 | 312 | 16/16 |
 
 Ligatabellens event kan överlappa när lag möts över scope; 3 329 är den globala
-unika totalsiffran. För de 40 kommande matcher som fanns vid auditen hade
-**40/40 komplett vila, belastning, lagidentitet och reseproxy**, utan fuzzy-
+unika totalsiffran. För de 48 kommande matcher som fanns vid slutauditen hade
+**48/48 komplett vila, belastning, lagidentitet och reseproxy**, utan fuzzy-
 automerge. MLS:s långa VM-uppehåll hittade och rättade en tidig 35-dagarsgräns.
 
 ## Begränsning och nästa beslut

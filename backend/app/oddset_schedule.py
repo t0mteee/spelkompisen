@@ -26,6 +26,11 @@ BACKFILL_PAGES = 2
 PACE_S = 0.7
 SCHEDULE_TEAM_ALIAS = {
     "eliteserien": {"kfum": "kfum oslo", "viking stavanger": "viking"},
+    "obosligaen": {
+        "asane fotball": "asane", "egersunds": "egersund",
+        "sogndal": "sogndal il", "ranheim": "ranheim il",
+        "odd": "odds", "stabaek": "stabak fotball", "hodd": "hodd il",
+    },
     "mls": {"d c united": "dc united"},
 }
 POLICY = {
