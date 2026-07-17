@@ -111,7 +111,7 @@
   lågchansutfall och håller radbyggaren synlig på desktop/nåbar från mobil.
   PWA-manifest, maskbar 1–X–2-ikon och Apple-hemskärmsmetadata ger appidentitet
   i fristående läge utan offline-cache som kan göra oddsdata missvisande gammal.
-- **Kvalitetspaket + Backtest v4 klart (2026-07-16; 98 tester efter V2-B):** tester täcker nu även
+- **Kvalitetspaket + Backtest v4 klart (2026-07-16; 107 tester efter WP9c):** tester täcker nu även
   power-devig, event/tidszon, post-kickoff/closinglina, analytisk poolutdelning,
   klusterbootstrap, signalgrupp och versionsisolering. Backtest v4 mäter den
   förregistrerade q-policyn med matchblock-KI och X-frekvens per liga; full rapport
@@ -137,6 +137,14 @@
   positiva (+0,00230), missing-rader negativa (−0,00426), så kriteriet att alla
   matcher ska hålla missades. **Ingen V2-C/skugga och ingen live-ändring.**
   Rapport: `docs/v2-b-backtest-2026-07-17.md`.
+- **WP9c team-events klar (2026-07-17):** Sofascore-lagflödet samlar nu alla
+  tävlingar per aktivt lag med provider-ID, tournament, första/senaste
+  observation och basarena. 94 lag/94 arenor, 94 lyckade captures och 3 329
+  unika matcher i 24 tävlingar backfillades. Alla 40 kommande källligamatcher
+  hade komplett exakt/aliasverifierad vila, 7/14/30-dagars belastning och
+  basarena-reseproxy. Backfillens `first_seen_at` är 2026-07-17 och kan därför
+  aldrig bli historiskt promotionsbevis. **Ej inkopplat i modellen.** Rapport:
+  `docs/wp9c-team-events-2026-07-17.md`.
 - **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
   2026-07-16**; beslut om mobil-default för `Bara signaler` återstår;
   P1/P2-backloggen finns nedan. Villkoret WP0–WP5 för att
@@ -229,7 +237,7 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
   källtimeout lämnar klubben omarkerad för retry. Tre klubbhistoriker är ännu
   partiella enligt statusblocket, aldrig tyst klassade som kompletta.
 - **WP-test** (M, löpande): testgrund ✅ med standardbibliotekets `unittest`
-  (pytest-kompatibel, ingen dependency). 98 fall täcker bland annat
+  (pytest-kompatibel, ingen dependency). 107 fall täcker bland annat
   settlement/push/kvart, temperatur-roundtrip, normaltime, seen-retry/404,
   bulk-rollback, prisnärvaro, Elo-PIT/retry samt CLV-identitet/linjeflytt och
   WP6:s Poissonandel, portföljkonkurrens, full enumeration och reproducerbar MC.
@@ -252,8 +260,10 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
 - **WP9b**: Sofascore coverage-matrix per liga/säsong/endpoint/fält (script →
   docs). Verifierat 2026-07-13: shot-xG+xGOT finns för Eliteserien (30/30),
   saknas för Allsvenskan (0/31) — match-xG via /statistics finns för båda.
-- **WP9c**: Sofascore team-events (alla tävlingar per lag) → vilodagar/resor
-  (gamla B6) utan cup-blindhet.
+- **WP9c ✅ 2026-07-17**: Sofascore team-events (alla tävlingar per lag) ger
+  PIT-säker vila, 7/14/30-dagars belastning och tydligt märkt basarena-reseproxy
+  utan cup-blindhet. 94/94 arenor; 40/40 kommande matcher komplett. Samlas
+  forward men är inte modellinput.
 
 **P2 — senare:**
 - Frånvaro-modellering (gamla B5) — när WP8-historiken samlats; amber tills facit.
@@ -658,7 +668,7 @@ Oddset-flik (platshållare), detta dokument, CLAUDE.md omskriven.
 | Blockerade (omtestade 2026-07-12 från hemma-IP, slösa inte tid) | FotMob (gamla API:t 404:ar — kräver signerad `x-mas`-header numera), football-data.org (Allsvenskan i katalogen men datat kräver betald tier), Opta-webben (Akamai) | ⛔ — men Opta performfeeds data-API var öppet (showcase-outlet, `vm/backend/app/opta.py`) |
 | ASA (American Soccer Analysis) | MLS: xG/xPass/Goals Added/löner/domare/arenor — oberoende MLS-kvalitetskontroll | 🔴 certfel 2026-07-13 (hostname mismatch, både httpx & Chrome-TLS) — verifiera åtkomst innan planering (WP9a). Blanda aldrig providers' xG i samma fält. |
 | Sofascore shotmap | shot-xG + xGOT per skott | ✅ probat 2026-07-13: Eliteserien 30/30 skott med xG — Allsvenskan 0/31 (fältet saknas för SWE). Coverage-matrix (WP9b) innan features byggs. |
-| Sofascore team-events | lagets ALLA tävlingar (cup/Europa) | 🟡 ej probat — nyckeln till vilodagar/resor utan cup-blindhet (WP9c) |
+| Sofascore team-events | lagets ALLA tävlingar (cup/Europa) | ✅ WP9c i drift 2026-07-17: 94 lag, 3 329 unika event, PIT-first-seen, vila/belastning + basarena-reseproxy; ännu inte modellinput |
 | Open-Meteo Historical Forecast | väder med äkta point-in-time-prognoser | 🟡 dokumenterat gratis-API; liten väntad effekt → P2 |
 | Betfair Historical | exchange-stängningar | ⛔ skip tills konkret behov — kontokrav, marginell nytta över Pinnacle-close för våra ligor |
 

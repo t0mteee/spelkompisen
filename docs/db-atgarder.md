@@ -8,6 +8,27 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-07-17 — WP9c lagmatcher i alla tävlingar
+
+- **Skript:** `backend/scripts/migrera_team_events.py` (idempotent, additiva
+  tabeller/index och konsistent SQLite-backup innan första migration).
+- **Backup:** `backend/data/backups/stryktips-2026-07-17-fore-wp9c.db`, skapad
+  innan de fyra tabellerna fanns; `integrity_check = ok`.
+- **Vad:** `oddset_sofa_team` + scope sparar providerlag och basarena;
+  `oddset_sofa_team_event_capture` sparar lyckade, policyversionerade svar även
+  när eventlistan är tom; `oddset_sofa_team_event` deduplicerar provider-event
+  och bevarar första/senaste observation. PIT-läsning kräver att eventet både
+  spelats och observerats före `as_of`.
+- **Första backfill:** 94 lag och 94 captures, 5 533 lag-eventposter → 3 329
+  unika matcher i 24 tävlingar. 94/94 lag har arenakoordinater. Den felaktiga
+  gamla OBOS-säsongscachen 97377 förkastades; korrekt fotbollssäsong 87867/UT 22
+  gav 16 lag och 687 relevanta event.
+- **Verifiering:** alla 40 kommande källligamatcher fick komplett exakt/
+  aliasverifierad identitet, vila, belastning och reseproxy. Inga gamla
+  `first_seen_at` fabricerades; backfillen är användbar först framåt.
+  Slutlig `integrity_check = ok`. Metodrapport:
+  `docs/wp9c-team-events-2026-07-17.md`.
+
 ## 2026-07-17 — Modell v2-A point-in-time-features
 
 - **Skript:** `backend/scripts/migrera_v2_features.py` (idempotent, additiv

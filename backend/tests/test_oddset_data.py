@@ -81,6 +81,29 @@ class SofaIngestTests(unittest.TestCase):
         self.assertIsNone(self.store.meta_get("oddset_sofa_retry:789"))
 
 
+class SofaSeasonCacheTests(unittest.TestCase):
+    def test_legacy_cache_without_tournament_id_is_refetched(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            fixed = oddset_data.dt.datetime(
+                2026, 7, 17, 8, tzinfo=oddset_data.dt.timezone.utc)
+            try:
+                store.meta_set("oddset_sofa_season:obosligaen",
+                               "97377|2026-07-17T07:00:00+00:00")
+                with mock.patch.object(oddset_data, "_now", return_value=fixed), \
+                        mock.patch.object(oddset_data, "_sofa_get", return_value={
+                            "seasons": [{"id": 87867, "name": "1st Division 2026"}]
+                        }) as source:
+                    season = oddset_data._sofa_season(store, "obosligaen")
+
+                self.assertEqual(87867, season)
+                source.assert_called_once_with("/unique-tournament/22/seasons")
+                self.assertTrue(store.meta_get(
+                    "oddset_sofa_season:obosligaen").startswith("22|87867|"))
+            finally:
+                store.close()
+
+
 class AbsenceSnapshotTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()

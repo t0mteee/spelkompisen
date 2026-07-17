@@ -7,6 +7,7 @@ Användning (från backend/ med aktiverat venv):
     python cli.py smart             # launchd-passet: oddset + poolspel med
                                     # snabbvarv nära avspark/spelstopp (A1)
     python cli.py oddset [light]    # ett oddset-varv (light = snabbvarvet)
+    python cli.py teamdata [backfill|force] [liga] # lagtävlingar/vila/resor
     python cli.py v2audit [backfill] # PIT-dataset/coverage; backfill är ej promotion
     python cli.py v2backtest [proxy] # nested ridge; proxy kan aldrig promovera
     python cli.py history 4956 1 1  # oddshistorik draw=4956 event=1 sign=1
@@ -613,6 +614,18 @@ def main() -> None:
         cmd_smart(secs if secs is not None else DENSE_BUDGET_S)
     elif cmd == "modeldata":
         cmd_modeldata()
+    elif cmd == "teamdata":
+        from app import oddset_data, oddset_schedule
+        store = Storage()
+        try:
+            if "backfill" in rest or "force" in rest:
+                leagues = {arg for arg in rest if arg in oddset_data.SOFA_UT} or None
+                print("team-events:", oddset_schedule.refresh(
+                    store, force="force" in rest, backfill="backfill" in rest,
+                    leagues=leagues))
+            print(oddset_schedule.format_coverage(oddset_schedule.coverage(store)))
+        finally:
+            store.close()
     elif cmd == "v2audit":
         from app import oddset_v2
         store = Storage()

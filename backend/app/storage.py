@@ -186,6 +186,75 @@ CREATE INDEX IF NOT EXISTS idx_v2_feature_version
     ON oddset_v2_feature_capture (feature_version, captured_at, match_id);
 """
 
+TEAM_EVENT_SCHEMA = """
+CREATE TABLE IF NOT EXISTS oddset_sofa_team (
+    team_id           INTEGER PRIMARY KEY,
+    team_key          TEXT NOT NULL,
+    name              TEXT NOT NULL,
+    country_code      TEXT,
+    sport             TEXT NOT NULL,
+    venue_id          INTEGER,
+    venue_name        TEXT,
+    venue_city        TEXT,
+    venue_lat         REAL,
+    venue_lon         REAL,
+    first_seen_at     TEXT NOT NULL,
+    last_seen_at      TEXT NOT NULL,
+    detail_fetched_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_sofa_team_key
+    ON oddset_sofa_team (team_key, team_id);
+
+CREATE TABLE IF NOT EXISTS oddset_sofa_team_scope (
+    team_id       INTEGER NOT NULL,
+    league        TEXT NOT NULL,
+    season_id     INTEGER NOT NULL,
+    first_seen_at TEXT NOT NULL,
+    last_seen_at  TEXT NOT NULL,
+    PRIMARY KEY (team_id, league, season_id)
+);
+CREATE INDEX IF NOT EXISTS idx_sofa_team_scope_league
+    ON oddset_sofa_team_scope (league, season_id, team_id);
+
+CREATE TABLE IF NOT EXISTS oddset_sofa_team_event_capture (
+    team_id         INTEGER NOT NULL,
+    captured_at     TEXT NOT NULL,
+    policy_version  TEXT NOT NULL,
+    page_count      INTEGER NOT NULL,
+    raw_event_count INTEGER NOT NULL,
+    event_count     INTEGER NOT NULL,
+    oldest_start    TEXT,
+    newest_start    TEXT,
+    payload_hash    TEXT NOT NULL,
+    PRIMARY KEY (team_id, captured_at)
+);
+CREATE INDEX IF NOT EXISTS idx_sofa_team_event_capture_latest
+    ON oddset_sofa_team_event_capture (team_id, captured_at);
+
+CREATE TABLE IF NOT EXISTS oddset_sofa_team_event (
+    event_id             INTEGER PRIMARY KEY,
+    start_at             TEXT NOT NULL,
+    status               TEXT NOT NULL,
+    home_team_id         INTEGER NOT NULL,
+    away_team_id         INTEGER NOT NULL,
+    tournament_id        INTEGER,
+    unique_tournament_id INTEGER,
+    tournament_name      TEXT,
+    tournament_slug      TEXT,
+    country_code         TEXT,
+    home_score           INTEGER,
+    away_score           INTEGER,
+    first_seen_at        TEXT NOT NULL,
+    last_seen_at         TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sofa_team_event_home
+    ON oddset_sofa_team_event (home_team_id, start_at);
+CREATE INDEX IF NOT EXISTS idx_sofa_team_event_away
+    ON oddset_sofa_team_event (away_team_id, start_at);
+CREATE INDEX IF NOT EXISTS idx_sofa_team_event_pit
+    ON oddset_sofa_team_event (first_seen_at, start_at);
+"""
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS draws (
     product       TEXT NOT NULL,
@@ -347,7 +416,7 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
     git_hash     TEXT,
     PRIMARY KEY (match_id, market, sign, line_key, model_version)
 );
-""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA
+""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + TEAM_EVENT_SCHEMA
 
 
 class Storage:
@@ -1144,6 +1213,145 @@ class Storage:
             args.append(feature_version)
         q += " ORDER BY captured_at, match_id, horizon, model_signal_version"
         return [dict(r) for r in self.conn.execute(q, args).fetchall()]
+
+    # --- WP9c: Sofascore lagmatcher i alla tävlingar ------------------------
+
+    def oddset_save_sofa_team(self, team: dict, captured_at: str,
+                              league: Optional[str] = None,
+                              season_id: Optional[int] = None) -> None:
+        """Upserta ett verifierat fotbollslag och, om angivet, ligascopet.
+
+        En stub från eventlistan får aldrig radera redan hämtade arenafält.
+        `detail_fetched_at` sätts därför bara av ett lyckat `/team/{id}`-svar.
+        """
+        if team.get("sport") != "football":
+            raise ValueError(f"Sofascore-lag är inte fotboll: {team.get('sport')!r}")
+        if team.get("team_id") is None or not team.get("team_key") or not team.get("name"):
+            raise ValueError("Sofascore-lag saknar id eller namn")
+        if (league is None) != (season_id is None):
+            raise ValueError("league och season_id måste anges tillsammans")
+        with self.bulk():
+            self.conn.execute(
+                "INSERT INTO oddset_sofa_team(team_id, team_key, name, country_code, "
+                "sport, venue_id, venue_name, venue_city, venue_lat, venue_lon, "
+                "first_seen_at, last_seen_at, detail_fetched_at) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(team_id) DO UPDATE SET "
+                "team_key=excluded.team_key, name=excluded.name, "
+                "country_code=COALESCE(excluded.country_code,oddset_sofa_team.country_code), "
+                "sport=excluded.sport, "
+                "venue_id=COALESCE(excluded.venue_id,oddset_sofa_team.venue_id), "
+                "venue_name=COALESCE(excluded.venue_name,oddset_sofa_team.venue_name), "
+                "venue_city=COALESCE(excluded.venue_city,oddset_sofa_team.venue_city), "
+                "venue_lat=COALESCE(excluded.venue_lat,oddset_sofa_team.venue_lat), "
+                "venue_lon=COALESCE(excluded.venue_lon,oddset_sofa_team.venue_lon), "
+                "first_seen_at=MIN(oddset_sofa_team.first_seen_at,excluded.first_seen_at), "
+                "last_seen_at=MAX(oddset_sofa_team.last_seen_at,excluded.last_seen_at), "
+                "detail_fetched_at=COALESCE(excluded.detail_fetched_at,"
+                "oddset_sofa_team.detail_fetched_at)",
+                (team["team_id"], team["team_key"], team["name"],
+                 team.get("country_code"), team["sport"], team.get("venue_id"),
+                 team.get("venue_name"), team.get("venue_city"), team.get("venue_lat"),
+                 team.get("venue_lon"), captured_at, captured_at,
+                 team.get("detail_fetched_at")))
+            if league is not None:
+                self.conn.execute(
+                    "INSERT INTO oddset_sofa_team_scope(team_id,league,season_id,"
+                    "first_seen_at,last_seen_at) VALUES(?,?,?,?,?) "
+                    "ON CONFLICT(team_id,league,season_id) DO UPDATE SET "
+                    "first_seen_at=MIN(oddset_sofa_team_scope.first_seen_at,"
+                    "excluded.first_seen_at), last_seen_at=MAX("
+                    "oddset_sofa_team_scope.last_seen_at,excluded.last_seen_at)",
+                    (team["team_id"], league, int(season_id), captured_at, captured_at))
+
+    def oddset_sofa_teams(self, league: Optional[str] = None) -> list[dict]:
+        q = ("SELECT t.*,s.league,s.season_id,s.first_seen_at AS scope_first_seen_at,"
+             "s.last_seen_at AS scope_last_seen_at FROM oddset_sofa_team t "
+             "JOIN oddset_sofa_team_scope s ON s.team_id=t.team_id")
+        args: list = []
+        if league is not None:
+            q += " WHERE s.league=?"
+            args.append(league)
+        q += " ORDER BY s.league,s.season_id DESC,t.team_key,t.team_id"
+        return [dict(row) for row in self.conn.execute(q, args).fetchall()]
+
+    def oddset_sofa_team(self, team_id: int) -> Optional[dict]:
+        row = self.conn.execute(
+            "SELECT * FROM oddset_sofa_team WHERE team_id=?", (team_id,)).fetchone()
+        return dict(row) if row else None
+
+    def oddset_sofa_team_latest_capture(self, team_id: int) -> Optional[str]:
+        row = self.conn.execute(
+            "SELECT MAX(captured_at) AS captured_at FROM oddset_sofa_team_event_capture "
+            "WHERE team_id=?", (team_id,)).fetchone()
+        return row["captured_at"] if row and row["captured_at"] else None
+
+    def oddset_save_sofa_team_event_capture(
+            self, capture: dict, events: list[dict]) -> int:
+        """Spara ett lyckat teamsvar och dess event atomärt.
+
+        Eventens `first_seen_at` är kunskapsgränsen för framtida PIT-features.
+        Ett felaktigt event eller en capture som redan finns lämnar ingen
+        halvskriven historik.
+        """
+        team_id = int(capture["team_id"])
+        if not capture.get("policy_version"):
+            raise ValueError("Sofascore-capture saknar policyversion")
+        for event in events:
+            if (event.get("status") != "finished" or event.get("event_id") is None or
+                    not event.get("start_at")):
+                raise ValueError("ogiltigt avslutat Sofascore-event")
+            if team_id not in (event.get("home_team_id"), event.get("away_team_id")):
+                raise ValueError("Sofascore-eventet tillhör inte capture-laget")
+        starts = [event["start_at"] for event in events]
+        with self.bulk():
+            cur = self.conn.execute(
+                "INSERT OR IGNORE INTO oddset_sofa_team_event_capture(team_id,"
+                "captured_at,policy_version,page_count,raw_event_count,event_count,"
+                "oldest_start,newest_start,payload_hash) VALUES(?,?,?,?,?,?,?,?,?)",
+                (team_id, capture["captured_at"], capture["policy_version"],
+                 capture["page_count"],
+                 capture["raw_event_count"], len(events), min(starts) if starts else None,
+                 max(starts) if starts else None, capture["payload_hash"]))
+            if cur.rowcount == 0:
+                return 0
+            for event in events:
+                self.conn.execute(
+                    "INSERT INTO oddset_sofa_team_event(event_id,start_at,status,"
+                    "home_team_id,away_team_id,tournament_id,unique_tournament_id,"
+                    "tournament_name,tournament_slug,country_code,home_score,away_score,"
+                    "first_seen_at,last_seen_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                    "ON CONFLICT(event_id) DO UPDATE SET start_at=excluded.start_at, "
+                    "status=excluded.status,home_team_id=excluded.home_team_id,"
+                    "away_team_id=excluded.away_team_id,tournament_id=excluded.tournament_id,"
+                    "unique_tournament_id=excluded.unique_tournament_id,"
+                    "tournament_name=excluded.tournament_name,"
+                    "tournament_slug=excluded.tournament_slug,"
+                    "country_code=excluded.country_code,home_score=excluded.home_score,"
+                    "away_score=excluded.away_score,first_seen_at=MIN("
+                    "oddset_sofa_team_event.first_seen_at,excluded.first_seen_at),"
+                    "last_seen_at=MAX(oddset_sofa_team_event.last_seen_at,"
+                    "excluded.last_seen_at)",
+                    (event["event_id"], event["start_at"], event["status"],
+                     event["home_team_id"], event["away_team_id"],
+                     event.get("tournament_id"), event.get("unique_tournament_id"),
+                     event.get("tournament_name"), event.get("tournament_slug"),
+                     event.get("country_code"), event.get("home_score"),
+                     event.get("away_score"), capture["captured_at"],
+                     capture["captured_at"]))
+        return len(events)
+
+    def oddset_sofa_team_events_as_of(self, team_id: int, as_of: str,
+                                      since: Optional[str] = None) -> list[dict]:
+        """Avslutade matcher som både spelats och observerats före `as_of`."""
+        q = ("SELECT * FROM oddset_sofa_team_event WHERE status='finished' "
+             "AND (home_team_id=? OR away_team_id=?) AND start_at<? "
+             "AND first_seen_at<=?")
+        args: list = [team_id, team_id, as_of, as_of]
+        if since is not None:
+            q += " AND start_at>=?"
+            args.append(since)
+        q += " ORDER BY start_at,event_id"
+        return [dict(row) for row in self.conn.execute(q, args).fetchall()]
 
     def oddset_prediction_states(self) -> dict[tuple, dict]:
         rows = self.conn.execute("SELECT * FROM oddset_prediction_group_state").fetchall()

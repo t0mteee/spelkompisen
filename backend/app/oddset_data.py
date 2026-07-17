@@ -119,20 +119,26 @@ def _sofa_get(path: str, timeout: float = 20.0):
 
 
 def _sofa_season(store: Storage, lg: str) -> Optional[int]:
-    """Innevarande säsongs id, cachat i meta (30 d)."""
+    """Innevarande säsongs id, cachat i meta (30 d).
+
+    Tournament-id ingår i cachevärdet. Det förhindrar att ett gammalt säsongs-id
+    från en felaktigt identifierad sport återanvänds efter att SOFA_UT rättats
+    (OBOS hade kvar handbollssäsongen 97377 trots korrekt fotbolls-UT 22).
+    """
     key = f"oddset_sofa_season:{lg}"
     cached = store.meta_get(key)
     if cached:
         try:
-            sid, at = cached.split("|")
-            if (_now() - dt.datetime.fromisoformat(at)).days < 30:
+            tournament_id, sid, at = cached.split("|")
+            if (int(tournament_id) == SOFA_UT[lg] and
+                    (_now() - dt.datetime.fromisoformat(at)).days < 30):
                 return int(sid)
         except ValueError:
             pass
     try:
         seasons = _sofa_get(f"/unique-tournament/{SOFA_UT[lg]}/seasons")["seasons"]
         sid = seasons[0]["id"]
-        store.meta_set(key, f"{sid}|{_now().isoformat()}")
+        store.meta_set(key, f"{SOFA_UT[lg]}|{sid}|{_now().isoformat()}")
         return sid
     except Exception:  # noqa: BLE001
         return None
@@ -453,10 +459,16 @@ def get_absences(store: Storage, match_ids: list[str]) -> dict[str, dict]:
 
 def refresh_all(store: Storage, force: bool = False) -> dict:
     """Körs i varje insamlingspass — throttlarna gör det billigt."""
-    return {"results": refresh_results(store, force),
-            "xg": refresh_xg(store, force),
-            "elo": refresh_elo(store, force),
-            "absences": refresh_absences(store, force)}
+    from . import oddset_schedule
+    out = {"results": refresh_results(store, force),
+           "xg": refresh_xg(store, force),
+           "elo": refresh_elo(store, force),
+           "absences": refresh_absences(store, force)}
+    try:
+        out["team_events"] = oddset_schedule.refresh(store, force=force)
+    except Exception as exc:  # noqa: BLE001 — WP9c får inte fälla övrig insamling
+        out["team_events"] = {"error": f"{type(exc).__name__}: {exc}"}
+    return out
 
 
 # Manuella lagnamns-alias (identitetslager, granskning 2026-07-13): källnamn →
