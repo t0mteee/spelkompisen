@@ -389,6 +389,24 @@ CREATE TABLE IF NOT EXISTS oddset_results (
     PRIMARY KEY (league, date, home, away)
 );
 
+-- Sharpens ALLA linjer per parmarknad (alt-linjer): möjliggör samma-linje-
+-- jämförelse när boken visar en annan lina än huvudlinan (steg-upp 2026-07-20).
+-- Endast Pinnacle — fair-sidan. Dedup per (match, marknad, linje, tecken);
+-- oförändrat pris flyttar last_seen_at; linje borta ur lyckat svar => available=0.
+CREATE TABLE IF NOT EXISTS oddset_sharp_alt (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    match_id     TEXT NOT NULL,
+    market       TEXT NOT NULL,          -- 'ah' | 'ou' | 'cor'
+    line         REAL NOT NULL,          -- ah: hemmaperspektiv; ou/cor: total
+    sign         TEXT NOT NULL,          -- H/A | O/U
+    odds         REAL,
+    fetched_at   TEXT NOT NULL,          -- när priset senast ändrades
+    last_seen_at TEXT NOT NULL,          -- senaste lyckade svar som bar priset
+    available    INTEGER NOT NULL DEFAULT 1
+);
+CREATE INDEX IF NOT EXISTS idx_oddset_sharp_alt
+    ON oddset_sharp_alt (match_id, market, line, sign, fetched_at);
+
 CREATE TABLE IF NOT EXISTS oddset_value_log (
     match_id     TEXT NOT NULL,
     market       TEXT NOT NULL,
@@ -797,6 +815,87 @@ class Storage:
 
     ODDSET_SIGNS = {"1x2": ("1", "X", "2"), "ah": ("H", "A"), "ou": ("O", "U"),
                     "cor": ("O", "U")}
+
+    @staticmethod
+    def _line_key(line: float) -> int:
+        return int(round(float(line) * 1000))
+
+    def oddset_save_sharp_alt(self, match_id: str, market: str,
+                              pairs: list[dict], at: str) -> int:
+        """Sharpens ALLA linjer för en parmarknad efter ett LYCKAT svar.
+        pairs = [{'a','b','line'}] där a/b följer ODDSET_SIGNS[market].
+        Oförändrat pris flyttar last_seen_at utan historikpunkt; linjer som
+        försvunnit ur svaret markeras unavailable (plockade/suspenderade)."""
+        signs = self.ODDSET_SIGNS.get(market, ())
+        if len(signs) != 2:
+            return 0
+        prev: dict[tuple, dict] = {}
+        for r in self.conn.execute(
+                "SELECT id, line, sign, odds, available FROM oddset_sharp_alt s "
+                "WHERE match_id=? AND market=? AND fetched_at=("
+                " SELECT MAX(fetched_at) FROM oddset_sharp_alt WHERE match_id=s.match_id"
+                " AND market=s.market AND line=s.line AND sign=s.sign)",
+                (match_id, market)):
+            prev[(self._line_key(r["line"]), r["sign"])] = dict(r)
+        n = 0
+        seen: set[tuple] = set()
+        for p in pairs:
+            if p.get("line") is None:
+                continue
+            for sign, odds in ((signs[0], p.get("a")), (signs[1], p.get("b"))):
+                if odds is None:
+                    continue
+                key = (self._line_key(p["line"]), sign)
+                seen.add(key)
+                old = prev.get(key)
+                if old and old["odds"] == odds:
+                    self.conn.execute(
+                        "UPDATE oddset_sharp_alt SET last_seen_at=?, available=1 "
+                        "WHERE id=?", (at, old["id"]))
+                    continue
+                self.conn.execute(
+                    "INSERT INTO oddset_sharp_alt(match_id, market, line, sign, "
+                    "odds, fetched_at, last_seen_at) VALUES(?,?,?,?,?,?,?)",
+                    (match_id, market, p["line"], sign, odds, at, at))
+                n += 1
+        for key, old in prev.items():
+            if key not in seen and old["available"]:
+                self.conn.execute(
+                    "UPDATE oddset_sharp_alt SET available=0 WHERE id=?",
+                    (old["id"],))
+        self._commit()
+        return n
+
+    def oddset_sharp_alt_latest(self, ids: list[str]) -> dict[str, dict]:
+        """{match_id: {market: {line_key: {sign: odds, 'line', 'last_seen_at',
+        'available'}}}} — senaste raden per (match, marknad, linje, tecken)."""
+        if not ids:
+            return {}
+        marks = ",".join("?" * len(ids))
+        out: dict[str, dict] = {}
+        for r in self.conn.execute(
+                f"SELECT * FROM oddset_sharp_alt s WHERE match_id IN ({marks}) "
+                "AND fetched_at=(SELECT MAX(fetched_at) FROM oddset_sharp_alt "
+                "WHERE match_id=s.match_id AND market=s.market AND line=s.line "
+                "AND sign=s.sign)", ids):
+            slot = out.setdefault(r["match_id"], {}) \
+                .setdefault(r["market"], {}) \
+                .setdefault(self._line_key(r["line"]), {"line": r["line"]})
+            slot[r["sign"]] = r["odds"]
+            prev_seen = slot.get("last_seen_at")
+            if prev_seen is None or r["last_seen_at"] < prev_seen:
+                slot["last_seen_at"] = r["last_seen_at"]   # äldsta av paren styr
+            slot["available"] = min(slot.get("available", 1), r["available"])
+        return out
+
+    def oddset_sharp_alt_before(self, match_id: str, market: str,
+                                before_iso: str) -> list[dict]:
+        """Alt-linje-historik före en tidpunkt, i tidsordning (för stängning)."""
+        return [dict(r) for r in self.conn.execute(
+            "SELECT sign, odds, line, fetched_at, last_seen_at, available "
+            "FROM oddset_sharp_alt WHERE match_id=? AND market=? AND fetched_at<? "
+            "AND odds IS NOT NULL ORDER BY fetched_at",
+            (match_id, market, before_iso))]
 
     def oddset_upsert_match(self, m: dict, prefer_names: bool = False) -> None:
         """Inkrementell upsert: None skriver aldrig över. prefer_names=True låter

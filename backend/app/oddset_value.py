@@ -82,7 +82,8 @@ MARKET_LABEL = {"1x2": "1X2", "ah": "AH", "ou": "Ö/U", "cor": "Hörnor"}
 SHARP_PARAMS = {"devig": "power", "edge_log": EDGE_LOG,
                 "same_line": True, "best_book": True,
                 "price_max_age_min": PRICE_MAX_AGE_MIN,
-                "price_presence": PRICE_PRESENCE_VERSION}
+                "price_presence": PRICE_PRESENCE_VERSION,
+                "alt_lines": True}   # samma-linje via sharpens alt-linjer (2026-07-20)
 
 
 def _devig(odds: dict, signs: tuple) -> Optional[dict[str, float]]:
@@ -120,6 +121,28 @@ def attach_price_status(matches: list[dict],
                     and age <= PRICE_MAX_AGE_MIN)
 
 
+def _alt_fair(alt_market: dict, line, signs: tuple,
+              now: dt.datetime) -> Optional[dict[str, float]]:
+    """Devigad fair från sharpens alt-linje på EXAKT bokens lina — färsk
+    (≤ PRICE_MAX_AGE_MIN, available) annars None. Rent marknadspris, ingen
+    modellhärledning; samma-linje-metodregeln uppfylls per konstruktion."""
+    if line is None:
+        return None
+    slot = alt_market.get(int(round(float(line) * 1000)))
+    if not slot or not slot.get("available"):
+        return None
+    try:
+        seen = dt.datetime.fromisoformat(slot["last_seen_at"].replace("Z", "+00:00"))
+    except (KeyError, AttributeError, ValueError):
+        return None
+    if (now - seen).total_seconds() / 60 > PRICE_MAX_AGE_MIN:
+        return None
+    odds = {s: slot.get(s) for s in signs}
+    if any(not o for o in odds.values()):
+        return None
+    return _devig(odds, signs)
+
+
 def attach_value(matches: list[dict]) -> None:
     """Sätter m['value'] = {market: {sign: {edge, fair, odds, book}}} (in place).
     Fair = devigad Pinnacle; edge räknas mot BÄSTA odds bland övriga böcker
@@ -136,32 +159,48 @@ def attach_value(matches: list[dict]) -> None:
         odds = m.get("odds") or {}
         pin = odds.get("pinnacle") or {}
         books = {src: v for src, v in odds.items() if src != "pinnacle"}
+        alt = m.get("sharp_alt") or {}
         for market, signs in _MARKET_SIGNS.items():
             p = pin.get(market)
             if not p or not p.get("fresh"):
                 continue
-            fair = _devig(p, signs)
-            if not fair:
+            fair_main = _devig(p, signs)
+            if not fair_main:
                 continue
             for sign in signs:
-                best = None   # (bok, odds) — SvS först så ties inte visas som sidobok
+                # bästa EDGE över böckerna: samma-linje-regeln uppfylls antingen
+                # via huvudlinan eller via sharpens alt-linje på BOKENS lina —
+                # båda är rena marknadspriser (steg-upp 2026-07-20). SvS först
+                # så ties inte visas som sidobok.
+                best = None   # (edge, bok, odds, fair, linje, via_alt)
                 for bk in sorted(books, key=lambda b: b != "svenskaspel"):
-                    bo = books[bk]
-                    s = bo.get(market)
+                    s = books[bk].get(market)
                     if not s or not s.get("fresh") or not s.get(sign):
                         continue
-                    if market != "1x2" and p.get("line") != s.get("line"):
-                        continue   # olika linjer = inte jämförbart
-                    if best is None or s[sign] > best[1]:
-                        best = (bk, s[sign])
+                    via_alt = False
+                    if market == "1x2" or p.get("line") == s.get("line"):
+                        fair_here = fair_main
+                    else:
+                        fair_here = _alt_fair(alt.get(market) or {},
+                                              s.get("line"), signs, now_dt)
+                        via_alt = fair_here is not None
+                    if not fair_here:
+                        continue
+                    edge = fair_here[sign] * s[sign] - 1.0
+                    if best is None or edge > best[0]:
+                        line = p.get("line") if market == "1x2" else s.get("line")
+                        best = (edge, bk, s[sign], fair_here[sign], line, via_alt)
                 if not best:
                     continue
-                edge = fair[sign] * best[1] - 1.0
-                val.setdefault(market, {})[sign] = {
-                    "edge": round(edge, 4), "fair": round(fair[sign], 4),
-                    "q": round(edge / max(best[1] - 1.0, 0.01), 4),  # Kelly-kvalitet
-                    "odds": best[1], "book": best[0],
-                    "line": p.get("line"), "derived": bool(p.get("derived"))}
+                edge, bk, o, fp, line, via_alt = best
+                entry = {
+                    "edge": round(edge, 4), "fair": round(fp, 4),
+                    "q": round(edge / max(o - 1.0, 0.01), 4),  # Kelly-kvalitet
+                    "odds": o, "book": bk,
+                    "line": line, "derived": bool(p.get("derived"))}
+                if via_alt:
+                    entry["alt_line"] = True
+                val.setdefault(market, {})[sign] = entry
 
 
 def _probs_at(pts: dict[str, list], signs: tuple, t: dt.datetime,
@@ -396,6 +435,20 @@ def closing_snapshot(store: Storage, row: dict) -> dict:
         same_line_fresh = (len(target) == len(signs)
                            and all(_seen_after(price, fresh_after)
                                    for price in target.values()))
+        if not same_line_fresh:
+            # alt-linjelagret: sharpens pris på FLAGGANS lina kan finnas där
+            # även när huvudlinan flyttat — färskt exakt-line-close utan censur
+            alt_target: dict[str, dict] = {}
+            for price in store.oddset_sharp_alt_before(
+                    row["match_id"], hist_market, row["match_start"]):
+                if int(round(float(price["line"]) * 1000)) == target_key:
+                    alt_target[price["sign"]] = price
+            if (len(alt_target) == len(signs)
+                    and all(price.get("available") for price in alt_target.values())
+                    and all(_seen_after(price, fresh_after)
+                            for price in alt_target.values())):
+                target = alt_target
+                same_line_fresh = True
         note = None if same_line_fresh else (
             "linje flyttad" if line_delta else
             f"sharp-stängning äldre än {PRICE_MAX_AGE_MIN} min")

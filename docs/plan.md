@@ -145,8 +145,22 @@
   basarena-reseproxy. Backfillens `first_seen_at` är 2026-07-17 och kan därför
   aldrig bli historiskt promotionsbevis. **Ej inkopplat i modellen.** Rapport:
   `docs/wp9c-team-events-2026-07-17.md`.
+- **Alt-linjelagret (steg-upp 2026-07-20, Samans beställning):** sharpens ALLA
+  Ö/U-/AH-/hörnlinjer sparas nu (`oddset_sharp_alt`, samma två API-anrop som
+  förut) och värdemotorn jämför på BOKENS exakta lina via alt-linjen när
+  huvudlinorna skiljer — samma-linje-regeln dödade tidigare 67 % av AH- och
+  ~40 % av Ö/U-jämförelserna. Stängningen läser alt-lagret när huvudlinan
+  flyttat (exakt-line-close i stället för censur). Rent marknadspris (grön väg,
+  ingen modell); ny sharp-version `s-776ca0e0`. Första varvet: 1 238 alt-rader/
+  38 matcher; Ö/U-jämförelser 66 (28 via alt), AH 38 (12), hörnor 6 (2).
+  Facit-läge samma dag: sharp 1X2 +3,8 % close-EV på 50 stängda (Allsvenskan
+  +3,7 %/16 matcher, MLS +6,8 %/12) — långt kvar till candidate (30 matcher/
+  liga) men riktningen är rätt; modell-tiern fortsatt negativ = amber gör sitt
+  jobb. Detaljer i `docs/db-atgarder.md`.
 - **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
-  2026-07-16**; beslut om mobil-default för `Bara signaler` återstår;
+  2026-07-16** — notera: med notisvakt + källhälsa på plats är det säkert att
+  återaktivera, och utan pushar tävlar systemet inte i latens mot manuell
+  odds-inspektion; beslut om mobil-default för `Bara signaler` återstår;
   P1/P2-backloggen finns nedan. Villkoret WP0–WP5 för att
   ompröva stora Europa-ligor är uppfyllt, men expansionen startar inte utan ett
   separat produktbeslut (fler ligor är inte automatiskt nästa prioritet).

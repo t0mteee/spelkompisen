@@ -8,6 +8,25 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-07-20 — Alt-linjelager för sharpens parmarknader
+
+- **Schema:** additiv tabell `oddset_sharp_alt` (skapas idempotent via `_SCHEMA`;
+  dedup per match × marknad × linje × tecken, `last_seen_at`/`available` med
+  samma närvarosemantik som `oddset_odds`).
+- **Backup:** `backend/data/backups/stryktips-2026-07-20-fore-altlinjer.db`.
+- **Varför:** samma-linje-regeln dödade 67 % av AH- och ~40 % av Ö/U-
+  jämförelserna (mätt på 7 dygns matcher: AH samma linje 33 %, Ö/U 59 %,
+  hörnor 60 %) — Pinnacles alternativa linjer fanns redan i samma API-svar men
+  slängdes i parsningen. Ingen ny HTTP-trafik.
+- **Första varvet:** 1 238 rader över 38 matcher (AH 280 match-linjer, Ö/U 307,
+  hörnor 20). Värdejämförelser direkt: Ö/U 66 poster (28 via alt-linje),
+  AH 38 (12), hörnor 6 (2). Sharp-versionen byts till `s-776ca0e0`
+  (`alt_lines: True` i SHARP_PARAMS) så facitet delas rent.
+- **Stängning:** `closing_snapshot` läser alt-lagret när huvudlinan flyttat —
+  exakt-line-close i stället för "linje flyttad" där alt-linjen fanns färsk.
+- **Tester:** `tests/test_alt_lines.py` (5 fall: dedup/plockning, historikpunkt,
+  alt-värde, stale-alt avvisas, alt-stängning). Sviten: 112/112.
+
 ## 2026-07-17 — WP9c lagmatcher i alla tävlingar
 
 - **Skript:** `backend/scripts/migrera_team_events.py` (idempotent, additiva

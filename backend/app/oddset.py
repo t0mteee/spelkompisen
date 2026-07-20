@@ -122,23 +122,35 @@ def _resolve(cands: list[dict], home: str, away: str, start: Optional[str],
 
 # --- Pinnacle per liga ---------------------------------------------------------
 
-def _main_pair(prices: list[dict], key_a: str, key_b: str) -> Optional[dict]:
-    """Huvudlinan bland alternativa linjer: båda decimaloddsen närmast jämnt 2.0."""
+def _alt_pairs(prices: list[dict], key_a: str, key_b: str) -> list[dict]:
+    """ALLA kompletta linjepar ur sharpens svar (inte bara huvudlinan).
+    Alternativlinjerna gör samma-linje-jämförelse möjlig när boken visar en
+    annan lina än sharpens huvudlina — utan dem dog 67 % av AH- och ~40 % av
+    Ö/U-jämförelserna på olika-linje-regeln (mätt 2026-07-20)."""
     groups: dict[float, dict] = {}
     for p in prices:
         if p.get("points") is None:
             continue
         groups.setdefault(abs(p["points"]), {})[p.get("designation")] = p
-    best, best_score = None, 1e9
+    out = []
     for _, g in groups.items():
         if key_a not in g or key_b not in g:
             continue
         da, db = american_to_decimal(g[key_a]["price"]), american_to_decimal(g[key_b]["price"])
         if not da or not db:
             continue
-        score = abs(da - 2) + abs(db - 2)
+        out.append({"a": da, "b": db, "line": g[key_a]["points"]})
+    out.sort(key=lambda r: r["line"])
+    return out
+
+
+def _main_pair(prices: list[dict], key_a: str, key_b: str) -> Optional[dict]:
+    """Huvudlinan bland alternativa linjer: båda decimaloddsen närmast jämnt 2.0."""
+    best, best_score = None, 1e9
+    for pair in _alt_pairs(prices, key_a, key_b):
+        score = abs(pair["a"] - 2) + abs(pair["b"] - 2)
         if score < best_score:
-            best, best_score = {"a": da, "b": db, "line": g[key_a]["points"]}, score
+            best, best_score = pair, score
     return best
 
 
@@ -198,6 +210,9 @@ def pinnacle_league_index(pin: Pinnacle, league_id: int) -> list[dict]:
             "ah": {"H": ah["a"], "A": ah["b"], "line": ah["line"]} if ah else None,
             "ou": {"O": ou["a"], "U": ou["b"], "line": ou["line"]} if ou else None,
             "cor": {"O": co["a"], "U": co["b"], "line": co["line"]} if co else None,
+            "alt": {"ah": _alt_pairs(spread.get(mid, []), "home", "away"),
+                    "ou": _alt_pairs(total.get(mid, []), "over", "under"),
+                    "cor": _alt_pairs(cor_total.get(mid, []), "over", "under")},
         })
     out.sort(key=lambda r: r.get("start") or "")
     return out
@@ -291,6 +306,10 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 for mk_ in _PAIR_KEYS:
                     if r.get(mk_):
                         present.add((mid, "pinnacle", mk_))
+                    # sharpens ALLA linjer (tom lista efter lyckat svar =
+                    # tidigare linjer markeras plockade)
+                    store.oddset_save_sharp_alt(
+                        mid, mk_, (r.get("alt") or {}).get(mk_) or [], at)
                 n_pin += 1
 
             if pin_ok:
@@ -489,13 +508,17 @@ def matches_payload(store: Storage, light: bool = False) -> dict:
     ids = [m["id"] for m in ms]
     latest = store.oddset_latest(ids)
     movement = store.oddset_movement(ids)
+    alt = store.oddset_sharp_alt_latest(ids)
     out = []
     for m in ms:
         out.append({**m, "odds": latest.get(m["id"], {}),
-                    "movement": movement.get(m["id"], {})})
+                    "movement": movement.get(m["id"], {}),
+                    "sharp_alt": alt.get(m["id"], {})})
     out.sort(key=lambda r: (r.get("start") or "9", r["id"]))
     oddset_value.attach_value(out)
     oddset_value.attach_steam(out)
+    for m in out:   # internt underlag för värdemotorn — inte API-last
+        m.pop("sharp_alt", None)
     if not light:
         try:
             from . import oddset_data
