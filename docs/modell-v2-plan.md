@@ -4,6 +4,41 @@ Beslutad 2026-07-16 efter Backtest v4. Målet är en faktisk modellförbättring
 men utan att optimera trösklar eller funktioner på samma matcher som används
 som bevis.
 
+## Ny status 2026-07-23 — separat V2.2-forwardexperiment
+
+V2.1-domen nedan står fast: closing-proxyn underkände försöket och den modellen
+får inte återanvändas live. V2.2 är en ny hypotes, inte en efterhandsjustering
+av V2.1. Det fullständiga maskinläsbara kontraktet frystes före start i
+`model-v2.2-forward-manifest.json`.
+
+V2.2 begränsas till Allsvenskan och 1X2. Den testar samma marknadsankrade
+grundidé men endast på kompletta rader, kompletterade med WP9c:s tidsäkra vila,
+7/14/30-dagars belastning, matcher utanför ligan och basarena-reseproxy. Saknas
+något obligatoriskt värde behålls raden i coverage men sannolikheten faller
+tillbaka till sharp exakt.
+
+Livekedjan startar i ett rent kontrolläge:
+
+- vid T−24 h/T−3 h/T−20 min fryses features och en separat shadowrad;
+- `p_v22 = p_sharp` tills träningsgaten faktiskt är uppfylld;
+- ingen ordinarie UI-yta, notis, värdeflagga eller CLV-grupp läser shadowtabellen;
+- ingen historisk rekonstruktion och ingen V2.1-closingproxy får bli
+  tränings- eller promotionsbevis;
+- ledger + feature + shadow skrivs atomärt, så ett featurefel lämnar inte en
+  förbrukad halv horisont.
+
+Träningsgaten är minst 100 unika, avgjorda och kompletta matcher **per horisont**
+och minst 28 dagars span. Först då fryses en fit-cutoff och ridgeparametern väljs
+med tidsblockerad inner-validering. Ett senare forwardfönster kräver på nytt
+minst 100 matcher per horisont, minst 28 dagar och positiv undre 90 %-KI-gräns
+för parad `logloss(sharp) − logloss(v2.2)`. Första möjliga produktstatus är
+amber; befintlig candidate→out-of-time-green-regel gäller fortfarande därefter.
+
+Startversioner: shadow `v22-515900f2`, features `f22-4573ef02`. Första
+produktionsauditen hade 0 rader eftersom dagens aktuella horisont redan var
+fångad av den äldre ledgern före manifestets frystid. Den bakfylls inte; första
+V2.2-raden skapas automatiskt vid nästa nya fasta horisont.
+
 ## Mål och avgränsning
 
 V2 ska inte försöka ersätta en effektiv marknad med en fristående målmodell.

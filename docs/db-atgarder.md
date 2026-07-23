@@ -8,6 +8,27 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-07-23 — V2.2 isolerad shadowledger
+
+- **Skript:** `backend/scripts/migrera_v22_shadow.py` (idempotent, additivt
+  schema och SQLite online-backup).
+- **Säkerhetsbackup:**
+  `backend/data/backups/stryktips-2026-07-23-fore-v22-tomtabell-stadning.db`.
+  En första read-only-audit öppnade `Storage`, vars grundschema hann skapa den
+  nya tabellen tom före migrationskörningen. Skriptet verifierade exakt 0 rader,
+  tog säkerhetsbackupen och tog bort just den tomma förhandskopian.
+- **Före-migrationsbackup:**
+  `backend/data/backups/stryktips-2026-07-23-fore-v22-shadow.db`, skapad efter
+  den verifierade tomtabellstädningen och före den avsedda migrationen.
+- **Vad:** `oddset_v22_shadow_capture` är ett separat forskningslager per match
+  × fast horisont × fryst shadowversion. Det sparar sharp-kontroll,
+  V2.2-kontroll, eligibility, fallbackorsak, featurehash och källversioner men
+  läses aldrig av värde, notiser, CLV eller ordinarie UI.
+- **Första status:** migrationen skapade tabell + index med 0 rader;
+  `integrity_check = ok`. Ingen gammal horisont bakfylldes. Första livecapture
+  sker automatiskt när ledgern når en ny T−24 h/T−3 h/T−20 min-horisont efter
+  manifestets frystid.
+
 ## 2026-07-20 — Alt-linjelager för sharpens parmarknader
 
 - **Schema:** additiv tabell `oddset_sharp_alt` (skapas idempotent via `_SCHEMA`;

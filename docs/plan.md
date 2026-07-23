@@ -140,13 +140,26 @@ fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
   positiva (+0,00230), missing-rader negativa (−0,00426), så kriteriet att alla
   matcher ska hålla missades. **Ingen V2-C/skugga och ingen live-ändring.**
   Rapport: `docs/v2-b-backtest-2026-07-17.md`.
+  **Separat V2.2-forwardexperiment startat 2026-07-23:** V2.1 förblir stoppad.
+  Den nya hypotesen gäller endast Allsvenskan/1X2 och kompletta styrke-/Elo-rader
+  plus WP9c-vila, 7/14/30-dagars belastning, matcher utanför ligan och
+  basarena-reseproxy. Ett nytt manifest frystes före start. Feature + shadow
+  fångas atomärt vid ledgerns fasta horisonter, men tills träningsgaten är
+  uppfylld är `p_v22 == p_sharp` exakt och lagret är helt isolerat från UI,
+  signaler, notiser och CLV. Minst 100 avgjorda kompletta matcher per horisont
+  och 28 dagars span krävs innan fit; därefter krävs ett nytt lika stort
+  forwardfönster och positiv undre 90 %-KI för parad logloss. Startaudit 0 rader
+  eftersom inga captures före manifestets frystid bakfylls. Manifest:
+  `docs/model-v2.2-forward-manifest.json`; rapport:
+  `docs/v2.2-shadow-start-2026-07-23.md`.
 - **WP9c team-events klar (2026-07-17):** Sofascore-lagflödet samlar nu alla
   tävlingar per aktivt lag med provider-ID, tournament, första/senaste
   observation och basarena. 94 lag/94 arenor, 94 lyckade captures och 3 329
   unika matcher i 24 tävlingar backfillades. Alla 48 kommande källligamatcher
   hade komplett exakt/aliasverifierad vila, 7/14/30-dagars belastning och
   basarena-reseproxy. Backfillens `first_seen_at` är 2026-07-17 och kan därför
-  aldrig bli historiskt promotionsbevis. **Ej inkopplat i modellen.** Rapport:
+  aldrig bli historiskt promotionsbevis. **Ej inkopplat i dagens tipsmodell;**
+  endast nya tidsenliga captures ingår i V2.2:s isolerade forskningslager. Rapport:
   `docs/wp9c-team-events-2026-07-17.md`.
 - **Alt-linjelagret (steg-upp 2026-07-20, Samans beställning):** sharpens ALLA
   Ö/U-/AH-/hörnlinjer sparas nu (`oddset_sharp_alt`, samma två API-anrop som

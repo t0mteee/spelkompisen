@@ -223,14 +223,20 @@ def capture_predictions(store: Storage, matches: list[dict],
                 continue
             rows = _sharp_rows(match) if tier == "sharp" else _model_rows(match)
             capture = _capture_meta(match, horizon, tier, version, now)
-            added = store.oddset_capture_predictions(capture, rows)
-            if tier == "model" and match.get("league") in ("allsvenskan", "eliteserien"):
-                # V2-A fryser inputen vid exakt samma as_of. Funktionen ändrar
-                # inga sannolikheter och reconstructed backfill hålls separat.
+            if tier == "model" and match.get("league") == "allsvenskan":
+                # V2.2 fryser den nya WP9c-payloaden vid samma as_of och sparar
+                # en helt isolerad sharp-identitetskontroll. Om featuresteget
+                # fallerar rullas även ledgercapturen tillbaka så horisonten
+                # kan retryas i stället för att lämnas halvskriven.
                 if feature_builder is None:
-                    from .oddset_v2 import FeatureBuilder
+                    from .oddset_v22 import FeatureBuilder
                     feature_builder = FeatureBuilder(store)
-                feature_builder.capture(match, capture, "live")
+                with store.bulk():
+                    added = store.oddset_capture_predictions(capture, rows)
+                    feature_builder.capture(
+                        match, capture, versions["sharp"]["signal_version"])
+            else:
+                added = store.oddset_capture_predictions(capture, rows)
             result["captures"] += 1
             result["rows"] += added
             result["empty"] += int(not rows)

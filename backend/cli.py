@@ -10,6 +10,7 @@ Användning (från backend/ med aktiverat venv):
     python cli.py teamdata [backfill|force] [liga] # lagtävlingar/vila/resor
     python cli.py v2audit [backfill] # PIT-dataset/coverage; backfill är ej promotion
     python cli.py v2backtest [proxy] # nested ridge; proxy kan aldrig promovera
+    python cli.py v22audit          # ny Allsv-shadow; identitetskontroll/gate
     python cli.py history 4956 1 1  # oddshistorik draw=4956 event=1 sign=1
     python cli.py backtest 25 stryktipset  # kalibrera modellen mot facit
 
@@ -658,6 +659,13 @@ def main() -> None:
                     print(oddset_v2_model.format_report(
                         oddset_v2_model.evaluation_report(
                             walk, "live_development")))
+        finally:
+            store.close()
+    elif cmd == "v22audit":
+        from app import oddset_v22
+        store = Storage()
+        try:
+            print(oddset_v22.format_audit(oddset_v22.audit(store)))
         finally:
             store.close()
     elif cmd == "oddsetbacktest":

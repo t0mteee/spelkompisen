@@ -53,16 +53,21 @@ läser alt-lagret när huvudlinan flyttat. Ny sharp-version `s-776ca0e0`
    DB 47 MB och `integrity_check=ok`.
 3. **Hörn-grön väg (gamla B8)**: nu UPPLÅST av alt-linjerna — vänta tills
    hörn-facitet samlat n, sedan egen facit-grupp (utforskande, BH-FDR).
-4. ✅ **V2-modulerna märkta vilande 23/7:** modulhuvudena kräver ny hypotes och
-   nytt fryst outer-manifest innan spåret får återupptas.
+4. ✅ **Gamla V2 vilande; separat V2.2 armerad 23/7:** V2.1 förblir stoppad.
+   Ny hypotes + fryst manifest finns nu för Allsvenskan/WP9c. Features och
+   shadowkontroll fångas atomärt vid nästa nya ledgerhorisont; tills
+   träningsgaten är nådd är `p_v22 == p_sharp`, aldrig tips/notis/CLV.
+   Status: `cli.py v22audit`; rapport: `v2.2-shadow-start-2026-07-23.md`.
 5. ✅ **Värde-pill-flimmer mätt 23/7:** 120/236 fullvarvsintervall under sju
    dygn var längre än 45 minuter (median 51, max 63); riskytan var 147 minuter
    per dygn för djuppriser utanför snabbfönstret. Färskhetskravet lämnas
    oförändrat. Vid faktiskt UX-problem är rätt lösning en separat, nedtonad och
    icke-spelbar ”senast sedd signal”, inte att gamla priser görs spelbara.
    Rapport: `docs/flimmer-audit-2026-07-23.md`.
-6. **Låt facitet mogna**: inga tröskeländringar, ingen modellutveckling förrän
-   ledgern dömt (tidigast ~2–3 veckor för första candidate).
+6. **Låt dagens signalfacit mogna**: inga tröskeländringar medan ledgern dömer
+   (tidigast ~2–3 veckor för första candidate). V2.2 får under tiden endast
+   samla enligt sitt frysta kontrakt; ingen fit före 100 avgjorda kompletta
+   matcher per horisont och minst 28 dagars span.
 7. **Öppna produktbeslut hos Saman**: 🎯 Bara signaler som mobil-default;
    spel-journal i appen; Europa-expansion (gate uppfylld, kräver produktbeslut);
    ASA-certfelet; servermigrering (E14). **pytest-beslutet kan stängas** —

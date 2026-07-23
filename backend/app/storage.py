@@ -186,6 +186,39 @@ CREATE INDEX IF NOT EXISTS idx_v2_feature_version
     ON oddset_v2_feature_capture (feature_version, captured_at, match_id);
 """
 
+V22_SHADOW_SCHEMA = """
+CREATE TABLE IF NOT EXISTS oddset_v22_shadow_capture (
+    match_id             TEXT NOT NULL,
+    horizon              TEXT NOT NULL,
+    shadow_version       TEXT NOT NULL,
+    feature_version      TEXT NOT NULL,
+    sharp_signal_version TEXT NOT NULL,
+    model_signal_version TEXT NOT NULL,
+    league               TEXT NOT NULL,
+    match_start          TEXT NOT NULL,
+    target_at            TEXT NOT NULL,
+    captured_at          TEXT NOT NULL,
+    offset_minutes       REAL NOT NULL,
+    delay_minutes        REAL NOT NULL,
+    state                TEXT NOT NULL,
+    eligible             INTEGER NOT NULL,
+    fallback_reason      TEXT NOT NULL,
+    issues_json          TEXT NOT NULL,
+    sharp_p1             REAL,
+    sharp_px             REAL,
+    sharp_p2             REAL,
+    v22_p1               REAL,
+    v22_px               REAL,
+    v22_p2               REAL,
+    feature_payload_hash TEXT NOT NULL,
+    created_at           TEXT NOT NULL,
+    PRIMARY KEY (match_id, horizon, shadow_version)
+);
+CREATE INDEX IF NOT EXISTS idx_v22_shadow_version
+    ON oddset_v22_shadow_capture
+       (shadow_version, league, horizon, captured_at, match_id);
+"""
+
 TEAM_EVENT_SCHEMA = """
 CREATE TABLE IF NOT EXISTS oddset_sofa_team (
     team_id           INTEGER PRIMARY KEY,
@@ -434,7 +467,7 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
     git_hash     TEXT,
     PRIMARY KEY (match_id, market, sign, line_key, model_version)
 );
-""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + TEAM_EVENT_SCHEMA
+""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + V22_SHADOW_SCHEMA + TEAM_EVENT_SCHEMA
 
 
 class Storage:
@@ -481,16 +514,25 @@ class Storage:
     @contextlib.contextmanager
     def bulk(self):
         """Batcha många skrivningar i EN transaktion (WP0) — commit per rad gav
-        ~1 700 commits per football-data-refresh. Rollback vid fel."""
-        self._bulk = True
+        ~1 700 commits per football-data-refresh. Rollback vid fel.
+
+        Nestning får inte committa den yttre transaktionen i förtid: V2.2
+        skriver ledger, features och shadowrad som en gemensam enhet.
+        """
+        outermost = not self._bulk
+        if outermost:
+            self._bulk = True
         try:
             yield
-            self.conn.commit()
+            if outermost:
+                self.conn.commit()
         except Exception:
-            self.conn.rollback()
+            if outermost:
+                self.conn.rollback()
             raise
         finally:
-            self._bulk = False
+            if outermost:
+                self._bulk = False
 
     def save_snapshot(self, draw: Draw) -> int:
         """Spara hela omgången som ett snapshot. Returnerar antal rader."""
@@ -1288,6 +1330,23 @@ class Storage:
             "SELECT * FROM oddset_prediction_capture ORDER BY captured_at, match_id, tier"
         ).fetchall()]
 
+    def oddset_prediction_market_rows(
+            self, match_id: str, horizon: str, tier: str,
+            signal_version: str, market: str) -> list[dict]:
+        return [dict(row) for row in self.conn.execute(
+            "SELECT * FROM oddset_prediction_log WHERE match_id=? AND horizon=? "
+            "AND tier=? AND signal_version=? AND market=? ORDER BY sign",
+            (match_id, horizon, tier, signal_version, market)).fetchall()]
+
+    def oddset_prediction_capture(
+            self, match_id: str, horizon: str, tier: str,
+            signal_version: str) -> Optional[dict]:
+        row = self.conn.execute(
+            "SELECT * FROM oddset_prediction_capture WHERE match_id=? "
+            "AND horizon=? AND tier=? AND signal_version=?",
+            (match_id, horizon, tier, signal_version)).fetchone()
+        return dict(row) if row else None
+
     # --- Modell v2: frysta point-in-time-features -----------------------------
 
     def oddset_save_v2_features(self, capture: dict) -> bool:
@@ -1312,6 +1371,33 @@ class Storage:
             args.append(feature_version)
         q += " ORDER BY captured_at, match_id, horizon, model_signal_version"
         return [dict(r) for r in self.conn.execute(q, args).fetchall()]
+
+    # --- Modell v2.2: isolerad shadowkontroll ---------------------------------
+
+    def oddset_save_v22_shadow(self, capture: dict) -> bool:
+        columns = (
+            "match_id", "horizon", "shadow_version", "feature_version",
+            "sharp_signal_version", "model_signal_version", "league",
+            "match_start", "target_at", "captured_at", "offset_minutes",
+            "delay_minutes", "state", "eligible", "fallback_reason",
+            "issues_json", "sharp_p1", "sharp_px", "sharp_p2", "v22_p1",
+            "v22_px", "v22_p2", "feature_payload_hash", "created_at",
+        )
+        cur = self.conn.execute(
+            f"INSERT OR IGNORE INTO oddset_v22_shadow_capture({','.join(columns)}) "
+            f"VALUES({','.join('?' for _ in columns)})",
+            tuple(capture[column] for column in columns))
+        self._commit()
+        return bool(cur.rowcount)
+
+    def oddset_v22_shadows(
+            self, shadow_version: Optional[str] = None) -> list[dict]:
+        query, args = "SELECT * FROM oddset_v22_shadow_capture", []
+        if shadow_version:
+            query += " WHERE shadow_version=?"
+            args.append(shadow_version)
+        query += " ORDER BY captured_at,match_id,horizon"
+        return [dict(row) for row in self.conn.execute(query, args).fetchall()]
 
     # --- WP9c: Sofascore lagmatcher i alla tävlingar ------------------------
 

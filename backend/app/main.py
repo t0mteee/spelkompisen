@@ -415,6 +415,17 @@ def oddset_predictions():
         store.close()
 
 
+@app.get("/api/oddset/v2-shadow")
+def oddset_v2_shadow():
+    """Forskningsstatus för isolerad V2.2; inga tips eller notifieringar."""
+    from . import oddset_v22
+    store = Storage()
+    try:
+        return oddset_v22.audit(store)
+    finally:
+        store.close()
+
+
 @app.get("/api/oddset/notices")
 def oddset_notices():
     """Notis-historik: alla triggade värde-/steam-larm (skickade OCH torrkörda
