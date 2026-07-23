@@ -1,5 +1,8 @@
 """Historisk, icke-promoverbar utvecklingsproxy för modell v2-B.
 
+VILANDE: V2-B stoppades 2026-07-17. Proxyn får inte återanvändas som nytt
+promotionsbevis; ett återupptaget spår kräver ett nytt fryst outer-manifest.
+
 Football-data-filerna för SWE/NOR har i praktiken Pinnacle-closing men saknar
 opening. Closing används därför som ett extra svårt marknads-upper-bound för att
 hitta kodfel och kontrollera om ridge-idén överhuvudtaget är rimlig. Raderna kan

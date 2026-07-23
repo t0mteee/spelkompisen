@@ -1,5 +1,8 @@
 """Modell v2-A: frysta point-in-time-features och dataset-audit.
 
+VILANDE: V2-B stoppades av den förregistrerade domen 2026-07-17. Spåret får
+återupptas endast med en ny hypotes och ett nytt fryst outer-manifest.
+
 Ingen modell tränas här. Modulen gör tre saker som måste vara sanna först:
 
 * fryser featurevärden samtidigt med ledgerns modellcapture;

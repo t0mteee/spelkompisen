@@ -172,6 +172,13 @@ fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
   52 jämförbara stängningar; 8 stängdes exakt på flagglinan trots flyttad
   huvudlina (5 Ö/U, 2 hörnor, 1 AH). DB 47 MB, integritet `ok`; 114 tester och
   frontendbygge gröna, desktop + 390 px verifierade utan konsolfel.
+- **Drift-audit 2026-07-23:** v2-modulerna är kodmässigt märkta vilande och får
+  inte återupptas utan ny hypotes + nytt fryst outer-manifest. 45-minutersvaktens
+  flimmerrisk är mätt: 120/236 fullvarvsintervall på sju dygn var längre än
+  45 minuter (median 51, max 63), främst för djuppriser utanför snabbfönstret.
+  Gränsen ändras inte — gamla priser ska inte göras spelbara. Om UX-problemet
+  märks blir nästa lösning en separat nedtonad ”senast sedd signal” utan
+  Kelly/notis/logg/facit. Se `docs/flimmer-audit-2026-07-23.md`.
 - **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
   2026-07-16** — notera: med notisvakt + källhälsa på plats är det säkert att
   återaktivera, och utan pushar tävlar systemet inte i latens mot manuell

@@ -53,11 +53,14 @@ läser alt-lagret när huvudlinan flyttat. Ny sharp-version `s-776ca0e0`
    DB 47 MB och `integrity_check=ok`.
 3. **Hörn-grön väg (gamla B8)**: nu UPPLÅST av alt-linjerna — vänta tills
    hörn-facitet samlat n, sedan egen facit-grupp (utforskande, BH-FDR).
-4. **Märk v2-modulerna "vilande"** (S): stoppad-statusen står i plan.md men inte
-   i modulhuvudena (`oddset_v2*.py`) — en rad per docstring: återupptas endast
-   med nytt fryst outer-manifest.
-5. **Mät värde-pill-flimmer** (hypotes): 45-min-vakten kan få AH/ÖU-pillar att
-   blinka mellan fulla varv — mät växlingar/dygn innan ev. åtgärd.
+4. ✅ **V2-modulerna märkta vilande 23/7:** modulhuvudena kräver ny hypotes och
+   nytt fryst outer-manifest innan spåret får återupptas.
+5. ✅ **Värde-pill-flimmer mätt 23/7:** 120/236 fullvarvsintervall under sju
+   dygn var längre än 45 minuter (median 51, max 63); riskytan var 147 minuter
+   per dygn för djuppriser utanför snabbfönstret. Färskhetskravet lämnas
+   oförändrat. Vid faktiskt UX-problem är rätt lösning en separat, nedtonad och
+   icke-spelbar ”senast sedd signal”, inte att gamla priser görs spelbara.
+   Rapport: `docs/flimmer-audit-2026-07-23.md`.
 6. **Låt facitet mogna**: inga tröskeländringar, ingen modellutveckling förrän
    ledgern dömt (tidigast ~2–3 veckor för första candidate).
 7. **Öppna produktbeslut hos Saman**: 🎯 Bara signaler som mobil-default;

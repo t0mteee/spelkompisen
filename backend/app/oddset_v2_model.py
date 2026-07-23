@@ -1,5 +1,8 @@
 """Modell v2-B: marknadsankrad multinomial ridge och nested walk-forward.
 
+VILANDE: försöket stoppades av den förregistrerade domen 2026-07-17. Ingen ny
+träning eller V2-C får startas utan ny hypotes och nytt fryst outer-manifest.
+
 Marknaden är en offset, inte en vanlig feature. Med alla koefficienter noll är
 prediktionen därför exakt Pinnacles devigade 1X2. Modulen tränar inget vid
 import och påverkar aldrig live-modellen; den används enbart av backtestet tills
