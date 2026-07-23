@@ -75,5 +75,81 @@ class CollectionPresenceTests(unittest.TestCase):
         self.assertTrue(latest["ou"]["available"])
 
 
+class ResearchLeagueIsolationTests(unittest.TestCase):
+    def test_fast_research_poll_uses_known_moneyline_single_endpoint(self) -> None:
+        class Pin:
+            def _get(self, path):
+                self.path = path
+                return [{
+                    "matchupId": 7, "period": 0, "type": "moneyline",
+                    "prices": [
+                        {"designation": "home", "price": -110},
+                        {"designation": "draw", "price": 250},
+                        {"designation": "away", "price": 300},
+                    ],
+                }]
+
+        pin = Pin()
+        rows = oddset.pinnacle_known_moneylines(pin, 1980, [{
+            "id": "pin:7", "pinnacle_id": "7", "home": "Home",
+            "away": "Away", "start": "2026-08-21T19:00:00Z",
+        }])
+
+        self.assertEqual("/leagues/1980/markets/straight", pin.path)
+        self.assertEqual(1, len(rows))
+        self.assertAlmostEqual(1.91, rows[0]["odds"]["1"])
+        self.assertAlmostEqual(3.5, rows[0]["odds"]["X"])
+        self.assertAlmostEqual(4.0, rows[0]["odds"]["2"])
+
+    def test_research_leagues_are_hidden_from_regular_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            now = dt.datetime.now(dt.timezone.utc)
+            start = (now + dt.timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            try:
+                store.oddset_upsert_match({
+                    "id": "public", "league": "allsvenskan", "home": "A",
+                    "away": "B", "start": start,
+                })
+                store.oddset_upsert_match({
+                    "id": "research", "league": "premier_league", "home": "C",
+                    "away": "D", "start": start,
+                })
+
+                regular = oddset.matches_payload(store, light=True)
+                internal = oddset.matches_payload(
+                    store, light=True, include_research=True)
+            finally:
+                store.close()
+
+        self.assertEqual(["public"], [row["id"] for row in regular["matches"]])
+        self.assertNotIn("premier_league", {
+            row["key"] for row in regular["leagues"]})
+        self.assertEqual({"public", "research"}, {
+            row["id"] for row in internal["matches"]})
+
+    def test_research_leagues_skip_deep_markets_and_sidebooks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            now = dt.datetime.now(dt.timezone.utc)
+            start = (now + dt.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            league = next(row for row in oddset.LEAGUES
+                          if row["key"] == "premier_league")
+            event = {"id": "k-eu", "home": "Home", "away": "Away",
+                     "start": start, "odds": {"1": 2.0, "X": 3.5, "2": 4.0}}
+            try:
+                with mock.patch.object(oddset, "Pinnacle", return_value=_Pin()), \
+                        mock.patch.object(oddset, "pinnacle_league_index",
+                                          return_value=[]), \
+                        mock.patch.object(oddset.kambi, "league_events",
+                                          return_value=[event]), \
+                        mock.patch.object(oddset.kambi, "event_markets") as deep:
+                    oddset.collect(store, leagues=[league], deep=False)
+            finally:
+                store.close()
+
+        deep.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

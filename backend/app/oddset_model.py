@@ -384,22 +384,30 @@ MODEL_PARAMS = {
 }
 
 
-def attach_model(store: Storage, matches: list[dict]) -> None:
+def attach_model(store: Storage, matches: list[dict],
+                 allowed_leagues: Optional[set[str]] = None,
+                 fit_pools: Optional[dict[str, tuple[str, ...]]] = None) -> None:
     """Sätter m['model'] (amber-tier) på liga-matcher: sannolikheter, fair odds,
-    μ, ankar-status, modell-edge vs SvS samt ClubElo. Träningsmatcher hoppas över."""
+    μ, ankar-status, modell-edge vs SvS samt ClubElo. Träningsmatcher hoppas över.
+
+    `allowed_leagues` används endast av det isolerade V2.2-forskningsflödet.
+    Standardvägen för ordinarie UI/signaler förblir MODEL_LEAGUES och dess
+    signalversion påverkas därför inte när nya forskningsligor läggs till."""
     from .oddset import norm_team
     fits: dict[str, Optional[dict]] = {}
     elo = oddset_data.get_elo(store)
     now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     corner_ms: dict[str, Optional[dict]] = {}
     cals: dict[str, dict] = {}
+    pool_policy = fit_pools or FIT_POOLS
 
     def _cal(league: str) -> dict:
         if league not in cals:
             import json as _json
             raw = store.meta_get(f"oddset_cal:{league}")
             if not raw:   # ärv pool-huvudligans kalibrering (Superettan/OBOS saknar
-                pool = FIT_POOLS.get(league, (league,))   # stängningsodds att fitta mot)
+                pool = pool_policy.get(
+                    league, (league,))   # stängningsodds att fitta mot)
                 raw = store.meta_get(f"oddset_cal:{pool[0]}")
             try:
                 cals[league] = _json.loads(raw) if raw else {}
@@ -407,13 +415,14 @@ def attach_model(store: Storage, matches: list[dict]) -> None:
                 cals[league] = {}
         return cals[league]
 
+    allowed = allowed_leagues or oddset_data.MODEL_LEAGUES
     for m in matches:
         lg = m.get("league")
-        if lg not in oddset_data.MODEL_LEAGUES:   # bara ligor med resultatdata
+        if lg not in allowed:   # bara ligor med resultatdata
             continue
         if (m.get("start") or "9") <= now_iso:
             continue   # startad match — modell-edges mot live-odds är meningslösa
-        pool = FIT_POOLS.get(lg, (lg,))
+        pool = pool_policy.get(lg, (lg,))
         if pool not in fits:
             rows = []
             for plg in pool:

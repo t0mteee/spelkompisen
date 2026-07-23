@@ -33,7 +33,26 @@ LEAGUES = [
      "kambi": "football/usa/mls", "altenar": None},
     {"key": "friendlies", "name": "Träningsmatcher", "pin_id": 1863,
      "kambi": "football/club_friendly_matches", "altenar": None},
+    # Forskningsligor för V2.2-EU. De samlas in men visas inte i ordinarie
+    # Oddset-lista och får aldrig gå genom värde-/notisvägen innan experimentet
+    # har klarat sin separata forwarddom.
+    {"key": "premier_league", "name": "Premier League", "pin_id": 1980,
+     "kambi": "football/england/premier_league", "altenar": None,
+     "research_only": True},
+    {"key": "serie_a", "name": "Serie A", "pin_id": 2436,
+     "kambi": "football/italy/serie_a", "altenar": None,
+     "research_only": True},
+    {"key": "la_liga", "name": "La Liga", "pin_id": 2196,
+     "kambi": "football/spain/la_liga", "altenar": None,
+     "research_only": True},
+    {"key": "bundesliga", "name": "Bundesliga", "pin_id": 1842,
+     "kambi": "football/germany/bundesliga", "altenar": None,
+     "research_only": True},
 ]
+PUBLIC_LEAGUE_KEYS = frozenset(
+    league["key"] for league in LEAGUES if not league.get("research_only"))
+RESEARCH_LEAGUE_KEYS = frozenset(
+    league["key"] for league in LEAGUES if league.get("research_only"))
 
 # Fler böcker (jämförelse + hitta boken som hänger efter). Kambi-operatörer delar
 # event-id:n med svenskaspel (trivial matchning); Altenar-böcker matchas fuzzy på
@@ -118,6 +137,27 @@ def _resolve(cands: list[dict], home: str, away: str, start: Optional[str],
         if s > best_s:
             best, best_s = c, s
     return best
+
+
+def _resolve_team_pair(cands: list[dict], home: str, away: str,
+                       min_score: float = 0.80) -> Optional[dict]:
+    """Entydig lagparslänk utan tid.
+
+    Används bara för research-only höst/vår-ligor där Kambi publicerar hela
+    premiäromgången på en gemensam placeholdertid innan TV-tiderna är satta.
+    Hemma/borta-paret förekommer bara en gång per ligasäsong; oentydighet ger
+    alltid None i stället för en gissning.
+    """
+    ranked = sorted((
+        ((_team_sim(home, cand["home"]) + _team_sim(away, cand["away"])) / 2,
+         cand)
+        for cand in cands
+    ), key=lambda item: item[0], reverse=True)
+    if not ranked or ranked[0][0] < min_score:
+        return None
+    if len(ranked) > 1 and abs(ranked[0][0] - ranked[1][0]) < 0.05:
+        return None
+    return ranked[0][1]
 
 
 # --- Pinnacle per liga ---------------------------------------------------------
@@ -218,6 +258,45 @@ def pinnacle_league_index(pin: Pinnacle, league_id: int) -> list[dict]:
     return out
 
 
+def pinnacle_known_moneylines(pin: Pinnacle, league_id: int,
+                              cands: list[dict]) -> list[dict]:
+    """Ett enda Pinnacle-anrop för kända researchmatcher i snabbfönstret.
+
+    Fullvarvet har redan fryst matchup-ID, lag och avspark. Vid 4-minutersvarv
+    behövs därför bara marknadssvaret; det halverar Pinnacle-trafiken för de
+    fyra nya ligorna. Endast direkt moneyline accepteras eftersom V2.2 ändå
+    förbjuder härledd sharp-1X2.
+    """
+    known = {
+        str(cand["pinnacle_id"]): cand for cand in cands
+        if cand.get("pinnacle_id")
+    }
+    moneylines = {}
+    for market in pin._get(f"/leagues/{league_id}/markets/straight"):
+        matchup_id = str(market.get("matchupId"))
+        if (matchup_id in known and market.get("period") == 0 and
+                market.get("type") == "moneyline"):
+            moneylines[matchup_id] = market
+    out = []
+    for matchup_id, market in moneylines.items():
+        cand = known[matchup_id]
+        prices = {
+            price.get("designation"): american_to_decimal(price.get("price"))
+            for price in market.get("prices", [])
+        }
+        out.append({
+            "id": matchup_id, "home": cand["home"], "away": cand["away"],
+            "start": cand["start"], "status": cand.get("status"),
+            "odds": {
+                "1": prices.get("home"), "X": prices.get("draw"),
+                "2": prices.get("away"),
+            },
+            "odds_source": "pinnacle", "ah": None, "ou": None, "cor": None,
+            "alt": {},
+        })
+    return out
+
+
 # --- insamling -----------------------------------------------------------------
 
 _PAIR_KEYS = {"ah": ("H", "A"), "ou": ("O", "U"), "cor": ("O", "U")}
@@ -265,13 +344,19 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
     pin = Pinnacle()
     try:
         for lg in (LEAGUES if leagues is None else leagues):
+            research_only = bool(lg.get("research_only"))
             cands = [m for m in store.oddset_matches(since=since, until=list_until)
                      if m["league"] == lg["key"]]
             rows_saved, n_pin, n_kambi = 0, 0, 0
 
             pin_ok, pin_error = True, None
             try:
-                pin_rows = pinnacle_league_index(pin, lg["pin_id"])
+                pin_rows = (
+                    pinnacle_known_moneylines(pin, lg["pin_id"], cands)
+                    if not deep and research_only and any(
+                        cand.get("pinnacle_id") for cand in cands)
+                    else pinnacle_league_index(pin, lg["pin_id"])
+                )
             except Exception as e:  # noqa: BLE001 — Arcadia Cloudflare-blockar ibland
                 pin_rows = []
                 pin_ok, pin_error = False, str(e)
@@ -302,14 +387,16 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 else:
                     store.oddset_mark_market_unavailable(mid, "pinnacle", "1x2")
                     store.oddset_mark_market_unavailable(mid, "derived", "1x2")
-                rows_saved += _observe_pair_markets(store, mid, "pinnacle", r, at)
-                for mk_ in _PAIR_KEYS:
-                    if r.get(mk_):
-                        present.add((mid, "pinnacle", mk_))
-                    # sharpens ALLA linjer (tom lista efter lyckat svar =
-                    # tidigare linjer markeras plockade)
-                    store.oddset_save_sharp_alt(
-                        mid, mk_, (r.get("alt") or {}).get(mk_) or [], at)
+                if not research_only:
+                    rows_saved += _observe_pair_markets(
+                        store, mid, "pinnacle", r, at)
+                    for mk_ in _PAIR_KEYS:
+                        if r.get(mk_):
+                            present.add((mid, "pinnacle", mk_))
+                        # sharpens ALLA linjer (tom lista efter lyckat svar =
+                        # tidigare linjer markeras plockade)
+                        store.oddset_save_sharp_alt(
+                            mid, mk_, (r.get("alt") or {}).get(mk_) or [], at)
                 n_pin += 1
 
             if pin_ok:
@@ -319,8 +406,10 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                         continue
                     store.oddset_mark_market_unavailable(c["id"], "pinnacle", "1x2")
                     store.oddset_mark_market_unavailable(c["id"], "derived", "1x2")
-                    for market in _PAIR_KEYS:
-                        store.oddset_mark_market_unavailable(c["id"], "pinnacle", market)
+                    if not research_only:
+                        for market in _PAIR_KEYS:
+                            store.oddset_mark_market_unavailable(
+                                c["id"], "pinnacle", market)
 
             kambi_ok, kambi_error = True, None
             try:
@@ -336,8 +425,21 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
             deep_errors: list[str] = []
             deep_checked = 0
             for e in kambi_rows:
-                ex = next((c for c in cands if c.get("kambi_id") == e["id"]), None) \
-                    or _resolve(cands, e["home"], e["away"], e["start"])
+                id_match = next(
+                    (c for c in cands if c.get("kambi_id") == e["id"]), None)
+                timed_match = _resolve(
+                    cands, e["home"], e["away"], e["start"])
+                # Kambis tidiga höst/vår-scheman använder ibland en gemensam
+                # placeholdertid för nästan hela omgången. Pinnacle-raden är
+                # då starttidskanon; team-only används endast mot en redan
+                # verifierad Pinnacle-identitet i researchligor.
+                team_match = (
+                    _resolve_team_pair(
+                        [cand for cand in cands if cand.get("pinnacle_id")],
+                        e["home"], e["away"])
+                    if research_only else None
+                )
+                ex = team_match or id_match or timed_match
                 mid = ex["id"] if ex else f"svs:{e['id']}"
                 m = {"id": mid, "league": lg["key"], "home": e["home"], "away": e["away"],
                      "start": e["start"], "kambi_id": e["id"]}
@@ -354,7 +456,8 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 if all(e["odds"].get(s) for s in ("1", "X", "2")):
                     present.add((mid, "svenskaspel", "1x2"))
                 market_until = deep_until if deep else fast_until
-                if (e.get("start") or "9") <= market_until:
+                if (not research_only and
+                        (e.get("start") or "9") <= market_until):
                     deep_checked += 1
                     try:
                         mk = kambi.event_markets(
@@ -379,7 +482,8 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                         continue
                     store.oddset_mark_market_unavailable(
                         c["id"], "svenskaspel", "1x2")
-                    if (c.get("start") or "9") <= market_until:
+                    if (not research_only and
+                            (c.get("start") or "9") <= market_until):
                         for market in _PAIR_KEYS:
                             store.oddset_mark_market_unavailable(
                                 c["id"], "svenskaspel", market)
@@ -390,7 +494,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
 
             # sidoböcker (1X2): Kambi-operatörer delar event-id:n, Altenar matchas fuzzy
             n_books = 0
-            for book in BOOKS:
+            for book in (() if research_only else BOOKS):
                 if not book.get("kambi_op") and not (book.get("altenar") and lg.get("altenar")):
                     continue
                 book_ok, book_error = True, None
@@ -445,24 +549,38 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
     # forskningsledgern. Snabbvarvet fittar modellen ENDAST när en ny fast
     # horisont öppnas; annars förblir det lätt.
     try:
-        payload = matches_payload(store, light=not deep)
+        payload = matches_payload(store, light=not deep, include_research=True)
         from . import oddset_ledger
         if deep:
             report["ledger_capture"] = oddset_ledger.capture_predictions(
                 store, payload["matches"])
         else:
+            # V2.2:s forskningsligor ingår inte i produktmodellens ordinarie
+            # due-lista. Fitta bara de matcher vars fasta shadowhorisont är ny,
+            # innan sharp + feature + shadow fryses atomärt.
+            from . import oddset_model, oddset_v22
+            due_v22 = oddset_v22.due_matches(store, payload["matches"])
+            if due_v22:
+                oddset_model.attach_model(
+                    store, due_v22,
+                    allowed_leagues=set(oddset_v22.SCOPE_LEAGUES),
+                    fit_pools=oddset_v22.FIT_POOLS)
             sharp_capture = oddset_ledger.capture_predictions(
                 store, payload["matches"], tiers=("sharp",))
             due_model = oddset_ledger.due_model_matches(store, payload["matches"])
-            if due_model:
-                from . import oddset_model
-                oddset_model.attach_model(store, due_model)
+            missing_model = [match for match in due_model if not match.get("model")]
+            if missing_model:
+                oddset_model.attach_model(store, missing_model)
             model_capture = oddset_ledger.capture_predictions(
                 store, due_model, tiers=("model",))
             report["ledger_capture"] = {
                 key: sharp_capture[key] + model_capture[key]
                 for key in sharp_capture}
-        vs = oddset_value.log_and_notify(store, payload["matches"], present=present)
+        actionable = [
+            match for match in payload["matches"]
+            if match.get("league") in PUBLIC_LEAGUE_KEYS
+        ]
+        vs = oddset_value.log_and_notify(store, actionable, present=present)
         vs["closings"] = oddset_value.resolve_closings(store)
         report["value"] = vs
     except Exception as e:  # noqa: BLE001 — får inte fälla insamlingen
@@ -497,7 +615,8 @@ def fast_leagues(store: Storage) -> list[dict]:
 
 # --- läs-API ---------------------------------------------------------------------
 
-def matches_payload(store: Storage, light: bool = False) -> dict:
+def matches_payload(store: Storage, light: bool = False,
+                    include_research: bool = False) -> dict:
     """Matchlistan i tidsordning med senaste odds + rörelseserier per källa.
     light=True (snabbvarven) hoppar frånvaro + modell — modellfitten är dyr
     och amber-flaggorna är inte tidskritiska; 30-min-varvet tar dem."""
@@ -505,6 +624,8 @@ def matches_payload(store: Storage, light: bool = False) -> dict:
     frm = (now - dt.timedelta(hours=LIST_WINDOW_H_BACK)).strftime("%Y-%m-%dT%H:%M:%SZ")
     to = (now + dt.timedelta(days=LIST_WINDOW_D_FWD)).strftime("%Y-%m-%dT%H:%M:%SZ")
     ms = store.oddset_matches(since=frm, until=to)
+    if not include_research:
+        ms = [match for match in ms if match["league"] in PUBLIC_LEAGUE_KEYS]
     ids = [m["id"] for m in ms]
     latest = store.oddset_latest(ids)
     movement = store.oddset_movement(ids)
@@ -527,11 +648,29 @@ def matches_payload(store: Storage, light: bool = False) -> dict:
         except Exception:  # noqa: BLE001
             pass
         try:
-            from . import oddset_model
-            oddset_model.attach_model(store, out)
+            from . import oddset_data, oddset_model
+            oddset_model.attach_model(
+                store, out, allowed_leagues=oddset_data.MODEL_LEAGUES)
+            if include_research:
+                from . import oddset_v22
+                oddset_model.attach_model(
+                    store, out,
+                    allowed_leagues=oddset_data.RESEARCH_MODEL_LEAGUES,
+                    fit_pools=oddset_v22.FIT_POOLS)
         except Exception:  # noqa: BLE001 — modellen (amber) får aldrig fälla listan
             pass
+    visible_leagues = [
+        league for league in LEAGUES
+        if include_research or not league.get("research_only")
+    ]
+    health = store.oddset_source_health()
+    if not include_research:
+        health = [
+            row for row in health
+            if row.get("league") in PUBLIC_LEAGUE_KEYS
+        ]
     return {"matches": out,
-            "leagues": [{"key": lg["key"], "name": lg["name"]} for lg in LEAGUES],
+            "leagues": [{"key": lg["key"], "name": lg["name"]}
+                        for lg in visible_leagues],
             "last_run": store.meta_get("oddset_last_run"),
-            "source_health": store.oddset_source_health()}
+            "source_health": health}

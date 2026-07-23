@@ -40,6 +40,30 @@ class EventMatchingTests(unittest.TestCase):
         self.assertIsNotNone(match)
         self.assertEqual("right", match["id"])
 
+    def test_research_team_pair_can_bridge_placeholder_kickoff(self) -> None:
+        candidates = [
+            {"id": "inter", "home": "Internazionale", "away": "Monza",
+             "start": "2026-08-22T16:30:00Z"},
+            {"id": "other", "home": "Udinese", "away": "Como",
+             "start": "2026-08-22T16:30:00Z"},
+        ]
+
+        match = oddset._resolve_team_pair(
+            candidates, "Inter", "Monza")
+
+        self.assertEqual("inter", match["id"])
+
+    def test_research_team_pair_refuses_ambiguous_candidates(self) -> None:
+        candidates = [
+            {"id": "a", "home": "United", "away": "City",
+             "start": "2026-08-22T16:30:00Z"},
+            {"id": "b", "home": "United FC", "away": "City FC",
+             "start": "2026-08-29T16:30:00Z"},
+        ]
+
+        self.assertIsNone(oddset._resolve_team_pair(
+            candidates, "United", "City"))
+
 
 if __name__ == "__main__":
     unittest.main()

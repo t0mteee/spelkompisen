@@ -140,18 +140,21 @@ fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
   positiva (+0,00230), missing-rader negativa (−0,00426), så kriteriet att alla
   matcher ska hålla missades. **Ingen V2-C/skugga och ingen live-ändring.**
   Rapport: `docs/v2-b-backtest-2026-07-17.md`.
-  **Separat V2.2-forwardexperiment startat 2026-07-23:** V2.1 förblir stoppad.
-  Den nya hypotesen gäller endast Allsvenskan/1X2 och kompletta styrke-/Elo-rader
-  plus WP9c-vila, 7/14/30-dagars belastning, matcher utanför ligan och
-  basarena-reseproxy. Ett nytt manifest frystes före start. Feature + shadow
-  fångas atomärt vid ledgerns fasta horisonter, men tills träningsgaten är
-  uppfylld är `p_v22 == p_sharp` exakt och lagret är helt isolerat från UI,
-  signaler, notiser och CLV. Minst 100 avgjorda kompletta matcher per horisont
-  och 28 dagars span krävs innan fit; därefter krävs ett nytt lika stort
-  forwardfönster och positiv undre 90 %-KI för parad logloss. Startaudit 0 rader
-  eftersom inga captures före manifestets frystid bakfylls. Manifest:
-  `docs/model-v2.2-forward-manifest.json`; rapport:
-  `docs/v2.2-shadow-start-2026-07-23.md`.
+  **Separat V2.2-flerligeförsök startat 2026-07-23:** V2.1 förblir stoppad.
+  Allsvenskan-only-manifestet hann få 0 rader och ersattes före första
+  observationen. Nytt scope: Allsvenskan + research-only Premier League,
+  Serie A, La Liga och Bundesliga, fortsatt bara 1X2 och kompletta styrke-/Elo-/
+  WP9c-rader. Championship, Serie B, Segunda och 2. Bundesliga är fit-only så
+  nyuppflyttade lag inte blir historiklösa. 6 292 fria resultatrader, 78 lag/
+  arenor och 3 441 lag-event är inlästa; 38/39 aktuella premiärmatcher är
+  kompletta (Bayern–Stuttgart saknar giltigt ClubElo-intervall och behålls öppet
+  som missing). De fyra ligorna syns inte i UI och kan inte skapa signaler,
+  notiser eller CLV. Träningsgate: 300 avgjorda kompletta matcher per horisont,
+  ≥50 per liga, ≥42 dagar; forwardgaten upprepar volymen och kräver positiv
+  undre 90 %-KI utan att någon liga försämras >0,005 logloss. Shadow
+  `v22-7450a9ff`, features `f22-9c205e9c`, modellkälla `m22-957459bc`.
+  Manifest: `docs/model-v2.2-multileague-forward-manifest.json`; rapport:
+  `docs/v2.2-multileague-start-2026-07-23.md`.
 - **WP9c team-events klar (2026-07-17):** Sofascore-lagflödet samlar nu alla
   tävlingar per aktivt lag med provider-ID, tournament, första/senaste
   observation och basarena. 94 lag/94 arenor, 94 lyckade captures och 3 329

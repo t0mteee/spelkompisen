@@ -9,13 +9,16 @@ som bevis.
 V2.1-domen nedan står fast: closing-proxyn underkände försöket och den modellen
 får inte återanvändas live. V2.2 är en ny hypotes, inte en efterhandsjustering
 av V2.1. Det fullständiga maskinläsbara kontraktet frystes före start i
-`model-v2.2-forward-manifest.json`.
+`model-v2.2-multileague-forward-manifest.json`.
 
-V2.2 begränsas till Allsvenskan och 1X2. Den testar samma marknadsankrade
-grundidé men endast på kompletta rader, kompletterade med WP9c:s tidsäkra vila,
-7/14/30-dagars belastning, matcher utanför ligan och basarena-reseproxy. Saknas
-något obligatoriskt värde behålls raden i coverage men sannolikheten faller
-tillbaka till sharp exakt.
+Det första Allsvenskan-only-manifestet hann få 0 observationer och behålls bara
+som historik. V2.2 omfattar nu Allsvenskan, Premier League, Serie A, La Liga och
+Bundesliga samt 1X2. Den testar samma marknadsankrade grundidé men endast på
+kompletta rader, kompletterade med WP9c:s tidsäkra vila, 7/14/30-dagars
+belastning, matcher utanför ligan och basarena-reseproxy. De fyra nya ligorna
+är research-only och syns inte i ordinarie UI. Saknas något obligatoriskt
+värde behålls raden i coverage men sannolikheten faller tillbaka till sharp
+exakt.
 
 Livekedjan startar i ett rent kontrolläge:
 
@@ -27,17 +30,18 @@ Livekedjan startar i ett rent kontrolläge:
 - ledger + feature + shadow skrivs atomärt, så ett featurefel lämnar inte en
   förbrukad halv horisont.
 
-Träningsgaten är minst 100 unika, avgjorda och kompletta matcher **per horisont**
-och minst 28 dagars span. Först då fryses en fit-cutoff och ridgeparametern väljs
-med tidsblockerad inner-validering. Ett senare forwardfönster kräver på nytt
-minst 100 matcher per horisont, minst 28 dagar och positiv undre 90 %-KI-gräns
-för parad `logloss(sharp) − logloss(v2.2)`. Första möjliga produktstatus är
-amber; befintlig candidate→out-of-time-green-regel gäller fortfarande därefter.
+Träningsgaten är minst 300 unika, avgjorda och kompletta matcher per horisont,
+minst 50 per liga och minst 42 dagars span. Först då fryses en fit-cutoff och
+ridgeparametern väljs med tidsblockerad inner-validering. Ett senare
+forwardfönster kräver samma volym på nytt, positiv undre 90 %-KI-gräns för
+parad `logloss(sharp) − logloss(v2.2)` och högst 0,005 försämring i någon liga.
+Första möjliga produktstatus är amber; befintlig
+candidate→out-of-time-green-regel gäller fortfarande därefter.
 
-Startversioner: shadow `v22-515900f2`, features `f22-4573ef02`. Första
-produktionsauditen hade 0 rader eftersom dagens aktuella horisont redan var
-fångad av den äldre ledgern före manifestets frystid. Den bakfylls inte; första
-V2.2-raden skapas automatiskt vid nästa nya fasta horisont.
+Startversioner: shadow `v22-7450a9ff`, features `f22-9c205e9c`,
+forskningsmodellkälla `m22-957459bc`. Startauditen hade 0 rader; inget
+bakfylls. Datakällor, identitetsaudit och driftkonsekvenser:
+`v2.2-multileague-start-2026-07-23.md`.
 
 ## Mål och avgränsning
 

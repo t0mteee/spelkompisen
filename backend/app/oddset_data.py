@@ -22,20 +22,37 @@ from typing import Optional
 
 import httpx
 
-from .oddset import norm_team
+from .oddset import RESEARCH_LEAGUE_KEYS, norm_team
 from .storage import Storage
 
 FD_URLS = {"allsvenskan": "https://www.football-data.co.uk/new/SWE.csv",
            "eliteserien": "https://www.football-data.co.uk/new/NOR.csv",
            "mls": "https://www.football-data.co.uk/new/USA.csv"}
+# De fyra höst/vår-ligorna publiceras som en fil per säsong. Koder och filformat
+# verifierades 2026-07-23 mot football-data.co.uk. 2026/27-filen läggs till
+# automatiskt när den finns; 404 före premiären är ett förväntat tillstånd.
+FD_SEASON_CODES = {
+    "premier_league": "E0",
+    "championship": "E1",
+    "serie_a": "I1",
+    "serie_b": "I2",
+    "la_liga": "SP1",
+    "segunda": "SP2",
+    "bundesliga": "D1",
+    "zweite_bundesliga": "D2",
+}
 FD_MIN_SEASON = 2024          # fit-fönster: ~2,5 säsonger räcker med tidsviktning
 SOFA_UT = {"allsvenskan": 40, "eliteserien": 20, "superettan": 46,
-           "obosligaen": 22, "mls": 242}
+           "obosligaen": 22, "mls": 242,
+           "premier_league": 17, "serie_a": 23, "la_liga": 8,
+           "bundesliga": 35}
 # OBS: sök ALDRIG fram Sofascore-id:n utan att verifiera sporten — 1420 ("1.
 # Divisjon") visade sig vara HANDBOLL och 28937 volleyboll; fotbollens norska
 # andraliga är ut 22 ("Norwegian 1st Division", verifierad med lagnamn + xG).
 # Superettan/OBOS saknar football-data — Sofascore är enda resultatkällan.
 MODEL_LEAGUES = set(FD_URLS) | {"superettan", "obosligaen"}
+RESEARCH_MODEL_LEAGUES = set(RESEARCH_LEAGUE_KEYS)
+RESULT_LEAGUES = MODEL_LEAGUES | set(FD_SEASON_CODES)
 SOFA_MAX_PAGES = 4            # events/last/{page} per körning (backfill tar några pass)
 
 FD_TTL_H, XG_TTL_H, ELO_TTL_H, ABS_TTL_H = 12, 6, 24, 2
@@ -74,37 +91,88 @@ def _mark(store: Storage, key: str) -> None:
 
 # --- football-data.co.uk ---------------------------------------------------------
 
+def _fd_season_urls(code: str, today: Optional[dt.date] = None) -> list[str]:
+    """Rullande football-data-filer från kalenderåret 2024 till aktuell säsong."""
+    today = today or _now().date()
+    # Europeisk säsong som börjar år Y kodas YY(Y+1), t.ex. 2526.
+    current_start = today.year if today.month >= 7 else today.year - 1
+    return [
+        f"https://www.football-data.co.uk/mmz4281/{year % 100:02d}"
+        f"{(year + 1) % 100:02d}/{code}.csv"
+        for year in range(FD_MIN_SEASON, current_start + 1)
+    ]
+
+
+def _fd_result_rows(text: str, league: str) -> list[dict]:
+    """Normalisera både football-datas nya landsfiler och klassiska ligafiler."""
+    rows = []
+    for row in csv.DictReader(io.StringIO(text.lstrip("﻿"))):
+        raw_date = row.get("Date")
+        try:
+            parsed_date = None
+            for fmt in ("%d/%m/%Y", "%d/%m/%y"):
+                try:
+                    parsed_date = dt.datetime.strptime(raw_date or "", fmt).date()
+                    break
+                except ValueError:
+                    continue
+            if parsed_date is None or parsed_date.year < FD_MIN_SEASON:
+                continue
+            home = row.get("Home") or row.get("HomeTeam")
+            away = row.get("Away") or row.get("AwayTeam")
+            hg_raw = row.get("HG") if row.get("HG") not in (None, "") else row.get("FTHG")
+            ag_raw = row.get("AG") if row.get("AG") not in (None, "") else row.get("FTAG")
+            hg, ag = int(hg_raw), int(ag_raw)
+            if not home or not away:
+                continue
+        except (TypeError, ValueError):
+            continue
+        result = {
+            "league": league, "date": parsed_date.isoformat(),
+            "home": norm_team(home), "away": norm_team(away),
+            "home_raw": home, "away_raw": away,
+            "hg": hg, "ag": ag, "source": "fd",
+        }
+        try:
+            if row.get("HC") not in (None, "") and row.get("AC") not in (None, ""):
+                result["cor_h"], result["cor_a"] = float(row["HC"]), float(row["AC"])
+        except ValueError:
+            pass
+        rows.append(result)
+    return rows
+
+
 def refresh_results(store: Storage, force: bool = False) -> dict:
     out = {}
-    for lg, url in FD_URLS.items():
+    sources = {
+        **{league: [url] for league, url in FD_URLS.items()},
+        **{league: _fd_season_urls(code)
+           for league, code in FD_SEASON_CODES.items()},
+    }
+    for lg, urls in sources.items():
         if not force and not _stale(store, f"oddset_fd_at:{lg}", FD_TTL_H):
             continue
-        try:
-            r = httpx.get(url, timeout=30, follow_redirects=True)
-            r.raise_for_status()
-        except Exception as e:  # noqa: BLE001
-            out[lg] = f"fel: {e}"
-            continue
         n = 0
-        reader = csv.DictReader(io.StringIO(r.text.lstrip("﻿")))
-        with store.bulk():   # WP0: EN transaktion i stället för ~1 700 commits
-            for row in reader:
-                try:
-                    season = int((row.get("Season") or "0")[:4])
-                    if season < FD_MIN_SEASON:
-                        continue
-                    d = dt.datetime.strptime(row["Date"], "%d/%m/%Y").strftime("%Y-%m-%d")
-                    hg, ag = int(row["HG"]), int(row["AG"])
-                except (ValueError, KeyError):
+        errors = []
+        parsed = []
+        for url in urls:
+            try:
+                r = httpx.get(url, timeout=30, follow_redirects=True)
+                if r.status_code == 404 and lg in FD_SEASON_CODES:
                     continue
-                store.oddset_save_result({
-                    "league": lg, "date": d,
-                    "home": norm_team(row["Home"]), "away": norm_team(row["Away"]),
-                    "home_raw": row["Home"], "away_raw": row["Away"],
-                    "hg": hg, "ag": ag, "source": "fd"})
+                r.raise_for_status()
+                parsed.extend(_fd_result_rows(r.text, lg))
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"{url.rsplit('/', 2)[-2]}: {exc}")
+        if not parsed:
+            out[lg] = "fel: " + "; ".join(errors or ["inga publicerade filer"])
+            continue
+        with store.bulk():   # WP0: EN transaktion i stället för ~1 700 commits
+            for row in parsed:
+                store.oddset_save_result(row)
                 n += 1
         _mark(store, f"oddset_fd_at:{lg}")
-        out[lg] = n
+        out[lg] = n if not errors else {"rows": n, "errors": errors}
     return out
 
 
@@ -270,13 +338,14 @@ def xg_backfill(store: Storage, seasons_back: int = 2, max_pages: int = 12) -> d
 # --- ClubElo -----------------------------------------------------------------------
 
 CLUBELO_BASE = "http://api.clubelo.com"
+ELO_COUNTRIES = Storage.ODDSET_ELO_COUNTRIES
 
 
 def parse_elo_csv(text: str) -> list[dict]:
     """Läs ClubElos ranking/historik och bevara dess giltighetsintervall."""
     rows = []
     for row in csv.DictReader(io.StringIO(text.lstrip("﻿"))):
-        if row.get("Country") not in ("SWE", "NOR"):
+        if row.get("Country") not in ELO_COUNTRIES:
             continue
         try:
             club_raw = row["Club"].strip()
@@ -306,7 +375,7 @@ def fetch_elo_csv(identifier: str) -> str:
 
 def save_elo_capture(store: Storage, requested_date: str, text: str,
                      source: str = "daily", captured_at: Optional[str] = None) -> int:
-    """Spara endast ett komplett, icke-tomt SWE/NOR-svar."""
+    """Spara endast ett komplett, icke-tomt svar för ligornas länder."""
     ratings = parse_elo_csv(text)
     if not ratings:
         return 0
@@ -379,7 +448,8 @@ def refresh_absences(store: Storage, force: bool = False) -> dict:
     frm = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     to = (now + dt.timedelta(hours=48)).strftime("%Y-%m-%dT%H:%M:%SZ")
     ms = [m for m in store.oddset_matches(since=frm, until=to)
-          if m["league"] in SOFA_UT]
+          if m["league"] in SOFA_UT and
+          m["league"] not in RESEARCH_MODEL_LEAGUES]
     out = {"checked": 0, "found": 0}
     ev_index: dict[str, list] = {}
     for lg in {m["league"] for m in ms}:
@@ -488,6 +558,31 @@ TEAM_ALIAS = {
     },
     "mls": {
         "la galaxy": "los angeles galaxy", "atlanta united": "atlanta utd",
+    },
+    "premier_league": {
+        "coventry city": "coventry", "manchester united": "man united",
+        "ipswich town": "ipswich", "nottingham": "nottm forest",
+        "manchester city": "man city", "newcastle united": "newcastle",
+    },
+    "serie_a": {"internazionale": "inter"},
+    "la_liga": {
+        "racing santander": "santander", "espanyol": "espanol",
+        "dep la coruna": "la coruna",
+        "deportivo la coruna": "la coruna", "celta vigo": "celta",
+        "real sociedad": "sociedad", "athletic bilbao": "ath bilbao",
+        "rayo vallecano": "vallecano", "atletico madrid": "ath madrid",
+        "real betis": "betis",
+    },
+    "bundesliga": {
+        "bayern munchen": "bayern munich",
+        "borussia mgladbach": "mgladbach",
+        "bayer leverkusen": "leverkusen",
+        "borussia dortmund": "dortmund", "1 koln": "koln",
+        "tsg hoffenheim": "hoffenheim",
+        "1 union berlin": "union berlin",
+        "eintracht frankfurt": "ein frankfurt",
+        "mainz 05": "mainz", "paderborn 07": "paderborn",
+        "hamburger sv": "hamburg",
     },
 }
 TEAM_REJECTED_LINKS = {

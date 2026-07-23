@@ -39,6 +39,24 @@ ELO_TEAM_ALIAS = {
     "goteborg": "goeteborg",
     "mjallby": "mjaellby",
     "vasteras": "vaesteras",
+    # Verifierade Kambi/Svenska Spel → ClubElo-identiteter för V2.2-EU.
+    "coventry city": "coventry", "manchester united": "man united",
+    "ipswich town": "ipswich", "nottingham": "forest",
+    "manchester city": "man city", "newcastle united": "newcastle",
+    "internazionale": "inter",
+    "racing santander": "santander", "dep la coruna": "depor",
+    "deportivo la coruna": "depor",
+    "espanyol": "espanyol", "celta vigo": "celta",
+    "real sociedad": "sociedad",
+    "athletic bilbao": "bilbao", "atletico madrid": "atletico",
+    "real betis": "betis", "rayo vallecano": "rayo vallecano",
+    "bayern munchen": "bayern", "borussia mgladbach": "gladbach",
+    "bayer leverkusen": "leverkusen", "borussia dortmund": "dortmund",
+    "1 koln": "koeln", "tsg hoffenheim": "hoffenheim",
+    "1 union berlin": "union berlin",
+    "eintracht frankfurt": "frankfurt", "mainz 05": "mainz",
+    "paderborn 07": "paderborn", "werder bremen": "werder",
+    "schalke 04": "schalke", "hamburger sv": "hamburg",
 }
 FEATURE_POLICY = {
     "schema": 5,
@@ -128,9 +146,11 @@ def _link(name: str, keys, alias: Optional[dict[str, str]] = None) -> dict:
             "score": round(best[1], 3), "verified": False}
 
 
-def _input_rows(store: Storage, league: str, cutoff_day: str) -> list[dict]:
+def _input_rows(store: Storage, league: str, cutoff_day: str,
+                pool: Optional[tuple[str, ...]] = None) -> list[dict]:
     rows = []
-    for pool_league in oddset_model.FIT_POOLS.get(league, (league,)):
+    for pool_league in (pool or oddset_model.FIT_POOLS.get(
+            league, (league,))):
         rows.extend(oddset_data.merged_results(store, pool_league))
     # Resultattabellen saknar klockslag. Samma UTC-dag utesluts därför hellre
     # än att en tidigare/later match på dagen felklassas som känd.
@@ -160,8 +180,10 @@ def _age_days(as_of_day: str, source_day: Optional[str]) -> Optional[int]:
 class FeatureBuilder:
     """Återanvänder fitten för flera matcher i samma liga/cutoff under ett varv."""
 
-    def __init__(self, store: Storage):
+    def __init__(self, store: Storage,
+                 fit_pools: Optional[dict[str, tuple[str, ...]]] = None):
         self.store = store
+        self.fit_pools = fit_pools or oddset_model.FIT_POOLS
         self._cache: dict[tuple, tuple[list[dict], Optional[dict]]] = {}
 
     def payload(self, match: dict, capture: dict, capture_mode: str) -> dict:
@@ -171,12 +193,15 @@ class FeatureBuilder:
         league = match.get("league")
         cache_key = (league, cutoff_day)
         if cache_key not in self._cache:
-            rows = _input_rows(self.store, league, cutoff_day)
+            pool = self.fit_pools.get(league, (league,))
+            rows = _input_rows(self.store, league, cutoff_day, pool)
             fit = oddset_model.fit_league(rows, now=dt.date.fromisoformat(cutoff_day))
             self._cache[cache_key] = rows, fit
         rows, fit = self._cache[cache_key]
 
-        alias = oddset_data._alias_map(self.store, league)
+        alias = {}
+        for pool_league in self.fit_pools.get(league, (league,)):
+            alias.update(oddset_data._alias_map(self.store, pool_league))
         fit_keys = (fit or {}).get("teams", {}).keys()
         home_link = _link(match.get("home") or "", fit_keys, alias)
         away_link = _link(match.get("away") or "", fit_keys, alias)

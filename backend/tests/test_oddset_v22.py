@@ -173,15 +173,10 @@ class V22ShadowTests(unittest.TestCase):
         self.assertEqual(shadow["sharp_p1"], shadow["v22_p1"])
 
     def test_changed_source_version_cannot_mix_into_frozen_experiment(self) -> None:
-        changed = {
-            **self.versions,
-            "model": {
-                "signal_version": "m-changed",
-                "base_version": "m-changed-base",
-            },
-        }
         with patch.object(oddset_ledger, "prediction_versions",
-                          return_value=changed):
+                          return_value=self.versions), \
+                patch.object(oddset_v22, "model_source_version",
+                             return_value="m22-changed"):
             oddset_ledger.capture_predictions(
                 self.store, [self.match], now=self.now)
 
@@ -192,7 +187,7 @@ class V22ShadowTests(unittest.TestCase):
         self.assertEqual("source_version_changed", shadow["fallback_reason"])
         self.assertIn("model_source_version_changed", issues)
 
-    def test_feature_failure_rolls_back_model_ledger_and_can_retry(self) -> None:
+    def test_feature_failure_rolls_back_sharp_ledger_and_can_retry(self) -> None:
         with patch.object(oddset_ledger, "prediction_versions",
                           return_value=self.versions), \
                 patch.object(oddset_v22.FeatureBuilder, "capture",
@@ -202,7 +197,7 @@ class V22ShadowTests(unittest.TestCase):
                     self.store, [self.match], now=self.now)
 
         captures = self.store.oddset_prediction_captures()
-        self.assertEqual(["sharp"], [row["tier"] for row in captures])
+        self.assertEqual([], captures)
         self.assertEqual([], self.store.oddset_v22_shadows())
 
         with patch.object(oddset_ledger, "prediction_versions",
@@ -210,9 +205,50 @@ class V22ShadowTests(unittest.TestCase):
             result = oddset_ledger.capture_predictions(
                 self.store, [self.match], now=self.now)
 
-        self.assertEqual(1, result["captures"])
-        self.assertEqual(3, result["rows"])
+        self.assertEqual(2, result["captures"])
+        self.assertEqual(6, result["rows"])
         self.assertEqual(1, len(self.store.oddset_v22_shadows()))
+
+    def test_research_league_gets_shadow_but_no_regular_model_capture(self) -> None:
+        self.match["id"] = "m-eu"
+        self.match["league"] = "premier_league"
+        self.store.oddset_upsert_match(self.match)
+        with patch.object(oddset_ledger, "prediction_versions",
+                          return_value=self.versions), \
+                patch.object(oddset_v22.FeatureBuilder, "payload") as payload:
+            base = oddset_v22.FeatureBuilder(self.store).base.payload(
+                self.match, {
+                    "match_id": self.match["id"], "horizon": "h24",
+                    "signal_version": self.versions["sharp"]["signal_version"],
+                    "match_start": self.match["start"],
+                    "captured_at": "2026-07-24T12:00:00Z",
+                    "target_at": "2026-07-24T12:00:00Z",
+                }, "live")
+            base.update({
+                "schema": 2, "experiment": oddset_v22.load_manifest()["experiment"],
+                "standalone_model_1x2": self.match["model"]["p"],
+                "identity": {"all_fit_links_verified": False,
+                             "all_elo_links_verified": False,
+                             "wp9c_verified": False},
+                "wp9c": {"issues": ["test_missing"]},
+                "wp9c_source": {},
+            })
+            base["features"].update({
+                name: None for name in (
+                    oddset_v22.REQUIRED_MODEL_FEATURES +
+                    oddset_v22.REQUIRED_SCHEDULE_FEATURES)
+            })
+            payload.return_value = base
+            result = oddset_ledger.capture_predictions(
+                self.store, [self.match], now=self.now)
+
+        self.assertEqual(1, result["captures"])
+        self.assertEqual(["sharp"], [
+            row["tier"] for row in self.store.oddset_prediction_captures()
+            if row["match_id"] == "m-eu"
+        ])
+        self.assertEqual("premier_league",
+                         self.store.oddset_v22_shadows()[0]["league"])
 
 
 if __name__ == "__main__":

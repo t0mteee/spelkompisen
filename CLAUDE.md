@@ -14,9 +14,10 @@ liga/marknad/modellversion). **STATUS-SAMMANFATTNINGEN överst i `docs/plan.md` 
 sanningen — LÄS DEN FÖRST i ny session** (+ WP-backloggen där, prioriterad; gransknings-
 evidens i `docs/granskning-2026-07-13.md`).
 Den underkända V2.1 är fortsatt vilande. Ett separat V2.2-experiment samlar
-Allsvenskan + WP9c live i isolerad sharp-identitetskontroll; se
-`docs/model-v2.2-forward-manifest.json`. Det är inte en tränad modell och får
-inte påverka tips, notiser eller CLV.
+Allsvenskan + research-only Premier League/Serie A/La Liga/Bundesliga med WP9c
+i isolerad sharp-identitetskontroll; se
+`docs/model-v2.2-multileague-forward-manifest.json`. Det är inte en tränad
+modell och får inte påverka tips, notiser eller CLV.
 
 **Relationen till syskonprojekten:**
 - `/Users/saman/svs` (SvS kompisen, portar 8000/5173) — ursprunget, **FRYST ARKIV sedan
@@ -148,9 +149,10 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
   MLS. Träningsmatcher och alla andra grupper är utforskande och kräver
   BH-FDR 10 %. Candidate är sticky; green kräver out-of-time-data efter
   candidate-datumet. Aggregat får aldrig ändra gruppstatus.
-- V2.2-shadow (`app/oddset_v22.py`) får bara samla Allsvenskan/1X2 under det
-  frysta V2.2-manifestet. Före träningsgaten måste `p_v22 == p_sharp` exakt;
-  tabellen läses inte av värde-, notis-, CLV- eller ordinarie UI-vägar.
+- V2.2-shadow (`app/oddset_v22.py`) får bara samla de fem manifestligorna/1X2.
+  PL/Serie A/La Liga/Bundesliga är `research_only` och filtreras ur ordinarie
+  API/UI. Före träningsgaten måste `p_v22 == p_sharp` exakt; tabellen läses
+  inte av värde-, notis-, CLV- eller ordinarie UI-vägar.
 
 ## Oddset-delen (byggs nu — se docs/plan.md för detaljer)
 

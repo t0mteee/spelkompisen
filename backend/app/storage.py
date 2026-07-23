@@ -471,6 +471,8 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
 
 
 class Storage:
+    ODDSET_ELO_COUNTRIES = frozenset(
+        {"SWE", "NOR", "ENG", "ITA", "ESP", "GER"})
     ODDSET_NO_LINE_KEY = 2_147_483_647
 
     def __init__(self, db_path: Path | str = DEFAULT_DB):
@@ -1638,7 +1640,7 @@ class Storage:
             raise ValueError("ClubElo-capture saknar ratings")
         for rating in ratings:
             country = rating.get("country")
-            if country not in (None, "SWE", "NOR"):
+            if country is not None and country not in self.ODDSET_ELO_COUNTRIES:
                 raise ValueError(f"ogiltigt ClubElo-land: {country!r}")
             if not rating.get("club_key") or rating.get("elo") is None:
                 raise ValueError("ClubElo-rating saknar klubb eller Elo")
@@ -1678,7 +1680,7 @@ class Storage:
         changed = 0
         with self.bulk():
             for rating in ratings:
-                if rating.get("country") not in ("SWE", "NOR"):
+                if rating.get("country") not in self.ODDSET_ELO_COUNTRIES:
                     raise ValueError(f"ogiltigt ClubElo-land: {rating.get('country')!r}")
                 cur = self.conn.execute(
                     "INSERT INTO oddset_elo_history(club_key, valid_from, valid_to, "

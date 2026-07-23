@@ -20,6 +20,41 @@ def _event(event_id: int = 123) -> dict:
     }
 
 
+class FootballDataParserTests(unittest.TestCase):
+    def test_classic_european_file_is_normalized_with_corners(self) -> None:
+        text = (
+            "Div,Date,HomeTeam,AwayTeam,FTHG,FTAG,HC,AC\n"
+            "E0,18/05/2025,Arsenal,Newcastle,1,0,8,3\n"
+        )
+
+        rows = oddset_data._fd_result_rows(text, "premier_league")
+
+        self.assertEqual(1, len(rows))
+        self.assertEqual("2025-05-18", rows[0]["date"])
+        self.assertEqual(("arsenal", "newcastle"),
+                         (rows[0]["home"], rows[0]["away"]))
+        self.assertEqual((1, 0), (rows[0]["hg"], rows[0]["ag"]))
+        self.assertEqual((8.0, 3.0), (rows[0]["cor_h"], rows[0]["cor_a"]))
+
+    def test_current_country_file_keeps_existing_semantics(self) -> None:
+        text = (
+            "Season,Date,Home,Away,HG,AG\n"
+            "2026,01/04/2026,Hammarby,Malmo FF,2,1\n"
+        )
+
+        rows = oddset_data._fd_result_rows(text, "allsvenskan")
+
+        self.assertEqual(1, len(rows))
+        self.assertEqual("malmo", rows[0]["away"])
+
+    def test_season_urls_roll_forward_without_guessing_future_years(self) -> None:
+        urls = oddset_data._fd_season_urls(
+            "E0", oddset_data.dt.date(2026, 7, 23))
+
+        self.assertTrue(urls[-1].endswith("/2627/E0.csv"))
+        self.assertTrue(urls[0].endswith("/2425/E0.csv"))
+
+
 class SofaIngestTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
@@ -177,6 +212,7 @@ class ClubEloTests(unittest.TestCase):
 2,Brann,NOR,1,1528.4,2026-07-13,2026-07-19
 3,Ajax,NED,1,1700,2026-07-13,2026-07-19
 4,Bad,SWE,1,not-a-number,2026-07-13,2026-07-19
+5,Arsenal,ENG,1,1850.0,2026-07-13,2026-07-19
 """
 
     def setUp(self) -> None:
@@ -190,7 +226,7 @@ class ClubEloTests(unittest.TestCase):
     def test_parser_keeps_provider_intervals_and_filters_countries(self) -> None:
         rows = oddset_data.parse_elo_csv(self.CSV)
 
-        self.assertEqual(2, len(rows))
+        self.assertEqual(3, len(rows))
         self.assertEqual("hammarby", rows[0]["club_key"])
         self.assertAlmostEqual(1507.6638, rows[0]["elo"])
         self.assertEqual("2026-07-19", rows[0]["valid_to"])
@@ -200,12 +236,12 @@ class ClubEloTests(unittest.TestCase):
             self.store, "2026-07-16", self.CSV,
             captured_at="2026-07-16T10:00:00Z")
 
-        self.assertEqual(2, count)
-        self.assertEqual({"hammarby": 1508, "brann": 1528},
+        self.assertEqual(3, count)
+        self.assertEqual({"hammarby": 1508, "brann": 1528, "arsenal": 1850},
                          oddset_data.get_elo(self.store))
-        self.assertEqual(2, self.store.conn.execute(
+        self.assertEqual(3, self.store.conn.execute(
             "SELECT COUNT(*) FROM oddset_elo_history").fetchone()[0])
-        self.assertEqual({"hammarby": 1508, "brann": 1528},
+        self.assertEqual({"hammarby": 1508, "brann": 1528, "arsenal": 1850},
                          oddset_data.get_elo(self.store, "2026-07-16T18:00:00Z"))
 
 

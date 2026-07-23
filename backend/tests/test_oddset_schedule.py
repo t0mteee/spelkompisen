@@ -124,6 +124,9 @@ class ScheduleFeatureTests(unittest.TestCase):
         self.store.oddset_save_sofa_team(
             _team(5, "hodd il", None, None, observed), observed,
             league="obosligaen", season_id=1)
+        self.store.oddset_save_sofa_team(
+            _team(6, "hamburger sv", None, None, observed), observed,
+            league="bundesliga", season_id=1)
 
         self.assertEqual(3, oddset_schedule.resolve_team(
             self.store, "allsvenskan", "halmstad")["team_id"])
@@ -131,6 +134,8 @@ class ScheduleFeatureTests(unittest.TestCase):
             self.store, "eliteserien", "KFUM")["team_id"])
         self.assertEqual(5, oddset_schedule.resolve_team(
             self.store, "obosligaen", "Hodd")["team_id"])
+        self.assertEqual(6, oddset_schedule.resolve_team(
+            self.store, "bundesliga", "Hamburg")["team_id"])
         self.assertIsNone(oddset_schedule.resolve_team(
             self.store, "allsvenskan", "halmstad city"))
 
@@ -193,6 +198,21 @@ class ScheduleCollectionTests(unittest.TestCase):
 
 
 class ScheduleParserTests(unittest.TestCase):
+    def test_verified_venue_override_fills_provider_coordinate_gap(self) -> None:
+        raw = {
+            "id": 30, "name": "Brighton & Hove Albion",
+            "sport": {"slug": "football"},
+            "venue": {
+                "id": 2443, "name": "American Express Stadium",
+                "city": {"name": "Falmer"},
+            },
+        }
+
+        parsed = oddset_schedule._team_entry(raw)
+
+        self.assertAlmostEqual(50.8615471, parsed["venue_lat"])
+        self.assertAlmostEqual(-0.0836931, parsed["venue_lon"])
+
     def test_parser_requires_finished_football_and_keeps_normal_time(self) -> None:
         raw = {
             "id": 55, "startTimestamp": 1_752_000_000,

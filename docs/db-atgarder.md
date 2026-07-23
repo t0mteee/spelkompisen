@@ -8,6 +8,37 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-07-23 — V2.2 flerligedata och research-matchidentitet
+
+- **Skript:** `backend/scripts/forbered_v22_multiliga.py` (idempotent
+  resultat-/Elo-/WP9c-/oddsförberedelse),
+  `backend/scripts/migrera_v22_research_identitet.py` (snäv
+  placeholdertidsmigration) och read-only
+  `backend/scripts/auditera_v22_multiliga.py`.
+- **Backuper:**
+  `backend/data/backups/stryktips-2026-07-23-fore-v22-multiliga.db` före första
+  europeiska dataraden och
+  `backend/data/backups/stryktips-2026-07-23-fore-v22-research-identitet.db`
+  före matchidentitetsmigrationen.
+- **Resultatdata:** 2 892 toppligerader (Premier League/Serie A/La Liga/
+  Bundesliga) och 3 400 fit-only-rader (Championship/Serie B/Segunda/
+  2. Bundesliga), 2024/25–2025/26. Dagens ClubElo-capture utökades med
+  ENG/ITA/ESP/GER; providerintervall förlängdes aldrig manuellt.
+- **WP9c:** 78 ligalag, 78 arenor med koordinat och 3 441 relevanta lag-event.
+  Sofascore saknade koordinat för Brighton venue 2443; explicit
+  OpenStreetMap/Nominatim way 28537290-override lades i den versionerade
+  WP9c-policyn och samma förberedelseskript reparerade exakt lag 30.
+- **Oddsidentitet:** första källvarvet hittade 39 matcher hos både Pinnacle och
+  Kambi. Kambis gemensamma placeholdertider skapade 20 rena dubbla
+  matchidentiteter (Serie A 10, La Liga 7, Bundesliga 3). Migrationen krävde
+  entydigt hemma-/bortalagpar, vägrade rader med facit/features, flyttade
+  Kambi-ID/oddshistorik till Pinnacle-raden och behöll Pinnacles avspark. 20
+  sammanslagna, 0 rena Kambi-rader kvar, `integrity_check = ok`. Framtida
+  researchinsamling har samma team-only-skydd.
+- **Readiness:** 38/39 aktuella matcher kompletta. Enda missing är
+  Bayern–Stuttgart eftersom ClubElo saknar giltigt 2026-07-23-intervall för
+  båda; raden faller till sharp-identitet utan påhittad Elo.
+
 ## 2026-07-23 — V2.2 isolerad shadowledger
 
 - **Skript:** `backend/scripts/migrera_v22_shadow.py` (idempotent, additivt

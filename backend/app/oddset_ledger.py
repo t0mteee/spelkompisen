@@ -207,7 +207,7 @@ def capture_predictions(store: Storage, matches: list[dict],
     now = now or dt.datetime.now(dt.timezone.utc)
     versions = prediction_versions(store)
     result = {"captures": 0, "rows": 0, "empty": 0}
-    feature_builder = None
+    v22_builder = None
     for match in matches:
         if not match.get("start"):
             continue
@@ -223,17 +223,17 @@ def capture_predictions(store: Storage, matches: list[dict],
                 continue
             rows = _sharp_rows(match) if tier == "sharp" else _model_rows(match)
             capture = _capture_meta(match, horizon, tier, version, now)
-            if tier == "model" and match.get("league") == "allsvenskan":
-                # V2.2 fryser den nya WP9c-payloaden vid samma as_of och sparar
-                # en helt isolerad sharp-identitetskontroll. Om featuresteget
-                # fallerar rullas även ledgercapturen tillbaka så horisonten
-                # kan retryas i stället för att lämnas halvskriven.
-                if feature_builder is None:
-                    from .oddset_v22 import FeatureBuilder
-                    feature_builder = FeatureBuilder(store)
+            from . import oddset_v22
+            if tier == "sharp" and match.get("league") in oddset_v22.SCOPE_LEAGUES:
+                # V2.2 utgår från sharp-capturen, inte den ordinarie amber-
+                # modellens ledgeridentitet. Det håller forskningsligorna helt
+                # utanför produktens modellversion/facit. Feature + sharp +
+                # shadow är fortfarande atomära och retrybara.
+                if v22_builder is None:
+                    v22_builder = oddset_v22.FeatureBuilder(store)
                 with store.bulk():
                     added = store.oddset_capture_predictions(capture, rows)
-                    feature_builder.capture(
+                    v22_builder.capture(
                         match, capture, versions["sharp"]["signal_version"])
             else:
                 added = store.oddset_capture_predictions(capture, rows)

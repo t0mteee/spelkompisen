@@ -32,12 +32,45 @@ SCHEDULE_TEAM_ALIAS = {
         "odd": "odds", "stabaek": "stabak fotball", "hodd": "hodd il",
     },
     "mls": {"d c united": "dc united"},
+    "premier_league": {
+        "hull": "hull city", "leeds": "leeds united",
+        "nottingham": "nottingham forest", "tottenham": "tottenham hotspur",
+        "brighton": "brighton & hove albion",
+    },
+    "serie_a": {
+        "napoli": "ssc napoli", "roma": "as roma",
+        "internazionale": "inter",
+    },
+    "la_liga": {
+        "racing santander": "real racing club", "levante": "levante ud",
+        "dep la coruna": "deportivo de a coruna",
+        "deportivo la coruna": "deportivo de a coruna",
+        "athletic bilbao": "athletic club",
+        "alaves": "deportivo alaves",
+    },
+    "bundesliga": {
+        "stuttgart": "vfb stuttgart",
+        "bayer leverkusen": "bayer 04 leverkusen",
+        "elversberg": "sv 07 elversberg", "hamburg": "hamburger sv",
+        "mainz 05": "1 fsv mainz 05",
+        "werder bremen": "sv werder bremen",
+    },
+}
+VENUE_COORD_OVERRIDE = {
+    # Sofascore venue 2443 saknar venueCoordinates. Koordinaten verifierades
+    # 2026-07-23 mot OpenStreetMap/Nominatim way 28537290.
+    2443: {
+        "latitude": 50.8615471, "longitude": -0.0836931,
+        "source": "openstreetmap:nominatim:way/28537290",
+    },
 }
 POLICY = {
-    "schema": 1,
+    "schema": 3,
     "source": "sofascore-team-events-all-competitions",
     "scope": tuple(sorted(oddset_data.SOFA_UT.items())),
     "team_alias": SCHEDULE_TEAM_ALIAS,
+    "team_identity": "explicit-aliases-as-undirected-equivalence-components",
+    "venue_coordinate_override": VENUE_COORD_OVERRIDE,
     "pit": "event-start<as-of-and-first-seen<=as-of",
     "history": {"regular_pages": REGULAR_PAGES, "backfill_pages": BACKFILL_PAGES},
     "load_windows_days": (7, 14, 30),
@@ -98,6 +131,9 @@ def _team_entry(raw: dict, detail_at: Optional[str] = None) -> Optional[dict]:
         lon = float(coordinates["longitude"]) if coordinates.get("longitude") is not None else None
     except (TypeError, ValueError):
         lat = lon = None
+    override = VENUE_COORD_OVERRIDE.get(venue.get("id"))
+    if (lat is None or lon is None) and override:
+        lat, lon = override["latitude"], override["longitude"]
     return {
         "team_id": int(raw["id"]), "team_key": norm_team(raw["name"]),
         "name": raw["name"], "country_code": country.get("alpha3"),
@@ -264,15 +300,26 @@ def resolve_team(store: Storage, league: str, name: str) -> Optional[dict]:
     """Exakt eller explicit aliasverifierad identitet; aldrig tyst fuzzy."""
     aliases = {**oddset_data._alias_map(store, league),
                **SCHEDULE_TEAM_ALIAS.get(league, {})}
-    wanted = aliases.get(norm_team(name), norm_team(name))
+    wanted = norm_team(name)
+    equivalent = {wanted}
+    pending = [wanted]
+    while pending:
+        current = pending.pop()
+        neighbours = {
+            right for left, right in aliases.items() if left == current
+        } | {
+            left for left, right in aliases.items() if right == current
+        }
+        for neighbour in neighbours - equivalent:
+            equivalent.add(neighbour)
+            pending.append(neighbour)
     matches = []
     seen = set()
     for row in store.oddset_sofa_teams(league):
         if row["team_id"] in seen:
             continue
         seen.add(row["team_id"])
-        candidate = aliases.get(row["team_key"], row["team_key"])
-        if candidate == wanted:
+        if row["team_key"] in equivalent:
             matches.append(row)
     return matches[0] if len(matches) == 1 else None
 
