@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-07-23 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-07-24 — läs detta först i ny session)
 
 **Appen är komplett och i drift** (backend 8002, frontend 5175, launchd var 30 min)
 — och sedan 2026-07-20 **enda driften**: SvS kompisen (svs, 8000/5173) är pausad som
@@ -155,6 +155,14 @@ fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
   `v22-7450a9ff`, features `f22-9c205e9c`, modellkälla `m22-957459bc`.
   Manifest: `docs/model-v2.2-multileague-forward-manifest.json`; rapport:
   `docs/v2.2-multileague-start-2026-07-23.md`.
+- **Nästa produktbeslut fattade 2026-07-24:** Saman vill (1) göra Premier
+  League, Serie A, La Liga och Bundesliga synliga i den vanliga Oddset-vyn,
+  men synlighet ska skiljas från actionable V2.2-/notis-/CLV-status, samt
+  (2) bygga ett immutable PIT-facit för avslutade Stryk-, Europa- och
+  Topptipsomgångar. Lokalt finns redan 85 omgångar som passerat spelstopp med
+  verkliga odds-/strecksnapshots; äldre API-bakfill får bara ge finalvärden,
+  facit och utdelning, aldrig fabricerad rörelse. Överlämning och arbetsordning:
+  `docs/overlamning-till-claude-2026-07-24.md`.
 - **WP9c team-events klar (2026-07-17):** Sofascore-lagflödet samlar nu alla
   tävlingar per aktivt lag med provider-ID, tournament, första/senaste
   observation och basarena. 94 lag/94 arenor, 94 lyckade captures och 3 329
@@ -199,9 +207,9 @@ fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
   2026-07-16** — notera: med notisvakt + källhälsa på plats är det säkert att
   återaktivera, och utan pushar tävlar systemet inte i latens mot manuell
   odds-inspektion; beslut om mobil-default för `Bara signaler` återstår;
-  P1/P2-backloggen finns nedan. Villkoret WP0–WP5 för att
-  ompröva stora Europa-ligor är uppfyllt, men expansionen startar inte utan ett
-  separat produktbeslut (fler ligor är inte automatiskt nästa prioritet).
+  P1/P2-backloggen finns nedan. Europaligorna är inlagda som isolerade
+  forskningsligor och ska enligt beslut 2026-07-24 göras synliga i vanliga
+  Oddset-vyn utan att V2.2 därmed blir actionable.
 
 ## Backlog (WP-struktur efter granskningen 2026-07-13, prioriterad)
 
@@ -342,20 +350,21 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
 12. ✅ Facit per signalgrupp + candidate-ETA: aktuella primärgrupper har egna
     statuskort på desktop/mobil; tier-raden är endast aggregat utan grönt-✓.
 
-**D. Stora ligorna — FORTSATT PAUSADE; WP0–WP5-gaten är nu uppfylld.**
-Fler ligor löser inte automatiskt nästa problem och ledgerserierna behöver tid
-att mogna. Id-tabellen behålls som förberedelse; expansion kräver ett separat
-produktbeslut, inte bara att den tekniska gaten passerats.
+**D. Stora ligorna — V2.2-research inlagt; vanlig UI-synlighet är nästa steg.**
+PL, Bundesliga, La Liga och Serie A samlas nu med Pinnacle/Kambi-1X2,
+historiska topplige-/andradivisionsresultat, Elo och WP9c. Saman har beslutat
+att matcherna ska visas i vanliga Oddset-vyn. Synlighet måste implementeras
+separat från V2.2-actionability, notiser och CLV. Ligue 1 är inte inlagd.
 | Liga | football-data | Sofascore ut | Kambi-väg | Pinnacle |
 |---|---|---|---|---|
 | MLS ✅ (inlagd, i säsong) | new/USA.csv | 242 | football/usa/mls | 2663 |
-| Premier League | mmz4281/{säsong}/E0.csv | 17 | football/england/premier_league | proba v. säsongsstart |
-| Bundesliga | .../D1.csv | 35 | football/germany/bundesliga | proba |
-| La Liga | .../SP1.csv | 8 | football/spain/la_liga | proba |
-| Serie A | .../I1.csv | 23 | football/italy/serie_a | proba |
+| Premier League ✅ research | mmz4281/{säsong}/E0.csv | 17 | football/england/premier_league | 1980 |
+| Bundesliga ✅ research | .../D1.csv | 35 | football/germany/bundesliga | 1842 |
+| La Liga ✅ research | .../SP1.csv | 8 | football/spain/la_liga | 2196 |
+| Serie A ✅ research | .../I1.csv | 23 | football/italy/serie_a | 2436 |
 | Ligue 1 | .../F1.csv | 34 | football/france/ligue_1 | proba |
-OBS: huvudligornas filer ligger under mmz4281/-strukturen (inte new/) — parsern
-behöver ett litet format-grepp (Div/FTHG/FTAG-kolumner). FÖRVÄNTNING: dessa
+OBS: huvudligornas filer ligger under mmz4281/-strukturen (inte new/) och
+Div/FTHG/FTAG-formatet stöds nu av parsern. FÖRVÄNTNING: dessa
 marknader är extremt effektiva — SvS/Pinnacle-gap blir mindre och stängs fortare;
 värdet sitter i tidiga linjer + mindre marknader. Kärnvärdet förblir Norden/MLS.
 Verifiera alltid Sofascore-id:ns SPORT (handbolls-läxan).

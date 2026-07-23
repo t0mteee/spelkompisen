@@ -7,10 +7,10 @@
    Codex likadant.
 2. `docs/plan.md` — **STATUS-SAMMANFATTNINGEN överst är projektets sanning**;
    därefter den prioriterade WP-backloggen.
-3. `docs/overlamning-2026-07-23.md` — AKTUELL överlämning/changelog: vad som är
-   gjort (inkl. dina egna 16–17/7-commits, alt-linjelagret, svs-pausen), vad som
-   återstår och öppna beslut. (2026-07-16-versionen är historik; dess
-   "Fallgropar"-avsnitt gäller fortfarande.)
+3. `docs/overlamning-till-claude-2026-07-24.md` — AKTUELL överlämning: V2.2:s
+   flerligepaket och Samans nästa två beställningar (Europaligorna i vanliga
+   vyn samt historiskt poolfacit). `docs/overlamning-2026-07-23.md` är changelog
+   för föregående pass; 2026-07-16-versionens "Fallgropar" gäller fortfarande.
 4. `docs/granskning-2026-07-13.md` — granskningsevidens (fil:rad/DB) och
    acceptanskriterier per arbetspaket. `docs/db-atgarder.md` — logg över
    databas-åtgärder + processregeln.

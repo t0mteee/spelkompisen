@@ -18,6 +18,11 @@ Allsvenskan + research-only Premier League/Serie A/La Liga/Bundesliga med WP9c
 i isolerad sharp-identitetskontroll; se
 `docs/model-v2.2-multileague-forward-manifest.json`. Det är inte en tränad
 modell och får inte påverka tips, notiser eller CLV.
+**Aktuell överlämning till Claude:** `docs/overlamning-till-claude-2026-07-24.md`.
+Saman har beslutat att de fyra Europaligorna ska bli synliga i vanliga
+Oddset-vyn; implementeringen återstår och synlighet ska hållas separat från
+actionable signaler. Nästa dataspår är ett PIT-säkert facit för avslutade
+Stryk-/Europa-/Topptipsomgångar, inklusive odds-, streck- och utdelningsanalys.
 
 **Relationen till syskonprojekten:**
 - `/Users/saman/svs` (SvS kompisen, portar 8000/5173) — ursprunget, **FRYST ARKIV sedan
