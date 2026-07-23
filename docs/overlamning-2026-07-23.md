@@ -42,27 +42,28 @@ läser alt-lagret när huvudlinan flyttat. Ny sharp-version `s-776ca0e0`
 
 ## Att göra (utöver NTFY_TOPIC, som förblir Samans steg)
 
-1. **UI-grupptabell för grönt-status** (runda 2 punkt 2, S): tier-✓ lever kvar
-   (`App.jsx:1465/1469` läser `clv.sharp/model.green_ready`). Ersätt med
-   grupptabell (API:ts `groups` finns redan) + tier-rad som ren översikt utan ✓.
-2. **Candidate-ETA i facitpanelen** (S): visa "insamling pågår — tidigast
-   candidate ~<datum>" per primär grupp så unga siffror inte överläses.
-3. **Spot-checka alt-linje-flödet efter några dagar** (S): flaggor/ledger under
-   `s-776ca0e0` — rimliga volymer per marknad, stängningar via alt-lagret
-   fungerar i produktion (första riktiga exakt-line-closen på flyttad lina).
-4. **Hörn-grön väg (gamla B8)**: nu UPPLÅST av alt-linjerna — vänta tills
+1. ✅ **UI-grupptabell + candidate-ETA klara 23/7:** aktuella primärgrupper
+   visas som egna statuskort med 50/30/28-progress. Tier-summan är ren översikt
+   utan ✓; äldre versioner finns kvar nedtonade i detaljtabellen. ETA:n
+   prognostiserar bara mängd/tid vid nuvarande takt — KI-gaten måste fortfarande
+   klaras. Desktop och 390 px verifierade utan sidscroll/konsolfel.
+2. ✅ **Alt-linje-flödet spot-checkat 23/7:** `s-776ca0e0` hade 98 flaggor,
+   52 jämförbara stängningar och 8 exakt-line-stängningar trots flyttad
+   huvudlina (5 Ö/U, 2 hörnor, 1 AH). 67 862 historikrader/210 matcher,
+   DB 47 MB och `integrity_check=ok`.
+3. **Hörn-grön väg (gamla B8)**: nu UPPLÅST av alt-linjerna — vänta tills
    hörn-facitet samlat n, sedan egen facit-grupp (utforskande, BH-FDR).
-5. **Märk v2-modulerna "vilande"** (S): stoppad-statusen står i plan.md men inte
+4. **Märk v2-modulerna "vilande"** (S): stoppad-statusen står i plan.md men inte
    i modulhuvudena (`oddset_v2*.py`) — en rad per docstring: återupptas endast
    med nytt fryst outer-manifest.
-6. **Mät värde-pill-flimmer** (hypotes): 45-min-vakten kan få AH/ÖU-pillar att
+5. **Mät värde-pill-flimmer** (hypotes): 45-min-vakten kan få AH/ÖU-pillar att
    blinka mellan fulla varv — mät växlingar/dygn innan ev. åtgärd.
-7. **Låt facitet mogna**: inga tröskeländringar, ingen modellutveckling förrän
+6. **Låt facitet mogna**: inga tröskeländringar, ingen modellutveckling förrän
    ledgern dömt (tidigast ~2–3 veckor för första candidate).
-8. **Öppna produktbeslut hos Saman**: 🎯 Bara signaler som mobil-default;
+7. **Öppna produktbeslut hos Saman**: 🎯 Bara signaler som mobil-default;
    spel-journal i appen; Europa-expansion (gate uppfylld, kräver produktbeslut);
    ASA-certfelet; servermigrering (E14). **pytest-beslutet kan stängas** —
-   unittest-sviten (112 fall) täcker behovet utan ny dependency.
+   unittest-sviten (114 fall) täcker behovet utan ny dependency.
 
 ## Regler som aldrig viker (påminnelse)
 

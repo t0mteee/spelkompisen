@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-07-20 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-07-23 — läs detta först i ny session)
 
 **Appen är komplett och i drift** (backend 8002, frontend 5175, launchd var 30 min)
 — och sedan 2026-07-20 **enda driften**: SvS kompisen (svs, 8000/5173) är pausad som
@@ -160,6 +160,18 @@ fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
   +3,7 %/16 matcher, MLS +6,8 %/12) — långt kvar till candidate (30 matcher/
   liga) men riktningen är rätt; modell-tiern fortsatt negativ = amber gör sitt
   jobb. Detaljer i `docs/db-atgarder.md`.
+- **Facit-UI + alt-linje-efterkontroll (2026-07-23):** prognosledgern visar
+  nu status som aktuella liga × marknad × tier × versionskort; tier-summan i
+  signal-loggen är uttryckligen bara översikt och kan inte längre få ett
+  missvisande ✓. Primärgrupper visar 50 flaggor/30 matcher/28 dagar samt en
+  försiktig tidigaste candidate-prognos när stickprovet räcker; positiv undre
+  KI-gräns måste fortfarande bevisas. Äldre signalversioner ligger kvar i
+  detaljtabellen men räknas inte som aktuell insamling. Oddset-listorna visar
+  en bästa värdeselektion/rörelse per match och kan sorteras på datum eller
+  kvalitet/storlek. Efter tre drift­dygn hade `s-776ca0e0` 98 sharp-flaggor och
+  52 jämförbara stängningar; 8 stängdes exakt på flagglinan trots flyttad
+  huvudlina (5 Ö/U, 2 hörnor, 1 AH). DB 47 MB, integritet `ok`; 114 tester och
+  frontendbygge gröna, desktop + 390 px verifierade utan konsolfel.
 - **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
   2026-07-16** — notera: med notisvakt + källhälsa på plats är det säkert att
   återaktivera, och utan pushar tävlar systemet inte i latens mot manuell
@@ -304,6 +316,8 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
     hemskärms-appen egen identitet. Ingen offline-cache — odds ska vara färska.
     iOS kan lägga sidan på hemskärmen direkt; Chromium kräver HTTPS utanför
     localhost för att själv erbjuda installation (Tailscale Serve är separat).
+12. ✅ Facit per signalgrupp + candidate-ETA: aktuella primärgrupper har egna
+    statuskort på desktop/mobil; tier-raden är endast aggregat utan grönt-✓.
 
 **D. Stora ligorna — FORTSATT PAUSADE; WP0–WP5-gaten är nu uppfylld.**
 Fler ligor löser inte automatiskt nästa problem och ledgerserierna behöver tid

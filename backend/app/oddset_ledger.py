@@ -321,12 +321,43 @@ def _group_stats(rows: list[dict], key: tuple) -> dict:
         "n_controls": sum(not row.get("is_flag") for row in eligible),
         "n_flags": len(flags), "n_resolved": len(resolved),
         "n_matches": n_matches, "n_weeks": n_weeks, "span_days": span_days,
+        "first_resolved_at": (min(row["match_start"] for row in resolved)
+                              if resolved else None),
+        "last_resolved_at": (max(row["match_start"] for row in resolved)
+                             if resolved else None),
         "avg_close_ev": round(avg, 4) if avg is not None else None,
         "avg_close_ev_w": round(avg_w, 4) if avg_w is not None else None,
         "ci": ci, "ci_stable": n_matches >= 10, "p_value": p_value,
         "testable": testable,
         "candidate_base": bool(testable and ci and ci[0] > 0),
     }
+
+
+def _candidate_eta(group: dict, now: dt.datetime) -> Optional[str]:
+    """Försiktig tidigaste prognos för mängd- och tidsgaten.
+
+    KI-gaten kan inte prognostiseras. Datumet säger därför bara när 50 stängda
+    flaggor, 30 matcher och 28 dagars bredd kan vara uppnådda vid hittillsvarande
+    takt. För små stickprov får inget skenexakt datum.
+    """
+    if group["status"] != "amber" or not group["primary"] \
+            or not group["active_version"]:
+        return None
+    first_raw = group.get("first_resolved_at")
+    if not first_raw or group["n_resolved"] < 3 or group["n_matches"] < 3:
+        return None
+    first = _parse_iso(first_raw)
+    age_days = max(1.0, (now - first).total_seconds() / 86400)
+    flag_rate = group["n_resolved"] / age_days
+    match_rate = group["n_matches"] / age_days
+    if flag_rate <= 0 or match_rate <= 0:
+        return None
+    flag_gate = now + dt.timedelta(
+        days=max(0, CANDIDATE_MIN_FLAGS - group["n_resolved"]) / flag_rate)
+    match_gate = now + dt.timedelta(
+        days=max(0, CANDIDATE_MIN_MATCHES - group["n_matches"]) / match_rate)
+    span_gate = first + dt.timedelta(days=CANDIDATE_MIN_SPAN_DAYS)
+    return _iso(max(flag_gate, match_gate, span_gate))
 
 
 def _bh_pass(groups: list[dict]) -> set[tuple]:
@@ -365,6 +396,10 @@ def prediction_report(store: Storage, update_states: bool = False,
                       now: Optional[dt.datetime] = None) -> dict:
     now = now or dt.datetime.now(dt.timezone.utc)
     now_iso = _iso(now)
+    current_versions = {
+        tier: version["signal_version"]
+        for tier, version in prediction_versions(store).items()
+    }
     rows, grouped = _prepare_rows(store)
     groups = []
     for key, grows in grouped.items():
@@ -372,6 +407,7 @@ def prediction_report(store: Storage, update_states: bool = False,
         groups.append({
             "key": key, "tier": tier, "league": league, "market": market,
             "version": version,
+            "active_version": version == current_versions.get(tier),
             "primary": (tier == "sharp" and market == "1x2"
                         and league in PRIMARY_LEAGUES),
             **_group_stats(grows, key),
@@ -414,9 +450,11 @@ def prediction_report(store: Storage, update_states: bool = False,
         post_ci, _ = _bootstrap(post, (*group["key"], "post")) if post else (None, None)
         group["post_candidate_matches"] = len({row["match_id"] for row in post})
         group["post_candidate_ci"] = post_ci
+        group["candidate_eta_at"] = _candidate_eta(group, now)
         group.pop("key")
 
     groups.sort(key=lambda group: (
+        not group["active_version"],
         {"green": 0, "candidate": 1, "amber": 2}[group["status"]],
         not group["primary"], group["tier"], group["league"], group["market"]))
     captures = store.oddset_prediction_captures()
@@ -438,5 +476,15 @@ def prediction_report(store: Storage, update_states: bool = False,
         "horizons": {key: sum(capture["horizon"] == key for capture in captures)
                      for key, _ in HORIZONS},
         "capture_quality": capture_quality,
+        "current_versions": current_versions,
+        "criteria": {
+            "candidate": {
+                "n_resolved": CANDIDATE_MIN_FLAGS,
+                "n_matches": CANDIDATE_MIN_MATCHES,
+                "span_days": CANDIDATE_MIN_SPAN_DAYS,
+                "ci_lower_above": 0,
+            },
+            "green": {"new_matches": GREEN_NEW_MATCHES, "ci_lower_above": 0},
+        },
         "groups": groups,
     }

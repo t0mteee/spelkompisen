@@ -756,6 +756,8 @@ function OddsetView() {
   const [showSources, setShowSources] = useStoredBool('svs_ui_oddset_sources')
   const [showMovers, setShowMovers] = useStoredBool('svs_ui_oddset_movers')
   const [showAllValues, setShowAllValues] = useStoredBool('svs_ui_oddset_values')
+  const [valSortEdge, setValSortEdge] = useStoredBool('svs_ui_oddset_val_sort_edge')
+  const [moverSortPp, setMoverSortPp] = useStoredBool('svs_ui_oddset_mover_sort_pp')
   const [showAllModel, setShowAllModel] = useStoredBool('svs_ui_oddset_model_list')
   const [showBooks, setShowBooks] = useStoredBool('svs_ui_oddset_books')
   const [showLog, setShowLog] = useState(false)
@@ -1105,32 +1107,60 @@ function OddsetView() {
     else days.push({ key, label: fmtDay(m.start), matches: [m] })
   }
 
+  const candidateReq = ledger?.criteria?.candidate || {
+    n_resolved: 50, n_matches: 30, span_days: 28,
+  }
+  const activePrimaryGroups = (ledger?.groups || []).filter(
+    (g) => g.primary && g.active_version)
+  const statusLabel = (status) => status === 'green'
+    ? '✓ grön' : status === 'candidate' ? '◐ kandidat' : '● samlar data'
+  const candidateText = (g) => {
+    if (g.status === 'green') return `Grön sedan ${new Date(g.green_at).toLocaleDateString('sv-SE')}`
+    if (g.status === 'candidate') return `Kandidat sedan ${new Date(g.candidate_at).toLocaleDateString('sv-SE')}`
+    if (g.candidate_eta_at) {
+      return `Tidigast ~${new Date(g.candidate_eta_at).toLocaleDateString(
+        'sv-SE', { day: 'numeric', month: 'short' })} vid nuvarande takt`
+    }
+    return 'För lite data för ett rimligt datum'
+  }
+
   // kvalitet q = edge/(odds−1) = Kelly-andelen: straffar högoddsare — samma edge
   // är mycket skörare på odds 15 än på 1.5 (litet fel i fair blåser upp den)
+  // En match = ett kort: bara den bästa selektionen (högst q) per match visas
   const signals = []
   for (const m of visible) {
+    let best = null
     for (const [mk, per] of Object.entries(m.value || {})) {
       for (const [sg, v] of Object.entries(per)) {
-        if (v.edge >= 0.02 && (v.q ?? 0) >= 0.0075) signals.push({ m, mk, sg, v })
+        if (v.edge < 0.02 || (v.q ?? 0) < 0.0075) continue
+        if (!best || (v.q ?? 0) > (best.v.q ?? 0)) best = { m, mk, sg, v }
       }
     }
+    if (best) signals.push(best)
   }
-  signals.sort((a, b) => (b.v.q ?? 0) - (a.v.q ?? 0))
+  signals.sort(valSortEdge
+    ? (a, b) => (b.v.q ?? 0) - (a.v.q ?? 0)
+    : (a, b) => (a.m.start || '').localeCompare(b.m.start || '') || (b.v.q ?? 0) - (a.v.q ?? 0))
 
   // 📈 Rörelse-radarn: största devigade sharp-skiften — går över ALLA ligor
   // (även dolda flikar: träningsmatch-caset får inte missas för att fliken är av)
+  // En match = en rad, och bara sidan vars odds SÄNKTS (positiv devigad pp) visas:
+  // att motsatt tecken drivit ut är samma rörelse, inte en egen signal
   const movers = []
   for (const m of data.matches) {
     if (m.start && new Date(m.start) < new Date()) continue
+    let best = null
     for (const [sg, sh] of Object.entries(m.steam || {})) {
-      const cands2 = [['6h', sh.h6], ['24h', sh.h24]].filter(([, v]) => v != null)
+      const cands2 = [['6h', sh.h6], ['24h', sh.h24]].filter(([, v]) => v != null && v >= 1.5)
       if (!cands2.length) continue
-      const [win, pp] = cands2.reduce((a, b) => (Math.abs(b[1]) > Math.abs(a[1]) ? b : a))
-      if (Math.abs(pp) < 1.5) continue
-      movers.push({ m, sg, pp, win })
+      const [win, pp] = cands2.reduce((a, b) => (b[1] > a[1] ? b : a))
+      if (!best || pp > best.pp) best = { m, sg, pp, win }
     }
+    if (best) movers.push(best)
   }
-  movers.sort((a, b) => Math.abs(b.pp) - Math.abs(a.pp))
+  movers.sort(moverSortPp
+    ? (a, b) => b.pp - a.pp
+    : (a, b) => (a.m.start || '').localeCompare(b.m.start || '') || b.pp - a.pp)
 
   return (
     <section className="oddset">
@@ -1204,7 +1234,11 @@ function OddsetView() {
       {signals.length > 0 && (
         <div className="valuelist">
           <div className="valhead"><b>💰 Värdespel just nu</b>
-            <InfoDot text={'Bok-odds över devigad Pinnacle (sharp-ankrat = den spelbara signalen).\n° = härlett sharp-pris · ★ = flera oberoende signaler pekar åt samma håll.\n¼-Kelly räknas på fair-sannolikheten och din bank.'} />
+            <InfoDot text={'Bok-odds över devigad Pinnacle (sharp-ankrat = den spelbara signalen).\n° = härlett sharp-pris · ★ = flera oberoende signaler pekar åt samma håll.\n¼-Kelly räknas på fair-sannolikheten och din bank.\nEtt kort per match: den bästa selektionen (högst kvalitetsviktad edge).'} />
+            <button className="sortpick" onClick={() => setValSortEdge(!valSortEdge)}
+              title="Växla sortering mellan matchdatum och bäst kvalitetsviktad edge">
+              ↕ {valSortEdge ? 'bäst kvalitet' : 'datum'}
+            </button>
             <span className="spacer" />
             <span className="hint">bank</span>
             <input className="bankin" type="number" value={bank} min="0"
@@ -1270,6 +1304,12 @@ function OddsetView() {
             <span className="hint">{showMovers ? 'Dölj ▲' : 'Visa ▼'}</span>
           </button>
           {showMovers && <div className="mover-rows">
+          <div className="sortrow">
+            <button className="sortpick" onClick={() => setMoverSortPp(!moverSortPp)}
+              title="Växla sortering mellan matchdatum och störst rörelse">
+              ↕ {moverSortPp ? 'störst rörelse' : 'datum'}
+            </button>
+          </div>
           {movers.slice(0, 8).map(({ m, sg, pp, win }, i) => {
             const mvP = m.movement?.pinnacle?.['1x2']?.[sg]
             const v = m.value?.['1x2']?.[sg]
@@ -1410,18 +1450,45 @@ function OddsetView() {
         <div className="clvbox ledgerbox">
           <p className="hint clvline clickable" onClick={() => setShowLedger(!showLedger)}
             title="Alla tillgängliga sharp- och modellprediktioner fryses en gång vid T−24 h, T−3 h och T−20 min. Även oflaggade selektioner sparas som kontrollgrupp. Status avgörs per liga × marknad × tier × semantisk version, aldrig av ett tier-aggregat.">
-            🧭 Prognosledger — {ledger.n_predictions} prediktioner · {ledger.n_captures} fångster
+            🧭 Validering per signalgrupp — {ledger.n_predictions} prediktioner · {ledger.n_captures} fångster
             {' '}({ledger.horizons?.h24 || 0}×24h · {ledger.horizons?.h3 || 0}×3h · {ledger.horizons?.m20 || 0}×20m)
             {ledgerTiming.n > 0 && <> · {ledgerTiming.timely}/{ledgerTiming.n} i tid</>}
             {ledger.n_empty_captures > 0 && <> · {ledger.n_empty_captures} utan tillgänglig prognos</>}
             {' '}{showLedger ? '▲' : '▼'}
           </p>
+          {activePrimaryGroups.length > 0 && (
+            <div className="validation-grid">
+              {activePrimaryGroups.map((g) => (
+                <div className={`validation-card ${g.status}`}
+                  key={`${g.league}-${g.market}-${g.version}`}
+                  title={'Candidate kräver både mängdkraven och positiv undre 90 %-KI-gräns. Datumet uppskattar bara mängd och tid; det lovar inte positivt utfall.'}>
+                  <div className="validation-head">
+                    <b>{leagueName[g.league] || g.league} · {MARKET_LABEL[g.market] || g.market}</b>
+                    <span className={`ledgerstatus ${g.status}`}>{statusLabel(g.status)}</span>
+                  </div>
+                  <div className="validation-progress">
+                    <span><b>{g.n_resolved}</b>/{candidateReq.n_resolved} stängda flaggor</span>
+                    <span><b>{g.n_matches}</b>/{candidateReq.n_matches} matcher</span>
+                    <span><b>{g.span_days}</b>/{candidateReq.span_days} dagar</span>
+                  </div>
+                  <div className="validation-eta">{candidateText(g)}</div>
+                  <div className="validation-ci">
+                    90 % KI {g.ci
+                      ? `[${(g.ci[0] * 100).toFixed(1)}..${(g.ci[1] * 100).toFixed(1)}]`
+                      : '–'}
+                    {!g.ci_stable && g.ci && <span> · instabilt</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {showLedger && <div className="tablewrap"><table className="logtable">
             <thead><tr><th>status</th><th>grupp</th><th>pred/kontroll</th><th>flaggor</th><th>bredd</th><th>close-EV</th><th>90 % KI</th></tr></thead>
             <tbody>{(ledger.groups || []).map((g) => (
-              <tr key={`${g.tier}-${g.league}-${g.market}-${g.version}`}>
+              <tr className={g.active_version ? '' : 'historical-version'}
+                key={`${g.tier}-${g.league}-${g.market}-${g.version}`}>
                 <td className={`ledgerstatus ${g.status}`}>{g.status === 'green' ? '✓ grön' : g.status === 'candidate' ? '◐ kandidat' : '● amber'}</td>
-                <td>{g.tier === 'model' ? '🧪' : '💰'} {g.league} · {g.market}{g.primary ? ' · primär' : ''}<span className="hint"> · {g.version}</span></td>
+                <td>{g.tier === 'model' ? '🧪' : '💰'} {leagueName[g.league] || g.league} · {MARKET_LABEL[g.market] || g.market}{g.primary ? ' · primär' : ''}<span className="hint"> · {g.active_version ? 'nuvarande' : 'äldre'} {g.version}</span></td>
                 <td>{g.n_timely}/{g.n_controls}{g.n_late > 0 ? ` · ${g.n_late} sena` : ''}</td>
                 <td>{g.n_resolved}/{g.n_flags} stängda</td>
                 <td>{g.n_matches} matcher · {g.n_weeks} v · {g.span_days} d</td>
@@ -1435,15 +1502,15 @@ function OddsetView() {
       {clv && (clv.sharp?.n > 0 || clv.model?.n > 0) && (
         <div className="clvbox">
           <p className="hint clvline clickable" onClick={() => setShowLog(!showLog)}
-            title="Varje flagga loggas (först/bäst per marknad) och jämförs efter avspark med devigad Pinnacle-stängning. Grönt-krav (v2): minst 50 stängda OCH undre 90%-KI-gränsen över noll (bootstrap per match, EV capped ±20%) — positivt snitt ensamt räcker inte. Klicka för hela tabellen.">
-            📒 Signal-logg — sharp: {clv.sharp?.n ?? 0} flaggor · {clv.sharp?.n_resolved ?? 0} stängda
+            title="Tier-raden summerar bara vad som faktiskt flaggades och får aldrig ge grön status. Beslutet tas i Validering per signalgrupp ovan: liga × marknad × tier × version. Klicka för hela loggen.">
+            📒 Signal-logg (översikt) — sharp: {clv.sharp?.n ?? 0} flaggor · {clv.sharp?.n_resolved ?? 0} stängda
             {clv.sharp?.n_line_moved > 0 && <> · {clv.sharp.n_line_moved} linjeflytt{clv.sharp.n_line_moved === 1 ? '' : 'ar'}</>}
             {clv.sharp?.avg_close_ev != null && <> · snitt <b className={clv.sharp.avg_close_ev >= 0 ? 'pos' : 'neg'}>{(clv.sharp.avg_close_ev * 100).toFixed(1)}%</b></>}
-            {clv.sharp?.ci && <> · KI [{(clv.sharp.ci[0] * 100).toFixed(1)}..{(clv.sharp.ci[1] * 100).toFixed(1)}]{clv.sharp.green_ready ? ' ✓' : ''}</>}
+            {clv.sharp?.ci && <> · KI [{(clv.sharp.ci[0] * 100).toFixed(1)}..{(clv.sharp.ci[1] * 100).toFixed(1)}]</>}
             {clv.model?.n > 0 && <> &nbsp;|&nbsp; 🧪 modell: {clv.model.n} flaggor · {clv.model.n_resolved} stängda
               {clv.model.n_line_moved > 0 && <> · {clv.model.n_line_moved} linjeflytt{clv.model.n_line_moved === 1 ? '' : 'ar'}</>}
               {clv.model.avg_close_ev != null && <> · snitt <b className={clv.model.avg_close_ev >= 0 ? 'pos' : 'neg'}>{(clv.model.avg_close_ev * 100).toFixed(1)}%</b></>}
-              {clv.model?.ci && <> · KI [{(clv.model.ci[0] * 100).toFixed(1)}..{(clv.model.ci[1] * 100).toFixed(1)}]{clv.model.green_ready ? ' ✓' : ''}</>}</>}
+              {clv.model?.ci && <> · KI [{(clv.model.ci[0] * 100).toFixed(1)}..{(clv.model.ci[1] * 100).toFixed(1)}]</>}</>}
             {' '}{showLog ? '▲' : '▼'}
           </p>
           {showLog && (

@@ -541,6 +541,9 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
   font-size: 10px; font-style: italic; font-weight: 700; cursor: default; }
 .valhead { display: flex; align-items: center; gap: 6px; }
 .valhead .spacer { flex: 1; }
+.sortpick { border-radius: 999px; padding: 2px 10px; font-size: 11.5px; color: var(--muted); }
+.sortpick:hover { color: var(--text); }
+.sortrow { display: flex; justify-content: flex-end; padding: 2px 0 4px; }
 .bankin { width: 70px; background: var(--panel); color: var(--text);
   border: 1px solid var(--line); border-radius: 5px; padding: 2px 6px; font-size: 12px; }
 .teams.clickable, .clvline.clickable { cursor: pointer; }
@@ -558,6 +561,21 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
 .ledgerbox { margin-bottom: 7px; }
 .ledgerbox .tablewrap { overflow-x: auto; }
 .ledgerbox .logtable { min-width: 880px; }
+.validation-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  gap: 7px; margin: 6px 0 8px; }
+.validation-card { min-width: 0; padding: 8px 9px; background: var(--panel2);
+  border: 1px solid var(--line); border-left: 3px solid #dca85e; border-radius: 8px; }
+.validation-card.candidate { border-left-color: #7db9e8; }
+.validation-card.green { border-left-color: var(--green); }
+.validation-head { display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px; margin-bottom: 5px; }
+.validation-head > b { font-size: 12px; min-width: 0; }
+.validation-progress { display: flex; flex-wrap: wrap; gap: 3px 9px;
+  color: var(--muted); font-size: 10.5px; }
+.validation-progress b { color: var(--text); }
+.validation-eta { margin-top: 5px; color: var(--text); font-size: 11px; }
+.validation-ci { color: var(--muted); font-size: 10px; margin-top: 2px; }
+.historical-version { opacity: .58; }
 .ledgerstatus { white-space: nowrap; font-weight: 700; }
 .ledgerstatus.amber { color: #dca85e; }
 .ledgerstatus.candidate { color: #7db9e8; }
@@ -751,6 +769,10 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   .detail-chart-svg { max-width: none; }
   .tiphead .edgechip { margin-left: 0; }
   .valuelist .valrow { padding: 7px 0; }
+  .validation-grid { display: flex; overflow-x: auto; scroll-snap-type: x proximity;
+    margin-right: -10px; padding-right: 10px; scrollbar-width: none; }
+  .validation-grid::-webkit-scrollbar { display: none; }
+  .validation-card { flex: 0 0 min(78vw, 270px); scroll-snap-align: start; }
 
   .oddset-table { background: transparent; }
   .oddset-table-wrap { overflow: visible; }

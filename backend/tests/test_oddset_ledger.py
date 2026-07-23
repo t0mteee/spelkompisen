@@ -218,6 +218,49 @@ class PredictionStateTests(unittest.TestCase):
         self.assertEqual("candidate", status["1x2"])
         self.assertEqual("amber", status["ou"])
 
+    def test_active_primary_group_gets_cautious_candidate_eta(self) -> None:
+        base = dt.datetime(2026, 7, 20, 12, tzinfo=UTC)
+        for i in range(6):
+            start = base + dt.timedelta(days=i % 3)
+            self._resolved_flag(
+                f"pace-{i % 3}", "h3" if i < 3 else "h24",
+                start - dt.timedelta(hours=3), start, version="s-current")
+
+        versions = {
+            "sharp": {"signal_version": "s-current", "base_version": "s-base"},
+            "model": {"signal_version": "m-current", "base_version": "m-base"},
+        }
+        now = dt.datetime(2026, 7, 23, 12, tzinfo=UTC)
+        with patch.object(oddset_ledger, "prediction_versions",
+                          return_value=versions):
+            report = oddset_ledger.prediction_report(self.store, now=now)
+
+        group = report["groups"][0]
+        self.assertTrue(group["active_version"])
+        self.assertEqual("2026-07-20T12:00:00Z", group["first_resolved_at"])
+        self.assertEqual("2026-07-22T12:00:00Z", group["last_resolved_at"])
+        self.assertEqual("2026-08-19T12:00:00Z", group["candidate_eta_at"])
+        self.assertEqual(50, report["criteria"]["candidate"]["n_resolved"])
+
+    def test_candidate_eta_is_hidden_for_old_version(self) -> None:
+        start = dt.datetime(2026, 7, 20, 12, tzinfo=UTC)
+        for i in range(3):
+            self._resolved_flag(
+                f"old-{i}", "h3", start - dt.timedelta(hours=3),
+                start + dt.timedelta(days=i), version="s-old")
+        versions = {
+            "sharp": {"signal_version": "s-current", "base_version": "s-base"},
+            "model": {"signal_version": "m-current", "base_version": "m-base"},
+        }
+        with patch.object(oddset_ledger, "prediction_versions",
+                          return_value=versions):
+            group = oddset_ledger.prediction_report(
+                self.store, now=dt.datetime(2026, 7, 23, tzinfo=UTC)
+            )["groups"][0]
+
+        self.assertFalse(group["active_version"])
+        self.assertIsNone(group["candidate_eta_at"])
+
 
 class ClusterBootstrapTests(unittest.TestCase):
     def test_correlated_flags_in_one_match_do_not_create_false_certainty(self) -> None:
