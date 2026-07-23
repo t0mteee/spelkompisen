@@ -15,8 +15,9 @@ sanningen — LÄS DEN FÖRST i ny session** (+ WP-backloggen där, prioriterad;
 evidens i `docs/granskning-2026-07-13.md`).
 
 **Relationen till syskonprojekten:**
-- `/Users/saman/svs` (SvS kompisen, portar 8000/5173) — ursprunget. Fryses när spelkompisen
-  nått paritet; tills dess är svs produktions-appen för poolspel. RÖR ALDRIG svs härifrån.
+- `/Users/saman/svs` (SvS kompisen, portar 8000/5173) — ursprunget, **FRYST ARKIV sedan
+  2026-07-20** (paritet nådd: launchd urlastat, servrar stoppade, DB kvar som arkiv;
+  återaktivering via plist i svs/backend/scripts/). RÖR ALDRIG svs härifrån.
 - `/Users/saman/vm` (Boll boll kollen, portar 8001/5174) — VM-bevakning, mönsterkälla för
   Oddset-delen (Pinnacle AH/ÖU/hörnor, Kambi-klient, värdescreen, steam, Dixon-Coles, CLV).
   Läs vm-koden som referens vid portning men RÖR den inte.

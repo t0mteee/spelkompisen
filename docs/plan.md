@@ -1,8 +1,11 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-07-17 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-07-20 — läs detta först i ny session)
 
-**Appen är komplett och i drift** (backend 8002, frontend 5175, launchd var 30 min):
+**Appen är komplett och i drift** (backend 8002, frontend 5175, launchd var 30 min)
+— och sedan 2026-07-20 **enda driften**: SvS kompisen (svs, 8000/5173) är pausad som
+fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
+2026-07-02; poolspelsmotorn här är bättre via WP6). Halverar även Pinnacle-trafiken.
 - **6 ligor**: Allsvenskan, Superettan, Eliteserien, OBOS-ligaen, MLS (nytt 2026-07-13),
   Träningsmatcher. Källor per match: SvS (Kambi), Pinnacle (sharp, AH/ÖU/hörnor),
   Expekt (Kambi expektse — ≈identisk med SvS, visas bara vid diff), Betinia (Altenar).
