@@ -163,6 +163,18 @@ class EvalKadensTests(unittest.TestCase):
             self.store, now + dt.timedelta(hours=oddset_ledger.EVAL_INTERVAL_H)))
 
 
+class StrukenMatchTests(unittest.TestCase):
+    """Uppmätt 2026-07-24: strukna matcher avgörs med riktigt resultat (mest
+    streckade tecknet vinner 52,8 % — som 52,1 % i ostrukna) och ger INTE
+    fler toppvinnare per omsatt krona. Tvingad helgardering var slöseri."""
+
+    def test_ingen_tvingad_helgardering_for_struken_match(self):
+        import inspect
+        src = inspect.getsource(builder)
+        self.assertNotIn("c = 3", src)
+        self.assertNotIn("list(SIGNS) if m.cancelled", src)
+
+
 class GarantiTests(unittest.TestCase):
     def test_garantier_summeras_inte_in_i_jackpot(self):
         # get_guarantees ska vara ett EGET fält; get_jackpot får inte ändras

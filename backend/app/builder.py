@@ -203,8 +203,15 @@ def _build_picks(analysis: DrawAnalysis, cfg: StrategyConfig,
     picks: list[MatchPick] = []
     for m in analysis.matches:
         c = counts.get(m.event_number, 1)
-        if m.cancelled:
-            c = 3  # avbruten match ger oftast återbetalning/halvgardering — täck brett
+        # STRUKEN MATCH: tidigare tvingades helgardering här ("täck brett" —
+        # antagandet var återbetalning/halvgardering). Uppmätt mot
+        # settlementlagret 2026-07-24 stämmer det inte: i 593 strukna event
+        # vinner det mest streckade tecknet 52,8 % av gångerna, exakt som i
+        # 75 514 ostrukna (52,1 %), och omgångar med struken match har INTE
+        # fler toppvinnare per omsatt krona (Stryk 1,6 mot 1,6). Matcherna
+        # avgörs alltså med riktigt resultat och räknas normalt — och även om
+        # de HADE räknats rätt för alla vore helgardering slöseri, eftersom
+        # ett enda tecken då räcker. Behandla dem som vanliga matcher.
         signs = _pick_signs(m, c, cfg, value_weight)
         picks.append(MatchPick(
             event_number=m.event_number,
@@ -604,11 +611,14 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
     cand: dict[int, list[str]] = {}
     universe = 1
     for m in analysis.matches:
-        signs = list(SIGNS) if m.cancelled else _signs_by_score(m, value_weight)[:2]
+        # Strukna matcher behandlas som vanliga (empirisk grund i _pick-koden
+        # ovan): de avgörs med riktigt resultat och räknas normalt, så de ska
+        # inte äta upp kandidatuniversumet med tvingad helgardering.
+        signs = _signs_by_score(m, value_weight)[:2]
         cand[m.event_number] = sorted(signs, key=SIGNS.index)
         universe *= len(signs)
     for m in sorted(analysis.matches, key=lambda x: x.open_score, reverse=True):
-        if m.cancelled or len(cand[m.event_number]) == 3:
+        if len(cand[m.event_number]) == 3:
             continue
         if universe // 2 * 3 > EV_UNIVERSE_CAP:
             break
