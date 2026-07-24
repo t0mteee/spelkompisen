@@ -3,8 +3,11 @@
 Det här är inte en tränad modell. Fram till den förregistrerade träningsgaten
 är uppfylld lagras ``p_v22 == p_sharp`` exakt. På så sätt kan datakontrakt,
 horisonter och coverage köras live utan att påverka appens sannolikheter,
-signaler, notiser eller CLV-facit. De fyra nya Europaligorna är dessutom
-``research_only`` och visas inte i ordinarie Oddset-API.
+signaler, notiser eller CLV-facit. De fyra nya Europaligorna är
+``research_only``: sedan 2026-07-24 SYNS de i ordinarie Oddset-vyn
+(produktbeslut, ``visible_in_ui``) med odds/prisålder/rörelser, men de är
+fortsatt icke-actionable — inga värdesignaler, Kelly, notiser, CLV eller
+ordinarie model-captures, och V2.2:s modelloutput läses inte av UI-vägarna.
 """
 from __future__ import annotations
 

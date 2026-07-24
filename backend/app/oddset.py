@@ -33,24 +33,33 @@ LEAGUES = [
      "kambi": "football/usa/mls", "altenar": None},
     {"key": "friendlies", "name": "Träningsmatcher", "pin_id": 1863,
      "kambi": "football/club_friendly_matches", "altenar": None},
-    # Forskningsligor för V2.2-EU. De samlas in men visas inte i ordinarie
-    # Oddset-lista och får aldrig gå genom värde-/notisvägen innan experimentet
-    # har klarat sin separata forwarddom.
+    # Forskningsligor för V2.2-EU. `research_only` styr insamlingsdjup och
+    # actionability: lätt insamling (1X2, ingen deep/sidoböcker/frånvaro), inga
+    # värdesignaler/Kelly/notiser/CLV, ingen ordinarie model-capture — V2.2-
+    # shadowen äger modellspåret tills experimentet klarat sin forwarddom.
+    # `visible_in_ui` (beställning 2026-07-24) är ett OBEROENDE produktbeslut:
+    # matcherna syns i ordinarie Oddset-vy med odds/prisålder/rörelser och
+    # forskningsmärkning. Synlig liga är INTE automatiskt actionable.
     {"key": "premier_league", "name": "Premier League", "pin_id": 1980,
      "kambi": "football/england/premier_league", "altenar": None,
-     "research_only": True},
+     "research_only": True, "visible_in_ui": True},
     {"key": "serie_a", "name": "Serie A", "pin_id": 2436,
      "kambi": "football/italy/serie_a", "altenar": None,
-     "research_only": True},
+     "research_only": True, "visible_in_ui": True},
     {"key": "la_liga", "name": "La Liga", "pin_id": 2196,
      "kambi": "football/spain/la_liga", "altenar": None,
-     "research_only": True},
+     "research_only": True, "visible_in_ui": True},
     {"key": "bundesliga", "name": "Bundesliga", "pin_id": 1842,
      "kambi": "football/germany/bundesliga", "altenar": None,
-     "research_only": True},
+     "research_only": True, "visible_in_ui": True},
 ]
-PUBLIC_LEAGUE_KEYS = frozenset(
+# Actionable = får skapa spelbar signal, Kelly, notis och CLV-/value_log-rader.
+ACTIONABLE_LEAGUE_KEYS = frozenset(
     league["key"] for league in LEAGUES if not league.get("research_only"))
+# Synlig i ordinarie UI-payload (/api/oddset/matches utan interna flaggor).
+VISIBLE_LEAGUE_KEYS = frozenset(
+    league["key"] for league in LEAGUES
+    if not league.get("research_only") or league.get("visible_in_ui"))
 RESEARCH_LEAGUE_KEYS = frozenset(
     league["key"] for league in LEAGUES if league.get("research_only"))
 
@@ -76,6 +85,14 @@ LIST_WINDOW_D_FWD = 10
 # fönstret pollas.
 FAST_WITHIN_H = 3.0        # snabbvarv när nästa avspark är inom N h
 FAST_SLEEP_S = 240         # 4 min mellan snabbvarven (A1: 3–5 min)
+
+# Forskningsligor under säsongsuppehåll: 10-dagarsfönstret är tomt ända fram
+# till premiären — ordinarie UI-payloaden visar då ligans NÄSTA omgång
+# (matcher inom några dygn från första kommande avspark) så att en synlig
+# liga inte ser trasig ut. Gäller BARA UI-vägen; insamlings-payloaden
+# (include_research=True) behåller det strikta fönstret.
+RESEARCH_NEXT_ROUND_SPAN_D = 4
+RESEARCH_LOOKAHEAD_D = 45
 
 
 def _now_iso() -> str:
@@ -578,7 +595,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 for key in sharp_capture}
         actionable = [
             match for match in payload["matches"]
-            if match.get("league") in PUBLIC_LEAGUE_KEYS
+            if match.get("league") in ACTIONABLE_LEAGUE_KEYS
         ]
         vs = oddset_value.log_and_notify(store, actionable, present=present)
         vs["closings"] = oddset_value.resolve_closings(store)
@@ -615,31 +632,70 @@ def fast_leagues(store: Storage) -> list[dict]:
 
 # --- läs-API ---------------------------------------------------------------------
 
+def _research_next_round(store: Storage, windowed: list[dict],
+                         now: dt.datetime) -> list[dict]:
+    """Nästa omgång för synliga forskningsligor utan match i listfönstret."""
+    empty = (RESEARCH_LEAGUE_KEYS & VISIBLE_LEAGUE_KEYS) \
+        - {m["league"] for m in windowed}
+    if not empty:
+        return []
+    future = store.oddset_matches(
+        since=now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        until=(now + dt.timedelta(days=RESEARCH_LOOKAHEAD_D))
+        .strftime("%Y-%m-%dT%H:%M:%SZ"))
+    extra: list[dict] = []
+    for key in sorted(empty):
+        rows = sorted((m for m in future if m["league"] == key),
+                      key=lambda r: r.get("start") or "9")
+        first = _parse_ts(rows[0].get("start")) if rows else None
+        if not first:
+            continue
+        cutoff = (first + dt.timedelta(days=RESEARCH_NEXT_ROUND_SPAN_D)) \
+            .strftime("%Y-%m-%dT%H:%M:%SZ")
+        extra.extend(m for m in rows if (m.get("start") or "9") <= cutoff)
+    return extra
+
+
 def matches_payload(store: Storage, light: bool = False,
                     include_research: bool = False) -> dict:
     """Matchlistan i tidsordning med senaste odds + rörelseserier per källa.
     light=True (snabbvarven) hoppar frånvaro + modell — modellfitten är dyr
-    och amber-flaggorna är inte tidskritiska; 30-min-varvet tar dem."""
+    och amber-flaggorna är inte tidskritiska; 30-min-varvet tar dem.
+    include_research=True är den INTERNA insamlings-payloaden (alla ligor,
+    V2.2-forskningsmodell, ofiltrerat värde-underlag). Ordinarie API:t kör
+    False: forskningsligor med visible_in_ui visas då med odds, prisålder
+    och rörelser, märkta research=True, men utan värde-/modellfält —
+    synlighet och actionability är två oberoende egenskaper. Är list-
+    fönstret tomt för en forskningsliga (säsongsuppehåll) visas ligans
+    nästa omgång i stället (_research_next_round)."""
     now = dt.datetime.now(dt.timezone.utc)
     frm = (now - dt.timedelta(hours=LIST_WINDOW_H_BACK)).strftime("%Y-%m-%dT%H:%M:%SZ")
     to = (now + dt.timedelta(days=LIST_WINDOW_D_FWD)).strftime("%Y-%m-%dT%H:%M:%SZ")
     ms = store.oddset_matches(since=frm, until=to)
     if not include_research:
-        ms = [match for match in ms if match["league"] in PUBLIC_LEAGUE_KEYS]
+        ms = [match for match in ms if match["league"] in VISIBLE_LEAGUE_KEYS]
+        ms.extend(_research_next_round(store, ms, now))
     ids = [m["id"] for m in ms]
     latest = store.oddset_latest(ids)
     movement = store.oddset_movement(ids)
     alt = store.oddset_sharp_alt_latest(ids)
     out = []
     for m in ms:
-        out.append({**m, "odds": latest.get(m["id"], {}),
-                    "movement": movement.get(m["id"], {}),
-                    "sharp_alt": alt.get(m["id"], {})})
+        row = {**m, "odds": latest.get(m["id"], {}),
+               "movement": movement.get(m["id"], {}),
+               "sharp_alt": alt.get(m["id"], {})}
+        if m["league"] in RESEARCH_LEAGUE_KEYS:
+            row["research"] = True
+        out.append(row)
     out.sort(key=lambda r: (r.get("start") or "9", r["id"]))
     oddset_value.attach_value(out)
     oddset_value.attach_steam(out)
     for m in out:   # internt underlag för värdemotorn — inte API-last
         m.pop("sharp_alt", None)
+        # Synlig ≠ actionable: ordinarie payloaden bär inga värde-/Kelly-
+        # underlag för forskningsligor (V2.2:s dom är inte fälld).
+        if not include_research and m.get("research"):
+            m.pop("value", None)
     if not light:
         try:
             from . import oddset_data
@@ -661,16 +717,21 @@ def matches_payload(store: Storage, light: bool = False,
             pass
     visible_leagues = [
         league for league in LEAGUES
-        if include_research or not league.get("research_only")
+        if include_research or league["key"] in VISIBLE_LEAGUE_KEYS
     ]
     health = store.oddset_source_health()
     if not include_research:
         health = [
             row for row in health
-            if row.get("league") in PUBLIC_LEAGUE_KEYS
+            if row.get("league") in VISIBLE_LEAGUE_KEYS
         ]
+    leagues_out = []
+    for lg in visible_leagues:
+        entry = {"key": lg["key"], "name": lg["name"]}
+        if lg.get("research_only"):
+            entry["research"] = True
+        leagues_out.append(entry)
     return {"matches": out,
-            "leagues": [{"key": lg["key"], "name": lg["name"]}
-                        for lg in visible_leagues],
+            "leagues": leagues_out,
             "last_run": store.meta_get("oddset_last_run"),
             "source_health": health}

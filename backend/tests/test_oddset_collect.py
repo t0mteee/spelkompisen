@@ -101,10 +101,22 @@ class ResearchLeagueIsolationTests(unittest.TestCase):
         self.assertAlmostEqual(3.5, rows[0]["odds"]["X"])
         self.assertAlmostEqual(4.0, rows[0]["odds"]["2"])
 
-    def test_research_leagues_are_hidden_from_regular_payload(self) -> None:
+    def test_visibility_and_actionability_are_independent_properties(self) -> None:
+        # Beställning 2026-07-24: forskningsligorna SYNS i ordinarie vyn men
+        # är fortsatt icke-actionable. Egenskaperna får aldrig smälta ihop.
+        research = {"premier_league", "serie_a", "la_liga", "bundesliga"}
+        self.assertEqual(research, set(oddset.RESEARCH_LEAGUE_KEYS))
+        self.assertTrue(research <= oddset.VISIBLE_LEAGUE_KEYS)
+        self.assertFalse(research & oddset.ACTIONABLE_LEAGUE_KEYS)
+        self.assertEqual(
+            {lg["key"] for lg in oddset.LEAGUES},
+            oddset.ACTIONABLE_LEAGUE_KEYS | oddset.RESEARCH_LEAGUE_KEYS)
+
+    def test_research_leagues_visible_but_sanitized_in_regular_payload(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = Storage(Path(tmp) / "test.db")
             now = dt.datetime.now(dt.timezone.utc)
+            at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
             start = (now + dt.timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
             try:
                 store.oddset_upsert_match({
@@ -115,6 +127,13 @@ class ResearchLeagueIsolationTests(unittest.TestCase):
                     "id": "research", "league": "premier_league", "home": "C",
                     "away": "D", "start": start,
                 })
+                # Färska priser från båda källorna → attach_value skulle ge
+                # ett värdeunderlag; ordinarie payloaden ska ändå sanera det.
+                for mid in ("public", "research"):
+                    store.oddset_save_odds(
+                        mid, "pinnacle", {"1": 2.0, "X": 3.5, "2": 3.8}, at)
+                    store.oddset_save_odds(
+                        mid, "svenskaspel", {"1": 2.3, "X": 3.4, "2": 3.6}, at)
 
                 regular = oddset.matches_payload(store, light=True)
                 internal = oddset.matches_payload(
@@ -122,11 +141,98 @@ class ResearchLeagueIsolationTests(unittest.TestCase):
             finally:
                 store.close()
 
-        self.assertEqual(["public"], [row["id"] for row in regular["matches"]])
-        self.assertNotIn("premier_league", {
-            row["key"] for row in regular["leagues"]})
-        self.assertEqual({"public", "research"}, {
-            row["id"] for row in internal["matches"]})
+        # Synlig: forskningsmatchen finns i ordinarie payloaden, märkt,
+        # med odds och rörelseserier kvar.
+        by_id = {row["id"]: row for row in regular["matches"]}
+        self.assertEqual({"public", "research"}, set(by_id))
+        self.assertTrue(by_id["research"]["research"])
+        self.assertNotIn("research", by_id["public"])
+        self.assertIn("pinnacle", by_id["research"]["odds"])
+        # Icke-actionable: inget värde-/modellunderlag i ordinarie payloaden…
+        self.assertNotIn("value", by_id["research"])
+        self.assertNotIn("model", by_id["research"])
+        self.assertIn("value", by_id["public"])
+        # …men den interna insamlings-payloaden är ofiltrerad (ledger/V2.2).
+        internal_research = next(
+            row for row in internal["matches"] if row["id"] == "research")
+        self.assertIn("value", internal_research)
+        # Ligalistan bär forskningsflaggan så UI:t kan märka filtret.
+        leagues = {row["key"]: row for row in regular["leagues"]}
+        self.assertIn("premier_league", leagues)
+        self.assertTrue(leagues["premier_league"].get("research"))
+        self.assertNotIn("research", leagues["allsvenskan"])
+
+    def test_research_next_round_shown_when_list_window_is_empty(self) -> None:
+        # Säsongsuppehåll: premiären ligger utanför 10-dagarsfönstret. UI-
+        # payloaden visar då forskningsligans nästa omgång; ordinarie ligor
+        # och den interna insamlings-payloaden behåller det strikta fönstret.
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            now = dt.datetime.now(dt.timezone.utc)
+            premiere = (now + dt.timedelta(days=20)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            same_round = (now + dt.timedelta(days=21)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            next_round = (now + dt.timedelta(days=28)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            try:
+                store.oddset_upsert_match({
+                    "id": "pl-1", "league": "premier_league", "home": "A",
+                    "away": "B", "start": premiere,
+                })
+                store.oddset_upsert_match({
+                    "id": "pl-2", "league": "premier_league", "home": "C",
+                    "away": "D", "start": same_round,
+                })
+                store.oddset_upsert_match({
+                    "id": "pl-3", "league": "premier_league", "home": "E",
+                    "away": "F", "start": next_round,
+                })
+                store.oddset_upsert_match({
+                    "id": "future-public", "league": "allsvenskan", "home": "G",
+                    "away": "H", "start": premiere,
+                })
+
+                regular = oddset.matches_payload(store, light=True)
+                internal = oddset.matches_payload(
+                    store, light=True, include_research=True)
+            finally:
+                store.close()
+
+        ids = {row["id"] for row in regular["matches"]}
+        self.assertEqual({"pl-1", "pl-2"}, ids)   # omgången, inte pl-3/public
+        self.assertTrue(all(row["research"] for row in regular["matches"]))
+        self.assertFalse({row["id"] for row in internal["matches"]})
+
+    def test_collect_never_passes_research_matches_to_value_engine(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            now = dt.datetime.now(dt.timezone.utc)
+            at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+            start = (now + dt.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            league = next(row for row in oddset.LEAGUES
+                          if row["key"] == "premier_league")
+            try:
+                store.oddset_upsert_match({
+                    "id": "research", "league": "premier_league", "home": "C",
+                    "away": "D", "start": start,
+                })
+                store.oddset_save_odds(
+                    "research", "pinnacle", {"1": 2.0, "X": 3.5, "2": 3.8}, at)
+                store.oddset_save_odds(
+                    "research", "svenskaspel", {"1": 2.3, "X": 3.4, "2": 3.6}, at)
+                with mock.patch.object(oddset, "Pinnacle", return_value=_Pin()), \
+                        mock.patch.object(oddset, "pinnacle_league_index",
+                                          return_value=[]), \
+                        mock.patch.object(oddset.kambi, "league_events",
+                                          return_value=[]), \
+                        mock.patch.object(oddset.oddset_value, "log_and_notify",
+                                          return_value={}) as spy:
+                    oddset.collect(store, leagues=[league], deep=False)
+            finally:
+                store.close()
+
+        spy.assert_called_once()
+        passed = spy.call_args.args[1]
+        self.assertFalse([m for m in passed
+                          if m.get("league") in oddset.RESEARCH_LEAGUE_KEYS])
 
     def test_research_leagues_skip_deep_markets_and_sidebooks(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
