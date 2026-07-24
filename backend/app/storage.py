@@ -1423,7 +1423,16 @@ class Storage:
              flag.get("model_version") or "legacy"))
         self._commit()
 
-    def oddset_clv_rows(self, limit: int = 300) -> list[dict]:
+    def oddset_clv_rows(self, limit: Optional[int] = None) -> list[dict]:
+        """Flaggor i CLV-facitet. limit=None = HELA historiken.
+
+        Default var tidigare 300, vilket gjorde clv_report till ett rullande
+        fönster: n, snitt och grönt-kriteriet räknades bara på de 300 senaste
+        flaggorna medan äldre utfall föll tyst ur facitet (survivorship).
+        Sätt limit endast för visningslistor — aldrig för statistiken."""
+        if limit is None:
+            return [dict(r) for r in self.conn.execute(
+                "SELECT * FROM oddset_value_log ORDER BY first_at DESC").fetchall()]
         return [dict(r) for r in self.conn.execute(
             "SELECT * FROM oddset_value_log ORDER BY first_at DESC LIMIT ?",
             (limit,)).fetchall()]

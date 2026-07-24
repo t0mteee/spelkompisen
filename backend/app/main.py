@@ -229,13 +229,33 @@ def bomben_system(draw: int, budget: float = 50.0, row_price: float = 1.0):
 
 # Svenska Spels officiella vinstplaner: återbetalningsandel + andel per nivå.
 # (Validerat mot faktiska utfall.) Topptipset: bara 8 rätt delar potten.
+# Vinstplaner OMMÄTTA 2026-07-24 mot settlementlagret (PH1): median av
+# faktisk utbetalning per nivå ÷ (omsättning × ratio), 150 omgångar/produkt.
+# Stryktipset bekräftade den gamla planen exakt, men Europatipset visade sig
+# ha en EGEN plan — 12 rätt får 0,22 (inte 0,15) och 13 rätt 0,39. Den gamla
+# koden kopierade Stryktipsets plan och underskattade Europatipsets
+# 12-rättspott med ~47 %. Splitsen summerar medvetet till < 1 (Stryk 0,92,
+# Europa 0,98); resten går till jackpot-/rullpottsfonder och betalas alltså
+# inte ut i den aktuella omgången — se _payout_ratio nedan.
 PRIZE_PLANS = {
     "stryktipset":     {"ratio": 0.65, "splits": {13: 0.40, 12: 0.15, 11: 0.12, 10: 0.25}},
-    "europatipset":    {"ratio": 0.65, "splits": {13: 0.40, 12: 0.15, 11: 0.12, 10: 0.25}},
+    "europatipset":    {"ratio": 0.65, "splits": {13: 0.39, 12: 0.22, 11: 0.12, 10: 0.25}},
     "topptipset":      {"ratio": 0.70, "splits": {8: 1.00}},
     "topptipsetstryk": {"ratio": 0.70, "splits": {8: 1.00}},
     "topptipsetextra": {"ratio": 0.70, "splits": {8: 1.00}},
 }
+
+
+def _payout_ratio(plan: dict) -> float:
+    """Andel av omsättningen som FAKTISKT betalas ut i omgången.
+
+    `ratio` ensamt (0,65/0,70) är den gamla rubriksiffran, men eftersom
+    splitsen inte summerar till 1 betalas bara ratio × Σsplits ut: Stryk
+    59,8 %, Europa 63,7 %, Topptipset 70,0 % — verifierat mot 120 avgjorda
+    omgångar per produkt. Break-even kräver därmed att radvalet slår fältet
+    med 1/andel − 1 (Stryk +67 %, inte +54 %).
+    """
+    return plan["ratio"] * sum(plan["splits"].values())
 
 
 def _projected_turnover(product: str, current: float) -> float | None:
@@ -405,12 +425,24 @@ def payouts(product: str = "stryktipset", draw: int | None = None):
     # spelvärde = total återbetalning inkl jackpot/rullpott; > ratio => extra bra omgång
     with SvenskaSpel() as ss:
         jackpot = ss.get_jackpot(product, d.draw_number) or d.jackpot or 0.0
-    spelvarde = plan["ratio"] + (jackpot / turnover if turnover else 0.0)
+        # Garantier (t.ex. ensamvinnargaranti) redovisas SEPARAT och räknas
+        # medvetet inte in i spelvärdet — semantiken är overifierad.
+        guarantees = ss.get_guarantees(product, d.draw_number)
+    # Spelvärdet ska bygga på det som FAKTISKT betalas ut i omgången, inte på
+    # bruttoandelen: Stryktipsets splits summerar till 0,92 så rubriken visade
+    # 65 % när verklig utbetalning är 59,7 % (uppmätt, se _payout_ratio).
+    payout_ratio = _payout_ratio(plan)
+    spelvarde = payout_ratio + (jackpot / turnover if turnover else 0.0)
     projected = _projected_turnover(product, turnover) or turnover
-    spelvarde_proj = plan["ratio"] + (jackpot / projected if projected else 0.0)
+    spelvarde_proj = payout_ratio + (jackpot / projected if projected else 0.0)
     return {"available": turnover > 0, "draw_number": d.draw_number,
-            "turnover": turnover, "row_price": row_price, "ratio": plan["ratio"],
-            "jackpot": jackpot, "extra_info": d.extra_info,
+            "product": product,   # frontend behöver den för κ-korrektionen
+            "turnover": turnover, "row_price": row_price,
+            "ratio": plan["ratio"], "payout_ratio": round(payout_ratio, 4),
+            # break-even: så mycket bättre än fältet måste radvalet vara
+            "hurdle": round(1.0 / payout_ratio - 1.0, 4) if payout_ratio else None,
+            "jackpot": jackpot, "guarantees": guarantees,
+            "extra_info": d.extra_info,
             "spelvarde": round(spelvarde, 4),
             "projected_turnover": projected,
             "spelvarde_proj": round(spelvarde_proj, 4),

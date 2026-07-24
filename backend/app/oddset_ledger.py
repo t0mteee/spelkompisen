@@ -37,6 +37,26 @@ PRIMARY_LEAGUES = {
     "allsvenskan", "superettan", "eliteserien", "obosligaen", "mls",
 }
 
+# Förregistrerad utvärderingskadens (2026-07-24). Status får bara ändras en
+# gång per EVAL_INTERVAL_H, inte vid varje insamlingsvarv — annars blir
+# candidate/green ett sekventiellt test med hundratals titt-tillfällen på en
+# ensidig 5 %-gräns, och brus lyser förr eller senare grönt. Läsning av
+# rapporten är fri; det är BESLUTEN som är kadensstyrda.
+EVAL_INTERVAL_H = 168.0          # en gång per vecka
+EVAL_META_KEY = "oddset_ledger_last_eval"
+
+
+def _evaluation_due(store: Storage, now: dt.datetime) -> bool:
+    """True om det gått minst EVAL_INTERVAL_H sedan senaste statusbeslut."""
+    last = store.meta_get(EVAL_META_KEY)
+    if not last:
+        return True
+    try:
+        since = (now - _parse_iso(last)).total_seconds() / 3600
+    except ValueError:
+        return True
+    return since >= EVAL_INTERVAL_H
+
 
 def _parse_iso(value: str) -> dt.datetime:
     return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -425,7 +445,17 @@ def prediction_report(store: Storage, update_states: bool = False,
             group["candidate_base"] and group["fdr_pass"])
 
     states = store.oddset_prediction_states()
+    if update_states and not _evaluation_due(store, now):
+        # SEKVENTIELL TESTNING (2026-07-24): statusövergångarna kördes vid
+        # VARJE insamlingsvarv (var 30:e min, tätare nära avspark). Det ger
+        # hundratals titt-tillfällen på en ensidig 5 %-gräns, och under
+        # nollhypotesen passerar en ren brusvandring då långt oftare än 5 %.
+        # Utvärderingen är nu begränsad till en förregistrerad kadens
+        # (EVAL_INTERVAL_H); rapporten kan läsas när som helst, men status
+        # får bara ÄNDRAS vid ett schemalagt tillfälle.
+        update_states = False
     if update_states:
+        store.meta_set(EVAL_META_KEY, now_iso)
         for group in groups:
             key = group["key"]
             if key not in states and group["candidate_ready"]:

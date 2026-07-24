@@ -512,18 +512,46 @@ def _tier_stats(trows: list[dict]) -> dict:
     resolved = [r for r in trows if r["close_ev"] is not None]
     moved = [r for r in trows if r.get("line_move_score") is not None
              and abs(r["line_move_score"]) > 1e-9]
-    avg = (sum(r["close_ev"] for r in resolved) / len(resolved)) if resolved else None
+    # ESTIMAND-REGEL (2026-07-24): huvudsiffran och konfidensintervallet måste
+    # mäta SAMMA storhet. Tidigare rapporterades det owinsoriserade snittet
+    # bredvid ett KI beräknat på det winsoriserade — intervallet kunde då
+    # utesluta sitt eget medelvärde (observerat: snitt +6,6 % med KI
+    # [+1,1..+4,1]). Nu är avg_close_ev det winsoriserade snittet, precis som
+    # KI:t och grönt-kriteriet; det råa snittet redovisas separat som
+    # avg_close_ev_raw så att svansarnas storlek fortfarande syns.
+    avg_raw = (sum(r["close_ev"] for r in resolved) / len(resolved)) if resolved else None
     avg_w = (sum(r["close_ev_w"] for r in resolved) / len(resolved)) if resolved else None
     ci = _cluster_ci(resolved)
     avg_move = (sum(r["line_move_score"] for r in moved) / len(moved)) if moved else None
+
+    # CENSURERINGSDIAGNOSTIK (2026-07-24). Facitet vägrar med rätta fabricera
+    # close-EV när linjen flyttat och inget färskt pris finns på flaggans lina
+    # — men då betingas snittet på "linjen stod still", vilket tar bort exakt
+    # de fall CLV ska mäta. Vi kan inte hitta på EV för dem, men vi kan visa
+    # hur stor censuren är och åt vilket håll den lutar: line_move_score > 0
+    # betyder att linjen rörde sig MED selektionen (sannolikt en bra flagga
+    # som faller ur snittet), < 0 att den rörde sig emot.
+    censored = [r for r in trows
+                if r["close_ev"] is None and r.get("line_move_score") is not None]
+    cens_pos = sum(1 for r in censored if r["line_move_score"] > 0)
+    closable = len(resolved) + len(censored)
+    resolved_share = (len(resolved) / closable) if closable else None
     return {"n": len(trows), "n_resolved": len(resolved),
             "n_line_moved": len(moved),
             "n_line_moved_positive": sum(r["line_move_score"] > 0 for r in moved),
             "avg_line_move_score": round(avg_move, 4) if avg_move is not None else None,
-            "avg_close_ev": round(avg, 4) if avg is not None else None,
-            "avg_close_ev_w": round(avg_w, 4) if avg_w is not None else None,
+            "avg_close_ev": round(avg_w, 4) if avg_w is not None else None,
+            "avg_close_ev_raw": round(avg_raw, 4) if avg_raw is not None else None,
+            "estimand": f"winsoriserad ±{int(WINSOR_EV * 100)} %",
+            "n_censored": len(censored),
+            "n_censored_favorable": cens_pos,
+            "resolved_share": round(resolved_share, 3) if resolved_share else None,
             "ci": list(ci) if ci else None,
-            "green_ready": bool(len(resolved) >= GREEN_MIN_N and ci and ci[0] > 0)}
+            # Grönt kräver nu även att facitet är representativt: är mer än
+            # hälften av de stängbara flaggorna censurerade mäter snittet ett
+            # icke-slumpmässigt urval och får inte ensamt ge grönt.
+            "green_ready": bool(len(resolved) >= GREEN_MIN_N and ci and ci[0] > 0
+                                and (resolved_share or 0) >= 0.5)}
 
 
 def clv_report(store: Storage) -> dict:

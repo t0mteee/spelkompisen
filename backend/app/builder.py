@@ -530,17 +530,42 @@ def _poisson_binomial(probs: list[float]) -> list[float]:
     return d
 
 
+# κ-korrektion per produkt och nivå (PH4-analysen 2026-07-24, se
+# docs/ph4-analys-2026-07-24.md). κ = faktiska medvinnare ÷ oberoende-
+# förväntade, mätt på 7 754 avgjorda omgångar. κ > 1 betyder att folket
+# klumpar ihop sig MER än oberoende-antagandet: fler delar potten och
+# utdelningen blir lägre. Korrektionen SÄNKER därför EV och kan aldrig blåsa
+# upp förväntningar. Värdena är 2024+-skattningarna (senaste regimen).
+# Saknad produkt/nivå ⇒ 1,0, dvs. exakt det gamla beteendet.
+KAPPA_VERSION = "kappa-ph4-2024plus"
+KAPPA: dict[str, dict[int, float]] = {
+    "stryktipset":     {13: 1.096, 12: 1.114, 11: 1.102, 10: 1.076},
+    "europatipset":    {13: 1.070, 12: 1.064, 11: 1.063, 10: 1.048},
+    "topptipset":      {8: 1.038},
+    "topptipsetstryk": {8: 1.040},
+    "topptipsetextra": {8: 1.022},
+}
+
+
+def kappa_for(product: Optional[str], correct: int) -> float:
+    """Medvinnarkorrektion för (produkt, rättnivå); 1,0 när mätning saknas."""
+    return (KAPPA.get(product or "", {}) or {}).get(correct, 1.0)
+
+
 def _row_expected_value(pf: list[float], pk: list[float],
-                        pools: dict[int, float], field: float) -> float:
+                        pools: dict[int, float], field: float,
+                        product: Optional[str] = None) -> float:
     """Nuvarande analytiska rad-EV, separerad så utdelningsregeln kan testas.
 
     `pf[c]` är vår sannolikhet för exakt c rätt och `pk[c]` fältets motsvarande
     sannolikhet. WP6-portföljen jämför denna konservativa approximation med
     utfallsberoende medvinnare och konkurrens mellan egna rader.
+    `product` aktiverar κ-korrektionen ovan; utan produkt gäller κ = 1.
     """
     total = 0.0
     for correct, pool in pools.items():
-        dividend = min(pool, pool / (field * pk[correct] + 1.0))
+        expected_others = field * pk[correct] * kappa_for(product, correct)
+        dividend = min(pool, pool / (expected_others + 1.0))
         total += pf[correct] * dividend
     return total
 
@@ -617,7 +642,8 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
     for _, p_row, _, row in refine:
         pf = _poisson_binomial([pq[(m.event_number, s)][0] for m, s in zip(ms, row)])
         pk = _poisson_binomial([pq[(m.event_number, s)][1] for m, s in zip(ms, row)])
-        ev_total = _row_expected_value(pf, pk, pools, field)
+        ev_total = _row_expected_value(
+            pf, pk, pools, field, getattr(analysis, "product", None))
         full.append(((p_row ** k) * ev_total, ev_total, row))
     full.sort(key=lambda t: t[0], reverse=True)
     chosen = full[:target]

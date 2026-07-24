@@ -1277,16 +1277,19 @@ function OddsetView({ focus = null } = {}) {
               const q = v.q ?? 0
               const tier = q >= 0.04 ? ['STARK EDGE', 't3'] : q >= 0.02 ? ['EDGE', 't2'] : ['SVAG EDGE', 't1']
               const mvP = m.movement?.pinnacle?.[mk]?.[sg]
+              // STÖD FÅR BARA KOMMA FRÅN MARKNADSPRISER (2026-07-24).
+              // Amber-modellen mäter −4,5 % close-EV i facitet (MLS −6,5 %,
+              // Superettan −10,5 %, KI utan noll) — den fick tidigare ge
+              // "🧪 modellen håller med" och kunde därmed lyfta ett kort till
+              // "★ starkast stödd". En signal som är mätbart sämre än
+              // marknaden ska inte rösta upp spel. Modellen finns kvar som
+              // eget amber-spår (🧪-listan), aldrig som stöd här.
               const support = []
               if (mk === '1x2') {
                 const st = m.steam?.[sg]
                 const stpp = st && ((Math.abs(st.h6 ?? 0) >= Math.abs(st.h24 ?? 0)) ? st.h6 : st.h24)
                 if (stpp != null && stpp >= 1.5) support.push(['⚡ sharpen kortar', `Pinnacle har flyttat ${sg} ${stpp > 0 ? '+' : ''}${stpp} pp åt spelets håll — edgen är färsk, inte gammal skåpmat`])
-                const me = m.model?.edges?.[sg]
-                if (me != null && me >= 0.02) support.push(['🧪 modellen håller med', `Egen modell ser också värde här (+${(me * 100).toFixed(1)}%) — oberoende av sharp-jämförelsen`])
               } else {
-                const me = m.model?.[mk]?.edges?.[sg]
-                if (me != null && me >= 0.02) support.push(['🧪 modellen håller med', `Egen modell ser också värde här (+${(me * 100).toFixed(1)}%)`])
                 const sh = lineShift(mvP)
                 if (sh) support.push(['⇄ sharp-linjen flyttad', `Pinnacle har flyttat linjen ${sh.from} → ${sh.to}`])
               }
@@ -1311,7 +1314,7 @@ function OddsetView({ focus = null } = {}) {
                   {support.length > 0 && (
                     <div className="tipsupport">
                       {support.map(([lbl, tip], j) => <span key={j} className="schip" title={tip}>{lbl}</span>)}
-                      {support.length >= 2 && <span className="schip star" title="Sharp-edge + flera oberoende medhåll — starkast stödda spelet just nu">★ starkast stödd</span>}
+                      {support.length >= 2 && <span className="schip star" title="Sharp-edge plus flera oberoende MARKNADSsignaler åt samma håll (steam och/eller linjeflytt) — starkast stödda spelet just nu. Egen modell räknas inte som stöd.">★ starkast stödd</span>}
                     </div>
                   )}
                 </div>
@@ -1690,14 +1693,42 @@ function poissonBinomial(probs) {
    (P att raden får k rätt) och över folkets streck (medvinnartäthet). Utdelning
    om rätt = pott_k / (förv. medvinnare + dig själv). Spårar lägsta/medel/högsta
    utdelning per nivå över raderna — utdelningens spann (likt reducering.se). */
-function evalRows(rowFF, tiers, field, N, minDividend = 0) {
+// κ-korrektion per produkt och nivå — MÅSTE hållas i synk med KAPPA i
+// backend/app/builder.py (PH4-analysen 2026-07-24, 7 754 avgjorda omgångar).
+// κ > 1 = folket klumpar ihop sig mer än oberoende-antagandet ⇒ fler
+// medvinnare ⇒ lägre utdelning. Korrektionen sänker EV, aldrig tvärtom.
+const KAPPA = {
+  stryktipset: { 13: 1.096, 12: 1.114, 11: 1.102, 10: 1.076 },
+  europatipset: { 13: 1.070, 12: 1.064, 11: 1.063, 10: 1.048 },
+  topptipset: { 8: 1.038 },
+  topptipsetstryk: { 8: 1.040 },
+  topptipsetextra: { 8: 1.022 },
+}
+const kappaFor = (product, correct) => KAPPA[product]?.[correct] ?? 1.0
+
+// Folkets sannolikhet för ett tecken, med GOLV. Utan golv gav streck = 0
+// (finns på 38 event i databasen) pk = 0 → utdelning = HELA potten, och
+// EV-rankaren älskade exakt de tecknen. Backend har haft max(q, 0.001) i
+// builder._pq hela tiden; frontend saknade det helt — samma golv måste
+// gälla i båda annars visar UI:t en annan EV än den byggaren optimerade.
+const FOLK_MIN = 0.001
+const folkProb = (o) => {
+  if (!o) return FOLK_MIN
+  const q = o.streck != null ? o.streck / 100 : (o.fair_prob || 0)
+  return Math.max(q, FOLK_MIN)
+}
+
+function evalRows(rowFF, tiers, field, N, minDividend = 0, product = null) {
   const poly = {}, evTiers = {}, divMin = {}, divMax = {}
   let kept = 0, evPayout = 0
   for (const row of rowFF) {
     const pf = poissonBinomial(row.map((o) => o.fair))
     const pk = poissonBinomial(row.map((o) => o.folk))
     const div = {}
-    for (const t of tiers) { const c = t.correct; div[c] = Math.min(t.pool, t.pool / (field * (pk[c] || 0) + 1)) }
+    for (const t of tiers) {
+      const c = t.correct
+      div[c] = Math.min(t.pool, t.pool / (field * (pk[c] || 0) * kappaFor(product, c) + 1))
+    }
     if (minDividend > 0 && (div[N] || 0) < minDividend) continue
     kept++
     for (const t of tiers) {
@@ -1733,10 +1764,10 @@ function couponStats(matches, picks, payouts, minDividend = 0, turnoverOverride 
     const field = turnover / rowPrice
     const rowFF = pickRows.map((r) => r.map((s, i) => {
       const o = matches[i].outcomes[s] || {}
-      return { fair: o.fair_prob || 0, folk: o.streck != null ? o.streck / 100 : (o.fair_prob || 0) }
+      return { fair: o.fair_prob || 0, folk: folkProb(o) }
     }))
     const modelOk = field > 0 && tiers.length > 0
-    const e = modelOk ? evalRows(rowFF, tiers, field, N, minDividend)
+    const e = modelOk ? evalRows(rowFF, tiers, field, N, minDividend, payouts?.product)
       : { poly: {}, evTiers: {}, dividend: {}, divMin: {}, divMax: {}, kept: pickRows.length, evPayout: 0 }
     const rows = e.kept
     const cost = rows * rowPrice
@@ -1781,12 +1812,12 @@ function couponStats(matches, picks, payouts, minDividend = 0, turnoverOverride 
   if (complete && field > 0 && fullRows > 0 && fullRows <= 20000 && tiers.length) {
     const lists = matches.map((m) => (picks[m.event_number] || []).map((s) => ({
       fair: m.outcomes[s]?.fair_prob || 0,
-      folk: m.outcomes[s]?.streck != null ? m.outcomes[s].streck / 100 : (m.outcomes[s]?.fair_prob || 0),
+      folk: folkProb(m.outcomes[s]),
     })))
     const rowFF = []
     const rec = (i, acc) => { if (i === N) { rowFF.push(acc); return } for (const o of lists[i]) rec(i + 1, [...acc, o]) }
     rec(0, [])
-    e = evalRows(rowFF, tiers, field, N, minDividend); modelOk = true
+    e = evalRows(rowFF, tiers, field, N, minDividend, payouts?.product); modelOk = true
   }
 
   const poly = modelOk ? e.poly : gpoly.reduce((o, v, i) => { o[i] = v; return o }, {})
@@ -1812,7 +1843,10 @@ function systemStats(sys, matches, payouts) {
   const N = matches.length
   const rowPrice = payouts.row_price || sys.row_price || 1
   const ratio = payouts.ratio || 0
-  const turnover = payouts.turnover || 0
+  // Samma värderingshorisont som byggaren använder i backend: prognostiserad
+  // SLUTomsättning. Med live-omsättning tidigt i veckan blir både potter och
+  // medvinnare för små, och den EV som visas blir glädjekalkyl.
+  const turnover = payouts.projected_turnover || payouts.turnover || 0
   const field = turnover / rowPrice
   const jackpot = sys.jackpot ?? payouts.jackpot ?? 0
   const tiers = (payouts.tiers || []).map((t) => ({
@@ -1835,9 +1869,9 @@ function systemStats(sys, matches, payouts) {
   }
   const rowFF = rowsSigns.map((r) => r.map((s, i) => {
     const o = byEv[picks[i]?.event_number]?.outcomes?.[s] || {}
-    return { fair: o.fair_prob || 0, folk: o.streck != null ? o.streck / 100 : (o.fair_prob || 0) }
+    return { fair: o.fair_prob || 0, folk: folkProb(o) }
   }))
-  const e = evalRows(rowFF, tiers, field, N, 0)
+  const e = evalRows(rowFF, tiers, field, N, 0, payouts?.product)
   const cost = rowsSigns.length * rowPrice
   const poolMap = {}; tiers.forEach((t) => { poolMap[t.correct] = t.pool })
   return { ...e, N, rows: rowsSigns.length, cost, poolMap, turnover,
@@ -1905,7 +1939,7 @@ function RowExplorer({ rows, matches, payouts, turnover, jackpot }) {
     r.forEach((s, i) => {
       const o = matches[i].outcomes[s] || {}
       p *= o.fair_prob || 0
-      q *= o.streck != null ? o.streck / 100 : (o.fair_prob || 0)
+      q *= folkProb(o)
       if (rank[i][s] !== 0) dev++
     })
     const div = field > 0 ? Math.min(pool, pool / (field * q + 1)) : null
@@ -2621,14 +2655,19 @@ function AppClassic({ onSwitchV3 }) {
             <span>hämtat <b>{fmtFetched(analysis.fetched_at)}</b></span>
             {payouts?.available && <span>prispott <b>{kr(payouts.tiers?.[0]?.pool)}</b></span>}
             {payouts?.available && (
-              <span className="pool-value" title="Prognosen vid spelstopp är viktigast. Värdet just nu blir ofta missvisande högt tidigt eftersom omsättningen ännu är låg.">
+              <span className="pool-value" title={`Andel av omsättningen som faktiskt betalas ut i omgången (${Math.round((payouts.payout_ratio || 0) * 100)} % enligt uppmätt vinstplan) plus jackpot/rullpott. Prognosen vid spelstopp är den som gäller — värdet just nu blir missvisande högt tidigt eftersom omsättningen ännu är låg.`}>
                 {payouts.projected_turnover > payouts.turnover ? (
                   <>
                     spelvärde vid spelstopp <b className={(payouts.spelvarde_proj || 0) >= 1 ? 'pos' : 'neg'}>
                       {Math.round((payouts.spelvarde_proj || 0) * 100)} %</b>
-                    <span className="current-value">nu {Math.round((payouts.spelvarde || payouts.ratio || 0) * 100)} % · prognos {kr(payouts.projected_turnover)}</span>
+                    <span className="current-value">nu {Math.round((payouts.spelvarde || payouts.payout_ratio || 0) * 100)} % · prognos {kr(payouts.projected_turnover)}</span>
                   </>
-                ) : <>spelvärde <b>{Math.round((payouts.spelvarde || payouts.ratio || 0) * 100)} %</b></>}
+                ) : <>spelvärde <b>{Math.round((payouts.spelvarde || payouts.payout_ratio || 0) * 100)} %</b></>}
+              </span>
+            )}
+            {payouts?.hurdle > 0 && (
+              <span className="hurdle" title={`Poolspel betalar tillbaka ${Math.round((payouts.payout_ratio || 0) * 100)} % av omsättningen. För att gå plus måste dina rader alltså träffa ${Math.round(payouts.hurdle * 100)} % oftare än fältet i snitt — bara "positiv EV" i systemvyn räcker inte om den räknats på en för snäll pott.`}>
+                break-even <b>+{Math.round(payouts.hurdle * 100)} %</b> mot fältet
               </span>
             )}
             {payouts?.jackpot > 0 && (
@@ -2636,6 +2675,11 @@ function AppClassic({ onSwitchV3 }) {
                 💰 <b>Jackpot {kr(payouts.jackpot)}</b>
               </span>
             )}
+            {(payouts?.guarantees || []).map((g, i) => (
+              <span key={i} className="guarantee" title={`${g.description || g.type}: ${kr(g.amount)}. Garantin ligger UTANFÖR EV-modellen — dess exakta villkor (kräver den exakt en vinnare på toppnivån?) är inte verifierade mot Svenska Spels regler, så den räknas medvetet inte in i spelvärde eller radval.`}>
+                🛡 <b>Garanti {kr(g.amount)}</b> <span className="hint">(ej i EV)</span>
+              </span>
+            ))}
           </>
         )}
         <Collection />

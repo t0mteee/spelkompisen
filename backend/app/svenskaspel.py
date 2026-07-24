@@ -276,6 +276,35 @@ class SvenskaSpel:
                     total += _f(x.get("jackpotAmount")) or 0.0
         return total or None
 
+    def get_guarantees(self, product: str, draw_number: int) -> list[dict]:
+        """Garantier ur /jackpots (`guaranteedJackpots`) — ett HELT eget fält
+        som get_jackpot medvetet inte summerar in.
+
+        Exempel: Stryktipset 4963 bär `SingelWinner` 10 000 000 kr utöver
+        rullpotten på 5 Mkr. Semantiken (villkoras garantin av exakt EN
+        vinnare på toppnivån?) är INTE verifierad mot Svenska Spels regler,
+        därför returneras posterna råa med typ och belopp så att UI:t kan
+        visa dem utan att EV-motorn tyst räknar med dem. Se
+        docs/forbattringar.md innan detta kopplas in i EV.
+        """
+        data = self._get_or_none(f"/draw/{API_VER}/jackpots")
+        if not data:
+            return []
+        pid = PRODUCTS.get(product, {}).get("pid")
+        if pid is None:
+            return []
+        out: list[dict] = []
+        for j in data.get("jackpots") or []:
+            if j.get("productId") != pid or j.get("drawNumber") != draw_number:
+                continue
+            for g in j.get("guaranteedJackpots") or []:
+                amount = _f(g.get("jackpotAmountSek")) or _f(g.get("jackpotAmount"))
+                if amount:
+                    out.append({"type": g.get("guaranteedJackpotType"),
+                                "description": g.get("description"),
+                                "amount": amount})
+        return out
+
     def latest_payouts(self, product: str = "stryktipset",
                        from_number: Optional[int] = None, back: int = 12) -> Optional[dict]:
         """Senaste avgjorda omgångens utdelning (scanna bakåt från from_number)."""
