@@ -100,11 +100,53 @@ def health():
     return {"status": "ok"}
 
 
+# Omgångslistningen live-scannar SvS-API:t (topptipsgruppen = nummerscanning
+# × 3 slugs ≈ 40-55 requests). v3-dashboarden pollar var 2:e min — utan cache
+# blev det 1 500+ upstream-requests/timme från en öppen flik, mer än hela
+# launchd-insamlingen. Listan ändras på minutskala aldrig (nya omgångar dyker
+# upp dagligen, stopptider är fasta) — 5 min TTL är säkert och artigt.
+DRAWS_CACHE_TTL_S = 300
+
+
+def _draws_cached(product: str):
+    import json as _json
+    store = Storage()
+    try:
+        raw = store.meta_get(f"draws_cache:{product}")
+        if not raw:
+            return None
+        obj = _json.loads(raw)
+        at = dt.datetime.fromisoformat(obj["at"])
+        age = (dt.datetime.now(dt.timezone.utc) - at).total_seconds()
+        return obj["payload"] if 0 <= age < DRAWS_CACHE_TTL_S else None
+    except Exception:  # noqa: BLE001 — trasig cache = hämta live
+        return None
+    finally:
+        store.close()
+
+
+def _draws_cache_put(product: str, payload: dict) -> None:
+    import json as _json
+    store = Storage()
+    try:
+        store.meta_set(f"draws_cache:{product}", _json.dumps(
+            {"at": dt.datetime.now(dt.timezone.utc).isoformat(),
+             "payload": payload}))
+    except Exception:  # noqa: BLE001 — cachefel får inte fälla svaret
+        pass
+    finally:
+        store.close()
+
+
 @app.get("/api/draws")
 def draws(product: str = "stryktipset"):
     """Lista tillgängliga omgångar för spelet/gruppen (för omgångsväljaren).
     Topptipset-gruppen aggregerar flera produkter; varje omgång bär sin egen
-    'product' (slug) så efterföljande anrop använder rätt produkt."""
+    'product' (slug) så efterföljande anrop använder rätt produkt.
+    Svaret cachas i DRAWS_CACHE_TTL_S sekunder — se kommentaren ovan."""
+    cached = _draws_cached(product)
+    if cached is not None:
+        return cached
     if product == "bomben":
         with SvenskaSpel() as ss:
             raw = ss.bomben_draws()
@@ -112,8 +154,10 @@ def draws(product: str = "stryktipset"):
                "state": d.get("drawState"), "reg_close_time": d.get("regCloseTime")}
               for d in raw]
         ds.sort(key=lambda d: d.get("reg_close_time") or "")
-        return {"product": "bomben", "draws": ds,
-                "open": [d for d in ds if d["state"] == "Open"]}
+        payload = {"product": "bomben", "draws": ds,
+                   "open": [d for d in ds if d["state"] == "Open"]}
+        _draws_cache_put(product, payload)
+        return payload
     slugs = GAME_GROUPS.get(product, [product])
     all_draws = []
     with SvenskaSpel() as ss:
@@ -123,7 +167,9 @@ def draws(product: str = "stryktipset"):
             all_draws.extend(ds)
     all_draws.sort(key=lambda d: d.get("reg_close_time") or "")
     opens = [d for d in all_draws if d["state"] == "Open"]
-    return {"product": product, "draws": all_draws, "open": opens}
+    payload = {"product": product, "draws": all_draws, "open": opens}
+    _draws_cache_put(product, payload)
+    return payload
 
 
 @app.get("/api/draw")

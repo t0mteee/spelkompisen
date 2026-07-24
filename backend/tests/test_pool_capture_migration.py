@@ -1,3 +1,5 @@
+import contextlib
+import io
 import sqlite3
 import tempfile
 import unittest
@@ -35,7 +37,9 @@ class PoolCaptureMigrationTests(unittest.TestCase):
             conn.close()
 
             with patch.object(migration, "DB", db), \
-                    patch.object(migration, "BACKUP", backup):
+                    patch.object(migration, "BACKUP", backup), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                # tysta migrationsutskriften — den drunknar testsvitens slutrad
                 migration.main()
                 migration.main()
 

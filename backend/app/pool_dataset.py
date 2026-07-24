@@ -72,9 +72,12 @@ def record_draw_snapshot(store: Storage, product: str, draw_number: int,
         "SELECT net_sale, jackpot, jackpot_source FROM pool_draw_snapshot "
         "WHERE product=? AND draw_number=? ORDER BY fetched_at DESC LIMIT 1",
         (product, draw_number)).fetchone()
-    if (last and last[0] == net_sale and last[1] == jackpot and
-            last[2] == jackpot_source):
-        return 0
+    if last and last[0] == net_sale and last[1] == jackpot:
+        # Oförändrade värden: skriv bara om proveniensen UPPGRADERAS till
+        # verified_endpoint — flapp missing↔endpoint_error bär ingen info
+        # och ska inte blåsa upp serien.
+        if last[2] == jackpot_source or jackpot_source != "verified_endpoint":
+            return 0
     store.conn.execute(
         "INSERT OR IGNORE INTO pool_draw_snapshot "
         "(product, draw_number, fetched_at, net_sale, jackpot, jackpot_source) "

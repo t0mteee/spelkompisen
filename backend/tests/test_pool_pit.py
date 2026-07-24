@@ -115,6 +115,23 @@ class PoolDatasetTests(unittest.TestCase):
             self.store, "stryktipset", 100, 1200.0, None, at="2026-07-24T11:00:00Z")
         self.assertEqual((1, 0, 1), (n1, n2, n3))
 
+    def test_omsattningsserie_ignorerar_proveniensflapp(self):
+        # missing↔endpoint_error med oförändrade värden bär ingen info och
+        # ska inte blåsa upp serien; uppgradering till verified skrivs.
+        base = pool_dataset.record_draw_snapshot(
+            self.store, "stryktipset", 100, 1000.0, None,
+            jackpot_source="missing", at="2026-07-24T10:00:00Z")
+        flap = pool_dataset.record_draw_snapshot(
+            self.store, "stryktipset", 100, 1000.0, None,
+            jackpot_source="endpoint_error", at="2026-07-24T10:30:00Z")
+        flap_back = pool_dataset.record_draw_snapshot(
+            self.store, "stryktipset", 100, 1000.0, None,
+            jackpot_source="missing", at="2026-07-24T11:00:00Z")
+        upgrade = pool_dataset.record_draw_snapshot(
+            self.store, "stryktipset", 100, 1000.0, None,
+            jackpot_source="verified_endpoint", at="2026-07-24T11:30:00Z")
+        self.assertEqual((1, 0, 0, 1), (base, flap, flap_back, upgrade))
+
     def test_oforandrat_pris_far_farsk_lagg_fran_separat_capture(self):
         changed = self.close - dt.timedelta(hours=8)
         confirmed = self.close - dt.timedelta(hours=3, minutes=5)
