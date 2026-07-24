@@ -111,7 +111,20 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
 - `/draws/{nr}/result` ger `distribution` (faktiska vinstnivåer/utdelningar).
 - **Jackpot**: `/draw/1/jackpots` (matcha på productId + drawNumber — `fund` på draws är
   opålitligt). Belopp som svensk decimalsträng ("6000000,00").
-- Vinstplaner (validerade): Stryk/Europa 65 % åter, split 13/12/11/10 = 40/15/12/25 %.
+- Vinstplaner OMMÄTTA 2026-07-24 mot settlementlagret (150 omgångar/produkt):
+  **Stryktipset** 40/15/12/25, **Europatipset har EGEN plan** 39/**22**/12/25 —
+  den gamla koden kopierade Stryktipsets och underskattade Europas 12-rättspott
+  med 47 %. Splitsen summerar till < 1 (Stryk 0,92, Europa 0,98); resten går
+  till jackpotfonder. Använd `_payout_ratio()` (= ratio × Σsplits) för allt som
+  visas som återbetalning: Stryk **59,8 %**, Europa **63,7 %**, Topptipset 70 %.
+  Break-even mot fältet är därmed +67 % (Stryk), inte +54 %. `/api/payouts`
+  svarar med `payout_ratio`, `hurdle`, `product` och `guarantees`.
+- **Garantier** (`guaranteedJackpots`, t.ex. ensamvinnargaranti 10 Mkr) läses av
+  `get_guarantees()` och visas i UI men går ALDRIG in i EV — villkoren är inte
+  verifierade mot SvS regler. `get_jackpot()` summerar bara rullpotten.
+- **Strukna matcher räknas normalt** (uppmätt: mest streckade tecknet vinner
+  52,8 % i 593 strukna mot 52,1 % i 75 514 ostrukna; inga extra toppvinnare per
+  omsatt krona). Tvinga aldrig helgardering på dem — det tredubblar kostnaden.
   Topptipset 70 %, bara 8 rätt delar potten. Finns i `PRIZE_PLANS` i main.py.
 
 ### Pinnacle (sharp-odds, gratis)
@@ -134,12 +147,14 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
   `evalRows` (frontend) och `build_ev_system` (backend) — håll dem konsistenta.
 - **κ för poolmedvinnare** skattas som `Σ faktiska vinnare / Σ prognos` med
   omgången som bootstrap-block, aldrig som medel/geometriskt medel av enskilda
-  kvoter. Toppnivån kör κ=1,00. **PH4-analysen 2026-07-24
-  (`docs/ph4-analys-2026-07-24.md`, 7 754 omgångar) visade κ>1 överallt**
-  (fler medvinnare än oberoende-antagandet, 4–29 %; U-formad folkkorrelation
-  = fetare svansar; favoriter överstreckade) — ev. korrektion är alltså
-  PESSIMISTISK (sänker EV), och nivå-κ under toppen är challenger-kandidat
-  som ska slå champion i PH3-ledgern innan runtime rörs (förregistrerad gate).
+  kvoter. **PH4-analysen 2026-07-24 (`docs/ph4-analys-2026-07-24.md`,
+  7 754 omgångar) mätte κ>1 överallt** (4–29 %; U-formad folkkorrelation =
+  fetare svansar; favoriter överstreckade). Sedan 2026-07-24 är κ per produkt
+  och nivå INKOPPLAD i radvalet: `builder.KAPPA` + `KAPPA` i App.jsx måste
+  hållas identiska. κ>1 sänker EV — korrektionen kan aldrig blåsa upp
+  förväntningar, och PH3-ledgern mäter nu champion MED κ.
+- **Streck-golv:** `builder._pq` och frontendens `folkProb` golvar folkets
+  sannolikhet vid 0,001. Utan golv gav streck = 0 utdelning = hela potten.
 - **Pool-PIT presence-regel:** `snapshots`/`sharp_snapshots` är ENBART
   förändringsserier. Endast `pool_market_capture` får bevisa att en källa var
   observerad vid T−24h/T−3h/T−20m; gamla `pit-v1`/PH0-laggar får aldrig
@@ -169,7 +184,18 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
 - `app/clv.py` + `value_log`-tabellen: gröna värde-kvoter (≥1.08) / sharp-edge (≥2 %) loggas
   first/best per selektion; stängning = devigad Pinnacle; facit från resultat-API:t.
 - **Metodregel (dyrast lärdom från vm):** ENDAST marknadspriser får logga flaggor —
-  modellhärledda sannolikheter förorenar facitet.
+  modellhärledda sannolikheter förorenar facitet. Sedan 2026-07-24 gäller den
+  även UI:t: amber-modellen mäter −4,2 % close-EV (KI utan noll) och får därför
+  inte ge stödchip eller lyfta ett spelkort till "★ starkast stödd".
+- **Statistikregler för facitet (2026-07-24, efter att +6,6 % visade sig vara
+  +2,65 %):** (1) `oddset_clv_rows()` utan `limit` = hela historiken — trunkering
+  ger survivorship; (2) huvudsiffra och KI måste vara SAMMA estimand
+  (`avg_close_ev` är winsoriserad som KI:t, `avg_close_ev_raw` visas separat);
+  (3) censurerade linjeflyttar räknas (`n_censored`, `resolved_share`) och
+  blockerar grönt om de utgör majoriteten av de stängbara flaggorna;
+  (4) statusbeslut (candidate/green) körs på förregistrerad kadens
+  `EVAL_INTERVAL_H` = 1 vecka — utvärdering vid varje 30-minutersvarv är
+  sekventiell testning och lyser förr eller senare grönt på brus.
 - Oddset-facitets identitet är match + marknad + tecken + normaliserad lina +
   semantisk signalversion. Stäng alltid mot flaggans lina när ett färskt pris
   finns; spara annars slutlinans delta som `linje flyttad` utan fabricerat

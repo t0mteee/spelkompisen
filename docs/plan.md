@@ -2,6 +2,31 @@
 
 ## STATUS-SAMMANFATTNING (2026-07-24 — läs detta först i ny session)
 
+
+**GRANSKNINGSFIXAR 2026-07-24 (Fable 5) — läs innan poolspels- eller
+facitarbete.** En bred genomgång (kod + mätning mot settlementlagret) hittade
+fyra fel som påverkade pengar och ett som påverkade slutsatser:
+1. **Europatipset hade fel vinstplan** — 12-rätt kopierad från Stryktipset
+   (0,15 mot uppmätta 0,22), potten underskattad 47 %. Rättad i PRIZE_PLANS.
+2. **Spelvärdet var 5 pp för snällt** — splits summerar till 0,92/0,98, så
+   faktisk återbetalning är 59,8 %/63,7 %, inte 65 %. `_payout_ratio` +
+   break-even-hurdle (+67 %) visas nu i statusraden.
+3. **Ensamvinnargarantin var osynlig** — `guaranteedJackpots` (10 Mkr på
+   Stryk 4963) lästes aldrig. Parsas nu och visas, men går INTE in i EV
+   förrän villkoren verifierats mot SvS regler.
+4. **Strukna matcher helgarderades i onödan** — antagandet om återbetalning
+   är empiriskt falskt (52,8 % favorittäffar mot 52,1 % i ostrukna; inga
+   extra toppvinnare). Kostade 3× rader per struken match.
+5. **CLV-facitet var för optimistiskt** — `LIMIT 300` gav ett rullande
+   fönster, och det owinsoriserade snittet redovisades mot ett winsoriserat
+   KI. Ärlig siffra över hela historiken: sharp **+2,65 % [1,19..4,11]**
+   (147 stängda), inte +6,6 %. Statusbeslut är nu veckokadens i stället för
+   varje varv (sekventiell testning), och censurerade linjeflyttar blockerar
+   grönt när de dominerar.
+Dessutom: κ per produkt/nivå ur PH4 är inkopplad i radvalet (sänker EV),
+frontend fick backendens streck-golv och räknar mot prognostiserad
+slutomsättning, och amber-modellen (−4,2 % close-EV) ger inte längre stöd
+på värdekorten. Detaljer i commit 15c1d7c/bb9a412.
 **Appen är komplett och i drift** (backend 8002, frontend 5175, launchd var 30 min)
 — och sedan 2026-07-20 **enda driften**: SvS kompisen (svs, 8000/5173) är pausad som
 fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
