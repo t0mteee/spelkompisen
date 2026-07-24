@@ -1,0 +1,79 @@
+{
+ "horizon": "h3",
+ "min_train": 15,
+ "seed": 20260724,
+ "gate": "≥40 out-of-time-omgångar efter 2026-07-24 med hela KI90(Δlogloss)<0 mot b, per produkt",
+ "products": {
+  "topptipset": {
+   "n_draws": 49,
+   "n_eval_draws": 34,
+   "n_matches": 272,
+   "variants": {
+    "b": {
+     "logloss": 0.9453,
+     "delta_vs_b": 0.0,
+     "delta_ci90": [
+      0.0,
+      0.0
+     ]
+    },
+    "b*": {
+     "logloss": 0.9479,
+     "delta_vs_b": 0.0026,
+     "delta_ci90": [
+      -0.007,
+      0.0129
+     ]
+    },
+    "c": {
+     "logloss": 0.9479,
+     "delta_vs_b": 0.0026,
+     "delta_ci90": [
+      -0.0073,
+      0.0133
+     ]
+    },
+    "d": {
+     "logloss": 0.9388,
+     "delta_vs_b": -0.0065,
+     "delta_ci90": [
+      -0.0202,
+      0.0085
+     ]
+    },
+    "e": {
+     "logloss": 0.948,
+     "delta_vs_b": 0.0027,
+     "delta_ci90": [
+      -0.0079,
+      0.0137
+     ]
+    },
+    "f": {
+     "logloss": 0.9389,
+     "delta_vs_b": -0.0064,
+     "delta_ci90": [
+      -0.0204,
+      0.007
+     ]
+    }
+   }
+  },
+  "europatipset": {
+   "n_draws": 12,
+   "note": "för få omgångar (≤15) för walk-forward"
+  },
+  "topptipsetextra": {
+   "n_draws": 11,
+   "note": "för få omgångar (≤15) för walk-forward"
+  },
+  "stryktipset": {
+   "n_draws": 7,
+   "note": "för få omgångar (≤15) för walk-forward"
+  },
+  "topptipsetstryk": {
+   "n_draws": 6,
+   "note": "för få omgångar (≤15) för walk-forward"
+  }
+ }
+}

@@ -157,10 +157,16 @@ class SvenskaSpel:
         return self._summary(raw, product)
 
     def _scan_draws(self, product: str, start_hint: Optional[int] = None,
-                    back: int = 4, gap: int = 3, max_scan: int = 80) -> list[dict]:
+                    back: int = 8, gap: int = 3, max_scan: int = 80) -> list[dict]:
         """Scanna omgångsnummer (för produkter utan listnings-route, t.ex.
         topptipset). Börjar något före start_hint och går framåt tills `gap`
-        sammanhängande 404 efter senaste träff."""
+        sammanhängande 404 efter senaste träff.
+
+        back=8: hintet är MAX-numret vi någonsin sett, och Svenska Spel
+        publicerar upp till ~5-6 dagliga omgångar i förväg — med back=4
+        hamnade DAGENS ännu öppna omgångar under scanfönstret och försvann
+        ur omgångsväljaren (buggen 2026-07-24: 4227/4228 saknades medan
+        4229–4233 visades)."""
         cfg = PRODUCTS[product]
         start = (start_hint or cfg.get("seed") or 1)
         n = max(1, start - back)

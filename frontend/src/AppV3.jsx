@@ -86,6 +86,7 @@ function DashboardV3({ openPool, openOddset, openHistorik }) {
   const [oddset, setOddset] = useState(null)
   const [ledger, setLedger] = useState(null)
   const [hist, setHist] = useState(null)
+  const [systems, setSystems] = useState(null)
   const [err, setErr] = useState(null)
 
   const load = () => {
@@ -93,17 +94,23 @@ function DashboardV3({ openPool, openOddset, openHistorik }) {
       try {
         const d = await get(`/api/draws?product=${g.id}`)
         const list = d.open?.length ? d.open : d.draws || []
-        const first = list[0]
+        // NÄSTA spelstopp = tidigaste framtida stängning bland öppna omgångar
+        // (listan kan innehålla passerade/sena poster — lita inte på list[0])
+        const upcoming = list
+          .filter((x) => x.reg_close_time && new Date(x.reg_close_time) > new Date())
+          .sort((a, b) => new Date(a.reg_close_time) - new Date(b.reg_close_time))
+        const first = upcoming[0]
         if (!first) return { ...g, none: true }
         let pay = null
         if (g.id !== 'bomben') {
           pay = await get(`/api/payouts?product=${first.product}&draw=${first.draw_number}`).catch(() => null)
         }
-        return { ...g, draw: first, pay, count: list.length }
+        return { ...g, draw: first, pay, count: upcoming.length }
       } catch { return { ...g, none: true } }
     })).then(setPool).catch((e) => setErr(String(e)))
     get('/api/oddset/matches').then(setOddset).catch(() => setOddset(null))
     get('/api/oddset/predictions').then(setLedger).catch(() => setLedger(null))
+    get('/api/pool/systems').then(setSystems).catch(() => setSystems(null))
     Promise.all(HIST_PRODUCTS.map((p) =>
       get(`/api/pool/history?product=${p.id}&limit=1`).then((j) => [p.id, j]).catch(() => [p.id, null])
     )).then((pairs) => setHist(Object.fromEntries(pairs)))
@@ -234,6 +241,37 @@ function DashboardV3({ openPool, openOddset, openHistorik }) {
           ))}
           {ledger && <span className="v3hint">{ledger.n_predictions} frysta prediktioner ·
             {' '}{ledger.n_captures} fångster · grönt kräver KI &gt; 0 out-of-time</span>}
+        </div>
+
+        <div className="v3card">
+          <div className="v3cardhead"><h3>📋 Systemfacit</h3>
+            <button className="v3more" onClick={() => openHistorik(null, 'system')}>följ →</button></div>
+          {(() => {
+            const groups = systems?.groups || []
+            const frozen = groups.reduce((s, g) => s + g.n_frozen, 0)
+            const settled = groups.reduce((s, g) => s + g.n_settled, 0)
+            if (!frozen) {
+              return <span className="v3hint">Byggarens förslag (50 kr Värderader m.fl.)
+                fryses automatiskt vid T−3 h och T−20 min före varje spelstopp och
+                rättas mot riktig utdelning. Väntar på första frysningen.</span>
+            }
+            const primary = groups.filter((g) => g.primary)
+            return (
+              <>
+                {primary.map((g) => (
+                  <div key={`${g.config_key}-${g.horizon}`} className="v3row">
+                    <b>{g.config_key} · {g.horizon}</b>
+                    <span className="v3hint">{g.n_settled}/{g.n_frozen} rättade</span>
+                    {g.n_settled > 0 && g.roi != null &&
+                      <span className={g.roi >= 0 ? 'v3edge' : 'v3steam'}>
+                        {g.roi >= 0 ? '+' : ''}{Math.round(g.roi * 100)}%</span>}
+                  </div>
+                ))}
+                <span className="v3hint">{frozen} frysta system · {settled} rättade ·
+                  champion = dagens byggare</span>
+              </>
+            )
+          })()}
         </div>
 
         <div className="v3card">
@@ -504,18 +542,31 @@ function PoolV3() {
 
 /* =============================== Historik ================================= */
 
-function HistorikV3({ initialProduct }) {
+function HistorikV3({ initialProduct, focus }) {
   const [product, setProduct] = useState(initialProduct || 'stryktipset')
   const [data, setData] = useState(null)
   const [err, setErr] = useState(null)
   const [expanded, setExpanded] = useState(null)
   const [detail, setDetail] = useState({})
+  const [systems, setSystems] = useState(null)
 
   useEffect(() => {
     setData(null); setErr(null); setExpanded(null)
     get(`/api/pool/history?product=${product}&limit=400`)
       .then(setData).catch((e) => setErr(String(e)))
   }, [product])
+  useEffect(() => {
+    get('/api/pool/systems').then(setSystems).catch(() => setSystems(null))
+  }, [])
+  // djuplänk från Idag-kortet: landa på Systemfacit-panelen
+  useEffect(() => {
+    if (focus !== 'system' || !systems) return
+    const jump = () => document.getElementById('hist-system')
+      ?.scrollIntoView({ behavior: 'auto', block: 'start' })
+    jump()
+    const t = setTimeout(jump, 400)
+    return () => clearTimeout(t)
+  }, [focus, !!systems])  // eslint-disable-line
 
   const toggle = (n) => {
     const next = expanded === n ? null : n
@@ -552,6 +603,68 @@ function HistorikV3({ initialProduct }) {
         Historiskt <b>facit</b> ur settlementlagret (PH1): utfall, slutstreck, slutomsättning
         och utdelning per nivå. Kohorten är <code>final_only</code> — odds- och streckrörelser
         finns bara för lokalt observerade omgångar och kan aldrig bakfyllas.
+      </div>
+
+      <div className="v3card v3systembox" id="hist-system">
+        <div className="v3cardhead"><h3>📋 Systemfacit — byggarens egna förslag mot verkligheten</h3></div>
+        <span className="v3hint">
+          Vid T−3 h och T−20 min före varje spelstopp fryser snapshotvarvet vad
+          radbyggaren faktiskt föreslår (förregistrerad matris: {(systems?.benchmarks || [])
+            .map((b) => b.key + (b.primary ? ' ★' : '')).join(' · ') || '…'}) och
+          rättar sedan raderna mot riktigt utfall och riktig utdelning.
+          Champion = dagens byggare — inga inställningar ändras utan att slå den
+          out-of-time. Sena frysningar flaggas och räknas separat.
+        </span>
+        {!systems?.groups?.length && (
+          <EmptyState title="Inga frysta system ännu"
+            detail="Första frysningen sker automatiskt när nästa omgång går in i sitt T−3h-fönster." />
+        )}
+        {systems?.groups?.length > 0 && (
+          <div className="v3histtablewrap">
+            <table className="v3histtable">
+              <thead><tr><th>Konfig</th><th>Horisont</th><th>Frysta</th>
+                <th>Rättade</th><th>Insats</th><th>Utdelning</th><th>ROI</th><th>Bäst</th></tr></thead>
+              <tbody>
+                {systems.groups.map((g) => (
+                  <tr key={`${g.config_key}-${g.horizon}`}>
+                    <td>{g.primary ? '★ ' : ''}{g.config_key}</td>
+                    <td>{g.horizon}</td>
+                    <td>{g.n_frozen}{g.n_timely < g.n_frozen ? ` (${g.n_frozen - g.n_timely} sena)` : ''}</td>
+                    <td>{g.n_settled}</td>
+                    <td>{g.n_settled ? kr(g.cost_kr) : '–'}</td>
+                    <td>{g.n_settled ? kr(g.payout_kr) : '–'}</td>
+                    <td className={g.roi == null ? '' : g.roi >= 0 ? 'v3pos' : 'v3neg'}>
+                      {g.roi == null ? '–' : `${g.roi >= 0 ? '+' : ''}${Math.round(g.roi * 100)}%`}</td>
+                    <td>{g.best_correct ?? '–'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {systems?.recent?.length > 0 && (
+          <details className="v3recent">
+            <summary className="v3hint">Senaste frysningarna ({systems.recent.length})</summary>
+            <div className="v3histtablewrap">
+              <table className="v3histtable">
+                <thead><tr><th>Omgång</th><th>Horisont</th><th>Konfig</th>
+                  <th>Rader</th><th>Facit</th></tr></thead>
+                <tbody>
+                  {systems.recent.map((r, i) => (
+                    <tr key={i}>
+                      <td>{r.product} #{r.draw_number}</td>
+                      <td>{r.horizon}{r.timely ? '' : ' (sen)'}</td>
+                      <td>{r.config_key}</td>
+                      <td>{r.n_rows} ({kr(r.cost_kr)})</td>
+                      <td>{r.correct_max == null ? 'väntar'
+                        : `${r.correct_max} rätt · ${kr(r.payout_kr)} (${r.roi >= 0 ? '+' : ''}${Math.round((r.roi || 0) * 100)}%)`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        )}
       </div>
       {err && <ErrorState message={err} />}
       {!data && !err && <LoadingState label="Hämtar historik…" />}
@@ -641,6 +754,7 @@ export default function AppV3({ onExit }) {
     try { return localStorage.getItem('svs_v3_view') || 'idag' } catch { return 'idag' }
   })
   const [histProduct, setHistProduct] = useState(null)
+  const [histFocus, setHistFocus] = useState(null)
   const [oddsetFocus, setOddsetFocus] = useState(null)
   const go = (v) => {
     if (v !== 'oddset') setOddsetFocus(null)
@@ -657,7 +771,9 @@ export default function AppV3({ onExit }) {
     } catch { /* ok */ }
     go('pool')
   }
-  const openHistorik = (p) => { setHistProduct(p || null); go('historik') }
+  const openHistorik = (p, focus = null) => {
+    setHistProduct(p || null); setHistFocus(focus); go('historik')
+  }
 
   return (
     <div className="v3">
@@ -687,7 +803,9 @@ export default function AppV3({ onExit }) {
         </ErrBoundary>}
         {view === 'pool' && <ErrBoundary><PoolV3 /></ErrBoundary>}
         {view === 'oddset' && <ErrBoundary><OddsetView focus={oddsetFocus} /></ErrBoundary>}
-        {view === 'historik' && <ErrBoundary><HistorikV3 initialProduct={histProduct} /></ErrBoundary>}
+        {view === 'historik' && <ErrBoundary>
+          <HistorikV3 initialProduct={histProduct} focus={histFocus} />
+        </ErrBoundary>}
       </main>
       <footer className="v3foot">Lokal data från Svenska Spel + Pinnacle · personligt verktyg · v3-experiment</footer>
     </div>

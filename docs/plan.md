@@ -193,9 +193,19 @@ fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
   benchmarkmatris (primär `ev50-medel-vw50` + två sekundära) som fryser
   byggarens konkreta rader vid T−3h/T−20min i varvet och settlar mot
   riktig utdelning — champion = dagens byggare, `/api/pool/systems`.
-  Kvar: PH4 (ablationer — kräver månader av settlade system + kalibrerings-
-  analyserna på final_only-facitet innan någon modellparameter ändras),
-  samt `startOdds`-semantikverifiering. Överlämning och arbetsordning:
+  **PH4-analyspasset är KÖRT 2026-07-24** (`docs/ph4-analys-2026-07-24.md`,
+  läsande, ingen runtime-ändring): folket överstreckar favoriter i alla fem
+  produkter (65–70 %-streck träffar 56–60 %); **κ>1 överallt** (2013–2026:
+  1,04–1,29; 2024+: 1,02–1,11 — medvinnarna är FLER än oberoende-antagandet,
+  dagens EV är optimistisk i medvinnartermen); folkkorrelationen är U-formad
+  (fetare svansar — systemspel täcker skräll- och folkfacit bättre än
+  mitten); ablationerna (34 topptipsomgångar walk-forward) slår INTE rå
+  devigad marknad — endast streckrörelse har negativt punktestimat (KI över
+  noll, hypotes). FÖRREGISTRERAD GATE: ≥40 out-of-time-omgångar efter
+  2026-07-24 med hela KI90<0 per produkt; challengers (nivå-κ under toppen,
+  svansjusterad P_folk) ska slå champion i PH3-ledgern före runtime.
+  Kvar: `startOdds`-semantikverifiering, gate-omprövning i höst.
+  Överlämning och arbetsordning:
   `docs/overlamning-till-claude-2026-07-24.md`.
 - **UI v3-experiment levererat 2026-07-24 (Samans beställning):** ny
   gränssnittsversion i `frontend/src/AppV3.jsx` + `AppV3.css` med växel —

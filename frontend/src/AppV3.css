@@ -136,6 +136,13 @@
 }
 .v3extras[open] > summary { color: var(--v3acc); }
 
+/* ---------- Systemfacit (PH3) ---------- */
+.v3systembox { margin-bottom: 12px; }
+.v3pos { color: var(--green); font-weight: 700; }
+.v3neg { color: #e06b6b; font-weight: 700; }
+.v3recent { margin-top: 6px; }
+.v3recent > summary { cursor: pointer; list-style: revert; padding: 4px 0; }
+
 /* ---------- Historik ---------- */
 .v3histbar { margin-bottom: 10px; }
 .v3note {

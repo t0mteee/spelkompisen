@@ -129,8 +129,12 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
   `evalRows` (frontend) och `build_ev_system` (backend) — håll dem konsistenta.
 - **κ för poolmedvinnare** skattas som `Σ faktiska vinnare / Σ prognos` med
   omgången som bootstrap-block, aldrig som medel/geometriskt medel av enskilda
-  kvoter. Nuvarande 100-omgångsfacit motiverar ingen optimistisk runtime-
-  korrektion; toppnivån kör κ=1,00. Lägre nivåer är uttryckligen approximationer.
+  kvoter. Toppnivån kör κ=1,00. **PH4-analysen 2026-07-24
+  (`docs/ph4-analys-2026-07-24.md`, 7 754 omgångar) visade κ>1 överallt**
+  (fler medvinnare än oberoende-antagandet, 4–29 %; U-formad folkkorrelation
+  = fetare svansar; favoriter överstreckade) — ev. korrektion är alltså
+  PESSIMISTISK (sänker EV), och nivå-κ under toppen är challenger-kandidat
+  som ska slå champion i PH3-ledgern innan runtime rörs (förregistrerad gate).
 - **Värderader**: score = P(rad)^k × EV(rad) där k = 2·(1−value_weight); reglaget är enda
   risk-axeln (strategin sätter bara startpunkten 20/50/80).
 - **RLM**: folket och devigad sharp åt olika håll (◆ smart pengar / ⚠ fadea).

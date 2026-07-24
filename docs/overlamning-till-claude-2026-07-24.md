@@ -48,9 +48,20 @@ Detta är den aktuella arbetsöverlämningen till Claude. Läs först
 > `app/pool_system_ledger.py` (förregistrerad benchmarkmatris fryses vid
 > T−3h/T−20min i snapshotvarvet, settlas mot riktiga utdelningsnivåer,
 > `/api/pool/systems`; toleranser 30/10 min per varvkadens; Bomben ingår
-> ej). 11 nya tester (156 totalt). Kvar i kedjan: PH4 (ablationer — vänta
-> in settlade system + kör kalibrerings-/κ-/folkkorrelationsanalyserna på
-> final_only-facitet först) och `startOdds`-semantikverifiering.
+> ej). 11 nya tester (156 totalt).
+>
+> **PH4-analyspasset kört 2026-07-24** (Samans "kör klart PH4"):
+> `scripts/ph4_kalibrering.py` + `scripts/ph4_ablationer.py` →
+> `docs/ph4-analys-2026-07-24.md` (+ JSON-rådata). Huvudfynd: favoriter
+> överstreckade i alla produkter; κ>1 överallt (EV:s medvinnarterm
+> optimistisk, effekten avtagit men kvar 2024+); U-formad folkkorrelation
+> (fetare svansar); ablationerna slår inte rå marknad (streckrörelse =
+> hypotes). Ingen runtime-ändring — förregistrerad gate + challengers via
+> PH3-ledgern. Samma dag: scanfönster-fix i `_scan_draws` (back 4→8 —
+> dagens topptipsomgångar föll UNDER hint-fönstret och saknades i
+> omgångsväljaren), Idag-kortet väljer tidigaste framtida spelstopp, och
+> Systemfacit fick egen UI (Idag-kort + panel i Historik med djuplänk).
+> Kvar: `startOdds`-semantikverifiering, gate-omprövning i höst.
 
 ## Kort lägesbild
 
