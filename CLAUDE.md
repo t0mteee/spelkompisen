@@ -18,7 +18,8 @@ Allsvenskan + research-only Premier League/Serie A/La Liga/Bundesliga med WP9c
 i isolerad sharp-identitetskontroll; se
 `docs/model-v2.2-multileague-forward-manifest.json`. Det är inte en tränad
 modell och får inte påverka tips, notiser eller CLV.
-**Aktuell överlämning till Claude:** `docs/overlamning-till-claude-2026-07-24.md`.
+**Aktuell överlämning:** `docs/overlamning-2026-07-25.md` (senaste passet).
+Föregående: `docs/overlamning-till-claude-2026-07-24.md`.
 Beställning 1 är LEVERERAD 2026-07-24: de fyra Europaligorna syns i ordinarie
 Oddset-vyn (🔬 forskningsmärkta, `visible_in_ui`) men är fortsatt icke-
 actionable — `VISIBLE_LEAGUE_KEYS` ≠ `ACTIONABLE_LEAGUE_KEYS` i `oddset.py`.
