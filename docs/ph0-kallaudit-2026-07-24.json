@@ -1,0 +1,4221 @@
+{
+ "local": {
+  "db": "/Users/saman/spelkompisen/backend/data/stryktips.db",
+  "generated_at": "2026-07-23T22:35:01.104971+00:00",
+  "products": {
+   "stryktipset": {
+    "draws_observed": 8,
+    "draws_passed": 7,
+    "horizons": {
+     "svs": {
+      "h24": {
+       "n": 7,
+       "n_lag_le_45m": 6,
+       "n_lag_le_6h": 7,
+       "median_lag_min": 25.4
+      },
+      "h3": {
+       "n": 7,
+       "n_lag_le_45m": 5,
+       "n_lag_le_6h": 7,
+       "median_lag_min": 13.9
+      },
+      "m20": {
+       "n": 7,
+       "n_lag_le_45m": 6,
+       "n_lag_le_6h": 7,
+       "median_lag_min": 9.2
+      },
+      "close": {
+       "n": 7,
+       "n_lag_le_45m": 6,
+       "n_lag_le_6h": 7,
+       "median_lag_min": 21.6
+      }
+     },
+     "sharp": {
+      "h24": {
+       "n": 6,
+       "n_lag_le_45m": 3,
+       "n_lag_le_6h": 6,
+       "median_lag_min": 51.2
+      },
+      "h3": {
+       "n": 7,
+       "n_lag_le_45m": 5,
+       "n_lag_le_6h": 7,
+       "median_lag_min": 13.9
+      },
+      "m20": {
+       "n": 7,
+       "n_lag_le_45m": 7,
+       "n_lag_le_6h": 7,
+       "median_lag_min": 14.1
+      },
+      "close": {
+       "n": 7,
+       "n_lag_le_45m": 7,
+       "n_lag_le_6h": 7,
+       "median_lag_min": 19.1
+      }
+     }
+    },
+    "per_draw": [
+     {
+      "draw_number": 4956,
+      "svs_rows": 386,
+      "sharp_rows": 418,
+      "reg_close_time": "2026-06-06T13:59:00+00:00",
+      "passed": true,
+      "svs_points": 56,
+      "svs_first": "2026-06-04T13:09:51.692348+00:00",
+      "svs_lag_min": {
+       "h24": 345.3,
+       "h3": 13.9,
+       "m20": 113.6,
+       "close": 133.6
+      },
+      "sharp_points": 25,
+      "sharp_first": "2026-06-05T23:47:39.592829+00:00",
+      "sharp_lag_min": {
+       "h24": null,
+       "h3": 13.9,
+       "m20": 1.8,
+       "close": 21.8
+      }
+     },
+     {
+      "draw_number": 4957,
+      "svs_rows": 1276,
+      "sharp_rows": 748,
+      "reg_close_time": "2026-06-13T13:59:00+00:00",
+      "passed": true,
+      "svs_points": 190,
+      "svs_first": "2026-06-08T19:55:42.231215+00:00",
+      "svs_lag_min": {
+       "h24": 22.6,
+       "h3": 0.4,
+       "m20": 4.2,
+       "close": 19.1
+      },
+      "sharp_points": 104,
+      "sharp_first": "2026-06-09T11:27:50.816544+00:00",
+      "sharp_lag_min": {
+       "h24": 22.6,
+       "h3": 0.4,
+       "m20": 14.4,
+       "close": 19.1
+      }
+     },
+     {
+      "draw_number": 4958,
+      "svs_rows": 1241,
+      "sharp_rows": 707,
+      "reg_close_time": "2026-06-20T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 195,
+      "svs_first": "2026-06-15T21:02:14.621843+00:00",
+      "svs_lag_min": {
+       "h24": 21.1,
+       "h3": 65.9,
+       "m20": 9.2,
+       "close": 29.2
+      },
+      "sharp_points": 150,
+      "sharp_first": "2026-06-15T21:02:14.623759+00:00",
+      "sharp_lag_min": {
+       "h24": 51.2,
+       "h3": 65.9,
+       "m20": 19.5,
+       "close": 39.5
+      }
+     },
+     {
+      "draw_number": 4959,
+      "svs_rows": 1189,
+      "sharp_rows": 582,
+      "reg_close_time": "2026-06-27T13:59:00+00:00",
+      "passed": true,
+      "svs_points": 158,
+      "svs_first": "2026-06-23T00:14:30.264807+00:00",
+      "svs_lag_min": {
+       "h24": 29.4,
+       "h3": 9.2,
+       "m20": 8.0,
+       "close": 28.0
+      },
+      "sharp_points": 69,
+      "sharp_first": "2026-06-23T13:39:02.011767+00:00",
+      "sharp_lag_min": {
+       "h24": 89.6,
+       "h3": 9.2,
+       "m20": 18.2,
+       "close": 38.2
+      }
+     },
+     {
+      "draw_number": 4960,
+      "svs_rows": 806,
+      "sharp_rows": 269,
+      "reg_close_time": "2026-07-04T13:59:00+00:00",
+      "passed": true,
+      "svs_points": 81,
+      "svs_first": "2026-07-02T05:21:33.532870+00:00",
+      "svs_lag_min": {
+       "h24": 3.9,
+       "h3": 145.0,
+       "m20": 14.1,
+       "close": 3.9
+      },
+      "sharp_points": 21,
+      "sharp_first": "2026-07-02T05:21:33.539778+00:00",
+      "sharp_lag_min": {
+       "h24": 124.3,
+       "h3": 137.6,
+       "m20": 14.1,
+       "close": 3.9
+      }
+     },
+     {
+      "draw_number": 4961,
+      "svs_rows": 1087,
+      "sharp_rows": 540,
+      "reg_close_time": "2026-07-11T13:59:00+00:00",
+      "passed": true,
+      "svs_points": 159,
+      "svs_first": "2026-07-08T07:02:42.233151+00:00",
+      "svs_lag_min": {
+       "h24": 25.4,
+       "h3": 8.4,
+       "m20": 16.2,
+       "close": 0.9
+      },
+      "sharp_points": 93,
+      "sharp_first": "2026-07-08T07:02:42.243956+00:00",
+      "sharp_lag_min": {
+       "h24": 25.4,
+       "h3": 8.4,
+       "m20": 4.1,
+       "close": 12.8
+      }
+     },
+     {
+      "draw_number": 4962,
+      "svs_rows": 883,
+      "sharp_rows": 652,
+      "reg_close_time": "2026-07-18T13:59:00+00:00",
+      "passed": true,
+      "svs_points": 100,
+      "svs_first": "2026-07-15T21:58:22.589559+00:00",
+      "svs_lag_min": {
+       "h24": 26.6,
+       "h3": 36.3,
+       "m20": 1.6,
+       "close": 21.6
+      },
+      "sharp_points": 83,
+      "sharp_first": "2026-07-15T21:58:22.597706+00:00",
+      "sharp_lag_min": {
+       "h24": 26.6,
+       "h3": 36.3,
+       "m20": 4.6,
+       "close": 18.7
+      }
+     },
+     {
+      "draw_number": 4963,
+      "svs_rows": 589,
+      "sharp_rows": 110,
+      "reg_close_time": "2026-07-25T13:59:00+00:00",
+      "passed": false,
+      "svs_points": 92,
+      "svs_first": "2026-07-20T21:09:15.048572+00:00",
+      "svs_lag_min": {
+       "h24": 960.6,
+       "h3": 2220.6,
+       "m20": 2380.6,
+       "close": 2400.6
+      },
+      "sharp_points": 26,
+      "sharp_first": "2026-07-20T21:09:15.055641+00:00",
+      "sharp_lag_min": {
+       "h24": 971.2,
+       "h3": 2231.2,
+       "m20": 2391.2,
+       "close": 2411.2
+      }
+     }
+    ]
+   },
+   "europatipset": {
+    "draws_observed": 13,
+    "draws_passed": 12,
+    "horizons": {
+     "svs": {
+      "h24": {
+       "n": 12,
+       "n_lag_le_45m": 10,
+       "n_lag_le_6h": 12,
+       "median_lag_min": 26.6
+      },
+      "h3": {
+       "n": 12,
+       "n_lag_le_45m": 8,
+       "n_lag_le_6h": 11,
+       "median_lag_min": 27.9
+      },
+      "m20": {
+       "n": 12,
+       "n_lag_le_45m": 10,
+       "n_lag_le_6h": 11,
+       "median_lag_min": 22.1
+      },
+      "close": {
+       "n": 12,
+       "n_lag_le_45m": 11,
+       "n_lag_le_6h": 12,
+       "median_lag_min": 6.0
+      }
+     },
+     "sharp": {
+      "h24": {
+       "n": 12,
+       "n_lag_le_45m": 6,
+       "n_lag_le_6h": 11,
+       "median_lag_min": 45.6
+      },
+      "h3": {
+       "n": 12,
+       "n_lag_le_45m": 5,
+       "n_lag_le_6h": 8,
+       "median_lag_min": 212.7
+      },
+      "m20": {
+       "n": 12,
+       "n_lag_le_45m": 10,
+       "n_lag_le_6h": 10,
+       "median_lag_min": 22.3
+      },
+      "close": {
+       "n": 12,
+       "n_lag_le_45m": 10,
+       "n_lag_le_6h": 11,
+       "median_lag_min": 16.2
+      }
+     }
+    },
+    "per_draw": [
+     {
+      "draw_number": 2581,
+      "svs_rows": 448,
+      "sharp_rows": 474,
+      "reg_close_time": "2026-06-07T12:59:00+00:00",
+      "passed": true,
+      "svs_points": 51,
+      "svs_first": "2026-06-05T15:44:08.785978+00:00",
+      "svs_lag_min": {
+       "h24": 73.6,
+       "h3": 6.3,
+       "m20": 16.0,
+       "close": 6.0
+      },
+      "sharp_points": 49,
+      "sharp_first": "2026-06-05T23:47:42.431077+00:00",
+      "sharp_lag_min": {
+       "h24": 73.6,
+       "h3": 6.3,
+       "m20": 1.8,
+       "close": 6.0
+      }
+     },
+     {
+      "draw_number": 2582,
+      "svs_rows": 1339,
+      "sharp_rows": 341,
+      "reg_close_time": "2026-06-11T18:59:00+00:00",
+      "passed": true,
+      "svs_points": 166,
+      "svs_first": "2026-06-07T18:53:24.172084+00:00",
+      "svs_lag_min": {
+       "h24": 26.5,
+       "h3": 23.0,
+       "m20": 21.8,
+       "close": 1.6
+      },
+      "sharp_points": 66,
+      "sharp_first": "2026-06-07T18:53:24.174279+00:00",
+      "sharp_lag_min": {
+       "h24": 26.5,
+       "h3": 576.4,
+       "m20": 26.9,
+       "close": 1.6
+      }
+     },
+     {
+      "draw_number": 2583,
+      "svs_rows": 1693,
+      "sharp_rows": 794,
+      "reg_close_time": "2026-06-17T19:59:00+00:00",
+      "passed": true,
+      "svs_points": 244,
+      "svs_first": "2026-06-11T20:02:42.761839+00:00",
+      "svs_lag_min": {
+       "h24": 207.5,
+       "h3": 6.3,
+       "m20": 15.5,
+       "close": 35.5
+      },
+      "sharp_points": 176,
+      "sharp_first": "2026-06-11T20:02:42.764186+00:00",
+      "sharp_lag_min": {
+       "h24": 228.5,
+       "h3": 6.3,
+       "m20": 15.5,
+       "close": 35.5
+      }
+     },
+     {
+      "draw_number": 2584,
+      "svs_rows": 1439,
+      "sharp_rows": 729,
+      "reg_close_time": "2026-06-22T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 207,
+      "svs_first": "2026-06-17T21:03:59.988488+00:00",
+      "svs_lag_min": {
+       "h24": 27.6,
+       "h3": 47.8,
+       "m20": 207.8,
+       "close": 227.8
+      },
+      "sharp_points": 151,
+      "sharp_first": "2026-06-17T21:03:59.992112+00:00",
+      "sharp_lag_min": {
+       "h24": 27.6,
+       "h3": 258.4,
+       "m20": 418.4,
+       "close": 438.4
+      }
+     },
+     {
+      "draw_number": 2585,
+      "svs_rows": 1083,
+      "sharp_rows": 373,
+      "reg_close_time": "2026-06-25T19:59:00+00:00",
+      "passed": true,
+      "svs_points": 111,
+      "svs_first": "2026-06-23T00:14:31.150802+00:00",
+      "svs_lag_min": {
+       "h24": 32.7,
+       "h3": 27.9,
+       "m20": 26.7,
+       "close": 1.3
+      },
+      "sharp_points": 39,
+      "sharp_first": "2026-06-23T13:39:02.832548+00:00",
+      "sharp_lag_min": {
+       "h24": 827.4,
+       "h3": 660.1,
+       "m20": 12.9,
+       "close": 6.4
+      }
+     },
+     {
+      "draw_number": 2586,
+      "svs_rows": 1097,
+      "sharp_rows": 536,
+      "reg_close_time": "2026-06-29T20:29:00+00:00",
+      "passed": true,
+      "svs_points": 95,
+      "svs_first": "2026-06-28T06:04:06.600160+00:00",
+      "svs_lag_min": {
+       "h24": 26.6,
+       "h3": 23.3,
+       "m20": 22.1,
+       "close": 1.9
+      },
+      "sharp_points": 60,
+      "sharp_first": "2026-06-28T06:04:06.610787+00:00",
+      "sharp_lag_min": {
+       "h24": 26.6,
+       "h3": 444.7,
+       "m20": 32.3,
+       "close": 52.3
+      }
+     },
+     {
+      "draw_number": 2587,
+      "svs_rows": 996,
+      "sharp_rows": 253,
+      "reg_close_time": "2026-07-05T11:59:00+00:00",
+      "passed": true,
+      "svs_points": 108,
+      "svs_first": "2026-07-02T05:51:38.727477+00:00",
+      "svs_lag_min": {
+       "h24": 15.8,
+       "h3": 475.1,
+       "m20": 635.1,
+       "close": 2.4
+      },
+      "sharp_points": 34,
+      "sharp_first": "2026-07-02T06:51:51.220332+00:00",
+      "sharp_lag_min": {
+       "h24": 46.2,
+       "h3": 475.1,
+       "m20": 635.1,
+       "close": 2.4
+      }
+     },
+     {
+      "draw_number": 2588,
+      "svs_rows": 1528,
+      "sharp_rows": 1152,
+      "reg_close_time": "2026-07-09T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 159,
+      "svs_first": "2026-07-05T19:48:09.449721+00:00",
+      "svs_lag_min": {
+       "h24": 28.4,
+       "h3": 23.7,
+       "m20": 22.3,
+       "close": 1.9
+      },
+      "sharp_points": 126,
+      "sharp_first": "2026-07-05T19:48:09.462018+00:00",
+      "sharp_lag_min": {
+       "h24": 28.4,
+       "h3": 23.7,
+       "m20": 22.3,
+       "close": 12.2
+      }
+     },
+     {
+      "draw_number": 2589,
+      "svs_rows": 1440,
+      "sharp_rows": 524,
+      "reg_close_time": "2026-07-12T11:59:00+00:00",
+      "passed": true,
+      "svs_points": 132,
+      "svs_first": "2026-07-09T18:02:24.923998+00:00",
+      "svs_lag_min": {
+       "h24": 17.6,
+       "h3": 56.1,
+       "m20": 4.0,
+       "close": 24.0
+      },
+      "sharp_points": 67,
+      "sharp_first": "2026-07-09T18:02:24.927090+00:00",
+      "sharp_lag_min": {
+       "h24": 128.7,
+       "h3": 56.1,
+       "m20": 4.0,
+       "close": 24.0
+      }
+     },
+     {
+      "draw_number": 2590,
+      "svs_rows": 1462,
+      "sharp_rows": 547,
+      "reg_close_time": "2026-07-15T18:14:00+00:00",
+      "passed": true,
+      "svs_points": 121,
+      "svs_first": "2026-07-12T21:20:47.503101+00:00",
+      "svs_lag_min": {
+       "h24": 0.1,
+       "h3": 28.0,
+       "m20": 2.7,
+       "close": 22.7
+      },
+      "sharp_points": 83,
+      "sharp_first": "2026-07-12T21:20:47.506315+00:00",
+      "sharp_lag_min": {
+       "h24": 0.1,
+       "h3": 28.0,
+       "m20": 2.7,
+       "close": 22.7
+      }
+     },
+     {
+      "draw_number": 2591,
+      "svs_rows": 1451,
+      "sharp_rows": 469,
+      "reg_close_time": "2026-07-19T12:59:00+00:00",
+      "passed": true,
+      "svs_points": 147,
+      "svs_first": "2026-07-15T21:58:23.236256+00:00",
+      "svs_lag_min": {
+       "h24": 24.5,
+       "h3": 4.3,
+       "m20": 2.6,
+       "close": 6.0
+      },
+      "sharp_points": 85,
+      "sharp_first": "2026-07-15T21:58:23.239948+00:00",
+      "sharp_lag_min": {
+       "h24": 45.6,
+       "h3": 4.3,
+       "m20": 6.8,
+       "close": 16.2
+      }
+     },
+     {
+      "draw_number": 2592,
+      "svs_rows": 1762,
+      "sharp_rows": 1005,
+      "reg_close_time": "2026-07-23T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 159,
+      "svs_first": "2026-07-19T20:09:00.122572+00:00",
+      "svs_lag_min": {
+       "h24": 25.4,
+       "h3": 48.2,
+       "m20": 24.4,
+       "close": 0.7
+      },
+      "sharp_points": 106,
+      "sharp_first": "2026-07-19T20:09:00.162491+00:00",
+      "sharp_lag_min": {
+       "h24": 25.4,
+       "h3": 212.7,
+       "m20": 24.4,
+       "close": 13.5
+      }
+     },
+     {
+      "draw_number": 2593,
+      "svs_rows": 312,
+      "sharp_rows": 42,
+      "reg_close_time": "2026-07-26T12:59:00+00:00",
+      "passed": false,
+      "svs_points": 11,
+      "svs_first": "2026-07-23T20:25:18.161376+00:00",
+      "svs_lag_min": {
+       "h24": 2330.1,
+       "h3": 3590.1,
+       "m20": 3750.1,
+       "close": 3770.1
+      },
+      "sharp_points": 2,
+      "sharp_first": "2026-07-23T20:25:18.170871+00:00",
+      "sharp_lag_min": {
+       "h24": 2403.0,
+       "h3": 3663.0,
+       "m20": 3823.0,
+       "close": 3843.0
+      }
+     }
+    ]
+   },
+   "topptipset": {
+    "draws_observed": 58,
+    "draws_passed": 50,
+    "horizons": {
+     "svs": {
+      "h24": {
+       "n": 46,
+       "n_lag_le_45m": 39,
+       "n_lag_le_6h": 45,
+       "median_lag_min": 23.4
+      },
+      "h3": {
+       "n": 49,
+       "n_lag_le_45m": 46,
+       "n_lag_le_6h": 49,
+       "median_lag_min": 18.6
+      },
+      "m20": {
+       "n": 50,
+       "n_lag_le_45m": 45,
+       "n_lag_le_6h": 50,
+       "median_lag_min": 13.7
+      },
+      "close": {
+       "n": 50,
+       "n_lag_le_45m": 44,
+       "n_lag_le_6h": 50,
+       "median_lag_min": 5.1
+      }
+     },
+     "sharp": {
+      "h24": {
+       "n": 45,
+       "n_lag_le_45m": 25,
+       "n_lag_le_6h": 38,
+       "median_lag_min": 35.8
+      },
+      "h3": {
+       "n": 48,
+       "n_lag_le_45m": 38,
+       "n_lag_le_6h": 46,
+       "median_lag_min": 22.6
+      },
+      "m20": {
+       "n": 49,
+       "n_lag_le_45m": 36,
+       "n_lag_le_6h": 45,
+       "median_lag_min": 23.6
+      },
+      "close": {
+       "n": 49,
+       "n_lag_le_45m": 38,
+       "n_lag_le_6h": 43,
+       "median_lag_min": 20.1
+      }
+     }
+    },
+    "per_draw": [
+     {
+      "draw_number": 4176,
+      "svs_rows": 46,
+      "reg_close_time": "2026-06-05T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 3,
+      "svs_first": "2026-06-05T15:44:02.722139+00:00",
+      "svs_lag_min": {
+       "h24": null,
+       "h3": null,
+       "m20": 4.3,
+       "close": 24.3
+      },
+      "sharp_points": 0
+     },
+     {
+      "draw_number": 4177,
+      "svs_rows": 201,
+      "sharp_rows": 32,
+      "reg_close_time": "2026-06-05T23:29:00+00:00",
+      "passed": true,
+      "svs_points": 13,
+      "svs_first": "2026-06-05T15:44:03.325359+00:00",
+      "svs_lag_min": {
+       "h24": null,
+       "h3": 22.2,
+       "m20": 31.6,
+       "close": 51.6
+      },
+      "sharp_points": 2,
+      "sharp_first": "2026-06-05T22:47:51.059559+00:00",
+      "sharp_lag_min": {
+       "h24": null,
+       "h3": null,
+       "m20": 10.2,
+       "close": 30.2
+      }
+     },
+     {
+      "draw_number": 4178,
+      "svs_rows": 471,
+      "sharp_rows": 259,
+      "reg_close_time": "2026-06-06T21:29:00+00:00",
+      "passed": true,
+      "svs_points": 45,
+      "svs_first": "2026-06-05T15:44:03.944013+00:00",
+      "svs_lag_min": {
+       "h24": 21.7,
+       "h3": 2.2,
+       "m20": 11.9,
+       "close": 1.8
+      },
+      "sharp_points": 34,
+      "sharp_first": "2026-06-05T23:47:38.181933+00:00",
+      "sharp_lag_min": {
+       "h24": null,
+       "h3": 2.2,
+       "m20": 11.9,
+       "close": 1.8
+      }
+     },
+     {
+      "draw_number": 4179,
+      "svs_rows": 550,
+      "sharp_rows": 228,
+      "reg_close_time": "2026-06-08T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 86,
+      "svs_first": "2026-06-05T15:44:04.521937+00:00",
+      "svs_lag_min": {
+       "h24": 5.8,
+       "h3": 4.0,
+       "m20": 13.7,
+       "close": 3.7
+      },
+      "sharp_points": 52,
+      "sharp_first": "2026-06-05T23:47:38.999412+00:00",
+      "sharp_lag_min": {
+       "h24": 35.8,
+       "h3": 334.5,
+       "m20": 494.5,
+       "close": 514.5
+      }
+     },
+     {
+      "draw_number": 4180,
+      "svs_rows": 658,
+      "sharp_rows": 85,
+      "reg_close_time": "2026-06-09T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 66,
+      "svs_first": "2026-06-08T07:24:23.733344+00:00",
+      "svs_lag_min": {
+       "h24": 3.7,
+       "h3": 0.8,
+       "m20": 10.4,
+       "close": 0.4
+      },
+      "sharp_points": 6,
+      "sharp_first": "2026-06-08T07:24:23.734716+00:00",
+      "sharp_lag_min": {
+       "h24": 544.6,
+       "h3": 60.9,
+       "m20": 220.9,
+       "close": 240.9
+      }
+     },
+     {
+      "draw_number": 4181,
+      "svs_rows": 812,
+      "sharp_rows": 414,
+      "reg_close_time": "2026-06-10T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 97,
+      "svs_first": "2026-06-08T07:24:24.040385+00:00",
+      "svs_lag_min": {
+       "h24": 0.4,
+       "h3": 27.3,
+       "m20": 2.9,
+       "close": 22.9
+      },
+      "sharp_points": 38,
+      "sharp_first": "2026-06-08T07:24:24.041551+00:00",
+      "sharp_lag_min": {
+       "h24": 331.2,
+       "h3": 27.3,
+       "m20": 6.8,
+       "close": 10.3
+      }
+     },
+     {
+      "draw_number": 4182,
+      "svs_rows": 1326,
+      "sharp_rows": 410,
+      "reg_close_time": "2026-06-12T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 152,
+      "svs_first": "2026-06-08T17:55:26.852627+00:00",
+      "svs_lag_min": {
+       "h24": 22.8,
+       "h3": 22.6,
+       "m20": 20.9,
+       "close": 0.6
+      },
+      "sharp_points": 71,
+      "sharp_first": "2026-06-09T11:27:49.637913+00:00",
+      "sharp_lag_min": {
+       "h24": 22.8,
+       "h3": 22.6,
+       "m20": 26.2,
+       "close": 0.6
+      }
+     },
+     {
+      "draw_number": 4183,
+      "svs_rows": 1491,
+      "sharp_rows": 539,
+      "reg_close_time": "2026-06-13T18:59:00+00:00",
+      "passed": true,
+      "svs_points": 196,
+      "svs_first": "2026-06-08T17:55:27.041346+00:00",
+      "svs_lag_min": {
+       "h24": 25.1,
+       "h3": 18.6,
+       "m20": 17.7,
+       "close": 2.5
+      },
+      "sharp_points": 114,
+      "sharp_first": "2026-06-09T11:27:49.944050+00:00",
+      "sharp_lag_min": {
+       "h24": 25.1,
+       "h3": 18.6,
+       "m20": 22.8,
+       "close": 7.6
+      }
+     },
+     {
+      "draw_number": 4184,
+      "svs_rows": 1663,
+      "sharp_rows": 346,
+      "reg_close_time": "2026-06-14T19:59:00+00:00",
+      "passed": true,
+      "svs_points": 239,
+      "svs_first": "2026-06-08T17:55:27.278775+00:00",
+      "svs_lag_min": {
+       "h24": 27.3,
+       "h3": 1.0,
+       "m20": 0.2,
+       "close": 20.2
+      },
+      "sharp_points": 91,
+      "sharp_first": "2026-06-09T11:27:50.266888+00:00",
+      "sharp_lag_min": {
+       "h24": 67.6,
+       "h3": 1.0,
+       "m20": 10.3,
+       "close": 30.3
+      }
+     },
+     {
+      "draw_number": 4185,
+      "svs_rows": 973,
+      "sharp_rows": 175,
+      "reg_close_time": "2026-06-14T10:59:00+00:00",
+      "passed": true,
+      "svs_points": 111,
+      "svs_first": "2026-06-11T08:04:46.792056+00:00",
+      "svs_lag_min": {
+       "h24": 0.4,
+       "h3": 9.1,
+       "m20": 169.1,
+       "close": 189.1
+      },
+      "sharp_points": 35,
+      "sharp_first": "2026-06-11T16:36:14.064366+00:00",
+      "sharp_lag_min": {
+       "h24": 181.1,
+       "h3": 9.1,
+       "m20": 169.1,
+       "close": 189.1
+      }
+     },
+     {
+      "draw_number": 4186,
+      "svs_rows": 1139,
+      "sharp_rows": 415,
+      "reg_close_time": "2026-06-15T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 162,
+      "svs_first": "2026-06-11T08:04:47.036186+00:00",
+      "svs_lag_min": {
+       "h24": 1.0,
+       "h3": 18.1,
+       "m20": 17.4,
+       "close": 2.3
+      },
+      "sharp_points": 75,
+      "sharp_first": "2026-06-11T16:36:14.466905+00:00",
+      "sharp_lag_min": {
+       "h24": 1.0,
+       "h3": 18.1,
+       "m20": 27.5,
+       "close": 2.3
+      }
+     },
+     {
+      "draw_number": 4187,
+      "svs_rows": 1320,
+      "sharp_rows": 475,
+      "reg_close_time": "2026-06-16T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 184,
+      "svs_first": "2026-06-11T08:04:47.285469+00:00",
+      "svs_lag_min": {
+       "h24": 2.3,
+       "h3": 24.2,
+       "m20": 7.5,
+       "close": 27.5
+      },
+      "sharp_points": 96,
+      "sharp_first": "2026-06-11T16:36:14.840834+00:00",
+      "sharp_lag_min": {
+       "h24": 57.6,
+       "h3": 24.2,
+       "m20": 7.5,
+       "close": 27.5
+      }
+     },
+     {
+      "draw_number": 4188,
+      "svs_rows": 1088,
+      "sharp_rows": 298,
+      "reg_close_time": "2026-06-18T15:59:00+00:00",
+      "passed": true,
+      "svs_points": 133,
+      "svs_first": "2026-06-15T07:40:07.183772+00:00",
+      "svs_lag_min": {
+       "h24": 6.5,
+       "h3": 22.4,
+       "m20": 21.2,
+       "close": 0.8
+      },
+      "sharp_points": 71,
+      "sharp_first": "2026-06-15T07:40:07.185168+00:00",
+      "sharp_lag_min": {
+       "h24": 36.6,
+       "h3": 22.4,
+       "m20": 21.2,
+       "close": 11.1
+      }
+     },
+     {
+      "draw_number": 4189,
+      "svs_rows": 896,
+      "sharp_rows": 422,
+      "reg_close_time": "2026-06-19T18:44:00+00:00",
+      "passed": true,
+      "svs_points": 115,
+      "svs_first": "2026-06-17T09:21:24.339150+00:00",
+      "svs_lag_min": {
+       "h24": 10.3,
+       "h3": 6.3,
+       "m20": 4.7,
+       "close": 24.7
+      },
+      "sharp_points": 71,
+      "sharp_first": "2026-06-17T09:21:24.341035+00:00",
+      "sharp_lag_min": {
+       "h24": 10.3,
+       "h3": 6.3,
+       "m20": 4.7,
+       "close": 24.7
+      }
+     },
+     {
+      "draw_number": 4190,
+      "svs_rows": 1282,
+      "sharp_rows": 238,
+      "reg_close_time": "2026-06-21T12:59:00+00:00",
+      "passed": true,
+      "svs_points": 161,
+      "svs_first": "2026-06-17T09:21:24.681646+00:00",
+      "svs_lag_min": {
+       "h24": 36.0,
+       "h3": 26.1,
+       "m20": 24.2,
+       "close": 3.9
+      },
+      "sharp_points": 46,
+      "sharp_first": "2026-06-17T09:21:24.684728+00:00",
+      "sharp_lag_min": {
+       "h24": 728.4,
+       "h3": 26.1,
+       "m20": 24.2,
+       "close": 9.0
+      }
+     },
+     {
+      "draw_number": 4191,
+      "svs_rows": 1137,
+      "sharp_rows": 492,
+      "reg_close_time": "2026-06-21T15:59:00+00:00",
+      "passed": true,
+      "svs_points": 174,
+      "svs_first": "2026-06-17T09:21:25.037979+00:00",
+      "svs_lag_min": {
+       "h24": 185.9,
+       "h3": 3.9,
+       "m20": 28.0,
+       "close": 2.7
+      },
+      "sharp_points": 117,
+      "sharp_first": "2026-06-17T09:21:25.039733+00:00",
+      "sharp_lag_min": {
+       "h24": 113.0,
+       "h3": 9.0,
+       "m20": 48.3,
+       "close": 7.8
+      }
+     },
+     {
+      "draw_number": 4192,
+      "svs_rows": 989,
+      "sharp_rows": 188,
+      "reg_close_time": "2026-06-23T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 118,
+      "svs_first": "2026-06-20T09:52:23.945772+00:00",
+      "svs_lag_min": {
+       "h24": 227.8,
+       "h3": 19.9,
+       "m20": 1.0,
+       "close": 15.9
+      },
+      "sharp_points": 45,
+      "sharp_first": "2026-06-20T09:52:23.947393+00:00",
+      "sharp_lag_min": {
+       "h24": 438.4,
+       "h3": 19.9,
+       "m20": 179.9,
+       "close": 199.9
+      }
+     },
+     {
+      "draw_number": 4193,
+      "svs_rows": 1182,
+      "sharp_rows": 383,
+      "reg_close_time": "2026-06-24T18:59:00+00:00",
+      "passed": true,
+      "svs_points": 138,
+      "svs_first": "2026-06-20T09:52:24.289628+00:00",
+      "svs_lag_min": {
+       "h24": 141.0,
+       "h3": 165.7,
+       "m20": 325.7,
+       "close": 345.7
+      },
+      "sharp_points": 73,
+      "sharp_first": "2026-06-20T09:52:24.290983+00:00",
+      "sharp_lag_min": {
+       "h24": 319.9,
+       "h3": 587.4,
+       "m20": 747.4,
+       "close": 767.4
+      }
+     },
+     {
+      "draw_number": 4194,
+      "svs_rows": 1105,
+      "sharp_rows": 361,
+      "reg_close_time": "2026-06-26T18:44:00+00:00",
+      "passed": true,
+      "svs_points": 140,
+      "svs_first": "2026-06-22T08:40:27.929978+00:00",
+      "svs_lag_min": {
+       "h24": 22.2,
+       "h3": 14.0,
+       "m20": 3.4,
+       "close": 23.4
+      },
+      "sharp_points": 45,
+      "sharp_first": "2026-06-22T09:40:38.221145+00:00",
+      "sharp_lag_min": {
+       "h24": 765.0,
+       "h3": 194.6,
+       "m20": 3.4,
+       "close": 23.4
+      }
+     },
+     {
+      "draw_number": 4195,
+      "svs_rows": 1133,
+      "sharp_rows": 532,
+      "reg_close_time": "2026-06-27T20:59:00+00:00",
+      "passed": true,
+      "svs_points": 118,
+      "svs_first": "2026-06-25T07:59:31.971532+00:00",
+      "svs_lag_min": {
+       "h24": 7.9,
+       "h3": 27.0,
+       "m20": 26.2,
+       "close": 1.0
+      },
+      "sharp_points": 61,
+      "sharp_first": "2026-06-25T19:42:26.356988+00:00",
+      "sharp_lag_min": {
+       "h24": 7.9,
+       "h3": 27.0,
+       "m20": 31.3,
+       "close": 1.0
+      }
+     },
+     {
+      "draw_number": 4196,
+      "svs_rows": 907,
+      "sharp_rows": 287,
+      "reg_close_time": "2026-06-28T12:59:00+00:00",
+      "passed": true,
+      "svs_points": 122,
+      "svs_first": "2026-06-25T07:59:32.269276+00:00",
+      "svs_lag_min": {
+       "h24": 28.7,
+       "h3": 24.3,
+       "m20": 28.5,
+       "close": 3.2
+      },
+      "sharp_points": 55,
+      "sharp_first": "2026-06-25T19:42:26.778823+00:00",
+      "sharp_lag_min": {
+       "h24": 23.6,
+       "h3": 24.3,
+       "m20": 33.6,
+       "close": 8.2
+      }
+     },
+     {
+      "draw_number": 4197,
+      "svs_rows": 378,
+      "sharp_rows": 196,
+      "reg_close_time": "2026-06-28T18:59:00+00:00",
+      "passed": true,
+      "svs_points": 40,
+      "svs_first": "2026-06-28T08:04:25.845935+00:00",
+      "svs_lag_min": {
+       "h24": null,
+       "h3": 27.8,
+       "m20": 27.0,
+       "close": 1.7
+      },
+      "sharp_points": 26,
+      "sharp_first": "2026-06-28T08:04:25.847270+00:00",
+      "sharp_lag_min": {
+       "h24": null,
+       "h3": 27.7,
+       "m20": 32.0,
+       "close": 6.8
+      }
+     },
+     {
+      "draw_number": 4198,
+      "svs_rows": 645,
+      "sharp_rows": 145,
+      "reg_close_time": "2026-06-30T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 78,
+      "svs_first": "2026-06-29T07:33:54.537283+00:00",
+      "svs_lag_min": {
+       "h24": 23.4,
+       "h3": 84.2,
+       "m20": 28.0,
+       "close": 2.7
+      },
+      "sharp_points": 25,
+      "sharp_first": "2026-06-29T07:33:54.545373+00:00",
+      "sharp_lag_min": {
+       "h24": 414.7,
+       "h3": 445.3,
+       "m20": 605.3,
+       "close": 625.3
+      }
+     },
+     {
+      "draw_number": 4199,
+      "svs_rows": 880,
+      "sharp_rows": 115,
+      "reg_close_time": "2026-07-01T15:59:00+00:00",
+      "passed": true,
+      "svs_points": 111,
+      "svs_first": "2026-06-29T07:33:54.903808+00:00",
+      "svs_lag_min": {
+       "h24": 3.3,
+       "h3": 25.4,
+       "m20": 155.3,
+       "close": 175.3
+      },
+      "sharp_points": 21,
+      "sharp_first": "2026-06-29T07:33:54.906017+00:00",
+      "sharp_lag_min": {
+       "h24": 625.5,
+       "h3": 266.1,
+       "m20": 426.1,
+       "close": 446.1
+      }
+     },
+     {
+      "draw_number": 4200,
+      "svs_rows": 1060,
+      "sharp_rows": 235,
+      "reg_close_time": "2026-07-02T18:59:00+00:00",
+      "passed": true,
+      "svs_points": 140,
+      "svs_first": "2026-06-29T07:33:55.210568+00:00",
+      "svs_lag_min": {
+       "h24": 385.4,
+       "h3": 5.3,
+       "m20": 135.1,
+       "close": 155.1
+      },
+      "sharp_points": 41,
+      "sharp_first": "2026-06-29T07:33:55.212322+00:00",
+      "sharp_lag_min": {
+       "h24": 656.2,
+       "h3": 5.3,
+       "m20": 135.1,
+       "close": 155.1
+      }
+     },
+     {
+      "draw_number": 4201,
+      "svs_rows": 1058,
+      "sharp_rows": 86,
+      "reg_close_time": "2026-07-03T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 140,
+      "svs_first": "2026-06-29T07:33:55.536897+00:00",
+      "svs_lag_min": {
+       "h24": 35.1,
+       "h3": 3.9,
+       "m20": 2.8,
+       "close": 22.8
+      },
+      "sharp_points": 17,
+      "sharp_first": "2026-06-29T07:33:55.538412+00:00",
+      "sharp_lag_min": {
+       "h24": 35.1,
+       "h3": 184.6,
+       "m20": 344.6,
+       "close": 364.6
+      }
+     },
+     {
+      "draw_number": 4202,
+      "svs_rows": 548,
+      "sharp_rows": 116,
+      "reg_close_time": "2026-07-03T17:59:00+00:00",
+      "passed": true,
+      "svs_points": 47,
+      "svs_first": "2026-07-02T07:21:59.381628+00:00",
+      "svs_lag_min": {
+       "h24": 95.1,
+       "h3": 3.7,
+       "m20": 12.4,
+       "close": 2.4
+      },
+      "sharp_points": 13,
+      "sharp_first": "2026-07-02T07:21:59.383012+00:00",
+      "sharp_lag_min": {
+       "h24": 95.1,
+       "h3": 184.3,
+       "m20": 344.3,
+       "close": 364.3
+      }
+     },
+     {
+      "draw_number": 4203,
+      "svs_rows": 294,
+      "sharp_rows": 105,
+      "reg_close_time": "2026-07-04T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 32,
+      "svs_first": "2026-07-04T05:33:32.603823+00:00",
+      "svs_lag_min": {
+       "h24": null,
+       "h3": 3.8,
+       "m20": 27.3,
+       "close": 1.8
+      },
+      "sharp_points": 16,
+      "sharp_first": "2026-07-04T11:12:52.545837+00:00",
+      "sharp_lag_min": {
+       "h24": null,
+       "h3": 3.8,
+       "m20": 27.3,
+       "close": 1.8
+      }
+     },
+     {
+      "draw_number": 4204,
+      "svs_rows": 667,
+      "sharp_rows": 253,
+      "reg_close_time": "2026-07-05T19:59:00+00:00",
+      "passed": true,
+      "svs_points": 74,
+      "svs_first": "2026-07-04T05:33:32.790738+00:00",
+      "svs_lag_min": {
+       "h24": 26.2,
+       "h3": 26.7,
+       "m20": 25.9,
+       "close": 0.7
+      },
+      "sharp_points": 45,
+      "sharp_first": "2026-07-04T11:12:53.639956+00:00",
+      "sharp_lag_min": {
+       "h24": 26.2,
+       "h3": 26.7,
+       "m20": 25.9,
+       "close": 0.7
+      }
+     },
+     {
+      "draw_number": 4205,
+      "svs_rows": 769,
+      "sharp_rows": 360,
+      "reg_close_time": "2026-07-06T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 92,
+      "svs_first": "2026-07-04T05:33:32.976558+00:00",
+      "svs_lag_min": {
+       "h24": 26.7,
+       "h3": 21.0,
+       "m20": 20.1,
+       "close": 4.9
+      },
+      "sharp_points": 63,
+      "sharp_first": "2026-07-04T11:13:02.086120+00:00",
+      "sharp_lag_min": {
+       "h24": 26.7,
+       "h3": 21.0,
+       "m20": 30.2,
+       "close": 4.9
+      }
+     },
+     {
+      "draw_number": 4206,
+      "svs_rows": 548,
+      "sharp_rows": 327,
+      "reg_close_time": "2026-07-07T15:59:00+00:00",
+      "passed": true,
+      "svs_points": 55,
+      "svs_first": "2026-07-06T08:37:11.460905+00:00",
+      "svs_lag_min": {
+       "h24": 0.4,
+       "h3": 9.6,
+       "m20": 8.7,
+       "close": 28.7
+      },
+      "sharp_points": 36,
+      "sharp_first": "2026-07-06T08:37:11.462135+00:00",
+      "sharp_lag_min": {
+       "h24": 0.4,
+       "h3": 9.6,
+       "m20": 18.8,
+       "close": 38.8
+      }
+     },
+     {
+      "draw_number": 4207,
+      "svs_rows": 774,
+      "sharp_rows": 355,
+      "reg_close_time": "2026-07-08T15:59:00+00:00",
+      "passed": true,
+      "svs_points": 96,
+      "svs_first": "2026-07-06T08:37:11.742388+00:00",
+      "svs_lag_min": {
+       "h24": 38.8,
+       "h3": 25.2,
+       "m20": 23.9,
+       "close": 3.6
+      },
+      "sharp_points": 60,
+      "sharp_first": "2026-07-06T08:37:11.743821+00:00",
+      "sharp_lag_min": {
+       "h24": 49.0,
+       "h3": 25.2,
+       "m20": 23.9,
+       "close": 13.8
+      }
+     },
+     {
+      "draw_number": 4208,
+      "svs_rows": 738,
+      "sharp_rows": 173,
+      "reg_close_time": "2026-07-09T19:59:00+00:00",
+      "passed": true,
+      "svs_points": 86,
+      "svs_first": "2026-07-08T12:03:40.432204+00:00",
+      "svs_lag_min": {
+       "h24": 27.6,
+       "h3": 1.9,
+       "m20": 25.5,
+       "close": 5.1
+      },
+      "sharp_points": 52,
+      "sharp_first": "2026-07-08T12:03:40.433628+00:00",
+      "sharp_lag_min": {
+       "h24": 27.6,
+       "h3": 12.1,
+       "m20": 46.0,
+       "close": 10.2
+      }
+     },
+     {
+      "draw_number": 4209,
+      "svs_rows": 1105,
+      "sharp_rows": 381,
+      "reg_close_time": "2026-07-10T18:44:00+00:00",
+      "passed": true,
+      "svs_points": 119,
+      "svs_first": "2026-07-08T12:33:46.918619+00:00",
+      "svs_lag_min": {
+       "h24": 31.3,
+       "h3": 9.7,
+       "m20": 8.1,
+       "close": 28.1
+      },
+      "sharp_points": 75,
+      "sharp_first": "2026-07-08T12:33:46.920104+00:00",
+      "sharp_lag_min": {
+       "h24": 41.5,
+       "h3": 9.7,
+       "m20": 8.1,
+       "close": 28.1
+      }
+     },
+     {
+      "draw_number": 4210,
+      "svs_rows": 823,
+      "sharp_rows": 150,
+      "reg_close_time": "2026-07-11T12:59:00+00:00",
+      "passed": true,
+      "svs_points": 107,
+      "svs_first": "2026-07-09T08:34:04.483953+00:00",
+      "svs_lag_min": {
+       "h24": 25.7,
+       "h3": 8.6,
+       "m20": 6.8,
+       "close": 26.8
+      },
+      "sharp_points": 34,
+      "sharp_first": "2026-07-09T08:34:04.485172+00:00",
+      "sharp_lag_min": {
+       "h24": 25.7,
+       "h3": 8.6,
+       "m20": 6.8,
+       "close": 26.8
+      }
+     },
+     {
+      "draw_number": 4211,
+      "svs_rows": 1206,
+      "sharp_rows": 308,
+      "reg_close_time": "2026-07-11T20:59:00+00:00",
+      "passed": true,
+      "svs_points": 131,
+      "svs_first": "2026-07-09T08:34:04.873980+00:00",
+      "svs_lag_min": {
+       "h24": 12.4,
+       "h3": 24.9,
+       "m20": 28.9,
+       "close": 3.4
+      },
+      "sharp_points": 71,
+      "sharp_first": "2026-07-09T08:34:04.875510+00:00",
+      "sharp_lag_min": {
+       "h24": 12.4,
+       "h3": 24.9,
+       "m20": 28.9,
+       "close": 3.4
+      }
+     },
+     {
+      "draw_number": 4212,
+      "svs_rows": 940,
+      "sharp_rows": 229,
+      "reg_close_time": "2026-07-12T17:59:00+00:00",
+      "passed": true,
+      "svs_points": 100,
+      "svs_first": "2026-07-09T08:34:05.262298+00:00",
+      "svs_lag_min": {
+       "h24": 24.9,
+       "h3": 22.6,
+       "m20": 152.4,
+       "close": 172.4
+      },
+      "sharp_points": 50,
+      "sharp_first": "2026-07-09T08:34:05.335855+00:00",
+      "sharp_lag_min": {
+       "h24": 24.9,
+       "h3": 22.6,
+       "m20": 152.4,
+       "close": 172.4
+      }
+     },
+     {
+      "draw_number": 4213,
+      "svs_rows": 1015,
+      "sharp_rows": 442,
+      "reg_close_time": "2026-07-13T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 105,
+      "svs_first": "2026-07-11T09:20:14.817120+00:00",
+      "svs_lag_min": {
+       "h24": 112.4,
+       "h3": 39.8,
+       "m20": 18.2,
+       "close": 3.0
+      },
+      "sharp_points": 68,
+      "sharp_first": "2026-07-11T09:20:14.818421+00:00",
+      "sharp_lag_min": {
+       "h24": 112.4,
+       "h3": 39.8,
+       "m20": 18.2,
+       "close": 7.2
+      }
+     },
+     {
+      "draw_number": 4214,
+      "svs_rows": 954,
+      "sharp_rows": 634,
+      "reg_close_time": "2026-07-16T17:29:00+00:00",
+      "passed": true,
+      "svs_points": 107,
+      "svs_first": "2026-07-13T08:00:00.853805+00:00",
+      "svs_lag_min": {
+       "h24": 2.3,
+       "h3": 2.6,
+       "m20": 3.8,
+       "close": 3.1
+      },
+      "sharp_points": 87,
+      "sharp_first": "2026-07-13T08:00:00.855387+00:00",
+      "sharp_lag_min": {
+       "h24": 2.3,
+       "h3": 4.7,
+       "m20": 3.8,
+       "close": 7.2
+      }
+     },
+     {
+      "draw_number": 4215,
+      "svs_rows": 1318,
+      "sharp_rows": 586,
+      "reg_close_time": "2026-07-16T22:29:00+00:00",
+      "passed": true,
+      "svs_points": 114,
+      "svs_first": "2026-07-13T08:00:01.188154+00:00",
+      "svs_lag_min": {
+       "h24": 30.6,
+       "h3": 5.9,
+       "m20": 0.2,
+       "close": 20.2
+      },
+      "sharp_points": 82,
+      "sharp_first": "2026-07-13T08:00:01.189692+00:00",
+      "sharp_lag_min": {
+       "h24": 30.6,
+       "h3": 5.9,
+       "m20": 0.2,
+       "close": 20.2
+      }
+     },
+     {
+      "draw_number": 4216,
+      "svs_rows": 1037,
+      "sharp_rows": 265,
+      "reg_close_time": "2026-07-17T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 149,
+      "svs_first": "2026-07-13T08:00:01.543841+00:00",
+      "svs_lag_min": {
+       "h24": 26.0,
+       "h3": 26.6,
+       "m20": 6.6,
+       "close": 26.6
+      },
+      "sharp_points": 58,
+      "sharp_first": "2026-07-13T08:00:01.546415+00:00",
+      "sharp_lag_min": {
+       "h24": 102.0,
+       "h3": 26.6,
+       "m20": 15.1,
+       "close": 35.1
+      }
+     },
+     {
+      "draw_number": 4217,
+      "svs_rows": 570,
+      "sharp_rows": 433,
+      "reg_close_time": "2026-07-14T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 59,
+      "svs_first": "2026-07-13T08:00:01.890547+00:00",
+      "svs_lag_min": {
+       "h24": 7.1,
+       "h3": 14.8,
+       "m20": 6.5,
+       "close": 10.1
+      },
+      "sharp_points": 51,
+      "sharp_first": "2026-07-13T08:00:01.892183+00:00",
+      "sharp_lag_min": {
+       "h24": 7.1,
+       "h3": 14.8,
+       "m20": 6.5,
+       "close": 10.1
+      }
+     },
+     {
+      "draw_number": 4218,
+      "svs_rows": 755,
+      "sharp_rows": 419,
+      "reg_close_time": "2026-07-17T21:44:00+00:00",
+      "passed": true,
+      "svs_points": 63,
+      "svs_first": "2026-07-16T08:29:04.641438+00:00",
+      "svs_lag_min": {
+       "h24": 32.7,
+       "h3": 46.4,
+       "m20": 8.5,
+       "close": 28.5
+      },
+      "sharp_points": 43,
+      "sharp_first": "2026-07-16T08:29:04.643037+00:00",
+      "sharp_lag_min": {
+       "h24": 278.8,
+       "h3": 46.4,
+       "m20": 12.6,
+       "close": 32.6
+      }
+     },
+     {
+      "draw_number": 4219,
+      "svs_rows": 1082,
+      "sharp_rows": 367,
+      "reg_close_time": "2026-07-18T18:59:00+00:00",
+      "passed": true,
+      "svs_points": 93,
+      "svs_first": "2026-07-16T08:29:05.190473+00:00",
+      "svs_lag_min": {
+       "h24": 5.7,
+       "h3": 4.9,
+       "m20": 4.0,
+       "close": 1.5
+      },
+      "sharp_points": 58,
+      "sharp_first": "2026-07-16T08:29:05.192135+00:00",
+      "sharp_lag_min": {
+       "h24": 5.7,
+       "h3": 4.9,
+       "m20": 4.0,
+       "close": 11.7
+      }
+     },
+     {
+      "draw_number": 4220,
+      "svs_rows": 1028,
+      "sharp_rows": 319,
+      "reg_close_time": "2026-07-20T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 119,
+      "svs_first": "2026-07-17T09:01:24.388768+00:00",
+      "svs_lag_min": {
+       "h24": 50.2,
+       "h3": 37.6,
+       "m20": 15.2,
+       "close": 2.9
+      },
+      "sharp_points": 55,
+      "sharp_first": "2026-07-17T09:01:24.391306+00:00",
+      "sharp_lag_min": {
+       "h24": 50.2,
+       "h3": 37.6,
+       "m20": 23.6,
+       "close": 2.9
+      }
+     },
+     {
+      "draw_number": 4221,
+      "svs_rows": 565,
+      "sharp_rows": 334,
+      "reg_close_time": "2026-07-21T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 56,
+      "svs_first": "2026-07-20T09:05:05.830298+00:00",
+      "svs_lag_min": {
+       "h24": 2.9,
+       "h3": 32.6,
+       "m20": 12.5,
+       "close": 1.7
+      },
+      "sharp_points": 40,
+      "sharp_first": "2026-07-20T09:05:05.834444+00:00",
+      "sharp_lag_min": {
+       "h24": 2.9,
+       "h3": 196.1,
+       "m20": 20.9,
+       "close": 1.7
+      }
+     },
+     {
+      "draw_number": 4222,
+      "svs_rows": 751,
+      "sharp_rows": 391,
+      "reg_close_time": "2026-07-21T21:59:00+00:00",
+      "passed": true,
+      "svs_points": 66,
+      "svs_first": "2026-07-20T09:05:06.276259+00:00",
+      "svs_lag_min": {
+       "h24": 18.9,
+       "h3": 14.3,
+       "m20": 4.5,
+       "close": 24.5
+      },
+      "sharp_points": 50,
+      "sharp_first": "2026-07-20T09:05:06.281950+00:00",
+      "sharp_lag_min": {
+       "h24": 18.9,
+       "h3": 14.3,
+       "m20": 4.5,
+       "close": 24.5
+      }
+     },
+     {
+      "draw_number": 4223,
+      "svs_rows": 740,
+      "sharp_rows": 395,
+      "reg_close_time": "2026-07-22T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 90,
+      "svs_first": "2026-07-20T09:05:06.746681+00:00",
+      "svs_lag_min": {
+       "h24": 1.7,
+       "h3": 22.4,
+       "m20": 5.4,
+       "close": 25.4
+      },
+      "sharp_points": 60,
+      "sharp_first": "2026-07-20T09:05:06.751356+00:00",
+      "sharp_lag_min": {
+       "h24": 1.7,
+       "h3": 22.4,
+       "m20": 5.4,
+       "close": 25.4
+      }
+     },
+     {
+      "draw_number": 4224,
+      "svs_rows": 1125,
+      "sharp_rows": 441,
+      "reg_close_time": "2026-07-23T00:29:00+00:00",
+      "passed": true,
+      "svs_points": 96,
+      "svs_first": "2026-07-20T09:05:07.216971+00:00",
+      "svs_lag_min": {
+       "h24": 19.2,
+       "h3": 0.5,
+       "m20": 4.1,
+       "close": 2.8
+      },
+      "sharp_points": 58,
+      "sharp_first": "2026-07-20T09:05:07.221758+00:00",
+      "sharp_lag_min": {
+       "h24": 111.5,
+       "h3": 0.5,
+       "m20": 4.1,
+       "close": 2.8
+      }
+     },
+     {
+      "draw_number": 4225,
+      "svs_rows": 1021,
+      "sharp_rows": 451,
+      "reg_close_time": "2026-07-23T22:29:00+00:00",
+      "passed": true,
+      "svs_points": 106,
+      "svs_first": "2026-07-20T09:05:07.644015+00:00",
+      "svs_lag_min": {
+       "h24": 7.7,
+       "h3": 5.4,
+       "m20": 0.1,
+       "close": 20.1
+      },
+      "sharp_points": 64,
+      "sharp_first": "2026-07-20T09:05:07.648400+00:00",
+      "sharp_lag_min": {
+       "h24": 7.7,
+       "h3": 5.4,
+       "m20": 0.1,
+       "close": 20.1
+      }
+     },
+     {
+      "draw_number": 4226,
+      "svs_rows": 918,
+      "sharp_rows": 116,
+      "reg_close_time": "2026-07-24T16:59:00+00:00",
+      "passed": false,
+      "svs_points": 121,
+      "svs_first": "2026-07-20T09:05:08.078264+00:00",
+      "svs_lag_min": {
+       "h24": 9.1,
+       "h3": 955.3,
+       "m20": 1115.3,
+       "close": 1135.3
+      },
+      "sharp_points": 29,
+      "sharp_first": "2026-07-20T09:05:08.083128+00:00",
+      "sharp_lag_min": {
+       "h24": 65.8,
+       "h3": 971.1,
+       "m20": 1131.1,
+       "close": 1151.1
+      }
+     },
+     {
+      "draw_number": 4227,
+      "svs_rows": 369,
+      "sharp_rows": 69,
+      "reg_close_time": "2026-07-24T18:59:00+00:00",
+      "passed": false,
+      "svs_points": 28,
+      "svs_first": "2026-07-23T08:23:04.712466+00:00",
+      "svs_lag_min": {
+       "h24": 30.2,
+       "h3": 1070.0,
+       "m20": 1230.0,
+       "close": 1250.0
+      },
+      "sharp_points": 15,
+      "sharp_first": "2026-07-23T08:23:04.717564+00:00",
+      "sharp_lag_min": {
+       "h24": 30.2,
+       "h3": 1085.8,
+       "m20": 1245.8,
+       "close": 1265.8
+      }
+     },
+     {
+      "draw_number": 4228,
+      "svs_rows": 249,
+      "sharp_rows": 43,
+      "reg_close_time": "2026-07-25T00:14:00+00:00",
+      "passed": false,
+      "svs_points": 18,
+      "svs_first": "2026-07-23T08:23:05.425092+00:00",
+      "svs_lag_min": {
+       "h24": 125.0,
+       "h3": 1385.0,
+       "m20": 1545.0,
+       "close": 1565.0
+      },
+      "sharp_points": 8,
+      "sharp_first": "2026-07-23T08:23:05.430774+00:00",
+      "sharp_lag_min": {
+       "h24": 146.1,
+       "h3": 1406.1,
+       "m20": 1566.1,
+       "close": 1586.1
+      }
+     },
+     {
+      "draw_number": 4229,
+      "svs_rows": 191,
+      "sharp_rows": 41,
+      "reg_close_time": "2026-07-25T17:59:00+00:00",
+      "passed": false,
+      "svs_points": 15,
+      "svs_first": "2026-07-23T08:23:06.234316+00:00",
+      "svs_lag_min": {
+       "h24": 1262.9,
+       "h3": 2522.9,
+       "m20": 2682.9,
+       "close": 2702.9
+      },
+      "sharp_points": 8,
+      "sharp_first": "2026-07-23T08:23:06.242340+00:00",
+      "sharp_lag_min": {
+       "h24": 1324.3,
+       "h3": 2584.3,
+       "m20": 2744.3,
+       "close": 2764.3
+      }
+     },
+     {
+      "draw_number": 4230,
+      "svs_rows": 176,
+      "sharp_rows": 46,
+      "reg_close_time": "2026-07-25T23:29:00+00:00",
+      "passed": false,
+      "svs_points": 14,
+      "svs_first": "2026-07-23T08:23:07.025452+00:00",
+      "svs_lag_min": {
+       "h24": 1520.0,
+       "h3": 2780.0,
+       "m20": 2940.0,
+       "close": 2960.0
+      },
+      "sharp_points": 8,
+      "sharp_first": "2026-07-23T08:23:07.032247+00:00",
+      "sharp_lag_min": {
+       "h24": 1685.3,
+       "h3": 2945.3,
+       "m20": 3105.3,
+       "close": 3125.3
+      }
+     },
+     {
+      "draw_number": 4231,
+      "svs_rows": 203,
+      "sharp_rows": 21,
+      "reg_close_time": "2026-07-26T18:59:00+00:00",
+      "passed": false,
+      "svs_points": 15,
+      "svs_first": "2026-07-23T08:23:07.700401+00:00",
+      "svs_lag_min": {
+       "h24": 2793.6,
+       "h3": 4053.6,
+       "m20": 4213.6,
+       "close": 4233.6
+      },
+      "sharp_points": 4,
+      "sharp_first": "2026-07-23T08:23:07.706065+00:00",
+      "sharp_lag_min": {
+       "h24": 2855.3,
+       "h3": 4115.3,
+       "m20": 4275.3,
+       "close": 4295.3
+      }
+     },
+     {
+      "draw_number": 4232,
+      "svs_rows": 134,
+      "sharp_rows": 25,
+      "reg_close_time": "2026-07-26T22:29:00+00:00",
+      "passed": false,
+      "svs_points": 11,
+      "svs_first": "2026-07-23T08:23:08.291778+00:00",
+      "svs_lag_min": {
+       "h24": 3003.5,
+       "h3": 4263.5,
+       "m20": 4423.5,
+       "close": 4443.5
+      },
+      "sharp_points": 4,
+      "sharp_first": "2026-07-23T08:23:08.297139+00:00",
+      "sharp_lag_min": {
+       "h24": 3328.1,
+       "h3": 4588.1,
+       "m20": 4748.1,
+       "close": 4768.1
+      }
+     },
+     {
+      "draw_number": 4233,
+      "svs_rows": 234,
+      "sharp_rows": 21,
+      "reg_close_time": "2026-07-27T16:59:00+00:00",
+      "passed": false,
+      "svs_points": 17,
+      "svs_first": "2026-07-23T08:23:08.933498+00:00",
+      "svs_lag_min": {
+       "h24": 4144.2,
+       "h3": 5404.2,
+       "m20": 5564.2,
+       "close": 5584.2
+      },
+      "sharp_points": 3,
+      "sharp_first": "2026-07-23T08:23:08.939676+00:00",
+      "sharp_lag_min": {
+       "h24": 4144.2,
+       "h3": 5404.2,
+       "m20": 5564.2,
+       "close": 5584.2
+      }
+     }
+    ]
+   },
+   "topptipsetstryk": {
+    "draws_observed": 8,
+    "draws_passed": 6,
+    "horizons": {
+     "svs": {
+      "h24": {
+       "n": 6,
+       "n_lag_le_45m": 6,
+       "n_lag_le_6h": 6,
+       "median_lag_min": 25.4
+      },
+      "h3": {
+       "n": 6,
+       "n_lag_le_45m": 4,
+       "n_lag_le_6h": 6,
+       "median_lag_min": 36.2
+      },
+      "m20": {
+       "n": 6,
+       "n_lag_le_45m": 6,
+       "n_lag_le_6h": 6,
+       "median_lag_min": 16.1
+      },
+      "close": {
+       "n": 6,
+       "n_lag_le_45m": 6,
+       "n_lag_le_6h": 6,
+       "median_lag_min": 19.0
+      }
+     },
+     "sharp": {
+      "h24": {
+       "n": 6,
+       "n_lag_le_45m": 3,
+       "n_lag_le_6h": 6,
+       "median_lag_min": 51.1
+      },
+      "h3": {
+       "n": 6,
+       "n_lag_le_45m": 4,
+       "n_lag_le_6h": 5,
+       "median_lag_min": 36.2
+      },
+      "m20": {
+       "n": 6,
+       "n_lag_le_45m": 6,
+       "n_lag_le_6h": 6,
+       "median_lag_min": 17.6
+      },
+      "close": {
+       "n": 6,
+       "n_lag_le_45m": 6,
+       "n_lag_le_6h": 6,
+       "median_lag_min": 18.5
+      }
+     }
+    },
+    "per_draw": [
+     {
+      "draw_number": 966,
+      "sharp_rows": 193,
+      "reg_close_time": null,
+      "passed": false,
+      "svs_points": 0,
+      "sharp_points": 10
+     },
+     {
+      "draw_number": 967,
+      "svs_rows": 557,
+      "sharp_rows": 335,
+      "reg_close_time": "2026-06-13T13:59:00+00:00",
+      "passed": true,
+      "svs_points": 123,
+      "svs_first": "2026-06-10T07:00:39.840520+00:00",
+      "svs_lag_min": {
+       "h24": 22.6,
+       "h3": 0.4,
+       "m20": 4.1,
+       "close": 19.0
+      },
+      "sharp_points": 66,
+      "sharp_first": "2026-06-10T07:00:39.848365+00:00",
+      "sharp_lag_min": {
+       "h24": 22.6,
+       "h3": 0.4,
+       "m20": 14.4,
+       "close": 19.0
+      }
+     },
+     {
+      "draw_number": 968,
+      "svs_rows": 1353,
+      "sharp_rows": 565,
+      "reg_close_time": "2026-06-20T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 194,
+      "svs_first": "2026-06-15T21:02:17.138236+00:00",
+      "svs_lag_min": {
+       "h24": 21.0,
+       "h3": 65.8,
+       "m20": 9.1,
+       "close": 29.1
+      },
+      "sharp_points": 140,
+      "sharp_first": "2026-06-15T21:02:17.146077+00:00",
+      "sharp_lag_min": {
+       "h24": 51.1,
+       "h3": 65.8,
+       "m20": 19.4,
+       "close": 39.4
+      }
+     },
+     {
+      "draw_number": 969,
+      "svs_rows": 1025,
+      "sharp_rows": 558,
+      "reg_close_time": "2026-06-27T14:59:00+00:00",
+      "passed": true,
+      "svs_points": 153,
+      "svs_first": "2026-06-23T00:14:34.444970+00:00",
+      "svs_lag_min": {
+       "h24": 29.2,
+       "h3": 9.0,
+       "m20": 17.6,
+       "close": 2.4
+      },
+      "sharp_points": 71,
+      "sharp_first": "2026-06-23T13:39:05.565517+00:00",
+      "sharp_lag_min": {
+       "h24": 149.6,
+       "h3": 9.0,
+       "m20": 17.6,
+       "close": 7.5
+      }
+     },
+     {
+      "draw_number": 970,
+      "svs_rows": 591,
+      "sharp_rows": 167,
+      "reg_close_time": "2026-07-04T13:59:00+00:00",
+      "passed": true,
+      "svs_points": 84,
+      "svs_first": "2026-07-02T05:21:36.689394+00:00",
+      "svs_lag_min": {
+       "h24": 3.8,
+       "h3": 175.0,
+       "m20": 19.1,
+       "close": 3.8
+      },
+      "sharp_points": 19,
+      "sharp_first": "2026-07-02T05:21:36.698365+00:00",
+      "sharp_lag_min": {
+       "h24": 124.2,
+       "h3": 1384.2,
+       "m20": 13.9,
+       "close": 3.8
+      }
+     },
+     {
+      "draw_number": 971,
+      "svs_rows": 770,
+      "sharp_rows": 436,
+      "reg_close_time": "2026-07-11T13:59:00+00:00",
+      "passed": true,
+      "svs_points": 142,
+      "svs_first": "2026-07-08T07:02:45.823761+00:00",
+      "svs_lag_min": {
+       "h24": 25.4,
+       "h3": 8.3,
+       "m20": 16.1,
+       "close": 0.8
+      },
+      "sharp_points": 82,
+      "sharp_first": "2026-07-08T07:02:45.834534+00:00",
+      "sharp_lag_min": {
+       "h24": 25.4,
+       "h3": 8.3,
+       "m20": 21.2,
+       "close": 6.0
+      }
+     },
+     {
+      "draw_number": 972,
+      "svs_rows": 738,
+      "sharp_rows": 499,
+      "reg_close_time": "2026-07-18T13:59:00+00:00",
+      "passed": true,
+      "svs_points": 94,
+      "svs_first": "2026-07-15T21:58:27.268699+00:00",
+      "svs_lag_min": {
+       "h24": 26.5,
+       "h3": 36.2,
+       "m20": 1.5,
+       "close": 21.5
+      },
+      "sharp_points": 77,
+      "sharp_first": "2026-07-15T21:58:27.279017+00:00",
+      "sharp_lag_min": {
+       "h24": 26.5,
+       "h3": 36.2,
+       "m20": 1.5,
+       "close": 18.5
+      }
+     },
+     {
+      "draw_number": 973,
+      "svs_rows": 743,
+      "sharp_rows": 60,
+      "reg_close_time": "2026-07-25T13:59:00+00:00",
+      "passed": false,
+      "svs_points": 90,
+      "svs_first": "2026-07-20T21:09:21.873358+00:00",
+      "svs_lag_min": {
+       "h24": 971.0,
+       "h3": 2231.0,
+       "m20": 2391.0,
+       "close": 2411.0
+      },
+      "sharp_points": 17,
+      "sharp_first": "2026-07-20T21:09:21.894636+00:00",
+      "sharp_lag_min": {
+       "h24": 933.9,
+       "h3": 2193.9,
+       "m20": 2353.9,
+       "close": 2373.9
+      }
+     }
+    ]
+   },
+   "topptipsetextra": {
+    "draws_observed": 13,
+    "draws_passed": 11,
+    "horizons": {
+     "svs": {
+      "h24": {
+       "n": 11,
+       "n_lag_le_45m": 10,
+       "n_lag_le_6h": 11,
+       "median_lag_min": 26.4
+      },
+      "h3": {
+       "n": 11,
+       "n_lag_le_45m": 7,
+       "n_lag_le_6h": 10,
+       "median_lag_min": 27.8
+      },
+      "m20": {
+       "n": 11,
+       "n_lag_le_45m": 9,
+       "n_lag_le_6h": 10,
+       "median_lag_min": 22.1
+      },
+      "close": {
+       "n": 11,
+       "n_lag_le_45m": 10,
+       "n_lag_le_6h": 11,
+       "median_lag_min": 2.4
+      }
+     },
+     "sharp": {
+      "h24": {
+       "n": 11,
+       "n_lag_le_45m": 5,
+       "n_lag_le_6h": 10,
+       "median_lag_min": 45.9
+      },
+      "h3": {
+       "n": 11,
+       "n_lag_le_45m": 5,
+       "n_lag_le_6h": 7,
+       "median_lag_min": 212.5
+      },
+      "m20": {
+       "n": 11,
+       "n_lag_le_45m": 8,
+       "n_lag_le_6h": 8,
+       "median_lag_min": 24.0
+      },
+      "close": {
+       "n": 11,
+       "n_lag_le_45m": 9,
+       "n_lag_le_6h": 10,
+       "median_lag_min": 14.2
+      }
+     }
+    },
+    "per_draw": [
+     {
+      "draw_number": 1840,
+      "sharp_rows": 115,
+      "reg_close_time": null,
+      "passed": false,
+      "svs_points": 0,
+      "sharp_points": 8
+     },
+     {
+      "draw_number": 1841,
+      "svs_rows": 383,
+      "sharp_rows": 182,
+      "reg_close_time": "2026-06-11T18:59:00+00:00",
+      "passed": true,
+      "svs_points": 65,
+      "svs_first": "2026-06-10T07:00:40.639620+00:00",
+      "svs_lag_min": {
+       "h24": 26.4,
+       "h3": 22.9,
+       "m20": 21.8,
+       "close": 1.5
+      },
+      "sharp_points": 39,
+      "sharp_first": "2026-06-10T07:00:40.648904+00:00",
+      "sharp_lag_min": {
+       "h24": 26.4,
+       "h3": 594.7,
+       "m20": 28.0,
+       "close": 1.5
+      }
+     },
+     {
+      "draw_number": 1842,
+      "svs_rows": 1507,
+      "sharp_rows": 521,
+      "reg_close_time": "2026-06-17T19:59:00+00:00",
+      "passed": true,
+      "svs_points": 239,
+      "svs_first": "2026-06-11T20:02:47.202039+00:00",
+      "svs_lag_min": {
+       "h24": 207.4,
+       "h3": 6.3,
+       "m20": 15.4,
+       "close": 35.4
+      },
+      "sharp_points": 139,
+      "sharp_first": "2026-06-11T20:02:47.217918+00:00",
+      "sharp_lag_min": {
+       "h24": 228.4,
+       "h3": 6.3,
+       "m20": 15.4,
+       "close": 35.4
+      }
+     },
+     {
+      "draw_number": 1843,
+      "svs_rows": 1127,
+      "sharp_rows": 471,
+      "reg_close_time": "2026-06-22T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 184,
+      "svs_first": "2026-06-17T21:04:03.381892+00:00",
+      "svs_lag_min": {
+       "h24": 27.6,
+       "h3": 47.8,
+       "m20": 207.8,
+       "close": 227.8
+      },
+      "sharp_points": 114,
+      "sharp_first": "2026-06-17T21:04:03.385154+00:00",
+      "sharp_lag_min": {
+       "h24": 27.6,
+       "h3": 258.3,
+       "m20": 418.3,
+       "close": 438.3
+      }
+     },
+     {
+      "draw_number": 1844,
+      "svs_rows": 788,
+      "sharp_rows": 254,
+      "reg_close_time": "2026-06-25T19:59:00+00:00",
+      "passed": true,
+      "svs_points": 110,
+      "svs_first": "2026-06-23T00:14:35.546791+00:00",
+      "svs_lag_min": {
+       "h24": 23.0,
+       "h3": 27.8,
+       "m20": 26.7,
+       "close": 1.2
+      },
+      "sharp_points": 34,
+      "sharp_first": "2026-06-23T13:39:06.397990+00:00",
+      "sharp_lag_min": {
+       "h24": 827.3,
+       "h3": 660.0,
+       "m20": 820.0,
+       "close": 6.3
+      }
+     },
+     {
+      "draw_number": 1845,
+      "svs_rows": 783,
+      "sharp_rows": 363,
+      "reg_close_time": "2026-06-29T20:29:00+00:00",
+      "passed": true,
+      "svs_points": 96,
+      "svs_first": "2026-06-28T06:04:09.843435+00:00",
+      "svs_lag_min": {
+       "h24": 26.5,
+       "h3": 23.2,
+       "m20": 22.1,
+       "close": 1.8
+      },
+      "sharp_points": 57,
+      "sharp_first": "2026-06-28T06:04:09.850516+00:00",
+      "sharp_lag_min": {
+       "h24": 26.5,
+       "h3": 444.7,
+       "m20": 32.2,
+       "close": 52.2
+      }
+     },
+     {
+      "draw_number": 1846,
+      "svs_rows": 770,
+      "sharp_rows": 175,
+      "reg_close_time": "2026-07-05T11:59:00+00:00",
+      "passed": true,
+      "svs_points": 108,
+      "svs_first": "2026-07-02T05:51:43.723892+00:00",
+      "svs_lag_min": {
+       "h24": 15.7,
+       "h3": 475.0,
+       "m20": 635.0,
+       "close": 2.4
+      },
+      "sharp_points": 31,
+      "sharp_first": "2026-07-02T06:51:55.417473+00:00",
+      "sharp_lag_min": {
+       "h24": 45.9,
+       "h3": 475.0,
+       "m20": 635.0,
+       "close": 2.4
+      }
+     },
+     {
+      "draw_number": 1847,
+      "svs_rows": 1024,
+      "sharp_rows": 908,
+      "reg_close_time": "2026-07-09T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 149,
+      "svs_first": "2026-07-05T19:48:13.075331+00:00",
+      "svs_lag_min": {
+       "h24": 28.3,
+       "h3": 23.7,
+       "m20": 22.2,
+       "close": 1.8
+      },
+      "sharp_points": 118,
+      "sharp_first": "2026-07-05T19:48:13.081546+00:00",
+      "sharp_lag_min": {
+       "h24": 28.3,
+       "h3": 23.7,
+       "m20": 22.2,
+       "close": 12.1
+      }
+     },
+     {
+      "draw_number": 1848,
+      "svs_rows": 1064,
+      "sharp_rows": 377,
+      "reg_close_time": "2026-07-12T11:59:00+00:00",
+      "passed": true,
+      "svs_points": 127,
+      "svs_first": "2026-07-09T18:02:30.785824+00:00",
+      "svs_lag_min": {
+       "h24": 17.5,
+       "h3": 56.1,
+       "m20": 3.9,
+       "close": 23.9
+      },
+      "sharp_points": 52,
+      "sharp_first": "2026-07-09T18:02:30.795100+00:00",
+      "sharp_lag_min": {
+       "h24": 128.6,
+       "h3": 32.4,
+       "m20": 3.9,
+       "close": 23.9
+      }
+     },
+     {
+      "draw_number": 1849,
+      "svs_rows": 990,
+      "sharp_rows": 449,
+      "reg_close_time": "2026-07-15T18:14:00+00:00",
+      "passed": true,
+      "svs_points": 112,
+      "svs_first": "2026-07-12T21:20:51.520208+00:00",
+      "svs_lag_min": {
+       "h24": 0.0,
+       "h3": 27.9,
+       "m20": 2.6,
+       "close": 22.6
+      },
+      "sharp_points": 76,
+      "sharp_first": "2026-07-12T21:20:51.545878+00:00",
+      "sharp_lag_min": {
+       "h24": 0.0,
+       "h3": 27.9,
+       "m20": 2.6,
+       "close": 22.6
+      }
+     },
+     {
+      "draw_number": 1850,
+      "svs_rows": 905,
+      "sharp_rows": 386,
+      "reg_close_time": "2026-07-19T12:59:00+00:00",
+      "passed": true,
+      "svs_points": 135,
+      "svs_first": "2026-07-15T21:58:28.468057+00:00",
+      "svs_lag_min": {
+       "h24": 41.3,
+       "h3": 4.2,
+       "m20": 2.5,
+       "close": 5.9
+      },
+      "sharp_points": 74,
+      "sharp_first": "2026-07-15T21:58:28.482506+00:00",
+      "sharp_lag_min": {
+       "h24": 101.3,
+       "h3": 4.2,
+       "m20": 6.7,
+       "close": 14.2
+      }
+     },
+     {
+      "draw_number": 1851,
+      "svs_rows": 1260,
+      "sharp_rows": 714,
+      "reg_close_time": "2026-07-23T16:59:00+00:00",
+      "passed": true,
+      "svs_points": 153,
+      "svs_first": "2026-07-19T20:09:05.994518+00:00",
+      "svs_lag_min": {
+       "h24": 25.3,
+       "h3": 48.1,
+       "m20": 24.0,
+       "close": 0.5
+      },
+      "sharp_points": 86,
+      "sharp_first": "2026-07-19T20:09:06.022960+00:00",
+      "sharp_lag_min": {
+       "h24": 46.4,
+       "h3": 212.5,
+       "m20": 24.0,
+       "close": 13.3
+      }
+     },
+     {
+      "draw_number": 1852,
+      "svs_rows": 155,
+      "sharp_rows": 24,
+      "reg_close_time": "2026-07-26T12:59:00+00:00",
+      "passed": false,
+      "svs_points": 8,
+      "svs_first": "2026-07-23T20:25:31.160375+00:00",
+      "svs_lag_min": {
+       "h24": 2340.4,
+       "h3": 3600.4,
+       "m20": 3760.4,
+       "close": 3780.4
+      },
+      "sharp_points": 1,
+      "sharp_first": "2026-07-23T20:25:31.181165+00:00",
+      "sharp_lag_min": {
+       "h24": 2433.5,
+       "h3": 3693.5,
+       "m20": 3853.5,
+       "close": 3873.5
+      }
+     }
+    ]
+   }
+  }
+ },
+ "api": {
+  "products": {
+   "stryktipset": {
+    "latest_probed_from": 4963,
+    "oldest_accessible": 4267,
+    "boundary_note": null,
+    "n_requests": 39,
+    "samples": [
+     {
+      "draw_number": 4962,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-07-18T15:59:00+02:00",
+       "n_events": 13,
+       "n_odds": 5,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4961,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-07-11T15:59:00+02:00",
+       "n_events": 13,
+       "n_odds": 13,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4960,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-07-04T15:59:00+02:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4958,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-06-20T18:59:00+02:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4955,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-05-30T15:59:00+02:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4950,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-04-25T15:59:00+02:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4942,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-02-28T15:59:00+01:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4929,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2025-11-29T15:59:00+01:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4908,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2025-07-05T15:59:00+02:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4874,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2024-11-16T15:59:00+01:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4819,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2023-11-04T15:59:00+01:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4730,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2022-02-26T15:59:00+01:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4586,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2019-02-23T15:59:00+01:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 0,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4353,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2014-09-06T15:59:00+02:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 0,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 3976,
+      "found": false
+     },
+     {
+      "draw_number": 4267,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2013-01-12T15:59:00+01:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 0,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      },
+      "boundary": true
+     }
+    ]
+   },
+   "europatipset": {
+    "latest_probed_from": 2593,
+    "oldest_accessible": 1606,
+    "boundary_note": "alla sonderade nummer ned till 1606 svarar — gränsen ligger djupare än sonderingsbudgeten",
+    "n_requests": 30,
+    "samples": [
+     {
+      "draw_number": 2592,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-07-23T18:59:00+02:00",
+       "n_events": 13,
+       "n_odds": 13,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 2591,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-07-19T14:59:00+02:00",
+       "n_events": 13,
+       "n_odds": 4,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 2590,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-07-15T20:14:00+02:00",
+       "n_events": 13,
+       "n_odds": 13,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 2588,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-07-09T18:59:00+02:00",
+       "n_events": 13,
+       "n_odds": 13,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 2585,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-06-25T21:59:00+02:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 2580,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-06-03T18:59:00+02:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 2572,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-05-07T20:59:00+02:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 2559,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-03-22T14:59:00+01:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 2538,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-01-07T19:59:00+01:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 2504,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2025-09-09T20:44:00+02:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 2449,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2025-03-02T14:59:00+01:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 2360,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2024-04-14T14:59:00+02:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 1,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 2216,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2022-11-21T19:59:00+01:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 13,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 1983,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2020-08-12T18:59:00+02:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 0,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 1606,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2016-10-18T20:44:00+02:00",
+       "n_events": 13,
+       "n_odds": 0,
+       "n_start_odds": 0,
+       "n_streck": 13,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 4,
+       "tiers_complete": true,
+       "n_outcomes": 13,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     }
+    ]
+   },
+   "topptipset": {
+    "latest_probed_from": 4233,
+    "oldest_accessible": 3246,
+    "boundary_note": "alla sonderade nummer ned till 3246 svarar — gränsen ligger djupare än sonderingsbudgeten",
+    "n_requests": 30,
+    "samples": [
+     {
+      "draw_number": 4232,
+      "found": true,
+      "draw": {
+       "state": "Open",
+       "reg_close_time": "2026-07-27T00:29:00+02:00",
+       "n_events": 8,
+       "n_odds": 8,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": null
+     },
+     {
+      "draw_number": 4231,
+      "found": true,
+      "draw": {
+       "state": "Open",
+       "reg_close_time": "2026-07-26T20:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 8,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": null
+     },
+     {
+      "draw_number": 4230,
+      "found": true,
+      "draw": {
+       "state": "Open",
+       "reg_close_time": "2026-07-26T01:29:00+02:00",
+       "n_events": 8,
+       "n_odds": 8,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": null
+     },
+     {
+      "draw_number": 4228,
+      "found": true,
+      "draw": {
+       "state": "Open",
+       "reg_close_time": "2026-07-25T02:14:00+02:00",
+       "n_events": 8,
+       "n_odds": 8,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": null
+     },
+     {
+      "draw_number": 4225,
+      "found": true,
+      "draw": {
+       "state": "Closed",
+       "reg_close_time": "2026-07-24T00:29:00+02:00",
+       "n_events": 8,
+       "n_odds": 7,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": null
+     },
+     {
+      "draw_number": 4220,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-07-20T18:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 4,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4212,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-07-12T19:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 8,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4199,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-07-01T17:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4178,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-06-06T23:29:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4144,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-05-17T23:29:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4089,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-04-21T00:29:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 4000,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-03-05T20:29:00+01:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 3856,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2025-11-24T23:14:00+01:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 3623,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2025-07-21T18:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 3246,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2024-12-08T20:44:00+01:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     }
+    ]
+   },
+   "topptipsetstryk": {
+    "latest_probed_from": 973,
+    "oldest_accessible": 363,
+    "boundary_note": "alla sonderade nummer ned till 363 svarar — gränsen ligger djupare än sonderingsbudgeten",
+    "n_requests": 28,
+    "samples": [
+     {
+      "draw_number": 972,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-07-18T15:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 2,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 971,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-07-11T15:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 8,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 970,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-07-04T15:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 968,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-06-20T18:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 965,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-05-30T15:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 960,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-04-25T15:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 952,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-02-28T15:59:00+01:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 939,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2025-11-29T15:59:00+01:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 918,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2025-07-05T15:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 884,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2024-11-16T15:59:00+01:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 829,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2023-11-04T15:59:00+01:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 740,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2022-02-26T15:59:00+01:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 596,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2019-02-23T15:59:00+01:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 0,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 363,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2014-10-04T15:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 0,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     }
+    ]
+   },
+   "topptipsetextra": {
+    "latest_probed_from": 1852,
+    "oldest_accessible": 865,
+    "boundary_note": "alla sonderade nummer ned till 865 svarar — gränsen ligger djupare än sonderingsbudgeten",
+    "n_requests": 30,
+    "samples": [
+     {
+      "draw_number": 1851,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-07-23T18:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 8,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 1850,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-07-19T14:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 7,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 1849,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-07-15T20:14:00+02:00",
+       "n_events": 8,
+       "n_odds": 8,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 1847,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-07-09T18:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 8,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 1844,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-06-25T21:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 1839,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-06-03T18:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 1831,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-05-07T20:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 1818,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-03-22T14:59:00+01:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 1797,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2026-01-07T20:29:00+01:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 1763,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2025-09-09T20:44:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 1708,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2025-03-02T14:59:00+01:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 1619,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2024-04-14T14:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 1,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 1475,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2022-11-21T19:59:00+01:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 8,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 1242,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2020-08-16T14:29:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 0,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     },
+     {
+      "draw_number": 865,
+      "found": true,
+      "draw": {
+       "state": "Finalized",
+       "reg_close_time": "2016-10-16T14:59:00+02:00",
+       "n_events": 8,
+       "n_odds": 0,
+       "n_start_odds": 0,
+       "n_streck": 8,
+       "n_cancelled": 0,
+       "has_net_sale": true,
+       "row_price": "1,00"
+      },
+      "result": {
+       "n_tiers": 1,
+       "tiers_complete": true,
+       "n_outcomes": 8,
+       "n_cancelled": 0,
+       "has_turnover": true
+      }
+     }
+    ]
+   }
+  },
+  "rate_limit_events": [],
+  "transport_errors": [],
+  "total_requests": 157,
+  "other_errors": []
+ }
+}
