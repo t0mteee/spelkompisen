@@ -133,6 +133,16 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
   soccer = sport 29. `/sports/29/matchups` + `/sports/29/markets/straight` (moneyline period 0).
   Amerikanska odds → decimal. Matchning via ISO/pycountry + fuzzy + tidsfönster + spegling 1↔2.
 - Saknas moneyline härleds 1X2 ur spread/total (derive.py) — märks `P~` i UI.
+- **CDN-CACHE (uppmätt 2026-07-24):** bulk-endpointerna svarar
+  `cache-control: public, max-age=905` och objektet är ofta redan flera minuter
+  gammalt (observerat `age` 469–539 s). **Hämtningstid ≠ pristid** — samma
+  klass av fel som pit-v1:s förändringstid ≠ observationstid. `Pinnacle`
+  exponerar `last_age_s`; färskhetsregler och PIT-capture ska korrigera för
+  den i stället för att anta att svaret är färskt. Kadenskonsekvens: snabbvarv
+  oftare än ~15 min ger SAMMA objekt igen. Per-matchup-endpointen
+  (`/matchups/{id}/markets/straight`) är däremot liten (8 kB) och är den enda
+  som ger LIVE-priser — `/markets/related/straight` returnerar tyst FRYSTA
+  prematch-marknader (lätt fälla).
 - OBS (vm-lärdom): Arcadia Cloudflare-blockar i perioder på IP-nivå — headers/TLS hjälper EJ.
   vm:s fallback via the-odds-api är mönstret om det blir akut.
 

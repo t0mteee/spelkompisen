@@ -35,6 +35,8 @@ def american_to_decimal(a: Optional[float]) -> Optional[float]:
 class Pinnacle:
     def __init__(self, timeout: float = 30.0):
         self._client = httpx.Client(timeout=timeout, headers=HEADERS)
+        # Ålder (sekunder) på CDN-objektet i senaste lyckade svar — se _get.
+        self.last_age_s = 0
 
     def close(self) -> None:
         self._client.close()
@@ -56,6 +58,20 @@ class Pinnacle:
             try:
                 r = self._client.get(f"{BASE}{path}")
                 r.raise_for_status()
+                # CDN-CACHE (uppmätt 2026-07-24): bulk-endpointerna svarar
+                # `cache-control: public, max-age=905` och objektet är ofta
+                # redan flera minuter gammalt (observerat age=469 s). Priset
+                # vi ser kan alltså vara upp till ~15 min äldre än hämtningen
+                # — hämtningstid ≠ pristid, samma klass av fel som pit-v1:s
+                # förändringstid ≠ observationstid. Bokför åldern så att
+                # färskhetsregler och PIT-capture kan korrigera för den i
+                # stället för att anta att svaret är färskt. Konsekvens för
+                # kadensen: snabbvarv oftare än ~15 min ger Pinnacle SAMMA
+                # objekt igen (se FAST_SLEEP_S i oddset.py).
+                try:
+                    self.last_age_s = int(r.headers.get("age") or 0)
+                except (TypeError, ValueError):
+                    self.last_age_s = 0
                 return r.json()
             except (httpx.ConnectError, httpx.ReadTimeout, httpx.ConnectTimeout) as e:
                 last = e
