@@ -179,7 +179,7 @@ function DashboardV3({ openPool, openOddset, openHistorik }) {
 
         <div className="v3card">
           <div className="v3cardhead"><h3>💰 Värdespel</h3>
-            <button className="v3more" onClick={openOddset}>alla →</button></div>
+            <button className="v3more" onClick={() => openOddset('varde')}>alla →</button></div>
           {!signals.length && <span className="v3hint">Inga sharp-ankrade edges ≥ 2 % just nu.</span>}
           {signals.slice(0, 3).map(({ m, mk, sg, v }, i) => (
             <div key={i} className="v3row">
@@ -192,7 +192,7 @@ function DashboardV3({ openPool, openOddset, openHistorik }) {
 
         <div className="v3card">
           <div className="v3cardhead"><h3>📈 Rörelser</h3>
-            <button className="v3more" onClick={openOddset}>radar →</button></div>
+            <button className="v3more" onClick={() => openOddset('radar')}>radar →</button></div>
           {!movers.length && <span className="v3hint">Inga devigade skift ≥ 1,5 pp senaste dygnet.</span>}
           {movers.slice(0, 3).map(({ m, sg, pp }, i) => (
             <div key={i} className="v3row">
@@ -204,7 +204,8 @@ function DashboardV3({ openPool, openOddset, openHistorik }) {
         </div>
 
         <div className="v3card">
-          <div className="v3cardhead"><h3>🔬 Forskningsligor</h3></div>
+          <div className="v3cardhead"><h3>🔬 Forskningsligor</h3>
+            <button className="v3more" onClick={() => openOddset(null)}>visa matcher →</button></div>
           {!research.length && <span className="v3hint">Inga forskningsligor aktiva.</span>}
           {research.length > 0 && (
             <>
@@ -222,7 +223,7 @@ function DashboardV3({ openPool, openOddset, openHistorik }) {
 
         <div className="v3card">
           <div className="v3cardhead"><h3>🧭 Signal-facit</h3>
-            <button className="v3more" onClick={openOddset}>detaljer →</button></div>
+            <button className="v3more" onClick={() => openOddset('facit')}>detaljer →</button></div>
           {!primaryGroups.length && <span className="v3hint">Inga primära signalgrupper ännu.</span>}
           {primaryGroups.map((g) => (
             <div key={`${g.league}-${g.market}`} className="v3row">
@@ -640,11 +641,14 @@ export default function AppV3({ onExit }) {
     try { return localStorage.getItem('svs_v3_view') || 'idag' } catch { return 'idag' }
   })
   const [histProduct, setHistProduct] = useState(null)
+  const [oddsetFocus, setOddsetFocus] = useState(null)
   const go = (v) => {
+    if (v !== 'oddset') setOddsetFocus(null)
     setView(v)
     try { localStorage.setItem('svs_v3_view', v) } catch { /* ok */ }
     window.scrollTo({ top: 0 })
   }
+  const openOddset = (target = null) => { setOddsetFocus(target); go('oddset') }
   const openPool = (g) => {
     // PoolV3 läser svs_state vid mount — peka den på valt spel innan bytet
     try {
@@ -663,7 +667,8 @@ export default function AppV3({ onExit }) {
         </div>
         <nav className="v3nav" aria-label="Vy">
           {VIEWS.map((v) => (
-            <button key={v.id} className={view === v.id ? 'on' : ''} onClick={() => go(v.id)}>
+            <button key={v.id} className={view === v.id ? 'on' : ''}
+              onClick={() => (v.id === 'oddset' ? openOddset(null) : go(v.id))}>
               <span aria-hidden="true">{v.icon}</span> {v.label}
             </button>
           ))}
@@ -678,10 +683,10 @@ export default function AppV3({ onExit }) {
       </header>
       <main className="v3main">
         {view === 'idag' && <ErrBoundary>
-          <DashboardV3 openPool={openPool} openOddset={() => go('oddset')} openHistorik={openHistorik} />
+          <DashboardV3 openPool={openPool} openOddset={openOddset} openHistorik={openHistorik} />
         </ErrBoundary>}
         {view === 'pool' && <ErrBoundary><PoolV3 /></ErrBoundary>}
-        {view === 'oddset' && <ErrBoundary><OddsetView /></ErrBoundary>}
+        {view === 'oddset' && <ErrBoundary><OddsetView focus={oddsetFocus} /></ErrBoundary>}
         {view === 'historik' && <ErrBoundary><HistorikV3 initialProduct={histProduct} /></ErrBoundary>}
       </main>
       <footer className="v3foot">Lokal data från Svenska Spel + Pinnacle · personligt verktyg · v3-experiment</footer>

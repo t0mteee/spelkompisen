@@ -752,7 +752,7 @@ function OddsetLegend() {
   )
 }
 
-function OddsetView() {
+function OddsetView({ focus = null } = {}) {
   const [data, setData] = useState(null)
   const [clv, setClv] = useState(null)
   const [ledger, setLedger] = useState(null)
@@ -804,6 +804,23 @@ function OddsetView() {
     ]).then(([d, c, n, l]) => { setData(d); setClv(c); setNotices(n?.notices || []); setLedger(l); setErr(null) })
       .catch((e) => setErr(String(e)))
   useEffect(() => { load() }, [])  // eslint-disable-line
+
+  // Djuplänkar från v3-dashboarden: landa på rätt sektion och öppna den
+  // (v2 skickar ingen focus-prop — effekten är då en no-op). Synkron
+  // direktscroll i effekten: DOM:en är committad här, och timers/smooth
+  // throttlas i bakgrundade vyer — instant är pålitligt överallt.
+  // Sektionen expanderar nedåt efter state-sättningen, så toppositionen håller.
+  useEffect(() => {
+    if (!focus || !data) return
+    if (focus === 'radar') setShowMovers(true)
+    if (focus === 'facit') setShowLedger(true)
+    const id = { varde: 'oddset-varde', radar: 'oddset-radar', facit: 'oddset-facit' }[focus]
+    const jump = () => document.getElementById(id)
+      ?.scrollIntoView({ behavior: 'auto', block: 'start' })
+    jump()                              // synkront: landar direkt även throttlat
+    const t = setTimeout(jump, 400)     // korrigeringspass efter sen reflow
+    return () => clearTimeout(t)
+  }, [focus, !!data])  // eslint-disable-line
 
   const refresh = async () => {
     setBusy(true)
@@ -1240,7 +1257,7 @@ function OddsetView() {
         </div>
       )}
       {signals.length > 0 && (
-        <div className="valuelist">
+        <div className="valuelist" id="oddset-varde">
           <div className="valhead"><b>💰 Värdespel just nu</b>
             <InfoDot text={'Bok-odds över devigad Pinnacle (sharp-ankrat = den spelbara signalen).\n° = härlett sharp-pris · ★ = flera oberoende signaler pekar åt samma håll.\n¼-Kelly räknas på fair-sannolikheten och din bank.\nEtt kort per match: den bästa selektionen (högst kvalitetsviktad edge).'} />
             <button className="sortpick" onClick={() => setValSortEdge(!valSortEdge)}
@@ -1306,7 +1323,7 @@ function OddsetView() {
         </div>
       )}
       {movers.length > 0 && (
-        <div className={`valuelist moverlist ${showMovers ? 'open' : 'collapsed'}`}>
+        <div className={`valuelist moverlist ${showMovers ? 'open' : 'collapsed'}`} id="oddset-radar">
           <button className="section-toggle" onClick={() => setShowMovers(!showMovers)} aria-expanded={showMovers}>
             <span><b>📈 Marknadsradar</b> · {movers.length} större rörelser</span>
             <span className="hint">{showMovers ? 'Dölj ▲' : 'Visa ▼'}</span>
@@ -1458,7 +1475,7 @@ function OddsetView() {
       </table>
       </div>
       {ledger?.n_captures > 0 && (
-        <div className="clvbox ledgerbox">
+        <div className="clvbox ledgerbox" id="oddset-facit">
           <p className="hint clvline clickable" onClick={() => setShowLedger(!showLedger)}
             title="Alla tillgängliga sharp- och modellprediktioner fryses en gång vid T−24 h, T−3 h och T−20 min. Även oflaggade selektioner sparas som kontrollgrupp. Status avgörs per liga × marknad × tier × semantisk version, aldrig av ett tier-aggregat.">
             🧭 Validering per signalgrupp — {ledger.n_predictions} prediktioner · {ledger.n_captures} fångster
