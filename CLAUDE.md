@@ -47,6 +47,11 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/oddset_v22.py   isolerad V2.2 feature-/shadowcapture (ej live-tips)
   app/pool_settlement.py PH1: immutable poolfacit (append-once, payload-hash;
                       backfill/migration i scripts/, läs-API /api/pool/history)
+  app/pool_dataset.py PH2: PIT-features per omgång/horisont (pit-v1, enbart
+                      observed_pit — no backfill) + pool_draw_snapshot-serien
+  app/pool_system_ledger.py PH3: förregistrerade benchmarksystem fryses
+                      T−3h/T−20m i varvet, settlas mot riktig utdelning
+                      (/api/pool/systems; champion = dagens byggare)
   app/main.py         API-endpoints + PRIZE_PLANS (officiella vinstplaner)
   cli.py              show|spikar|snapshot|history|rad (snapshotvarvet settlar
                       även nyss avgjorda poolomgångar via settle_recent)

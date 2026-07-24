@@ -350,6 +350,98 @@ CREATE INDEX IF NOT EXISTS idx_pool_backfill_latest
     ON pool_backfill_log (product, draw_number, attempted_at DESC);
 """
 
+# PH2/PH3 (2026-07-24): PIT-dataset + systemledger för poolspelen.
+# pool_draw_snapshot är den FRAMÅTRIKTADE omsättnings-/jackpottserien
+# (fanns inte historiskt — turnover_asof är därför null för äldre omgångar).
+# pool_pit_* fryser features per omgång/horisont ur snapshots-kohorten
+# (observed_pit ENBART — final_only har per definition inga horisonter).
+# pool_system_ledger fryser byggarens konkreta förslag före spelstopp
+# (förregistrerad benchmarkmatris) och settlas mot pool_draw_settlement.
+POOL_PIT_SCHEMA = """
+CREATE TABLE IF NOT EXISTS pool_draw_snapshot (
+    product     TEXT NOT NULL,
+    draw_number INTEGER NOT NULL,
+    fetched_at  TEXT NOT NULL,
+    net_sale    REAL,
+    jackpot     REAL,
+    PRIMARY KEY (product, draw_number, fetched_at)
+);
+
+CREATE TABLE IF NOT EXISTS pool_pit_draw_features (
+    product         TEXT NOT NULL,
+    draw_number     INTEGER NOT NULL,
+    horizon         TEXT NOT NULL,
+    feature_version TEXT NOT NULL,
+    cohort          TEXT NOT NULL,
+    asof            TEXT NOT NULL,
+    computed_at     TEXT NOT NULL,
+    n_events        INTEGER,
+    n_covered_svs   INTEGER,
+    n_covered_sharp INTEGER,
+    n_covered_streck INTEGER,
+    entropy_folk    REAL,
+    entropy_market  REAL,
+    favorite_pressure REAL,
+    difficulty      REAL,
+    turnover_asof   REAL,
+    jackpot_asof    REAL,
+    PRIMARY KEY (product, draw_number, horizon, feature_version)
+);
+
+CREATE TABLE IF NOT EXISTS pool_pit_match_features (
+    product         TEXT NOT NULL,
+    draw_number     INTEGER NOT NULL,
+    horizon         TEXT NOT NULL,
+    event_number    INTEGER NOT NULL,
+    feature_version TEXT NOT NULL,
+    asof            TEXT NOT NULL,
+    svs_lag_min     REAL,
+    sharp_lag_min   REAL,
+    p_svs_1 REAL, p_svs_x REAL, p_svs_2 REAL,
+    p_sharp_1 REAL, p_sharp_x REAL, p_sharp_2 REAL,
+    streck_1 INTEGER, streck_x INTEGER, streck_2 INTEGER,
+    move_svs_pp_1 REAL, move_svs_pp_x REAL, move_svs_pp_2 REAL,
+    move_sharp_pp_1 REAL, move_sharp_pp_x REAL, move_sharp_pp_2 REAL,
+    gap_1 REAL, gap_x REAL, gap_2 REAL,
+    reversal_sign   TEXT,
+    PRIMARY KEY (product, draw_number, horizon, event_number, feature_version)
+);
+
+CREATE TABLE IF NOT EXISTS pool_system_ledger (
+    product       TEXT NOT NULL,
+    draw_number   INTEGER NOT NULL,
+    horizon       TEXT NOT NULL,
+    config_key    TEXT NOT NULL,
+    frozen_at     TEXT NOT NULL,
+    lag_min       REAL NOT NULL,
+    timely        INTEGER NOT NULL,
+    code_version  TEXT NOT NULL,
+    budget        REAL NOT NULL,
+    strategy      TEXT NOT NULL,
+    value_weight  REAL NOT NULL,
+    row_price     REAL,
+    n_rows        INTEGER NOT NULL,
+    cost_kr       REAL NOT NULL,
+    events_order  TEXT NOT NULL,
+    rows_text     TEXT NOT NULL,
+    rows_hash     TEXT NOT NULL,
+    n_events_covered INTEGER,
+    turnover_used REAL,
+    turnover_basis TEXT,
+    jackpot_used  REAL,
+    build_note    TEXT,
+    settled_at    TEXT,
+    correct_max   INTEGER,
+    correct_dist  TEXT,
+    payout_kr     REAL,
+    roi           REAL,
+    settle_note   TEXT,
+    PRIMARY KEY (product, draw_number, horizon, config_key)
+);
+CREATE INDEX IF NOT EXISTS idx_pool_system_open
+    ON pool_system_ledger (settled_at, product, draw_number);
+"""
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS draws (
     product       TEXT NOT NULL,
@@ -529,7 +621,7 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
     git_hash     TEXT,
     PRIMARY KEY (match_id, market, sign, line_key, model_version)
 );
-""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + V22_SHADOW_SCHEMA + TEAM_EVENT_SCHEMA + POOL_SETTLEMENT_SCHEMA
+""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + V22_SHADOW_SCHEMA + TEAM_EVENT_SCHEMA + POOL_SETTLEMENT_SCHEMA + POOL_PIT_SCHEMA
 
 
 class Storage:

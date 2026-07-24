@@ -39,9 +39,18 @@ Detta är den aktuella arbetsöverlämningen till Claude. Läs först
 > `docs/db-atgarder.md`. **UI v3-experimentet** levererades samtidigt
 > (`frontend/src/AppV3.jsx`, växel i v2-headern, v2 orörd/default): Idag-
 > översikt, Poolspel-stegflöde med återanvända komponenter, Oddset, Historik
-> (settlementlagret synligt med KPI:er/sparkline/matchfacit). Kvar i kedjan:
-> PH2 (PIT-dataset), PH3 (systemledger + champion), PH4 (ablationer) —
-> och `startOdds`-semantikverifiering innan det fältet får användas.
+> (settlementlagret synligt med KPI:er/sparkline/matchfacit).
+>
+> **PH2 + PH3 GENOMFÖRDA 2026-07-24** (samma natt, efter Samans "kör
+> vidare"): `app/pool_dataset.py` (PIT-features `pit-v1`: 256 horisontrader
+> / 98 observerade omgångar; horisont utan observation byggs aldrig;
+> `pool_draw_snapshot` = framåtriktad omsättningsserie) och
+> `app/pool_system_ledger.py` (förregistrerad benchmarkmatris fryses vid
+> T−3h/T−20min i snapshotvarvet, settlas mot riktiga utdelningsnivåer,
+> `/api/pool/systems`; toleranser 30/10 min per varvkadens; Bomben ingår
+> ej). 11 nya tester (156 totalt). Kvar i kedjan: PH4 (ablationer — vänta
+> in settlade system + kör kalibrerings-/κ-/folkkorrelationsanalyserna på
+> final_only-facitet först) och `startOdds`-semantikverifiering.
 
 ## Kort lägesbild
 

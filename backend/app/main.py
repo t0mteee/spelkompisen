@@ -305,6 +305,19 @@ def pool_history(product: str = "stryktipset", limit: int = 400,
         store.close()
 
 
+@app.get("/api/pool/systems")
+def pool_systems():
+    """PH3-systemledgern: frysta byggarförslag (förregistrerad benchmarkmatris)
+    och deras facit mot riktig utdelning. Champion = dagens byggare; läs bara."""
+    from . import pool_system_ledger
+    store = Storage()
+    try:
+        pool_system_ledger.settle_pending(store)
+        return pool_system_ledger.summary(store)
+    finally:
+        store.close()
+
+
 @app.get("/api/payouts")
 def payouts(product: str = "stryktipset", draw: int | None = None):
     """Prispott per vinstnivå beräknad från AKTUELL omsättning och Svenska Spels

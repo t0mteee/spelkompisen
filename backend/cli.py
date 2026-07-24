@@ -105,6 +105,7 @@ def cmd_snapshot(product: str) -> float | None:
                 pushed = notify.check_movers(product, draw, store)
                 clv.log_flags(product, draw, store)   # CLV-facit: logga gröna/sharp-flaggor
                 clv.resolve(store, ss)                # + sätt stängning/facit där det går
+                _pool_pit_freeze(store, ss, product, draw)   # PH2-serie + PH3-frysning
             finally:
                 store.close()
             if draw.reg_close_time:
@@ -129,7 +130,8 @@ def cmd_snapshot(product: str) -> float | None:
 
 def _settle_recent(store: Storage, ss: SvenskaSpel, product: str) -> None:
     """PH1: framåtriktad settlement — nyss avgjorda omgångar skrivs till det
-    immutabla facitlagret i samma varv (budgeterat; får aldrig fälla varvet)."""
+    immutabla facitlagret i samma varv (budgeterat; får aldrig fälla varvet).
+    Därefter PH3-settling av frysta system + PH2-features för närtidsomgångar."""
     try:
         from app import pool_settlement
         rep = pool_settlement.settle_recent(store, ss, product)
@@ -137,6 +139,38 @@ def _settle_recent(store: Storage, ss: SvenskaSpel, product: str) -> None:
             print(f"{product}: settlement för {rep['ok']} avgjord(a) omgång(ar).")
     except Exception as e:  # noqa: BLE001
         print(f"{product}: settlement hoppade över ({e})")
+    try:
+        from app import pool_dataset, pool_system_ledger
+        srep = pool_system_ledger.settle_pending(store)
+        if srep.get("settled"):
+            print(f"{product}: {srep['settled']} systemfacit satta (PH3).")
+        pool_dataset.build_recent(store, product)
+    except Exception as e:  # noqa: BLE001
+        print(f"{product}: PH2/PH3-efterarbete hoppade över ({e})")
+
+
+def _pool_pit_freeze(store: Storage, ss: SvenskaSpel, product: str, draw) -> None:
+    """PH2: omsättnings-/jackpottserie. PH3: frys benchmarksystem när ett
+    horisontfönster (T−3 h / T−20 min) öppnats. Får aldrig fälla varvet."""
+    try:
+        from app import pool_dataset, pool_settlement, pool_system_ledger
+        from app import steam as steam_mod
+        pool_dataset.record_draw_snapshot(
+            store, product, draw.draw_number, draw.net_sale, draw.jackpot)
+        sharp = store.get_sharp(product, draw.draw_number)
+        movement = steam_mod.movement_with_steam(store, product, draw.draw_number)
+        try:
+            jp = ss.get_jackpot(product, draw.draw_number) or draw.jackpot or 0.0
+        except Exception:  # noqa: BLE001 — jackpotfel får inte stoppa frysningen
+            jp = draw.jackpot or 0.0
+        rep = pool_system_ledger.freeze_due(
+            store, product, draw, sharp, movement, jackpot=jp,
+            code_version=pool_settlement._git_hash())  # noqa: SLF001
+        if rep.get("frozen"):
+            print(f"{product} omg {draw.draw_number}: "
+                  f"{rep['frozen']} systemfrysning(ar) (PH3).")
+    except Exception as e:  # noqa: BLE001
+        print(f"{product}: systemfrysning hoppade över ({e})")
 
 
 # förtätning: när spelstopp närmar sig är sena oddsrörelser guld — snapshotta

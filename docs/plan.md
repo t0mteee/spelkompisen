@@ -185,9 +185,18 @@ fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
   matchfacit, 14 476 utdelningsnivåer, 0 fel/divergenser — detaljer i
   `docs/db-atgarder.md`. `startOdds` sparas rått men är SPÄRRAT för analys
   tills semantiken verifierats. Äldre API-bakfill får bara ge finalvärden,
-  facit och utdelning, aldrig fabricerad rörelse. Nästa: PH2 (PIT-dataset)
-  → PH3 (systemledger + champion-baseline) → PH4 (ablationer). Överlämning
-  och arbetsordning: `docs/overlamning-till-claude-2026-07-24.md`.
+  facit och utdelning, aldrig fabricerad rörelse. **PH2 + PH3 är också
+  GENOMFÖRDA 2026-07-24** (`docs/db-atgarder.md`): PIT-dataset `pit-v1`
+  (256 horisontrader över 98 observerade omgångar, enbart observed_pit,
+  no-backfill-regeln kodad), framåtriktad omsättnings-/jackpottserie
+  (`pool_draw_snapshot`), och systemledgern med FÖRREGISTRERAD
+  benchmarkmatris (primär `ev50-medel-vw50` + två sekundära) som fryser
+  byggarens konkreta rader vid T−3h/T−20min i varvet och settlar mot
+  riktig utdelning — champion = dagens byggare, `/api/pool/systems`.
+  Kvar: PH4 (ablationer — kräver månader av settlade system + kalibrerings-
+  analyserna på final_only-facitet innan någon modellparameter ändras),
+  samt `startOdds`-semantikverifiering. Överlämning och arbetsordning:
+  `docs/overlamning-till-claude-2026-07-24.md`.
 - **UI v3-experiment levererat 2026-07-24 (Samans beställning):** ny
   gränssnittsversion i `frontend/src/AppV3.jsx` + `AppV3.css` med växel —
   klassiska v2-vyn är orörd och default; ✨-knappen i v2-headern öppnar v3,

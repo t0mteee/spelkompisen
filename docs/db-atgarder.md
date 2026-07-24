@@ -8,6 +8,33 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-07-24 — PH2/PH3: PIT-dataset och systemledger för poolspelen
+
+- **Skript:** `backend/scripts/migrera_pool_pit_ph23.py` (backup + fyra
+  tabeller) och `backend/scripts/bygg_pit_dataset.py` (idempotent helsvep).
+  Moduler: `backend/app/pool_dataset.py` (features, `FEATURE_VERSION=pit-v1`)
+  och `backend/app/pool_system_ledger.py` (frysning/settling). 11 unittest i
+  `backend/tests/test_pool_pit.py`.
+- **Backup:** `backend/data/backups/stryktips-2026-07-24-fore-ph23-pit.db`.
+- **Nya tabeller:** `pool_draw_snapshot` (framåtriktad omsättnings-/
+  jackpottserie — skrivs av varje snapshotvarv vid förändring),
+  `pool_pit_draw_features` + `pool_pit_match_features` (frysta features per
+  omgång/horisont, ENBART observed_pit — horisont utan observation byggs
+  aldrig; devigade sannolikheter, first→as-of-rörelser i pp, streck, gap,
+  reversal, entropi/favorittryck, laggar, coverage) samt `pool_system_ledger`
+  (byggarens konkreta rader frysta före spelstopp + facit).
+- **Helsvepet:** 98 observerade omgångar → **256 horisontrader** (h24/h3/m20
+  där observation fanns; streck-täckning 100 %, sharp ~85–95 %).
+- **Förregistrerad benchmarkmatris (ändra aldrig befintliga nycklar):**
+  `ev50-medel-vw50` (PRIMÄR), `ev50-tuff-vw80`, `ev256-medel-vw50` —
+  Värderader via samma motor som UI:t, frysta vid T−3 h (tolerans 30 min,
+  varvkadens) och T−20 min (tolerans 10 min, tätläge). Sena frysningar
+  sparas med `timely=0`. Settling mot `pool_draw_settlement`s riktiga
+  utfall + faktiska utdelningsnivåer (egen-vinst-utspädning försummad,
+  noterad i settle_note). Bomben ingår inte (egen kolumnbyggare).
+- **Läs-API:** `/api/pool/systems` (champion-baselinens läge). Första
+  frysningen sker automatiskt när nästa omgång går in i sitt T−3h-fönster.
+
 ## 2026-07-24 — PH1: immutable settlementlager för poolspelen
 
 - **Skript:** `backend/scripts/migrera_pool_settlement.py` (backup + fyra nya
