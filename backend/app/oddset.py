@@ -69,7 +69,12 @@ RESEARCH_LEAGUE_KEYS = frozenset(
 # Expekt kör Kambi via LeoVegas-avtalet (verifierat: Kambi-pressrelease, t.o.m. 2027).
 BOOKS = [
     {"key": "expekt", "name": "Expekt", "kambi_op": "expektse"},
-    {"key": "betinia", "name": "Betinia", "altenar": "betinia"},
+    # Altenar är EN prisfeed med olika marginalpåslag per skin. Kartläggningen
+    # 2026-07-24 (docs/bookmakers-kartlaggning-2026-07-24.md) mätte elva skins:
+    # samma event, samma linje, men Betinia hade SÄMST marginal av alla
+    # (overround 1,095 mot ninjacasinos 1,065 på Allsvenskan — verifierat om
+    # på plats). Byt aldrig till ett skin utan att mäta overrounden först.
+    {"key": "ninjacasino", "name": "Ninja Casino", "altenar": "ninjacasino"},
 ]
 
 DEEP_MARKETS_DAYS = 7      # Kambi AH/ÖU per event bara för matcher inom N dygn

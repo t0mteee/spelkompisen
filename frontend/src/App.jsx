@@ -1079,7 +1079,10 @@ function OddsetView({ focus = null } = {}) {
   }
 
   const MARKET_LABEL = { '1x2': '1X2', ah: 'AH', ou: 'Ö/U', cor: 'Hörnor' }
-  const BOOK_NAME = { svenskaspel: 'SvS', expekt: 'Expekt', betinia: 'Betinia' }
+  const BOOK_NAME = {
+    svenskaspel: 'SvS', expekt: 'Expekt',
+    betinia: 'Betinia', ninjacasino: 'Ninja',   // Betinia kvar för historiken
+  }
 
   if (err) return <section><h2>Oddset</h2><ErrorState message={err} /></section>
   if (!data) return <section><h2>Oddset</h2><LoadingState label="Hämtar matcher och odds…" /></section>

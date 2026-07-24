@@ -176,3 +176,39 @@ S5. **ClubElo (P3)** kvarstår som marknads-oberoende sanity-check för
 - Jackpotstrategi (svensk pooltips-praxis): [GamblingCabin – strategi vid extrema
   jackpottar](https://gamblingcabin.se/strategi-vid-extrema-jackpottar/),
   [topptipset.net – spelvärde](https://topptipset.net/stryktipset-lordag/)
+
+## Bookmaker-strategin omvärderad (2026-07-24)
+
+Full kartläggning i `docs/bookmakers-kartlaggning-2026-07-24.md` (allt live-testat).
+**Premissen "fler mjuka böcker ⇒ fler edges" håller inte i den svenska marknaden:**
+
+- **Svenska Spel ÄR den skarpaste mjuka boken.** Overround 2,59 % på Allsvenskan
+  (uppmätt) — i praktiken Pinnacle-nivå. Att 231 av 241 värdeflaggor kom från
+  SvS är därför en korrekt observation, inte ett insamlingsfel: ingen mjuk bok
+  slår det priset.
+- **Kambi är EN prisfeed.** svenskaspel / expektse / ubse (Unibet) / atg / paf
+  ger identiska odds på decimalen (verifierat: 5.10/4.00/1.72, overround
+  1,0259 för alla fyra). Att lägga till Unibet, ATG eller Paf ger noll ny
+  information. Expekt bidrar bevisligen inget och kan tas bort.
+- **Altenar är EN prisfeed** med olika marginalpåslag per skin. Betinia hade
+  sämst av elva (1,095); bytt till ninjacasino (1,065) — samma event, samma
+  linje, 3 pp bättre pris.
+- **Alla genuint mjuka böcker är botskyddade** (bet365, Coolbet, Betano, bwin,
+  Betsson, Winamax, ComeOn, 888 …). Kartläggningen stannade vid skyddet i
+  stället för att kringgå det — den gränsen gäller fortsatt.
+
+**Det som faktiskt är värt att bygga: ett ANDRA SHARP-ANKARE, inte fler böcker.**
+Smarkets (overround 2,15 %, öppet REST, 10/10 ligor, 810 event — verifierat) och
+Matchbook (öppnar sent, men ger faktisk likviditet per pris) är BÖRSER: de är
+skarpare än SvS och alltså inte ställen att hitta värde hos. Nyttan är metodisk
+och stor:
+
+1. Idag mäts varje edge bara mot vår egen power-devigning av Pinnacle — och
+   metodvalet (power vs proportionell) rör ~3 pp medan flaggtröskeln är 2 pp.
+   Ett börspris behöver nästan ingen devigning och validerar därför devigen.
+2. Kräv att en edge överlever mot BÅDE Pinnacle och Smarkets innan den flaggas.
+3. Fallback när Pinnacle Cloudflare-blockar (händer periodvis).
+
+Nästa steg: `app/smarkets.py` (~90 rader) som fair-ankare vid sidan av Pinnacle,
+INTE som bok i `BOOKS`. Matchbook i snabbpollen därefter (den öppnar sent och
+tillför mest i lineup-/steamfönstret).
