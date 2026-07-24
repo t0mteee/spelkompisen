@@ -240,3 +240,23 @@ Ej implementerat men verifierat fungerande: Entain/bwin CDS-endpoint
 (`x-bwin-accessid` är en statisk publik token i sidan, inte inloggning) — en
 genuint annan motor, men bwin är inte svensklicensierat. Beslut krävs innan
 det används.
+
+### Smarkets inkopplat som andra sharp-ankare (2026-07-24)
+
+`app/smarkets.py` + insamling i `oddset.collect`. Fyra batchade anrop räcker
+för en hel liga; ett enda `/v3/events/`-anrop delas mellan alla tio ligor.
+Första varvet: **258 oddsrader, alla 10 ligor OK**.
+
+- **Overround ~1,00** (mid mellan bästa bid och bästa offer) mot Pinnacles
+  2–2,5 % och Svenska Spels 2,6 %. Ett börs-mid behöver knappt devigas.
+- **Ligger UTANFÖR `BOOKS`** — Smarkets är inte en bok vi letar värde hos utan
+  ett fair-ankare. Den får aldrig skapa matchidentiteter.
+- **Träningsmatcher: 53 event** mot Kambis 6 och Pinnacles 12. Det är vår
+  liga med högst uppmätt edge (11,8 %) och sämst täckning — störst enskild
+  vinst av bytet.
+- **Oenigheten är materiell:** median |Δp| mot devigad Pinnacle 1,12 pp, och
+  **11 % av selektionerna skiljer mer än 2 pp — hela flaggtröskeln.**
+
+NÄSTA STEG (ej gjort): kräv att en edge överlever mot BÅDA ankarna innan den
+flaggas, och använd Smarkets som fallback när Pinnacle Cloudflare-blockar.
+Serien måste växa först — samma ordning som PIT-datat.

@@ -367,6 +367,18 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
     # som kan vara plockade/suspenderade. Gamla priser i DB räcker inte.
     present: set[tuple] = set()
     pin = Pinnacle()
+    # Smarkets-ankaret: ETT anrop ger alla kommande fotbollsevent, som sedan
+    # delas mellan ligorna. Fel här får aldrig fälla insamlingen — ankaret är
+    # ett tillägg, inte en förutsättning.
+    from . import smarkets
+    smarkets_client = smarkets.Smarkets()
+    smarkets_events: Optional[list[dict]] = None
+    try:
+        smarkets_events = smarkets_client.upcoming_events()
+    except Exception as exc:  # noqa: BLE001
+        report["errors"].append(f"smarkets events: {exc}")
+        store.oddset_record_source_health(
+            "smarkets", "-", "events", at, False, 0, str(exc))
     try:
         for lg in (LEAGUES if leagues is None else leagues):
             research_only = bool(lg.get("research_only"))
@@ -557,11 +569,51 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                         store.oddset_mark_market_unavailable(
                             c["id"], book["key"], "1x2")
 
+            # ANDRA SHARP-ANKARET (2026-07-24): Smarkets är en BÖRS, inte en
+            # bok vi letar värde hos — uppmätt overround ~1,00 mot Svenska
+            # Spels 2,6 %. Den ligger därför medvetet UTANFÖR `BOOKS`
+            # (max-över-böcker-jakten) och sparas som egen källa. Syftet är
+            # metodiskt: idag mäts varje edge bara mot vår egen power-devig av
+            # Pinnacle, och metodvalet rör ~3 pp medan flaggtröskeln är 2 pp.
+            # Ett börs-mid behöver knappt devigas och validerar därför devigen.
+            # Insamlas nu, används först när serien vuxit (samma ordning som
+            # PIT-datat). Se docs/forbattringar.md.
+            n_anchor = 0
+            if smarkets_events is not None and lg["key"] in smarkets.LEAGUE_SLUGS:
+                anchor_ok, anchor_error = True, None
+                try:
+                    a_rows = smarkets_client.league_events(
+                        lg["key"], strict=True, events=smarkets_events)
+                except Exception as exc:  # noqa: BLE001
+                    a_rows = []
+                    anchor_ok, anchor_error = False, str(exc)
+                    report["errors"].append(f"smarkets {lg['key']}: {exc}")
+                store.oddset_record_source_health(
+                    "smarkets", lg["key"], "1x2", at, anchor_ok,
+                    len(a_rows), anchor_error)
+                anchor_seen: set[str] = set()
+                for e in a_rows:
+                    ex = _resolve(cands, e["home"], e["away"], e["start"])
+                    if not ex or (e.get("start") or "9") <= at:
+                        continue   # börsen får aldrig skapa matchidentiteter
+                    rows_saved += store.oddset_save_odds(
+                        ex["id"], "smarkets", e["odds"], at)
+                    anchor_seen.add(ex["id"])
+                    n_anchor += 1
+                if anchor_ok:
+                    for c in cands:
+                        if c["id"] in anchor_seen or (c.get("start") or "9") <= at:
+                            continue
+                        store.oddset_mark_market_unavailable(
+                            c["id"], "smarkets", "1x2")
+
             report["leagues"][lg["key"]] = {
                 "pinnacle": n_pin, "kambi": n_kambi, "books": n_books,
-                "saved_rows": rows_saved}
+                "smarkets": n_anchor, "saved_rows": rows_saved}
     finally:
         pin.close()
+        if smarkets_client is not None:
+            smarkets_client.close()
     store.meta_set("oddset_last_run", at)
     # Etapp 3: resultat/xG/Elo till modellen (throttlat i modulen — oftast no-op)
     if deep:
