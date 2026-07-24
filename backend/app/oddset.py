@@ -70,11 +70,14 @@ RESEARCH_LEAGUE_KEYS = frozenset(
 BOOKS = [
     {"key": "expekt", "name": "Expekt", "kambi_op": "expektse"},
     # Altenar är EN prisfeed med olika marginalpåslag per skin. Kartläggningen
-    # 2026-07-24 (docs/bookmakers-kartlaggning-2026-07-24.md) mätte elva skins:
-    # samma event, samma linje, men Betinia hade SÄMST marginal av alla
-    # (overround 1,095 mot ninjacasinos 1,065 på Allsvenskan — verifierat om
-    # på plats). Byt aldrig till ett skin utan att mäta overrounden först.
-    {"key": "ninjacasino", "name": "Ninja Casino", "altenar": "ninjacasino"},
+    # 2026-07-24 (docs/bookmakers-kartlaggning-2026-07-24.md) mätte elva skins;
+    # `betinia` (som vi körde) hade SÄMST marginal av alla. Uppmätt overround
+    # på plats, samma event och linjer överallt:
+    #   betinia 1,0949 · ninjacasino 1,0645/Superettan 1,0834
+    #   ninjacasinose = betiniase 1,0645/1,0664 (svensklicensierade skins)
+    # De två SE-skinnen är identiska; ninjacasinose är equal-best i alla tre
+    # ligor. Byt aldrig skin utan att mäta overrounden först.
+    {"key": "ninjacasino", "name": "Ninja Casino", "altenar": "ninjacasinose"},
 ]
 
 DEEP_MARKETS_DAYS = 7      # Kambi AH/ÖU per event bara för matcher inom N dygn

@@ -212,3 +212,31 @@ och stor:
 Nästa steg: `app/smarkets.py` (~90 rader) som fair-ankare vid sidan av Pinnacle,
 INTE som bok i `BOOKS`. Matchbook i snabbpollen därefter (den öppnar sent och
 tillför mest i lineup-/steamfönstret).
+
+### Plattformskarta (verifierad mot Spelinspektionens licensregister 2026-07-24)
+
+Böcker på samma motor är **nära dubbletter, inte oberoende åsikter**. De
+genuint skilda svenskvända motorerna är: Kambi, Betsson in-house, ComeOn
+in-house, Altenar, Spectate, Coolbet, Playtech och bet365 — men bara **Kambi
+och Altenar är rent åtkomliga**. Därav:
+
+| Motor | Svenska varumärken | Åtkomst |
+|---|---|---|
+| **Kambi** | Svenska Spel, ATG, Unibet SE, Paf (+Speedybet, 1x2.se), LeoVegas, Expekt | ✅ öppet, men EN prisfeed — alla ger identiska odds |
+| **Altenar** | Betinia, Ninja Casino | ✅ öppet, EN feed; skins skiljer bara i marginal |
+| Betsson in-house | Betsson, Betsafe, NordicBet | `/api/sb/*` kräver okänd header (identiska svar från alla tre = delad feed) |
+| ComeOn in-house | ComeOn, Hajper, Snabbare | `lsbl.comeon.com`, ingen publik väg |
+| Spectate (evoke) | Mr Green, 888sport | ingen publik väg |
+| Coolbet (Sega Sammy, EJ Betsson) | Coolbet | Imperva-skyddad |
+| bet365 (Hillside) | bet365.com (`bet365.se` är bara 301) | aggressivt botskydd |
+
+Korrigeringar av tidigare antaganden: Unibet har INTE lämnat Kambi i Sverige;
+ComeOn är inte Kambi-turnkey (koden `comeon` ger 67 esport-event); Mr Green och
+888sport har lämnat Kambi för Spectate; Coolbet ägs av Sega Sammy, inte Betsson;
+Pinnacle ÄR svensklicensierat (`pinnacle.se`). Kambi rate-limitar (429 efter
+~5 snabba anrop) — polla långsamt.
+
+Ej implementerat men verifierat fungerande: Entain/bwin CDS-endpoint
+(`x-bwin-accessid` är en statisk publik token i sidan, inte inloggning) — en
+genuint annan motor, men bwin är inte svensklicensierat. Beslut krävs innan
+det används.
