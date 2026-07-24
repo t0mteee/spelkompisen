@@ -155,14 +155,53 @@ fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
   `v22-7450a9ff`, features `f22-9c205e9c`, modellkälla `m22-957459bc`.
   Manifest: `docs/model-v2.2-multileague-forward-manifest.json`; rapport:
   `docs/v2.2-multileague-start-2026-07-23.md`.
-- **Nästa produktbeslut fattade 2026-07-24:** Saman vill (1) göra Premier
-  League, Serie A, La Liga och Bundesliga synliga i den vanliga Oddset-vyn,
-  men synlighet ska skiljas från actionable V2.2-/notis-/CLV-status, samt
-  (2) bygga ett immutable PIT-facit för avslutade Stryk-, Europa- och
-  Topptipsomgångar. Lokalt finns redan 85 omgångar som passerat spelstopp med
-  verkliga odds-/strecksnapshots; äldre API-bakfill får bara ge finalvärden,
-  facit och utdelning, aldrig fabricerad rörelse. Överlämning och arbetsordning:
-  `docs/overlamning-till-claude-2026-07-24.md`.
+- **Produktbeslut 2026-07-24, del 1 LEVERERAD samma dag:** Premier League,
+  Serie A, La Liga och Bundesliga syns nu i vanliga Oddset-vyn som egna
+  ligafilter och matchrader (🔬-märkta, dotted filterknapp) med SvS-/Pinnacle-
+  odds, prisålder och rörelseserier. Synlighet och actionability är separerade
+  i `oddset.py`: `visible_in_ui`-flaggan ger `VISIBLE_LEAGUE_KEYS`,
+  `ACTIONABLE_LEAGUE_KEYS` (= ej research) styr värde/Kelly/notis/CLV.
+  UI-payloaden strippar värde-/modellfält för research (`research=True`-
+  markerade), `Bara signaler` räknar aldrig research som signal, spelkort/
+  amber-listan exkluderar dem, och `_research_next_round` visar nästa omgång
+  när 10-dagarsfönstret är tomt (premiärerna 16/8+ syns direkt). Insamlings-
+  payloaden (`include_research=True`), V2.2-identiteter, ledger och v22audit
+  är oförändrade (`actionable nej · notiser nej`). 135 backendtester + bygge
+  gröna; verifierat i browser på desktop + 390 px utan sidscroll.
+  Del (2), immutable PIT-facit för poolspelen, är påbörjad: **PH0-auditen är
+  klar** (`docs/ph0-kallaudit-2026-07-24.md` + JSON; skript
+  `backend/scripts/ph0_kallaudit.py`). Nyckelfynd: result/streck/omsättning
+  finns i API:t hela vägen till 2013 (Stryktipset #4267, exakt gräns), inga
+  429 vid 0,35 s takt; aktuella odds är flyktiga → rörelser finns BARA i de
+  86 lokalt observerade omgångarna (`observed_pit`); `startOdds` når ~2022
+  och är osemantiserad; API:ts drawState är korrekt även när lokala
+  `draws.state` fryst. **PH1 är GENOMFÖRD 2026-07-24** (grönt ljus via "kör
+  vidare med backloggen"): `app/pool_settlement.py` + fyra append-once-tabeller
+  (kanon-hash, ingen tyst overwrite, journal med retrybara statusar),
+  migration + backup + backfillskript (se `docs/db-atgarder.md`), 10 nya
+  tester, framåtriktad settlement i snapshotvarvet och läs-API
+  `/api/pool/history`. Full backfill körd: **8 278 omgångar, alla fem
+  produkter tillbaka till januari 2013** (API:ts arkivhorisont), 76 554
+  matchfacit, 14 476 utdelningsnivåer, 0 fel/divergenser — detaljer i
+  `docs/db-atgarder.md`. `startOdds` sparas rått men är SPÄRRAT för analys
+  tills semantiken verifierats. Äldre API-bakfill får bara ge finalvärden,
+  facit och utdelning, aldrig fabricerad rörelse. Nästa: PH2 (PIT-dataset)
+  → PH3 (systemledger + champion-baseline) → PH4 (ablationer). Överlämning
+  och arbetsordning: `docs/overlamning-till-claude-2026-07-24.md`.
+- **UI v3-experiment levererat 2026-07-24 (Samans beställning):** ny
+  gränssnittsversion i `frontend/src/AppV3.jsx` + `AppV3.css` med växel —
+  klassiska v2-vyn är orörd och default; ✨-knappen i v2-headern öppnar v3,
+  "Klassisk vy" går tillbaka (val i localStorage `svs_ui_version`, växling
+  laddar om sidan; kupong/omgång/inställningar delas via `svs_state` åt båda
+  håll — verifierat med 128-raderskupong genom hela rundresan). v3 = fyra
+  vyer: **Idag** (nästa spelstopp med spelvärde/jackpot per spel, topp-
+  värdespel, rörelseradar, forskningsligornas status, signal-facit per
+  primärgrupp, historikfacit-ingång), **Poolspel** (v2:s analystabell/
+  byggare/kupong/sharp/steam/CLV återanvända i stegflöde 1-2-3),
+  **Oddset** (samma OddsetView) och **Historik** (settlementlagret: KPI:er,
+  omsättnings-sparkline, expanderbara omgångar med nivåer + matchfacit +
+  slutstreck). Desktop + 390 px utan sidscroll, teal-accent skiljer
+  versionerna åt.
 - **WP9c team-events klar (2026-07-17):** Sofascore-lagflödet samlar nu alla
   tävlingar per aktivt lag med provider-ID, tournament, första/senaste
   observation och basarena. 94 lag/94 arenor, 94 lyckade captures och 3 329
@@ -208,8 +247,8 @@ fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
   återaktivera, och utan pushar tävlar systemet inte i latens mot manuell
   odds-inspektion; beslut om mobil-default för `Bara signaler` återstår;
   P1/P2-backloggen finns nedan. Europaligorna är inlagda som isolerade
-  forskningsligor och ska enligt beslut 2026-07-24 göras synliga i vanliga
-  Oddset-vyn utan att V2.2 därmed blir actionable.
+  forskningsligor och är sedan 2026-07-24 synliga i vanliga Oddset-vyn
+  (🔬, icke-actionable — se produktbeslutet ovan).
 
 ## Backlog (WP-struktur efter granskningen 2026-07-13, prioriterad)
 
@@ -350,11 +389,11 @@ linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
 12. ✅ Facit per signalgrupp + candidate-ETA: aktuella primärgrupper har egna
     statuskort på desktop/mobil; tier-raden är endast aggregat utan grönt-✓.
 
-**D. Stora ligorna — V2.2-research inlagt; vanlig UI-synlighet är nästa steg.**
+**D. Stora ligorna — V2.2-research inlagt; UI-synlighet klar 2026-07-24.**
 PL, Bundesliga, La Liga och Serie A samlas nu med Pinnacle/Kambi-1X2,
-historiska topplige-/andradivisionsresultat, Elo och WP9c. Saman har beslutat
-att matcherna ska visas i vanliga Oddset-vyn. Synlighet måste implementeras
-separat från V2.2-actionability, notiser och CLV. Ligue 1 är inte inlagd.
+historiska topplige-/andradivisionsresultat, Elo och WP9c, och visas i vanliga
+Oddset-vyn som 🔬-märkta forskningsligor. Synligheten är implementerad separat
+från V2.2-actionability, notiser och CLV. Ligue 1 är inte inlagd.
 | Liga | football-data | Sofascore ut | Kambi-väg | Pinnacle |
 |---|---|---|---|---|
 | MLS ✅ (inlagd, i säsong) | new/USA.csv | 242 | football/usa/mls | 2663 |

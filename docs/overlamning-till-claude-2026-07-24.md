@@ -5,6 +5,44 @@ Detta är den aktuella arbetsöverlämningen till Claude. Läs först
 `docs/overlamning-2026-07-23.md` som historisk changelog; duplicera inte dess
 äldre detaljer här.
 
+> **Claude 2026-07-24: Beställning 1 LEVERERAD** (se sektionen nedan för
+> ursprungskraven). Genomförande: `visible_in_ui`-flagga på de fyra
+> forskningsligorna i `oddset.py`; `VISIBLE_LEAGUE_KEYS` respektive
+> `ACTIONABLE_LEAGUE_KEYS` (f.d. `PUBLIC_LEAGUE_KEYS`) håller synlighet och
+> actionability isär. Ordinarie payload visar research-matcher med odds/
+> prisålder/rörelser, `research=True` och strippade värde-/modellfält;
+> `_research_next_round` visar ligans nästa omgång när 10-dagarsfönstret är
+> tomt (annars hade premiärerna 16/8+ varit osynliga till 6/8). UI: 🔬-badge
+> på filterknappar/matchrader/radar, legendtext, `Bara signaler` exkluderar
+> research, spelkort/amber-lista/notiser/CLV orörda. Insamlingsvägen
+> (`include_research=True`), V2.2-versioner och v22audit är byte-oförändrade;
+> ledgern gav redan research enbart sharp+V2.2-capture. Alla acceptanskriterier
+> uppfyllda: 135 backendtester gröna (3 nya synlighet≠actionability-tester),
+> frontendbygge grönt, browser-verifierat desktop + 390 px utan sidscroll,
+> `v22audit` fortsatt `actionable nej · notiser nej`.
+>
+> **PH0 är också klar samma natt** (läsande, inga modell-/DB-ändringar):
+> `backend/scripts/ph0_kallaudit.py` → `docs/ph0-kallaudit-2026-07-24.md`
+> (+ JSON med per-omgång-matris). Kort: kohort A = 86 passerade omgångar med
+> stark T−20m/close-täckning (sharp T−24h är svagast, redovisas som lagg);
+> kohort B = result/slutstreck/omsättning åtkomliga hela vägen till 2013
+> (Stryktipset, exakt gräns #4267) resp. ≥2014/2016/2024 för övriga, aktuella
+> odds flyktiga (kan aldrig bakfyllas), `startOdds` t.o.m. ~2022 och
+> osemantiserad, API-drawState korrekt trots frusen lokal `draws.state`,
+> 0 × 429 på 157 requests @ 0,35 s. PH1-schemaförslaget med testfall ligger i
+> `docs/ph1-settlement-schema-forslag-2026-07-24.md`.
+>
+> **PH1 GENOMFÖRD 2026-07-24** (Samans "kör vidare med backloggen" = grönt
+> ljus, förslagets rekommendationer följda: fullt backfill-djup + framåtriktad
+> settlement i snapshotvarvet): `app/pool_settlement.py`, migration med backup,
+> resumable backfill, 10 tester, `/api/pool/history`. Rapport och slutsiffror:
+> `docs/db-atgarder.md`. **UI v3-experimentet** levererades samtidigt
+> (`frontend/src/AppV3.jsx`, växel i v2-headern, v2 orörd/default): Idag-
+> översikt, Poolspel-stegflöde med återanvända komponenter, Oddset, Historik
+> (settlementlagret synligt med KPI:er/sparkline/matchfacit). Kvar i kedjan:
+> PH2 (PIT-dataset), PH3 (systemledger + champion), PH4 (ablationer) —
+> och `startOdds`-semantikverifiering innan det fältet får användas.
+
 ## Kort lägesbild
 
 Senaste genomförda arbetspaketet är commit:

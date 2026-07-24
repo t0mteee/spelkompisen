@@ -19,9 +19,10 @@ i isolerad sharp-identitetskontroll; se
 `docs/model-v2.2-multileague-forward-manifest.json`. Det är inte en tränad
 modell och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning till Claude:** `docs/overlamning-till-claude-2026-07-24.md`.
-Saman har beslutat att de fyra Europaligorna ska bli synliga i vanliga
-Oddset-vyn; implementeringen återstår och synlighet ska hållas separat från
-actionable signaler. Nästa dataspår är ett PIT-säkert facit för avslutade
+Beställning 1 är LEVERERAD 2026-07-24: de fyra Europaligorna syns i ordinarie
+Oddset-vyn (🔬 forskningsmärkta, `visible_in_ui`) men är fortsatt icke-
+actionable — `VISIBLE_LEAGUE_KEYS` ≠ `ACTIONABLE_LEAGUE_KEYS` i `oddset.py`.
+Nästa dataspår är ett PIT-säkert facit för avslutade
 Stryk-/Europa-/Topptipsomgångar, inklusive odds-, streck- och utdelningsanalys.
 
 **Relationen till syskonprojekten:**
@@ -44,9 +45,17 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/bomben.py       Poisson-målmodell för Bomben
   app/storage.py      SQLite (data/stryktips.db): snapshots, sharp_snapshots, dedup, movement
   app/oddset_v22.py   isolerad V2.2 feature-/shadowcapture (ej live-tips)
+  app/pool_settlement.py PH1: immutable poolfacit (append-once, payload-hash;
+                      backfill/migration i scripts/, läs-API /api/pool/history)
   app/main.py         API-endpoints + PRIZE_PLANS (officiella vinstplaner)
-  cli.py              show|spikar|snapshot|history|rad
-frontend/ React + Vite, ALLT i src/App.jsx + App.css (mörkt tema)
+  cli.py              show|spikar|snapshot|history|rad (snapshotvarvet settlar
+                      även nyss avgjorda poolomgångar via settle_recent)
+frontend/ React + Vite, mörkt tema. src/App.jsx + App.css är KLASSISKA vyn (v2,
+  default). src/AppV3.jsx + AppV3.css är v3-EXPERIMENTET (Idag-översikt,
+  Poolspel, Oddset, Historik) — återanvänder v2:s tunga komponenter via exports
+  ur App.jsx. Växel: ✨-knappen i v2-headern ↔ "Klassisk vy" i v3; valet ligger
+  i localStorage `svs_ui_version` och växling laddar om sidan (delat
+  `svs_state` gör att kupong/omgång/inställningar följer med åt båda håll).
 start.sh / stop.sh    kör/stoppa båda lokalt (8002 + 5175)
 docs/plan.md          FÄRDPLANEN: etapper, datakällor, beslut — projektets sanning
 docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltiga)
@@ -155,9 +164,13 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
   BH-FDR 10 %. Candidate är sticky; green kräver out-of-time-data efter
   candidate-datumet. Aggregat får aldrig ändra gruppstatus.
 - V2.2-shadow (`app/oddset_v22.py`) får bara samla de fem manifestligorna/1X2.
-  PL/Serie A/La Liga/Bundesliga är `research_only` och filtreras ur ordinarie
-  API/UI. Före träningsgaten måste `p_v22 == p_sharp` exakt; tabellen läses
-  inte av värde-, notis-, CLV- eller ordinarie UI-vägar.
+  PL/Serie A/La Liga/Bundesliga är `research_only` men SYNS sedan 2026-07-24 i
+  ordinarie vyn (`visible_in_ui`, 🔬-märkta): odds/prisålder/rörelser visas,
+  UI-payloaden strippar värde-/modellfält och `_research_next_round` visar
+  nästa omgång under säsongsuppehåll. Actionability är oförändrat avstängd —
+  inga värdesignaler/Kelly/notiser/CLV/ordinarie model-captures. Före
+  träningsgaten måste `p_v22 == p_sharp` exakt; tabellen läses inte av
+  värde-, notis-, CLV- eller ordinarie UI-vägar.
 
 ## Oddset-delen (byggs nu — se docs/plan.md för detaljer)
 

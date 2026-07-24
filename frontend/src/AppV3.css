@@ -1,0 +1,211 @@
+/* v3 — UI-experimentets skal. Scoped under .v3; återanvända komponenter
+   (analys/bygg/kupong/oddset) behåller App.css-stilen, v3 ger dem bara ett
+   nytt skal, en Idag-översikt och Historik-vyn. Teal-accent skiljer v3 från
+   klassiska vyn så man alltid ser vilken version man är i. */
+.v3 {
+  --v3acc: #3fb9a5;
+  --v3acc-dim: #2b7f73;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- topbar ---------- */
+.v3top {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; gap: 14px;
+  padding: 8px 14px;
+  background: color-mix(in srgb, var(--bg) 88%, black);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(6px);
+}
+.v3brand { font-weight: 800; font-size: 15px; cursor: pointer; white-space: nowrap; }
+.v3beta {
+  font-size: 10px; font-weight: 700; color: var(--v3acc);
+  border: 1px solid var(--v3acc-dim); border-radius: 999px;
+  padding: 1px 7px; margin-left: 6px; vertical-align: 2px;
+}
+.v3nav { display: flex; gap: 6px; flex: 1 1 auto; }
+.v3nav button {
+  background: transparent; border: 1px solid transparent; color: var(--muted);
+  border-radius: 999px; padding: 5px 13px; font-weight: 700; cursor: pointer;
+}
+.v3nav button:hover { color: var(--text); }
+.v3nav button.on {
+  color: var(--v3acc); border-color: var(--v3acc-dim);
+  background: color-mix(in srgb, var(--v3acc) 10%, transparent);
+}
+.v3right { display: flex; align-items: center; gap: 10px; }
+.v3exit {
+  background: transparent; border: 1px solid var(--line); color: var(--muted);
+  border-radius: 999px; padding: 4px 11px; cursor: pointer; white-space: nowrap;
+}
+.v3exit:hover { color: var(--text); border-color: var(--muted); }
+.v3main { flex: 1 1 auto; padding: 14px; max-width: 1500px; width: 100%; margin: 0 auto; }
+.v3foot { color: var(--muted); font-size: 11px; text-align: center; padding: 18px 0 26px; }
+
+/* v3-accent på återanvända sektioner */
+.v3 section { border-top: 2px solid var(--v3acc-dim); }
+.v3 h2 { font-size: 14px; }
+.v3cols { display: grid; gap: 12px; grid-template-columns: 1fr; margin-top: 12px; }
+@media (min-width: 1280px) { .v3cols { grid-template-columns: 1fr 1fr; } }
+
+/* ---------- Idag (dashboard) ---------- */
+.v3grid {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+.v3card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-top: 2px solid var(--v3acc-dim); border-radius: 12px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+  min-width: 0;
+}
+.v3span2 { grid-column: span 2; }
+.v3cardhead { display: flex; align-items: baseline; gap: 10px; }
+.v3cardhead h3 { margin: 0; font-size: 13px; letter-spacing: 0.3px; }
+.v3cardhead .v3hint { margin-left: auto; }
+.v3more {
+  margin-left: auto; background: transparent; border: none; color: var(--v3acc);
+  font-weight: 700; cursor: pointer; padding: 0; font-size: 12px;
+}
+.v3hint { color: var(--muted); font-size: 11.5px; }
+.v3row {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  padding: 5px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+}
+.v3row:last-of-type { border-bottom: none; }
+.v3edge {
+  background: var(--green); color: #0b0e12; font-weight: 800; font-size: 10.5px;
+  border-radius: 999px; padding: 1px 7px;
+}
+.v3steam { color: #e0853b; font-weight: 800; font-size: 11.5px; }
+.v3status { font-weight: 800; }
+.v3status.green { color: var(--green); }
+.v3status.candidate { color: #e0c04b; }
+.v3status.amber { color: var(--muted); }
+.v3histrow { cursor: pointer; }
+.v3histrow:hover b { color: var(--v3acc); }
+
+.v3stops { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.v3stop {
+  text-align: left; background: var(--panel2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px; cursor: pointer;
+  display: flex; flex-direction: column; gap: 3px; color: var(--text); min-width: 0;
+}
+.v3stop:hover { border-color: var(--v3acc-dim); }
+.v3stop b { font-size: 13px; }
+.v3close { color: var(--text); font-size: 12px; font-weight: 600; }
+.v3close.soon { color: #e0a24b; }
+.v3kpis { display: flex; gap: 10px; font-size: 11.5px; color: var(--muted); flex-wrap: wrap; }
+.v3kpis .pos { color: var(--green); }
+.v3jackpot { color: #e0c04b; font-weight: 700; }
+
+/* ---------- Poolspel ---------- */
+.v3poolbar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.v3subnav { display: flex; gap: 6px; flex-wrap: wrap; }
+.v3subnav button {
+  background: var(--panel); border: 1px solid var(--line); color: var(--muted);
+  border-radius: 999px; padding: 4px 12px; font-weight: 700; cursor: pointer;
+}
+.v3subnav button.on { color: var(--v3acc); border-color: var(--v3acc-dim); }
+.v3drawsel {
+  background: var(--panel); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 5px 8px; font-size: 12px; max-width: 320px;
+}
+.v3poolkpi { color: var(--muted); font-size: 12px; }
+.v3poolkpi .pos { color: var(--green); }
+.v3steps { margin-left: auto; display: flex; gap: 4px; }
+.v3steps a {
+  color: var(--muted); text-decoration: none; font-size: 11.5px; font-weight: 700;
+  border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px;
+}
+.v3steps a:hover { color: var(--v3acc); border-color: var(--v3acc-dim); }
+.v3bombenbar { margin-bottom: 10px; }
+.v3bombenbar button {
+  background: var(--panel); border: 1px solid var(--line); color: var(--text);
+  border-radius: 8px; padding: 5px 12px; cursor: pointer;
+}
+.v3extras { margin-top: 12px; }
+.v3extras > summary {
+  cursor: pointer; color: var(--muted); font-weight: 700; font-size: 12.5px;
+  padding: 8px 2px; list-style: revert;
+}
+.v3extras[open] > summary { color: var(--v3acc); }
+
+/* ---------- Historik ---------- */
+.v3histbar { margin-bottom: 10px; }
+.v3note {
+  background: color-mix(in srgb, var(--v3acc) 7%, var(--panel));
+  border: 1px solid var(--v3acc-dim); border-radius: 10px;
+  color: var(--muted); font-size: 12px; padding: 8px 12px; margin-bottom: 12px;
+}
+.v3note code { color: var(--v3acc); font-size: 11px; }
+.v3histkpis {
+  display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  margin-bottom: 12px;
+}
+.v3kpi {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; display: flex; flex-direction: column; gap: 2px;
+}
+.v3kpi b { font-size: 16px; }
+.v3kpi span { color: var(--muted); font-size: 10.5px; line-height: 1.3; }
+.v3sparkbox {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 8px 12px; margin-bottom: 12px; color: var(--v3acc);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.v3spark { width: 100%; height: 60px; display: block; }
+.v3histtablewrap { overflow-x: auto; border-radius: 10px; }
+.v3histtable {
+  width: 100%; border-collapse: collapse; background: var(--panel2);
+  border-radius: 10px; font-size: 12.5px;
+}
+.v3histtable th {
+  text-align: left; color: var(--muted); font-size: 10.5px; text-transform: uppercase;
+  letter-spacing: 0.4px; padding: 7px 10px; border-bottom: 1px solid var(--line);
+}
+.v3histtable td { padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.v3histrowline { cursor: pointer; }
+.v3histrowline:hover td { background: color-mix(in srgb, var(--v3acc) 5%, transparent); }
+.v3roll { margin-left: 6px; }
+.v3cancel { margin-left: 6px; color: #e0a24b; }
+.v3expand { color: var(--muted); font-size: 10px; }
+.v3histdetail td { background: var(--panel); }
+.v3tiers { display: flex; gap: 12px; flex-wrap: wrap; padding: 4px 0 8px; }
+.v3tier {
+  border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px;
+  font-size: 11.5px; color: var(--muted);
+}
+.v3tier b { color: var(--text); }
+.v3facit { border-collapse: collapse; width: 100%; max-width: 640px; }
+.v3facit td { padding: 3px 8px; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+.v3facit tr.cancelled td { opacity: 0.55; }
+.v3outcome { font-weight: 800; color: var(--v3acc); }
+
+/* ---------- mobil ---------- */
+@media (max-width: 760px) {
+  .v3top { flex-wrap: wrap; gap: 8px; padding: 8px 10px; }
+  .v3nav {
+    order: 3; width: 100%; overflow-x: auto; flex-wrap: nowrap;
+    scrollbar-width: none; padding-bottom: 2px;
+  }
+  .v3nav::-webkit-scrollbar { display: none; }
+  .v3nav button { flex: 0 0 auto; padding: 5px 11px; }
+  .v3right { margin-left: auto; }
+  .v3right .colstat > :not(.dot) { display: none; }  /* bara pricken på mobil */
+  .v3exit { padding: 4px 9px; font-size: 11px; }
+  .v3main { padding: 10px; }
+  .v3span2 { grid-column: span 1; }
+  .v3grid { grid-template-columns: 1fr; }
+  .v3stops { grid-template-columns: 1fr 1fr; }
+  .v3poolbar { gap: 8px; }
+  .v3steps { width: 100%; margin-left: 0; }
+  .v3steps a { flex: 1 1 0; text-align: center; }
+  .v3drawsel { max-width: 100%; width: 100%; }
+  .v3histkpis { grid-template-columns: 1fr 1fr; }
+}

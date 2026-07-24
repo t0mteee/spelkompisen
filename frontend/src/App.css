@@ -473,8 +473,18 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
 /* ---------- Oddset-fliken (enskilda matcher) ---------- */
 .oddset-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 10px; }
 .oddset-bar .spacer { flex: 1; }
+/* v2 ↔ v3-växeln (v3 = UI-experimentet i AppV3.jsx) */
+.uiswitch { border-style: dashed; white-space: nowrap; }
+.uiswitch:hover { border-color: #3fb9a5; color: #3fb9a5; }
+@media (max-width: 760px) { .uiswitch-text { display: none; } }
+
 .oddset-bar .lg { border-radius: 999px; padding: 4px 12px; }
 .oddset-bar .lg.off { opacity: 0.4; text-decoration: line-through; }
+/* Forskningsliga: synlig men inte actionable — dämpad, prickad kant */
+.oddset-bar .lg.research { border-style: dotted; color: var(--muted); }
+.rchip { display: inline-block; margin-left: 6px; padding: 0 6px; font-size: 10px;
+  font-weight: 400; color: var(--muted); border: 1px dotted var(--line);
+  border-radius: 999px; white-space: nowrap; vertical-align: 1px; }
 .oddset-table { width: 100%; border-collapse: collapse; background: var(--panel2); border-radius: 8px; }
 .oddset-table th { text-align: left; color: var(--muted); font-size: 11px; text-transform: uppercase;
   letter-spacing: 0.4px; padding: 6px 8px; border-bottom: 1px solid var(--line); }

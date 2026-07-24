@@ -1,5 +1,6 @@
 import { Component, Fragment, useEffect, useState } from 'react'
 import './App.css'
+import AppV3 from './AppV3'
 
 const STRATEGIES = ['säker', 'medel', 'tuff']
 // strategin sätter en startpunkt på EV-/värdereglaget (samma axel), så de inte krockar
@@ -741,6 +742,10 @@ function OddsetLegend() {
             oflaggade kontroller, jämförs med Pinnacles stängningslinje per version och
             grupp. <b>📒 Signal-loggen</b> under den visar i stället vad som faktiskt
             flaggades. Lita på ledgerfacitet, inte på känsla.</div>
+          <div><b>🔬 Forskningsliga</b> (Premier League, Serie A, La Liga, Bundesliga) —
+            visas med odds, prisålder och rörelser medan V2.2-experimentet samlar sitt
+            forwardunderlag. Inga värdesignaler, Kelly-förslag, notiser eller
+            facit-loggning här ännu: synlig liga är inte samma sak som spelbar signal.</div>
         </div>
       )}
     </div>
@@ -1081,6 +1086,7 @@ function OddsetView() {
   for (const m of data.matches) counts[m.league] = (counts[m.league] || 0) + 1
   const visible = data.matches.filter((m) => !hidden.includes(m.league))
   const hasSignal = (m) => {
+    if (m.research) return false   // forskningsliga: synlig men aldrig en signal
     if (Object.values(m.value || {}).some((per) => Object.values(per).some((v) => v.edge >= 0.02))) return true
     if (Object.values(m.steam || {}).some((sh) => Math.abs(sh.h6 ?? 0) >= 1.5 || Math.abs(sh.h24 ?? 0) >= 1.5)) return true
     if (Object.values(m.model?.edges || {}).some((e) => e >= 0.05)) return true
@@ -1129,6 +1135,7 @@ function OddsetView() {
   // En match = ett kort: bara den bästa selektionen (högst q) per match visas
   const signals = []
   for (const m of visible) {
+    if (m.research) continue   // aldrig spelkort/Kelly för forskningsligor
     let best = null
     for (const [mk, per] of Object.entries(m.value || {})) {
       for (const [sg, v] of Object.entries(per)) {
@@ -1171,10 +1178,11 @@ function OddsetView() {
       <div className="oddset-bar">
         <div className="league-filter" aria-label="Ligafilter">
           {data.leagues.map((l) => (
-            <button key={l.key} className={hidden.includes(l.key) ? 'lg off' : 'lg'}
+            <button key={l.key}
+              className={`${hidden.includes(l.key) ? 'lg off' : 'lg'}${l.research ? ' research' : ''}`}
               onClick={() => toggleLeague(l.key)}
-              title={hidden.includes(l.key) ? 'Visa ligan' : 'Dölj ligan'}>
-              {l.name} {counts[l.key] ? `(${counts[l.key]})` : '(0)'}
+              title={`${l.research ? 'Forskningsliga — V2.2 samlar data. Odds, prisålder och rörelser visas, men inga värdesignaler, Kelly, notiser eller facit ännu.\n' : ''}${hidden.includes(l.key) ? 'Visa ligan' : 'Dölj ligan'}`}>
+              {l.research ? '🔬 ' : ''}{l.name} {counts[l.key] ? `(${counts[l.key]})` : '(0)'}
             </button>
           ))}
         </div>
@@ -1320,13 +1328,15 @@ function OddsetView() {
                 <b>{selLabel(m, '1x2', sg)}</b>
                 <span className="hint">{mvP ? `P ${mvP.first.toFixed(2)} → ${mvP.last.toFixed(2)}` : ''}</span>
                 <span className="vteams">
-                  <span className="lgtag">{(leagueName[m.league] || m.league).slice(0, 1)}</span>
+                  <span className="lgtag" title={leagueName[m.league] || m.league}>{(leagueName[m.league] || m.league).slice(0, 1)}</span>
                   {m.home} – {m.away}
                 </span>
                 <span className="hint">{fmtDay(m.start)} {fmtTime(m.start)}</span>
-                {v && v.edge >= 0.02 && pp > 0
-                  ? <span className="epill">{BOOK_NAME[v.book] || v.book} kvar på {v.odds.toFixed(2)} (+{Math.round(v.edge * 100)}%)</span>
-                  : <span className="hint">böckerna har hängt med</span>}
+                {m.research
+                  ? <span className="rchip" title="Forskningsliga — rörelsen visas som information. Ingen värdejämförelse eller signal: V2.2 samlar data och ligan är inte actionable.">🔬 forskning</span>
+                  : v && v.edge >= 0.02 && pp > 0
+                    ? <span className="epill">{BOOK_NAME[v.book] || v.book} kvar på {v.odds.toFixed(2)} (+{Math.round(v.edge * 100)}%)</span>
+                    : <span className="hint">böckerna har hängt med</span>}
               </div>
             )
           })}
@@ -1394,8 +1404,9 @@ function OddsetView() {
                       m.elo && `ClubElo: ${m.elo.h ?? '?'} vs ${m.elo.a ?? '?'}`,
                       m.model && `Modell-μ: ${m.model.mu[0]}–${m.model.mu[1]}${m.model.anchored ? ' (ankrad mot sharp)' : ''}`]
                       .filter(Boolean).join('\n')}>
-                    <span className="lgtag">{(leagueName[m.league] || m.league).slice(0, 1)}</span>
+                    <span className="lgtag" title={leagueName[m.league] || m.league}>{(leagueName[m.league] || m.league).slice(0, 1)}</span>
                     {m.home} – {m.away}{steamBadge(m)}{absBadge(m)}
+                    {m.research && <span className="rchip" title="Forskningsliga — V2.2 samlar data. Odds, prisålder och rörelser visas; värdesignaler, Kelly, notiser och facit är avstängda tills experimentet klarat sin forwarddom.">🔬</span>}
                   </td>
                   {['1', 'X', '2'].map((s) => cell1x2(m, s))}
                   {cellPair(m, 'ah', 'H', 'A', fmtAh)}
@@ -2372,7 +2383,7 @@ const SAVED = (() => {
   try { return JSON.parse(localStorage.getItem('svs_state') || '{}') || {} } catch { return {} }
 })()
 
-export default function App() {
+function AppClassic({ onSwitchV3 }) {
   const [group, setGroup] = useState(SAVED.group || 'topptipset')   // flik (kan samla flera produkter)
   const [product, setProduct] = useState(SAVED.product || 'topptipset')  // vald omgångs faktiska produkt (slug)
   const [draws, setDraws] = useState([])
@@ -2577,6 +2588,10 @@ export default function App() {
         <button className="refreshbtn" onClick={refresh} aria-label="Uppdatera data">
           <span aria-hidden="true">↻</span> <span className="refreshtext">Uppdatera</span>
         </button>
+        <button className="uiswitch" onClick={onSwitchV3}
+          title="Prova nya gränssnittet (experiment) — kupong och inställningar följer med, växla tillbaka när du vill">
+          ✨ <span className="uiswitch-text">Ny vy</span>
+        </button>
       </header>
 
       <div className="topinfo statusbar">
@@ -2703,4 +2718,30 @@ export default function App() {
       <footer>Lokal data från Svenska Spel + Pinnacle · personligt verktyg</footer>
     </div>
   )
+}
+
+// --- v2 ↔ v3-växeln -----------------------------------------------------------
+// v3 är ett UI-EXPERIMENT (Samans beställning 2026-07-24): nytt skal i
+// AppV3.jsx, klassiska vyn orörd. Växling laddar om sidan så att båda vyerna
+// läser färskt delat tillstånd (svs_state: kupong, omgång, inställningar).
+const UI_KEY = 'svs_ui_version'
+
+function switchUiVersion(version) {
+  try { localStorage.setItem(UI_KEY, version) } catch { /* ok */ }
+  window.location.reload()
+}
+
+export default function App() {
+  let ui = 'v2'
+  try { ui = localStorage.getItem(UI_KEY) || 'v2' } catch { /* ok */ }
+  if (ui === 'v3') return <AppV3 onExit={() => switchUiVersion('v2')} />
+  return <AppClassic onSwitchV3={() => switchUiVersion('v3')} />
+}
+
+// Byggstenar som v3-skalet återanvänder (rena tillägg — ändrar inget i v2)
+export {
+  AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel,
+  BombenView, OddsetView, Legend, Collection, LoadingState, EmptyState,
+  ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS,
+  SYSTEM_BASE, SYSTEM_SVS, VARIANT, GAMES, kr, fmtClose, fmtFetched, timeAgo,
 }
