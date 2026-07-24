@@ -260,3 +260,28 @@ Första varvet: **258 oddsrader, alla 10 ligor OK**.
 NÄSTA STEG (ej gjort): kräv att en edge överlever mot BÅDA ankarna innan den
 flaggas, och använd Smarkets som fallback när Pinnacle Cloudflare-blockar.
 Serien måste växa först — samma ordning som PIT-datat.
+
+### bwin och Betsson — testade 2026-07-24, båda stoppade (av olika skäl)
+
+**bwin (Entain CDS).** `www.bwin.com/cds-api/bettingoffer/fixtures` svarar
+**403 från Cloudflare** för den här maskinen — det är en WAF-blockering, inte
+ett saknat token. (Tidigare research fick 200, troligen från annan IP/geo.)
+Att ta sig förbi en Cloudflare-challenge är kringgående av botskydd och görs
+inte. Om endpointen svarar 200 från ditt eget nät är klienten trivial att
+skriva — testa med curl därifrån först.
+
+**Betsson/Betsafe/NordicBet.** `www.betsson.com/api/sb/*` svarar rent och
+ärligt: `400 {"code":"E_VALIDATION_INVALIDHEADER"}` med `content-type:
+application/json`. Det är alltså INGET botskydd på själva API:t — det saknas
+bara ett headernamn som deras egen frontend skickar. Provade fem rimliga
+namn (`x-brand`, `x-tenant`, `brand`, `x-sb-brand`, `x-betsson-brand`) — alla
+gav samma fel; jag brute-forcar inte vidare. Headern går att se i deras
+publika JS-bundle, men `betsson.com/sv` levererar bara ett skal utan
+script-referenser till en vanlig HTTP-klient (AWS WAF), och browser-verktyget
+är policyblockerat för speldomäner i den här miljön.
+
+**Enkel väg framåt för Betsson:** öppna www.betsson.com i din egen webbläsare,
+DevTools → Network → filtrera på `api/sb`, och kopiera request-headern (namn
++ värde) från valfritt anrop. Det är din egen webbläsare på en sida du får
+besöka. Med den uppgiften är klienten ~70 rader och Betsson-koncernen blir
+vår första genuint oberoende prismotor vid sidan av Kambi/Altenar.
