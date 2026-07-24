@@ -204,7 +204,23 @@ fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
   noll, hypotes). FÖRREGISTRERAD GATE: ≥40 out-of-time-omgångar efter
   2026-07-24 med hela KI90<0 per produkt; challengers (nivå-κ under toppen,
   svansjusterad P_folk) ska slå champion i PH3-ledgern före runtime.
-  Kvar: `startOdds`-semantikverifiering, gate-omprövning i höst.
+  **Codex-eftergranskning åtgärdad 2026-07-24:** PH0/`pit-v1` hade blandat
+  senaste värdeförändring med senaste lyckade observation. Ny
+  `pool_market_capture` skriver därför varje lyckad SvS-/Pinnacle-läsning
+  även när värdet står still; `pit-v2` kräver presence + timingtolerans och
+  bakfyller aldrig v1. PH3 räknar nu kontrafaktisk egen-vinnarutspädning,
+  rollover med noll officiella vinnare blir okänd ROI, och rapportering/gate
+  sker per produkt × config × horisont enbart på timely+lösbara rader.
+  Jackpot har explicit endpointproveniens utan `draw.fund`-fallback.
+  Forwardmanifestet `docs/pool-ph4-forward-manifest.json` fryser kandidat d
+  och börjar scoring 2026-07-25; development kan inte räknas mot de 40
+  omgångarna. Första livevarvet gav 212 presence-rader men korrekt 0
+  `pit-v2`-horisonter (cutoffs får inte bakfyllas). Full rapport:
+  `docs/pool-pit-v2-2026-07-24.md`. **Ingen runtime-modell ändrad.**
+  Slutverifiering: 163 backendtester, frontend production build och
+  produktions-DB:s integritetskontroll är gröna.
+  Kvar: låt v2/PH3 växa, kontrollera första horisont/frysning/settlement,
+  `startOdds`-semantikverifiering och gate-omprövning först vid volym.
   Överlämning och arbetsordning:
   `docs/overlamning-till-claude-2026-07-24.md`.
 - **UI v3-experiment levererat 2026-07-24 (Samans beställning):** ny

@@ -1,5 +1,13 @@
 # PH0 — käll- och coverage-audit för poolspelshistoriken (2026-07-24)
 
+> **Metodkorrigering 2026-07-24:** kohort A:s tidslagg nedan beräknades från
+> `snapshots`/`sharp_snapshots`, som endast skriver vid värdeförändring.
+> Siffrorna mäter därför *tid sedan senaste förändring*, inte säkert tid sedan
+> senaste lyckade källäsning. De får inte användas som timing-/coverage-bevis.
+> `pit-v2` inför separat `pool_market_capture`; se
+> `docs/pool-pit-v2-2026-07-24.md`. Kohort B:s API-/slutvärdesfynd påverkas
+> inte av korrigeringen.
+
 Läsande audit enligt `docs/overlamning-till-claude-2026-07-24.md`. Skript:
 `backend/scripts/ph0_kallaudit.py`; rådata per omgång och prov i
 `docs/ph0-kallaudit-2026-07-24.json`. Inga modell- eller DB-ändringar.

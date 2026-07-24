@@ -364,8 +364,27 @@ CREATE TABLE IF NOT EXISTS pool_draw_snapshot (
     fetched_at  TEXT NOT NULL,
     net_sale    REAL,
     jackpot     REAL,
+    jackpot_source TEXT NOT NULL DEFAULT 'missing',
     PRIMARY KEY (product, draw_number, fetched_at)
 );
+
+-- Presence-ledger: en rad per lyckad källäsning och event, även när pris/
+-- streck INTE ändrades. snapshots/sharp_snapshots fortsätter vara kompakta
+-- förändringsserier; den här tabellen är observationsklockan för PIT.
+CREATE TABLE IF NOT EXISTS pool_market_capture (
+    product         TEXT NOT NULL,
+    draw_number     INTEGER NOT NULL,
+    source          TEXT NOT NULL CHECK (source IN ('svs', 'sharp')),
+    event_number    INTEGER NOT NULL,
+    fetched_at      TEXT NOT NULL,
+    status          TEXT NOT NULL,
+    odds_complete   INTEGER NOT NULL,
+    streck_complete INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (product, draw_number, source, event_number, fetched_at)
+);
+CREATE INDEX IF NOT EXISTS idx_pool_market_capture_asof
+    ON pool_market_capture
+       (product, draw_number, source, event_number, fetched_at DESC);
 
 CREATE TABLE IF NOT EXISTS pool_pit_draw_features (
     product         TEXT NOT NULL,
@@ -385,6 +404,7 @@ CREATE TABLE IF NOT EXISTS pool_pit_draw_features (
     difficulty      REAL,
     turnover_asof   REAL,
     jackpot_asof    REAL,
+    timing_policy   TEXT,
     PRIMARY KEY (product, draw_number, horizon, feature_version)
 );
 
@@ -397,6 +417,8 @@ CREATE TABLE IF NOT EXISTS pool_pit_match_features (
     asof            TEXT NOT NULL,
     svs_lag_min     REAL,
     sharp_lag_min   REAL,
+    svs_eligible    INTEGER NOT NULL DEFAULT 0,
+    sharp_eligible  INTEGER NOT NULL DEFAULT 0,
     p_svs_1 REAL, p_svs_x REAL, p_svs_2 REAL,
     p_sharp_1 REAL, p_sharp_x REAL, p_sharp_2 REAL,
     streck_1 INTEGER, streck_x INTEGER, streck_2 INTEGER,
@@ -429,11 +451,15 @@ CREATE TABLE IF NOT EXISTS pool_system_ledger (
     turnover_used REAL,
     turnover_basis TEXT,
     jackpot_used  REAL,
+    jackpot_source TEXT NOT NULL DEFAULT 'missing',
     build_note    TEXT,
     settled_at    TEXT,
     correct_max   INTEGER,
     correct_dist  TEXT,
     payout_kr     REAL,
+    published_payout_kr REAL,
+    payout_complete INTEGER,
+    settlement_version TEXT,
     roi           REAL,
     settle_note   TEXT,
     PRIMARY KEY (product, draw_number, horizon, config_key)

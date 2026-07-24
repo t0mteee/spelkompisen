@@ -22,8 +22,11 @@ modell och får inte påverka tips, notiser eller CLV.
 Beställning 1 är LEVERERAD 2026-07-24: de fyra Europaligorna syns i ordinarie
 Oddset-vyn (🔬 forskningsmärkta, `visible_in_ui`) men är fortsatt icke-
 actionable — `VISIBLE_LEAGUE_KEYS` ≠ `ACTIONABLE_LEAGUE_KEYS` i `oddset.py`.
-Nästa dataspår är ett PIT-säkert facit för avslutade
-Stryk-/Europa-/Topptipsomgångar, inklusive odds-, streck- och utdelningsanalys.
+Poolspår PH1–PH4 finns nu: historiskt settlement, framåtriktad presence-ledger
+och `pit-v2`, kontrafaktiskt systemfacit samt fryst forward-gate. Det samlar
+data utan bakfyllning och påverkar ännu inte runtimeförslag. Nästa steg är att
+auditera de första riktiga v2-horisonterna, systemfrysningarna och settlementen;
+se `docs/pool-pit-v2-2026-07-24.md`.
 
 **Relationen till syskonprojekten:**
 - `/Users/saman/svs` (SvS kompisen, portar 8000/5173) — ursprunget, **FRYST ARKIV sedan
@@ -47,10 +50,12 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/oddset_v22.py   isolerad V2.2 feature-/shadowcapture (ej live-tips)
   app/pool_settlement.py PH1: immutable poolfacit (append-once, payload-hash;
                       backfill/migration i scripts/, läs-API /api/pool/history)
-  app/pool_dataset.py PH2: PIT-features per omgång/horisont (pit-v1, enbart
-                      observed_pit — no backfill) + pool_draw_snapshot-serien
+  app/pool_dataset.py PH2: PIT-features per omgång/horisont (pit-v2, enbart
+                      observed_pit — no backfill) + separat presence-ledger
+                      och proveniensmärkt pool_draw_snapshot-serie
   app/pool_system_ledger.py PH3: förregistrerade benchmarksystem fryses
-                      T−3h/T−20m i varvet, settlas mot riktig utdelning
+                      T−3h/T−20m i varvet, settlas kontrafaktiskt med egen
+                      vinnarutspädning; rollover utan vinnare = okänd ROI
                       (/api/pool/systems; champion = dagens byggare)
   app/main.py         API-endpoints + PRIZE_PLANS (officiella vinstplaner)
   cli.py              show|spikar|snapshot|history|rad (snapshotvarvet settlar
@@ -135,6 +140,11 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
   = fetare svansar; favoriter överstreckade) — ev. korrektion är alltså
   PESSIMISTISK (sänker EV), och nivå-κ under toppen är challenger-kandidat
   som ska slå champion i PH3-ledgern innan runtime rörs (förregistrerad gate).
+- **Pool-PIT presence-regel:** `snapshots`/`sharp_snapshots` är ENBART
+  förändringsserier. Endast `pool_market_capture` får bevisa att en källa var
+  observerad vid T−24h/T−3h/T−20m; gamla `pit-v1`/PH0-laggar får aldrig
+  omtolkas till presence. Forwardexperimentet är fryst i
+  `docs/pool-ph4-forward-manifest.json` och börjar med `pit-v2`.
 - **Värderader**: score = P(rad)^k × EV(rad) där k = 2·(1−value_weight); reglaget är enda
   risk-axeln (strategin sätter bara startpunkten 20/50/80).
 - **RLM**: folket och devigad sharp åt olika håll (◆ smart pengar / ⚠ fadea).

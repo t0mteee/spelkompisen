@@ -12,6 +12,7 @@ GET /api/history?draw=...&event=...&sign=1   -> oddshistorik för ett utfall
 from __future__ import annotations
 
 import datetime as dt
+import statistics
 import subprocess
 from dataclasses import asdict
 from pathlib import Path
@@ -233,7 +234,8 @@ def _projected_turnover(product: str, current: float) -> float | None:
 
 
 @app.get("/api/pool/history")
-def pool_history(product: str = "stryktipset", limit: int = 400,
+def pool_history(product: str = "stryktipset",
+                 limit: int = Query(400, ge=1, le=1000),
                  draw: int | None = None):
     """PH1-settlementlagret (läser bara DB): avgjorda omgångar med utfall,
     slutstreck, slutomsättning och full utdelning per nivå. `final_only`-
@@ -272,6 +274,20 @@ def pool_history(product: str = "stryktipset", limit: int = 400,
         total, first_close, last_close = store.conn.execute(
             "SELECT COUNT(*), MIN(reg_close_time), MAX(reg_close_time) "
             "FROM pool_draw_settlement WHERE product=?", (product,)).fetchone()
+        mean_turnover = store.conn.execute(
+            "SELECT AVG(net_sale) FROM pool_draw_settlement "
+            "WHERE product=? AND net_sale>0", (product,)).fetchone()[0]
+        top_rows = store.conn.execute(
+            "SELECT p.winners, p.amount FROM pool_payout_tier p "
+            "WHERE p.product=? AND p.correct=("
+            " SELECT MAX(p2.correct) FROM pool_payout_tier p2 "
+            " WHERE p2.product=p.product AND p2.draw_number=p.draw_number)",
+            (product,)).fetchall()
+        paid_top = sorted(
+            float(r[1]) for r in top_rows
+            if (r[0] or 0) > 0 and r[1] is not None and r[1] > 0)
+        median_top = statistics.median(paid_top) if paid_top else None
+        rollovers = sum(1 for r in top_rows if r[0] == 0)
         rows = store.conn.execute(
             "SELECT draw_number, reg_close_time, net_sale, row_price, "
             "n_cancelled FROM pool_draw_settlement WHERE product=? "
@@ -300,6 +316,14 @@ def pool_history(product: str = "stryktipset", limit: int = 400,
                 "top_amount": top and top["amount"]})
         return {"available": total > 0, "product": product, "total": total,
                 "first_close": first_close, "last_close": last_close,
+                "sample_size": len(draws),
+                "stats": {
+                    "scope": "all_settled",
+                    "median_top_amount": median_top,
+                    "rollovers": rollovers,
+                    "rollover_rate": (rollovers / total if total else None),
+                    "mean_turnover": mean_turnover,
+                },
                 "draws": draws}
     finally:
         store.close()
@@ -307,12 +331,13 @@ def pool_history(product: str = "stryktipset", limit: int = 400,
 
 @app.get("/api/pool/systems")
 def pool_systems():
-    """PH3-systemledgern: frysta byggarförslag (förregistrerad benchmarkmatris)
-    och deras facit mot riktig utdelning. Champion = dagens byggare; läs bara."""
+    """PH3-systemledgern, rent läsande.
+
+    Settlement sker i snapshotjobbet; ett GET-anrop får aldrig skriva DB.
+    """
     from . import pool_system_ledger
     store = Storage()
     try:
-        pool_system_ledger.settle_pending(store)
         return pool_system_ledger.summary(store)
     finally:
         store.close()

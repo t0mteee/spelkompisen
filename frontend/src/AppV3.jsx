@@ -115,7 +115,18 @@ function DashboardV3({ openPool, openOddset, openHistorik }) {
       get(`/api/pool/history?product=${p.id}&limit=1`).then((j) => [p.id, j]).catch(() => [p.id, null])
     )).then((pairs) => setHist(Object.fromEntries(pairs)))
   }
-  useEffect(() => { load() }, [])  // eslint-disable-line
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState === 'visible') load()
+    }
+    load()
+    const id = setInterval(tick, 120000)
+    document.addEventListener('visibilitychange', tick)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', tick)
+    }
+  }, [])  // eslint-disable-line
 
   // värdespel + rörelser ur samma payload som Oddset-vyn (sanerad: research bär inga)
   const signals = []
@@ -253,16 +264,17 @@ function DashboardV3({ openPool, openOddset, openHistorik }) {
             if (!frozen) {
               return <span className="v3hint">Byggarens förslag (50 kr Värderader m.fl.)
                 fryses automatiskt vid T−3 h och T−20 min före varje spelstopp och
-                rättas mot riktig utdelning. Väntar på första frysningen.</span>
+                rättas mot utfall och utspädd utdelningsestimering. Väntar på
+                första frysningen.</span>
             }
             const primary = groups.filter((g) => g.primary)
             return (
               <>
                 {primary.map((g) => (
-                  <div key={`${g.config_key}-${g.horizon}`} className="v3row">
-                    <b>{g.config_key} · {g.horizon}</b>
-                    <span className="v3hint">{g.n_settled}/{g.n_frozen} rättade</span>
-                    {g.n_settled > 0 && g.roi != null &&
+                  <div key={`${g.product}-${g.config_key}-${g.horizon}`} className="v3row">
+                    <b>{g.product} · {g.config_key} · {g.horizon}</b>
+                    <span className="v3hint">{g.n_evaluable}/{g.n_frozen} jämförbara</span>
+                    {g.n_evaluable > 0 && g.roi != null &&
                       <span className={g.roi >= 0 ? 'v3edge' : 'v3steam'}>
                         {g.roi >= 0 ? '+' : ''}{Math.round(g.roi * 100)}%</span>}
                   </div>
@@ -279,7 +291,13 @@ function DashboardV3({ openPool, openOddset, openHistorik }) {
             <button className="v3more" onClick={() => openHistorik()}>utforska →</button></div>
           {!histRows.length && <span className="v3hint">Settlementlagret fylls på — kör backfillen eller vänta in nästa varv.</span>}
           {histRows.map((r) => (
-            <div key={r.id} className="v3row v3histrow" onClick={() => openHistorik(r.id)}>
+            <div key={r.id} className="v3row v3histrow" role="button" tabIndex={0}
+              onClick={() => openHistorik(r.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault(); openHistorik(r.id)
+                }
+              }}>
               <b>{r.label}</b>
               <span className="v3hint">{r.sum.total} omgångar sedan {String(r.sum.first_close || '').slice(0, 4)}</span>
             </div>
@@ -332,7 +350,12 @@ function PoolV3() {
     if (!restore) { setPicks({}); setPickRows(null) }
     try {
       const d = await get(`/api/draws?product=${g}`)
-      const list = d.open?.length ? d.open : d.draws || []
+      const raw = d.open?.length ? d.open : d.draws || []
+      const list = [...raw].sort((a, b) => {
+        const at = a.reg_close_time ? new Date(a.reg_close_time).getTime() : Infinity
+        const bt = b.reg_close_time ? new Date(b.reg_close_time).getTime() : Infinity
+        return at - bt
+      })
       setDraws(list)
       const restored = restore && list.find((x) => x.product === saved.product && x.draw_number === saved.draw)
       const chosen = restored || list[0]
@@ -579,14 +602,9 @@ function HistorikV3({ initialProduct, focus }) {
   }
 
   const draws = data?.draws || []
-  const paid = draws.filter((d) => (d.top_winners ?? 0) > 0 && d.top_amount)
-  const medianTop = paid.length
-    ? [...paid].sort((a, b) => a.top_amount - b.top_amount)[Math.floor(paid.length / 2)].top_amount
-    : null
-  const rollovers = draws.filter((d) => d.top_winners === 0).length
-  const withTurnover = draws.filter((d) => d.turnover)
-  const meanTurnover = withTurnover.length
-    ? withTurnover.reduce((s, d) => s + d.turnover, 0) / withTurnover.length : null
+  const medianTop = data?.stats?.median_top_amount
+  const rolloverRate = data?.stats?.rollover_rate
+  const meanTurnover = data?.stats?.mean_turnover
   const sparkVals = [...draws].reverse().map((d) => d.turnover)
 
   return (
@@ -606,12 +624,15 @@ function HistorikV3({ initialProduct, focus }) {
       </div>
 
       <div className="v3card v3systembox" id="hist-system">
-        <div className="v3cardhead"><h3>📋 Systemfacit — byggarens egna förslag mot verkligheten</h3></div>
+        <div className="v3cardhead"><h3>📋 Systemfacit — frysta förslag mot observerat facit</h3></div>
         <span className="v3hint">
           Vid T−3 h och T−20 min före varje spelstopp fryser snapshotvarvet vad
           radbyggaren faktiskt föreslår (förregistrerad matris: {(systems?.benchmarks || [])
             .map((b) => b.key + (b.primary ? ' ★' : '')).join(' · ') || '…'}) och
-          rättar sedan raderna mot riktigt utfall och riktig utdelning.
+          rättar sedan raderna mot riktigt utfall. Utdelningen är en
+          kontrafaktisk uppskattning: den publicerade nivån späds med våra egna
+          vinnande rader. Rullpott med noll officiella vinnare lämnas okänd,
+          aldrig som nollvinst.
           Champion = dagens byggare — inga inställningar ändras utan att slå den
           out-of-time. Sena frysningar flaggas och räknas separat.
         </span>
@@ -622,17 +643,18 @@ function HistorikV3({ initialProduct, focus }) {
         {systems?.groups?.length > 0 && (
           <div className="v3histtablewrap">
             <table className="v3histtable">
-              <thead><tr><th>Konfig</th><th>Horisont</th><th>Frysta</th>
-                <th>Rättade</th><th>Insats</th><th>Utdelning</th><th>ROI</th><th>Bäst</th></tr></thead>
+              <thead><tr><th>Produkt</th><th>Konfig</th><th>Horisont</th><th>Frysta</th>
+                <th>Jämförbara</th><th>Insats</th><th>Utdelningsest.</th><th>ROI</th><th>Bäst</th></tr></thead>
               <tbody>
                 {systems.groups.map((g) => (
-                  <tr key={`${g.config_key}-${g.horizon}`}>
+                  <tr key={`${g.product}-${g.config_key}-${g.horizon}`}>
+                    <td>{g.product}</td>
                     <td>{g.primary ? '★ ' : ''}{g.config_key}</td>
                     <td>{g.horizon}</td>
                     <td>{g.n_frozen}{g.n_timely < g.n_frozen ? ` (${g.n_frozen - g.n_timely} sena)` : ''}</td>
-                    <td>{g.n_settled}</td>
-                    <td>{g.n_settled ? kr(g.cost_kr) : '–'}</td>
-                    <td>{g.n_settled ? kr(g.payout_kr) : '–'}</td>
+                    <td>{g.n_evaluable}{g.n_payout_incomplete ? ` (${g.n_payout_incomplete} okänd utd.)` : ''}</td>
+                    <td>{g.n_evaluable ? kr(g.cost_kr) : '–'}</td>
+                    <td>{g.n_evaluable ? kr(g.payout_kr) : '–'}</td>
                     <td className={g.roi == null ? '' : g.roi >= 0 ? 'v3pos' : 'v3neg'}>
                       {g.roi == null ? '–' : `${g.roi >= 0 ? '+' : ''}${Math.round(g.roi * 100)}%`}</td>
                     <td>{g.best_correct ?? '–'}</td>
@@ -656,8 +678,10 @@ function HistorikV3({ initialProduct, focus }) {
                       <td>{r.horizon}{r.timely ? '' : ' (sen)'}</td>
                       <td>{r.config_key}</td>
                       <td>{r.n_rows} ({kr(r.cost_kr)})</td>
-                      <td>{r.correct_max == null ? 'väntar'
-                        : `${r.correct_max} rätt · ${kr(r.payout_kr)} (${r.roi >= 0 ? '+' : ''}${Math.round((r.roi || 0) * 100)}%)`}</td>
+                      <td>{r.correct_max == null ? (r.settle_note || 'väntar')
+                        : r.payout_complete === false
+                          ? `${r.correct_max} rätt · utdelning okänd`
+                          : `${r.correct_max} rätt · est. ${kr(r.payout_kr)} (${r.roi >= 0 ? '+' : ''}${Math.round((r.roi || 0) * 100)}%)`}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -677,9 +701,9 @@ function HistorikV3({ initialProduct, focus }) {
           <div className="v3histkpis">
             <div className="v3kpi"><b>{data.total}</b><span>omgångar</span></div>
             <div className="v3kpi"><b>{String(data.first_close || '').slice(0, 4)}–{String(data.last_close || '').slice(0, 4)}</b><span>tidsspann</span></div>
-            <div className="v3kpi"><b>{medianTop ? kr(medianTop) : '–'}</b><span>median toppvinst<br />(senaste {draws.length})</span></div>
-            <div className="v3kpi"><b>{draws.length ? Math.round(100 * rollovers / draws.length) : 0}%</b><span>utan toppvinnare<br />(rullpott)</span></div>
-            <div className="v3kpi"><b>{meanTurnover ? kr(meanTurnover) : '–'}</b><span>medelomsättning</span></div>
+            <div className="v3kpi"><b>{medianTop ? kr(medianTop) : '–'}</b><span>median toppvinst<br />(hela historiken)</span></div>
+            <div className="v3kpi"><b>{rolloverRate != null ? Math.round(100 * rolloverRate) : 0}%</b><span>utan toppvinnare<br />(hela historiken)</span></div>
+            <div className="v3kpi"><b>{meanTurnover ? kr(meanTurnover) : '–'}</b><span>medelomsättning<br />(hela historiken)</span></div>
           </div>
           {sparkVals.filter(Boolean).length > 2 && (
             <div className="v3sparkbox">
@@ -697,7 +721,14 @@ function HistorikV3({ initialProduct, focus }) {
                 {draws.map((d) => {
                   const top = d.tiers?.[0]
                   return [
-                    <tr key={d.draw_number} className="v3histrowline" onClick={() => toggle(d.draw_number)}>
+                    <tr key={d.draw_number} className="v3histrowline"
+                      role="button" tabIndex={0}
+                      onClick={() => toggle(d.draw_number)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault(); toggle(d.draw_number)
+                        }
+                      }}>
                       <td>{d.draw_number}</td>
                       <td>{fmtDay(d.close)}</td>
                       <td>{d.turnover ? kr(d.turnover) : '–'}</td>
@@ -778,9 +809,9 @@ export default function AppV3({ onExit }) {
   return (
     <div className="v3">
       <header className="v3top">
-        <div className="v3brand" onClick={() => go('idag')} role="button" tabIndex={0}>
+        <button type="button" className="v3brand" onClick={() => go('idag')}>
           ⚽ Spelkompisen <span className="v3beta">v3 · experiment</span>
-        </div>
+        </button>
         <nav className="v3nav" aria-label="Vy">
           {VIEWS.map((v) => (
             <button key={v.id} className={view === v.id ? 'on' : ''}

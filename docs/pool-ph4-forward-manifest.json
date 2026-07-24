@@ -1,0 +1,49 @@
+{
+  "experiment_id": "pool-streckmove-v1",
+  "frozen_at": "2026-07-24T08:42:23Z",
+  "evaluation_start": "2026-07-25T00:00:00Z",
+  "feature_version": "pit-v2",
+  "cohort": "observed_pit",
+  "horizon": "h3",
+  "primary_candidate": "d",
+  "baseline": "b",
+  "primary_product": "topptipset",
+  "features": {
+    "b": [],
+    "b*": ["lnp"],
+    "c": ["lnp", "streck"],
+    "d": ["lnp", "streck", "streckmove"],
+    "e": ["lnp", "sharpmove"],
+    "f": ["lnp", "streck", "streckmove", "sharpmove"]
+  },
+  "training": {
+    "scheme": "expanding_walk_forward",
+    "minimum_prior_draws": 15,
+    "development_rows_may_train": true,
+    "development_rows_may_not_score_forward_gate": true,
+    "ridge_l2": 0.0001,
+    "max_iterations": 800,
+    "gradient_tolerance": 1e-08
+  },
+  "eligibility": {
+    "complete_result": true,
+    "timing_policy": "presence-v1:h24=45,h3=45,m20=10",
+    "requires_timely_svs_streck": true,
+    "market": "timely sharp, otherwise timely SvS",
+    "missing": "exclude match, never impute movement"
+  },
+  "primary_metric": "mean_match_logloss",
+  "uncertainty": {
+    "method": "draw_block_bootstrap",
+    "confidence": 0.9,
+    "bootstrap_samples": 2000,
+    "seed": 20260724
+  },
+  "promotion_gate": {
+    "minimum_forward_draws_per_product": 40,
+    "candidate_delta_ci90_upper_below_zero": true,
+    "no_other_product_significantly_worse": true,
+    "system_level_change_must_also_beat_ph3_champion": true
+  },
+  "runtime_effect": "none_until_gate_passes"
+}

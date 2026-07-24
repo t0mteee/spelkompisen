@@ -5,6 +5,89 @@ Detta är den aktuella arbetsöverlämningen till Claude. Läs först
 `docs/overlamning-2026-07-23.md` som historisk changelog; duplicera inte dess
 äldre detaljer här.
 
+> **Codex 2026-07-24 — aktuell överlämning, läs denna ruta först.**
+>
+> Saman bad Codex genomföra samtliga sex eftergranskningspunkter. De är nu
+> implementerade och verifierade; full metodrapport:
+> `docs/pool-pit-v2-2026-07-24.md`. Ingen poolfeature eller κ-korrektion har
+> promoverats till runtime.
+>
+> **1. PH2 presence + `pit-v2`.** Rotfelet var att
+> `snapshots`/`sharp_snapshots` bara skriver vid förändring, medan PH0/PH2
+> kallade senaste förändring för senaste observation. Ny
+> `pool_market_capture` skriver varje lyckad SvS-/Pinnacle-läsning per event,
+> även oförändrat; lyckad `not_listed` sparas, källfel gör det inte.
+> `pit-v2` kräver capture före cutoff och timing h24/h3/m20 = 45/45/10 min.
+> Stale värden finns diagnostiskt men blir inte features. Reversal kräver
+> färsk capture även kring startpunkten. **Bakfyll aldrig pit-v1 till v2.**
+>
+> **2. PH3 kontrafaktiskt facit.** Utdelning räknas nu från observerad
+> nivåtpottsproxy `winners×amount` och delas på `winners+egna_vinnarrader`.
+> Publicerad bruttovinst sparas separat. Noll officiella vinnare = okänd
+> rolloverpott, `payout/ROI=NULL`, aldrig nollförlust. Summary är per
+> produkt×config×horisont; ROI använder endast timely, lösbara och komplett
+> settlade rader. Sena/ofullständiga redovisas separat. GET
+> `/api/pool/systems` är rent läsande; snapshotjobbet settlar.
+>
+> **3. Riktig forward-gate.**
+> `docs/pool-ph4-forward-manifest.json` fryser experiment
+> `pool-streckmove-v1`: `pit-v2`, h3, kandidat d mot b, forwardstart
+> 2026-07-25, 15 tidigare v2-omgångar + minst 40 forward-evaluerade per
+> produkt, hela KI90<0 på primärprodukten och ingen signifikant försämring
+> på övriga. `ph4_ablationer.py` separerar development/forward i både volym
+> och bootstrap, exkluderar missing i stället för nollimputering,
+> standardiserar på training-only och redovisar konvergens. Statusfil:
+> `docs/ph4-forward-status.json`, nu 0 v2/Promotion NEJ.
+>
+> **4. Jackpotproveniens.** Jackpot-endpointen hämtas före capture/frysning.
+> Ingen fallback till `draw.jackpot/fund`. Proveniens:
+> verified_endpoint/missing/endpoint_error. Första livevarvet gav 2
+> verifierade och 10 missing; 109 äldre draw-snapshots är
+> legacy_unverified.
+>
+> **5. PH4/UI/API.** Eraanalysen jämför nu icke överlappande före-2024 mot
+> 2024+ (`docs/ph4-kalibrering-era-v2.json`); lägre modern κ är association,
+> inte automatiskt trendbevis. V3 uppdaterar Idag varannan minut, sorterar
+> nästa omgång efter stängning, visar historik-KPI över hela DB:n och senaste
+> 400 som tabell, har korrekt payouttext/per-produkt-ROI och bättre
+> tangentbordsstöd. V3 lazy-loadas så App↔AppV3 inte är en synkron cirkel.
+>
+> **6. Liveinsamling startad.** Migrationen kördes via
+> `scripts/migrera_pool_capture_v2.py`, backup + DB-logg finns i
+> `docs/db-atgarder.md`. Första ordinarie snapshotvarvet skrev 212
+> presence-rader (106 SvS; Pinnacle 95 matched + 11 not_listed).
+> `pit-v2=0` och `pool_system_ledger=0` är just nu KORREKT: passerade cutoffs
+> före införandet får inte bakfyllas och nästa frysning har ännu inte nått
+> T−3h.
+>
+> **Verifierat:** 163 backendtester, frontend production build,
+> `git diff --check`, browser klassisk→v3/Idag/Historik utan console-fel,
+> produktions-DB `integrity_check=ok`. Backend är omstartad på 8002 med nya
+> koden. Ändringarna är **inte committade** eftersom Saman inte bad om commit
+> i denna beställning.
+>
+> **Det Claude bör göra härnäst:**
+>
+> 1. Låt launchd arbeta; ändra inte manifest/toleranser efter första
+>    forwarddata.
+> 2. Efter första passerade horisont: auditera att capture-lagg,
+>    `svs_eligible`/`sharp_eligible` och featurevärden är rimliga.
+> 3. Efter första T−3h-frysning och settlement: verifiera rows_hash,
+>    jackpot_source, egen utspädning och att summary endast räknar
+>    `n_evaluable`.
+> 4. Kör `scripts/ph4_ablationer.py` som statusrapport vid behov; 0/låg volym
+>    är väntat och får inte “lösas” med bakfyllning.
+> 5. Nästa fristående forskningsfråga är `startOdds`-semantik. Håll den borta
+>    från rörelsefeatures tills providerbetydelsen bevisats.
+> 6. Ingen runtimeändring för nivå-κ, svansmodell eller streckrörelse före
+>    respektive gate och PH3-championjämförelse.
+
+## Historisk logg från tidigare pass
+
+Avsnitten nedan beskriver tidigare leveranser och ska läsas som bakgrund.
+Vid konflikt gäller den aktuella överlämningen ovan, `CLAUDE.md` och
+statussammanfattningen i `docs/plan.md`.
+
 > **Claude 2026-07-24: Beställning 1 LEVERERAD** (se sektionen nedan för
 > ursprungskraven). Genomförande: `visible_in_ui`-flagga på de fyra
 > forskningsligorna i `oddset.py`; `VISIBLE_LEAGUE_KEYS` respektive

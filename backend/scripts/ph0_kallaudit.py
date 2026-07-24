@@ -59,7 +59,11 @@ def local_coverage() -> dict:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     now = dt.datetime.now(dt.timezone.utc)
-    out: dict = {"db": str(DB_PATH), "generated_at": now.isoformat(), "products": {}}
+    out: dict = {
+        "db": str(DB_PATH), "generated_at": now.isoformat(),
+        "timing_source": "pool_market_capture (successful reads, not changes)",
+        "products": {},
+    }
     try:
         for product in PRODUCTS:
             closes = {
@@ -79,16 +83,27 @@ def local_coverage() -> dict:
                         row = {"draw_number": n}
                         per_draw.append(row)
                     row[f"{key}_rows"] = int(r["n"])
+            for r in conn.execute(
+                    "SELECT draw_number, source, COUNT(DISTINCT fetched_at) AS n "
+                    "FROM pool_market_capture WHERE product=? "
+                    "GROUP BY draw_number, source", (product,)):
+                n = int(r["draw_number"])
+                row = next((d for d in per_draw if d["draw_number"] == n), None)
+                if row is None:
+                    row = {"draw_number": n}
+                    per_draw.append(row)
+                row[f"{r['source']}_capture_points"] = int(r["n"])
             for row in per_draw:
                 n = row["draw_number"]
                 close = closes.get(n)
                 row["reg_close_time"] = close.isoformat() if close else None
                 row["passed"] = bool(close and close <= now)
-                for table, key in (("snapshots", "svs"), ("sharp_snapshots", "sharp")):
+                for key in ("svs", "sharp"):
                     stamps = sorted({
                         s for (v,) in conn.execute(
-                            f"SELECT DISTINCT fetched_at FROM {table} "
-                            "WHERE product=? AND draw_number=?", (product, n))
+                            "SELECT DISTINCT fetched_at FROM pool_market_capture "
+                            "WHERE product=? AND draw_number=? AND source=?",
+                            (product, n, key))
                         if (s := _parse_ts(v))
                     })
                     row[f"{key}_points"] = len(stamps)

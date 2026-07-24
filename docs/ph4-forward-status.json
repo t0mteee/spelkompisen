@@ -1,0 +1,383 @@
+{
+ "experiment_id": "pool-streckmove-v1",
+ "manifest_frozen_at": "2026-07-24T08:42:23Z",
+ "evaluation_start": "2026-07-25T00:00:00Z",
+ "feature_version": "pit-v2",
+ "horizon": "h3",
+ "minimum_prior_draws": 15,
+ "runtime_effect": "none",
+ "products": {
+  "topptipset": {
+   "n_pit_draws": 0,
+   "n_before_forward_start": 0,
+   "development": {
+    "b": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "b*": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "c": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "d": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "e": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "f": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    }
+   },
+   "forward": {
+    "b": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "b*": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "c": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "d": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "e": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "f": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    }
+   }
+  },
+  "europatipset": {
+   "n_pit_draws": 0,
+   "n_before_forward_start": 0,
+   "development": {
+    "b": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "b*": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "c": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "d": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "e": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "f": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    }
+   },
+   "forward": {
+    "b": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "b*": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "c": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "d": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "e": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "f": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    }
+   }
+  },
+  "topptipsetextra": {
+   "n_pit_draws": 0,
+   "n_before_forward_start": 0,
+   "development": {
+    "b": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "b*": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "c": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "d": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "e": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "f": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    }
+   },
+   "forward": {
+    "b": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "b*": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "c": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "d": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "e": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "f": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    }
+   }
+  },
+  "stryktipset": {
+   "n_pit_draws": 0,
+   "n_before_forward_start": 0,
+   "development": {
+    "b": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "b*": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "c": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "d": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "e": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "f": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    }
+   },
+   "forward": {
+    "b": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "b*": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "c": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "d": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "e": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "f": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    }
+   }
+  },
+  "topptipsetstryk": {
+   "n_pit_draws": 0,
+   "n_before_forward_start": 0,
+   "development": {
+    "b": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "b*": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "c": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "d": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "e": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "f": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    }
+   },
+   "forward": {
+    "b": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "b*": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "c": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "d": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "e": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    },
+    "f": {
+     "n_eval_draws": 0,
+     "n_matches": 0,
+     "status": "no_forward_data"
+    }
+   }
+  }
+ },
+ "promotion_gate": {
+  "candidate": "d",
+  "minimum_forward_draws_per_product": 40,
+  "checks": {
+   "topptipset": {
+    "enough_forward_draws": false,
+    "ci_entirely_better": false,
+    "not_significantly_worse": false
+   },
+   "europatipset": {
+    "enough_forward_draws": false,
+    "ci_entirely_better": false,
+    "not_significantly_worse": false
+   },
+   "topptipsetextra": {
+    "enough_forward_draws": false,
+    "ci_entirely_better": false,
+    "not_significantly_worse": false
+   },
+   "stryktipset": {
+    "enough_forward_draws": false,
+    "ci_entirely_better": false,
+    "not_significantly_worse": false
+   },
+   "topptipsetstryk": {
+    "enough_forward_draws": false,
+    "ci_entirely_better": false,
+    "not_significantly_worse": false
+   }
+  },
+  "passes": false
+ }
+}

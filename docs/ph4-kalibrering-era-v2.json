@@ -1,0 +1,1114 @@
+{
+ "seed": 20260724,
+ "bootstrap_n": 1000,
+ "products": {
+  "stryktipset": {
+   "n_draws": 637,
+   "skipped": {
+    "cancelled": 57,
+    "missing": 2,
+    "turnover": 0
+   },
+   "reliability": [
+    {
+     "bucket": "0-5%",
+     "n": 204,
+     "mean_share": 0.0337,
+     "hit_rate": 0.0588
+    },
+    {
+     "bucket": "5-10%",
+     "n": 976,
+     "mean_share": 0.0725,
+     "hit_rate": 0.0963
+    },
+    {
+     "bucket": "10-15%",
+     "n": 1739,
+     "mean_share": 0.1219,
+     "hit_rate": 0.1829
+    },
+    {
+     "bucket": "15-20%",
+     "n": 2606,
+     "mean_share": 0.1709,
+     "hit_rate": 0.2268
+    },
+    {
+     "bucket": "20-25%",
+     "n": 3708,
+     "mean_share": 0.2219,
+     "hit_rate": 0.257
+    },
+    {
+     "bucket": "25-30%",
+     "n": 4818,
+     "mean_share": 0.2695,
+     "hit_rate": 0.285
+    },
+    {
+     "bucket": "30-35%",
+     "n": 2238,
+     "mean_share": 0.3152,
+     "hit_rate": 0.3034
+    },
+    {
+     "bucket": "35-40%",
+     "n": 1127,
+     "mean_share": 0.3699,
+     "hit_rate": 0.3691
+    },
+    {
+     "bucket": "40-45%",
+     "n": 1146,
+     "mean_share": 0.4211,
+     "hit_rate": 0.3909
+    },
+    {
+     "bucket": "45-50%",
+     "n": 1165,
+     "mean_share": 0.4695,
+     "hit_rate": 0.4318
+    },
+    {
+     "bucket": "50-55%",
+     "n": 1072,
+     "mean_share": 0.52,
+     "hit_rate": 0.4748
+    },
+    {
+     "bucket": "55-60%",
+     "n": 1031,
+     "mean_share": 0.5698,
+     "hit_rate": 0.4791
+    },
+    {
+     "bucket": "60-65%",
+     "n": 897,
+     "mean_share": 0.62,
+     "hit_rate": 0.5307
+    },
+    {
+     "bucket": "65-70%",
+     "n": 678,
+     "mean_share": 0.6686,
+     "hit_rate": 0.5649
+    },
+    {
+     "bucket": "70-75%",
+     "n": 547,
+     "mean_share": 0.7195,
+     "hit_rate": 0.6654
+    },
+    {
+     "bucket": "75-80%",
+     "n": 397,
+     "mean_share": 0.7695,
+     "hit_rate": 0.6826
+    },
+    {
+     "bucket": "80-85%",
+     "n": 244,
+     "mean_share": 0.8166,
+     "hit_rate": 0.7787
+    },
+    {
+     "bucket": "85-90%",
+     "n": 177,
+     "mean_share": 0.8666,
+     "hit_rate": 0.8023
+    },
+    {
+     "bucket": "90-95%",
+     "n": 73,
+     "mean_share": 0.9137,
+     "hit_rate": 0.8904
+    }
+   ],
+   "kappa": {
+    "13": {
+     "kappa": 1.286,
+     "ci90": [
+      1.1765,
+      1.3902
+     ],
+     "n_draws": 637
+    },
+    "12": {
+     "kappa": 1.2063,
+     "ci90": [
+      1.1497,
+      1.2644
+     ],
+     "n_draws": 637
+    },
+    "11": {
+     "kappa": 1.1421,
+     "ci90": [
+      1.1118,
+      1.1721
+     ],
+     "n_draws": 637
+    },
+    "10": {
+     "kappa": 1.0903,
+     "ci90": [
+      1.0774,
+      1.1039
+     ],
+     "n_draws": 637
+    }
+   },
+   "kappa_before_2024": {
+    "n_draws": 511,
+    "13": {
+     "kappa": 1.3305,
+     "ci90": [
+      1.1916,
+      1.4667
+     ],
+     "n_draws": 511
+    },
+    "12": {
+     "kappa": 1.2287,
+     "ci90": [
+      1.1538,
+      1.2937
+     ],
+     "n_draws": 511
+    },
+    "11": {
+     "kappa": 1.1519,
+     "ci90": [
+      1.1149,
+      1.1851
+     ],
+     "n_draws": 511
+    },
+    "10": {
+     "kappa": 1.0938,
+     "ci90": [
+      1.0777,
+      1.1088
+     ],
+     "n_draws": 511
+    }
+   },
+   "kappa_since_2024": {
+    "n_draws": 126,
+    "13": {
+     "kappa": 1.0962,
+     "ci90": [
+      0.9914,
+      1.1786
+     ],
+     "n_draws": 126
+    },
+    "12": {
+     "kappa": 1.1136,
+     "ci90": [
+      1.0432,
+      1.1718
+     ],
+     "n_draws": 126
+    },
+    "11": {
+     "kappa": 1.102,
+     "ci90": [
+      1.0602,
+      1.1391
+     ],
+     "n_draws": 126
+    },
+    "10": {
+     "kappa": 1.0756,
+     "ci90": [
+      1.0504,
+      1.0981
+     ],
+     "n_draws": 126
+    }
+   },
+   "folk_correlation": [
+    {
+     "kvartil": "Q1 skrällfacit",
+     "n": 159,
+     "kappa_top": 1.4772,
+     "ci90": [
+      1.3245,
+      1.6452
+     ]
+    },
+    {
+     "kvartil": "Q2",
+     "n": 159,
+     "kappa_top": 1.0602,
+     "ci90": [
+      0.962,
+      1.1642
+     ]
+    },
+    {
+     "kvartil": "Q3",
+     "n": 159,
+     "kappa_top": 0.8195,
+     "ci90": [
+      0.784,
+      0.8583
+     ]
+    },
+    {
+     "kvartil": "Q4 folkfacit",
+     "n": 160,
+     "kappa_top": 1.3452,
+     "ci90": [
+      1.2332,
+      1.4657
+     ]
+    }
+   ]
+  },
+  "europatipset": {
+   "n_draws": 1257,
+   "skipped": {
+    "cancelled": 112,
+    "missing": 1,
+    "turnover": 0
+   },
+   "reliability": [
+    {
+     "bucket": "0-5%",
+     "n": 857,
+     "mean_share": 0.0306,
+     "hit_rate": 0.0537
+    },
+    {
+     "bucket": "5-10%",
+     "n": 2517,
+     "mean_share": 0.0723,
+     "hit_rate": 0.1156
+    },
+    {
+     "bucket": "10-15%",
+     "n": 3669,
+     "mean_share": 0.1214,
+     "hit_rate": 0.1594
+    },
+    {
+     "bucket": "15-20%",
+     "n": 5078,
+     "mean_share": 0.1715,
+     "hit_rate": 0.2076
+    },
+    {
+     "bucket": "20-25%",
+     "n": 7177,
+     "mean_share": 0.2214,
+     "hit_rate": 0.2482
+    },
+    {
+     "bucket": "25-30%",
+     "n": 8586,
+     "mean_share": 0.2695,
+     "hit_rate": 0.2817
+    },
+    {
+     "bucket": "30-35%",
+     "n": 4263,
+     "mean_share": 0.3155,
+     "hit_rate": 0.3218
+    },
+    {
+     "bucket": "35-40%",
+     "n": 1999,
+     "mean_share": 0.3691,
+     "hit_rate": 0.3552
+    },
+    {
+     "bucket": "40-45%",
+     "n": 2137,
+     "mean_share": 0.4202,
+     "hit_rate": 0.4151
+    },
+    {
+     "bucket": "45-50%",
+     "n": 2129,
+     "mean_share": 0.4694,
+     "hit_rate": 0.4162
+    },
+    {
+     "bucket": "50-55%",
+     "n": 1952,
+     "mean_share": 0.5203,
+     "hit_rate": 0.4826
+    },
+    {
+     "bucket": "55-60%",
+     "n": 1982,
+     "mean_share": 0.57,
+     "hit_rate": 0.5298
+    },
+    {
+     "bucket": "60-65%",
+     "n": 1676,
+     "mean_share": 0.6197,
+     "hit_rate": 0.5513
+    },
+    {
+     "bucket": "65-70%",
+     "n": 1476,
+     "mean_share": 0.6691,
+     "hit_rate": 0.6084
+    },
+    {
+     "bucket": "70-75%",
+     "n": 1210,
+     "mean_share": 0.7192,
+     "hit_rate": 0.6388
+    },
+    {
+     "bucket": "75-80%",
+     "n": 966,
+     "mean_share": 0.7689,
+     "hit_rate": 0.677
+    },
+    {
+     "bucket": "80-85%",
+     "n": 685,
+     "mean_share": 0.8183,
+     "hit_rate": 0.7664
+    },
+    {
+     "bucket": "85-90%",
+     "n": 438,
+     "mean_share": 0.8689,
+     "hit_rate": 0.7945
+    },
+    {
+     "bucket": "90-95%",
+     "n": 226,
+     "mean_share": 0.9207,
+     "hit_rate": 0.8673
+    }
+   ],
+   "kappa": {
+    "13": {
+     "kappa": 1.0997,
+     "ci90": [
+      1.0333,
+      1.1638
+     ],
+     "n_draws": 1257
+    },
+    "12": {
+     "kappa": 1.0883,
+     "ci90": [
+      1.0567,
+      1.1211
+     ],
+     "n_draws": 1257
+    },
+    "11": {
+     "kappa": 1.0743,
+     "ci90": [
+      1.0592,
+      1.0899
+     ],
+     "n_draws": 1257
+    },
+    "10": {
+     "kappa": 1.055,
+     "ci90": [
+      1.0466,
+      1.0631
+     ],
+     "n_draws": 1257
+    }
+   },
+   "kappa_before_2024": {
+    "n_draws": 1006,
+    "13": {
+     "kappa": 1.1078,
+     "ci90": [
+      1.0307,
+      1.1821
+     ],
+     "n_draws": 1006
+    },
+    "12": {
+     "kappa": 1.0947,
+     "ci90": [
+      1.0581,
+      1.1313
+     ],
+     "n_draws": 1006
+    },
+    "11": {
+     "kappa": 1.0773,
+     "ci90": [
+      1.0588,
+      1.0953
+     ],
+     "n_draws": 1006
+    },
+    "10": {
+     "kappa": 1.0568,
+     "ci90": [
+      1.0473,
+      1.0658
+     ],
+     "n_draws": 1006
+    }
+   },
+   "kappa_since_2024": {
+    "n_draws": 251,
+    "13": {
+     "kappa": 1.0699,
+     "ci90": [
+      0.934,
+      1.1931
+     ],
+     "n_draws": 251
+    },
+    "12": {
+     "kappa": 1.0638,
+     "ci90": [
+      1.0047,
+      1.1208
+     ],
+     "n_draws": 251
+    },
+    "11": {
+     "kappa": 1.0626,
+     "ci90": [
+      1.0352,
+      1.0904
+     ],
+     "n_draws": 251
+    },
+    "10": {
+     "kappa": 1.048,
+     "ci90": [
+      1.03,
+      1.0638
+     ],
+     "n_draws": 251
+    }
+   },
+   "folk_correlation": [
+    {
+     "kvartil": "Q1 skrällfacit",
+     "n": 314,
+     "kappa_top": 1.2702,
+     "ci90": [
+      1.1617,
+      1.3855
+     ]
+    },
+    {
+     "kvartil": "Q2",
+     "n": 314,
+     "kappa_top": 0.9539,
+     "ci90": [
+      0.9021,
+      1.0107
+     ]
+    },
+    {
+     "kvartil": "Q3",
+     "n": 314,
+     "kappa_top": 0.846,
+     "ci90": [
+      0.8108,
+      0.8819
+     ]
+    },
+    {
+     "kvartil": "Q4 folkfacit",
+     "n": 315,
+     "kappa_top": 1.1335,
+     "ci90": [
+      1.0576,
+      1.2149
+     ]
+    }
+   ]
+  },
+  "topptipset": {
+   "n_draws": 3886,
+   "skipped": {
+    "cancelled": 217,
+    "missing": 43,
+    "turnover": 0
+   },
+   "reliability": [
+    {
+     "bucket": "0-5%",
+     "n": 442,
+     "mean_share": 0.0329,
+     "hit_rate": 0.0339
+    },
+    {
+     "bucket": "5-10%",
+     "n": 2757,
+     "mean_share": 0.074,
+     "hit_rate": 0.0805
+    },
+    {
+     "bucket": "10-15%",
+     "n": 5517,
+     "mean_share": 0.1221,
+     "hit_rate": 0.1436
+    },
+    {
+     "bucket": "15-20%",
+     "n": 8586,
+     "mean_share": 0.1713,
+     "hit_rate": 0.1805
+    },
+    {
+     "bucket": "20-25%",
+     "n": 12730,
+     "mean_share": 0.2218,
+     "hit_rate": 0.2378
+    },
+    {
+     "bucket": "25-30%",
+     "n": 19705,
+     "mean_share": 0.2706,
+     "hit_rate": 0.2741
+    },
+    {
+     "bucket": "30-35%",
+     "n": 11420,
+     "mean_share": 0.315,
+     "hit_rate": 0.3175
+    },
+    {
+     "bucket": "35-40%",
+     "n": 4980,
+     "mean_share": 0.3697,
+     "hit_rate": 0.3671
+    },
+    {
+     "bucket": "40-45%",
+     "n": 5223,
+     "mean_share": 0.4202,
+     "hit_rate": 0.4093
+    },
+    {
+     "bucket": "45-50%",
+     "n": 4824,
+     "mean_share": 0.4693,
+     "hit_rate": 0.4532
+    },
+    {
+     "bucket": "50-55%",
+     "n": 4188,
+     "mean_share": 0.5196,
+     "hit_rate": 0.4959
+    },
+    {
+     "bucket": "55-60%",
+     "n": 3610,
+     "mean_share": 0.5696,
+     "hit_rate": 0.5554
+    },
+    {
+     "bucket": "60-65%",
+     "n": 3069,
+     "mean_share": 0.619,
+     "hit_rate": 0.5823
+    },
+    {
+     "bucket": "65-70%",
+     "n": 2297,
+     "mean_share": 0.6687,
+     "hit_rate": 0.6408
+    },
+    {
+     "bucket": "70-75%",
+     "n": 1679,
+     "mean_share": 0.7187,
+     "hit_rate": 0.7076
+    },
+    {
+     "bucket": "75-80%",
+     "n": 1164,
+     "mean_share": 0.7676,
+     "hit_rate": 0.7569
+    },
+    {
+     "bucket": "80-85%",
+     "n": 647,
+     "mean_share": 0.8172,
+     "hit_rate": 0.796
+    },
+    {
+     "bucket": "85-90%",
+     "n": 339,
+     "mean_share": 0.8665,
+     "hit_rate": 0.8909
+    },
+    {
+     "bucket": "90-95%",
+     "n": 87,
+     "mean_share": 0.9217,
+     "hit_rate": 0.8736
+    }
+   ],
+   "kappa": {
+    "8": {
+     "kappa": 1.0598,
+     "ci90": [
+      1.0435,
+      1.0757
+     ],
+     "n_draws": 3886
+    }
+   },
+   "kappa_before_2024": {
+    "n_draws": 2356,
+    "8": {
+     "kappa": 1.066,
+     "ci90": [
+      1.0471,
+      1.0858
+     ],
+     "n_draws": 2356
+    }
+   },
+   "kappa_since_2024": {
+    "n_draws": 1530,
+    "8": {
+     "kappa": 1.0376,
+     "ci90": [
+      1.021,
+      1.0551
+     ],
+     "n_draws": 1530
+    }
+   },
+   "folk_correlation": [
+    {
+     "kvartil": "Q1 skrällfacit",
+     "n": 971,
+     "kappa_top": 1.054,
+     "ci90": [
+      1.0311,
+      1.0754
+     ]
+    },
+    {
+     "kvartil": "Q2",
+     "n": 971,
+     "kappa_top": 0.954,
+     "ci90": [
+      0.938,
+      0.9723
+     ]
+    },
+    {
+     "kvartil": "Q3",
+     "n": 971,
+     "kappa_top": 0.9373,
+     "ci90": [
+      0.9253,
+      0.9513
+     ]
+    },
+    {
+     "kvartil": "Q4 folkfacit",
+     "n": 973,
+     "kappa_top": 1.0951,
+     "ci90": [
+      1.0765,
+      1.1147
+     ]
+    }
+   ]
+  },
+  "topptipsetstryk": {
+   "n_draws": 661,
+   "skipped": {
+    "cancelled": 32,
+    "missing": 3,
+    "turnover": 0
+   },
+   "reliability": [
+    {
+     "bucket": "0-5%",
+     "n": 139,
+     "mean_share": 0.035,
+     "hit_rate": 0.0504
+    },
+    {
+     "bucket": "5-10%",
+     "n": 604,
+     "mean_share": 0.0727,
+     "hit_rate": 0.0993
+    },
+    {
+     "bucket": "10-15%",
+     "n": 971,
+     "mean_share": 0.1206,
+     "hit_rate": 0.1504
+    },
+    {
+     "bucket": "15-20%",
+     "n": 1439,
+     "mean_share": 0.1706,
+     "hit_rate": 0.2113
+    },
+    {
+     "bucket": "20-25%",
+     "n": 1888,
+     "mean_share": 0.2212,
+     "hit_rate": 0.2474
+    },
+    {
+     "bucket": "25-30%",
+     "n": 3322,
+     "mean_share": 0.2725,
+     "hit_rate": 0.279
+    },
+    {
+     "bucket": "30-35%",
+     "n": 2076,
+     "mean_share": 0.3136,
+     "hit_rate": 0.2914
+    },
+    {
+     "bucket": "35-40%",
+     "n": 865,
+     "mean_share": 0.3694,
+     "hit_rate": 0.3746
+    },
+    {
+     "bucket": "40-45%",
+     "n": 877,
+     "mean_share": 0.4198,
+     "hit_rate": 0.4173
+    },
+    {
+     "bucket": "45-50%",
+     "n": 759,
+     "mean_share": 0.4692,
+     "hit_rate": 0.4321
+    },
+    {
+     "bucket": "50-55%",
+     "n": 695,
+     "mean_share": 0.5194,
+     "hit_rate": 0.5252
+    },
+    {
+     "bucket": "55-60%",
+     "n": 598,
+     "mean_share": 0.5696,
+     "hit_rate": 0.5067
+    },
+    {
+     "bucket": "60-65%",
+     "n": 451,
+     "mean_share": 0.619,
+     "hit_rate": 0.5787
+    },
+    {
+     "bucket": "65-70%",
+     "n": 361,
+     "mean_share": 0.6684,
+     "hit_rate": 0.6039
+    },
+    {
+     "bucket": "70-75%",
+     "n": 294,
+     "mean_share": 0.7185,
+     "hit_rate": 0.6667
+    },
+    {
+     "bucket": "75-80%",
+     "n": 240,
+     "mean_share": 0.7679,
+     "hit_rate": 0.7458
+    },
+    {
+     "bucket": "80-85%",
+     "n": 146,
+     "mean_share": 0.82,
+     "hit_rate": 0.7877
+    },
+    {
+     "bucket": "85-90%",
+     "n": 112,
+     "mean_share": 0.8673,
+     "hit_rate": 0.8304
+    }
+   ],
+   "kappa": {
+    "8": {
+     "kappa": 1.0419,
+     "ci90": [
+      1.0261,
+      1.0585
+     ],
+     "n_draws": 661
+    }
+   },
+   "kappa_before_2024": {
+    "n_draws": 532,
+    "8": {
+     "kappa": 1.0423,
+     "ci90": [
+      1.0237,
+      1.0607
+     ],
+     "n_draws": 532
+    }
+   },
+   "kappa_since_2024": {
+    "n_draws": 129,
+    "8": {
+     "kappa": 1.0398,
+     "ci90": [
+      0.987,
+      1.0929
+     ],
+     "n_draws": 129
+    }
+   },
+   "folk_correlation": [
+    {
+     "kvartil": "Q1 skrällfacit",
+     "n": 165,
+     "kappa_top": 1.0997,
+     "ci90": [
+      1.0464,
+      1.1566
+     ]
+    },
+    {
+     "kvartil": "Q2",
+     "n": 165,
+     "kappa_top": 0.9322,
+     "ci90": [
+      0.907,
+      0.9572
+     ]
+    },
+    {
+     "kvartil": "Q3",
+     "n": 165,
+     "kappa_top": 0.94,
+     "ci90": [
+      0.9203,
+      0.9596
+     ]
+    },
+    {
+     "kvartil": "Q4 folkfacit",
+     "n": 166,
+     "kappa_top": 1.0757,
+     "ci90": [
+      1.0545,
+      1.0974
+     ]
+    }
+   ]
+  },
+  "topptipsetextra": {
+   "n_draws": 1313,
+   "skipped": {
+    "cancelled": 52,
+    "missing": 6,
+    "turnover": 0
+   },
+   "reliability": [
+    {
+     "bucket": "0-5%",
+     "n": 273,
+     "mean_share": 0.033,
+     "hit_rate": 0.0549
+    },
+    {
+     "bucket": "5-10%",
+     "n": 1315,
+     "mean_share": 0.0733,
+     "hit_rate": 0.0821
+    },
+    {
+     "bucket": "10-15%",
+     "n": 2160,
+     "mean_share": 0.1213,
+     "hit_rate": 0.1468
+    },
+    {
+     "bucket": "15-20%",
+     "n": 2905,
+     "mean_share": 0.171,
+     "hit_rate": 0.1897
+    },
+    {
+     "bucket": "20-25%",
+     "n": 3905,
+     "mean_share": 0.2212,
+     "hit_rate": 0.2202
+    },
+    {
+     "bucket": "25-30%",
+     "n": 6151,
+     "mean_share": 0.2717,
+     "hit_rate": 0.2681
+    },
+    {
+     "bucket": "30-35%",
+     "n": 4073,
+     "mean_share": 0.3139,
+     "hit_rate": 0.3081
+    },
+    {
+     "bucket": "35-40%",
+     "n": 1523,
+     "mean_share": 0.3698,
+     "hit_rate": 0.3546
+    },
+    {
+     "bucket": "40-45%",
+     "n": 1634,
+     "mean_share": 0.4203,
+     "hit_rate": 0.4241
+    },
+    {
+     "bucket": "45-50%",
+     "n": 1465,
+     "mean_share": 0.4689,
+     "hit_rate": 0.4887
+    },
+    {
+     "bucket": "50-55%",
+     "n": 1398,
+     "mean_share": 0.52,
+     "hit_rate": 0.525
+    },
+    {
+     "bucket": "55-60%",
+     "n": 1181,
+     "mean_share": 0.5701,
+     "hit_rate": 0.5555
+    },
+    {
+     "bucket": "60-65%",
+     "n": 998,
+     "mean_share": 0.6191,
+     "hit_rate": 0.6002
+    },
+    {
+     "bucket": "65-70%",
+     "n": 810,
+     "mean_share": 0.6693,
+     "hit_rate": 0.6568
+    },
+    {
+     "bucket": "70-75%",
+     "n": 693,
+     "mean_share": 0.7187,
+     "hit_rate": 0.6912
+    },
+    {
+     "bucket": "75-80%",
+     "n": 479,
+     "mean_share": 0.7674,
+     "hit_rate": 0.7328
+    },
+    {
+     "bucket": "80-85%",
+     "n": 307,
+     "mean_share": 0.818,
+     "hit_rate": 0.7915
+    },
+    {
+     "bucket": "85-90%",
+     "n": 185,
+     "mean_share": 0.8662,
+     "hit_rate": 0.8216
+    },
+    {
+     "bucket": "90-95%",
+     "n": 57,
+     "mean_share": 0.9142,
+     "hit_rate": 0.9474
+    }
+   ],
+   "kappa": {
+    "8": {
+     "kappa": 1.0603,
+     "ci90": [
+      1.0447,
+      1.0761
+     ],
+     "n_draws": 1313
+    }
+   },
+   "kappa_before_2024": {
+    "n_draws": 1057,
+    "8": {
+     "kappa": 1.0665,
+     "ci90": [
+      1.0505,
+      1.0813
+     ],
+     "n_draws": 1057
+    }
+   },
+   "kappa_since_2024": {
+    "n_draws": 256,
+    "8": {
+     "kappa": 1.0221,
+     "ci90": [
+      0.9902,
+      1.051
+     ],
+     "n_draws": 256
+    }
+   },
+   "folk_correlation": [
+    {
+     "kvartil": "Q1 skrällfacit",
+     "n": 328,
+     "kappa_top": 1.0356,
+     "ci90": [
+      1.004,
+      1.0755
+     ]
+    },
+    {
+     "kvartil": "Q2",
+     "n": 328,
+     "kappa_top": 0.9141,
+     "ci90": [
+      0.894,
+      0.9361
+     ]
+    },
+    {
+     "kvartil": "Q3",
+     "n": 328,
+     "kappa_top": 0.9499,
+     "ci90": [
+      0.9349,
+      0.9676
+     ]
+    },
+    {
+     "kvartil": "Q4 folkfacit",
+     "n": 329,
+     "kappa_top": 1.0978,
+     "ci90": [
+      1.0805,
+      1.115
+     ]
+    }
+   ]
+  }
+ }
+}

@@ -8,7 +8,32 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-07-24 — PH2/PH3 v2: presence, proveniens och kontrafaktiskt facit
+
+- **Skript:** `backend/scripts/migrera_pool_capture_v2.py` (additivt,
+  idempotent, testat med dubbelkörning). Full metodrapport:
+  `docs/pool-pit-v2-2026-07-24.md`.
+- **Backup:** `backend/data/backups/stryktips-2026-07-24-fore-pool-capture-v2.db`
+  (69 MB SQLite online-backup före schemaändringen, SHA-256
+  `abb0a6577dc6b91a05ec276573890a88350e50bd519e670ae48a552666d4403e`).
+- **Schema:** ny `pool_market_capture`; jackpotproveniens i
+  `pool_draw_snapshot`/`pool_system_ledger`; timingpolicy och källeligibility
+  i PIT-tabellerna; publicerad vinst, payout-completeness och
+  settlementversion i systemledgern.
+- **Radbevarande:** före/efter oförändrat:
+  `pool_draw_snapshot=109`, `pool_pit_draw_features=256`,
+  `pool_pit_match_features=2333`, `pool_system_ledger=0`.
+  `pit-v1` skrevs inte om och får inte användas som presence-bevis.
+- **Första livevarv:** 212 capture-rader (SvS 106 matched; Pinnacle 95 matched
+  + 11 not_listed). Jackpot: 2 `verified_endpoint`, 10 `missing`; 109 äldre
+  värderader märkta `legacy_unverified`. `pit-v2=0` efter varvet eftersom
+  ingen passerad horisont hade en capture före cutoff — korrekt no-backfill.
+- **Kontroll:** `PRAGMA integrity_check = ok`; 163 backendtester gröna.
+
 ## 2026-07-24 — PH2/PH3: PIT-dataset och systemledger för poolspelen
+
+> Historisk v1-post. Timing byggde på förändringspunkter och systemfacitet
+> försummade egen utspädning. Båda semantikerna ersätts av v2-posten ovan.
 
 - **Skript:** `backend/scripts/migrera_pool_pit_ph23.py` (backup + fyra
   tabeller) och `backend/scripts/bygg_pit_dataset.py` (idempotent helsvep).

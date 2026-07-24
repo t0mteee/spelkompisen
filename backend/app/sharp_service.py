@@ -60,7 +60,8 @@ def collect_pinnacle(product: str = "stryktipset",
             _hs.meta_set("pinnacle_error_at", fetched_at)
         finally:
             _hs.close()
-        return {"draw": draw, "hits": {}, "status": {}, "pinnacle_error": str(e)[:160]}
+        return {"draw": draw, "hits": {}, "status": {},
+                "fetched_at": fetched_at, "pinnacle_error": str(e)[:160]}
 
     store = Storage()
     try:
@@ -76,4 +77,5 @@ def collect_pinnacle(product: str = "stryktipset",
     finally:
         store.close()
 
-    return {"draw": draw, "hits": hits, "status": status}
+    return {"draw": draw, "hits": hits, "status": status,
+            "fetched_at": fetched_at}

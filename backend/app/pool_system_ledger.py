@@ -26,6 +26,7 @@ from .svenskaspel import Draw
 
 # (minuter före spelstopp, timely-tolerans i minuter)
 FREEZE_HORIZONS = {"h3": (180, 30), "m20": (20, 10)}
+SETTLEMENT_VERSION = "counterfactual-v2"
 
 # Förregistrerad matris 2026-07-24 (överlämningen: 50 kr primär + få
 # sekundära lägen). Värderader (EV × träffchans) — samma motor som UI:t.
@@ -66,6 +67,7 @@ def _frozen(store: Storage, product: str, draw_number: int,
 def freeze_due(store: Storage, product: str, draw: Draw,
                sharp: Optional[dict] = None, movement: Optional[dict] = None,
                jackpot: Optional[float] = None,
+               jackpot_source: str = "missing",
                now: Optional[dt.datetime] = None,
                code_version: str = "dev") -> dict:
     """Frys benchmarksystem för en öppen omgång vars horisontfönster öppnats.
@@ -112,15 +114,15 @@ def freeze_due(store: Storage, product: str, draw: Draw,
                 "config_key, frozen_at, lag_min, timely, code_version, budget, "
                 "strategy, value_weight, row_price, n_rows, cost_kr, "
                 "events_order, rows_text, rows_hash, n_events_covered, "
-                "turnover_used, turnover_basis, jackpot_used, build_note) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "turnover_used, turnover_basis, jackpot_used, jackpot_source, "
+                "build_note) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (product, draw.draw_number, horizon, bench["key"], _iso(now),
                  lag, int(lag <= tol), code_version, bench["budget"],
                  bench["strategy"], bench["value_weight"],
                  analysis.row_price or 1.0, system.num_rows, system.cost,
                  events_order, rows_text,
                  hashlib.sha256(rows_text.encode()).hexdigest()[:16],
-                 covered, turnover_used, basis, jp, system.note))
+                 covered, turnover_used, basis, jp, jackpot_source, system.note))
             if not store._bulk:  # noqa: SLF001
                 store.conn.commit()
             report["frozen"] += 1
@@ -149,6 +151,44 @@ def _prize_plan(product: str) -> Optional[dict]:
         return None
 
 
+def counterfactual_payout(
+        correct_dist: dict[int, int],
+        tiers: dict[int, tuple[Optional[int], Optional[float]]],
+) -> tuple[Optional[float], float, bool, str]:
+    """Räkna vad våra vinst-enheter hade fått efter egen utspädning.
+
+    Svenska Spel publicerar vinnare + belopp per vinnare. Därmed kan den
+    observerade nivåtpotten skattas som winners × amount. Om våra rader hade
+    deltagit delas samma observerade pott på winners + own_winners. När
+    officiella vinnare är noll är potten/rollovern inte identifierbar ur
+    settlementpayloaden; då blir facitet uttryckligen ofullständigt och ROI
+    får inte räknas som noll.
+    """
+    diluted = 0.0
+    published = 0.0
+    complete = True
+    notes = []
+    for correct, own_winners in correct_dist.items():
+        if own_winners <= 0 or correct not in tiers:
+            continue
+        winners, amount = tiers[correct]
+        if winners is None or amount is None:
+            complete = False
+            notes.append(f"{correct} rätt saknar vinnar-/beloppsdata")
+            continue
+        published += own_winners * amount
+        if winners <= 0:
+            complete = False
+            notes.append(f"{correct} rätt hade 0 officiella vinnare (rullpott okänd)")
+            continue
+        observed_pool = winners * amount
+        diluted += own_winners * observed_pool / (winners + own_winners)
+    note = ("egen vinst utspädd mot observerad nivåtpottsproxy"
+            if complete else "; ".join(notes))
+    return (round(diluted, 2) if complete else None,
+            round(published, 2), complete, note)
+
+
 def settle_pending(store: Storage, now: Optional[dt.datetime] = None) -> dict:
     """Settla frysta system där omgångens facit finns i settlementlagret."""
     now = now or dt.datetime.now(dt.timezone.utc)
@@ -163,10 +203,10 @@ def settle_pending(store: Storage, now: Optional[dt.datetime] = None) -> dict:
         outcomes = dict(store.conn.execute(
             "SELECT event_number, outcome FROM pool_event_settlement "
             "WHERE product=? AND draw_number=?", (product, draw_number)))
-        tiers = dict(store.conn.execute(
-            "SELECT correct, amount FROM pool_payout_tier "
+        tiers = {int(r[0]): (r[1], r[2]) for r in store.conn.execute(
+            "SELECT correct, winners, amount FROM pool_payout_tier "
             "WHERE product=? AND draw_number=? AND correct IS NOT NULL",
-            (product, draw_number)))
+            (product, draw_number))}
         events = [int(e) for e in events_order.split(",")]
         note = None
         if any(outcomes.get(e) not in ("1", "X", "2") for e in events):
@@ -180,21 +220,23 @@ def settle_pending(store: Storage, now: Optional[dt.datetime] = None) -> dict:
             continue
         facit = [outcomes[e] for e in events]
         dist: dict[int, int] = {}
-        payout = 0.0
         for line in rows_text.split("\n"):
             signs = line.split(",")
             correct = sum(1 for sign, res in zip(signs, facit) if sign == res)
             dist[correct] = dist.get(correct, 0) + 1
-            payout += tiers.get(correct, 0.0) or 0.0
         correct_max = max(dist) if dist else 0
-        roi = round(payout / cost - 1.0, 4) if cost else None
+        payout, published, payout_complete, payout_note = \
+            counterfactual_payout(dist, tiers)
+        roi = (round(payout / cost - 1.0, 4)
+               if payout_complete and payout is not None and cost else None)
         store.conn.execute(
             "UPDATE pool_system_ledger SET settled_at=?, correct_max=?, "
-            "correct_dist=?, payout_kr=?, roi=?, settle_note=? "
+            "correct_dist=?, payout_kr=?, published_payout_kr=?, "
+            "payout_complete=?, settlement_version=?, roi=?, settle_note=? "
             "WHERE product=? AND draw_number=? AND horizon=? AND config_key=?",
             (_iso(now), correct_max,
-             json.dumps(dist, sort_keys=True), round(payout, 2), roi,
-             "utdelning enligt faktiska nivåer; egen vinst späder inte (approx)",
+             json.dumps(dist, sort_keys=True), payout, published,
+             int(payout_complete), SETTLEMENT_VERSION, roi, payout_note,
              product, draw_number, horizon, key))
         report["settled"] += 1
     if rows and not store._bulk:  # noqa: SLF001
@@ -203,23 +245,41 @@ def settle_pending(store: Storage, now: Optional[dt.datetime] = None) -> dict:
 
 
 def summary(store: Storage) -> dict:
-    """Champion-baseline-läget: per config × horisont över settlade system."""
+    """Champion-baseline per produkt × config × horisont.
+
+    ROI-gaten använder enbart timely=1, lösbara rader med komplett
+    kontrafaktisk utdelning. Sena/ofullständiga rader redovisas diagnostiskt.
+    """
     out = []
     for row in store.conn.execute(
-            "SELECT config_key, horizon, COUNT(*) n, "
+            "SELECT product, config_key, horizon, COUNT(*) n, "
             "SUM(CASE WHEN settled_at IS NOT NULL AND correct_max IS NOT NULL "
             "THEN 1 ELSE 0 END) n_settled, "
             "SUM(CASE WHEN timely=1 THEN 1 ELSE 0 END) n_timely, "
-            "SUM(CASE WHEN settled_at IS NOT NULL THEN cost_kr ELSE 0 END) cost, "
-            "SUM(COALESCE(payout_kr, 0)) payout, MAX(correct_max) best "
-            "FROM pool_system_ledger GROUP BY config_key, horizon "
-            "ORDER BY config_key, horizon"):
-        key, horizon, n, n_settled, n_timely, cost, payout, best = row
+            "SUM(CASE WHEN timely=1 AND correct_max IS NOT NULL "
+            "AND payout_complete=1 THEN 1 ELSE 0 END) n_evaluable, "
+            "SUM(CASE WHEN settled_at IS NOT NULL AND correct_max IS NULL "
+            "THEN 1 ELSE 0 END) n_unresolvable, "
+            "SUM(CASE WHEN correct_max IS NOT NULL AND payout_complete=0 "
+            "THEN 1 ELSE 0 END) n_payout_incomplete, "
+            "SUM(CASE WHEN timely=1 AND correct_max IS NOT NULL "
+            "AND payout_complete=1 THEN cost_kr ELSE 0 END) cost, "
+            "SUM(CASE WHEN timely=1 AND correct_max IS NOT NULL "
+            "AND payout_complete=1 THEN COALESCE(payout_kr,0) ELSE 0 END) payout, "
+            "MAX(CASE WHEN timely=1 THEN correct_max END) best "
+            "FROM pool_system_ledger GROUP BY product, config_key, horizon "
+            "ORDER BY product, config_key, horizon"):
+        (product, key, horizon, n, n_settled, n_timely, n_evaluable,
+         n_unresolvable, n_payout_incomplete, cost, payout, best) = row
         out.append({
-            "config_key": key, "horizon": horizon, "n_frozen": n,
+            "product": product, "config_key": key, "horizon": horizon,
+            "n_frozen": n,
             "n_settled": n_settled, "n_timely": n_timely,
+            "n_evaluable": n_evaluable, "n_unresolvable": n_unresolvable,
+            "n_payout_incomplete": n_payout_incomplete,
             "cost_kr": round(cost or 0, 2), "payout_kr": round(payout or 0, 2),
-            "roi": round((payout or 0) / cost - 1, 4) if cost else None,
+            "roi": (round((payout or 0) / cost - 1, 4)
+                    if n_evaluable and cost else None),
             "best_correct": best,
             "primary": any(b["key"] == key and b["primary"] for b in BENCHMARKS),
         })
@@ -227,10 +287,14 @@ def summary(store: Storage) -> dict:
         "product": r[0], "draw_number": r[1], "horizon": r[2],
         "config_key": r[3], "frozen_at": r[4], "timely": bool(r[5]),
         "n_rows": r[6], "cost_kr": r[7], "correct_max": r[8],
-        "payout_kr": r[9], "roi": r[10],
+        "payout_kr": r[9], "published_payout_kr": r[10],
+        "payout_complete": bool(r[11]) if r[11] is not None else None,
+        "settlement_version": r[12], "roi": r[13], "settle_note": r[14],
     } for r in store.conn.execute(
         "SELECT product, draw_number, horizon, config_key, frozen_at, timely, "
-        "n_rows, cost_kr, correct_max, payout_kr, roi FROM pool_system_ledger "
+        "n_rows, cost_kr, correct_max, payout_kr, published_payout_kr, "
+        "payout_complete, settlement_version, roi, settle_note "
+        "FROM pool_system_ledger "
         "ORDER BY frozen_at DESC LIMIT 40")]
     return {"benchmarks": [dict(b) for b in BENCHMARKS],
             "horizons": {k: {"minutes": v[0], "tolerance_min": v[1]}

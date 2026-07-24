@@ -49,11 +49,18 @@ class PoolDatasetTests(unittest.TestCase):
             self._snap("snapshots", 1, sign, o, at, s)
         for sign, o in zip(("1", "X", "2"), sharp or odds):
             self._snap("sharp_snapshots", 1, sign, o, at)
+        for source, streck_ok in (("svs", 1), ("sharp", 0)):
+            self.store.conn.execute(
+                "INSERT INTO pool_market_capture (product, draw_number, source, "
+                "event_number, fetched_at, status, odds_complete, "
+                "streck_complete) VALUES ('stryktipset',100,?,1,?,'matched',1,?)",
+                (source, _iso(at), streck_ok))
+        self.store.conn.commit()
 
     def test_pit_anvander_aldrig_punkter_efter_cutoff(self):
         # punkt före T−3h-cutoffen och en EFTER (närmare stopp): h3 ska bara
         # se den första — finalvärden får aldrig läcka bakåt i en horisont.
-        early = self.close - dt.timedelta(hours=5)
+        early = self.close - dt.timedelta(hours=3, minutes=10)
         late = self.close - dt.timedelta(minutes=30)
         self._fill(early, odds=(2.0, 3.5, 3.8))
         self._fill(late, odds=(1.5, 4.0, 6.0))
@@ -77,7 +84,7 @@ class PoolDatasetTests(unittest.TestCase):
 
     def test_rorelse_i_devigade_pp_och_gap(self):
         t0 = self.close - dt.timedelta(hours=30)
-        t1 = self.close - dt.timedelta(hours=25)
+        t1 = self.close - dt.timedelta(hours=24, minutes=20)
         self._fill(t0, odds=(2.2, 3.5, 3.4), streck=(40, 30, 30))
         self._fill(t1, odds=(1.8, 3.8, 4.5), streck=(45, 28, 27))
         pool_dataset.build_draw(
@@ -91,7 +98,7 @@ class PoolDatasetTests(unittest.TestCase):
         self.assertAlmostEqual(row[1], row[1])  # gap satt (p_sharp − 0.45)
 
     def test_idempotent_per_version(self):
-        self._fill(self.close - dt.timedelta(hours=30))
+        self._fill(self.close - dt.timedelta(hours=24, minutes=10))
         r1 = pool_dataset.build_draw(
             self.store, "stryktipset", 100, self.close.isoformat(), now=NOW)
         r2 = pool_dataset.build_draw(
@@ -107,6 +114,38 @@ class PoolDatasetTests(unittest.TestCase):
         n3 = pool_dataset.record_draw_snapshot(
             self.store, "stryktipset", 100, 1200.0, None, at="2026-07-24T11:00:00Z")
         self.assertEqual((1, 0, 1), (n1, n2, n3))
+
+    def test_oforandrat_pris_far_farsk_lagg_fran_separat_capture(self):
+        changed = self.close - dt.timedelta(hours=8)
+        confirmed = self.close - dt.timedelta(hours=3, minutes=5)
+        self._fill(changed)
+        # Samma odds behöver ingen ny snapshots-rad, men en lyckad poll måste
+        # flytta observationsklockan.
+        for source, streck_ok in (("svs", 1), ("sharp", 0)):
+            self.store.conn.execute(
+                "INSERT INTO pool_market_capture (product, draw_number, source, "
+                "event_number, fetched_at, status, odds_complete, "
+                "streck_complete) VALUES ('stryktipset',100,?,1,?,'matched',1,?)",
+                (source, _iso(confirmed), streck_ok))
+        self.store.conn.commit()
+
+        pool_dataset.build_draw(
+            self.store, "stryktipset", 100, self.close.isoformat(), now=NOW)
+        row = self.store.conn.execute(
+            "SELECT svs_lag_min, sharp_lag_min, svs_eligible, sharp_eligible, "
+            "p_svs_1, p_sharp_1 FROM pool_pit_match_features "
+            "WHERE horizon='h3' AND event_number=1").fetchone()
+        self.assertEqual((5.0, 5.0, 1, 1), tuple(row[:4]))
+        self.assertIsNotNone(row[4])
+        self.assertIsNotNone(row[5])
+
+    def test_forandringspunkt_utan_capture_far_inte_bli_pit_v2(self):
+        at = self.close - dt.timedelta(hours=3, minutes=5)
+        for sign, o in zip(("1", "X", "2"), (2.0, 3.5, 3.8)):
+            self._snap("snapshots", 1, sign, o, at, 33)
+        rep = pool_dataset.build_draw(
+            self.store, "stryktipset", 100, self.close.isoformat(), now=NOW)
+        self.assertEqual(0, rep["built"])
 
 
 def _draw_fixture(close, n_events=8):
@@ -173,17 +212,36 @@ class SystemLedgerTests(unittest.TestCase):
 
     def test_settling_raknar_ratt_och_utdelning(self):
         self._freeze_fixture()
-        # facit: alla åtta = '1' → rad 1 får 8 rätt (500 kr), rad 2 (X) 0 rätt
+        # facit: alla åtta = '1'. Publicerad vinst är 500 kr, men med vår
+        # extra vinnande rad delas observerad 5 000-kronorspott på 11 vinnare.
         self._settlement_fixture(["1"] * 8, [(8, 10, 500.0)])
         rep = pool_system_ledger.settle_pending(self.store, now=NOW)
         self.assertEqual(1, rep["settled"])
         row = self.store.conn.execute(
-            "SELECT correct_max, payout_kr, roi, correct_dist "
+            "SELECT correct_max, payout_kr, published_payout_kr, "
+            "payout_complete, settlement_version, roi, correct_dist "
             "FROM pool_system_ledger").fetchone()
         self.assertEqual(8, row[0])
-        self.assertAlmostEqual(500.0, row[1])
-        self.assertAlmostEqual(500.0 / 2.0 - 1, row[2], places=3)
-        self.assertEqual({"0": 1, "8": 1}, json.loads(row[3]))
+        self.assertAlmostEqual(5000 / 11, row[1], places=2)
+        self.assertAlmostEqual(500.0, row[2])
+        self.assertEqual(1, row[3])
+        self.assertEqual("counterfactual-v2", row[4])
+        self.assertAlmostEqual(round((round(5000 / 11, 2) / 2.0 - 1), 4),
+                               row[5], places=4)
+        self.assertEqual({"0": 1, "8": 1}, json.loads(row[6]))
+
+    def test_noll_officiella_vinnare_ger_okand_roi_inte_nollvinst(self):
+        self._freeze_fixture()
+        self._settlement_fixture(["1"] * 8, [(8, 0, 0.0)])
+        pool_system_ledger.settle_pending(self.store, now=NOW)
+        row = self.store.conn.execute(
+            "SELECT correct_max, payout_kr, payout_complete, roi, settle_note "
+            "FROM pool_system_ledger").fetchone()
+        self.assertEqual(8, row[0])
+        self.assertIsNone(row[1])
+        self.assertEqual(0, row[2])
+        self.assertIsNone(row[3])
+        self.assertIn("rullpott", row[4])
 
     def test_saknat_utfall_ger_unresolvable_inte_krasch(self):
         self._freeze_fixture()
@@ -242,8 +300,10 @@ class SystemLedgerTests(unittest.TestCase):
         group = next(g for g in s["groups"]
                      if g["config_key"] == "ev50-medel-vw50")
         self.assertEqual(1, group["n_settled"])
+        self.assertEqual("topptipset", group["product"])
+        self.assertEqual(1, group["n_evaluable"])
         self.assertTrue(group["primary"])
-        self.assertAlmostEqual(249.0, group["roi"], places=1)
+        self.assertAlmostEqual((5000 / 11) / 2.0 - 1, group["roi"], places=1)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,9 @@
-import { Component, Fragment, useEffect, useState } from 'react'
+import { Component, Fragment, Suspense, lazy, useEffect, useState } from 'react'
 import './App.css'
-import AppV3 from './AppV3'
+
+// Dynamisk import bryter den synkrona App ↔ AppV3-cirkeln. V3 återanvänder
+// klassiska byggstenar härifrån, men laddas först när App-modulen är färdig.
+const AppV3 = lazy(() => import('./AppV3'))
 
 const STRATEGIES = ['säker', 'medel', 'tuff']
 // strategin sätter en startpunkt på EV-/värdereglaget (samma axel), så de inte krockar
@@ -2751,7 +2754,13 @@ function switchUiVersion(version) {
 export default function App() {
   let ui = 'v2'
   try { ui = localStorage.getItem(UI_KEY) || 'v2' } catch { /* ok */ }
-  if (ui === 'v3') return <AppV3 onExit={() => switchUiVersion('v2')} />
+  if (ui === 'v3') {
+    return (
+      <Suspense fallback={<LoadingState label="Laddar v3…" />}>
+        <AppV3 onExit={() => switchUiVersion('v2')} />
+      </Suspense>
+    )
+  }
   return <AppClassic onSwitchV3={() => switchUiVersion('v3')} />
 }
 

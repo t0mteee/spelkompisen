@@ -19,7 +19,13 @@
   border-bottom: 1px solid var(--line);
   backdrop-filter: blur(6px);
 }
-.v3brand { font-weight: 800; font-size: 15px; cursor: pointer; white-space: nowrap; }
+.v3brand {
+  font: inherit; font-weight: 800; font-size: 15px; color: inherit;
+  cursor: pointer; white-space: nowrap; background: none; border: 0; padding: 0;
+}
+.v3brand:focus-visible, .v3histrow:focus-visible, .v3histrowline:focus-visible {
+  outline: 2px solid var(--v3acc); outline-offset: 3px;
+}
 .v3beta {
   font-size: 10px; font-weight: 700; color: var(--v3acc);
   border: 1px solid var(--v3acc-dim); border-radius: 999px;

@@ -19,7 +19,8 @@ struken match (lottat utfall ≠ streckad marknad) eller omsättning ≤ 0.
 Ingen skrivning; deterministisk bootstrap (fast seed).
 
 Körning: cd backend && .venv/bin/python -B scripts/ph4_kalibrering.py
-Utdata:  docs/ph4-kalibrering-2026-07-24.json + sammanfattning på stdout.
+Utdata: docs/ph4-kalibrering-era-v2.json. Ursprunglig PH4-rapport skrivs inte
+över; v2 lägger till ICKE överlappande före-2024/2024+ som tidskontroll.
 """
 from __future__ import annotations
 
@@ -31,7 +32,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DB = ROOT / "data" / "stryktips.db"
-OUT = ROOT.parent / "docs" / "ph4-kalibrering-2026-07-24.json"
+OUT = ROOT.parent / "docs" / "ph4-kalibrering-era-v2.json"
 PRODUCTS = ("stryktipset", "europatipset", "topptipset",
             "topptipsetstryk", "topptipsetextra")
 BOOTSTRAP_N = 1000
@@ -199,16 +200,24 @@ def main() -> None:
                         default=None)
             kap = kappa(draws, rng)
             corr = folk_correlation(draws, rng)
-            # era-split: WP6b (100 färska omgångar) antydde κ≤1 — testa om
-            # 13-årsbilden gäller även modern era eller om folket ändrat sig
+            # Icke överlappande era-split. Hela 2013–2026 mot 2024+ får inte
+            # beskrivas som trend eftersom proverna överlappar.
+            earlier = [d for d in draws if d["close"] < "2024-01-01"]
             recent = [d for d in draws if d["close"] >= "2024-01-01"]
+            kap_earlier = kappa(earlier, rng) if len(earlier) >= 40 else {}
             kap_recent = kappa(recent, rng) if len(recent) >= 40 else {}
             report["products"][product] = {
                 "n_draws": len(draws), "skipped": skipped,
                 "reliability": rel, "kappa": kap,
+                "kappa_before_2024": {"n_draws": len(earlier), **{
+                    str(m): v for m, v in kap_earlier.items()}},
                 "kappa_since_2024": {"n_draws": len(recent), **{
                     str(m): v for m, v in kap_recent.items()}},
                 "folk_correlation": corr}
+            for m, k in sorted(kap_earlier.items(), reverse=True):
+                print(f"  κ({m} rätt, före 2024) = {k['kappa']} "
+                      f"KI90 [{k['ci90'][0]}..{k['ci90'][1]}] "
+                      f"({len(earlier)} omg)")
             for m, k in sorted(kap_recent.items(), reverse=True):
                 print(f"  κ({m} rätt, 2024+) = {k['kappa']} "
                       f"KI90 [{k['ci90'][0]}..{k['ci90'][1]}] ({len(recent)} omg)")
