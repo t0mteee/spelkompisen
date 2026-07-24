@@ -85,6 +85,7 @@ def cmd_snapshot(product: str) -> float | None:
             store = Storage()
             try:
                 clv.resolve(store, ss)
+                _settle_recent(store, ss, product)
             finally:
                 store.close()
             print(f"{product}: ingen öppen omgång — hoppar över.")
@@ -118,7 +119,24 @@ def cmd_snapshot(product: str) -> float | None:
                     pass
             extra = f", {pushed} notis(er)" if pushed else ""
             print(f"{product} omg {dn}: {rows} ändrade rader, sharp {sharp_n} matcher{extra}.")
+        store = Storage()
+        try:
+            _settle_recent(store, ss, product)
+        finally:
+            store.close()
     return min_hrs
+
+
+def _settle_recent(store: Storage, ss: SvenskaSpel, product: str) -> None:
+    """PH1: framåtriktad settlement — nyss avgjorda omgångar skrivs till det
+    immutabla facitlagret i samma varv (budgeterat; får aldrig fälla varvet)."""
+    try:
+        from app import pool_settlement
+        rep = pool_settlement.settle_recent(store, ss, product)
+        if rep.get("ok"):
+            print(f"{product}: settlement för {rep['ok']} avgjord(a) omgång(ar).")
+    except Exception as e:  # noqa: BLE001
+        print(f"{product}: settlement hoppade över ({e})")
 
 
 # förtätning: när spelstopp närmar sig är sena oddsrörelser guld — snapshotta

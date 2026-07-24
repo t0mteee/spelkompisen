@@ -8,6 +8,43 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-07-24 — PH1: immutable settlementlager för poolspelen
+
+- **Skript:** `backend/scripts/migrera_pool_settlement.py` (backup + fyra nya
+  tabeller, ingen data) och `backend/scripts/backfill_pool_settlement.py`
+  (idempotent, resumable API-backfill, 0,35 s throttling, GAP_STOP=25 för
+  permanenta gränser). Modul: `backend/app/pool_settlement.py`; schema i
+  `POOL_SETTLEMENT_SCHEMA` (storage.py). Design + testfall granskade i
+  `docs/ph1-settlement-schema-forslag-2026-07-24.md`; 10 unittest i
+  `backend/tests/test_pool_settlement.py`.
+- **Backup:** `backend/data/backups/stryktips-2026-07-24-fore-ph1-settlement.db`
+  (tagen före tabellskapandet; backfillen är append-once i de nya tabellerna
+  och rör inga befintliga).
+- **Nya tabeller:** `pool_draw_settlement` (kanonrad per omgång med
+  payload-hash + källversion), `pool_event_settlement` (utfall, cancelled,
+  slutstreck, rått startOdds med NULL-provenance), `pool_payout_tier`
+  (vinnare + belopp per nivå), `pool_backfill_log` (journal: ok/http_404/
+  not_finalized/incomplete_result/divergence/error — gör allt retrybart).
+- **Regler:** första lyckade läsningen är kanon; avvikande omhämtning loggas
+  som `divergence` och skriver aldrig över. `final_only`-kohorten får aldrig
+  påstås ha rörelser. Slug är identiteten (topptipsvarianterna separata).
+  `startOdds` är spärrat för analys tills providersemantiken verifierats.
+- **Framåtriktat:** `cli.py`-snapshotvarvet settlar nyss avgjorda omgångar
+  via `pool_settlement.settle_recent` (budgeterat, tyst, retryfönster 6 h).
+- **Backfill-resultat (slutfört 2026-07-24, två resumable körningar):**
+  **8 278 omgångar totalt**, alla fem produkter tillbaka till **januari 2013**
+  (= API:ts arkivhorisont — mycket djupare än PH0-sonderingens golv):
+  Stryktipset 696 (#4267–#4962), Europatipset 1 370 (#1221–#2592),
+  Topptipset 4 145 (#78–#4224), Topptipset Extra 1 371 (#481–#1851),
+  Topptipset Stryk 696 (#273–#972). 76 554 event-facit och 14 476
+  utdelningsnivåer. Journal: 8 278 ok, 131 http_404 (gränser/luckor),
+  26 not_finalized (öppna/kommande — settlas av snapshotvarvet), 0 fel,
+  0 divergenser. Ingen 429 under hela körningen (~17 000 requests, 0,35 s).
+  PH0-golven i backfillskriptet var alltså konservativa — verkliga gränser
+  hittades via GAP_STOP-serien precis som designat.
+- **Läs-API:** `/api/pool/history` (lista + `draw`-detalj) driver v3-UI:ts
+  Historik-vy. Enbart läsning.
+
 ## 2026-07-23 — V2.2 flerligedata och research-matchidentitet
 
 - **Skript:** `backend/scripts/forbered_v22_multiliga.py` (idempotent

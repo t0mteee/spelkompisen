@@ -232,6 +232,79 @@ def _projected_turnover(product: str, current: float) -> float | None:
         store.close()
 
 
+@app.get("/api/pool/history")
+def pool_history(product: str = "stryktipset", limit: int = 400,
+                 draw: int | None = None):
+    """PH1-settlementlagret (läser bara DB): avgjorda omgångar med utfall,
+    slutstreck, slutomsättning och full utdelning per nivå. `final_only`-
+    bakfyllda och framåtriktade omgångar — INGA rörelser härifrån (de finns
+    bara i snapshot-kohorten). draw=<nr> ger full detalj inkl. matchfacit."""
+    store = Storage()
+    try:
+        if draw is not None:
+            head = store.conn.execute(
+                "SELECT draw_number, draw_state, reg_close_time, net_sale, "
+                "row_price, n_events, n_cancelled, product_name, fetched_at "
+                "FROM pool_draw_settlement WHERE product=? AND draw_number=?",
+                (product, draw)).fetchone()
+            if not head:
+                return {"available": False}
+            events = store.conn.execute(
+                "SELECT event_number, description, home, away, outcome, "
+                "cancelled, streck_one, streck_x, streck_two "
+                "FROM pool_event_settlement WHERE product=? AND draw_number=? "
+                "ORDER BY event_number", (product, draw)).fetchall()
+            tiers = store.conn.execute(
+                "SELECT tier_name, correct, winners, amount FROM pool_payout_tier "
+                "WHERE product=? AND draw_number=? ORDER BY correct DESC",
+                (product, draw)).fetchall()
+            return {"available": True, "draw": {
+                "draw_number": head[0], "state": head[1], "close": head[2],
+                "turnover": head[3], "row_price": head[4], "n_events": head[5],
+                "n_cancelled": head[6], "product_name": head[7],
+                "events": [{"event_number": e[0], "description": e[1],
+                            "home": e[2], "away": e[3], "outcome": e[4],
+                            "cancelled": bool(e[5]),
+                            "streck": {"1": e[6], "X": e[7], "2": e[8]}}
+                           for e in events],
+                "tiers": [{"name": t[0], "correct": t[1], "winners": t[2],
+                           "amount": t[3]} for t in tiers]}}
+        total, first_close, last_close = store.conn.execute(
+            "SELECT COUNT(*), MIN(reg_close_time), MAX(reg_close_time) "
+            "FROM pool_draw_settlement WHERE product=?", (product,)).fetchone()
+        rows = store.conn.execute(
+            "SELECT draw_number, reg_close_time, net_sale, row_price, "
+            "n_cancelled FROM pool_draw_settlement WHERE product=? "
+            "ORDER BY draw_number DESC LIMIT ?", (product, limit)).fetchall()
+        draw_numbers = [r[0] for r in rows]
+        tiers_by_draw: dict[int, list] = {}
+        if draw_numbers:
+            marks = ",".join("?" * len(draw_numbers))
+            for t in store.conn.execute(
+                    f"SELECT draw_number, tier_name, correct, winners, amount "
+                    f"FROM pool_payout_tier WHERE product=? "
+                    f"AND draw_number IN ({marks})",
+                    (product, *draw_numbers)):
+                tiers_by_draw.setdefault(t[0], []).append(
+                    {"name": t[1], "correct": t[2], "winners": t[3],
+                     "amount": t[4]})
+        draws = []
+        for r in rows:
+            tiers = sorted(tiers_by_draw.get(r[0], []),
+                           key=lambda t: -(t["correct"] or 0))
+            top = tiers[0] if tiers else None
+            draws.append({
+                "draw_number": r[0], "close": r[1], "turnover": r[2],
+                "row_price": r[3], "n_cancelled": r[4], "tiers": tiers,
+                "top_winners": top and top["winners"],
+                "top_amount": top and top["amount"]})
+        return {"available": total > 0, "product": product, "total": total,
+                "first_close": first_close, "last_close": last_close,
+                "draws": draws}
+    finally:
+        store.close()
+
+
 @app.get("/api/payouts")
 def payouts(product: str = "stryktipset", draw: int | None = None):
     """Prispott per vinstnivå beräknad från AKTUELL omsättning och Svenska Spels

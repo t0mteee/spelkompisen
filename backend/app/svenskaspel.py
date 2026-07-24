@@ -194,6 +194,29 @@ class SvenskaSpel:
                    start_hint: Optional[int] = None) -> list[dict]:
         return [d for d in self.list_draws(product, start_hint) if d["state"] == "Open"]
 
+    # --- råa payloads (PH1-settlement: hashbara, oparsade) ---
+    def raw_draw(self, product: str, draw_number: int) -> Optional[dict]:
+        """Rå draw-json för en omgång (draws[0]/draw), eller None vid 404."""
+        slug = PRODUCTS[product]["slug"]
+        data = self._get_or_none(f"/draw/{API_VER}/{slug}/draws/{draw_number}")
+        if not data:
+            return None
+        raw = (data.get("draws") or [None])[0] if data.get("draws") \
+            else data.get("draw")
+        return raw if raw and raw.get("drawNumber") else None
+
+    def raw_result(self, product: str, draw_number: int) -> Optional[dict]:
+        """Rå result-json (result-objektet), eller None vid 404/tomt."""
+        slug = PRODUCTS[product]["slug"]
+        data = self._get_or_none(
+            f"/draw/{API_VER}/{slug}/draws/{draw_number}/result")
+        if not data:
+            return None
+        result = data.get("result")
+        if isinstance(result, list):
+            result = result[0] if result else None
+        return result or None
+
     # --- resultat / utdelning ---
     def get_result(self, product: str, draw_number: int) -> Optional[dict]:
         """Utdelning per prisnivå för en avgjord omgång, eller None."""

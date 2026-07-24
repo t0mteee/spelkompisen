@@ -288,6 +288,68 @@ CREATE INDEX IF NOT EXISTS idx_sofa_team_event_pit
     ON oddset_sofa_team_event (first_seen_at, start_at);
 """
 
+# PH1 (2026-07-24): immutable settlementlager för poolspelen. Append-once:
+# första lyckade settlement-läsningen är kanon (payload_hash), avvikande
+# omhämtningar loggas som divergens i pool_backfill_log utan overwrite.
+# Kohort (observed_pit/final_only) lagras INTE här — den stämplas i PH2.
+POOL_SETTLEMENT_SCHEMA = """
+CREATE TABLE IF NOT EXISTS pool_draw_settlement (
+    product        TEXT NOT NULL,
+    draw_number    INTEGER NOT NULL,
+    draw_state     TEXT NOT NULL,
+    reg_close_time TEXT,
+    net_sale       REAL,
+    row_price      REAL,
+    n_events       INTEGER,
+    n_cancelled    INTEGER NOT NULL DEFAULT 0,
+    product_name   TEXT,
+    source_version TEXT NOT NULL,
+    payload_hash   TEXT NOT NULL,
+    fetched_at     TEXT NOT NULL,
+    PRIMARY KEY (product, draw_number)
+);
+
+CREATE TABLE IF NOT EXISTS pool_event_settlement (
+    product        TEXT NOT NULL,
+    draw_number    INTEGER NOT NULL,
+    event_number   INTEGER NOT NULL,
+    description    TEXT,
+    home           TEXT,
+    away           TEXT,
+    match_start    TEXT,
+    outcome        TEXT,
+    cancelled      INTEGER NOT NULL DEFAULT 0,
+    streck_one     INTEGER,
+    streck_x       INTEGER,
+    streck_two     INTEGER,
+    start_odds_one REAL,
+    start_odds_x   REAL,
+    start_odds_two REAL,
+    PRIMARY KEY (product, draw_number, event_number)
+);
+
+CREATE TABLE IF NOT EXISTS pool_payout_tier (
+    product     TEXT NOT NULL,
+    draw_number INTEGER NOT NULL,
+    tier_name   TEXT NOT NULL,
+    correct     INTEGER,
+    winners     INTEGER,
+    amount      REAL,
+    PRIMARY KEY (product, draw_number, tier_name)
+);
+
+CREATE TABLE IF NOT EXISTS pool_backfill_log (
+    product      TEXT NOT NULL,
+    draw_number  INTEGER NOT NULL,
+    attempted_at TEXT NOT NULL,
+    status       TEXT NOT NULL,
+    detail       TEXT,
+    PRIMARY KEY (product, draw_number, attempted_at)
+);
+CREATE INDEX IF NOT EXISTS idx_pool_backfill_latest
+    ON pool_backfill_log (product, draw_number, attempted_at DESC);
+"""
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS draws (
     product       TEXT NOT NULL,
@@ -467,7 +529,7 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
     git_hash     TEXT,
     PRIMARY KEY (match_id, market, sign, line_key, model_version)
 );
-""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + V22_SHADOW_SCHEMA + TEAM_EVENT_SCHEMA
+""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + V22_SHADOW_SCHEMA + TEAM_EVENT_SCHEMA + POOL_SETTLEMENT_SCHEMA
 
 
 class Storage:
