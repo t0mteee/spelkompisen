@@ -94,11 +94,19 @@ def _side(label: Optional[str], home: str, away: str) -> Optional[str]:
 
 
 def event_markets(event_id: str, home: str, away: str, timeout: float = 25.0,
-                  strict: bool = False) -> dict:
-    """Asian handicap + asiatisk total (huvudlinan) för ett event.
-    -> {'ah': {H,A,line}, 'ou': {O,U,line}} (nycklar bara när kompletta). Tom vid fel."""
+                  strict: bool = False, operator: str = "svenskaspel") -> dict:
+    """Asian handicap + asiatisk total + hörnor (huvudlinan) för ett event.
+    -> {'ah': {H,A,line}, 'ou': {O,U,line}} (nycklar bara när kompletta). Tom vid fel.
+
+    `operator` (2026-07-25): basen var HÅRDKODAD till svenskaspel, så
+    sidoböckerna hämtades bara på 1X2 — vi jämförde i praktiken SvS mot Pinnacle
+    på mål och hörnor, vilket inte är mer än man gör manuellt. Kambi-operatörer
+    delar event-id, och Expekt visade sig ge 141 betOffers på samma match som
+    SvS 147, med identisk marknadsstruktur (Asian totalt, Asian handicap, Antal
+    hörnor). Deep-marknader per bok är alltså bara en fråga om att fråga."""
+    base = BASE_TPL.format(op=operator)
     try:
-        r = httpx.get(f"{BASE}/betoffer/event/{event_id}.json", params=PARAMS,
+        r = httpx.get(f"{base}/betoffer/event/{event_id}.json", params=PARAMS,
                       headers=HEADERS, timeout=timeout)
         r.raise_for_status()
         bos = (r.json() or {}).get("betOffers") or []

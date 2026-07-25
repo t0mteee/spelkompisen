@@ -51,19 +51,45 @@ def league_events(champ_id: int, integration: str = "betinia",
             continue
         home, away = (s.strip() for s in name.split(sep, 1))
         o1x2: dict[str, Optional[float]] = {"1": None, "X": None, "2": None}
+        ou: dict = {}
         for mid in e.get("marketIds") or []:
             m = markets.get(mid)
-            if not m or m.get("typeId") != 1:      # typeId 1 = "1x2"
+            if not m:
                 continue
-            for oid in m.get("oddIds") or []:
-                o = odds_by_id.get(oid)
-                if not o or not o.get("price"):
-                    continue
-                sign = {1: "1", 2: "X", 3: "2"}.get(o.get("typeId"))
-                if sign:
-                    o1x2[sign] = round(float(o["price"]), 3)
-            break
+            if m.get("typeId") == 1:               # typeId 1 = "1x2"
+                for oid in m.get("oddIds") or []:
+                    o = odds_by_id.get(oid)
+                    if not o or not o.get("price"):
+                        continue
+                    sign = {1: "1", 2: "X", 3: "2"}.get(o.get("typeId"))
+                    if sign:
+                        o1x2[sign] = round(float(o["price"]), 3)
+            elif m.get("typeId") == 18 and not ou:
+                # TOTALT ANTAL MÅL (2026-07-25). Marknaden låg redan i svaret men
+                # slängdes — loopen tog 1X2 och bröt. Det spelar roll: Expekts
+                # deep-priser är IDENTISKA med SvS (samma Kambi-feed), medan
+                # Altenar är en annan prismotor. Detta är alltså en genuint ny
+                # prispunkt på mål, gratis, utan extra anrop. `sv` bär linjen och
+                # typeId 12/13 är Över/Under. Hörnor och AH finns INTE i
+                # GetEvents — de kräver egen recon av Altenars eventvy.
+                sides = {}
+                for oid in m.get("oddIds") or []:
+                    o = odds_by_id.get(oid)
+                    if not o or not o.get("price"):
+                        continue
+                    side = {12: "O", 13: "U"}.get(o.get("typeId"))
+                    if side:
+                        sides[side] = round(float(o["price"]), 3)
+                try:
+                    line = float(m.get("sv"))
+                except (TypeError, ValueError):
+                    line = None
+                if line is not None and sides.get("O") and sides.get("U"):
+                    ou = {**sides, "line": line}
         if o1x2["1"] or o1x2["2"]:
-            out.append({"id": str(e.get("id")), "home": home, "away": away,
-                        "start": e.get("startDate"), "odds": o1x2})
+            row = {"id": str(e.get("id")), "home": home, "away": away,
+                   "start": e.get("startDate"), "odds": o1x2}
+            if ou:
+                row["ou"] = ou
+            out.append(row)
     return out

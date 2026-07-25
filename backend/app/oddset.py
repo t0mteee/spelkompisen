@@ -587,6 +587,18 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     book_seen.add(ex["id"])
                     if all(e["odds"].get(s) for s in ("1", "X", "2")):
                         present.add((ex["id"], book["key"], "1x2"))
+                    # TOTALT ANTAL MÅL FRÅN ALTENAR (2026-07-25). Låg gratis i
+                    # samma svar men slängdes. Det spelar roll för att Ö/U annars
+                    # bara fanns hos SvS och Pinnacle: Expekts deep-priser är
+                    # IDENTISKA med SvS (samma Kambi-feed), medan Altenar
+                    # prissätter själv — uppmätt Brommapojkarna–Hammarby
+                    # 2,25/1,57 @3,5 mot SvS 1,71/1,97 @3,0.
+                    if e.get("ou"):
+                        rows_saved += _observe_pair_markets(
+                            store, ex["id"], book["key"],
+                            {"ou": {"O": e["ou"]["O"], "U": e["ou"]["U"],
+                                    "line": e["ou"]["line"]}}, book_at)
+                        present.add((ex["id"], book["key"], "ou"))
                     n_books += 1
                 if book_ok:
                     for c in cands:
