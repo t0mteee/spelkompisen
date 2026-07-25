@@ -702,11 +702,13 @@ function OddsetLegend() {
       </button>
       {open && (
         <div className="legend">
-          <div><b>Raderna i varje oddscell</b> — <b>stort odds</b> = Svenska Spel (det du kan
-            spela på) · <b>P</b> = Pinnacle, världens skarpaste bok = vår referens för
+          <div><b>Raderna i varje oddscell</b> — <b>stort odds</b> = Svenska Spels primärrad ·
+            <b> P</b> = Pinnacle, världens skarpaste bok = vår referens för
             "sant" pris (<b>P~</b> = härlett ur handikapp när 1X2 inte öppnats) ·
             <b> S</b> = Smarkets (andra sharp-ankaret) · <b>E</b> = Expekt ·
-            <b> N</b> = Ninja/Altenar · <b>M</b> = vår egen modell (amber, se nedan).</div>
+            <b> N</b> = Ninja/Altenar (1X2, Ö/U och hörnor när de finns) ·
+            <b> M</b> = vår egen modell (amber, se nedan). Slå på <b>+ Fler odds</b>
+            för att visa de spelbara sidoböckerna.</div>
           <div><b>Värde</b> = när en spelbar bok betalar MER än det sharpa priset.
             Vi räknar bort Pinnacles marginal (power-devig) och får en "fair" sannolikhet;
             edge = fair sannolikhet × bokens odds − 1.
@@ -717,6 +719,10 @@ function OddsetLegend() {
             skörare på odds 15 än på 1.5 (ett halvt procentenhets fel i fair blåser
             upp högoddsar-edges). Högoddsare kräver därför mycket större edge för
             samma nivå, och notiser triggar på kvalitet, inte rå edge.</div>
+          <div><b>kvar +5%</b> på en bokrad betyder mer än att priset bara är gammalt:
+            samma bokpris har återbekräftats efter Pinnacles senaste prisändring.
+            Överstrukna eller för gamla priser visas som historisk information men
+            räknas aldrig som värde, facit eller notis.</div>
           <div><b>AH / Ö/U / Hörnor</b> visas som <i>linje · odds/odds</i> (t.ex. −0.5 · 1.79/1.89 =
             hemmalaget −0,5 mål). Pilar = prisrörelse på NUVARANDE linje;
             {' '}<span className="lshift">⇄↑</span> = själva LINJEN har flyttats (ofta starkare signal
@@ -976,9 +982,9 @@ function OddsetView({ focus = null } = {}) {
   // grön edge-pill: devigad Pinnacle säger att bok-oddset är för högt.
   // Kräver även kvalitet (edge/(odds−1)) — högoddsar-edges under kvalitetsgolvet
   // visas inte som pills (för sköra), men loggas ändå i facitet.
-  const edgePill = (v) => v && v.edge >= 0.02 && (v.q ?? 0) >= 0.0075 && (
+  const edgePill = (v, prefix = '') => v && v.edge >= 0.02 && (v.q ?? 0) >= 0.0075 && (
     <span className="epill" title={`Devigad Pinnacle: ${(v.fair * 100).toFixed(1)}% (fair odds ${(1 / v.fair).toFixed(2)})\nBoken betalar ${v.odds.toFixed(2)} → ${(v.edge * 100).toFixed(1)}% övervärde\nKvalitet (Kelly-andel): ${((v.q ?? 0) * 100).toFixed(1)}% — samma edge är skörare ju högre odds${v.derived ? '\n(P~ = härlett ur handikapp — ta med en nypa salt)' : ''}`}>
-      +{Math.round(v.edge * 100)}%{v.derived ? '°' : ''}
+      {prefix && `${prefix} `}+{Math.round(v.edge * 100)}%{v.derived ? '°' : ''}
     </span>
   )
 
@@ -1013,6 +1019,27 @@ function OddsetView({ focus = null } = {}) {
       title={`Sharp-steam (devigad Pinnacle-sannolikhet):\n${parts.join('\n')}\nPositivt = tecknet kortas — kolla om SvS hängt med`}>🔥</span>
   }
 
+  const pct = (value) => value == null ? '–' : (value * 100).toFixed(1)
+  const pp = (value) => value == null ? '–' : `${value > 0 ? '+' : ''}${value.toFixed(1)}`
+  const ModelCompare = ({ cmp, sign, label = '' }) => {
+    if (!cmp?.model?.[sign]) return null
+    const title = [
+      `Sannolikheter på samma marknad${cmp.line != null ? ` och lina ${cmp.line}` : ''}, marginalrensade för P/SvS.`,
+      `Modell ${pct(cmp.model?.[sign])} %`,
+      `Pinnacle ${pct(cmp.sharp?.[sign])} %${cmp.sharp_source === 'pinnacle_alt' ? ' (exakt alt-lina)' : ''}`,
+      `SvS ${pct(cmp.svs?.[sign])} %`,
+      cmp.sharp_note, cmp.svs_note,
+    ].filter(Boolean).join('\n')
+    return (
+      <span className="modelcompare" title={title}>
+        <span>{label ? `${label} ` : ''}M {pct(cmp.model?.[sign])}</span>
+        <span>P {pct(cmp.sharp?.[sign])}</span>
+        <span>SvS {pct(cmp.svs?.[sign])} %</span>
+        <small>ΔP {pp(cmp.model_vs_sharp_pp?.[sign])} · ΔSvS {pp(cmp.model_vs_svs_pp?.[sign])} pp</small>
+      </span>
+    )
+  }
+
   const cell1x2 = (m, sign) => {
     const svs = m.odds?.svenskaspel?.['1x2']
     const pin = m.odds?.pinnacle?.['1x2']
@@ -1021,6 +1048,7 @@ function OddsetView({ focus = null } = {}) {
     const mvP = m.movement?.pinnacle?.['1x2']?.[sign]
     const v = m.value?.['1x2']?.[sign]
     const md = m.model
+    const cmp = md?.comparison?.['1x2']
     const mEdge = md?.edges?.[sign]
     return (
       <td className="oc" data-market={sign} key={sign}>
@@ -1039,20 +1067,24 @@ function OddsetView({ focus = null } = {}) {
             S {smarkets[sign].toFixed(2)}{priceStamp(smarkets)}
           </div>
         )}
-        {showBooks && [['expekt', 'E', 'Expekt'], ['ninjacasino', 'N', 'Ninja']].map(([bk, tag, label]) => {
+        {showBooks && [['expekt', 'E', 'Expekt'], ['ninjacasino', 'N', 'Ninja/Altenar']].map(([bk, tag, label]) => {
           const bo = m.odds?.[bk]?.['1x2']
           const mvB = m.movement?.[bk]?.['1x2']?.[sign]
-          if (bo?.[sign] && bo[sign] === svs?.[sign]) return null  // identiskt med SvS = brus
+          // Expekt delar Kambi-feed med SvS och identiska priser är brus.
+          // Altenar är en oberoende prismotor och ska alltid vara synlig.
+          if (bk === 'expekt' && bo?.[sign] && bo[sign] === svs?.[sign]) return null
           return bo?.[sign] ? (
-            <div className={quoteClass('p', bo)} key={bk} title={mvB?.pts?.length > 1 ? `${label}:\n${serie(mvB)}` : label}>
-              {tag} {bo[sign].toFixed(2)}{arrow(mvB)}{v?.book === bk && edgePill(v)}{priceStamp(bo)}
+            <div className={quoteClass(`p bookquote ${bk === 'ninjacasino' ? 'ninjaquote' : ''}`, bo)}
+              key={bk} title={mvB?.pts?.length > 1 ? `${label}:\n${serie(mvB)}` : label}>
+              {tag} {bo[sign].toFixed(2)}{arrow(mvB)}
+              {v?.book === bk && edgePill(v, v.held_after_sharp ? 'kvar' : '')}{priceStamp(bo)}
             </div>
           ) : null
         })}
-        {showModel && md?.fair?.[sign] && (
+        {showModel && cmp?.model?.[sign] && (
           <div className="m"
             title={`Egen modell (xG-viktad Poisson-styrkefit; DC-korrektion i prediktionen): ${(md.p[sign] * 100).toFixed(1)}%\nμ ${md.mu[0]}–${md.mu[1]} · T=${md.cal_t || 1}${md.anchored ? ' · totalnivå ankrad mot sharp Ö/U' : ' · OANKRAD (ingen sharp-linje ännu)'}${md.prior ? '\n⚠ Elo-prior: minst ett lag har tunn historik — styrka skattad ur ClubElo' : ''}\nT valdes på samma historiska backtestmaterial; ledgern är oberoende forward-facit.\nAmber-tier: experimentell`}>
-            M {md.fair[sign].toFixed(2)}
+            <ModelCompare cmp={cmp} sign={sign} />
             {mEdge >= 0.05 && <span className="apill"
               title={`Modellen tror ${(md.p[sign] * 100).toFixed(1)}% — SvS betalar ${(m.odds?.svenskaspel?.['1x2']?.[sign] || 0).toFixed(2)} = ${(mEdge * 100).toFixed(1)}% modell-edge.\nAmber = okalibrerad signal, spela inte blint på den.`}>
               +{Math.round(mEdge * 100)}%</span>}
@@ -1071,20 +1103,41 @@ function OddsetView({ focus = null } = {}) {
     const mvP1 = m.movement?.pinnacle?.[market]?.[k1]
     const mvP2 = m.movement?.pinnacle?.[market]?.[k2]
     const mc = market === 'cor' && showModel ? m.model?.corners : null
-    const mp = market !== 'cor' && showModel ? m.model?.[market] : null
+    const mp = showModel ? m.model?.[market] : null
+    const cmp = m.model?.comparison?.[market]
     const mpBest = mp && Object.entries(mp.edges || {})
       .filter(([, e]) => e >= 0.05).sort((a, b) => b[1] - a[1])[0]
     return (
       <td className="oc pair" data-market={MARKET_LABEL[market]}>
         <div className={quoteClass('o', svs)}>
           {svs?.[k1] && svs?.[k2] ? <>{fmtL(svs.line)} · {svs[k1].toFixed(2)}{arrowAtLine(mvS1, svs.line)} / {svs[k2].toFixed(2)}{arrowAtLine(mvS2, svs.line)}{shiftBadge(mvS1, 'SvS')}{priceStamp(svs)}</> : '–'}
-          {edgePill(v1) || edgePill(v2)}
+          {edgePill(v1?.book === 'svenskaspel' ? v1 : null)
+            || edgePill(v2?.book === 'svenskaspel' ? v2 : null)}
         </div>
         {pin?.[k1] && pin?.[k2] && <div className={quoteClass('p', pin)}>P {fmtL(pin.line)} · {pin[k1].toFixed(2)}{arrowAtLine(mvP1, pin.line)} / {pin[k2].toFixed(2)}{arrowAtLine(mvP2, pin.line)}{shiftBadge(mvP1, 'Pinnacle')}{priceStamp(pin)}</div>}
+        {showBooks && [['expekt', 'E', 'Expekt'], ['ninjacasino', 'N', 'Ninja/Altenar']].map(([bk, tag, label]) => {
+          const bo = m.odds?.[bk]?.[market]
+          if (!bo?.[k1] || !bo?.[k2]) return null
+          const mvB1 = m.movement?.[bk]?.[market]?.[k1]
+          const mvB2 = m.movement?.[bk]?.[market]?.[k2]
+          const sameAsSvs = bo.line === svs?.line
+            && bo[k1] === svs?.[k1] && bo[k2] === svs?.[k2]
+          if (bk === 'expekt' && sameAsSvs) return null
+          const bv = v1?.book === bk ? v1 : v2?.book === bk ? v2 : null
+          return (
+            <div className={quoteClass(`p bookquote ${bk === 'ninjacasino' ? 'ninjaquote' : ''}`, bo)}
+              key={bk} title={`${label} · ${MARKET_LABEL[market]}${bv?.held_after_sharp ? '\nPriset är färskt och återbekräftat efter Pinnacles senaste prisändring.' : ''}`}>
+              {tag} {fmtL(bo.line)} · {bo[k1].toFixed(2)}{arrowAtLine(mvB1, bo.line)}
+              {' '}/ {bo[k2].toFixed(2)}{arrowAtLine(mvB2, bo.line)}
+              {shiftBadge(mvB1, label)}
+              {edgePill(bv, bv?.held_after_sharp ? 'kvar' : '')}{priceStamp(bo)}
+            </div>
+          )
+        })}
         {mp && (
           <div className="m"
-            title={`Modellens fair vid SvS-linjen ${fmtL(mp.line)} (push/kvartslinjer hanterade).${market === 'ou' && m.model?.anchored ? '\nÖU: totalen är ankrad mot sharp — fairen ligger nära Pinnacle per konstruktion; edgen mäter mest SvS marginal.' : ''}${market === 'ah' ? '\nAH bär modellens EGEN styrkebedömning (supremacy) — här kan modellen avvika på riktigt.' : ''}\nAmber: experimentell — forward-loggas i 📒-facitet, spela inte blint.`}>
-            M {mp[k1] ? mp[k1].toFixed(2) : '–'} / {mp[k2] ? mp[k2].toFixed(2) : '–'}
+            title={`${market === 'cor' ? 'Hörnmodellens Poisson-baslinje på Pinnacles lina' : 'Modellens fair på SvS-lina'} ${fmtL(mp.line)} (push/kvartslinjer hanterade).${market === 'ou' && m.model?.anchored ? '\nÖU: totalen är ankrad mot sharp — fairen ligger nära Pinnacle per konstruktion; edgen mäter mest SvS marginal.' : ''}${market === 'ah' ? '\nAH bär modellens EGEN styrkebedömning (supremacy) — här kan modellen avvika på riktigt.' : ''}${market === 'cor' ? '\nHörnkalibreringen samlar forwarddata med samma modell-mot-close-grind; ingen historik bakfylls.' : ''}\nAmber: experimentell — forward-loggas i 📒-facitet, spela inte blint.`}>
+            <ModelCompare cmp={cmp} sign={k1} label={k1} />
             {mpBest && <span className="apill">{mpBest[0]} +{Math.round(mpBest[1] * 100)}%</span>}
           </div>
         )}
@@ -1101,7 +1154,7 @@ function OddsetView({ focus = null } = {}) {
   const MARKET_LABEL = { '1x2': '1X2', ah: 'AH', ou: 'Ö/U', cor: 'Hörnor' }
   const BOOK_NAME = {
     svenskaspel: 'SvS', expekt: 'Expekt',
-    betinia: 'Betinia', ninjacasino: 'Ninja',   // Betinia kvar för historiken
+    betinia: 'Betinia', ninjacasino: 'Ninja/Altenar', // Betinia kvar för historiken
   }
 
   if (err) return <section><h2>Oddset</h2><ErrorState message={err} /></section>
@@ -1111,7 +1164,8 @@ function OddsetView({ focus = null } = {}) {
   const healthDefs = [
     ['pinnacle', 'markets', 'P'], ['svenskaspel', '1x2', 'SvS'],
     ['svenskaspel', 'deep', 'SvS djup'], ['expekt', '1x2', 'E'],
-    ['ninjacasino', '1x2', 'Ninja'], ['smarkets', '1x2', 'Smarkets'],
+    ['ninjacasino', '1x2', 'Ninja'], ['ninjacasino', 'deep', 'Ninja djup'],
+    ['smarkets', '1x2', 'Smarkets'],
     ['sofascore', 'live', 'Live'],
   ]
   const sourceHealth = healthDefs.flatMap(([source, scope, label]) => {
@@ -1160,6 +1214,11 @@ function OddsetView({ focus = null } = {}) {
   const candidateReq = ledger?.criteria?.candidate || {
     n_resolved: 50, n_matches: 30, span_days: 28,
   }
+  const modelCloseRows = ledger?.model_close?.summary || []
+  const modelCloseLabel = (status) => ({
+    better: '✓ slår sharp', worse: '✕ sämre än sharp',
+    inconclusive: '◐ oklart', collecting: '● samlar',
+  }[status] || status)
   const activePrimaryGroups = (ledger?.groups || []).filter(
     (g) => g.primary && g.active_version)
   const statusLabel = (status) => status === 'green'
@@ -1248,7 +1307,7 @@ function OddsetView({ focus = null } = {}) {
             Datakällor {sourceHealth.filter((h) => h.ok).length}/{sourceHealth.length}
           </button>
           <button className={showBooks ? 'lg on' : 'lg'} onClick={() => setShowBooks(!showBooks)}
-            aria-pressed={showBooks} title="Visa eller dölj Expekt och Ninja/Altenar i matchtabellen. Smarkets visas alltid som sharp-ankare.">
+            aria-pressed={showBooks} title="Visa eller dölj spelbara sidoböcker. Ninja/Altenar visas för 1X2, Ö/U och hörnor; Smarkets visas alltid som sharp-ankare.">
             {showBooks ? '− Färre odds' : '+ Fler odds'}
           </button>
           <span className="hint odds-fetched">
@@ -1405,6 +1464,11 @@ function OddsetView({ focus = null } = {}) {
                     Devigad Pinnacle: {(v.fair * 100).toFixed(1)} % (fair {(1 / v.fair).toFixed(2)}) —
                     {' '}{BOOK_NAME[v.book] || v.book} betalar {v.odds.toFixed(2)} ·
                     {' '}¼-Kelly: <b>{kelly(v)} kr</b>
+                    {v.held_after_sharp && (
+                      <span className="heldchip" title="Samma bokpris återbekräftades efter Pinnacles senaste prisändring. Det är alltså ett bevisat kvarhängande pris, inte en gammal cache.">
+                        bekräftat kvar
+                      </span>
+                    )}
                   </div>
                   {support.length > 0 && (
                     <div className="tipsupport">
@@ -1452,8 +1516,10 @@ function OddsetView({ focus = null } = {}) {
                 <span className="hint">{fmtDay(m.start)} {fmtTime(m.start)}</span>
                 {m.research
                   ? <span className="rchip" title="Forskningsliga — rörelsen visas som information. Ingen värdejämförelse eller signal: V2.2 samlar data och ligan är inte actionable.">🔬 forskning</span>
-                  : v && v.edge >= 0.02 && pp > 0
-                    ? <span className="epill">{BOOK_NAME[v.book] || v.book} kvar på {v.odds.toFixed(2)} (+{Math.round(v.edge * 100)}%)</span>
+                  : v && v.edge >= 0.02 && pp > 0 && v.held_after_sharp
+                    ? <span className="epill">{BOOK_NAME[v.book] || v.book} bekräftat kvar på {v.odds.toFixed(2)} (+{Math.round(v.edge * 100)}%)</span>
+                    : v && v.edge >= 0.02 && pp > 0
+                      ? <span className="hint">{BOOK_NAME[v.book] || v.book} ger värde nu, men är inte återbekräftat efter senaste sharpändringen</span>
                     : <span className="hint">böckerna har hängt med</span>}
               </div>
             )
@@ -1585,6 +1651,34 @@ function OddsetView({ focus = null } = {}) {
             {ledger.n_empty_captures > 0 && <> · {ledger.n_empty_captures} utan tillgänglig prognos</>}
             {' '}{showLedger ? '▲' : '▼'}
           </p>
+          {modelCloseRows.length > 0 && (
+            <div className="model-close-wrap">
+              <div className="model-close-title">
+                <b>🧪 Modell mot Pinnacle-close</b>
+                <span className="hint">alla frysta prediktioner, även oflaggade · M/P = genomsnittligt pp-avstånd till close</span>
+              </div>
+              <div className="model-close-grid">
+                {modelCloseRows.map((g) => (
+                  <div className={`model-close-card ${g.status}`}
+                    key={`${g.market}-${g.version}`}
+                    title={`Primär grind: parad log-score-förbättring mot Pinnacle vid samma horisont. Positivt KI helt över noll krävs.\nVersion ${g.version}${g.active_version ? ' (nuvarande)' : ' (äldre)'}`}>
+                    <div><b>{MARKET_LABEL[g.market] || g.market}</b>
+                      <span className={`model-close-status ${g.status}`}>{modelCloseLabel(g.status)}</span></div>
+                    <div className="model-close-mae">
+                      M <b>{g.model_mae_pp?.toFixed(2) ?? '–'} pp</b>
+                      {' '}· P <b>{g.sharp_mae_pp?.toFixed(2) ?? '–'} pp</b>
+                    </div>
+                    <div className="hint">{g.n_cases} cases · {g.n_matches} matcher · {g.span_days} dagar
+                      {' '}· {g.active_version ? 'nuvarande' : 'äldre'} {g.version}</div>
+                    {g.logscore_gain_ci && (
+                      <div className="hint">log-score Δ {g.logscore_gain >= 0 ? '+' : ''}{g.logscore_gain.toFixed(4)}
+                        {' '}· KI [{g.logscore_gain_ci[0].toFixed(4)}..{g.logscore_gain_ci[1].toFixed(4)}]</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {activePrimaryGroups.length > 0 && (
             <div className="validation-grid">
               {activePrimaryGroups.map((g) => (

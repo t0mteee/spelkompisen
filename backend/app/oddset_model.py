@@ -40,6 +40,7 @@ MIN_MATCHES = 8         # lag med färre viktade matcher får Elo-prior (M2) i s
 ELO_K = 0.35            # M2: styrka ur ClubElo: att = q^k, def = q^-k där
                         # q = 10^((elo − liga-medel)/400). Grov mappning (+100 Elo
                         # ≈ 1.5× λ-kvot) — forward-loggen utvärderar, inte tron.
+CORNER_MODEL_VERSION = "corner-poisson-total-v1"
 
 
 def _pois(k: int, lam: float) -> float:
@@ -326,7 +327,9 @@ def pair_fair(matrix: list[list[float]], kind: str, line: float,
 
 # --- hörn-modell (M4b) ---------------------------------------------------------------
 # vm-lärdomen står fast: hörn-VÄRDE kräver sharp linje (modell-edges blev +120 %
-# okalibrerat). Därför är detta enbart FÖRVÄNTAN (visning) — inga pills, ingen logg.
+# okalibrerat). Förväntan visas; från 2026-07-25 fryses även en explicit
+# Poisson-baslinje på SHARPENS lina i prediction-ledgern. Den påverkar inga
+# tips utan kalibreras med samma modell-mot-close-mått som övriga marknader.
 
 def corner_model(results: list[dict]) -> Optional[dict]:
     """Liga-nivå ur egen Sofascore-data: snitt-total + hemmaandel ~ supremacy (OLS).
@@ -359,6 +362,124 @@ def expected_corners(cm: dict, mu_h: float, mu_a: float) -> dict:
     share = max(0.25, min(0.75, cm["a"] + cm["b"] * sup))
     return {"tot": round(cm["tot"], 1), "h": round(cm["tot"] * share, 1),
             "a": round(cm["tot"] * (1 - share), 1)}
+
+
+def corner_pair(mean_total: float, line: float) -> Optional[dict]:
+    """Poisson-baslinje för totalhörn på en asiatisk lina.
+
+    Detta är medvetet en enkel, förregistrerad startpunkt. Överdispersion eller
+    annan kalibrering blir en NY semantisk modellversion och måste slå denna på
+    det parade close-måttet — parametrar väljs aldrig efter samma forwarddata.
+    """
+    if mean_total <= 0 or line < 0:
+        return None
+    max_corners = max(40, int(mean_total + 10 * math.sqrt(mean_total) + 1))
+    probs = [
+        math.exp(-mean_total) * mean_total ** total / math.factorial(total)
+        for total in range(max_corners + 1)
+    ]
+    norm = sum(probs) or 1.0
+    probs = [value / norm for value in probs]
+    quarter = abs(line * 2 - round(line * 2)) > 1e-9
+    halves = [line - 0.25, line + 0.25] if quarter else [line]
+    out = {"line": line}
+    for side in ("O", "U"):
+        pw = pp = 0.0
+        for half_line in halves:
+            win = push = 0.0
+            for total, probability in enumerate(probs):
+                value = total - half_line if side == "O" else half_line - total
+                if value > 1e-9:
+                    win += probability
+                elif abs(value) <= 1e-9:
+                    push += probability
+            pw += win / len(halves)
+            pp += push / len(halves)
+        if pw < 0.01 or pp >= 1:
+            return None
+        out[side] = round((1 - pp) / pw, 2)
+        out[f"p{side}"] = round(pw / (1 - pp), 4)
+    return out
+
+
+def market_comparisons(match: dict, model: dict,
+                       now: Optional[dt.datetime] = None) -> dict:
+    """Modell vs marginalrensad Pinnacle vs marginalrensad SvS i pp.
+
+    AH/ÖU jämförs bara på modellens exakta lina. Om Pinnacles huvudlina har
+    flyttat används det befintliga alt-linjelagret; annars redovisas sharp som
+    saknad i stället för att två olika linor jämförs.
+    """
+    from . import oddset_value
+
+    now = now or dt.datetime.now(dt.timezone.utc)
+    odds = match.get("odds") or {}
+    pin_all = odds.get("pinnacle") or {}
+    svs_all = odds.get("svenskaspel") or {}
+    sharp_alt = match.get("sharp_alt") or {}
+    out = {}
+    for market, signs in (
+            ("1x2", ("1", "X", "2")),
+            ("ah", ("H", "A")),
+            ("ou", ("O", "U")),
+            ("cor", ("O", "U"))):
+        if market == "1x2":
+            model_probs = model.get("p") or {}
+            line = None
+        else:
+            pair = model.get(market) or {}
+            model_probs = {sign: pair.get(f"p{sign}") for sign in signs}
+            line = pair.get("line")
+        if any(model_probs.get(sign) is None for sign in signs):
+            continue
+
+        pin = pin_all.get(market) or {}
+        sharp = None
+        sharp_source = None
+        if pin.get("fresh") and (
+                market == "1x2"
+                or (pin.get("line") is not None and line is not None
+                    and abs(float(pin["line"]) - float(line)) < 0.0005)):
+            sharp = oddset_value._devig(pin, signs)
+            sharp_source = "pinnacle"
+        elif market != "1x2" and line is not None:
+            sharp = oddset_value._alt_fair(
+                sharp_alt.get(market) or {}, line, signs, now)
+            if sharp:
+                sharp_source = "pinnacle_alt"
+
+        svs = svs_all.get(market) or {}
+        svs_fair = None
+        if svs.get("fresh") and (
+                market == "1x2"
+                or (svs.get("line") is not None and line is not None
+                    and abs(float(svs["line"]) - float(line)) < 0.0005)):
+            svs_fair = oddset_value._devig(svs, signs)
+
+        model_probs = {sign: round(float(model_probs[sign]), 4) for sign in signs}
+        result = {
+            "line": line, "model": model_probs,
+            "sharp": ({sign: round(sharp[sign], 4) for sign in signs}
+                      if sharp else None),
+            "svs": ({sign: round(svs_fair[sign], 4) for sign in signs}
+                    if svs_fair else None),
+            "sharp_source": sharp_source,
+            "model_vs_sharp_pp": (
+                {sign: round((model_probs[sign] - sharp[sign]) * 100, 2)
+                 for sign in signs} if sharp else None),
+            "model_vs_svs_pp": (
+                {sign: round((model_probs[sign] - svs_fair[sign]) * 100, 2)
+                 for sign in signs} if svs_fair else None),
+            "svs_vs_sharp_pp": (
+                {sign: round((svs_fair[sign] - sharp[sign]) * 100, 2)
+                 for sign in signs} if sharp and svs_fair else None),
+        }
+        if not sharp:
+            result["sharp_note"] = "ingen färsk Pinnacle på exakt lina"
+        if not svs_fair:
+            result["svs_note"] = "ingen färsk SvS på exakt lina"
+        out[market] = result
+    return out
 
 
 # --- payload-koppling ---------------------------------------------------------------
@@ -484,6 +605,19 @@ def attach_model(store: Storage, matches: list[dict],
             "mu": [round(mu_h, 2), round(mu_a, 2)],
             "anchored": anchored, "edges": edges, "prior": prior_used,
             "cal_t": cal_t if cal_t != 1.0 else None, **pairs}
+        m["model"]["comparison"] = market_comparisons(
+            m, m["model"])
         cm = corner_ms.get(lg)
         if cm:
-            m["model"]["corners"] = expected_corners(cm, mu_h, mu_a)
+            corners = expected_corners(cm, mu_h, mu_a)
+            m["model"]["corners"] = corners
+            pin_cor = ((m.get("odds") or {}).get("pinnacle") or {}).get("cor")
+            if (pin_cor and pin_cor.get("fresh")
+                    and pin_cor.get("line") is not None):
+                pair = corner_pair(corners["tot"], float(pin_cor["line"]))
+                if pair:
+                    m["model"]["cor"] = pair
+                    # Jämförelsen byggdes före hörnparet fanns; komplettera
+                    # först nu så den bär exakt samma modellobjekt som ledgern.
+                    m["model"]["comparison"] = market_comparisons(
+                        m, m["model"])

@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from app import oddset
+from app import altenar, oddset
 from app.pinnacle import Pinnacle, cache_adjusted_iso
 from app.storage import Storage
 
@@ -201,6 +201,36 @@ class CollectionPresenceTests(unittest.TestCase):
         latest = self.store.oddset_latest(["m1"])["m1"]["svenskaspel"]
         self.assertTrue(latest["ah"]["available"])
         self.assertTrue(latest["ou"]["available"])
+
+    def test_altenar_corners_are_fetched_from_event_details(self) -> None:
+        league = {**self.league, "altenar": 999}
+        event = {"id": "k1", "home": "Home", "away": "Away", "start": self.start,
+                 "odds": {"1": 2.2, "X": 3.4, "2": 3.3}}
+        ninja = {**event, "id": "a1",
+                 "odds": {"1": 2.25, "X": 3.3, "2": 3.2},
+                 "ou": {"O": 1.8, "U": 1.9, "line": 2.5}}
+        corner = {"cor": {"O": 1.7, "U": 2.05, "line": 9.5}}
+        with mock.patch.object(oddset, "Pinnacle", return_value=_Pin()), \
+                mock.patch.object(oddset, "pinnacle_league_index", return_value=[]), \
+                mock.patch.object(oddset.kambi, "league_events", return_value=[event]), \
+                mock.patch.object(oddset.kambi, "event_markets", return_value={}), \
+                mock.patch.object(
+                    oddset, "BOOKS",
+                    [{"key": "ninjacasino", "name": "Ninja",
+                      "altenar": "ninjacasinose"}]), \
+                mock.patch.object(altenar, "league_events", return_value=[ninja]), \
+                mock.patch.object(
+                    altenar, "event_markets", return_value=corner) as details, \
+                mock.patch.object(oddset.time, "sleep"):
+            oddset.collect(self.store, leagues=[league], deep=False)
+
+        details.assert_called_once_with(
+            "a1", integration="ninjacasinose", strict=True)
+        latest = self.store.oddset_latest(["m1"])["m1"]["ninjacasino"]
+        self.assertEqual(9.5, latest["cor"]["line"])
+        self.assertEqual(1.7, latest["cor"]["O"])
+        self.assertEqual(2.05, latest["cor"]["U"])
+        self.assertTrue(latest["cor"]["available"])
 
 
 class ResearchLeagueIsolationTests(unittest.TestCase):

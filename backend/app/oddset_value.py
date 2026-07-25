@@ -183,6 +183,26 @@ def anchor2_fair(odds: dict, market: str,
     return fair, None
 
 
+def _held_after_sharp_change(sharp: dict, book: dict) -> bool:
+    """Bevisat kvarhängande bokpris efter sharpens senaste prisändring.
+
+    `fetched_at` flyttas bara när priset ändras, medan `last_seen_at` flyttas
+    när samma pris återbekräftas. Boken står alltså bevisligen kvar när dess
+    nuvarande pris skapades före sharpändringen och därefter observerades igen.
+    Färskhet/available kontrolleras separat av attach_value.
+    """
+    try:
+        sharp_changed = dt.datetime.fromisoformat(
+            sharp["fetched_at"].replace("Z", "+00:00"))
+        book_changed = dt.datetime.fromisoformat(
+            book["fetched_at"].replace("Z", "+00:00"))
+        book_seen = dt.datetime.fromisoformat(
+            book["last_seen_at"].replace("Z", "+00:00"))
+    except (KeyError, AttributeError, ValueError):
+        return False
+    return book_changed < sharp_changed <= book_seen
+
+
 def attach_value(matches: list[dict]) -> None:
     """Sätter m['value'] = {market: {sign: {edge, fair, odds, book}}} (in place).
     Fair = devigad Pinnacle; edge räknas mot BÄSTA odds bland övriga böcker
@@ -246,6 +266,11 @@ def attach_value(matches: list[dict]) -> None:
                     "line": line, "derived": bool(p.get("derived"))}
                 if via_alt:
                     entry["alt_line"] = True
+                elif _held_after_sharp_change(p, books[bk][market]):
+                    # UI:t får säga "står kvar" endast med detta tidsbevis.
+                    # Det påverkar inte edge, urval, notiser eller signalversion.
+                    entry["held_after_sharp"] = True
+                    entry["sharp_changed_at"] = p.get("fetched_at")
                 # skuggmätning: samma pris, andra ankarets fair. Endast för
                 # loggen/UI-informationen — `edge` ovan är oberörd.
                 a2: dict = {"source": ANCHOR2_SOURCE}

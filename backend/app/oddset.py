@@ -65,7 +65,8 @@ RESEARCH_LEAGUE_KEYS = frozenset(
 
 # Fler böcker (jämförelse + hitta boken som hänger efter). Kambi-operatörer delar
 # event-id:n med svenskaspel (trivial matchning); Altenar-böcker matchas fuzzy på
-# namn+avspark. 1X2 räcker (deep-marknader hämtas bara från SvS).
+# namn+avspark. Kambi-sidoboken hämtar bara 1X2; Altenars listvy ger dessutom
+# Ö/U och eventdetaljen ger totalhörnor i deep-/snabbfönstret.
 # Expekt kör Kambi via LeoVegas-avtalet (verifierat: Kambi-pressrelease, t.o.m. 2027).
 BOOKS = [
     {"key": "expekt", "name": "Expekt", "kambi_op": "expektse"},
@@ -330,6 +331,17 @@ def pinnacle_known_moneylines(pin: Pinnacle, league_id: int,
 _PAIR_KEYS = {"ah": ("H", "A"), "ou": ("O", "U"), "cor": ("O", "U")}
 
 
+def _observe_pair_market(store: Storage, mid: str, source: str, market: str,
+                         value: Optional[dict], at: str) -> int:
+    """Registrera en enskild parmarknad efter ett lyckat källsvar."""
+    k1, k2 = _PAIR_KEYS[market]
+    rows = ({
+            k1: {"odds": value[k1], "line": value["line"]},
+            k2: {"odds": value[k2], "line": value["line"]}}
+            if value else {})
+    return store.oddset_save_market(mid, source, market, rows, at)
+
+
 def _observe_pair_markets(store: Storage, mid: str, source: str,
                           row: dict, at: str) -> int:
     """Registrera alla parmarknader efter ett lyckat källsvar.
@@ -338,13 +350,9 @@ def _observe_pair_markets(store: Storage, mid: str, source: str,
     unavailable i stället för att ligga kvar som ett spelbart spökpris.
     """
     n = 0
-    for market, (k1, k2) in _PAIR_KEYS.items():
-        v = row.get(market)
-        rows = ({
-                k1: {"odds": v[k1], "line": v["line"]},
-                k2: {"odds": v[k2], "line": v["line"]}}
-                if v else {})
-        n += store.oddset_save_market(mid, source, market, rows, at)
+    for market in _PAIR_KEYS:
+        n += _observe_pair_market(
+            store, mid, source, market, row.get(market), at)
     return n
 
 
@@ -554,7 +562,9 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 kambi_ok and not deep_errors, deep_checked,
                 "; ".join(deep_errors) if deep_errors else kambi_error)
 
-            # sidoböcker (1X2): Kambi-operatörer delar event-id:n, Altenar matchas fuzzy
+            # Sidoböcker: Kambi-operatörer delar event-id:n, Altenar matchas
+            # fuzzy. Altenars listvy ger 1X2 + mål; hörnor hämtas ur eventvyn
+            # inom samma deep-/snabbfönster som Kambis detaljmarknader.
             n_books = 0
             for book in (() if research_only else BOOKS):
                 if not book.get("kambi_op") and not (book.get("altenar") and lg.get("altenar")):
@@ -577,6 +587,8 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     book["key"], lg["key"], "1x2", at, book_ok,
                     len(b_rows), book_error)
                 book_seen: set[str] = set()
+                book_deep_errors: list[str] = []
+                book_deep_checked = 0
                 for e in b_rows:
                     ex = next((c for c in cands if c.get("kambi_id") == e["id"]), None) \
                         if book.get("kambi_op") else None
@@ -594,18 +606,50 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     # prissätter själv — uppmätt Brommapojkarna–Hammarby
                     # 2,25/1,57 @3,5 mot SvS 1,71/1,97 @3,0.
                     if e.get("ou"):
-                        rows_saved += _observe_pair_markets(
-                            store, ex["id"], book["key"],
-                            {"ou": {"O": e["ou"]["O"], "U": e["ou"]["U"],
-                                    "line": e["ou"]["line"]}}, book_at)
+                        rows_saved += _observe_pair_market(
+                            store, ex["id"], book["key"], "ou", e["ou"], book_at)
                         present.add((ex["id"], book["key"], "ou"))
+                    market_until = deep_until if deep else fast_until
+                    if (book.get("altenar")
+                            and (e.get("start") or "9") <= market_until):
+                        book_deep_checked += 1
+                        try:
+                            from . import altenar
+                            mk = altenar.event_markets(
+                                e["id"], integration=book["altenar"], strict=True)
+                            detail_at = _now_iso()
+                            rows_saved += _observe_pair_market(
+                                store, ex["id"], book["key"], "cor",
+                                mk.get("cor"), detail_at)
+                            if mk.get("cor"):
+                                present.add((ex["id"], book["key"], "cor"))
+                        except Exception as exc:  # ett eventfel får inte dölja resten
+                            book_deep_errors.append(f"{e['id']}: {exc}")
+                            report["errors"].append(
+                                f"{book['key']}-deep {lg['key']} {e['id']}: {exc}")
+                        time.sleep(0.25)
                     n_books += 1
                 if book_ok:
+                    market_until = deep_until if deep else fast_until
                     for c in cands:
                         if c["id"] in book_seen or (c.get("start") or "9") <= at:
                             continue
                         store.oddset_mark_market_unavailable(
                             c["id"], book["key"], "1x2")
+                        if book.get("altenar"):
+                            # Mål ligger i det lyckade listsvaret. Saknas
+                            # matchen där är ett tidigare målpris inte spelbart.
+                            store.oddset_mark_market_unavailable(
+                                c["id"], book["key"], "ou")
+                            if (c.get("start") or "9") <= market_until:
+                                store.oddset_mark_market_unavailable(
+                                    c["id"], book["key"], "cor")
+                if book.get("altenar"):
+                    store.oddset_record_source_health(
+                        book["key"], lg["key"], "deep", at,
+                        book_ok and not book_deep_errors, book_deep_checked,
+                        ("; ".join(book_deep_errors)
+                         if book_deep_errors else book_error))
 
             # ANDRA SHARP-ANKARET (2026-07-24): Smarkets är en BÖRS, inte en
             # bok vi letar värde hos — uppmätt overround ~1,00 mot Svenska
@@ -792,7 +836,6 @@ def matches_payload(store: Storage, light: bool = False,
     oddset_value.attach_value(out)
     oddset_value.attach_steam(out)
     for m in out:   # internt underlag för värdemotorn — inte API-last
-        m.pop("sharp_alt", None)
         # Synlig ≠ actionable: ordinarie payloaden bär inga värde-/Kelly-
         # underlag för forskningsligor (V2.2:s dom är inte fälld).
         if not include_research and m.get("research"):
@@ -816,6 +859,10 @@ def matches_payload(store: Storage, light: bool = False,
                     fit_pools=oddset_v22.FIT_POOLS)
         except Exception:  # noqa: BLE001 — modellen (amber) får aldrig fälla listan
             pass
+    for m in out:
+        # Alt-linjerna behövs ovan för samma-linje-transparensen, men hela
+        # rålagret ska inte blåsa upp API-payloaden.
+        m.pop("sharp_alt", None)
     visible_leagues = [
         league for league in LEAGUES
         if include_research or league["key"] in VISIBLE_LEAGUE_KEYS

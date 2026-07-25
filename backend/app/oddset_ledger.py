@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import math
 import random
 from typing import Optional
 
@@ -44,6 +45,15 @@ PRIMARY_LEAGUES = {
 # rapporten är fri; det är BESLUTEN som är kadensstyrda.
 EVAL_INTERVAL_H = 168.0          # en gång per vecka
 EVAL_META_KEY = "oddset_ledger_last_eval"
+
+# Modell-mot-close: snabb forskningsgrind på ALLA frysta prediktioner, inte
+# bara flaggor. Förregistrerad innan utfallet räknades 2026-07-25; se
+# docs/modell-mot-close-2026-07-25.md.
+MODEL_CLOSE_PAIR_MAX_MIN = 5.0
+MODEL_CLOSE_MIN_CASES = 50
+MODEL_CLOSE_MIN_MATCHES = 30
+MODEL_CLOSE_MIN_SPAN_DAYS = 7
+MODEL_CLOSE_DIRECTION_MIN_PP = 0.5
 
 
 def _evaluation_due(store: Storage, now: dt.datetime) -> bool:
@@ -161,6 +171,8 @@ def _sharp_rows(match: dict) -> list[dict]:
 
 
 def _model_rows(match: dict) -> list[dict]:
+    from . import oddset_model
+
     odds = match.get("odds") or {}
     model = match.get("model") or {}
     anchored = bool(model.get("anchored"))
@@ -171,7 +183,8 @@ def _model_rows(match: dict) -> list[dict]:
             rows.append(_row(
                 "1x2", sign, None, fair, "model", True, True, odds,
                 eligible=True, anchored=anchored))
-    for market, signs in (("ah", ("H", "A")), ("ou", ("O", "U"))):
+    for market, signs in (
+            ("ah", ("H", "A")), ("ou", ("O", "U")), ("cor", ("O", "U"))):
         pair = model.get(market) or {}
         line = pair.get("line")
         if line is None:
@@ -180,7 +193,10 @@ def _model_rows(match: dict) -> list[dict]:
             fair = pair.get(f"p{sign}")
             if fair is not None:
                 rows.append(_row(
-                    market, sign, line, fair, "model", True, True, odds,
+                    market, sign, line, fair,
+                    (oddset_model.CORNER_MODEL_VERSION
+                     if market == "cor" else "model"),
+                    True, True, odds,
                     eligible=True, anchored=anchored))
     return rows
 
@@ -413,9 +429,288 @@ def _prepare_rows(store: Storage) -> tuple[list[dict], dict[tuple, list[dict]]]:
         else:
             row["close_ev"] = row["close_ev_w"] = None
         key = (row["tier"], row.get("league") or "?", row["market"],
-               row["signal_version"])
+               _evaluation_version(row))
         grouped.setdefault(key, []).append(row)
     return rows, grouped
+
+
+def _evaluation_version(row: dict) -> str:
+    """Marknadsspecifik metodversion utan att bumpa orelaterade modeller.
+
+    Hörnmodellen tillkom som en ny marknad. Att lägga dess metod i den globala
+    målmodellens fingerprint skulle felaktigt nollställa 1X2/AH/ÖU och V2.2.
+    Fair-källan bär därför hörnmetoden och blir del av just hörngruppens version.
+    """
+    if row.get("tier") == "model" and row.get("market") == "cor":
+        return f"{row['signal_version']}:{row.get('fair_source') or 'corner-unknown'}"
+    return row["signal_version"]
+
+
+def _active_evaluation_version(tier: str, market: str, version: str,
+                               current_versions: dict[str, str]) -> bool:
+    if tier == "model" and market == "cor":
+        from . import oddset_model
+        return version == (
+            f"{current_versions['model']}:{oddset_model.CORNER_MODEL_VERSION}")
+    return version == current_versions.get(tier)
+
+
+def _prob_vector(rows: dict[str, dict], field: str,
+                 signs: tuple[str, ...]) -> Optional[dict[str, float]]:
+    """Komplett, normaliserad sannolikhetsvektor eller None."""
+    try:
+        raw = {sign: float(rows[sign][field]) for sign in signs}
+    except (KeyError, TypeError, ValueError):
+        return None
+    if any(not math.isfinite(value) or value <= 0 for value in raw.values()):
+        return None
+    total = sum(raw.values())
+    if total <= 0:
+        return None
+    return {sign: value / total for sign, value in raw.items()}
+
+
+def _model_close_cases(rows: list[dict]) -> tuple[list[dict], dict]:
+    """Para kompletta modellvektorer med direkt sharp vid samma horisont/lina."""
+    sharp_groups: dict[tuple, dict[str, dict]] = {}
+    model_groups: dict[tuple, dict[str, dict]] = {}
+    for row in rows:
+        market = row.get("market")
+        signs = oddset_value._MARKET_SIGNS.get(market)
+        if not signs or row.get("horizon") not in HORIZON_MAX_DELAY:
+            continue
+        timely = (row.get("delay_minutes") is not None
+                  and row["delay_minutes"] <= HORIZON_MAX_DELAY[row["horizon"]])
+        if not timely:
+            continue
+        common = (
+            row["match_id"], row["horizon"], market, row["line_key"],
+            row["signal_version"], row["captured_at"],
+        )
+        if (row.get("tier") == "sharp"
+                and row.get("fair_source") == "pinnacle"
+                and row.get("fair_available") and row.get("fair_fresh")
+                and row.get("closing_fair") is not None):
+            sharp_groups.setdefault(common, {})[row["sign"]] = row
+        elif (row.get("tier") == "model"
+              and row.get("fair_available") and row.get("fair_fresh")
+              and row.get("closing_fair") is not None):
+            model_groups.setdefault(common, {})[row["sign"]] = row
+
+    sharp_index: dict[tuple, list[dict]] = {}
+    for key, selections in sharp_groups.items():
+        match_id, horizon, market, line_key, version, captured_at = key
+        signs = oddset_value._MARKET_SIGNS[market]
+        sharp = _prob_vector(selections, "fair_prob", signs)
+        close = _prob_vector(selections, "closing_fair", signs)
+        if not sharp or not close:
+            continue
+        sharp_index.setdefault(
+            (match_id, horizon, market, line_key), []).append({
+                "version": version, "captured_at": captured_at,
+                "selections": selections, "sharp": sharp, "close": close,
+            })
+
+    cases = []
+    diagnostics = {
+        "n_model_vectors": len(model_groups),
+        "n_complete_model_vectors": 0,
+        "n_no_matching_sharp": 0,
+        "n_close_mismatch": 0,
+    }
+    for key, selections in model_groups.items():
+        match_id, horizon, market, line_key, version, captured_at = key
+        signs = oddset_value._MARKET_SIGNS[market]
+        model = _prob_vector(selections, "fair_prob", signs)
+        close = _prob_vector(selections, "closing_fair", signs)
+        if not model or not close:
+            continue
+        diagnostics["n_complete_model_vectors"] += 1
+        model_at = _parse_iso(captured_at)
+        candidates = []
+        for candidate in sharp_index.get(
+                (match_id, horizon, market, line_key), []):
+            delta_min = abs(
+                (_parse_iso(candidate["captured_at"]) - model_at).total_seconds()
+            ) / 60
+            if delta_min <= MODEL_CLOSE_PAIR_MAX_MIN:
+                candidates.append((delta_min, candidate))
+        if not candidates:
+            diagnostics["n_no_matching_sharp"] += 1
+            continue
+        _, paired = min(candidates, key=lambda item: item[0])
+        if any(abs(close[sign] - paired["close"][sign]) > 0.0002
+               for sign in signs):
+            # Båda ledgerraderna ska ha sett samma exakta close. Avvikelse
+            # betyder att de inte är ett säkert par, inte att den ena vinner.
+            diagnostics["n_close_mismatch"] += 1
+            continue
+
+        ce_model = -sum(close[sign] * math.log(model[sign]) for sign in signs)
+        ce_sharp = -sum(
+            close[sign] * math.log(paired["sharp"][sign]) for sign in signs)
+        model_abs = [
+            abs(model[sign] - close[sign]) * 100 for sign in signs]
+        sharp_abs = [
+            abs(paired["sharp"][sign] - close[sign]) * 100 for sign in signs]
+        direction_hits = direction_n = 0
+        for sign in signs:
+            model_shift = model[sign] - paired["sharp"][sign]
+            close_shift = close[sign] - paired["sharp"][sign]
+            if (abs(model_shift) * 100 >= MODEL_CLOSE_DIRECTION_MIN_PP
+                    and abs(close_shift) > 1e-9):
+                direction_n += 1
+                direction_hits += int(model_shift * close_shift > 0)
+        first = next(iter(selections.values()))
+        cases.append({
+            "match_id": match_id, "horizon": horizon, "market": market,
+            "line_key": line_key,
+            "model_version": _evaluation_version(next(iter(selections.values()))),
+            "sharp_version": paired["version"], "league": first.get("league") or "?",
+            "description": first.get("description"), "match_start": first["match_start"],
+            "captured_at": captured_at, "n_selections": len(signs),
+            "logscore_gain": ce_sharp - ce_model,
+            "model_mae_pp": sum(model_abs) / len(model_abs),
+            "sharp_mae_pp": sum(sharp_abs) / len(sharp_abs),
+            "mae_gain_pp": (
+                sum(sharp_abs) / len(sharp_abs)
+                - sum(model_abs) / len(model_abs)),
+            "model_bias_pp": (
+                sum((model[sign] - close[sign]) * 100 for sign in signs)
+                / len(signs)),
+            "direction_hits": direction_hits, "direction_n": direction_n,
+        })
+    diagnostics["n_paired_cases"] = len(cases)
+    return cases, diagnostics
+
+
+def _paired_metric_ci(cases: list[dict], field: str,
+                      key: tuple, iters: int = BOOTSTRAP_ITERS
+                      ) -> Optional[list[float]]:
+    """90 %-KI med matchen som block; flera horisonter är korrelerade."""
+    blocks: dict[str, list[float]] = {}
+    for case in cases:
+        blocks.setdefault(case["match_id"], []).append(case[field])
+    if len(blocks) < 3:
+        return None
+    groups = list(blocks.values())
+    rng = random.Random(_seed((*key, field)))
+    means = []
+    for _ in range(iters):
+        sample = [rng.choice(groups) for _ in groups]
+        flat = [value for group in sample for value in group]
+        means.append(sum(flat) / len(flat))
+    means.sort()
+    return [
+        round(means[int(iters * 0.05)], 6),
+        round(means[min(iters - 1, int(iters * 0.95))], 6),
+    ]
+
+
+def _model_close_group(cases: list[dict], key: tuple,
+                       active_version: str) -> dict:
+    n_matches = len({case["match_id"] for case in cases})
+    dates = [_parse_iso(case["match_start"]) for case in cases]
+    span_days = (max(0, int((max(dates) - min(dates)).total_seconds() // 86400))
+                 if dates else 0)
+    logscore_gain = (
+        sum(case["logscore_gain"] for case in cases) / len(cases)
+        if cases else None)
+    model_mae = (
+        sum(case["model_mae_pp"] for case in cases) / len(cases)
+        if cases else None)
+    sharp_mae = (
+        sum(case["sharp_mae_pp"] for case in cases) / len(cases)
+        if cases else None)
+    mae_gain = (
+        sum(case["mae_gain_pp"] for case in cases) / len(cases)
+        if cases else None)
+    bias = (
+        sum(case["model_bias_pp"] for case in cases) / len(cases)
+        if cases else None)
+    direction_n = sum(case["direction_n"] for case in cases)
+    direction_hits = sum(case["direction_hits"] for case in cases)
+    logscore_ci = _paired_metric_ci(cases, "logscore_gain", key)
+    mae_ci = _paired_metric_ci(cases, "mae_gain_pp", key)
+    testable = bool(
+        len(cases) >= MODEL_CLOSE_MIN_CASES
+        and n_matches >= MODEL_CLOSE_MIN_MATCHES
+        and span_days >= MODEL_CLOSE_MIN_SPAN_DAYS
+        and logscore_ci)
+    if not testable:
+        status = "collecting"
+    elif logscore_ci[0] > 0:
+        status = "better"
+    elif logscore_ci[1] < 0:
+        status = "worse"
+    else:
+        status = "inconclusive"
+    version = cases[0]["model_version"] if cases else key[-1]
+    if cases and cases[0]["market"] == "cor":
+        from . import oddset_model
+        version_active = version == (
+            f"{active_version}:{oddset_model.CORNER_MODEL_VERSION}")
+    else:
+        version_active = version == active_version
+    return {
+        "market": cases[0]["market"] if cases else None,
+        "version": version, "active_version": version_active,
+        "n_cases": len(cases), "n_matches": n_matches,
+        "n_selections": sum(case["n_selections"] for case in cases),
+        "span_days": span_days,
+        "logscore_gain": (round(logscore_gain, 6)
+                          if logscore_gain is not None else None),
+        "logscore_gain_ci": logscore_ci,
+        "model_mae_pp": round(model_mae, 3) if model_mae is not None else None,
+        "sharp_mae_pp": round(sharp_mae, 3) if sharp_mae is not None else None,
+        "mae_gain_pp": round(mae_gain, 3) if mae_gain is not None else None,
+        "mae_gain_ci": mae_ci,
+        "model_bias_pp": round(bias, 3) if bias is not None else None,
+        "direction_n": direction_n,
+        "direction_hit_rate": (
+            round(direction_hits / direction_n, 4) if direction_n else None),
+        "testable": testable, "status": status,
+    }
+
+
+def model_close_report_from_rows(
+        rows: list[dict], active_version: str) -> dict:
+    """Modellens parade närhet till close relativt frozen sharp."""
+    cases, diagnostics = _model_close_cases(rows)
+
+    def grouped(fields: tuple[str, ...]) -> list[dict]:
+        buckets: dict[tuple, list[dict]] = {}
+        for case in cases:
+            group_key = tuple(case[field] for field in fields)
+            buckets.setdefault(group_key, []).append(case)
+        result = []
+        for group_key, group_cases in buckets.items():
+            report = _model_close_group(
+                group_cases, (*fields, *group_key), active_version)
+            for field, value in zip(fields, group_key):
+                if field != "model_version":
+                    report[field] = value
+            result.append(report)
+        return sorted(result, key=lambda item: (
+            not item["active_version"], item.get("market") or "",
+            item.get("horizon") or "", item.get("league") or "",
+            item["version"]))
+
+    return {
+        **diagnostics,
+        "active_version": active_version,
+        "criteria": {
+            "n_cases": MODEL_CLOSE_MIN_CASES,
+            "n_matches": MODEL_CLOSE_MIN_MATCHES,
+            "span_days": MODEL_CLOSE_MIN_SPAN_DAYS,
+            "pair_max_minutes": MODEL_CLOSE_PAIR_MAX_MIN,
+            "primary_metric": "paired_logscore_gain_vs_frozen_sharp",
+            "ci": 0.90,
+        },
+        "summary": grouped(("market", "model_version")),
+        "horizons": grouped(("market", "horizon", "model_version")),
+        "leagues": grouped(("league", "market", "model_version")),
+    }
 
 
 def prediction_report(store: Storage, update_states: bool = False,
@@ -433,7 +728,8 @@ def prediction_report(store: Storage, update_states: bool = False,
         groups.append({
             "key": key, "tier": tier, "league": league, "market": market,
             "version": version,
-            "active_version": version == current_versions.get(tier),
+            "active_version": _active_evaluation_version(
+                tier, market, version, current_versions),
             "primary": (tier == "sharp" and market == "1x2"
                         and league in PRIMARY_LEAGUES),
             **_group_stats(grows, key),
@@ -522,5 +818,7 @@ def prediction_report(store: Storage, update_states: bool = False,
             },
             "green": {"new_matches": GREEN_NEW_MATCHES, "ci_lower_above": 0},
         },
+        "model_close": model_close_report_from_rows(
+            rows, current_versions["model"]),
         "groups": groups,
     }

@@ -10,8 +10,10 @@ from app.storage import Storage
 
 
 def _market(values: dict, seen: dt.datetime, available: bool = True) -> dict:
-    return {**values, "available": available,
-            "last_seen_at": seen.strftime("%Y-%m-%dT%H:%M:%SZ")}
+    market = {**values, "available": available,
+              "last_seen_at": seen.strftime("%Y-%m-%dT%H:%M:%SZ")}
+    market.setdefault("fetched_at", market["last_seen_at"])
+    return market
 
 
 class PriceFreshnessTests(unittest.TestCase):
@@ -46,6 +48,59 @@ class PriceFreshnessTests(unittest.TestCase):
         oddset_value.attach_value([match])
         self.assertTrue(match["odds"]["svenskaspel"]["1x2"]["fresh"])
         self.assertIn("1", match["value"]["1x2"])
+
+    def test_fresh_ninja_corner_price_can_be_best_and_proven_held(self) -> None:
+        now = dt.datetime.now(dt.timezone.utc)
+        match = {
+            "id": "m1",
+            "start": (now + dt.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "odds": {
+                "pinnacle": {"cor": _market(
+                    {"O": 1.91, "U": 1.91, "line": 9.5,
+                     "fetched_at": (now - dt.timedelta(minutes=5)).strftime(
+                         "%Y-%m-%dT%H:%M:%SZ")},
+                    now - dt.timedelta(minutes=4))},
+                "svenskaspel": {"cor": _market(
+                    {"O": 1.90, "U": 1.85, "line": 9.5}, now - dt.timedelta(minutes=3))},
+                "ninjacasino": {"cor": _market(
+                    {"O": 2.20, "U": 1.65, "line": 9.5,
+                     "fetched_at": (now - dt.timedelta(minutes=40)).strftime(
+                         "%Y-%m-%dT%H:%M:%SZ")},
+                    now - dt.timedelta(minutes=2))},
+            },
+        }
+
+        oddset_value.attach_value([match])
+
+        value = match["value"]["cor"]["O"]
+        self.assertEqual("ninjacasino", value["book"])
+        self.assertTrue(value["held_after_sharp"])
+        self.assertGreater(value["edge"], 0.09)
+
+    def test_ninja_is_not_called_held_without_post_sharp_confirmation(self) -> None:
+        now = dt.datetime.now(dt.timezone.utc)
+        match = {
+            "id": "m1",
+            "start": (now + dt.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "odds": {
+                "pinnacle": {"ou": _market(
+                    {"O": 1.91, "U": 1.91, "line": 2.5,
+                     "fetched_at": (now - dt.timedelta(minutes=5)).strftime(
+                         "%Y-%m-%dT%H:%M:%SZ")},
+                    now - dt.timedelta(minutes=4))},
+                "ninjacasino": {"ou": _market(
+                    {"O": 2.20, "U": 1.65, "line": 2.5,
+                     "fetched_at": (now - dt.timedelta(minutes=30)).strftime(
+                         "%Y-%m-%dT%H:%M:%SZ")},
+                    now - dt.timedelta(minutes=10))},
+            },
+        }
+
+        oddset_value.attach_value([match])
+
+        value = match["value"]["ou"]["O"]
+        self.assertEqual("ninjacasino", value["book"])
+        self.assertNotIn("held_after_sharp", value)
 
 
 class SignalVersionTests(unittest.TestCase):

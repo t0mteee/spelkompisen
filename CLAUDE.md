@@ -13,6 +13,16 @@ per tier med grönt-kriterium v2 (≥50 stängda OCH undre bootstrap-KI-gräns >
 liga/marknad/modellversion). **STATUS-SAMMANFATTNINGEN överst i `docs/plan.md` är
 sanningen — LÄS DEN FÖRST i ny session** (+ WP-backloggen där, prioriterad; gransknings-
 evidens i `docs/granskning-2026-07-13.md`).
+Prediction-ledgern har dessutom en förregistrerad modell-mot-Pinnacle-close-grind
+för alla frysta modellvektorer; äldre 1X2-version är fälld som sämre än sharp.
+Matchvyn visar modell/Pinnacle/SvS i procent och pp på exakt samma lina.
+Hörnens Poisson-baslinje samlar framåt under egen marknadsversion; historiska
+hörnpriser får aldrig bakfyllas med dagens modell. Se
+`docs/modell-mot-close-2026-07-25.md`.
+Ninja/Altenar visas under `+ Fler odds` för 1X2, Ö/U och hörnor och får vara
+spelbar mjuk bok i sharp-värdemotorn. UI får bara säga `bekräftat kvar` när
+det oförändrade bokpriset återobserverats efter Pinnacles senaste prisändring;
+vanlig färskhet eller ett gammalt cachepris räcker inte.
 Den underkända V2.1 är fortsatt vilande. Ett separat V2.2-experiment samlar
 Allsvenskan + research-only Premier League/Serie A/La Liga/Bundesliga med WP9c
 i isolerad sharp-identitetskontroll; se
@@ -45,6 +55,10 @@ se `docs/pool-pit-v3-2026-07-25.md`.
 backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/svenskaspel.py  SvS pools-API-klient (PRODUCTS, GAME_GROUPS, Draw)
   app/pinnacle.py     Pinnacle Arcadia (gratis guest-API), + derive.py (1X2 ur spread/total)
+  app/altenar.py      Ninja Casino/Altenar: publik listvy för 1X2 + mål och
+                      eventdetalj för huvudlinan totalt antal hörnor. Detaljen
+                      hämtas bara i deep-/snabbfönstret; alternativa hörnlinor
+                      finns i källan men lagras inte i book-lagret ännu
   app/betsson.py      Publik Betsson-bootstrap/headerkontext (ej inkopplad källa;
                       eventtabellen CloudFront-blockerad utanför browser —
                       omverifierat 2026-07-25: context-details 200, events-table 403.

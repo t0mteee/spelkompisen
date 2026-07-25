@@ -99,6 +99,35 @@ class PredictionCaptureTests(unittest.TestCase):
         self.assertIsNone(oddset_ledger.horizon_at(
             start, dt.datetime(2026, 7, 16, 9, 59, tzinfo=UTC)))
 
+    def test_corner_model_is_frozen_in_the_same_prediction_ledger(self) -> None:
+        match = self._match()
+        match["odds"]["pinnacle"]["cor"] = _market(
+            {"O": 1.9, "U": 1.9}, line=9.5)
+        match["odds"]["svenskaspel"]["cor"] = _market(
+            {"O": 2.0, "U": 1.8}, line=9.5)
+        match["model"]["cor"] = {
+            "line": 9.5, "O": 1.82, "U": 2.22, "pO": 0.55, "pU": 0.45,
+        }
+        versions = {
+            "sharp": {"signal_version": "s-ledger", "base_version": "s-base"},
+            "model": {"signal_version": "m-ledger", "base_version": "m-base"},
+        }
+
+        with patch.object(oddset_ledger, "prediction_versions",
+                          return_value=versions):
+            oddset_ledger.capture_predictions(
+                self.store, [match], now=self.now)
+
+        corner_rows = [
+            row for row in self.store.oddset_prediction_rows()
+            if row["tier"] == "model" and row["market"] == "cor"
+        ]
+        self.assertEqual({"O", "U"}, {row["sign"] for row in corner_rows})
+        self.assertEqual({9.5}, {row["line"] for row in corner_rows})
+        self.assertEqual(
+            {"corner-poisson-total-v1"},
+            {row["fair_source"] for row in corner_rows})
+
 
 class PredictionStateTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -276,6 +305,72 @@ class ClusterBootstrapTests(unittest.TestCase):
 
         self.assertIsNotNone(ci)
         self.assertLess(ci[0], 0)
+
+
+class ModelCloseReportTests(unittest.TestCase):
+    @staticmethod
+    def _rows(match_id: str, *, model: tuple[float, float],
+              sharp: tuple[float, float], close: tuple[float, float],
+              model_flag: bool = False, minutes_apart: int = 0) -> list[dict]:
+        rows = []
+        for tier, version, probs, captured in (
+                ("sharp", "s-test", sharp, "2026-07-20T09:00:00Z"),
+                ("model", "m-test", model,
+                 f"2026-07-20T09:{minutes_apart:02d}:00Z")):
+            for sign, fair, closing in zip(("O", "U"), probs, close):
+                rows.append({
+                    "match_id": match_id, "horizon": "h3", "tier": tier,
+                    "market": "ou", "sign": sign, "line": 2.5,
+                    "line_key": 2500, "league": "allsvenskan",
+                    "description": f"{match_id} A – B",
+                    "match_start": f"2026-07-{20 + int(match_id[-1]) % 8:02d}T12:00:00Z",
+                    "captured_at": captured, "fair_prob": fair,
+                    "fair_source": "pinnacle" if tier == "sharp" else "model",
+                    "fair_available": 1, "fair_fresh": 1,
+                    "closing_fair": closing, "delay_minutes": 0.0,
+                    "is_flag": int(model_flag), "signal_version": version,
+                })
+        return rows
+
+    def test_all_predictions_not_only_flags_enter_model_close_facit(self) -> None:
+        rows = []
+        for i in range(30):
+            rows.extend(self._rows(
+                f"m{i}", model=(0.59, 0.41), sharp=(0.50, 0.50),
+                close=(0.60, 0.40), model_flag=False))
+
+        report = oddset_ledger.model_close_report_from_rows(rows, "m-test")
+        group = report["summary"][0]
+
+        self.assertEqual(30, group["n_cases"])
+        self.assertEqual(30, group["n_matches"])
+        self.assertGreater(group["logscore_gain"], 0)
+        self.assertGreater(group["mae_gain_pp"], 0)
+        self.assertGreater(group["direction_hit_rate"], 0.99)
+
+    def test_pair_must_be_same_horizon_line_and_within_five_minutes(self) -> None:
+        rows = self._rows(
+            "m1", model=(0.59, 0.41), sharp=(0.50, 0.50),
+            close=(0.60, 0.40), minutes_apart=6)
+
+        report = oddset_ledger.model_close_report_from_rows(rows, "m-test")
+
+        self.assertEqual(0, report["n_paired_cases"])
+        self.assertEqual(1, report["n_no_matching_sharp"])
+
+    def test_gate_uses_match_block_ci_on_paired_logscore_gain(self) -> None:
+        rows = []
+        for i in range(50):
+            rows.extend(self._rows(
+                f"m{i}", model=(0.60, 0.40), sharp=(0.50, 0.50),
+                close=(0.62, 0.38)))
+        # Minst sju dagars bredd kommer från hjälparens matchdatum.
+        report = oddset_ledger.model_close_report_from_rows(rows, "m-test")
+        group = report["summary"][0]
+
+        self.assertTrue(group["testable"])
+        self.assertEqual("better", group["status"])
+        self.assertGreater(group["logscore_gain_ci"][0], 0)
 
 
 if __name__ == "__main__":

@@ -3,7 +3,33 @@
 **Läs denna först, sedan `CLAUDE.md` och STATUS-blocket i `docs/plan.md`.**
 Tidigare pass: `docs/overlamning-2026-07-25.md` (natten 24→25 + Codex-uppföljning).
 
-Allt är committat, rent träd, **219 backendtester gröna**, frontendbygge grönt.
+## Senaste Codex-tillägg — ännu inte committat
+
+Saman korrigerade nästa ordning. Den är nu genomförd:
+
+1. Ninja/Altenars publika eventdetalj gav hörnmarknaden Claude inte hittade:
+   `typeId=166`, huvudlinan markerad med `isMB`. Huvudlinan samlas i befintligt
+   deep-/snabbfönster utan att blanda alternativlinor.
+2. Modell-mot-close-facitet byggdes på prediction-ledgern och förregistrerades
+   i `docs/modell-mot-close-2026-07-25.md`. Äldre 1X2-version är redan fälld
+   som sämre än sharp (103 cases/48 matcher/8 dagar; log-score-gain −0,0129,
+   90 % KI [−0,0195..−0,0073]). Nuvarande version samlar fortfarande.
+3. Oddset-vyn visar marginalrensad modell mot Pinnacle mot SvS och
+   pp-differenser per marknad. AH/ÖU/hörnor jämförs endast på exakt samma lina.
+4. Hörnens `corner-poisson-total-v1` fryses framåt i samma ledger och grind.
+   Ingen historisk bakfyllning görs och målmodellens/V2.2:s identitet ändras
+   inte av den nya hörnmarknaden.
+5. Uppföljning 2026-07-26: `+ Fler odds` visar Ninja/Altenar för 1X2, Ö/U och
+   hörnor, och värdepills sitter nu på rätt bokrad. Värdemotorn kan välja Ninja
+   på alla tre marknaderna med samma färskhets-/exakt-lina-regler. “Bekräftat
+   kvar” visas bara när samma Ninja-pris observerats igen efter Pinnacles
+   senaste prisändring; gammal cache får aldrig etiketten eller en signal.
+
+Full svit: **278 backendtester gröna**, frontendbygge grönt, API och desktop-UI
+verifierade i drift. Arbetskopian innehåller dessa lokala ändringar och är
+avsiktligt inte committad förrän Saman ber om det.
+
+Före detta tillägg var Claude-passet committat med rent träd och 219 tester.
 
 ---
 

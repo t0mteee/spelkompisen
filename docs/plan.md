@@ -1,6 +1,56 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-07-25 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-07-26 — läs detta först i ny session)
+
+**ALTENAR SYNLIG + SPELBAR VÄRDEKÄLLA (2026-07-26, Codex).** `+ Fler odds`
+visar nu Ninja/Altenar som `N` även för Ö/U och totalhörnor, inte bara 1X2.
+Ninja döljs inte längre när 1X2 råkar vara identiskt med SvS eftersom Altenar
+är en oberoende prismotor. Värdemotorn valde redan bästa färska bokpris mot
+devigad Pinnacle; regressionstester låser nu att färska Ninja-hörn/ÖU kan
+vinna bokvalet och att gamla priser exkluderas. En ny `kvar`-etikett är
+striktare än vanlig färskhet: bokens oförändrade pris måste ha återbekräftats
+**efter** Pinnacles senaste prisändring. Därmed betyder “Ninja bekräftat kvar”
+ett observerat lagg, aldrig en gammal cache. Ö/U/hörnor kräver fortfarande
+exakt samma lina (huvud- eller färsk Pinnacle-altlina). Ingen signalversion
+ändrad: urval och edge-formel är oförändrade; detta synliggör källa och
+observationsbevis.
+
+**ALTENAR-HÖRNOR HITTAD OCH INKOPPLAD (2026-07-25, Codex).** Claude hade
+korrekt konstaterat att `GetEvents` saknar hörnor, men eventdetaljen var inte
+kartlagd. Den publika vägen `Widget/GetEventDetails?eventId=…` innehåller
+marknadsgrupp `Hörnor` och `typeId=166` för totalt antal hörnor, med `isMB`
+som markering av huvudlinan. Verifierat live på Brommapojkarna–Hammarby:
+alternativa linor 7,5–11,5 och huvudlina 9,5 till 1,70/2,05. Ninja/Altenar
+hämtar nu huvudlinan inom samma 7-dygns-/3-timmarsfönster som Kambi-deep;
+varje event får egen observationstid, avstängda eller ofullständiga par
+ignoreras och ett eventfel fäller inte ligan. Alternativlinorna sparas ännu
+inte: nuvarande book-lager representerar ett par per marknad, och tecken från
+olika linor får aldrig blandas. 278 backendtester gröna. Ingen signal-, modell-
+eller dataversion ändrad — detta är en ny oberoende mjuk prisobservation, inte
+en algoritmändring.
+
+**NÄSTA MODELLORDNING KORRIGERAD AV SAMAN (2026-07-25).** Efter de nya
+prispunkterna: (1) modell-mot-close-facit från hela prediction-ledgern, inte
+bara sällsynta flaggor; (2) modelltransparens i matchvyn — modell mot sharp mot
+SvS per marknad och pp-differenser; (3) hörnkalibrering sist med samma
+close-mått. Förregistrerat mått och grind:
+`docs/modell-mot-close-2026-07-25.md`. PH3/Smarkets/manifest var punkter ur en
+äldre överlämning och är inte denna arbetsordning.
+
+**MODELLORDNINGEN GENOMFÖRD (2026-07-25, Codex).** Måttet ovan är nu byggt
+direkt på prediction-ledgern och visas i Oddset-vyn. Av 261 kompletta
+modellvektorer kunde 213 paras säkert med direkt Pinnacle vid samma horisont,
+marknad och exakta lina. Den äldre modellversionens 1X2 är redan fälld som
+**sämre än sharp**: 103 cases, 48 matcher och 8 dagar; modellen låg i snitt
+4,25 pp från close mot sharpens 1,68 pp och parad log-score-förbättring var
+−0,0129 med 90 % KI [−0,0195..−0,0073]. Nuvarande version samlar ännu
+(10 cases/5 matcher/0 dagar) och får inte tolkas trots negativt tidigt KI.
+Ö/U är som väntat i princip identisk med sharp eftersom totalnivån är ankrad
+dit. Matchtabellen visar nu marginalrensad modell/Pinnacle/SvS och differenser
+i pp för 1X2, AH, Ö/U och hörnor; parmarknader jämförs bara på exakt samma
+lina. Hörnens `corner-poisson-total-v1` fryses framåt i samma ledger/grind —
+ingen bakfyllning med dagens modell. Full svit: 278 backendtester och
+frontendbygge gröna; API och desktopvyn verifierade i drift.
 
 **TVÅ ANKARE I SKUGGA + TRANSPORTFIX (2026-07-25 eftermiddag, Opus 5).**
 Sharp-facitets `+2,4 % [1,0..3,8]` över 166 stängda (uppdaterat från +2,65 %/147

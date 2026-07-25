@@ -12,10 +12,23 @@ med samma feed får inte räknas som två bekräftelser av en edge.
 - Altenar är redan inkopplat som `ninjacasinose`.
 - Ninja valdes efter jämförelse av elva Altenar-skins: uppmätt 1X2-overround
   var cirka 6,45 procent mot Betinias 9,49 procent.
-- Oddset-vyn visar nu Ninja som `N` under “fler böcker” och källhälsan visar
-  Ninja uttryckligen.
+- Oddset-vyn visar Ninja som `N` under “fler odds” för 1X2, Ö/U och hörnor;
+  källhälsan visar list- och deepdelen separat. Ninja-raden visas även när ett
+  1X2-pris råkar vara identiskt med SvS, eftersom det är en oberoende feed.
+- `GetEvents` ger 1X2 och totalt antal mål. Den publika eventdetaljen
+  `GetEventDetails` ger dessutom totalt antal hörnor (`typeId=166`) med
+  Altenars markerade huvudlina. Den hämtas nu bara i projektets befintliga
+  deep-/snabbfönster och lagras med eventanropets egen observationstid.
+- Verifierat 2026-07-25 på Brommapojkarna–Hammarby: huvudlina 9,5 hörnor,
+  Över 1,70 / Under 2,05. Alternativlinorna 7,5–11,5 finns i källan men lagras
+  inte förrän book-lagret kan bära flera linor utan att blanda tecken.
 - Fler Altenar-skins ska inte läggas till: de tillför samma prisfeed och bara
   en annan marginal.
+- Ninja ingår som vanlig spelbar mjuk bok i den sharp-ankrade värdemotorn.
+  Samma-linje och 45-minutersfärskhet gäller som för SvS. UI-etiketten
+  `bekräftat kvar` kräver dessutom tidsbevis: Ninja-priset skapades före
+  Pinnacles senaste prisändring och återbekräftades efter den. Ett pris som
+  bara är gammalt får aldrig kallas kvarhängande eller skapa signal/notis.
 
 ### Smarkets
 
