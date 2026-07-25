@@ -315,10 +315,18 @@ def radar_signal(current: dict, previous: Optional[dict] = None) -> dict:
         "score": round(gaps[index], 3),
         "proxy_index": round(gaps[index], 2),
         "remaining_min": remaining,
-        # Siffrorna står redan i statsraden ovanför — här behövs bara VEM och
-        # att måttet är en oprövad proxy. Varningen låg tidigare på varje kort
-        # och drunknade; den hör till radarns fotnot, en gång.
-        "reason": f"{team} trycker på — men xG saknas, detta är en proxy",
+        # TEXTEN SKA MATCHA SIGNALEN (2026-07-25). "Trycker på" stod på varje
+        # kort, även när nivån var FÖLJER — en match i 9:e minuten med ett skott
+        # fick alltså en dramatisk mening om ingenting. Nu talar raden bara när
+        # det finns ett utstick, och den namnger gapet i stället för att upprepa
+        # statsraden. Ordet "proxy" är borta ur korttexten: det är vårt
+        # internord, och att xG saknas står redan ovanför. Förbehållet om att
+        # skottmåttet är oprövat hör i radarns fotnot, en gång.
+        "reason": (
+            f"{team}: {big} stora chanser, {on_target} skott på mål "
+            f"men {int(goals[index])} mål"
+            if active else
+            f"{team} leder chansräkningen — inget utstick ännu"),
     }
 
 

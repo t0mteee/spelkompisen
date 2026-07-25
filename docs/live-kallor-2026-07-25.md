@@ -180,6 +180,29 @@ De bevisat tomma pollas fortfarande när det finns plats kvar, så vi märker om
 statistik dyker upp sent — ett hårt skip hade gjort oss permanent blinda för
 matchen. Testet som håller taket ≤ 30 är kvar med avsikt.
 
+### 6. Bort med "proxy"-tjatet och överdriven text (Samans invändningar)
+
+**"Proxy" var vårt internord på tre ställen samtidigt** — statsraden ("xG saknas
+· proxy"), kortraden ("detta är en proxy") och fotnoten. För någon som tittar på
+en livematch säger ordet ingenting; det som betyder något är om xG finns och om
+matchen är värd en blick. Ordet är nu borta ur hela vyn. Märkningen bärs i
+stället av `signal.kind`, som UI:t redan sorterar och etiketterar på, och
+förbehållet står EN gång i fotnoten utan jargong: "Saknas xG räknas skott och
+stora chanser i stället — den varianten har ännu inte visat sig förutsäga mål i
+vår historik."
+
+**Texten lovade mer än nivån.** "X trycker på" stod på varje kort oavsett
+signalstyrka, så en match i 9:e minuten med ett skott fick en dramatisk mening
+om ingenting. Nu gäller två saker: texten formuleras efter nivån (utstick =
+namnger gapet, annars "leder chansräkningen — inget utstick ännu"), och **raden
+renderas bara vid GRANSKA LIVE eller STARKT CHANSGAP**. Vid FÖLJER säger
+nivåmärket redan allt som behövs.
+
+Kortet innehåller därmed bara minut, resultat, liga, lagen, statsraden och
+nivåmärket — inget som upprepar något annat. Låst av två test:
+`test_xg_missing_ger_skottsignal_markt_i_kind_inte_i_prosan` och
+`test_texten_lovar_inte_mer_an_nivan`.
+
 ## Vad krävs för Betsson, Flashscore och Opta?
 
 * **Betsson:** en cookie-fri eventväg. `/api/sb/v1/context-details` ger 200 med

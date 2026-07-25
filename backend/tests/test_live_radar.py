@@ -81,18 +81,40 @@ class LiveRadarTests(unittest.TestCase):
         self.assertEqual(2.0, signal["chance_gap"])
         self.assertEqual(20, signal["remaining_min"])
 
-    def test_xg_missing_uses_explicitly_warned_proxy(self):
-        """Proxyn måste vara märkt som proxy. Märkningen bärs av `kind` (som
-        UI:t sorterar på) OCH av texten — den tidigare separata
-        `warning`-raden per kort sa samma sak en tredje gången och flyttades
-        till radarns fotnot 2026-07-25."""
+    def test_xg_missing_ger_skottsignal_markt_i_kind_inte_i_prosan(self):
+        """Märkningen bärs av `kind` — som UI:t sorterar och etiketterar på —
+        inte av ordet "proxy" i texten. Ordet är vårt internord och stod på tre
+        ställen samtidigt (statsrad, kortrad, fotnot); det togs bort ur korten
+        2026-07-25. Att xG saknas syns redan i statsraden, och förbehållet om
+        att skottmåttet är oprövat står en gång i fotnoten."""
         capture = live_radar.parse_capture(
             event(), stats(xg=(None, None)), captured_at=AT, now=NOW)
         signal = live_radar.radar_signal(capture)
 
         self.assertEqual("watch", signal["level"])
         self.assertEqual("proxy", signal["kind"])
-        self.assertIn("proxy", signal["reason"].casefold())
+        self.assertNotIn("proxy", signal["reason"].casefold())
+
+    def test_texten_lovar_inte_mer_an_nivan(self):
+        """"Trycker på" stod på varje kort, även vid FÖLJER — en match i 9:e
+        minuten med ett skott fick en dramatisk mening om ingenting."""
+        tidig = event()
+        tidig["time"]["currentPeriodStartTimestamp"] = int(
+            (NOW - dt.timedelta(minutes=9)).timestamp())
+        svag = live_radar.parse_capture(
+            tidig, stats(xg=(None, None), big=(0, 0), shots=(1, 0),
+                         on=(1, 0), inside=(0, 0), touches=(1, 0)),
+            captured_at=AT, now=NOW)
+        signal = live_radar.radar_signal(svag)
+        self.assertEqual("info", signal["level"])
+        self.assertIn("inget utstick", signal["reason"])
+
+        stark = live_radar.parse_capture(
+            event(), stats(xg=(None, None)), captured_at=AT, now=NOW)
+        aktiv = live_radar.radar_signal(stark)
+        self.assertEqual("watch", aktiv["level"])
+        self.assertIn("men", aktiv["reason"])          # namnger gapet
+        self.assertNotIn("inget utstick", aktiv["reason"])
 
     def test_missing_chance_fields_are_not_interpreted_as_zero(self):
         capture = live_radar.parse_capture(

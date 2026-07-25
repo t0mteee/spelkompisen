@@ -1326,12 +1326,17 @@ function OddsetView({ focus = null } = {}) {
                                 <> xGOT {Number(m.fotmob.xgot_home).toFixed(2)}–{Number(m.fotmob.xgot_away).toFixed(2)}</>
                               )}
                             </span>
-                          : <span>xG saknas · proxy</span>}
+                          : <span title="Källan har ingen xG för den här matchen. Radarn räknar då på skott och stora chanser i stället — se fotnoten.">xG saknas</span>}
                       <span>stora chanser {m.big_chances_home ?? '–'}–{m.big_chances_away ?? '–'}</span>
                       <span>skott på mål {m.shots_on_home ?? '–'}–{m.shots_on_away ?? '–'}</span>
                     </div>
-                    <div className="live-radar-reason">{sig.reason}</div>
-                    {sig.warning && <div className="live-radar-warning">{sig.warning}</div>}
+                    {/* Raden finns bara när det ÄR ett utstick. Vid FÖLJER sa
+                        den tidigare "trycker på" om en match i 9:e minuten med
+                        ett skott — nivåmärket nedan säger redan att inget
+                        händer. */}
+                    {(sig.level === 'watch' || sig.level === 'strong') && (
+                      <div className="live-radar-reason">{sig.reason}</div>
+                    )}
                     <span className={`live-radar-level ${sig.level || 'info'}`}>
                       {sig.level === 'strong' ? 'STARKT CHANSGAP' : sig.level === 'watch' ? 'GRANSKA LIVE' : 'FÖLJER'}
                     </span>
@@ -1342,9 +1347,9 @@ function OddsetView({ focus = null } = {}) {
           )}
           <div className="live-radar-foot">
             Chansgap mäter skapade chanser mot faktiska mål medan tid återstår.
-            Utan xG används en proxy på skott och stora chanser — den har ännu
-            inte visat prediktiv mållyft i vår historik. Det påverkar inte
-            värdesignaler, Kelly, facit eller pushnotiser.
+            Saknas xG räknas skott och stora chanser i stället — den varianten
+            har ännu inte visat sig förutsäga mål i vår historik. Inget av detta
+            påverkar värdesignaler, Kelly, facit eller pushnotiser.
             {liveRadar.dropped ? ` Urval: ${liveRadar.dropped}.` : ''}
           </div>
         </div>
