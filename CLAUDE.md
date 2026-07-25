@@ -107,6 +107,15 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
   `com.saman.spelkompisen.pool` kör ett separat kort varv var 5:e min:
   `pool-tick` gör basinsamling var 30:e min och varje tick när ett poolspel
   stänger inom 2 h; därefter samlar `live-tick` observerad live-xG/chansdata.
+  **`live-tick` förtätar sig själv** (två varv, 0 s och 120 s, budget 180 s —
+  `LIVE_DENSE_BUDGET_S`/`_INTERVAL_S` i cli.py), så radarn uppdateras varannan
+  minut utan ändrat launchd-intervall, och den slutar direkt när ingen livematch
+  har chansdata. Budgeten är räknad mot att `pool-tick` kan ta upp mot en minut
+  före radarn — ändra den inte utan att räkna om marginalen till nästa tick.
+  **Förtäta ALDRIG poolvarvet eller Oddset-varvet på samma sätt:** Pinnacles
+  bulk är CDN-cachad `max-age=905`, så anrop oftare än ~15 min returnerar samma
+  objekt — det kostar trafik utan en enda ny prispunkt. Radarns källor är
+  däremot färska (FotMob `max-age=10`, Sofascore live).
   Live-radarn är shadow/informationsstöd och får inte påverka tips, Kelly,
   CLV, pushnotiser eller systemförslag utan ett nytt explicit beslut.
   Notiser går i Oddset-varvet, bakom **notisvakten** (presence-set: larm kräver att

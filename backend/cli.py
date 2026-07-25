@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import datetime as dt
 import sys
+import time
 from typing import Optional
 
 from app.analysis import analyze_draw
@@ -289,23 +290,29 @@ def cmd_pool_tick() -> None:
         store.close()
 
 
-def cmd_live_tick() -> None:
-    """Kort, isolerat shadow-varv för live-radarn; påverkar inga tips."""
+# FÖRTÄTNING INOM FEMMINUTERSJOBBET (2026-07-25). Budgeten är räknad, inte
+# gissad: jobbet kör `pool-tick` FÖRE radarn, och det tar 0,3 s i strypt läge
+# men kan ta upp mot en minut när ett basvarv behövs eller ett horisontfönster
+# tvingar fram Pinnacle. 180 s ger två radarvarv (0 s och 120 s) som är klara
+# efter ~122 s — med en minuts poolvarv framför slutar jobbet ~182 s in, alltså
+# med två minuters marginal till nästa tick. 240 s hade gett tre varv men
+# riskerat att krocka i värsta fallet.
+# Effektiv radarkadens: ~2 min inne i jobbet, 3 min över jobbgränsen.
+LIVE_DENSE_BUDGET_S = 180
+LIVE_DENSE_INTERVAL_S = 120
+
+
+def _live_pass(store) -> tuple[dict, dict]:
     from app import fotmob, live_radar
-    store = Storage()
+    report = live_radar.collect(store)
+    # FotMob är en EGEN källa med egen klient och egen tabell — den får aldrig
+    # kunna fälla Sofascore-varvet, och dess xG blandas inte in.
     try:
-        report = live_radar.collect(store)
-        # FotMob är en EGEN källa med egen klient och egen tabell — den får
-        # aldrig kunna fälla Sofascore-varvet, och dess xG blandas inte in.
-        try:
-            fm = fotmob.collect(store)
-        except Exception as e:  # noqa: BLE001
-            fm = {"error": f"{type(e).__name__}: {str(e)[:60]}"}
-    finally:
-        store.close()
-    partial = (
-        f" · {len(report['partial_errors'])} event utan full statistik"
-        if report["partial_errors"] else "")
+        fm = fotmob.collect(store)
+    except Exception as e:  # noqa: BLE001
+        fm = {"error": f"{type(e).__name__}: {str(e)[:60]}"}
+    partial = (f" · {len(report['partial_errors'])} event utan full statistik"
+               if report["partial_errors"] else "")
     print(f"live-radar: {report['live']} matcher · "
           f"{report['stats_ok']} med statistik · "
           f"{report['saved']} captures{partial}")
@@ -315,6 +322,56 @@ def cmd_live_tick() -> None:
         print(f"fotmob: {fm['live']} matcher i våra ligor · "
               f"{fm['saved']} captures med xG"
               + (f" · {fm['skipped']} över taket" if fm.get("skipped") else ""))
+    return report, fm
+
+
+def cmd_live_tick(dense_seconds: int = LIVE_DENSE_BUDGET_S,
+                  interval: int = LIVE_DENSE_INTERVAL_S,
+                  sleep=time.sleep) -> None:
+    """Shadow-varv för live-radarn, med EGEN förtätning inom femminutersjobbet.
+
+    Varför bara radarn förtätas (uppmätt 2026-07-25):
+    * Radarns källor är färska — FotMob svarar `max-age=10` och Sofascore live
+      är sekundfärsk. Här ger tätare pollning verkligen ny information.
+    * Pinnacle gör det INTE: bulk-endpointen är CDN-cachad `max-age=905`, så
+      anrop oftare än ~15 min returnerar exakt samma objekt. Att förtäta
+      poolvarvet eller Oddset-varvet till 2 minuter hade alltså kostat trafik
+      utan att ge en enda ny prispunkt.
+    * Streck rör sig långsamt och PIT-horisonterna har 45/45/10 minuters
+      tolerans — de behöver inte tätare klocka, de behöver rätt tidsstämpel.
+
+    Förtätningen sker INNE i jobbet (samma mönster som `snapshot-smart`) i
+    stället för genom ett tätare launchd-intervall: ingen plist behöver ändras,
+    och budgeten garanterar att vi slutar före nästa tick.
+
+    Den upphör direkt när det inte finns någon match värd att visa — annars
+    hade vi bränt 30 anrop varannan minut på matcher som ändå döljs.
+    """
+    from app import live_radar
+    started = time.monotonic()
+    # Antalet varv räknas ur budgeten i stället för att bara läsas av
+    # väggklockan: en loop som ENBART termineras av att tiden går är omöjlig
+    # att testa och snurrar för evigt om klockan står still. Väggklockan finns
+    # kvar som backstopp om ett varv drar över.
+    max_varv = 1 + (dense_seconds // interval if interval > 0 else 0)
+    varv = 0
+    while varv < max_varv:
+        varv += 1
+        store = Storage()
+        try:
+            _live_pass(store)
+            visible = len(live_radar.payload(store).get("matches") or [])
+        finally:
+            store.close()
+        if visible == 0:
+            print("live-radar: inga matcher med chansdata — ingen förtätning.")
+            return
+        elapsed = time.monotonic() - started
+        if varv >= max_varv or elapsed + interval > dense_seconds:
+            print(f"live-radar: {varv} varv på {int(elapsed)}s "
+                  f"(budget {dense_seconds}s, intervall {interval}s).")
+            return
+        sleep(interval)
 
 
 def cmd_snapshot_smart(max_seconds: int = DENSE_BUDGET_S) -> None:
@@ -764,7 +821,10 @@ def main() -> None:
     elif cmd == "pool-tick":
         cmd_pool_tick()
     elif cmd == "live-tick":
-        cmd_live_tick()
+        # live-tick [budget_s] [intervall_s]; budget 0 = ett enda varv
+        nums = [int(a) for a in rest if a.isdigit()]
+        cmd_live_tick(nums[0] if nums else LIVE_DENSE_BUDGET_S,
+                      nums[1] if len(nums) > 1 else LIVE_DENSE_INTERVAL_S)
     elif cmd == "history":
         cmd_history(rest)
     elif cmd in ("rad", "system"):

@@ -82,3 +82,42 @@ class PinnacleDoubleTrafficTests(unittest.TestCase):
         # 905 s CDN-cache: spärren ska inte vara längre än så, annars missar
         # vi ett objektbyte.
         self.assertLess(sharp_service.PINNACLE_MIN_INTERVAL_S, 905)
+
+
+class LiveDenseTests(unittest.TestCase):
+    """Radarns förtätning inom femminutersjobbet (Samans önskan 2026-07-25).
+
+    Förtätningen ligger INNE i jobbet i stället för i ett tätare
+    launchd-intervall, så budgeten är det enda som håller oss från att krocka
+    med nästa tick. Den regeln testas här — tillsammans med att vi inte pollar
+    vidare när det inte finns någon match värd att visa.
+    """
+
+    def _kor(self, visible: int, budget: int, interval: int) -> list[int]:
+        sovit: list[int] = []
+        with mock.patch.object(cli, "_live_pass", return_value=({}, {})), \
+             mock.patch("app.live_radar.payload",
+                        return_value={"matches": [{}] * visible}):
+            cli.cmd_live_tick(budget, interval, sleep=sovit.append)
+        return sovit
+
+    def test_forbrukar_inte_mer_an_budgeten(self):
+        """4 min budget / 2 min intervall = tre varv (0s, 120s, 240s), två
+        sömner. Terminering får INTE bero på att väggklockan hinner gå — en
+        sådan loop snurrar för evigt när klockan står still."""
+        self.assertEqual([120, 120], self._kor(visible=3, budget=240, interval=120))
+
+    def test_tatare_intervall_ger_fler_varv_inom_samma_budget(self):
+        self.assertEqual([60] * 4, self._kor(visible=3, budget=240, interval=60))
+
+    def test_budget_noll_ger_ett_enda_varv(self):
+        self.assertEqual([], self._kor(visible=3, budget=0, interval=120))
+
+    def test_slutar_direkt_nar_ingen_match_har_chansdata(self):
+        """Annars hade vi bränt 30 anrop varannan minut på matcher som döljs."""
+        self.assertEqual([], self._kor(visible=0, budget=240, interval=120))
+
+    def test_budgeten_ryms_i_femminutersjobbet(self):
+        self.assertLess(cli.LIVE_DENSE_BUDGET_S, 300)
+        self.assertLessEqual(cli.LIVE_DENSE_INTERVAL_S,
+                             cli.LIVE_DENSE_BUDGET_S)

@@ -2,6 +2,12 @@
 # Kort bakgrundstick: poolspel + live-radar. Pool-CLI:n gör basvarv var
 # 30:e minut och varje tick när närmaste spelstopp är inom två timmar.
 # Live-radarn samlar alltid pågående matcher men påverkar inga tips.
+#
+# OBS: `live-tick` FÖRTÄTAR SIG SJÄLV inom jobbet (två varv, 0 s och 120 s,
+# budget 180 s), så radarn uppdateras varannan minut utan att launchd-intervallet
+# ändras. Den slutar direkt om ingen livematch har chansdata. Poolvarvet och
+# Pinnacle förtätas INTE: bulk-endpointen är CDN-cachad 905 s, så tätare anrop
+# returnerar exakt samma objekt.
 set -euo pipefail
 
 BACKEND_DIR="$(cd "$(dirname "$0")/.." && pwd)"
