@@ -1,5 +1,9 @@
 fastapi
 uvicorn[standard]
 httpx
+# httpx avkodar br BARA när brotli är installerat. CloudFront (Betsson) svarar
+# br oavsett Accept-Encoding: utan avkodare blir kroppen binärt skräp, vilket
+# ser ut som en trasig/blockerad sida i stället för ett transportfel.
+brotli
 pycountry
 curl_cffi

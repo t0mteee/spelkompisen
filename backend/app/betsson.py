@@ -10,6 +10,17 @@ content-brand-id som också förekommer på betsson.com. Modulen hämtar och
 normaliserar enbart denna publika kontext. Den försöker inte återanvända
 browsercookies eller passera CloudFront/WAF, och är därför ännu inte inkopplad
 som bookmakerkälla i Oddset-varvet.
+
+**Kräver brotli-avkodare** (``brotli`` i requirements.txt): CloudFront svarar
+``content-encoding: br`` även på ``Accept-Encoding: gzip``, och utan avkodare
+ger httpx tillbaka binärt skräp med status 200 — vilket ser ut som en trasig
+sida. Symptomet var ``ValueError: Betsson-bootstrap saknar sportsbookBrandId``
+på en fullt fungerande sida (2026-07-25).
+
+Statuskontroll 2026-07-25 med korrekt publik kontext och avkodning:
+``/api/sb/v1/context-details`` → 200, bulkflödet
+``/api/sb/v1/widgets/events-table/v2`` → **CloudFront 403**. Blockeringen
+sitter alltså kvar; källan förblir header-klar men inte inkopplad.
 """
 from __future__ import annotations
 

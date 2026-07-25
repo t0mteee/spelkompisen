@@ -1,5 +1,7 @@
 import unittest
 
+import httpx._decoders
+
 from app import betsson
 
 
@@ -62,6 +64,20 @@ class BetssonTests(unittest.TestCase):
             betsson.parse_bootstrap(
                 '{"staticContextId":"stc-1","userContextId":"stc-1"}'
             )
+
+    def test_transporten_kan_avkoda_brotli(self):
+        """Gäller ALLA httpx-källor, inte bara Betsson.
+
+        CloudFront svarade `content-encoding: br` även på `Accept-Encoding:
+        gzip` (uppmätt 2026-07-25). Utan brotli-avkodare returnerar httpx
+        kroppen som binärt skräp med status 200 — sidan ser trasig ut i stället
+        för att larma om ett transportfel, och Betsson-bootstrapen dog i drift
+        med "saknar sportsbookBrandId" trots att sidan var hel och testerna
+        gröna (de läser en fixtur, inte nätet).
+        """
+        self.assertIn("br", httpx._decoders.SUPPORTED_DECODERS,
+                      "brotli saknas i venv — `pip install brotli` (finns i "
+                      "requirements.txt); annars blir br-svar tyst skräp")
 
     def test_obligatorisk_serverkontext_far_inte_hardkodas(self):
         bootstrap = betsson.parse_bootstrap(HTML)

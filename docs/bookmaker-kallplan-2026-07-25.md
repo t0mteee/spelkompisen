@@ -62,6 +62,22 @@ Webbläsaren får 200 och visar matcherna, men projektet ska inte exportera elle
 återspela browsercookies/WAF-token. Ingen instabil DOM-skrapa ska heller
 läggas i launchd. Betsson är därför **header-klar men inte källinkopplad**.
 
+**Omkontroll 2026-07-25 (eftermiddag, Opus 5).** Läget står kvar, men
+bootstrapen var i praktiken trasig i drift av ett annat skäl: CloudFront svarar
+`content-encoding: br` **även på `Accept-Encoding: gzip`**, och venv:et saknade
+brotli-avkodare. httpx returnerade då kroppen som binärt skräp med status 200,
+så `fetch_public_context` dog med `ValueError: Betsson-bootstrap saknar
+sportsbookBrandId` på en fullt fungerande sida. Testerna var gröna eftersom de
+läser en fixtur, inte nätet. `brotli` ligger nu i `requirements.txt` med ett
+regressionstest på `httpx._decoders.SUPPORTED_DECODERS`
+(`tests/test_betsson.py`) — felklassen gäller alla httpx-källor, inte bara
+Betsson. Övriga källor svarar gzip i dag (kontrollerat: Pinnacle, Kambi,
+SvS-pool), så ingen annan källa var drabbad.
+
+Efter fixen, med korrekt publik kontext: `/api/sb/v1/context-details` → **200**,
+`/api/sb/v1/widgets/events-table/v2` → **403 CloudFront**. Slutsatsen är alltså
+oförändrad — det som fattas är en cookie-fri eventväg, inte headers.
+
 När Betsson publicerar en cookie-fri eventväg, eller samma endpoint går att
 anropa utan challenge, är återstående implementation:
 
