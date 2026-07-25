@@ -128,6 +128,38 @@ class LiveRadarTests(unittest.TestCase):
             finally:
                 store.close()
 
+    def test_payload_doljer_matcher_utan_chansmatt_men_inte_matta_nollor(self):
+        """Samans krav 2026-07-25 med dess egen nyansering.
+
+        Matcher där källan inte rapporterar skott/chanser alls ska bort ur vyn.
+        En match som är tidig och HAR mätta nollor ska däremot stanna — annars
+        döljs riktiga ligamatcher de första minuterna. Skillnaden är None mot 0.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                # 1. helt utan chansfält (försäsongsmatchen) → döljs
+                tom = event()
+                tom["id"] = 901
+                store.oddset_save_live_capture(live_radar.parse_capture(
+                    tom, None, captured_at=AT, now=NOW))
+                # 2. tidig match med MÄTTA nollor → stannar
+                noll = event()
+                noll["id"] = 902
+                store.oddset_save_live_capture(live_radar.parse_capture(
+                    noll, stats(xg=(None, None), big=(0, 0), shots=(0, 0),
+                                on=(0, 0), inside=(0, 0), touches=(0, 0)),
+                    captured_at=AT, now=NOW))
+
+                payload = live_radar.payload(store, now=NOW)
+                visade = {row["event_id"] for row in payload["matches"]}
+                self.assertIn(902, visade, "mätt noll är ett värde, inte saknad data")
+                self.assertNotIn(901, visade)
+                self.assertEqual(1, payload["hidden_no_stats"])
+                self.assertIn("eliteserien", payload["hidden_by_league"])
+            finally:
+                store.close()
+
     def test_payload_uses_real_fifteen_minute_capture_for_recent_xg(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = Storage(Path(tmp) / "test.db")

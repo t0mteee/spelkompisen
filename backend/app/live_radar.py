@@ -466,12 +466,31 @@ def payload(store: Storage, *,
         0 if row["signal"].get("kind") == "xg" else 1,
         -float(row["signal"].get("score") or 0),
     ))
+    # DÖLJ MATCHER UTAN MÄTBAR CHANSINFORMATION (Samans beslut 2026-07-25).
+    # Skillnaden som gör detta säkert: `no_stats` sätts bara när ALLA
+    # chansfält är None, dvs källan rapporterar dem inte alls. En match i
+    # 4:e minuten med noll skott har värdet 0, inte None, och får en
+    # proxysignal — den döljs alltså aldrig för att den är tidig.
+    # Uppmätt: 0 av 56 träningsmatcher har xG och bara 4 har skott, så det här
+    # är främst 50-talet försäsongsmatcher som bara rapporterar hörnor.
+    # Captures fortsätter samlas — filtret gäller VISNINGEN, inte insamlingen,
+    # så täckningsmätningar och framtida facit påverkas inte.
+    hidden = [row for row in matches if row["signal"].get("kind") == "no_stats"]
+    matches = [row for row in matches if row["signal"].get("kind") != "no_stats"]
+    hidden_leagues: dict[str, int] = {}
+    for row in hidden:
+        league = row.get("league") or "?"
+        hidden_leagues[league] = hidden_leagues.get(league, 0) + 1
     return {
         "version": RADAR_VERSION,
         "mode": "shadow",
         "last_run": store.meta_get("live_radar_last_run"),
         "matches": matches,
         "signal_count": sum(row["is_signal"] for row in matches),
+        # inga tysta filter: antalet dolda och ur vilka ligor redovisas
+        "hidden_no_stats": len(hidden),
+        "hidden_by_league": ", ".join(f"{lg} {n}" for lg, n
+                                      in sorted(hidden_leagues.items())),
         "coverage": {
             "xg": sum(row["signal"]["kind"] == "xg" for row in matches),
             "proxy": sum(row["signal"]["kind"] == "proxy" for row in matches),

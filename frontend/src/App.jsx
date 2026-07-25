@@ -1293,7 +1293,12 @@ function OddsetView({ focus = null } = {}) {
             <span className="hint">
               {liveRadar.matches.length
                 ? `${liveRadar.matches.length} live · ${liveRadar.signal_count} att granska`
-                : 'inga matcher i våra ligor live'}
+                : 'inga matcher med chansdata live'}
+              {liveRadar.hidden_no_stats > 0 && (
+                <span title={`Källan rapporterar inga skott- eller chansmått för dessa: ${liveRadar.hidden_by_league}. En tidig match med MÄTTA nollor döljs inte — skillnaden är saknat värde mot noll.`}>
+                  {' '}· {liveRadar.hidden_no_stats} dolda utan chansdata
+                </span>
+              )}
               {liveRadar.last_run ? ` · kollad ${timeAgo(liveRadar.last_run)}` : ''}
             </span>
           </div>

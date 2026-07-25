@@ -130,6 +130,29 @@ senaste capture per match):
 Slutsats: fler träningsmatcher på skärmen ger fler kort utan chansinformation.
 Taket är inte begränsningen — datan är.
 
+### 4. Dölj matcher utan chansdata (Samans beslut 2026-07-25)
+
+Matcher där källan inte rapporterar skott eller xG alls döljs nu ur radarvyn.
+Nyansen Saman själv pekade ut är avgörande och är låst av test: **`no_stats`
+sätts bara när ALLA chansfält är None**, dvs källan rapporterar dem inte. En
+match i 4:e minuten med noll skott har värdet 0, inte None, och får en
+proxysignal — den döljs alltså aldrig för att den är tidig.
+
+Verifierat i drift direkt efter ändringen: 2 visade, **10 dolda**
+(träningsmatcher 9, OBOS-ligaen 1). Kvar i vyn låg Kalmar FF 90' med
+FotMob-xG och *Málaga CF i 12:e minuten* — den senare är beviset att tidiga
+matcher med mätta värden stannar.
+
+Filtret gäller VISNINGEN, inte insamlingen: captures fortsätter sparas, så
+täckningsmätningar och framtida facit påverkas inte. Antalet dolda och vilka
+ligor de kom ur redovisas i radarhuvudet (inga tysta filter).
+
+Bieffekt värd att känna till: **taket frigörs inte** av att matcher döljs. De
+14 platserna delas fortfarande av alla ligor, så ~10 av dem går till matcher
+som aldrig visas. Att låta insamlaren nedprioritera matcher som passerat ~25
+minuter utan skottdata skulle frigöra platserna — men det ändrar
+insamlingsbeteendet och är därför ett eget beslut.
+
 ## Vad krävs för Betsson, Flashscore och Opta?
 
 * **Betsson:** en cookie-fri eventväg. `/api/sb/v1/context-details` ger 200 med
