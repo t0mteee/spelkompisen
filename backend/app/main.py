@@ -17,7 +17,7 @@ import subprocess
 from dataclasses import asdict
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import config  # noqa: F401 — laddar .env (ODDS_API_KEY) vid import
@@ -405,6 +405,66 @@ def pool_systems():
     store = Storage()
     try:
         return pool_system_ledger.summary(store)
+    finally:
+        store.close()
+
+
+@app.post("/api/pool/played")
+async def pool_played_record(request: Request):
+    """Bokför att användaren SJÄLV har lämnat in kupongen. Lägger inga spel."""
+    from . import pool_played
+    payload = await request.json()
+    store = Storage()
+    try:
+        return {"coupon": pool_played.record(store, payload)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        store.close()
+
+
+@app.delete("/api/pool/played/{coupon_id}")
+def pool_played_forget(coupon_id: int):
+    from . import pool_played
+    store = Storage()
+    try:
+        if not pool_played.forget(store, coupon_id):
+            raise HTTPException(
+                status_code=409,
+                detail="kupongen finns inte eller är redan settlad")
+        return {"ok": True}
+    finally:
+        store.close()
+
+
+@app.get("/api/pool/played")
+def pool_played_list():
+    """Spelade kuponger med LIVESTATUS för öppna omgångar.
+
+    Livestatusen läses ur SvS egen draw-payload (`match.result` +
+    `statusId`), så reducerade system kan följas medan omgången pågår utan
+    någon extra datakälla. Settlement sker i insamlingsjobbet — ett GET får
+    aldrig skriva DB.
+    """
+    from . import pool_played
+    store = Storage()
+    try:
+        coupons = pool_played.all_coupons(store)
+        out = []
+        with SvenskaSpel() as ss:
+            for coupon in coupons:
+                item = dict(coupon)
+                if not coupon["settled_at"]:
+                    try:
+                        raw = ss.get_draw_raw(coupon["product"],
+                                              coupon["draw_number"])
+                        states = [pool_played.event_state(e)
+                                  for e in (raw.get("drawEvents") or [])]
+                        item["live"] = pool_played.live_status(coupon, states)
+                    except Exception as exc:      # noqa: BLE001
+                        item["live_error"] = f"{type(exc).__name__}"
+                out.append(item)
+        return {"coupons": out, "summary": pool_played.summary(store)}
     finally:
         store.close()
 

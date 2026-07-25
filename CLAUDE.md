@@ -59,6 +59,14 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/pool_dataset.py PH2: PIT-features per omgång/horisont (pit-v3, enbart
                       observed_pit — no backfill) + separat presence-ledger
                       och proveniensmärkt pool_draw_snapshot-serie
+  app/pool_played.py  SPELADE kuponger: 🎟-knappen bokför att SAMAN själv lämnat
+                      in kupongen (lägger inga spel). Facit mot PUBLICERAD
+                      utdelning — kupongen låg i potten, så beloppen inkluderar
+                      den; utspädningen i PH3 gäller kontrafaktiska system och
+                      får ALDRIG återanvändas här. Livestatus för reducerade
+                      system ur SvS egen draw-payload (`match.result` med
+                      `sportEventResultType == "Current"` + `statusId`), så en
+                      oavgjord match håller alla tecken öppna
   app/pool_system_ledger.py PH3: förregistrerade benchmarksystem fryses
                       T−3h/T−20m i varvet, settlas kontrafaktiskt med egen
                       vinnarutspädning; rollover utan vinnare = okänd ROI

@@ -326,11 +326,18 @@ class SvenskaSpel:
         alld = self.list_draws(product, start_hint)
         return max((d["draw_number"] for d in alld), default=None)
 
-    def get_draw(self, draw_number: int, product: str = "stryktipset") -> Draw:
+    def get_draw_raw(self, product: str, draw_number: int) -> dict:
+        """Oparsad draw-payload. Behövs för fält som Draw-modellen inte bär —
+        t.ex. matchernas LIVERESULTAT (`match.result` med
+        `sportEventResultType == "Current"` plus `statusId`), som spårningen av
+        spelade kuponger följer reducerade system med."""
         slug = PRODUCTS[product]["slug"]
         data = self._get(f"/draw/{API_VER}/{slug}/draws/{draw_number}")
-        raw = data["draws"][0] if "draws" in data else data.get("draw", data)
-        return self._parse_draw(raw, product)
+        return data["draws"][0] if "draws" in data else data.get("draw", data)
+
+    def get_draw(self, draw_number: int, product: str = "stryktipset") -> Draw:
+        return self._parse_draw(
+            self.get_draw_raw(product, draw_number), product)
 
     def get_current_draw(self, product: str = "stryktipset",
                          start_hint: Optional[int] = None) -> Optional[Draw]:

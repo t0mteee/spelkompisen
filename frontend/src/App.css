@@ -861,3 +861,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   .bgrid td { width: auto; }
   .bvalue { align-items: flex-start; }
 }
+
+/* Spelade kuponger: facit + livestatus för reducerade system (2026-07-25) */
+.playedbtn.on { border-color: var(--ok); color: var(--ok); }
+.playedbox .grid.compact td { vertical-align: top; }

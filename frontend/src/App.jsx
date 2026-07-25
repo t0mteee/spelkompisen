@@ -2123,6 +2123,28 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
       : matches.map((m) => `${m.event_number}. ${m.description}: ${(picks[m.event_number] || []).join('')}`).join('\n')
     navigator.clipboard?.writeText(txt); setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
+  // Bokför att ANVÄNDAREN själv lämnat in kupongen. Lägger inga spel — den ger
+  // facit per kupong (mot publicerad utdelning, inte kontrafaktisk utspädning)
+  // och livestatus för reducerade system medan omgången pågår.
+  const [played, setPlayed] = useState(false)
+  useEffect(() => { setPlayed(false) }, [product, draw, pickRows?.length])
+  const markPlayed = async () => {
+    setPlayed('sparar')
+    try {
+      const res = await fetch('/api/pool/played', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product, draw_number: draw,
+          rows: pickRows.map((r) => r.join('')),
+          row_price: payouts?.row_price || 1,
+          events_order: matches.map((m) => m.event_number),
+          build_kind: 'kupong', label: `${product} ${draw}`,
+        }),
+      })
+      setPlayed(res.ok ? true : false)
+      if (!res.ok) alert('Kunde inte bokföra kupongen — se backend-loggen.')
+    } catch { setPlayed(false); alert('Kunde inte nå backend.') }
+  }
   const egnaUrl = egnaRaderUrl(product)
   const rowMode = !!(pickRows && pickRows.length)
   const couponGroups = matches.map((m) => picks[m.event_number] || [])
@@ -2233,6 +2255,13 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
             {egnaUrl && <button onClick={downloadEgna} title={`Laddar ner ${nRows} rader som .txt i Svenska Spels Egna rader-format`}>⬇ Egna rader-fil ({nRows} rad{nRows === 1 ? '' : 'er'})</button>}
             <button onClick={copyCoupon} title={rowMode ? 'Kopierar alla rader, en per rad' : 'Kopierar valda tecken per match'}>
               {copied ? '✓ Kopierad' : rowMode ? `Kopiera ${nRows} rader` : 'Kopiera kupong'}</button>
+            {rowMode && pickRows.length > 0 && (
+              <button className={played ? 'playedbtn on' : 'playedbtn'}
+                onClick={markPlayed} disabled={played === 'sparar'}
+                title="Bokför att DU har lämnat in den här kupongen hos Svenska Spel. Inget spel läggs härifrån — knappen ger facit per kupong och livestatus för reducerade system under omgången.">
+                {played === true ? '✓ Bokförd som spelad'
+                  : played === 'sparar' ? 'Sparar…' : '🎟 Markera som spelad'}</button>
+            )}
           </div>
           {egnaUrl ? (
             <p className="hint">Ladda ner filen och ladda upp den hos{' '}
@@ -2244,6 +2273,73 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
           )}
         </>
       )}
+    </div>
+  )
+}
+
+/* Spelade kuponger: facit per kupong + LIVESTATUS för reducerade system.
+   Facitet räknas mot PUBLICERAD utdelning (kupongen låg i potten, så beloppen
+   inkluderar den) — inte mot PH3:s kontrafaktiska utspädning. */
+function PlayedPanel() {
+  const [data, setData] = useState(null)
+  const load = () => fetch(`/api/pool/played?_t=${Date.now()}`, { cache: 'no-store' })
+    .then((r) => r.json()).then(setData).catch(() => setData({ coupons: [] }))
+  useEffect(() => { load() }, [])   // eslint-disable-line
+  if (!data) return <LoadingState label="Hämtar spelade kuponger…" />
+  const s = data.summary || {}
+  if (!data.coupons?.length) {
+    return <p className="hint">Inga bokförda kuponger än. Bygg ett förslag, lämna in det
+      hos Svenska Spel och tryck <b>🎟 Markera som spelad</b> i kupongen — då följs
+      reducerade system live och får riktigt facit när omgången är klar.</p>
+  }
+  const forget = async (id) => {
+    await fetch(`/api/pool/played/${id}`, { method: 'DELETE' }); load()
+  }
+  return (
+    <div className="playedbox">
+      <p className="hint" title={s.note}>
+        {s.n_coupons} kuponger · {s.n_settled} med facit · {s.n_open} öppna
+        {s.n_settled > 0 && <> · satsat {kr(s.spent_kr)} · tillbaka {kr(s.won_kr)}
+          {s.roi != null && <> · ROI <b className={s.roi >= 0 ? 'pos' : 'neg'}>
+            {(s.roi * 100).toFixed(1)}%</b></>}</>}
+      </p>
+      <table className="grid compact">
+        <thead><tr><th>omgång</th><th>rader</th><th>kostnad</th>
+          <th>status</th><th>utdelning</th><th /></tr></thead>
+        <tbody>
+          {data.coupons.map((c) => {
+            const live = c.live
+            return (
+              <tr key={c.id}>
+                <td>{VARIANT[c.product] || c.product} {c.draw_number}</td>
+                <td>{c.n_rows}</td>
+                <td>{kr(c.cost_kr)}</td>
+                <td>
+                  {c.settled_at
+                    ? `klar · bäst ${c.correct_max} rätt`
+                    : live
+                      ? `${live.n_decided}/${live.n_events} avgjorda · bäst ${live.best_secure} rätt`
+                      : (c.live_error ? 'livestatus otillgänglig' : 'öppen')}
+                  {live && !live.all_decided && (
+                    <span className="hint" title="Rader som fortfarande kan nå nivån — en oavgjord match håller alla tecken öppna">
+                      {' '}· lever: {Object.entries(live.alive_per_level)
+                        .filter(([, n]) => n > 0)
+                        .map(([lvl, n]) => `${lvl} rätt: ${n}`).join(' · ')}
+                    </span>
+                  )}
+                </td>
+                <td>{c.settled_at
+                  ? (c.payout_complete ? kr(c.payout_kr) : 'ofullständig')
+                  : '–'}</td>
+                <td>{!c.settled_at && (
+                  <button className="linkbtn" onClick={() => forget(c.id)}
+                    title="Ta bort felaktigt bokförd kupong (går bara innan facit satts)">✕</button>
+                )}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -2887,6 +2983,11 @@ function AppClassic({ onSwitchV3 }) {
           <ClvPanel group={group} />
         </section>
       </div>
+
+      <section>
+        <h2>Spelade kuponger</h2>
+        <PlayedPanel />
+      </section>
       </>)}
 
       <footer>Lokal data från Svenska Spel + Pinnacle · personligt verktyg</footer>

@@ -466,6 +466,43 @@ CREATE TABLE IF NOT EXISTS pool_system_ledger (
 );
 CREATE INDEX IF NOT EXISTS idx_pool_system_open
     ON pool_system_ledger (settled_at, product, draw_number);
+
+-- VERKLIGT SPELADE KUPONGER (2026-07-25). Skild från pool_system_ledger med
+-- avsikt: ledgern innehåller KONTRAFAKTISKA benchmarksystem som aldrig lämnades
+-- in, och därför späds deras vinst ut mot observerad nivåpott. En kupong Saman
+-- faktiskt spelat ligger redan i potten — SvS publicerade belopp per vinnare
+-- inkluderar honom. Utdelningen är alltså `andel_rader_på_nivån × publicerat
+-- belopp`, RAKT, utan utspädningskorrigering. Att blanda de två hade gett fel
+-- siffra i båda riktningarna.
+CREATE TABLE IF NOT EXISTS pool_played_coupon (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    product       TEXT NOT NULL,
+    draw_number   INTEGER NOT NULL,
+    played_at     TEXT NOT NULL,
+    label         TEXT,
+    build_kind    TEXT,                -- värderader | reducerat | garanti | ...
+    strategy      TEXT,
+    value_weight  REAL,
+    budget        REAL,
+    row_price     REAL NOT NULL,
+    n_rows        INTEGER NOT NULL,
+    cost_kr       REAL NOT NULL,
+    events_order  TEXT NOT NULL,       -- eventnummer i radernas ordning
+    rows_text     TEXT NOT NULL,       -- en rad per spelrad, tecken utan skiljetecken
+    rows_hash     TEXT NOT NULL,
+    code_version  TEXT,
+    note          TEXT,
+    settled_at    TEXT,
+    correct_max   INTEGER,
+    correct_dist  TEXT,
+    payout_kr     REAL,
+    payout_complete INTEGER,
+    roi           REAL,
+    settle_note   TEXT,
+    UNIQUE (product, draw_number, rows_hash)
+);
+CREATE INDEX IF NOT EXISTS idx_pool_played_open
+    ON pool_played_coupon (settled_at, product, draw_number);
 """
 
 # Live-radar (2026-07-25): observerade, kumulativa matchstats i shadow mode.
