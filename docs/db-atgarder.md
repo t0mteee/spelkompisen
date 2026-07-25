@@ -407,3 +407,24 @@ DELETE FROM oddset_results
   matcher som redan finns i Oddset och bumpade aktuell version till
   `sofa-live-v2`; första v2-provet skrev 2 matchcaptures. V1-raderna är
   auditerbara men filtreras ur API och utvärdering.
+
+---
+
+## 2026-07-25 — Rensning av ankarflaggor i CLV-facitet
+
+- **Skript:** `backend/scripts/rensa_ankarflaggor.py` (torrkörning som default,
+  `--kor` utför; idempotent — andra körningen raderar 0 rader).
+- **Backup:** `backend/data/backups/stryktips-2026-07-25-fore-ankarrensning.db`.
+- **Orsak:** Smarkets kopplades in 2026-07-24 som sharp-ANKARE och lades
+  medvetet utanför `BOOKS`. Men `oddset_value.attach_value` byggde sin
+  boklista som "allt utom pinnacle" — `BOOKS` styr insamlingen, inte
+  värderingen. Börspriserna behandlades därför som en mjuk bok att hitta
+  värde hos.
+- **Omfattning:** 192 av 902 rader i `oddset_value_log` (varav 11 redan
+  stängda) hade `book='smarkets'` — 133 i tunna träningsmatcher, snitt-edge
+  13,2 % mot Svenska Spels 6,0 %. Raderna mätte ankaroenighet och
+  bid-ask-spread, inte felprissättning.
+- **Utfall:** 192 raderade, 710 kvar, `integrity_check = ok`. CLV-facitet
+  tillbaka på +2,65 % [1,19..4,11] över 147 stängda — samma baslinje som före
+  kontamineringen.
+- **Spärr framåt:** `oddset_value.ANCHOR_SOURCES`. Se ANKARE ≠ BOK i CLAUDE.md.

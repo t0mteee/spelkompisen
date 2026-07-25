@@ -18,7 +18,7 @@ Allsvenskan + research-only Premier League/Serie A/La Liga/Bundesliga med WP9c
 i isolerad sharp-identitetskontroll; se
 `docs/model-v2.2-multileague-forward-manifest.json`. Det är inte en tränad
 modell och får inte påverka tips, notiser eller CLV.
-**Aktuell överlämning:** `docs/overlamning-2026-07-25.md` (senaste passet).
+**Aktuell överlämning:** `docs/overlamning-2026-07-25-kvall.md` (LÄS FÖRST).
 Föregående: `docs/overlamning-till-claude-2026-07-24.md`.
 Beställning 1 är LEVERERAD 2026-07-24: de fyra Europaligorna syns i ordinarie
 Oddset-vyn (🔬 forskningsmärkta, `visible_in_ui`) men är fortsatt icke-
@@ -108,6 +108,35 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
   45 min gammal bekräftelse. Pinnacles HTTP `Age` dras av före båda
   tidsstämplarna; cacheobjekt äldre än 5 min öppnar inte notisgrinden.
   Källfel får aldrig markera ett pris unavailable.
+
+### 🕐 OBSERVATIONSTIDSREGELN — läs innan du skriver en ny insamlare
+
+Samma bugg har uppstått TRE gånger på tre dygn (pit-v1, Pinnacle-klienten,
+live-radarn). Den ser olika ut men är alltid samma sak: **något annat än
+observationsögonblicket används som observationstid.**
+
+1. **Förändringstid ≠ observationstid.** `snapshots`/`sharp_snapshots` skriver
+   bara vid förändring. Ett oförändrat pris är fortfarande observerat — bara
+   `pool_market_capture` (presence-ledgern) får bevisa att en källa lästes.
+2. **Hämtningstid ≠ pristid.** CDN-cachade svar kan vara minuter gamla. Dra av
+   HTTP `Age`. Pinnacles bulk kör `max-age=905`.
+3. **Loopstart ≠ per-post-tid.** Sätt tidsstämpeln EFTER varje anrop, aldrig
+   en gång per varv. En ligaloop kan pågå 25 min; ett radarvarv 90 s.
+4. **Klockan får bara gå framåt.** `last_seen_at` uppdateras med
+   `MAX(last_seen_at, ?)`. Ett svar som är äldre än vår senaste bekräftelse
+   bär ingen ny information — hoppa över det, skriv det aldrig bakåtdaterat
+   (rad före tidigare observation) eller med nutid (lögn om färskhet).
+5. **Transporthälsa använder riktig hämtningstid** — den mäter källan, inte
+   priset.
+
+### 🎯 ANKARE ≠ BOK
+
+`BOOKS` i oddset.py styr INSAMLINGEN. `oddset_value.ANCHOR_SOURCES` styr
+VÄRDERINGEN. Båda behövs: `attach_value` byggde tidigare sin boklista som
+"allt utom pinnacle", så Smarkets blev automatiskt en bok att hitta värde hos
+trots att den låg utanför `BOOKS` — 192 felaktiga flaggor innan det upptäcktes.
+Lägger du till en sharp-referens (börs, andra sharp-böcker) MÅSTE den in i
+`ANCHOR_SOURCES`, annars förorenar den CLV-facitet.
 - Push-notiser: `app/notify.py` via ntfy.sh, kräver `NTFY_TOPIC` i gitignore:ade
   `backend/.env`. Använd ett EGET topic (inte samma som svs — annars dubbla notiser).
   Notifieringsspåret är pausat på Samans begäran 2026-07-16 — återuppta inte utan besked.

@@ -3,6 +3,29 @@
 ## STATUS-SAMMANFATTNING (2026-07-25 — läs detta först i ny session)
 
 
+**GRANSKNING AV CODEX-PASSET + FEM FIXAR (2026-07-25, Fable 5).** Codex arbete
+(live-radar, CDN-fix, pit-v3, m20-kadens, Betsson) granskades kritiskt. Det
+metodiska höll: pit-v3 startades som NYTT experiment i stället för att smyga in
+ändrad datasemantik, gamla manifestet är verifierat orört, och Betsson håller
+gränsen (ingen cookie-/WAF-replay, ej i BOOKS). Fem fel hittades och lagades:
+1. **Ankarkontaminering (allvarligast).** Smarkets blev en bok i värdemotorn
+   trots att den låg utanför BOOKS — `attach_value` använde "allt utom
+   pinnacle". 192 felaktiga flaggor rensade med backup; ANCHOR_SOURCES-spärr
+   införd. Facitet tillbaka på +2,65 % [1,19..4,11].
+2. **Överkorrigering av CDN-Age** — drogs från varvets STARTTID, så sena ligor
+   i en 25-minutersloop bakåtdaterades med Age plus hela insamlingstiden. Nu
+   mot det egna anropets tid; gäller även Kambi, sidoböcker och Smarkets.
+3. **Ingen monotonispärr** — olika CDN-noder kunde flytta färskhetsklockan
+   bakåt och skapa falska rörelsepunkter. `MAX(last_seen_at, ?)`, och
+   cacheobjekt äldre än senaste bekräftelse hoppas över helt.
+4. **Radarn delade HTTP-klient med den spelbara xG-pipelinen** — egen klient,
+   matchtak, tidsbudget, tidsstämpel per event, och proxy skild från xG i
+   fältnamn och sortering.
+5. **Dubbeltrafik mot Pinnacle** från två launchd-jobb — spärr på 10 min.
+Ett agentfynd verifierades bort: radarfel kan INTE släcka Oddset-vyn.
+Observationstidsregeln och ANKARE ≠ BOK står nu i CLAUDE.md — samma bugg hade
+uppstått tre gånger på tre dygn.
+
 **GRANSKNINGSFIXAR 2026-07-24 (Fable 5) — läs innan poolspels- eller
 facitarbete.** En bred genomgång (kod + mätning mot settlementlagret) hittade
 fyra fel som påverkade pengar och ett som påverkade slutsatser:
