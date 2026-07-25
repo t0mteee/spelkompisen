@@ -315,6 +315,33 @@ enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
   vs bok), `model.py` (Dixon-Coles, μ KALIBRERAS mot sharp ÖU-linje ≈ median), steam/CLV/
   notify-mönstren, `elo.py` (ClubElo), `oddsapi.py` (the-odds-api, vilande).
 - Enbart gratiskällor (användarbeslut 2026-07-12); rena betalspår = framtida projekt.
+
+### 🚧 KÄLLGRÄNSEN (Samans beslut 2026-07-25: flyttad så långt den går)
+
+Saman satte gränsen så långt den kan gå — till den punkt där den möter modellens
+egna gränser. Vidga den inte ytterligare; det som står under "stängt" flyttas
+inte av att någon ber om det.
+
+**Öppet:** publika JSON-API:er · statiska publika tokens i sidans kod (t.ex.
+Pinnacles gästnyckel) · läsa publik JavaScript · browserlik TLS-signatur
+(`curl_cffi impersonate`, används redan för Sofascore) · observera sidans egen
+publika nätverkstrafik för att lära sig endpoint-kontraktet · läsa publika sidor
+i browsern · artig rate limiting, timeouts och matchtak.
+
+**Stängt (modellens gräns, inte repots):** lösa eller förfalska
+anti-bot-utmaningar — Cloudflare-interstitials, Impervas `reese84`, DataDome,
+CAPTCHA · exportera eller återspela browsersession, cookies eller WAF-token för
+att framstå som en inloggad/verifierad klient · skapa konton eller logga in.
+
+**Tumregel:** en endpoint som svarar 401/403 *därför att en utmaning eller
+session saknas* förblir stängd. En som svarar med data givet publika konstanter
+är öppen. bet365, Coolbet, Betano och Betssons `events-table` ligger bakom det
+förra.
+
+**Miljöanteckning:** behörighetsklassaren blockerar skript som söker tokens i
+JS-buntar (det läser som token-skörd) även när gränsen tillåter det. Behövs det
+måste Saman lägga in en Bash-behörighetsregel — se
+`docs/live-kallor-2026-07-25.md`.
 - Tier-regel för tips: **sharp-ankrat = actionable (grönt, in i CLV); modell-utan-sharp =
   amber (bakom toggle, UR CLV)** — vm bevisade tre gånger att modell-edges utan sharp-ankare
   blir systematiskt uppblåsta (DC alt-totaler +40–55 %, hörnor +120 % okalibrerat).

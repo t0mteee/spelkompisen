@@ -154,6 +154,46 @@ Taket är inte begränsningen — datan är.
   notera: vi får sannolikt Opta-härledd data ändå — FotMobs xG för Eliteserien var
   **identisk** med Sofascores, vilket pekar på samma underliggande leverantör.
 
+## Flashscore-testet — Saman hade rätt om xG, jag hade fel
+
+Saman flyttade gränsen så långt den går (2026-07-25) och bad mig testa. Jag hade
+avfärdat Flashscore med att de "inte har xG för Allsvenskan". **Det var ett
+antagande och det var fel.** Uppmätt i deras egen vy:
+
+* **Allsvenskan** (Degerfors–Djurgården, slutresultat): xG **0,92 – 1,53**,
+  xGOT 0,00 – 1,52, plus skott, farliga chanser, hörnor, passningsprocent.
+  Jämför FotMob vid 65': xG 0,73 – 1,45, xGOT 0,00 – 0,98 — konsistent
+  utveckling, alltså samma storhet.
+
+Men den avgörande frågan var inte om de har xG utan om de har den **där vi inte
+redan har den**. Där tar svaret slut:
+
+| liga | Sofascore | FotMob | Flashscore |
+|---|---|---|---|
+| Allsvenskan | ❌ | ✅ | ✅ |
+| Eliteserien | ✅ | ✅ | ✅ |
+| Superettan | ❌ | ❌ | ❌ (mätt: bara innehav/skott/hörnor) |
+| OBOS-ligaen | ❌ | ❌ | ❌ (mätt: bara innehav/skott/hörnor) |
+| Träningsmatcher | ❌ | ❌ | ❌ |
+
+**Slutsats: Flashscore duplicerar exakt det FotMob redan ger och fyller ingen
+kvarvarande lucka.** xG-tillgången följer ligans datanivå hos alla tre källorna,
+vilket pekar på samma underliggande leverantör (Eliteserien: FotMob = Sofascore
+exakt). Att bygga en tredje insamlare för Allsvenskan/Eliteserien vore ett rent
+konsistenstest — och det har vi redan gratis genom FotMob mot Sofascore.
+
+Rekommendationen blev alltså densamma som förut, men nu på **mätta** grunder i
+stället för ett antagande: bygg inte Flashscore. Gränsfrågan blev därmed
+irrelevant — vi behövde aldrig gå nära den.
+
+**Praktisk anteckning för framtida pass:** feeden
+`local-global.flashscore.ninja/2/x/feed/...` svarar 401 utan `x-fsign`.
+Tokenvärdet är en statisk konstant i deras publika JS (tillåtet enligt gränsen
+nedan), men **miljöns behörighetsklassare blockerar skript som söker efter
+tokens i JS-buntar** — det läser som token-skörd. Behövs det i framtiden måste
+Saman lägga in en Bash-behörighetsregel. Sidan i sig går att läsa i browsern
+utan token, vilket räckte för mätningen ovan.
+
 ## Nästa steg för radarn
 
 - **Låt serien växa och mät sedan.** Nu finns för första gången xG för
