@@ -237,3 +237,77 @@ class ScheduleParserTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RotationRiskTests(unittest.TestCase):
+    """Samans beställning 2026-07-25: vikta vila OCH viktigare nästa match.
+
+    Vilodatan fanns redan (rest_hours, matches_7/14/30d) men var enkelriktad —
+    bara bakåt. Ett lag med Champions League-kval om tre dagar vilar spelare i
+    ligan, och den informationen fanns inte ens insamlad: `_event_entry`
+    släppte bara igenom `finished`.
+    """
+
+    TARGET = dt.datetime(2026, 8, 1, 16, 0, tzinfo=dt.timezone.utc)
+    LIGA = 40          # Allsvenskan
+
+    @staticmethod
+    def _fixture(start, ut, slug="x", name="X"):
+        return {"start_at": start, "unique_tournament_id": ut,
+                "tournament_slug": slug, "tournament_name": name,
+                "home_team_id": 1, "away_team_id": 2}
+
+    def test_kommande_matcher_sparas_numera(self):
+        raw = {
+            "id": 5, "startTimestamp": 1785000000,
+            "status": {"type": "notstarted"},
+            "homeTeam": {"id": 1, "sport": {"slug": "football"}},
+            "awayTeam": {"id": 2},
+            "tournament": {"id": 9, "uniqueTournament": {"id": 7, "name": "UCL"}},
+            "homeScore": {}, "awayScore": {},
+        }
+        entry = oddset_schedule._event_entry(raw, 1)
+        self.assertIsNotNone(entry, "planerade matcher får inte kastas bort")
+        self.assertEqual("scheduled", entry["status"])
+
+    def test_tyngre_turnering_inom_fem_dygn_flaggas(self):
+        upcoming = [self._fixture("2026-08-04T18:45:00Z", 7,
+                                  "uefa-champions-league", "UCL")]
+        out = oddset_schedule._forward_features(upcoming, 1, self.TARGET, self.LIGA)
+        self.assertTrue(out["next_is_heavier"])
+        self.assertEqual(5, out["next_weight"])
+        self.assertAlmostEqual(74.75, out["hours_to_next"], places=1)
+
+    def test_vanlig_ligamatch_efterat_ar_ingen_rotationsrisk(self):
+        upcoming = [self._fixture("2026-08-04T18:45:00Z", self.LIGA,
+                                  "allsvenskan", "Allsvenskan")]
+        out = oddset_schedule._forward_features(upcoming, 1, self.TARGET, self.LIGA)
+        self.assertFalse(out["next_is_heavier"])
+
+    def test_tung_match_langt_bort_ar_ingen_rotationsrisk(self):
+        upcoming = [self._fixture("2026-08-20T18:45:00Z", 7, "ucl", "UCL")]
+        self.assertFalse(oddset_schedule._forward_features(
+            upcoming, 1, self.TARGET, self.LIGA)["next_is_heavier"])
+
+    def test_matcher_fore_target_raknas_aldrig_som_nasta(self):
+        upcoming = [self._fixture("2026-07-30T18:45:00Z", 7, "ucl", "UCL"),
+                    self._fixture("2026-08-05T18:45:00Z", self.LIGA, "a", "A")]
+        out = oddset_schedule._forward_features(upcoming, 1, self.TARGET, self.LIGA)
+        self.assertEqual("2026-08-05T18:45:00Z", out["next_match_at"])
+
+    def test_okand_turnering_far_ligans_vikt_aldrig_hogre(self):
+        """Vi antar aldrig att något är viktigare än ligan utan att veta det."""
+        okand = self._fixture("2026-08-03T12:00:00Z", 99999, "mystery", "Mystery")
+        self.assertEqual(oddset_schedule.LEAGUE_WEIGHT,
+                         oddset_schedule.tournament_weight(okand, self.LIGA))
+
+    def test_inhemsk_cup_hittas_via_slug(self):
+        cup = self._fixture("2026-08-03T12:00:00Z", 80, "svenska-cupen",
+                            "Svenska Cupen")
+        self.assertEqual(oddset_schedule.CUP_WEIGHT,
+                         oddset_schedule.tournament_weight(cup, self.LIGA))
+
+    def test_traningsmatch_vager_lattast(self):
+        vanlig = self._fixture("2026-08-03T12:00:00Z", 853, "club-friendly",
+                               "Club Friendly Games")
+        self.assertEqual(0, oddset_schedule.tournament_weight(vanlig, self.LIGA))

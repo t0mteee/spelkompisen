@@ -150,8 +150,19 @@ def _event_entry(raw: dict, team_id: int) -> Optional[dict]:
     sport = ((home.get("sport") or {}).get("slug") or
              (((raw.get("tournament") or {}).get("category") or {})
               .get("sport") or {}).get("slug"))
-    if (sport != "football" or raw.get("status", {}).get("type") != "finished" or
-            raw.get("id") is None or home.get("id") is None or away.get("id") is None):
+    # KOMMANDE MATCHER SPARAS OCKSÅ (2026-07-25). Tidigare släpptes bara
+    # `finished` igenom, vilket gjorde vilodatan enkelriktad: vi kunde se att ett
+    # lag spelat tre matcher på nio dagar, men inte att NÄSTA match är en
+    # Champions League-kval om tre dagar — och det är just då lag vilar spelare.
+    # Statusen bevaras så PIT-läsningen kan skilja avslutad från planerad. En rad
+    # som senare spelas uppdateras till finished via `last_seen_at`, medan
+    # `first_seen_at` behåller när vi FÖRST såg fixturen — det är den tiden
+    # as-of-läsningen får lita på.
+    status_type = (raw.get("status") or {}).get("type")
+    if (sport != "football"
+            or status_type not in ("finished", "notstarted", "inprogress")
+            or raw.get("id") is None or home.get("id") is None
+            or away.get("id") is None):
         return None
     home_id, away_id = int(home["id"]), int(away["id"])
     if team_id not in (home_id, away_id):
@@ -164,7 +175,10 @@ def _event_entry(raw: dict, team_id: int) -> Optional[dict]:
     category = tournament.get("category") or {}
     home_score, away_score = raw.get("homeScore") or {}, raw.get("awayScore") or {}
     return {
-        "event_id": int(raw["id"]), "start_at": start, "status": "finished",
+        "event_id": int(raw["id"]), "start_at": start,
+        "status": ("finished" if status_type == "finished"
+                   else "inprogress" if status_type == "inprogress"
+                   else "scheduled"),
         "home_team_id": home_id, "away_team_id": away_id,
         "tournament_id": tournament.get("id"),
         "unique_tournament_id": unique.get("id"),
@@ -275,6 +289,18 @@ def refresh(store: Storage, force: bool = False, backfill: bool = False,
                 raw_events.extend(payload.get("events") or [])
                 if not payload.get("hasNextPage"):
                     break
+            # KOMMANDE MATCHER (2026-07-25): `last` ger bara spelade matcher, så
+            # vilodatan var enkelriktad — vi såg belastningen bakåt men inte att
+            # nästa match är en Champions League-kval om tre dagar. Det är just
+            # då lag vilar spelare. EN sida räcker: vi behöver nästa match och
+            # veckan efter, inte hela säsongen.
+            try:
+                nxt = _paced_get(f"/team/{team_id}/events/next/0")
+                pages += 1
+                raw_events.extend(nxt.get("events") or [])
+            except Exception as exc:  # noqa: BLE001 — historiken får inte falla
+                report["errors"].append(
+                    f"next {team_id}: {type(exc).__name__}")
             events_by_id = {}
             for raw in raw_events:
                 event = _event_entry(raw, team_id)
@@ -334,6 +360,74 @@ def _haversine_km(a_lat: float, a_lon: float,
     return radius * 2 * math.atan2(math.sqrt(value), math.sqrt(1 - value))
 
 
+# TURNERINGSVIKT (2026-07-25) för "har laget en viktigare match strax efter?".
+# Rankingen är en EXPLICIT tabell, aldrig en gissning ur namnet: europeiskt
+# gruppspel/slutspel väger tyngst, därefter europakval, sedan inhemsk cup, sedan
+# ligan, sist träningsmatcher. Sofascores uniqueTournament-id:n är stabila.
+# Okänd turnering får ligans vikt — vi antar aldrig att något är viktigare än
+# ligan utan att veta det.
+# Id:na är LÄSTA ur vår egen `oddset_sofa_team_event`, inte gissade.
+TOURNAMENT_WEIGHT = {
+    7: 5,        # UEFA Champions League
+    679: 4,      # UEFA Europa League
+    17015: 4,    # UEFA Conference League
+    465: 4,      # UEFA Super Cup
+    498: 4,      # CONCACAF Champions Cup
+    853: 0,      # Club Friendly Games
+}
+# Inhemska cuper i vår data fångas av slug-hintarna nedan: FA Cup (19),
+# EFL Cup (21), NM Cup (29), Svenska Cupen (80), US Open Cup (495).
+LEAGUE_WEIGHT = 2          # ligan vi analyserar
+CUP_WEIGHT = 3             # inhemsk cup (identifieras via country_code + slug)
+UNKNOWN_WEIGHT = LEAGUE_WEIGHT
+CUP_SLUG_HINTS = ("cup", "cupen", "svenska-cupen", "norgesmesterskapet",
+                  "us-open-cup", "coppa", "copa", "pokal")
+
+
+def tournament_weight(event: dict, primary_tournament_id: int) -> int:
+    """Hur tungt väger turneringen mot den liga vi analyserar?"""
+    ut = event.get("unique_tournament_id")
+    if ut is not None and int(ut) == int(primary_tournament_id):
+        return LEAGUE_WEIGHT
+    if ut is not None and int(ut) in TOURNAMENT_WEIGHT:
+        return TOURNAMENT_WEIGHT[int(ut)]
+    slug = (event.get("tournament_slug") or "").casefold()
+    if any(hint in slug for hint in CUP_SLUG_HINTS):
+        return CUP_WEIGHT
+    return UNKNOWN_WEIGHT
+
+
+def _forward_features(upcoming: list[dict], team_id: int,
+                      target: dt.datetime, primary_tournament_id: int) -> dict:
+    """Nästa match EFTER den vi analyserar — grunden för rotationsrisk.
+
+    Ett lag med Champions League-kval tre dagar senare vilar spelare i ligan.
+    Featuren är beskrivande, inte en prognos: den säger vad som väntar, inte att
+    laget kommer att rotera. Bara fixturer som ligger EFTER `target` räknas, och
+    bara sådana vi observerat före as-of (filtreringen sker i lagret).
+    """
+    later = [e for e in upcoming if _parse(e["start_at"]) > target]
+    later.sort(key=lambda e: e["start_at"])
+    nxt = later[0] if later else None
+    if not nxt:
+        return {"next_match_at": None, "hours_to_next": None,
+                "next_tournament": None, "next_weight": None,
+                "next_is_heavier": None, "congested_after": None}
+    hours = round((_parse(nxt["start_at"]) - target).total_seconds() / 3600, 1)
+    weight = tournament_weight(nxt, primary_tournament_id)
+    return {
+        "next_match_at": nxt["start_at"],
+        "hours_to_next": hours,
+        "next_tournament": nxt.get("tournament_name"),
+        "next_weight": weight,
+        # tyngre turnering INOM fem dygn = klassisk rotationsrisk
+        "next_is_heavier": bool(weight > LEAGUE_WEIGHT and hours <= 120),
+        "congested_after": sum(
+            _parse(e["start_at"]) <= target + dt.timedelta(days=7)
+            for e in later),
+    }
+
+
 def _side_features(events: list[dict], team_id: int, target: dt.datetime,
                    primary_tournament_id: int) -> dict:
     last = events[-1] if events else None
@@ -384,6 +478,12 @@ def features(store: Storage, league: str, home: str, away: str,
         history = store.oddset_sofa_team_events_as_of(
             team["team_id"], as_of)
         payload[side] = _side_features(history, team["team_id"], target, primary)
+        # Rotationsrisk: vad väntar EFTER matchen vi analyserar? Läses ur samma
+        # PIT-disciplin (first_seen_at <= as_of) och blandas aldrig in i
+        # historikfeaturena — de svarar på olika frågor.
+        payload[side].update(_forward_features(
+            store.oddset_sofa_team_fixtures_as_of(team["team_id"], as_of),
+            team["team_id"], target, primary))
         if not history:
             issues.append(f"{side}_history_missing")
     coordinates = None

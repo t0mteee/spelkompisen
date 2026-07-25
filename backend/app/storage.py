@@ -1966,6 +1966,21 @@ class Storage:
         q += " ORDER BY start_at,event_id"
         return [dict(row) for row in self.conn.execute(q, args).fetchall()]
 
+    def oddset_sofa_team_fixtures_as_of(self, team_id: int,
+                                        as_of: str) -> list[dict]:
+        """PLANERADE matcher som var kända före `as_of` (rotationsrisk).
+
+        PIT-regeln är densamma som för historiken: `first_seen_at <= as_of`
+        avgör vad vi visste, inte vad som senare visade sig. Statusen läses inte
+        — en fixtur vi såg som planerad räknas som planerad även om raden i dag
+        är `finished`, annars smyger facit in i en förhandsfeature.
+        """
+        return [dict(row) for row in self.conn.execute(
+            "SELECT * FROM oddset_sofa_team_event WHERE "
+            "(home_team_id=? OR away_team_id=?) AND first_seen_at<=? "
+            "AND start_at>? ORDER BY start_at, event_id",
+            (team_id, team_id, as_of, as_of))]
+
     def oddset_prediction_states(self) -> dict[tuple, dict]:
         rows = self.conn.execute("SELECT * FROM oddset_prediction_group_state").fetchall()
         return {(r["tier"], r["league"], r["market"], r["signal_version"]): dict(r)
