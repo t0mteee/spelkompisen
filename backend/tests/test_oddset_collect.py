@@ -5,12 +5,47 @@ from pathlib import Path
 from unittest import mock
 
 from app import oddset
+from app.pinnacle import Pinnacle, cache_adjusted_iso
 from app.storage import Storage
 
 
 class _Pin:
+    def __init__(self, age_s: int = 0) -> None:
+        self.last_age_s = age_s
+
+    def reset_cache_age(self) -> None:
+        # Testdubbeln behåller den förvalda åldern för nästa svar.
+        pass
+
     def close(self) -> None:
         pass
+
+
+class PinnacleCacheAgeTests(unittest.TestCase):
+    def test_http_age_backdates_price_observation(self) -> None:
+        self.assertEqual(
+            "2026-07-25T10:45:00Z",
+            cache_adjusted_iso("2026-07-25T11:00:00Z", 900),
+        )
+
+    def test_invalid_age_never_moves_observation_into_future(self) -> None:
+        self.assertEqual(
+            "2026-07-25T11:00:00Z",
+            cache_adjusted_iso("2026-07-25T11:00:00Z", -30),
+        )
+
+    def test_price_endpoint_age_wins_over_matchup_endpoint_age(self) -> None:
+        matchup_response = mock.MagicMock(
+            headers={"age": "600"}, json=mock.Mock(return_value=[]))
+        market_response = mock.MagicMock(
+            headers={"age": "60"}, json=mock.Mock(return_value=[]))
+        pin = Pinnacle.__new__(Pinnacle)
+        pin._client = mock.MagicMock()
+        pin._client.get.side_effect = [matchup_response, market_response]
+        pin.last_age_s = 0
+
+        self.assertEqual([], pin.soccer_index())
+        self.assertEqual(60, pin.last_age_s)
 
 
 class CollectionPresenceTests(unittest.TestCase):
@@ -56,6 +91,40 @@ class CollectionPresenceTests(unittest.TestCase):
         market = self.store.oddset_latest(["m1"])["m1"]["pinnacle"]["1x2"]
         self.assertFalse(market["available"])
 
+    def test_cached_pinnacle_price_uses_origin_time_and_is_not_current_presence(
+            self) -> None:
+        row = {
+            "id": "p1", "home": "Home", "away": "Away", "start": self.start,
+            "status": "open", "odds": {"1": 2.0, "X": 3.5, "2": 3.8},
+            "odds_source": "pinnacle", "ah": None, "ou": None, "cor": None,
+            "alt": {},
+        }
+        pin = _Pin(age_s=900)
+        with mock.patch.object(oddset, "Pinnacle", return_value=pin), \
+                mock.patch.object(
+                    oddset, "pinnacle_league_index", return_value=[row]), \
+                mock.patch.object(
+                    oddset.kambi, "league_events", return_value=[]), \
+                mock.patch.object(oddset, "BOOKS", []), \
+                mock.patch.object(
+                    oddset.oddset_value, "log_and_notify",
+                    return_value={"logged": 0, "pushed": 0, "gated": 0}) as notify:
+            report = oddset.collect(
+                self.store, leagues=[self.league], deep=False)
+
+        observed = dt.datetime.fromisoformat(
+            self.store.oddset_latest(
+                ["m1"])["m1"]["pinnacle"]["1x2"]["last_seen_at"]
+            .replace("Z", "+00:00"))
+        retrieved = dt.datetime.fromisoformat(
+            report["at"].replace("Z", "+00:00"))
+        self.assertAlmostEqual(
+            900, (retrieved - observed).total_seconds(), delta=1)
+        self.assertEqual(
+            900, report["leagues"]["test"]["pinnacle_cache_age_s"])
+        present = notify.call_args.kwargs["present"]
+        self.assertNotIn(("m1", "pinnacle", "1x2"), present)
+
     def test_fast_poll_fetches_deep_markets_inside_three_hours(self) -> None:
         event = {"id": "k1", "home": "Home", "away": "Away", "start": self.start,
                  "odds": {"1": 2.2, "X": 3.4, "2": 3.3}}
@@ -76,6 +145,25 @@ class CollectionPresenceTests(unittest.TestCase):
 
 
 class ResearchLeagueIsolationTests(unittest.TestCase):
+    def test_global_live_health_survives_regular_league_filter(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                store.oddset_record_source_health(
+                    "sofascore", "-", "live", "2026-07-25T08:00:00Z",
+                    True, 2)
+                store.oddset_record_source_health(
+                    "pinnacle", "hidden-test", "markets",
+                    "2026-07-25T08:00:00Z", True, 2)
+                payload = oddset.matches_payload(store, light=True)
+            finally:
+                store.close()
+
+        health = {(row["source"], row["scope"])
+                  for row in payload["source_health"]}
+        self.assertIn(("sofascore", "live"), health)
+        self.assertNotIn(("pinnacle", "markets"), health)
+
     def test_fast_research_poll_uses_known_moneyline_single_endpoint(self) -> None:
         class Pin:
             def _get(self, path):

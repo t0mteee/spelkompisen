@@ -17,7 +17,7 @@ from typing import Optional
 from . import kambi
 from . import oddset_value
 from .derive import derive_1x2
-from .pinnacle import Pinnacle, american_to_decimal
+from .pinnacle import Pinnacle, american_to_decimal, cache_adjusted_iso
 from .storage import Storage
 
 LEAGUES = [
@@ -93,6 +93,9 @@ LIST_WINDOW_D_FWD = 10
 # fönstret pollas.
 FAST_WITHIN_H = 3.0        # snabbvarv när nästa avspark är inom N h
 FAST_SLEEP_S = 240         # 4 min mellan snabbvarven (A1: 3–5 min)
+# Ett lyckat svar från en CDN-cache är inte automatiskt "sett i detta varv".
+# Äldre objekt sparas med sin korrigerade tid men öppnar inte notisgrinden.
+PINNACLE_PRESENT_MAX_AGE_S = 300
 
 # Forskningsligor under säsongsuppehåll: 10-dagarsfönstret är tomt ända fram
 # till premiären — ordinarie UI-payloaden visar då ligans NÄSTA omgång
@@ -387,13 +390,22 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
             rows_saved, n_pin, n_kambi = 0, 0, 0
 
             pin_ok, pin_error = True, None
+            pin_cache_age_s = 0
+            pin_observed_at = at
             try:
+                reset_age = getattr(pin, "reset_cache_age", None)
+                if reset_age:
+                    reset_age()
                 pin_rows = (
                     pinnacle_known_moneylines(pin, lg["pin_id"], cands)
                     if not deep and research_only and any(
                         cand.get("pinnacle_id") for cand in cands)
                     else pinnacle_league_index(pin, lg["pin_id"])
                 )
+                # Båda insamlingsvägarna hämtar marknader sist; det är
+                # prisendpointens Age som ska korrigera prisets observation.
+                pin_cache_age_s = int(getattr(pin, "last_age_s", 0) or 0)
+                pin_observed_at = cache_adjusted_iso(at, pin_cache_age_s)
             except Exception as e:  # noqa: BLE001 — Arcadia Cloudflare-blockar ibland
                 pin_rows = []
                 pin_ok, pin_error = False, str(e)
@@ -416,24 +428,28 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     continue   # startad match = live-odds — förorena inte serierna
                 pin_seen.add(str(r["id"]))
                 if r["odds_source"]:
-                    rows_saved += store.oddset_save_odds(mid, r["odds_source"], r["odds"], at)
+                    rows_saved += store.oddset_save_odds(
+                        mid, r["odds_source"], r["odds"], pin_observed_at)
                     other = "derived" if r["odds_source"] == "pinnacle" else "pinnacle"
                     store.oddset_mark_market_unavailable(mid, other, "1x2")
-                    if all(r["odds"].get(s) for s in ("1", "X", "2")):
+                    if (pin_cache_age_s <= PINNACLE_PRESENT_MAX_AGE_S and
+                            all(r["odds"].get(s) for s in ("1", "X", "2"))):
                         present.add((mid, "pinnacle", "1x2"))
                 else:
                     store.oddset_mark_market_unavailable(mid, "pinnacle", "1x2")
                     store.oddset_mark_market_unavailable(mid, "derived", "1x2")
                 if not research_only:
                     rows_saved += _observe_pair_markets(
-                        store, mid, "pinnacle", r, at)
+                        store, mid, "pinnacle", r, pin_observed_at)
                     for mk_ in _PAIR_KEYS:
-                        if r.get(mk_):
+                        if (pin_cache_age_s <= PINNACLE_PRESENT_MAX_AGE_S and
+                                r.get(mk_)):
                             present.add((mid, "pinnacle", mk_))
                         # sharpens ALLA linjer (tom lista efter lyckat svar =
                         # tidigare linjer markeras plockade)
                         store.oddset_save_sharp_alt(
-                            mid, mk_, (r.get("alt") or {}).get(mk_) or [], at)
+                            mid, mk_, (r.get("alt") or {}).get(mk_) or [],
+                            pin_observed_at)
                 n_pin += 1
 
             if pin_ok:
@@ -609,7 +625,9 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
 
             report["leagues"][lg["key"]] = {
                 "pinnacle": n_pin, "kambi": n_kambi, "books": n_books,
-                "smarkets": n_anchor, "saved_rows": rows_saved}
+                "smarkets": n_anchor, "saved_rows": rows_saved,
+                "pinnacle_cache_age_s": pin_cache_age_s if pin_ok else None,
+                "pinnacle_observed_at": pin_observed_at if pin_ok else None}
     finally:
         pin.close()
         if smarkets_client is not None:
@@ -783,7 +801,8 @@ def matches_payload(store: Storage, light: bool = False,
     if not include_research:
         health = [
             row for row in health
-            if row.get("league") in VISIBLE_LEAGUE_KEYS
+            if (row.get("league") in VISIBLE_LEAGUE_KEYS or
+                row.get("scope") == "live")
         ]
     leagues_out = []
     for lg in visible_leagues:

@@ -4,8 +4,9 @@ Användning (från backend/ med aktiverat venv):
     python cli.py show              # visa analyserad aktuell omgång
     python cli.py spikar            # topp-spikar sorterade
     python cli.py snapshot          # hämta + spara snapshot i SQLite
-    python cli.py smart             # launchd-passet: oddset + poolspel med
-                                    # snabbvarv nära avspark/spelstopp (A1)
+    python cli.py smart             # launchd-passet för Oddset + snabbvarv
+    python cli.py pool-tick         # poolkadens: 30 min / 5 min nära stopp
+    python cli.py live-tick         # shadow-radar för pågående matcher
     python cli.py oddset [light]    # ett oddset-varv (light = snabbvarvet)
     python cli.py teamdata [backfill|force] [liga] # lagtävlingar/vila/resor
     python cli.py v2audit [backfill] # PIT-dataset/coverage; backfill är ej promotion
@@ -14,10 +15,11 @@ Användning (från backend/ med aktiverat venv):
     python cli.py history 4956 1 1  # oddshistorik draw=4956 event=1 sign=1
     python cli.py backtest 25 stryktipset  # kalibrera modellen mot facit
 
-Launchd kör 'smart' var 30:e min (backend/scripts/snapshot.sh).
+Launchd kör `smart` på :00/:30 och `pool-tick` var femte minut.
 """
 from __future__ import annotations
 
+import datetime as dt
 import sys
 from typing import Optional
 
@@ -194,6 +196,105 @@ def _pool_pit_freeze(store: Storage, ss: SvenskaSpel, product: str, draw,
 DENSE_WITHIN_H = 2.0      # börja förtäta när någon omgång stänger inom 2 h
 DENSE_SLEEP_S = 300       # 5 min mellan varven i tätläget
 DENSE_BUDGET_S = 1500     # håll på i max 25 min, sedan tar nästa launchd-körning vid
+POOL_BASE_INTERVAL_MIN = 30
+
+
+def _snapshot_all_pools() -> tuple[float | None, int]:
+    """Ett komplett poolvarv; returnera närmaste stopp och antal lyckade spel."""
+    min_hrs: float | None = None
+    succeeded = 0
+    for product in PRODUCTS:
+        try:
+            hrs = cmd_snapshot(product)
+            succeeded += 1
+        except Exception as exc:  # noqa: BLE001
+            print(f"{product}: FEL {exc}")
+            hrs = None
+        if hrs is not None:
+            min_hrs = hrs if min_hrs is None else min(min_hrs, hrs)
+    return min_hrs, succeeded
+
+
+def pool_tick_due(last_run: Optional[dt.datetime],
+                  next_close_h: Optional[float], *,
+                  now: Optional[dt.datetime] = None) -> bool:
+    """Basvarv var 30:e minut, men varje 5-min tick inom två timmar."""
+    now = now or dt.datetime.now(dt.timezone.utc)
+    if next_close_h is not None and 0 <= next_close_h <= DENSE_WITHIN_H:
+        return True
+    if last_run is None:
+        return True
+    return (now - last_run).total_seconds() >= POOL_BASE_INTERVAL_MIN * 60
+
+
+def _hours_to_next_pool_close(store: Storage,
+                              now: Optional[dt.datetime] = None) -> Optional[float]:
+    now = now or dt.datetime.now(dt.timezone.utc)
+    hours = []
+    for row in store.conn.execute(
+            "SELECT reg_close_time FROM draws WHERE reg_close_time IS NOT NULL"):
+        try:
+            close = dt.datetime.fromisoformat(
+                str(row[0]).replace("Z", "+00:00"))
+            if close.tzinfo is None:
+                close = close.replace(tzinfo=dt.timezone.utc)
+        except (TypeError, ValueError):
+            continue
+        delta = (close.astimezone(dt.timezone.utc) - now).total_seconds() / 3600
+        if delta >= 0:
+            hours.append(delta)
+    return min(hours) if hours else None
+
+
+def cmd_pool_tick() -> None:
+    """Kort launchd-jobb som inte blockeras av Oddsets långa insamlingspass."""
+    now = dt.datetime.now(dt.timezone.utc)
+    store = Storage()
+    try:
+        next_close_h = _hours_to_next_pool_close(store, now)
+        raw_last = store.meta_get("pool_tick_last_run")
+        try:
+            last_run = (dt.datetime.fromisoformat(raw_last.replace("Z", "+00:00"))
+                        if raw_last else None)
+            if last_run is not None and last_run.tzinfo is None:
+                last_run = last_run.replace(tzinfo=dt.timezone.utc)
+        except (AttributeError, ValueError):
+            last_run = None
+        due = pool_tick_due(last_run, next_close_h, now=now)
+    finally:
+        store.close()
+    if not due:
+        print("pool: inget varv behövs denna tick.")
+        return
+    _, succeeded = _snapshot_all_pools()
+    if not succeeded:
+        print("pool: alla produkter misslyckades — nästa tick försöker igen.")
+        return
+    store = Storage()
+    try:
+        store.meta_set(
+            # Väggklockans femminutersslot, inte jobbets sluttid. Därmed
+            # driver ett 20-sekundersvarv inte basintervallet från 30 till 35.
+            "pool_tick_last_run", now.replace(second=0, microsecond=0)
+            .strftime("%Y-%m-%dT%H:%M:%SZ"))
+    finally:
+        store.close()
+
+
+def cmd_live_tick() -> None:
+    """Kort, isolerat shadow-varv för live-radarn; påverkar inga tips."""
+    from app import live_radar
+    store = Storage()
+    try:
+        report = live_radar.collect(store)
+    finally:
+        store.close()
+    partial = (
+        f" · {len(report['partial_errors'])} event utan full statistik"
+        if report["partial_errors"] else "")
+    print(f"live-radar: {report['live']} matcher · "
+          f"{report['stats_ok']} med statistik · "
+          f"{report['saved']} captures{partial}")
 
 
 def cmd_snapshot_smart(max_seconds: int = DENSE_BUDGET_S) -> None:
@@ -202,15 +303,7 @@ def cmd_snapshot_smart(max_seconds: int = DENSE_BUDGET_S) -> None:
     import time
     start = time.time()
     while True:
-        min_hrs: float | None = None
-        for product in PRODUCTS:
-            try:
-                h = cmd_snapshot(product)
-            except Exception as e:  # noqa: BLE001 — en produkt får inte stoppa resten
-                print(f"{product}: FEL {e}")
-                h = None
-            if h is not None:
-                min_hrs = h if min_hrs is None else min(min_hrs, h)
+        min_hrs, _ = _snapshot_all_pools()
         if min_hrs is None or min_hrs > DENSE_WITHIN_H:
             break
         if time.time() - start + DENSE_SLEEP_S > max_seconds:
@@ -567,8 +660,10 @@ def cmd_modeldata() -> None:
 
 def _print_oddset_report(rep: dict) -> None:
     for key, st in rep["leagues"].items():
+        age = st.get("pinnacle_cache_age_s")
+        age_text = f" p-age={age / 60:.1f}m" if age is not None else " p-age=?"
         print(f"{key:14} pinnacle={st['pinnacle']:3d} kambi={st['kambi']:3d} "
-              f"nya rader={st['saved_rows']}")
+              f"nya rader={st['saved_rows']}{age_text}")
     v = rep.get("value")
     if v:
         gated = f", {v['gated']} stoppade av notisvakten" if v.get("gated") else ""
@@ -597,11 +692,11 @@ def cmd_oddset(deep: bool = True) -> float | None:
 
 
 def cmd_smart(max_seconds: int = DENSE_BUDGET_S) -> None:
-    """Ett launchd-pass (backlog A1): fullt oddset-varv + poolspels-snapshots,
-    därefter snabbvarv var 4:e min så länge någon oddset-match startar inom
-    FAST_WITHIN_H (Pinnacle + bok-1X2 + SvS-deep för 3h-matcher) och/eller
-    tätvarv var 5:e min när ett poolspel stänger inom DENSE_WITHIN_H — tills
-    tidsbudgeten (~25 min) är slut och nästa launchd-körning tar vid."""
+    """Ett Oddset-pass: fullt varv, därefter lätta 4-minutersvarv nära avspark.
+
+    Poolspelen ägs av det separata `pool-tick`-jobbet. Ett tungt Oddset-varv
+    kan därmed inte skapa det återkommande 31-minutershål som tappade m20.
+    """
     import time
     from app import oddset
     start = time.time()
@@ -612,45 +707,23 @@ def cmd_smart(max_seconds: int = DENSE_BUDGET_S) -> None:
         odd_h = None
     odd_at = time.time()
 
-    def _pools() -> float | None:
-        mh = None
-        for product in PRODUCTS:
-            try:
-                h = cmd_snapshot(product)
-            except Exception as e:  # noqa: BLE001 — en produkt får inte stoppa resten
-                print(f"{product}: FEL {e}")
-                h = None
-            if h is not None:
-                mh = h if mh is None else min(mh, h)
-        return mh
-
-    pool_h = _pools()
-    pool_at = time.time()
-
     while True:
         # klockan tickar mellan varven — räkna ner utan nya anrop
         odd_left = None if odd_h is None else odd_h - (time.time() - odd_at) / 3600
-        pool_left = None if pool_h is None else pool_h - (time.time() - pool_at) / 3600
         odd_hot = odd_left is not None and odd_left <= oddset.FAST_WITHIN_H
-        pool_hot = pool_left is not None and 0 <= pool_left <= DENSE_WITHIN_H
-        if not odd_hot and not pool_hot:
+        if not odd_hot:
             break
-        sleep_s = oddset.FAST_SLEEP_S if odd_hot else DENSE_SLEEP_S
+        sleep_s = oddset.FAST_SLEEP_S
         if time.time() - start + sleep_s > max_seconds:
             break
-        why = " + ".join((["avspark om %.1f h" % odd_left] if odd_hot else [])
-                         + (["spelstopp om %.1f h" % pool_left] if pool_hot else []))
+        why = "avspark om %.1f h" % odd_left
         print(f"-- {why} -> nytt varv om {sleep_s // 60} min --")
         time.sleep(sleep_s)
-        if odd_hot:
-            try:
-                odd_h = cmd_oddset(deep=False)
-            except Exception as e:  # noqa: BLE001
-                print(f"oddset: FEL {e}")
-            odd_at = time.time()
-        if pool_hot:
-            pool_h = _pools()
-            pool_at = time.time()
+        try:
+            odd_h = cmd_oddset(deep=False)
+        except Exception as e:  # noqa: BLE001
+            print(f"oddset: FEL {e}")
+        odd_at = time.time()
 
 
 def main() -> None:
@@ -668,6 +741,10 @@ def main() -> None:
     elif cmd == "snapshot-smart":
         secs = next((int(a) for a in rest if a.isdigit()), None)
         cmd_snapshot_smart(secs if secs is not None else 1500)
+    elif cmd == "pool-tick":
+        cmd_pool_tick()
+    elif cmd == "live-tick":
+        cmd_live_tick()
     elif cmd == "history":
         cmd_history(rest)
     elif cmd in ("rad", "system"):

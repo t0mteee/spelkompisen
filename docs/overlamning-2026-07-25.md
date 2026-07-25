@@ -1,10 +1,84 @@
 # Överlämning — 2026-07-25 (Claude Fable 5 → nästa session)
 
 Läs `CLAUDE.md` och STATUS-blocket i `docs/plan.md` först. Detta dokument
-beskriver natten 24→25 juli: en bred granskning, fem verifierade buggfixar,
-ett nytt sharp-ankare och två utredningar som båda landade i "gör inte".
+beskriver natten 24→25 juli: en bred granskning, fem verifierade buggfixar
+och ett nytt sharp-ankare. Codex-uppföljningen omsätter därefter Samans två
+förtydliganden — fler oberoende källor och live chansradar — i konkreta
+leveranser och arbetspaket.
 
-Allt är committat (13 commits, rent träd, 187 tester gröna).
+Claudes pass är committat (13 commits). Codex-uppföljningen nedan är nu
+verifierad och ingår i repositoryt.
+
+---
+
+## Codex-uppföljning 2 — Samans saknade actions
+
+### A. Fler oberoende bookmakerkällor
+
+- **Altenar är levererat via Ninja Casino.** UI:t visar nu `N` och separat
+  källhälsa. Fler Altenar-skins ska inte räknas som nya källor.
+- **Smarkets är levererat som andra sharp-ankare.** UI:t visar nu `S`
+  tillsammans med Pinnacle och separat källhälsa. Tvåankarkravet ska först
+  shadow-loggas i minst 200 stängda observationer/28 dagar.
+- **Betssons header är löst med Browser.** Exakt fält är `brandId`, med
+  sportsbookens UUID från sidans publika bootstrap. `app/betsson.py` hämtar
+  dessutom färska context-ID:n och bygger den publika utloggade
+  webbklientskontexten; context-details verifierades med HTTP 200.
+  Matchtabellen ligger däremot fortsatt bakom CloudFront-sessionen och får
+  inte lösas genom cookie-/WAF-replay. Betsson är därför testad och
+  header-klar men ännu inte inkopplad i `BOOKS`.
+- **Coolbet är konkret blockerad av Imperva**, inte bortglömd. Anti-bot ska
+  inte kringgås. Matchbook blir det omedelbart byggbara reservspåret för en
+  tredje oberoende referens och likviditet nära avspark.
+
+### B. Live matcher där chanserna överstiger utdelningen
+
+**Levererat i shadow mode.** `app/live_radar.py` läser liveevent och
+kumulativa Sofascore-mått, sparar femminutersobservationer i
+`oddset_live_capture`, exponerar `/api/oddset/live-radar` och visas i en
+mobilanpassad Live-radar i Oddset. Den använder xG när det finns och en
+tydligt varnad chansproxy annars. Den påverkar inga tips, Kelly-tal, facit,
+pushar eller systemförslag.
+
+Migrationen är genomförd med backup och loggad i `docs/db-atgarder.md`.
+Första scope-rättade liveprovet skrev två `sofa-live-v2`-captures.
+Metod, signalgränser, settlementplan och gate före notiser finns i
+`docs/live-radar-2026-07-25.md`.
+
+Det historiska 220-matchersprovet under punkt 4 gäller en enkel
+skottsignal. Det motiverar att radarn är informations-/shadowstöd, men är
+inte längre ett skäl att avstå från att samla den rikare xG- och
+chanshistorik Saman faktiskt beställde.
+
+---
+
+## Codex-uppföljning 1 — Claudes tre öppna punkter
+
+1. **Pinnacle-CDN: löst och liveverifierat.** HTTP `Age` dras nu av från
+   prisets observationstid i Oddset, altlinjer och pool-PIT. Transporthälsa
+   använder fortfarande riktig hämtningstid. Ett cacheobjekt äldre än fem
+   minuter får inte öppna notisgrinden. Live: hämtning 23:15:31, `Age=338`,
+   observation 23:09:53; 63 DB-rader verifierade.
+2. **m20-kadensen: löst utan att röra toleransen.** Poolinsamlingen har ett
+   eget launchd-jobb på fasta femminutersslag, med 30-minuters basthrottle
+   och varje tick inom två timmar från stopp. Oddset startar separat på
+   fasta :00/:30; poolen har två minuters offset för att undvika käll- och
+   DB-kollision.
+   Båda jobben är installerade och laddade.
+3. **Första settlementen: källan väntar fortfarande.** Ett nytt ordinarie
+   Topptips-snapshot gav fortfarande ingen resultpayload för 4226/4227.
+   Ledgern har korrekt lämnat 12 system osettlade; ingen manuell SQL eller
+   fabricerat facit har använts.
+
+Cachefixen ändrar datasemantik. Därför startar `pit-v3`/experiment
+`pool-streckmove-v2` vid `2026-07-24T23:30:00Z` via det nya, frysta
+`docs/pool-ph4-forward-manifest-v2.json`. Det gamla v1-manifestet ändrades
+inte och hade noll forward-scorade omgångar. Full rapport:
+`docs/pool-pit-v3-2026-07-25.md`.
+
+Verifierat för hela den samlade ändringen: 212 gröna
+backendtester, frontendbygge, shellsyntax, båda launchd-plists och
+`git diff --check`.
 
 ---
 
@@ -92,9 +166,10 @@ helt för Allsvenskan** (29–31 skott per match, 0 med xG). Skott med minut och
 typ finns däremot — det är det testet ovan använder, alltså "20 skott"-halvan
 av Samans exempel.
 
-**Rekommendation: bygg inte.** Om frågan ska ställas om, gör det på en liga
-med riktig live-xG och testa totalmål (Över/Under) i stället för lagmål —
-men förvänta lite, och kom ihåg att SvS livemarginal är 11 %.
+**Historisk Claude-slutsats:** bygg inte en enkel skottbaserad spelsignal.
+**Samans senare produktbeslut:** bygg en informationsradar och samla ett
+eget framåtriktat facit med xG/stora chanser där källan erbjuder det. Detta är
+nu levererat i shadow mode; se Codex-uppföljning 2 ovan.
 
 ### Den första livebetting-utredningen (bonus: en produktionsbugg)
 
@@ -103,11 +178,9 @@ objektet ofta redan är minuter gammalt (verifierat: `age` 469 och 539 s).
 **Hämtningstid ≠ pristid** — samma klass av fel som pit-v1:s förändringstid ≠
 observationstid. Klienten bokför nu `last_age_s`.
 
-**KVAR ATT GÖRA (viktigt):** dra av åldern i färskhetsreglerna. Idag
-överskattar `last_seen_at` färskheten med upp till 15 min, notisvakten kan
-citera ett kvartsgammalt pris som "sett detta varv", och PIT-capturens
-observationstider är systematiskt för sena. Dessutom hämtar 4-minutersvarvet
-samma cachade objekt 3–4 gånger i onödan.
+**LÖST I CODEX-UPPFÖLJNINGEN OVAN:** åldern dras nu av i
+färskhetsreglerna och PIT-capturen; notisvakten godtar inte cacheobjekt äldre
+än fem minuter. Prisets semantik är separat versionerad.
 
 Två bonusfynd: `/markets/related/straight` returnerar tyst FRYSTA
 prematch-marknader (lätt fälla), och per-matchup-endpointen är 8 kB mot
@@ -125,9 +198,9 @@ orimliga rörelser eller gap. `timely` flaggade rätt de två frysningar som lå
 **Ett fynd:** m20-horisonten tappas systematiskt. Tätlägets 25-minutersbudget
 mot launchds 30-minutersintervall lämnar ett ~31-minutershål (uppmätt
 16:18 → 16:49); faller cutoffen där blir horisonten tom. Gaten använder h3
-(frisk), så det frysta experimentet påverkas inte. **Rör inte toleransen** —
-den är förregistrerad. Det är kadensen som ska ses över, och det är Samans
-beslut.
+(frisk), så det frysta experimentet påverkas inte. **Toleransen rördes inte.**
+Kadensen är nu löst med ett eget, förskjutet femminutersjobb enligt
+Codex-uppföljningen ovan.
 
 **Settlement-delen återstår:** SvS hade 23:15 inte publicerat facit för
 topptipset 4226/4227 (`drawState=Closed`, ingen `result`). Att ledgern då gör
@@ -139,22 +212,21 @@ och `n_evaluable` när facit finns.
 ## Vad nästa session bör göra
 
 1. **Auditera första settlementen** när SvS publicerat facit (punkt 5 ovan).
-2. **Dra av Pinnacles cache-ålder** i färskhetsreglerna (punkt 4) — det är den
-   tyngsta kvarvarande dataintegritetsfrågan.
-3. **Låt Smarkets-serien växa**, koppla sedan in tvåankarkravet.
-4. Rör inte manifest/toleranser för det frysta forwardexperimentet.
+2. **Följ första `pit-v3`-dygnet**, särskilt faktisk m20-täckning med det nya
+   femminutersjobbet; ändra inte toleranser eller förregistrerad gate.
+3. **Settla Live-radarns snapshots framåt** enligt
+   `docs/live-radar-2026-07-25.md`; inga notiser före gaten.
+4. **Bygg tvåankar-shadowfacitet** för Pinnacle + Smarkets; koppla inte in
+   gaten innan 200 stängda observationer/28 dagar.
+5. **Bygg Matchbook-spåret** enligt `docs/bookmaker-kallplan-2026-07-25.md`.
+   Betssons header är löst, men dess eventtabell kräver fortfarande en
+   vanlig browser-/CloudFront-session.
 
 ## Väntar på Saman (kan inte göras utan honom)
 
-- **Betsson-headern.** `www.betsson.com/api/sb/*` svarar rent
-  `400 E_VALIDATION_INVALIDHEADER` — inget botskydd på API:t, bara ett
-  headernamn som deras frontend skickar. Sidan levererar bara ett skal till
-  HTTP-klienter (AWS WAF) och browserverktyget är policyblockerat för
-  speldomäner. **Saman kan hämta den på 30 sekunder:** öppna betsson.com,
-  DevTools → Network → filtrera `api/sb` → kopiera request-headern. Då blir
-  Betsson-koncernen (tre varumärken, en feed) vår första genuint oberoende
-  prismotor. Klienten är ~70 rader.
-- **Beslut om insamlingskadensen** för m20-hålet.
+- Inget för Betsson. Codex använde Browser och löste headern utan att läsa
+  eller exportera cookies. Det kvarvarande CloudFront-hindret är tekniskt och
+  ska inte kringgås manuellt.
 - **bwin** ger 403 från Cloudflare här; svarar den 200 från Samans nät är
   klienten trivial.
 
@@ -163,5 +235,6 @@ och `n_evaluable` när facit finns.
 Publika JSON-API:er, statiska publika tokens i sidans kod, läsa publik
 JavaScript och artig rate limiting är fritt fram. Att lösa eller förfalska
 anti-bot-utmaningar — Cloudflare-challenges, Impervas `reese84`, CAPTCHA — görs
-inte. bet365, Coolbet och Betano ligger bakom det senare; Betsson och Altenar
-gör det inte.
+inte. bet365, Coolbet och Betano ligger bakom det senare. Betssons publika
+bootstrap/context är åtkomlig, men bulk-eventflödet får ändå inte lösas genom
+CloudFront-sessionreplay. Altenar är rent åtkomlig.

@@ -193,9 +193,10 @@ Full kartläggning i `docs/bookmakers-kartlaggning-2026-07-24.md` (allt live-tes
 - **Altenar är EN prisfeed** med olika marginalpåslag per skin. Betinia hade
   sämst av elva (1,095); bytt till ninjacasino (1,065) — samma event, samma
   linje, 3 pp bättre pris.
-- **Alla genuint mjuka böcker är botskyddade** (bet365, Coolbet, Betano, bwin,
-  Betsson, Winamax, ComeOn, 888 …). Kartläggningen stannade vid skyddet i
-  stället för att kringgå det — den gränsen gäller fortsatt.
+- **De flesta genuint mjuka böcker är botskyddade** (bet365, Coolbet, Betano,
+  bwin, Winamax, ComeOn, 888 …). Betssons API är det viktiga undantaget:
+  det svarar med JSON men kräver en okänd frontend-header. Kartläggningen
+  stannade vid skyddet i stället för att kringgå det — den gränsen gäller.
 
 **Det som faktiskt är värt att bygga: ett ANDRA SHARP-ANKARE, inte fler böcker.**
 Smarkets (overround 2,15 %, öppet REST, 10/10 ligor, 810 event — verifierat) och
@@ -209,9 +210,12 @@ och stor:
 2. Kräv att en edge överlever mot BÅDE Pinnacle och Smarkets innan den flaggas.
 3. Fallback när Pinnacle Cloudflare-blockar (händer periodvis).
 
-Nästa steg: `app/smarkets.py` (~90 rader) som fair-ankare vid sidan av Pinnacle,
-INTE som bok i `BOOKS`. Matchbook i snabbpollen därefter (den öppnar sent och
-tillför mest i lineup-/steamfönstret).
+Smarkets-steget är nu levererat. Matchbook i snabbpollen är nästa byggbara
+ankare (den öppnar sent och tillför mest i lineup-/steamfönstret). Betssons
+frontend-header är löst, men eventtabellen kräver fortfarande en vanlig
+CloudFront-browsersession och är därför inte ett stabilt launchd-spår. Exakt
+ordning och acceptanskriterier:
+`docs/bookmaker-kallplan-2026-07-25.md`.
 
 ### Plattformskarta (verifierad mot Spelinspektionens licensregister 2026-07-24)
 
@@ -224,7 +228,7 @@ och Altenar är rent åtkomliga**. Därav:
 |---|---|---|
 | **Kambi** | Svenska Spel, ATG, Unibet SE, Paf (+Speedybet, 1x2.se), LeoVegas, Expekt | ✅ öppet, men EN prisfeed — alla ger identiska odds |
 | **Altenar** | Betinia, Ninja Casino | ✅ öppet, EN feed; skins skiljer bara i marginal |
-| Betsson in-house | Betsson, Betsafe, NordicBet | `/api/sb/*` kräver okänd header (identiska svar från alla tre = delad feed) |
+| Betsson in-house | Betsson, Betsafe, NordicBet | `brandId` + publik context löst; eventtabell CloudFront-blockerad utanför browser |
 | ComeOn in-house | ComeOn, Hajper, Snabbare | `lsbl.comeon.com`, ingen publik väg |
 | Spectate (evoke) | Mr Green, 888sport | ingen publik väg |
 | Coolbet (Sega Sammy, EJ Betsson) | Coolbet | Imperva-skyddad |
@@ -261,7 +265,7 @@ NÄSTA STEG (ej gjort): kräv att en edge överlever mot BÅDA ankarna innan den
 flaggas, och använd Smarkets som fallback när Pinnacle Cloudflare-blockar.
 Serien måste växa först — samma ordning som PIT-datat.
 
-### bwin och Betsson — testade 2026-07-24, båda stoppade (av olika skäl)
+### bwin och Betsson — testade 2026-07-24/25, båda stoppade (av olika skäl)
 
 **bwin (Entain CDS).** `www.bwin.com/cds-api/bettingoffer/fixtures` svarar
 **403 från Cloudflare** för den här maskinen — det är en WAF-blockering, inte
@@ -270,18 +274,14 @@ Att ta sig förbi en Cloudflare-challenge är kringgående av botskydd och görs
 inte. Om endpointen svarar 200 från ditt eget nät är klienten trivial att
 skriva — testa med curl därifrån först.
 
-**Betsson/Betsafe/NordicBet.** `www.betsson.com/api/sb/*` svarar rent och
-ärligt: `400 {"code":"E_VALIDATION_INVALIDHEADER"}` med `content-type:
-application/json`. Det är alltså INGET botskydd på själva API:t — det saknas
-bara ett headernamn som deras egen frontend skickar. Provade fem rimliga
-namn (`x-brand`, `x-tenant`, `brand`, `x-sb-brand`, `x-betsson-brand`) — alla
-gav samma fel; jag brute-forcar inte vidare. Headern går att se i deras
-publika JS-bundle, men `betsson.com/sv` levererar bara ett skal utan
-script-referenser till en vanlig HTTP-klient (AWS WAF), och browser-verktyget
-är policyblockerat för speldomäner i den här miljön.
+**Betsson/Betsafe/NordicBet.** Browsergranskningen 2026-07-25 hittade det
+exakta felet: headern heter `brandId`, och värdet är sidans publika
+`sportsbookBrandId`, inte Betssons content-brand-id. Inline-bootstrapen ger
+även färska static/user-context-ID:n, och det publika user-context-anropet
+ger alla återstående `x-sb-*`-fält utan cookie. Detta finns nu testat i
+`app/betsson.py`; `context-details` svarade HTTP 200.
 
-**Enkel väg framåt för Betsson:** öppna www.betsson.com i din egen webbläsare,
-DevTools → Network → filtrera på `api/sb`, och kopiera request-headern (namn
-+ värde) från valfritt anrop. Det är din egen webbläsare på en sida du får
-besöka. Med den uppgiften är klienten ~70 rader och Betsson-koncernen blir
-vår första genuint oberoende prismotor vid sidan av Kambi/Altenar.
+Bulkflödet med matcherna svarar däremot CloudFront 403 utanför den vanliga
+webbläsarsessionen. Browsern visar samma Allsvenskan-data, men cookies eller
+WAF-token ska inte exporteras/replayas och en DOM-skrapa är inte stabil nog
+för launchd. Betsson är därför header-klar men inte en inkopplad källa.

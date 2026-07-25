@@ -392,3 +392,18 @@ DELETE FROM oddset_results
   och Eliteserien 2025-11-30 kongsvinger–aalesunds 4-5 är kvalmatcher utan
   fd-motpart — kan inte verifieras, lämnade orörda (normaltime-fixen skyddar
   framåt).
+## 2026-07-25 — Live-radarns observationslager
+
+- **Skript:** `backend/scripts/migrera_live_radar.py` (additivt och
+  idempotent; SQLite-backup före migration).
+- **Backup:**
+  `backend/data/backups/stryktips-2026-07-25-fore-live-radar.db`.
+- **Vad:** skapade `oddset_live_capture` med 26 kolumner och index för
+  femminuterssnapshots av observerad live-xG/chansstatistik. Tabellen lagrar
+  råa källobservationer, aldrig spelrekommendationer.
+- **Migration:** 0→0 rader, `PRAGMA integrity_check = ok`.
+- **Efterkontroll:** första källprovet skrev 5 utvecklingsrader som
+  `sofa-live-v1`. Scope-rättningen begränsade globala träningsmatcher till
+  matcher som redan finns i Oddset och bumpade aktuell version till
+  `sofa-live-v2`; första v2-provet skrev 2 matchcaptures. V1-raderna är
+  auditerbara men filtreras ur API och utvärdering.

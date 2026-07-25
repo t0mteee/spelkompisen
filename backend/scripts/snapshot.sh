@@ -1,10 +1,8 @@
 #!/bin/bash
-# Wrapper som launchd kör var 30:e min: "cli.py smart" gör ett fullt varv
-# (Oddset-odds + poolspels-snapshots) och fortsätter sedan själv med snabbvarv
-# var 4:e min när någon oddset-match startar inom 3 h (endast Pinnacle +
-# böckernas 1X2, notiser i samma varv — backlog A1) och/eller tätvarv var 5:e
-# min när ett poolspel stänger inom 2 h. Kör max ~25 min, sedan tar nästa
-# launchd-körning vid. Loggar till backend/data/snapshot.log.
+# Wrapper som launchd startar på :00/:30. `cli.py smart` äger Oddset:
+# fullt varv och därefter lätta 4-minutersvarv nära avspark, max ~25 min.
+# Poolspelen har ett separat, kort 5-minutersjobb (`pool_snapshot.sh`) så att
+# tung Oddset-insamling aldrig skapar luckor runt T−20m.
 set -euo pipefail
 
 BACKEND_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -15,4 +13,4 @@ mkdir -p "$BACKEND_DIR/data"
 cd "$BACKEND_DIR"
 TS="$(date '+%Y-%m-%d %H:%M:%S')"
 OUT="$("$PY" cli.py smart 2>&1 | sed 's/^/  /' || echo '  FEL')"
-{ echo "[$TS] smart:"; echo "$OUT"; } >> "$LOG"
+{ echo "[$TS] oddset-smart:"; echo "$OUT"; } >> "$LOG"

@@ -1,8 +1,8 @@
 {
- "experiment_id": "pool-streckmove-v1",
- "manifest_frozen_at": "2026-07-24T08:42:23Z",
- "evaluation_start": "2026-07-25T00:00:00Z",
- "feature_version": "pit-v2",
+ "experiment_id": "pool-streckmove-v2",
+ "manifest_frozen_at": "2026-07-24T23:05:46Z",
+ "evaluation_start": "2026-07-24T23:30:00Z",
+ "feature_version": "pit-v3",
  "horizon": "h3",
  "minimum_prior_draws": 15,
  "runtime_effect": "none",

@@ -5,7 +5,7 @@ Europatipset, Topptipset, Bomben) med en ny **Oddset-del**: enskilda matcher (Al
 norska Eliteserien, träningsmatcher till att börja med) med sharp-odds, oddsrörelser,
 egen modell och värdespels-tips (1X2, asian handicap, över/under, hörnor på sikt).
 
-**Läge (2026-07-23):** Etapp 0–5 KLARA + långt därutöver. Oddset-delen är i full drift:
+**Läge (2026-07-25):** Etapp 0–5 KLARA + långt därutöver. Oddset-delen är i full drift:
 6 ligor (Allsvenskan/Superettan/Eliteserien/OBOS/MLS/träningsmatcher), 4 bokkällor +
 Pinnacle, kvalitetsviktade värdesignaler, steam-radar, xG-viktad Poisson-modell med
 DC-korrektion (amber, settlement-ankrad efter T — kalla den inte DC-MLE), frånvarodata, CLV-facit
@@ -24,10 +24,11 @@ Beställning 1 är LEVERERAD 2026-07-24: de fyra Europaligorna syns i ordinarie
 Oddset-vyn (🔬 forskningsmärkta, `visible_in_ui`) men är fortsatt icke-
 actionable — `VISIBLE_LEAGUE_KEYS` ≠ `ACTIONABLE_LEAGUE_KEYS` i `oddset.py`.
 Poolspår PH1–PH4 finns nu: historiskt settlement, framåtriktad presence-ledger
-och `pit-v2`, kontrafaktiskt systemfacit samt fryst forward-gate. Det samlar
+och CDN-ålderskorrigerad `pit-v3`, kontrafaktiskt systemfacit samt fryst
+forward-gate. Det samlar
 data utan bakfyllning och påverkar ännu inte runtimeförslag. Nästa steg är att
-auditera de första riktiga v2-horisonterna, systemfrysningarna och settlementen;
-se `docs/pool-pit-v2-2026-07-24.md`.
+auditera de första riktiga v3-horisonterna, systemfrysningarna och settlementen;
+se `docs/pool-pit-v3-2026-07-25.md`.
 
 **Relationen till syskonprojekten:**
 - `/Users/saman/svs` (SvS kompisen, portar 8000/5173) — ursprunget, **FRYST ARKIV sedan
@@ -44,6 +45,8 @@ se `docs/pool-pit-v2-2026-07-24.md`.
 backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/svenskaspel.py  SvS pools-API-klient (PRODUCTS, GAME_GROUPS, Draw)
   app/pinnacle.py     Pinnacle Arcadia (gratis guest-API), + derive.py (1X2 ur spread/total)
+  app/betsson.py      Publik Betsson-bootstrap/headerkontext (ej inkopplad källa;
+                      eventtabellen CloudFront-blockerad utanför browser)
   app/analysis.py     fair_prob (power-metod), värde, taggar, speltyp, mover-flagga
   app/builder.py      radbyggare: matematiskt/reducerat/garanti/SvS R-system/EV-topp
   app/bomben.py       Poisson-målmodell för Bomben
@@ -51,13 +54,16 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/oddset_v22.py   isolerad V2.2 feature-/shadowcapture (ej live-tips)
   app/pool_settlement.py PH1: immutable poolfacit (append-once, payload-hash;
                       backfill/migration i scripts/, läs-API /api/pool/history)
-  app/pool_dataset.py PH2: PIT-features per omgång/horisont (pit-v2, enbart
+  app/pool_dataset.py PH2: PIT-features per omgång/horisont (pit-v3, enbart
                       observed_pit — no backfill) + separat presence-ledger
                       och proveniensmärkt pool_draw_snapshot-serie
   app/pool_system_ledger.py PH3: förregistrerade benchmarksystem fryses
                       T−3h/T−20m i varvet, settlas kontrafaktiskt med egen
                       vinnarutspädning; rollover utan vinnare = okänd ROI
                       (/api/pool/systems; champion = dagens byggare)
+  app/live_radar.py  shadow-radar för pågående matcher: observerad xG,
+                      stora chanser/skott/boxtryck; råa femminuterscaptures,
+                      aldrig automatiska spel eller runtime-modellinput
   app/main.py         API-endpoints + PRIZE_PLANS (officiella vinstplaner)
   cli.py              show|spikar|snapshot|history|rad (snapshotvarvet settlar
                       även nyss avgjorda poolomgångar via settle_recent)
@@ -77,23 +83,31 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
 - Starta allt: `./start.sh` (backend :8002, frontend :5175). Stoppa: `./stop.sh`.
 - Tester: `cd backend && .venv/bin/python -B -m unittest discover -s tests -v`.
 - V2.2-status: `cd backend && .venv/bin/python -B cli.py v22audit`.
+- Live-radar manuellt prov: `cd backend && .venv/bin/python -B cli.py live-tick`
+  (shadowdata; påverkar inga tips/notiser).
 - **Backend har INGEN auto-reload** — efter ändring:
   `lsof -ti:8002 -sTCP:LISTEN | xargs kill -9; cd backend && nohup .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8002 &`
 - ALDRIG `pkill -f uvicorn` (dödar svs 8000 och vm 8001 — samma kommando).
   ALDRIG `lsof -ti:<port>` utan `-sTCP:LISTEN` (dödar annars webbläsare med öppna sockets).
 - Frontend nås via Tailscale/LAN (vite.config: `host:true, allowedHosts:true`).
 - Verifiering i browser: preview-servern `frontend-preview` (port 5181) i `.claude/launch.json`.
-- **Insamling: launchd `com.saman.spelkompisen.snapshot` är LADDAT** och kör
-  `backend/scripts/snapshot.sh` → `cli.py smart` var 30:e min: fullt varv (alla källor +
-  Kambi-deep + modelldata + poolspel) och därefter snabbvarv var 4:e min så länge någon
+- **Insamling: två launchd-jobb är LADDade.**
+  `com.saman.spelkompisen.snapshot` kör Oddsets fullvarv på fasta :00/:30
+  (alla källor + Kambi-deep + modelldata) och därefter snabbvarv var 4:e min så länge någon
   match startar inom 3 h (Pinnacle + böckernas 1X2 + SvS-deep för 3h-matcherna;
-  `FAST_WITHIN_H` i oddset.py)
-  och/eller tätvarv var 5:e min när ett poolspel stänger inom 2 h — allt inom ~25 min
-  budget. Notiser går i samma varv, bakom **notisvakten** (presence-set: larm kräver att
+  `FAST_WITHIN_H` i oddset.py), inom ~25 min budget.
+  `com.saman.spelkompisen.pool` kör ett separat kort varv var 5:e min:
+  `pool-tick` gör basinsamling var 30:e min och varje tick när ett poolspel
+  stänger inom 2 h; därefter samlar `live-tick` observerad live-xG/chansdata.
+  Live-radarn är shadow/informationsstöd och får inte påverka tips, Kelly,
+  CLV, pushnotiser eller systemförslag utan ett nytt explicit beslut.
+  Notiser går i Oddset-varvet, bakom **notisvakten** (presence-set: larm kräver att
   priset observerades i det aktuella lyckade varvet).
 - **WP2-prisregel:** `fetched_at` = prisförändring, `last_seen_at` = senaste
   lyckade bekräftelse. Värde/modell/steam/facit kräver `available` och högst
-  45 min gammal bekräftelse. Källfel får aldrig markera ett pris unavailable.
+  45 min gammal bekräftelse. Pinnacles HTTP `Age` dras av före båda
+  tidsstämplarna; cacheobjekt äldre än 5 min öppnar inte notisgrinden.
+  Källfel får aldrig markera ett pris unavailable.
 - Push-notiser: `app/notify.py` via ntfy.sh, kräver `NTFY_TOPIC` i gitignore:ade
   `backend/.env`. Använd ett EGET topic (inte samma som svs — annars dubbla notiser).
   Notifieringsspåret är pausat på Samans begäran 2026-07-16 — återuppta inte utan besked.
@@ -138,8 +152,9 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
   `cache-control: public, max-age=905` och objektet är ofta redan flera minuter
   gammalt (observerat `age` 469–539 s). **Hämtningstid ≠ pristid** — samma
   klass av fel som pit-v1:s förändringstid ≠ observationstid. `Pinnacle`
-  exponerar `last_age_s`; färskhetsregler och PIT-capture ska korrigera för
-  den i stället för att anta att svaret är färskt. Kadenskonsekvens: snabbvarv
+  exponerar `last_age_s`; sedan 2026-07-25 drar både Oddset-färskhet och
+  poolens PIT-capture av den. Liveverifiering: hämtning 23:15:31,
+  `Age=338` ⇒ observation 23:09:53. Kadenskonsekvens: snabbvarv
   oftare än ~15 min ger SAMMA objekt igen. Per-matchup-endpointen
   (`/matchups/{id}/markets/straight`) är däremot liten (8 kB) och är den enda
   som ger LIVE-priser — `/markets/related/straight` returnerar tyst FRYSTA
@@ -169,8 +184,10 @@ docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltig
 - **Pool-PIT presence-regel:** `snapshots`/`sharp_snapshots` är ENBART
   förändringsserier. Endast `pool_market_capture` får bevisa att en källa var
   observerad vid T−24h/T−3h/T−20m; gamla `pit-v1`/PH0-laggar får aldrig
-  omtolkas till presence. Forwardexperimentet är fryst i
-  `docs/pool-ph4-forward-manifest.json` och börjar med `pit-v2`.
+  omtolkas till presence. `pool-streckmove-v1`/`pit-v2` hann aldrig
+  forward-scoras och är historiskt fryst. Aktuellt experiment finns i
+  `docs/pool-ph4-forward-manifest-v2.json` och börjar rent med `pit-v3`;
+  captures före `FEATURE_START_AT` får aldrig bakfyllas in.
 - **Värderader**: score = P(rad)^k × EV(rad) där k = 2·(1−value_weight); reglaget är enda
   risk-axeln (strategin sätter bara startpunkten 20/50/80).
 - **RLM**: folket och devigad sharp åt olika håll (◆ smart pengar / ⚠ fadea).

@@ -468,6 +468,43 @@ CREATE INDEX IF NOT EXISTS idx_pool_system_open
     ON pool_system_ledger (settled_at, product, draw_number);
 """
 
+# Live-radar (2026-07-25): observerade, kumulativa matchstats i shadow mode.
+# Tabellen lagrar källobservationer, inte spelrekommendationer. Signalen kan
+# därmed ändras/versioneras och utvärderas i efterhand utan att rådata skrivs om.
+LIVE_RADAR_SCHEMA = """
+CREATE TABLE IF NOT EXISTS oddset_live_capture (
+    event_id          INTEGER NOT NULL,
+    captured_at       TEXT NOT NULL,
+    capture_version   TEXT NOT NULL,
+    league            TEXT NOT NULL,
+    tournament        TEXT,
+    home              TEXT NOT NULL,
+    away              TEXT NOT NULL,
+    start_at          TEXT,
+    status            TEXT NOT NULL,
+    minute            INTEGER,
+    home_score        INTEGER NOT NULL,
+    away_score        INTEGER NOT NULL,
+    xg_home           REAL,
+    xg_away           REAL,
+    big_chances_home  INTEGER,
+    big_chances_away  INTEGER,
+    shots_home        INTEGER,
+    shots_away        INTEGER,
+    shots_on_home     INTEGER,
+    shots_on_away     INTEGER,
+    shots_inside_home INTEGER,
+    shots_inside_away INTEGER,
+    touches_box_home  INTEGER,
+    touches_box_away  INTEGER,
+    corners_home      INTEGER,
+    corners_away      INTEGER,
+    PRIMARY KEY (event_id, captured_at, capture_version)
+);
+CREATE INDEX IF NOT EXISTS idx_oddset_live_capture_recent
+    ON oddset_live_capture (captured_at DESC, event_id);
+"""
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS draws (
     product       TEXT NOT NULL,
@@ -647,7 +684,7 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
     git_hash     TEXT,
     PRIMARY KEY (match_id, market, sign, line_key, model_version)
 );
-""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + V22_SHADOW_SCHEMA + TEAM_EVENT_SCHEMA + POOL_SETTLEMENT_SCHEMA + POOL_PIT_SCHEMA
+""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + V22_SHADOW_SCHEMA + TEAM_EVENT_SCHEMA + POOL_SETTLEMENT_SCHEMA + POOL_PIT_SCHEMA + LIVE_RADAR_SCHEMA
 
 
 class Storage:
@@ -1307,6 +1344,42 @@ class Storage:
         return [dict(r) | {"ok": bool(r["ok"])} for r in self.conn.execute(
             "SELECT source, league, scope, checked_at, ok, event_count, error "
             "FROM oddset_source_health ORDER BY source, league, scope").fetchall()]
+
+    def oddset_save_live_capture(self, capture: dict) -> int:
+        """Spara en observerad livebild idempotent; inga härledda signaler."""
+        required = ("event_id", "captured_at", "capture_version", "league",
+                    "home", "away", "status", "home_score", "away_score")
+        if any(capture.get(key) is None for key in required):
+            raise ValueError("live-capture saknar obligatoriskt fält")
+        columns = (
+            "event_id", "captured_at", "capture_version", "league",
+            "tournament", "home", "away", "start_at", "status", "minute",
+            "home_score", "away_score", "xg_home", "xg_away",
+            "big_chances_home", "big_chances_away", "shots_home",
+            "shots_away", "shots_on_home", "shots_on_away",
+            "shots_inside_home", "shots_inside_away", "touches_box_home",
+            "touches_box_away", "corners_home", "corners_away",
+        )
+        cur = self.conn.execute(
+            f"INSERT OR IGNORE INTO oddset_live_capture({','.join(columns)}) "
+            f"VALUES({','.join('?' for _ in columns)})",
+            tuple(capture.get(key) for key in columns))
+        self._commit()
+        return cur.rowcount
+
+    def oddset_live_captures(
+            self, since: Optional[str] = None,
+            capture_version: Optional[str] = None) -> list[dict]:
+        query = "SELECT * FROM oddset_live_capture WHERE 1=1"
+        args: list = []
+        if since:
+            query += " AND captured_at>=?"
+            args.append(since)
+        if capture_version:
+            query += " AND capture_version=?"
+            args.append(capture_version)
+        query += " ORDER BY event_id, captured_at"
+        return [dict(row) for row in self.conn.execute(query, args).fetchall()]
 
     def oddset_movement(self, ids: list[str]) -> dict[str, dict]:
         """Rörelse (first/last/min/max/n + punktserie) för alla givna matcher i en

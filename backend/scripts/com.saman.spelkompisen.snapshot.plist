@@ -12,9 +12,18 @@
         <string>/Users/saman/spelkompisen/backend/scripts/snapshot.sh</string>
     </array>
 
-    <!-- Kör var 30:e minut. Dedup i koden gör att inget sparas om inget ändrats. -->
-    <key>StartInterval</key>
-    <integer>1800</integer>
+    <!-- Fast väggklocka: jobbets körtid får inte driva 30 min till ~51 min. -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Minute</key>
+            <integer>30</integer>
+        </dict>
+    </array>
 
     <key>RunAtLoad</key>
     <true/>

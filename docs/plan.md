@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-07-24 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-07-25 — läs detta först i ny session)
 
 
 **GRANSKNINGSFIXAR 2026-07-24 (Fable 5) — läs innan poolspels- eller
@@ -27,13 +27,36 @@ Dessutom: κ per produkt/nivå ur PH4 är inkopplad i radvalet (sänker EV),
 frontend fick backendens streck-golv och räknar mot prognostiserad
 slutomsättning, och amber-modellen (−4,2 % close-EV) ger inte längre stöd
 på värdekorten. Detaljer i commit 15c1d7c/bb9a412.
-**Appen är komplett och i drift** (backend 8002, frontend 5175, launchd var 30 min)
+**Codex-uppföljning 2026-07-25:** Claude hade korrekt hittat att Pinnacles
+HTTP `Age` bokfördes men inte användes. Nu gäller `observationstid =
+hämtningstid − Age` i Oddset, altlinjer och pool-PIT; cacheobjekt äldre än
+5 min öppnar inte notisgrinden. Liveprov: 23:15:31 − 338 s = 23:09:53,
+63 DB-rader verifierade. Datasemantiken bumpades därför till `pit-v3` och
+nytt orört manifest `docs/pool-ph4-forward-manifest-v2.json`;
+`pool-streckmove-v1` hann aldrig forward-scoras. m20-hålet löses utan ändrad
+tolerans genom separat pool-launchd var 5:e min, medan Oddset ligger på fasta
+:00/:30. Full rapport: `docs/pool-pit-v3-2026-07-25.md`. Efter live-radarn
+och käll-UI:t är hela sviten 212 tester grön.
+**Codex-uppföljning 2 — källor + live-radar:** Altenar/Ninja och Smarkets
+visas nu explicit i Odds-tabellen och källhälsan. Betssons `brandId` och
+publika context-bootstrap är lösta och testade i `app/betsson.py`; dess
+eventtabell kräver däremot fortfarande en CloudFront-browsersession, så
+källan är inte inkopplad och skyddet ska inte kringgås. Coolbet är
+Imperva-blockerad. Matchbook är nästa byggbara reservspår.
+Genomförande och accepter finns i
+`docs/bookmaker-kallplan-2026-07-25.md`.
+Live-radarn är levererad i shadow mode: Sofascore live-xG/chansmått sparas
+var femte minut, visas i Oddset och påverkar inga tips/notiser.
+`docs/live-radar-2026-07-25.md` är metod- och settlementplanen.
+**Appen är komplett och i drift** (backend 8002, frontend 5175; separata
+launchd-jobb för Oddset och poolspel)
 — och sedan 2026-07-20 **enda driften**: SvS kompisen (svs, 8000/5173) är pausad som
 fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
 2026-07-02; poolspelsmotorn här är bättre via WP6). Halverar även Pinnacle-trafiken.
 - **6 ligor**: Allsvenskan, Superettan, Eliteserien, OBOS-ligaen, MLS (nytt 2026-07-13),
   Träningsmatcher. Källor per match: SvS (Kambi), Pinnacle (sharp, AH/ÖU/hörnor),
-  Expekt (Kambi expektse — ≈identisk med SvS, visas bara vid diff), Betinia (Altenar).
+  Expekt (Kambi expektse — ≈identisk med SvS, visas bara vid diff),
+  Ninja Casino (Altenar; Betinia var sämre skin i jämförelsen).
 - **Signaler**: grön = sharp-ankrat värde, KVALITETSVIKTAT q=edge/(odds−1) (Kelly-andel;
   högoddsare kräver mer); 🔥 steam (devigade pp, radar-panel); ⇄ linjeflytt; 🚑 frånvaro
   (Sofascore missingPlayers, spelarstatus-viktad); ✓XI bekräftade elvor.
@@ -48,11 +71,14 @@ fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
 - **UI**: spelkort m. Kelly + stödchips, radar, amber-lista, detaljvy (klick på match),
   loggtabell (📒), 🔔 larmhistorik, 🎯 bara-signaler, ℹ-prickar + legend;
   källhälsa och prisets bekräftelseålder visas direkt i Oddset-vyn.
-- **Insamling (A1 ✅ 2026-07-13)**: launchd kör `cli.py smart` var 30:e min —
-  fullt varv (alla källor + deep + modelldata + poolspel), och därefter SNABBVARV
+- **Insamling (A1 ✅ 2026-07-13; kadensdelning 2026-07-25)**: launchd kör
+  Oddsets `cli.py smart` på :00/:30 — fullt varv (alla källor + deep +
+  modelldata), och därefter SNABBVARV
   var 4:e min så länge någon match startar inom 3 h (Pinnacle + böckernas 1X2
   för ligorna i fönstret samt SvS deep-marknader för just 3h-matcherna).
-  Poolspels-tätläget (var 5:e min när omgång stänger inom 2 h) väver i samma pass.
+  Separat pooljobb går var 5:e min; `pool-tick` gör basvarv var 30:e min och
+  varje tick när omgång stänger inom 2 h, varefter `live-tick` samlar
+  shadowdata för pågående matcher.
 - **Granskningsrunda 2026-07-13** (Codex + Claude-verifiering, full rapport i
   `docs/granskning-2026-07-13.md`): 8/10 områden bekräftade med evidens.
   Åtgärdat samma dag: identitetslager light (WP3 — MLS-fitten 1648→1270 rader,
@@ -470,7 +496,8 @@ Verifiera alltid Sofascore-id:ns SPORT (handbolls-läxan).
 
 **E. Infra/övrigt**
 12. NTFY/notifieringar — pausat 2026-07-16; återuppta först när Saman ber om det.
-13. Betsson (egen oddsmotor) — kräver browser-RE av OBG-API:t.
+13. Betsson (egen oddsmotor) — `brandId`/OBG-kontext löst; eventtabellen
+    CloudFront-blockerad utanför browser, ingen cookie-/WAF-replay.
 14. Servermigrering (Pi 5/N100, launchd→systemd) — beslut öppet sedan tidigare.
 15. Altenar-champ för träningsmatcher/MLS hos Betinia (GetSportMenu-sväng).
 

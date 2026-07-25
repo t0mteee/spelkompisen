@@ -703,7 +703,8 @@ function OddsetLegend() {
           <div><b>Raderna i varje oddscell</b> — <b>stort odds</b> = Svenska Spel (det du kan
             spela på) · <b>P</b> = Pinnacle, världens skarpaste bok = vår referens för
             "sant" pris (<b>P~</b> = härlett ur handikapp när 1X2 inte öppnats) ·
-            <b> E</b> = Expekt · <b>B</b> = Betinia · <b>M</b> = vår egen modell (amber, se nedan).</div>
+            <b> S</b> = Smarkets (andra sharp-ankaret) · <b>E</b> = Expekt ·
+            <b> N</b> = Ninja/Altenar · <b>M</b> = vår egen modell (amber, se nedan).</div>
           <div><b>Värde</b> = när en spelbar bok betalar MER än det sharpa priset.
             Vi räknar bort Pinnacles marginal (power-devig) och får en "fair" sannolikhet;
             edge = fair sannolikhet × bokens odds − 1.
@@ -760,6 +761,7 @@ function OddsetView({ focus = null } = {}) {
   const [clv, setClv] = useState(null)
   const [ledger, setLedger] = useState(null)
   const [notices, setNotices] = useState(null)
+  const [liveRadar, setLiveRadar] = useState(null)
   const [showNotices, setShowNotices] = useState(false)
   const [showSources, setShowSources] = useStoredBool('svs_ui_oddset_sources')
   const [showMovers, setShowMovers] = useStoredBool('svs_ui_oddset_movers')
@@ -804,9 +806,19 @@ function OddsetView({ focus = null } = {}) {
       fetch(`/api/oddset/clv?_t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
       fetch(`/api/oddset/notices?_t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
       fetch(`/api/oddset/predictions?_t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
-    ]).then(([d, c, n, l]) => { setData(d); setClv(c); setNotices(n?.notices || []); setLedger(l); setErr(null) })
+      fetch(`/api/oddset/live-radar?_t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
+    ]).then(([d, c, n, l, live]) => {
+      setData(d); setClv(c); setNotices(n?.notices || []); setLedger(l)
+      setLiveRadar(live); setErr(null)
+    })
       .catch((e) => setErr(String(e)))
   useEffect(() => { load() }, [])  // eslint-disable-line
+  useEffect(() => {
+    const poll = () => fetch(`/api/oddset/live-radar?_t=${Date.now()}`, { cache: 'no-store' })
+      .then((r) => r.json()).then(setLiveRadar).catch(() => {})
+    const id = setInterval(poll, 60_000)
+    return () => clearInterval(id)
+  }, [])
 
   // Djuplänkar från v3-dashboarden: landa på rätt sektion och öppna den
   // (v2 skickar ingen focus-prop — effekten är då en no-op). Synkron
@@ -1002,6 +1014,7 @@ function OddsetView({ focus = null } = {}) {
   const cell1x2 = (m, sign) => {
     const svs = m.odds?.svenskaspel?.['1x2']
     const pin = m.odds?.pinnacle?.['1x2']
+    const smarkets = m.odds?.smarkets?.['1x2']
     const mv = m.movement?.svenskaspel?.['1x2']?.[sign]
     const mvP = m.movement?.pinnacle?.['1x2']?.[sign]
     const v = m.value?.['1x2']?.[sign]
@@ -1019,7 +1032,12 @@ function OddsetView({ focus = null } = {}) {
             P{pin.derived ? '~' : ''} {pin[sign].toFixed(2)}{arrow(mvP)}{priceStamp(pin)}
           </div>
         )}
-        {showBooks && [['expekt', 'E', 'Expekt'], ['betinia', 'B', 'Betinia']].map(([bk, tag, label]) => {
+        {smarkets?.[sign] && (
+          <div className={quoteClass('p', smarkets)} title="Smarkets börs-mid · oberoende sharp-ankare">
+            S {smarkets[sign].toFixed(2)}{priceStamp(smarkets)}
+          </div>
+        )}
+        {showBooks && [['expekt', 'E', 'Expekt'], ['ninjacasino', 'N', 'Ninja']].map(([bk, tag, label]) => {
           const bo = m.odds?.[bk]?.['1x2']
           const mvB = m.movement?.[bk]?.['1x2']?.[sign]
           if (bo?.[sign] && bo[sign] === svs?.[sign]) return null  // identiskt med SvS = brus
@@ -1091,7 +1109,8 @@ function OddsetView({ focus = null } = {}) {
   const healthDefs = [
     ['pinnacle', 'markets', 'P'], ['svenskaspel', '1x2', 'SvS'],
     ['svenskaspel', 'deep', 'SvS djup'], ['expekt', '1x2', 'E'],
-    ['betinia', '1x2', 'B'],
+    ['ninjacasino', '1x2', 'Ninja'], ['smarkets', '1x2', 'Smarkets'],
+    ['sofascore', 'live', 'Live'],
   ]
   const sourceHealth = healthDefs.flatMap(([source, scope, label]) => {
     const rows = (data.source_health || []).filter((r) => r.source === source && r.scope === scope)
@@ -1227,7 +1246,7 @@ function OddsetView({ focus = null } = {}) {
             Datakällor {sourceHealth.filter((h) => h.ok).length}/{sourceHealth.length}
           </button>
           <button className={showBooks ? 'lg on' : 'lg'} onClick={() => setShowBooks(!showBooks)}
-            aria-pressed={showBooks} title="Visa eller dölj Expekt och Betinia i matchtabellen. Värdesignaler från dem visas alltid i spelkorten.">
+            aria-pressed={showBooks} title="Visa eller dölj Expekt och Ninja/Altenar i matchtabellen. Smarkets visas alltid som sharp-ankare.">
             {showBooks ? '− Färre odds' : '+ Fler odds'}
           </button>
           <span className="hint odds-fetched">
@@ -1260,6 +1279,56 @@ function OddsetView({ focus = null } = {}) {
                 {n.sent ? 'pushad' : 'ej pushad'}</span>
             </div>
           ))}
+        </div>
+      )}
+      {liveRadar && (
+        <div className={`live-radar ${liveRadar.signal_count ? 'active' : ''}`} id="oddset-live-radar">
+          <div className="live-radar-head">
+            <div>
+              <b>⚡ Live-radar</b>
+              <span className="live-shadow">shadow · inga automatiska spel</span>
+            </div>
+            <span className="hint">
+              {liveRadar.matches.length
+                ? `${liveRadar.matches.length} live · ${liveRadar.signal_count} att granska`
+                : 'inga matcher i våra ligor live'}
+              {liveRadar.last_run ? ` · kollad ${timeAgo(liveRadar.last_run)}` : ''}
+            </span>
+          </div>
+          {liveRadar.matches.length > 0 && (
+            <div className="live-radar-grid">
+              {liveRadar.matches.slice(0, 8).map((m) => {
+                const sig = m.signal || {}
+                const hasXg = m.xg_home != null && m.xg_away != null
+                return (
+                  <div key={m.event_id} className={`live-radar-card ${sig.level || 'info'}`}>
+                    <div className="live-radar-score">
+                      <span className="live-minute">{m.minute != null ? `${m.minute}′` : 'LIVE'}</span>
+                      <b>{m.home_score}–{m.away_score}</b>
+                      <span className="rchip">{leagueName[m.league] || m.tournament || m.league}</span>
+                    </div>
+                    <div className="live-radar-teams"><b>{m.home}</b><span>–</span><b>{m.away}</b></div>
+                    <div className="live-radar-stats">
+                      {hasXg
+                        ? <span>xG <b>{Number(m.xg_home).toFixed(2)}–{Number(m.xg_away).toFixed(2)}</b></span>
+                        : <span>xG saknas · proxy</span>}
+                      <span>stora chanser {m.big_chances_home ?? '–'}–{m.big_chances_away ?? '–'}</span>
+                      <span>skott på mål {m.shots_on_home ?? '–'}–{m.shots_on_away ?? '–'}</span>
+                    </div>
+                    <div className="live-radar-reason">{sig.reason}</div>
+                    {sig.warning && <div className="live-radar-warning">{sig.warning}</div>}
+                    <span className={`live-radar-level ${sig.level || 'info'}`}>
+                      {sig.level === 'strong' ? 'STARKT CHANSGAP' : sig.level === 'watch' ? 'GRANSKA LIVE' : 'FÖLJER'}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <div className="live-radar-foot">
+            Chansgap mäter skapade chanser mot faktiska mål medan tid återstår.
+            Det påverkar inte värdesignaler, Kelly, facit eller pushnotiser.
+          </div>
         </div>
       )}
       {signals.length > 0 && (

@@ -615,6 +615,17 @@ def oddset_v2_shadow():
         store.close()
 
 
+@app.get("/api/oddset/live-radar")
+def oddset_live_radar():
+    """Observerad chansradar för pågående matcher; shadow, aldrig speltips."""
+    from . import live_radar
+    store = Storage()
+    try:
+        return live_radar.payload(store)
+    finally:
+        store.close()
+
+
 @app.get("/api/oddset/notices")
 def oddset_notices():
     """Notis-historik: alla triggade värde-/steam-larm (skickade OCH torrkörda

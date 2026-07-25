@@ -27,11 +27,12 @@ from typing import Optional
 from .analysis import _normalize_odds
 from .storage import Storage
 
-FEATURE_VERSION = "pit-v2"
+FEATURE_VERSION = "pit-v3"
 COHORT = "observed_pit"
+FEATURE_START_AT = "2026-07-24T23:30:00Z"
 HORIZONS = {"h24": 1440, "h3": 180, "m20": 20}
 TIMING_TOLERANCE_MIN = {"h24": 45, "h3": 45, "m20": 10}
-TIMING_POLICY = "presence-v1:h24=45,h3=45,m20=10"
+TIMING_POLICY = "presence-v2:h24=45,h3=45,m20=10;pinnacle=http-age"
 SIGNS = ("1", "X", "2")
 _COL = {"1": "1", "X": "x", "2": "2"}   # kolumnsuffix
 
@@ -151,8 +152,9 @@ def _captures(store: Storage, product: str, draw_number: int, source: str,
     for event, fetched_at, status, odds_ok, streck_ok in store.conn.execute(
             "SELECT event_number, fetched_at, status, odds_complete, "
             "streck_complete FROM pool_market_capture WHERE product=? AND "
-            "draw_number=? AND source=? AND fetched_at<=? ORDER BY fetched_at",
-            (product, draw_number, source, cutoff)):
+            "draw_number=? AND source=? AND fetched_at>=? AND fetched_at<=? "
+            "ORDER BY fetched_at",
+            (product, draw_number, source, FEATURE_START_AT, cutoff)):
         out.setdefault(int(event), []).append(
             (fetched_at, status, bool(odds_ok), bool(streck_ok)))
     return out
@@ -242,8 +244,9 @@ def build_draw(store: Storage, product: str, draw_number: int,
         svs_captures = _captures(store, product, draw_number, "svs", asof)
         sharp_captures = _captures(store, product, draw_number, "sharp", asof)
         if not svs_captures and not sharp_captures:
-            # pit-v2 bakfyller aldrig gamla förändringspunkter till påstådda
-            # observationer. Utan capture före cutoff finns ingen horisont.
+            # pit-v3 bakfyller aldrig gamla förändringspunkter/captures till
+            # påstådda CDN-ålderskorrigerade observationer. Utan ny capture
+            # före cutoff finns ingen horisont.
             report["skipped"] += 1
             continue
         events = sorted(set(svs_captures) | set(sharp_captures))

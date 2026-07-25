@@ -15,7 +15,7 @@ MIN_TRAIN omgångar innan första utvärderingen — ALDRIG slumpad split).
 Mått: logloss per match; Δ mot (b) med 90 % blockbootstrap per omgång.
 Horisont h3 (bäst täckt). Endast omgångar med komplett facit.
 
-FÖRREGISTRERAD GATE läses ur docs/pool-ph4-forward-manifest.json. Utvecklings-
+FÖRREGISTRERAD GATE läses ur docs/pool-ph4-forward-manifest-v2.json. Utvecklings-
 omgångar får användas som expanderande träningshistorik men får ALDRIG räknas
 i forward-volym, effekt eller KI. Kandidat-, feature- och timingversion är
 frysta i manifestet.
@@ -40,7 +40,7 @@ from app import pool_dataset  # noqa: E402 — _series för PIT-ren streckrörel
 from app.storage import Storage  # noqa: E402
 
 DB = ROOT / "data" / "stryktips.db"
-MANIFEST_PATH = ROOT.parent / "docs" / "pool-ph4-forward-manifest.json"
+MANIFEST_PATH = ROOT.parent / "docs" / "pool-ph4-forward-manifest-v2.json"
 OUT = ROOT.parent / "docs" / "ph4-forward-status.json"
 PRODUCTS = ("topptipset", "europatipset", "topptipsetextra",
             "stryktipset", "topptipsetstryk")
@@ -53,6 +53,15 @@ def load_manifest() -> dict:
         raise RuntimeError(
             f"manifest feature_version={manifest['feature_version']} men "
             f"runtime={pool_dataset.FEATURE_VERSION}")
+    if manifest["feature_start_at"] != pool_dataset.FEATURE_START_AT:
+        raise RuntimeError(
+            f"manifest feature_start_at={manifest['feature_start_at']} men "
+            f"runtime={pool_dataset.FEATURE_START_AT}")
+    if manifest["eligibility"]["timing_policy"] != pool_dataset.TIMING_POLICY:
+        raise RuntimeError(
+            "manifestets timing_policy matchar inte runtime: "
+            f"{manifest['eligibility']['timing_policy']} != "
+            f"{pool_dataset.TIMING_POLICY}")
     return manifest
 
 
@@ -311,7 +320,7 @@ def main() -> None:
                     rng=random.Random(seed + 10_000 + pi * 100 + vi))
             report["products"][product] = product_report
             candidate = product_report["forward"][manifest["primary_candidate"]]
-            print(f"{product}: {len(data)} pit-v2, "
+            print(f"{product}: {len(data)} {manifest['feature_version']}, "
                   f"{candidate['n_eval_draws']} forward-evaluerade för "
                   f"{manifest['primary_candidate']}")
     finally:

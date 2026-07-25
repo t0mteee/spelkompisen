@@ -11,6 +11,7 @@ Inofficiellt API — kan ändras utan förvarning.
 """
 from __future__ import annotations
 
+import datetime as dt
 import time
 from typing import Optional
 
@@ -26,6 +27,23 @@ SOCCER = 29
 HEADERS = {"X-API-Key": GUEST_KEY, "User-Agent": "Mozilla/5.0", "Accept": "application/json"}
 
 
+def cache_adjusted_iso(retrieved_at: str, age_s) -> str:
+    """Returnera CDN-objektets ungefärliga observationstid i UTC.
+
+    Arcadias bulkendpoints exponerar HTTP `Age`. Utan korrigering får ett
+    kvartsgammalt objekt felaktigt en ny observationsstämpel vid varje poll.
+    """
+    parsed = dt.datetime.fromisoformat(str(retrieved_at).replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt.timezone.utc)
+    try:
+        seconds = max(0.0, float(age_s or 0))
+    except (TypeError, ValueError):
+        seconds = 0.0
+    observed = parsed.astimezone(dt.timezone.utc) - dt.timedelta(seconds=seconds)
+    return observed.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def american_to_decimal(a: Optional[float]) -> Optional[float]:
     if a is None:
         return None
@@ -36,6 +54,10 @@ class Pinnacle:
     def __init__(self, timeout: float = 30.0):
         self._client = httpx.Client(timeout=timeout, headers=HEADERS)
         # Ålder (sekunder) på CDN-objektet i senaste lyckade svar — se _get.
+        self.last_age_s = 0
+
+    def reset_cache_age(self) -> None:
+        """Nollställ före ett logiskt anropsblock."""
         self.last_age_s = 0
 
     def close(self) -> None:
@@ -69,9 +91,10 @@ class Pinnacle:
                 # kadensen: snabbvarv oftare än ~15 min ger Pinnacle SAMMA
                 # objekt igen (se FAST_SLEEP_S i oddset.py).
                 try:
-                    self.last_age_s = int(r.headers.get("age") or 0)
+                    age_s = max(0, int(r.headers.get("age") or 0))
                 except (TypeError, ValueError):
-                    self.last_age_s = 0
+                    age_s = 0
+                self.last_age_s = age_s
                 return r.json()
             except (httpx.ConnectError, httpx.ReadTimeout, httpx.ConnectTimeout) as e:
                 last = e
@@ -84,6 +107,7 @@ class Pinnacle:
         Använder Pinnacles moneyline (1X2) i första hand; saknas den men spread+
         total finns härleds 1X2 (odds_source='derived'). include_without_odds=True
         tar även med matcher helt utan odds — för coverage-status."""
+        self.reset_cache_age()
         matchups = self._get(f"/sports/{SOCCER}/matchups")
         markets = self._get(f"/sports/{SOCCER}/markets/straight")
         ml: dict = {}

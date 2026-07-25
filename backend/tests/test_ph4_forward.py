@@ -4,6 +4,16 @@ from scripts import ph4_ablationer as ph4
 
 
 class ForwardGateTests(unittest.TestCase):
+    def test_current_manifest_matches_runtime_feature_version(self):
+        manifest = ph4.load_manifest()
+        self.assertEqual("pit-v3", manifest["feature_version"])
+        self.assertEqual("pool-streckmove-v2", manifest["experiment_id"])
+        self.assertEqual(
+            ph4.pool_dataset.FEATURE_START_AT, manifest["feature_start_at"])
+        self.assertEqual(
+            ph4.pool_dataset.TIMING_POLICY,
+            manifest["eligibility"]["timing_policy"])
+
     def test_development_draws_never_count_toward_forward_volume(self):
         data = [
             ("2026-07-20T12:00:00Z", []),

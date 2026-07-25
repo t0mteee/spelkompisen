@@ -7,7 +7,9 @@ from pathlib import Path
 from app import pool_dataset, pool_system_ledger
 from app.storage import Storage
 
-NOW = dt.datetime(2026, 7, 24, 12, 0, tzinfo=dt.timezone.utc)
+# Efter pit-v3-aktiveringen; testdata före FEATURE_START_AT ska aldrig kunna
+# bakfyllas in i den nya CDN-ålderskorrigerade versionen.
+NOW = dt.datetime(2026, 7, 26, 12, 0, tzinfo=dt.timezone.utc)
 
 
 def _iso(t: dt.datetime) -> str:
@@ -156,7 +158,7 @@ class PoolDatasetTests(unittest.TestCase):
         self.assertIsNotNone(row[4])
         self.assertIsNotNone(row[5])
 
-    def test_forandringspunkt_utan_capture_far_inte_bli_pit_v2(self):
+    def test_forandringspunkt_utan_capture_far_inte_bli_pit_v3(self):
         at = self.close - dt.timedelta(hours=3, minutes=5)
         for sign, o in zip(("1", "X", "2"), (2.0, 3.5, 3.8)):
             self._snap("snapshots", 1, sign, o, at, 33)

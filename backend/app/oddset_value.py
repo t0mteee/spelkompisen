@@ -63,7 +63,7 @@ def signal_versions(store: Storage) -> dict[str, str]:
 EDGE_SHOW = 0.02       # visas i UI (grön markering)
 EDGE_LOG = 0.02        # loggas i CLV-facitet (brett — facitet ska mäta även svansen)
 PRICE_MAX_AGE_MIN = 45 # pris måste ha bekräftats i ett lyckat svar inom detta fönster
-PRICE_PRESENCE_VERSION = "last-seen-available-v1"
+PRICE_PRESENCE_VERSION = "last-seen-available-cdn-age-v2"
 Q_NOTIFY = 0.015       # push-notis på KVALITET q = edge/(odds−1) (Kelly-andelen):
                        # samma edge är mycket mer pålitlig på låga odds — ett litet
                        # fel i fair-sannolikheten blåser upp högoddsar-edges enormt.
