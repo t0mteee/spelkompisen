@@ -22,7 +22,28 @@ medan fixturtesterna var gröna. Se 📦 TRANSPORTREGELN i CLAUDE.md. Betsson
 omverifierad: context-details 200, events-table **403** — fortsatt parkerad.
 Sviten är 226 tester grön.
 
-**PH5 RADVALSABLATION — v1 UNDERKÄND AV SITT EGET SANITY-KRAV (2026-07-25, Opus 5).**
+**PH5 v2 KLAR — RADVALET SLÅR BASLINJERNA PÅ TOPPTIPSET, FALLER PÅ 13-MATCHS
+(2026-07-25, Opus 5).** 3 976 omgångar. Sanity-kravet (slump ska ligga klart sämst)
+**passerar på de tre 8-matchsprodukterna och faller på de två 13-matchs**:
+* **Topptipset +7,7 pp mot favoritraden [+5,2..+10,2] och +8,5 pp mot folkrad
+  [+6,1..+10,9]** (n=2 496) · **Extra +15,5/+14,7 pp** (n=523) · **Stryk +10,4/+9,5 pp**
+  (n=229). Alla sex undre KI-gränser > 0, och vår metod har flest toppnivåträffar
+  i alla tre (386 mot 273/263 i Topptipset). Regel 1 uppfylld: **radvalet gör
+  verklig skillnad här.**
+* **Stryktipset och Europatipset får INTE tolkas** (regel 3): vi förlorar mot slumpen
+  (−8,2 pp [−15,4..−1,7]) och har **0 toppnivåträffar på 223 omgångar**. Orsaken är
+  sannolikt täthet — 13 matcher = 1,6 M utfall, och 100 rader är 0,006 % av rymden
+  mot ~1,5 % på Topptipsets 8 matcher. **Nästa körning: samma ablation vid 256 och
+  512 rader.** Återvänder kravet med tätheten är slutsatsen budgetberoende och hör
+  in i UI:t som varning; gör den inte det är värderad-metoden fel verktyg för
+  13-matchsprodukter och det ska stå i byggaren.
+Talen är PARADE DIFFERENSER mellan armar, inte förväntad ROI: alla armar ser
+slutstrecket (ej PIT), medianen är +0,0 pp och vi "vinner" bara 10–17 % av
+omgångarna — snitten drivs av minoriteten omgångar där något faller ut.
+Per-omgångs-ROI ligger i `docs/ph5-radvalsablation-v2-2026-07-25.json` så
+omkörningar aldrig behöver räkna om Topptipset-delen.
+
+**PH5 v1 UNDERKÄNDES AV SITT EGET SANITY-KRAV (2026-07-25, Opus 5).**
 Nytt spår som svarar på frågan PH3-ledgern inte kan besvara i tid (6 settlade system
 i dag): slår vårt radval baslinjerna, mätt på 4 000 kompletta omgångar med faktiska
 vinnarantal och utdelningar? `scripts/ph5_radvalsablation.py` anropar den RIKTIGA

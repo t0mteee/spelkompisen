@@ -95,7 +95,65 @@ bootstrap-block, 90 % KI.
 3. **Sanity-krav:** `slump` MÅSTE ligga klart sämst. Gör den inte det mäter
    uppsättningen ingenting och resultatet får inte tolkas.
 
-## Preliminärt (n = 40, Topptipset — får INTE tolkas som facit)
+## RESULTAT v2 (3 976 omgångar, körd 2026-07-25)
+
+Rådata inkl. per-omgångs-ROI: `docs/ph5-radvalsablation-v2-2026-07-25.json`.
+
+**Sanity-kravet delar materialet i två.** Det passerar på de tre 8-matchsprodukterna
+och faller på de två 13-matchsprodukterna:
+
+| produkt | n | vs slump | krav |
+|---|--:|---|---|
+| topptipset | 2 496 | **+17,6 pp** [+15,2..+20,4] | passerar |
+| topptipsetextra | 523 | **+26,5 pp** [+21,2..+32,0] | passerar |
+| topptipsetstryk | 229 | **+24,4 pp** [+16,1..+33,3] | passerar |
+| stryktipset | 223 | −8,2 pp [−15,4..−1,7] | **faller** |
+| europatipset | 505 | −3,0 pp [−7,6..+1,5] | **faller** |
+
+### Där kravet passerar: metoden slår båda baslinjerna (regel 1 uppfylld)
+
+| produkt | vs favoritrad | vs folkrad | toppnivåträffar (vår / fav / folk / slump) |
+|---|---|---|---|
+| topptipset | **+7,7 pp** [+5,2..+10,2] | **+8,5 pp** [+6,1..+10,9] | **386** / 273 / 263 / 138 |
+| topptipsetstryk | **+10,4 pp** [+2,7..+18,5] | **+9,5 pp** [+1,4..+18,0] | **40** / 28 / 29 / 11 |
+| topptipsetextra | **+15,5 pp** [+9,7..+20,7] | **+14,7 pp** [+8,9..+20,0] | **103** / 58 / 60 / 23 |
+
+Alla sex undre KI-gränser > 0 över 3 248 omgångar, och vår metod har dessutom
+klart flest toppnivåträffar i alla tre. **Radvalet gör verklig skillnad på
+Topptipset-familjen.**
+
+### Där kravet faller: ingen slutsats får dras — men felet är informativt
+
+Regel 3 gäller: Stryktipset och Europatipset **får inte tolkas**. Men mönstret är
+inte brus, och det pekar på en konkret orsak:
+
+* Stryktipset: **0 toppnivåträffar på 223 omgångar** för vår metod (baslinjerna 1
+  var). Vi förlorar till och med mot slumpen, med KI utan noll.
+* De två produkterna har 13 matcher = 1,6 miljoner utfall. Vid budget 100 kr
+  spelar vi 100 rader = **0,006 %** av rymden. På Topptipsets 8 matcher är 100
+  rader ~1,5 % av 6 561 utfall — tre tiopotenser tätare.
+* Hypotes: värderadernas utspridning mot lägre streckade tecken kräver en
+  minimitäthet för att kunna landa på en vinstnivå alls. Under den tröskeln blir
+  metoden en dyrare lott än att helt enkelt spela favoriter.
+
+**Nästa körning (förregistreras separat):** samma ablation för Stryktipset och
+Europatipset vid 256 och 512 rader. Om sanity-kravet återvänder med tätheten är
+slutsatsen budgetberoende och hör in i UI:t som en varning under en viss budget;
+om det inte gör det är värderad-metoden fel verktyg för 13-matchsprodukter och
+det ska sägas rakt ut i byggaren.
+
+Per-omgångs-ROI ligger sparad i JSON, så den omkörningen behöver inte räkna om
+Topptipset-delen.
+
+### Vad siffrorna INTE är
+
+Procentenheterna är **parade differenser mellan armar**, inte ROI du kan förvänta
+dig. Alla armar ser slutstrecket, som inte var känt när raden hade byggts på
+riktigt. Medianen är +0,0 pp i alla jämförelser och vi "vinner" bara 10–17 % av
+omgångarna — i de flesta omgångar ger alla armar noll. Snitten drivs alltså av
+minoriteten omgångar där något faller ut, precis som poolspel fungerar.
+
+## Preliminärt (n = 40, Topptipset — det första provet, får INTE tolkas som facit)
 
 | arm | ROI | 90 % KI | toppnivåträffar |
 |---|--:|---|--:|
