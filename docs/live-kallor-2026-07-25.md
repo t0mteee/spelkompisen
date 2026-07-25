@@ -147,11 +147,38 @@ Filtret gäller VISNINGEN, inte insamlingen: captures fortsätter sparas, så
 täckningsmätningar och framtida facit påverkas inte. Antalet dolda och vilka
 ligor de kom ur redovisas i radarhuvudet (inga tysta filter).
 
-Bieffekt värd att känna till: **taket frigörs inte** av att matcher döljs. De
-14 platserna delas fortfarande av alla ligor, så ~10 av dem går till matcher
-som aldrig visas. Att låta insamlaren nedprioritera matcher som passerat ~25
-minuter utan skottdata skulle frigöra platserna — men det ändrar
-insamlingsbeteendet och är därför ett eget beslut.
+### 5. Varför finns taket alls? (Samans följdfråga)
+
+Det gamla taket 14 var satt efter en **gissning** om tidsbudgeten. Uppmätt
+kostar ett statistik-anrop **0,06 s**, så 90-sekundersbudgeten räcker till över
+tusen matcher — tiden var aldrig den bindande gränsen, och taket klippte i
+onödan.
+
+Men den verkliga kostnaden är inte tid utan **anrop mot en delad källa**: varje
+matchplats kostar 12 anrop/timme mot Sofascore, samma källa som matar den
+SPELBARA xG-pipelinen och frånvarodatan. Att fyrdubbla lasten för en
+shadow-funktion är precis den risk radarn en gång fick egen klient för att
+undvika.
+
+Lösningen blev därför **sortering, inte ett högre tak**. Matcher vi redan vet
+saknar chansmått läggs sist (`_known_empty_events`, tre nivåer: har haft data /
+okänd / bevisat tom efter minut 25). Fördelningen över 73 livematcher på fyra
+timmar:
+
+| nivå | matcher |
+|---|--:|
+| tier 0 — har haft chansdata | **8** |
+| tier 1 — okänd (ny eller tidig) | 4 |
+| tier 2 — bevisat tom | **61** |
+
+Med den sorteringen räcker 30 platser för **alla** matcher som har data, och de
+som klipps är exakt de som ändå hade dolts i vyn. Ett tak på 60 hade gett
+identisk SYNLIG lista till dubbla antalet anrop. En tidig match straffas aldrig:
+tomt före minut 25 är okänt, inte tomt.
+
+De bevisat tomma pollas fortfarande när det finns plats kvar, så vi märker om
+statistik dyker upp sent — ett hårt skip hade gjort oss permanent blinda för
+matchen. Testet som håller taket ≤ 30 är kvar med avsikt.
 
 ## Vad krävs för Betsson, Flashscore och Opta?
 

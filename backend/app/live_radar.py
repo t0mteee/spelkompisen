@@ -27,8 +27,31 @@ MAX_DISPLAY_AGE_MIN = 12
 # Sofascore ratelimitar. Radarn har nu egen kortare timeout, eget matchtak och
 # egen tidsbudget så att den varken kan hänga varvet eller äta källkvoten.
 LIVE_TIMEOUT_S = 8.0        # kortare än modellens 20 s — shadow får inte hänga
-MAX_MATCHES = 14            # tak per varv; överskjutande rapporteras
-BUDGET_S = 90.0             # total väggklocka för ett radarvarv
+
+# TAKET (omdimensionerat 2026-07-25). Det gamla taket 14 var satt efter en
+# GISSNING om tidsbudgeten. Uppmätt kostar ett statistik-anrop **0,06 s**, så
+# 90-sekundersbudgeten räcker till över tusen matcher — tiden var alltså aldrig
+# den bindande gränsen, och taket klippte i onödan (43 behöriga
+# träningsmatcher en lördag).
+#
+# Det som ÄR en verklig kostnad är antalet anrop mot en DELAD källa: radarn
+# pollar var 5:e minut, så varje matchplats kostar 12 anrop/timme mot Sofascore
+# — samma källa som matar den SPELBARA xG-pipelinen och frånvarodatan. Att
+# fyrdubbla lasten för en shadow-funktion är precis den risk radarn en gång
+# fick egen klient för att undvika.
+#
+# Lösningen är sortering, inte ett högre tak. Matcher vi REDAN VET saknar
+# chansmått läggs sist (`_known_empty_events`), så taket klipper dem i stället
+# för Allsvenskan. Uppmätt läge: av ~47 behöriga matcher har ~8 chansdata.
+# Med sorteringen räcker 30 platser för ALLA som har data — och de som klipps
+# är just de som ändå hade dolts i vyn. Ett tak på 60 hade gett samma SYNLIGA
+# lista till dubbla antalet anrop.
+# De tomma pollas fortfarande när det finns plats kvar, så vi märker om
+# statistik dyker upp sent; ett hårt skip hade gjort oss permanent blinda.
+MAX_MATCHES = 30
+BUDGET_S = 90.0             # backstopp, inte den styrande gränsen
+EMPTY_AFTER_MIN = 25        # först efter denna minut räknas "saknar chansmått"
+                            # som ett besked; tidigare är tomt helt normalt
 
 
 def _live_get(path: str):
@@ -115,6 +138,36 @@ def _all_stats(payload: dict) -> dict[str, tuple[float | int, float | int]]:
             home, away = item.get("homeValue"), item.get("awayValue")
             if home is not None and away is not None:
                 out[key] = (home, away)
+    return out
+
+
+def _known_empty_events(store: Storage,
+                        now: dt.datetime) -> dict[int, int]:
+    """{event_id: 0 har haft chansmått · 2 bevisat tom} ur vår EGEN historik.
+
+    Används bara för att sortera taket rättvist. Matcher som inte finns i
+    svaret är okända (tier 1) och behandlas som möjliga — en tidig match utan
+    statistik får aldrig straffas för att den är tidig, därför kravet på
+    minut > EMPTY_AFTER_MIN i den tomma kategorin.
+    """
+    since = (now - dt.timedelta(hours=4)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    out: dict[int, int] = {}
+    for event_id, had, late_empty in store.conn.execute(
+            "SELECT event_id, "
+            "  MAX(CASE WHEN shots_on_home IS NOT NULL "
+            "        OR big_chances_home IS NOT NULL "
+            "        OR shots_inside_home IS NOT NULL "
+            "        OR xg_home IS NOT NULL THEN 1 ELSE 0 END), "
+            "  MAX(CASE WHEN minute > ? AND shots_on_home IS NULL "
+            "        AND big_chances_home IS NULL "
+            "        AND shots_inside_home IS NULL "
+            "        AND xg_home IS NULL THEN 1 ELSE 0 END) "
+            "FROM oddset_live_capture WHERE captured_at >= ? GROUP BY event_id",
+            (EMPTY_AFTER_MIN, since)):
+        if had:
+            out[int(event_id)] = 0
+        elif late_empty:
+            out[int(event_id)] = 2
     return out
 
 
@@ -301,10 +354,15 @@ def collect(store: Storage, *, now: Optional[dt.datetime] = None) -> dict:
     # URVALET är dock inte längre "de 14 Sofascore råkade lista först" (uppmätt
     # 2026-07-25: 43 behöriga träningsmatcher kunde tränga ut Allsvenskan).
     # Riktiga ligor först, därefter mest återstående speltid.
+    known_empty = _known_empty_events(store, now)
+
     def _rank(event: dict) -> tuple:
         unique = ((event.get("tournament") or {}).get("uniqueTournament") or {})
         league = TARGET_UT.get(unique.get("id"), "friendlies")
-        return (LEAGUE_PRIORITY.get(league, 9), _minute(event, now) or 0)
+        # 0 = har haft chansmått, 1 = ännu okänt (ny match — får inte straffas
+        # för att den är tidig), 2 = bevisat tom efter EMPTY_AFTER_MIN.
+        tier = known_empty.get(int(event["id"]), 1)
+        return (tier, LEAGUE_PRIORITY.get(league, 9), _minute(event, now) or 0)
 
     scoped.sort(key=_rank)
     dropped_by_league: dict[str, int] = {}
