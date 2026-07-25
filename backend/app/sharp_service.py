@@ -15,6 +15,27 @@ from .pinnacle import Pinnacle, cache_adjusted_iso
 from .storage import Storage
 from .svenskaspel import SvenskaSpel, Draw
 
+# DUBBELTRAFIKSPÄRR (2026-07-25). Sedan poolen fick ett eget 5-minutersjobb
+# anropar TVÅ launchd-jobb Pinnacles globala bulk-endpoints under samma
+# 25-minutersfönster, med samma gäst-nyckel från samma IP — förhöjd
+# Cloudflare-403-risk. Objektet är dessutom CDN-cachat i 905 s, så de flesta
+# extraanropen ger exakt samma data. Hoppa över hämtningen när någon väg redan
+# hämtat inom detta fönster; DB:ns cachade priser används då som vanligt.
+PINNACLE_MIN_INTERVAL_S = 600
+_PINNACLE_LAST_FETCH_KEY = "pinnacle_last_bulk_fetch"
+
+
+def _pinnacle_fetched_recently(store: Storage) -> bool:
+    last = store.meta_get(_PINNACLE_LAST_FETCH_KEY)
+    if not last:
+        return False
+    try:
+        when = dt.datetime.fromisoformat(last.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    age = (dt.datetime.now(dt.timezone.utc) - when).total_seconds()
+    return 0 <= age < PINNACLE_MIN_INTERVAL_S
+
 
 def collect_pinnacle(product: str = "stryktipset",
                      draw: Optional[Draw] = None,
@@ -32,6 +53,16 @@ def collect_pinnacle(product: str = "stryktipset",
     status: dict[int, str] = {}
     cache_age_s = 0
 
+    _throttle_store = Storage()
+    try:
+        if _pinnacle_fetched_recently(_throttle_store):
+            return {"draw": draw, "hits": {}, "status": {},
+                    "fetched_at": retrieved_at, "cache_age_s": 0,
+                    "skipped": "pinnacle hämtad av annat varv inom "
+                               f"{PINNACLE_MIN_INTERVAL_S // 60} min"}
+    finally:
+        _throttle_store.close()
+
     # Pinnacle Cloudflare-blockar periodvis vår (datacenter-/VPN-)IP → degradera
     # snyggt: krascha inte insamlingen, spåra hälsan i meta så UI:t kan visa det.
     # (Headers/TLS hjälper EJ — blocket är IP-baserat. the-odds-api är redan
@@ -42,6 +73,11 @@ def collect_pinnacle(product: str = "stryktipset",
             # soccer_index hämtar marknader sist: last_age_s är alltså
             # prisendpointens HTTP Age, inte den separata matchup-listans.
             cache_age_s = int(getattr(pin, "last_age_s", 0) or 0)
+            _ts = Storage()
+            try:   # bokför hämtningen så andra varv kan hoppa över den
+                _ts.meta_set(_PINNACLE_LAST_FETCH_KEY, retrieved_at)
+            finally:
+                _ts.close()
             for m in draw.matches:
                 hit = pin.match(m.home, m.away, m.home_iso, m.away_iso,
                                 index, m.match_start)

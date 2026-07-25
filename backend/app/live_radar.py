@@ -8,17 +8,36 @@ spel/notiser skapas.
 from __future__ import annotations
 
 import datetime as dt
+import time
 from typing import Optional
 
 from .oddset import norm_team
-from .oddset_data import SOFA_UT, _sofa_get
+from .oddset_data import SOFA_UT
 from .storage import Storage
 
 CAPTURE_VERSION = "sofa-live-v2"
-RADAR_VERSION = "chance-gap-shadow-v1"
+RADAR_VERSION = "chance-gap-shadow-v2"
 RECENT_MINUTES = 15
 RECENT_TOLERANCE_MIN = 6
 MAX_DISPLAY_AGE_MIN = 12
+
+# EGEN HTTP-VÄG (2026-07-25). Radarn använde `oddset_data._sofa_get` — samma
+# klient som matar xG/hörnor till den SPELBARA modellen. En shadow-funktion som
+# pollar var femte minut kunde alltså strypa den spelbara pipelinen om
+# Sofascore ratelimitar. Radarn har nu egen kortare timeout, eget matchtak och
+# egen tidsbudget så att den varken kan hänga varvet eller äta källkvoten.
+LIVE_TIMEOUT_S = 8.0        # kortare än modellens 20 s — shadow får inte hänga
+MAX_MATCHES = 14            # tak per varv; överskjutande rapporteras
+BUDGET_S = 90.0             # total väggklocka för ett radarvarv
+
+
+def _live_get(path: str):
+    """Sofascore-anrop för radarn — medvetet skild från modellens klient."""
+    from curl_cffi import requests as cffi
+    r = cffi.get(f"https://api.sofascore.com/api/v1{path}",
+                 impersonate="chrome", timeout=LIVE_TIMEOUT_S)
+    r.raise_for_status()
+    return r.json()
 
 # Träningsmatcher ingår i Oddset men saknar en enda stabil ligaidentitet.
 TARGET_UT = {tournament_id: league for league, tournament_id in SOFA_UT.items()}
@@ -219,8 +238,11 @@ def radar_signal(current: dict, previous: Optional[dict] = None) -> dict:
     return {
         "level": "watch" if active else "info",
         "kind": "proxy", "team": team, "side": side,
+        # EGET fältnamn: xG-varianten rapporterar `chance_gap` i MÅL. Proxyn
+        # är ett enhetslöst index och får därför `proxy_index` — samma namn
+        # för olika enheter inbjöd till felläsning.
         "score": round(gaps[index], 3),
-        "chance_gap": round(gaps[index], 2),
+        "proxy_index": round(gaps[index], 2),
         "remaining_min": remaining,
         "reason": (
             f"{team}: xG saknas · {big} stora chanser, "
@@ -232,8 +254,14 @@ def radar_signal(current: dict, previous: Optional[dict] = None) -> dict:
 def collect(store: Storage, *, now: Optional[dt.datetime] = None) -> dict:
     """Samla ett snapshot för alla pågående matcher i projektets ligor."""
     now = now or dt.datetime.now(dt.timezone.utc)
+    started = time.monotonic()
+    # `captured_at` för varvet används bara till hälsorad och meta. VARJE
+    # capture får sin EGEN observationstid längre ner — annars stämplas sista
+    # matchen med loopens starttid. Samma fel som pit-v1 (förändringstid ≠
+    # observationstid) och Pinnacles CDN-Age (hämtningstid ≠ pristid); det ska
+    # inte återuppstå i varje ny insamlare.
     captured_at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-    events = _sofa_get("/sport/football/events/live").get("events") or []
+    events = _live_get("/sport/football/events/live").get("events") or []
     known = store.oddset_matches(
         (now - dt.timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ"),
         (now + dt.timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ"))
@@ -249,27 +277,46 @@ def collect(store: Storage, *, now: Optional[dt.datetime] = None) -> dict:
                 continue
             scoped.append(event)
 
+    # Tak per varv: en lördagseftermiddag kan ge fler livematcher än vi hinner
+    # med inom tickens fem minuter. Hellre ett ärligt redovisat urval än ett
+    # varv som drar över och blockerar nästa poolinsamling.
+    skipped = max(0, len(scoped) - MAX_MATCHES)
+    scoped = scoped[:MAX_MATCHES]
+
     saved, stats_ok, errors = 0, 0, []
+    budget_hit = False
     for event in scoped:
+        if time.monotonic() - started > BUDGET_S:
+            budget_hit = True
+            skipped += 1
+            continue
         stats = None
         try:
-            stats = _sofa_get(f"/event/{event['id']}/statistics")
+            stats = _live_get(f"/event/{event['id']}/statistics")
             stats_ok += 1
         except Exception as exc:  # noqa: BLE001 — coverage varierar per liga
             errors.append(f"{event['id']}: {type(exc).__name__}")
+        # Observationstid per event, satt EFTER anropet.
+        event_at = dt.datetime.now(dt.timezone.utc)
         capture = parse_capture(
-            event, stats, captured_at=captured_at, now=now)
+            event, stats,
+            captured_at=event_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            now=event_at)
         saved += store.oddset_save_live_capture(capture)
 
     partial = "; ".join(errors[:5]) if errors else None
     health_ok = not scoped or stats_ok > 0
     if scoped and stats_ok == 0:
         partial = partial or "ingen live-match hade läsbar statistik"
+    if skipped:
+        note = (f"{skipped} matcher hoppade"
+                + (" (tidsbudget)" if budget_hit else " (matchtak)"))
+        partial = f"{partial}; {note}" if partial else note
     store.oddset_record_source_health(
         "sofascore", "-", "live", captured_at, health_ok, len(scoped), partial)
     store.meta_set("live_radar_last_run", captured_at)
     return {"at": captured_at, "live": len(scoped), "stats_ok": stats_ok,
-            "saved": saved, "partial_errors": errors}
+            "saved": saved, "skipped": skipped, "partial_errors": errors}
 
 
 def payload(store: Storage, *,
@@ -311,9 +358,14 @@ def payload(store: Storage, *,
         signal = radar_signal(current, previous)
         matches.append({**current, "signal": signal,
                         "is_signal": signal["level"] in {"watch", "strong"}})
+    # SORTERING (2026-07-25): xG-signalen mäts i MÅL, proxyn är ett enhetslöst
+    # viktat index — att ranka dem mot varandra på samma `score` jämför äpplen
+    # med päron. Grupperna hålls därför isär: xG-matcher först, proxy under,
+    # och sortering på score sker bara INOM en grupp.
     matches.sort(key=lambda row: (
         not row["is_signal"],
         0 if row["signal"]["level"] == "strong" else 1,
+        0 if row["signal"].get("kind") == "xg" else 1,
         -float(row["signal"].get("score") or 0),
     ))
     return {

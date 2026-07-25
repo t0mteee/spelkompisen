@@ -151,7 +151,7 @@ class LiveRadarTests(unittest.TestCase):
                         return {"events": [event()]}
                     raise RuntimeError("stats unavailable")
 
-                with patch.object(live_radar, "_sofa_get", side_effect=sofa):
+                with patch.object(live_radar, "_live_get", side_effect=sofa):
                     report = live_radar.collect(store, now=NOW)
 
                 self.assertEqual(1, report["live"])
@@ -167,3 +167,28 @@ class LiveRadarTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LiveRadarIsolationTests(unittest.TestCase):
+    """Härdningen 2026-07-25: radarn får aldrig skada den spelbara vägen."""
+
+    def test_radar_har_egen_httpklient_skild_fran_modellen(self):
+        # Delade tidigare _sofa_get med oddset_data (xG till modellen) — en
+        # shadow-poll var 5:e minut kunde då strypa den spelbara pipelinen.
+        from app import oddset_data
+        self.assertTrue(hasattr(live_radar, "_live_get"))
+        self.assertFalse(hasattr(live_radar, "_sofa_get"))
+        self.assertLess(live_radar.LIVE_TIMEOUT_S, 20.0)
+        self.assertIsNot(
+            live_radar._live_get, getattr(oddset_data, "_sofa_get", None))
+
+    def test_tak_och_budget_ar_satta(self):
+        self.assertGreater(live_radar.MAX_MATCHES, 0)
+        self.assertLessEqual(live_radar.MAX_MATCHES, 30)
+        self.assertLess(live_radar.BUDGET_S, 300)   # måste rymmas i en 5-min-tick
+
+    def test_proxy_och_xg_har_skilda_faltnamn(self):
+        import inspect
+        src = inspect.getsource(live_radar.radar_signal)
+        self.assertIn('"proxy_index"', src)   # enhetslöst index
+        self.assertIn('"chance_gap"', src)    # xG i mål

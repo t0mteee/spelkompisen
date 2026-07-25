@@ -1,6 +1,10 @@
 import datetime as dt
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
+
+from app.storage import Storage
 
 import cli
 from cli import pool_tick_due
@@ -43,3 +47,38 @@ class PoolSchedulerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PinnacleDoubleTrafficTests(unittest.TestCase):
+    """Två launchd-jobb får inte dubbelhämta Pinnacles bulk-endpoints."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+
+    def test_nyligen_hamtad_ger_skip(self):
+        from app import sharp_service
+        import datetime as dt
+        self.assertFalse(sharp_service._pinnacle_fetched_recently(self.store))
+        now = dt.datetime.now(dt.timezone.utc)
+        self.store.meta_set(
+            sharp_service._PINNACLE_LAST_FETCH_KEY,
+            now.strftime("%Y-%m-%dT%H:%M:%SZ"))
+        self.assertTrue(sharp_service._pinnacle_fetched_recently(self.store))
+        # äldre än fönstret ⇒ hämta igen
+        gammal = now - dt.timedelta(
+            seconds=sharp_service.PINNACLE_MIN_INTERVAL_S + 60)
+        self.store.meta_set(
+            sharp_service._PINNACLE_LAST_FETCH_KEY,
+            gammal.strftime("%Y-%m-%dT%H:%M:%SZ"))
+        self.assertFalse(sharp_service._pinnacle_fetched_recently(self.store))
+
+    def test_intervallet_ligger_under_cdn_cachens_livslangd(self):
+        from app import sharp_service
+        # 905 s CDN-cache: spärren ska inte vara längre än så, annars missar
+        # vi ett objektbyte.
+        self.assertLess(sharp_service.PINNACLE_MIN_INTERVAL_S, 905)

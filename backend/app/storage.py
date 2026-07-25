@@ -1110,14 +1110,20 @@ class Storage:
                 seen.add(key)
                 old = prev.get(key)
                 if old and old["odds"] == odds:
+                    # Monotonispärr, samma skäl som i oddset_odds: CDN-Age gör
+                    # observationstiden bakåtdaterad och den får inte backa.
                     self.conn.execute(
-                        "UPDATE oddset_sharp_alt SET last_seen_at=?, available=1 "
+                        "UPDATE oddset_sharp_alt "
+                        "SET last_seen_at=MAX(last_seen_at, ?), available=1 "
                         "WHERE id=?", (at, old["id"]))
                     continue
+                observed = at
+                if old and old.get("last_seen_at") and observed < old["last_seen_at"]:
+                    observed = old["last_seen_at"]
                 self.conn.execute(
                     "INSERT INTO oddset_sharp_alt(match_id, market, line, sign, "
                     "odds, fetched_at, last_seen_at) VALUES(?,?,?,?,?,?,?)",
-                    (match_id, market, p["line"], sign, odds, at, at))
+                    (match_id, market, p["line"], sign, odds, observed, observed))
                 n += 1
         for key, old in prev.items():
             if key not in seen and old["available"]:
@@ -1228,9 +1234,25 @@ class Storage:
             cur = (val.get("odds"), val.get("line"))
             old = prev.get(sign)
             if old and (old["odds"], old["line"]) == cur:
+                # MONOTONISPÄRR (2026-07-25): observationstiden är sedan
+                # CDN-fixen bakåtdaterad med HTTP Age, och olika CDN-noder kan
+                # svara med olika ålder. Utan MAX() kunde ett senare svar med
+                # större Age flytta färskhetsklockan BAKÅT — då blir raden
+                # osynlig för "senaste"-sorteringen, nästa varv jämför mot fel
+                # föregående rad och skriver samma pris igen som en falsk
+                # rörelsepunkt. Klockan får bara gå framåt.
                 self.conn.execute(
-                    "UPDATE oddset_odds SET last_seen_at=?, available=1 WHERE id=?",
+                    "UPDATE oddset_odds SET last_seen_at=MAX(last_seen_at, ?), "
+                    "available=1 WHERE id=?",
                     (fetched_at, old["id"]))
+                continue
+            # FÖRÅLDRAT CACHEOBJEKT: har vi redan bekräftat en observation
+            # SENARE än det här svarets ursprungstid bär svaret ingen ny
+            # information om nuvarande pris — det är ett gammalt pris vi ser
+            # sent. Att skriva det bakåtdaterat skapar en rad före en tidigare
+            # observation; att skriva det med nutid vore en lögn om färskhet.
+            # Hoppa över det helt.
+            if old and old.get("last_seen_at") and fetched_at < old["last_seen_at"]:
                 continue
             self.conn.execute(
                 "INSERT INTO oddset_odds(match_id, source, market, sign, line, odds, "

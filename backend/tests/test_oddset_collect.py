@@ -91,15 +91,14 @@ class CollectionPresenceTests(unittest.TestCase):
         market = self.store.oddset_latest(["m1"])["m1"]["pinnacle"]["1x2"]
         self.assertFalse(market["available"])
 
-    def test_cached_pinnacle_price_uses_origin_time_and_is_not_current_presence(
-            self) -> None:
+    def _collect_cached(self, odds: dict, age_s: int = 900):
         row = {
             "id": "p1", "home": "Home", "away": "Away", "start": self.start,
-            "status": "open", "odds": {"1": 2.0, "X": 3.5, "2": 3.8},
+            "status": "open", "odds": odds,
             "odds_source": "pinnacle", "ah": None, "ou": None, "cor": None,
             "alt": {},
         }
-        pin = _Pin(age_s=900)
+        pin = _Pin(age_s=age_s)
         with mock.patch.object(oddset, "Pinnacle", return_value=pin), \
                 mock.patch.object(
                     oddset, "pinnacle_league_index", return_value=[row]), \
@@ -111,19 +110,79 @@ class CollectionPresenceTests(unittest.TestCase):
                     return_value={"logged": 0, "pushed": 0, "gated": 0}) as notify:
             report = oddset.collect(
                 self.store, leagues=[self.league], deep=False)
-
         observed = dt.datetime.fromisoformat(
             self.store.oddset_latest(
                 ["m1"])["m1"]["pinnacle"]["1x2"]["last_seen_at"]
             .replace("Z", "+00:00"))
+        return report, observed, notify
+
+    def test_cached_pinnacle_price_uses_origin_time_and_is_not_current_presence(
+            self) -> None:
+        # FÖRSTA observationen av en match ur ett 900 s gammalt CDN-objekt:
+        # observationstiden ska bakåtdateras till objektets ursprung, och
+        # priset får INTE räknas som "sett i detta varv" av notisgrinden.
+        # (setUp:s m1 har redan en färsk bekräftelse — därför en ny match.)
+        self.store.oddset_upsert_match({
+            "id": "m2", "league": "test", "home": "Ny", "away": "Match",
+            "start": self.start, "pinnacle_id": "p2",
+        })
+        report, notify = self._collect_cached_new_match()
+        observed = dt.datetime.fromisoformat(
+            self.store.oddset_latest(
+                ["m2"])["m2"]["pinnacle"]["1x2"]["last_seen_at"]
+            .replace("Z", "+00:00"))
         retrieved = dt.datetime.fromisoformat(
             report["at"].replace("Z", "+00:00"))
         self.assertAlmostEqual(
-            900, (retrieved - observed).total_seconds(), delta=1)
+            900, (retrieved - observed).total_seconds(), delta=2)
         self.assertEqual(
             900, report["leagues"]["test"]["pinnacle_cache_age_s"])
         present = notify.call_args.kwargs["present"]
-        self.assertNotIn(("m1", "pinnacle", "1x2"), present)
+        self.assertNotIn(("m2", "pinnacle", "1x2"), present)
+
+    def _collect_cached_new_match(self, age_s: int = 900):
+        row = {
+            "id": "p2", "home": "Ny", "away": "Match", "start": self.start,
+            "status": "open", "odds": {"1": 2.5, "X": 3.4, "2": 3.1},
+            "odds_source": "pinnacle", "ah": None, "ou": None, "cor": None,
+            "alt": {},
+        }
+        pin = _Pin(age_s=age_s)
+        with mock.patch.object(oddset, "Pinnacle", return_value=pin), \
+                mock.patch.object(
+                    oddset, "pinnacle_league_index", return_value=[row]), \
+                mock.patch.object(
+                    oddset.kambi, "league_events", return_value=[]), \
+                mock.patch.object(oddset, "BOOKS", []), \
+                mock.patch.object(
+                    oddset.oddset_value, "log_and_notify",
+                    return_value={"logged": 0, "pushed": 0, "gated": 0}) as notify:
+            report = oddset.collect(
+                self.store, leagues=[self.league], deep=False)
+        return report, notify
+
+    def test_stale_cache_object_is_skipped_not_written(self) -> None:
+        # Ett CDN-objekt vars ursprung är ÄLDRE än vår senaste bekräftelse bär
+        # ingen ny information om nuvarande pris. Det får varken skrivas
+        # bakåtdaterat (rad före tidigare observation) eller med nutid (lögn
+        # om färskhet) — det ska hoppas över.
+        before = self.store.oddset_latest(["m1"])["m1"]["pinnacle"]["1x2"]
+        self._collect_cached({"1": 2.5, "X": 3.4, "2": 3.1})
+        after = self.store.oddset_latest(["m1"])["m1"]["pinnacle"]["1x2"]
+        self.assertEqual(before["1"], after["1"])          # priset orört
+        self.assertEqual(before["last_seen_at"], after["last_seen_at"])
+
+    def test_cache_age_never_moves_a_confirmed_observation_backwards(self) -> None:
+        # MONOTONISPÄRR (2026-07-25): setUp har redan bekräftat samma pris NU.
+        # Ett cacheobjekt från 900 s tillbaka bär inte ny information och får
+        # därför inte flytta färskhetsklockan bakåt — annars blir raden osynlig
+        # för "senaste"-sorteringen och nästa varv skriver en falsk
+        # rörelsepunkt för ett oförändrat pris.
+        before = self.store.oddset_latest(
+            ["m1"])["m1"]["pinnacle"]["1x2"]["last_seen_at"]
+        _, observed, _ = self._collect_cached({"1": 2.0, "X": 3.5, "2": 3.8})
+        self.assertEqual(
+            before, observed.strftime("%Y-%m-%dT%H:%M:%SZ"))
 
     def test_fast_poll_fetches_deep_markets_inside_three_hours(self) -> None:
         event = {"id": "k1", "home": "Home", "away": "Away", "start": self.start,

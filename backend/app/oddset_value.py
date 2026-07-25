@@ -63,6 +63,15 @@ def signal_versions(store: Storage) -> dict[str, str]:
 EDGE_SHOW = 0.02       # visas i UI (grön markering)
 EDGE_LOG = 0.02        # loggas i CLV-facitet (brett — facitet ska mäta även svansen)
 PRICE_MAX_AGE_MIN = 45 # pris måste ha bekräftats i ett lyckat svar inom detta fönster
+
+# SHARP-ANKARE — INTE böcker att hitta värde hos (2026-07-25). Dessa källor
+# samlas i oddset_odds men får ALDRIG räknas som "bok" i värdemotorn. Smarkets
+# är en börs (overround ~1,00): att jämföra dess mid mot devigad Pinnacle mäter
+# ankaroenighet och bid-ask-spread, inte felprissättning. Utan denna spärr blev
+# 184 av 476 sharp-flaggor felaktigt Smarkets-rader (126 i tunna
+# träningsmatcher, snitt-edge 13,2 %) och började förorena CLV-facitet.
+# BOOKS i oddset.py styr insamlingen; denna spärr styr VÄRDERINGEN — båda behövs.
+ANCHOR_SOURCES = frozenset({"smarkets"})
 PRICE_PRESENCE_VERSION = "last-seen-available-cdn-age-v2"
 Q_NOTIFY = 0.015       # push-notis på KVALITET q = edge/(odds−1) (Kelly-andelen):
                        # samma edge är mycket mer pålitlig på låga odds — ett litet
@@ -158,7 +167,10 @@ def attach_value(matches: list[dict]) -> None:
             continue
         odds = m.get("odds") or {}
         pin = odds.get("pinnacle") or {}
-        books = {src: v for src, v in odds.items() if src != "pinnacle"}
+        # Böcker vi letar värde HOS = allt utom Pinnacle OCH ankarkällorna
+        # (Smarkets m.fl. är sharp-referenser, inte spelbara mjuka böcker).
+        books = {src: v for src, v in odds.items()
+                 if src != "pinnacle" and src not in ANCHOR_SOURCES}
         alt = m.get("sharp_alt") or {}
         for market, signs in _MARKET_SIGNS.items():
             p = pin.get(market)

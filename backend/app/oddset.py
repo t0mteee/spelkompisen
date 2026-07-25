@@ -404,8 +404,13 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 )
                 # Båda insamlingsvägarna hämtar marknader sist; det är
                 # prisendpointens Age som ska korrigera prisets observation.
+                # ÖVERKORRIGERINGSFIX (2026-07-25): Age måste dras från det
+                # EGNA anropets tid, inte från varvets start `at`. Ligaloopen
+                # kan pågå i upp till 25 min, så sena ligor bakåtdaterades
+                # tidigare med Age PLUS hela den förflutna insamlingstiden.
+                pin_fetch_at = _now_iso()
                 pin_cache_age_s = int(getattr(pin, "last_age_s", 0) or 0)
-                pin_observed_at = cache_adjusted_iso(at, pin_cache_age_s)
+                pin_observed_at = cache_adjusted_iso(pin_fetch_at, pin_cache_age_s)
             except Exception as e:  # noqa: BLE001 — Arcadia Cloudflare-blockar ibland
                 pin_rows = []
                 pin_ok, pin_error = False, str(e)
@@ -465,6 +470,10 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                                 c["id"], "pinnacle", market)
 
             kambi_ok, kambi_error = True, None
+            # Pristid = det EGNA anropets tid, inte varvets start. Ligaloopen
+            # kan pågå i 25 min; `at` som pristid daterar sena ligors priser
+            # upp till en halvtimme fel i rörelseserierna.
+            kambi_at = _now_iso()
             try:
                 kambi_rows = kambi.league_events(lg["kambi"], strict=True)
             except Exception as e:  # noqa: BLE001
@@ -505,7 +514,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 if (e.get("start") or "9") <= at:
                     continue   # live — spara inte
                 kambi_seen.add(str(e["id"]))
-                rows_saved += store.oddset_save_odds(mid, "svenskaspel", e["odds"], at)
+                rows_saved += store.oddset_save_odds(mid, "svenskaspel", e["odds"], kambi_at)
                 if all(e["odds"].get(s) for s in ("1", "X", "2")):
                     present.add((mid, "svenskaspel", "1x2"))
                 market_until = deep_until if deep else fast_until
@@ -551,6 +560,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 if not book.get("kambi_op") and not (book.get("altenar") and lg.get("altenar")):
                     continue
                 book_ok, book_error = True, None
+                book_at = _now_iso()   # pristid = anropets tid, inte varvets start
                 try:
                     if book.get("kambi_op"):
                         b_rows = kambi.league_events(
@@ -573,7 +583,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     ex = ex or _resolve(cands, e["home"], e["away"], e["start"])
                     if not ex or (e.get("start") or "9") <= at:
                         continue   # skapa inga matcher från sidoböcker; hoppa live
-                    rows_saved += store.oddset_save_odds(ex["id"], book["key"], e["odds"], at)
+                    rows_saved += store.oddset_save_odds(ex["id"], book["key"], e["odds"], book_at)
                     book_seen.add(ex["id"])
                     if all(e["odds"].get(s) for s in ("1", "X", "2")):
                         present.add((ex["id"], book["key"], "1x2"))
@@ -597,6 +607,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
             n_anchor = 0
             if smarkets_events is not None and lg["key"] in smarkets.LEAGUE_SLUGS:
                 anchor_ok, anchor_error = True, None
+                anchor_at = _now_iso()   # pristid = anropets tid
                 try:
                     a_rows = smarkets_client.league_events(
                         lg["key"], strict=True, events=smarkets_events)
@@ -613,7 +624,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     if not ex or (e.get("start") or "9") <= at:
                         continue   # börsen får aldrig skapa matchidentiteter
                     rows_saved += store.oddset_save_odds(
-                        ex["id"], "smarkets", e["odds"], at)
+                        ex["id"], "smarkets", e["odds"], anchor_at)
                     anchor_seen.add(ex["id"])
                     n_anchor += 1
                 if anchor_ok:
