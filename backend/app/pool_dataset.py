@@ -27,13 +27,42 @@ from typing import Optional
 from .analysis import _normalize_odds
 from .storage import Storage
 
-FEATURE_VERSION = "pit-v3"
+# pit-v4 (2026-07-25): dubbeltrafikspärren skrev falska `not_listed`-captures
+# (52 % av poolens sharp-ticks) så `sharp_eligible=0` kunde betyda "vi frågade
+# inte". Fixen ändrar vad flaggan BETYDER ⇒ nytt experiment i stället för
+# omskriven historik, precis som v2→v3. pit-v3:s 71 featurerader lämnas orörda
+# som historik; de hann aldrig forward-scoras.
+# Manifest: docs/pool-ph4-forward-manifest-v3.json
+FEATURE_VERSION = "pit-v4"
 COHORT = "observed_pit"
-FEATURE_START_AT = "2026-07-24T23:30:00Z"
+FEATURE_START_AT = "2026-07-25T16:00:00Z"
 HORIZONS = {"h24": 1440, "h3": 180, "m20": 20}
 TIMING_TOLERANCE_MIN = {"h24": 45, "h3": 45, "m20": 10}
 TIMING_POLICY = "presence-v2:h24=45,h3=45,m20=10;pinnacle=http-age"
 SIGNS = ("1", "X", "2")
+
+
+def horizon_window_open(close_iso: Optional[str],
+                        now: Optional[dt.datetime] = None) -> Optional[str]:
+    """Namnet på horisonten vars toleransfönster är öppet just nu, annars None.
+
+    Dubbeltrafikspärren mot Pinnacle är rätt i allmänhet men förödande här: en
+    horisont kan bara observeras EN gång, och en missad horisont får aldrig
+    bakfyllas. Poolvarvet använder detta för att tvinga fram just de anropen
+    (max ett per horisont och omgång) medan alla andra ticks fortsätter använda
+    cachen. Fönstret är horisonten ± dess förregistrerade tolerans — toleransen
+    ändras aldrig här, den läses.
+    """
+    close = _parse(close_iso)
+    if close is None:
+        return None
+    now = now or dt.datetime.now(dt.timezone.utc)
+    for horizon, minutes in HORIZONS.items():
+        cutoff = close - dt.timedelta(minutes=minutes)
+        tolerance = TIMING_TOLERANCE_MIN[horizon]
+        if cutoff <= now <= cutoff + dt.timedelta(minutes=tolerance):
+            return horizon
+    return None
 _COL = {"1": "1", "X": "x", "2": "2"}   # kolumnsuffix
 
 REVERSAL_WINDOW_MIN = 180   # sista 3 h före as-of
@@ -120,8 +149,16 @@ def record_sharp_capture(store: Storage, product: str, draw, result: dict) -> in
 
     Nät-/providerfel ger ingen capture. `not_listed`/`no_moneyline` är däremot
     värdefulla lyckade frånvaroobservationer och sparas med odds_complete=0.
+
+    En ÖVERHOPPAD hämtning är inte heller en observation (2026-07-25):
+    dubbeltrafikspärren i `sharp_service` returnerar tomma `hits`/`status` utan
+    fel, och då blev `status.get(...)`-defaulten `not_listed` för varje match —
+    "vi frågade inte" bokfördes som "Pinnacle listar inte matchen". Stryktipset
+    4963 fick 13 falska frånvaroobservationer per tick i 80 minuter, vilket
+    ensamt nollade `sharp_eligible` vid m20. Samma familj som regeln
+    "källfel får aldrig markera ett pris unavailable".
     """
-    if result.get("pinnacle_error"):
+    if result.get("pinnacle_error") or result.get("skipped"):
         return 0
     fetched_at = _iso(
         _parse(result.get("fetched_at")) or dt.datetime.now(dt.timezone.utc))

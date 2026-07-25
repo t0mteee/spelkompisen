@@ -2,6 +2,7 @@ import datetime as dt
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Optional
 from unittest import mock
 
 from app import oddset_model, oddset_value
@@ -200,6 +201,114 @@ class ClosingFreshnessTests(unittest.TestCase):
         row = self.store.oddset_clv_rows()[0]
         self.assertEqual(-0.25, row["line_delta"])
         self.assertEqual(0.25, row["line_move_score"])
+
+
+class AnchorSourceTests(unittest.TestCase):
+    """🎯 ANKARE ≠ BOK + andra ankaret som REN mätning.
+
+    Ankarkontamineringen 2026-07-25 (192 felaktiga flaggor) uppstod för att
+    `attach_value` byggde boklistan som "allt utom pinnacle". Spärren fanns
+    därefter i koden men i inget test — dessa fall är den saknade grinden.
+    """
+
+    @staticmethod
+    def _match(with_anchor: bool = True, anchor_odds: Optional[dict] = None) -> dict:
+        now = dt.datetime.now(dt.timezone.utc)
+        fresh = now - dt.timedelta(minutes=5)
+        odds = {
+            "pinnacle": {"1x2": _market({"1": 2.0, "X": 3.5, "2": 3.8}, fresh)},
+            "svenskaspel": {"1x2": _market({"1": 2.3, "X": 3.5, "2": 3.8}, fresh)},
+        }
+        if with_anchor:
+            odds[oddset_value.ANCHOR2_SOURCE] = {
+                "1x2": _market(anchor_odds or {"1": 2.05, "X": 3.45, "2": 3.75},
+                               fresh)}
+        return {"id": "m1",
+                "start": (now + dt.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "odds": odds}
+
+    def test_ankarkallan_blir_aldrig_en_bok_att_hitta_varde_hos(self) -> None:
+        # Smarkets ligger med GENERÖSA priser: vore den en bok skulle den vinna
+        # `best`-jämförelsen och dyka upp som bokfältet.
+        match = self._match(anchor_odds={"1": 9.9, "X": 9.9, "2": 9.9})
+        oddset_value.attach_value([match])
+        books = {v["book"] for per in match["value"].values() for v in per.values()}
+        self.assertNotIn(oddset_value.ANCHOR2_SOURCE, books)
+        self.assertTrue(oddset_value.ANCHOR_SOURCES,
+                        "ANCHOR_SOURCES får inte tömmas — då blir börsen en bok")
+        for src in oddset_value.ANCHOR_SOURCES:
+            self.assertNotIn(src, books)
+
+    def test_andra_ankaret_andrar_inte_urval_edge_eller_kvalitet(self) -> None:
+        """Mätningen är skugga: identiskt utfall med och utan ankare 2."""
+        med, utan = self._match(True), self._match(False)
+        oddset_value.attach_value([med])
+        oddset_value.attach_value([utan])
+        for sign, v in utan["value"]["1x2"].items():
+            m = med["value"]["1x2"][sign]
+            self.assertEqual((v["edge"], v["q"], v["odds"], v["book"]),
+                             (m["edge"], m["q"], m["odds"], m["book"]))
+
+    def test_andra_ankaret_loggas_med_egen_edge_och_oenighet(self) -> None:
+        match = self._match()
+        oddset_value.attach_value([match])
+        a2 = match["value"]["1x2"]["1"]["anchor2"]
+        self.assertEqual(oddset_value.ANCHOR2_SOURCE, a2["source"])
+        # Pinnacle 2.00 vs Smarkets 2.05 på "1" ⇒ ankare 2 ger LÄGRE fair,
+        # alltså lägre edge mot samma bokpris. Oenigheten ska vara mätbar.
+        self.assertLess(a2["edge"], match["value"]["1x2"]["1"]["edge"])
+        self.assertGreater(a2["disagree_pp"], 0)
+
+    def test_saknat_andra_ankare_ger_skal_inte_tyst_enighet(self) -> None:
+        match = self._match(with_anchor=False)
+        oddset_value.attach_value([match])
+        a2 = match["value"]["1x2"]["1"]["anchor2"]
+        self.assertIsNone(a2.get("fair"))
+        self.assertTrue(a2.get("note"))
+
+    def test_stangningen_mater_bada_ankarna(self) -> None:
+        """Stängningen ska spara ankare 2:s fair — och lämna den NULL när
+        ankaret inte har en färsk komplett marknad (halvmätt ser ut som
+        enighet och är därför värre än omätt)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                start = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1)
+                recent = (start - dt.timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                store.oddset_save_odds("m1", "pinnacle",
+                                       {"1": 2.0, "X": 3.5, "2": 3.8}, recent)
+                store.oddset_save_odds("m1", oddset_value.ANCHOR2_SOURCE,
+                                       {"1": 2.1, "X": 3.4, "2": 3.7}, recent)
+                # ankare 2 saknar helt marknad i den andra matchen
+                store.oddset_save_odds("m2", "pinnacle",
+                                       {"1": 2.0, "X": 3.5, "2": 3.8}, recent)
+                for mid in ("m1", "m2"):
+                    store.oddset_log_flag({
+                        "match_id": mid, "market": "1x2", "sign": "1",
+                        "league": "mls", "description": "A – B",
+                        "match_start": start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        "at": (start - dt.timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        "odds": 2.2, "fair": 0.5, "edge": 0.1,
+                        "book": "svenskaspel", "model_version": "s-test",
+                        "git_hash": "abc"})
+
+                oddset_value.resolve_closings(store)
+                rows = {r["match_id"]: r for r in store.oddset_clv_rows()}
+                self.assertIsNotNone(rows["m1"]["anchor2_closing_fair"])
+                self.assertIsNotNone(rows["m1"]["closing_fair"])
+                self.assertIsNone(rows["m2"]["anchor2_closing_fair"])
+                self.assertIsNotNone(rows["m2"]["closing_fair"],
+                                     "huvudstängningen får inte bero på ankare 2")
+            finally:
+                store.close()
+
+    def test_signalversionen_ror_sig_inte_av_skuggmatningen(self) -> None:
+        """Ändras urvalet av ankare 2 MÅSTE signal_version bumpas — annars
+        blandas två olika signaler i samma facitgrupp. Så länge mätningen är
+        skugga får den inte finnas i SHARP_PARAMS."""
+        self.assertNotIn("anchor2", oddset_value.SHARP_PARAMS)
+        self.assertNotIn(oddset_value.ANCHOR2_SOURCE,
+                         str(oddset_value.SHARP_PARAMS))
 
 
 if __name__ == "__main__":

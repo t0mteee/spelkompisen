@@ -831,12 +831,16 @@ def external_odds(product: str = "stryktipset", draw: int | None = None):
     draw = _get_draw(product, draw)
     pin_res = sharp_service.collect_pinnacle(product, draw=draw, cache=True)
     hits, status = pin_res["hits"], pin_res["status"]
+    # Dubbeltrafikspärren ger tomma hits/status utan fel. Då vet vi ingenting om
+    # Pinnacles utbud — defaulten "not_listed" hade påstått "ej listad hos
+    # Pinnacle" om varje match trots att vi aldrig frågade (2026-07-25).
+    unknown = "ej ompollad" if pin_res.get("skipped") else "not_listed"
 
     out = []
     for m in draw.matches:
         h = hits.get(m.event_number)
         ext_data = None
-        st = status.get(m.event_number, "not_listed")
+        st = status.get(m.event_number, unknown)
         if h:
             ext_data = {"source": h["source"], "matched": f'{h["home"]} - {h["away"]}',
                         "confidence": h["confidence"], "commence_time": h.get("start"),

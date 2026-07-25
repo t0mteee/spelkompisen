@@ -428,3 +428,63 @@ DELETE FROM oddset_results
   tillbaka på +2,65 % [1,19..4,11] över 147 stängda — samma baslinje som före
   kontamineringen.
 - **Spärr framåt:** `oddset_value.ANCHOR_SOURCES`. Se ANKARE ≠ BOK i CLAUDE.md.
+
+---
+
+## 2026-07-25 — Skuggmätning av andra ankaret i CLV-facitet
+
+- **Vad:** fem additiva, nullbara kolumner på `oddset_value_log`:
+  `anchor2_source`, `anchor2_fair`, `anchor2_edge`, `anchor2_closing_fair`,
+  `anchor2_note`. Ingen befintlig rad ändras, ingen data raderas.
+- **Mekanism:** schemat i `storage.py` + `ALTER TABLE`-listan i `Storage.__init__`
+  (samma additiva mönster som `book`/`tier`/`model_version`/`git_hash`), inte ett
+  separat skript — det finns ingen data att transformera.
+- **Backup:** `backend/data/backups/stryktips-2026-07-25-fore-anchor2.db`
+  (`VACUUM INTO`, `integrity_check = ok`).
+- **OBS om ordningen:** migreringen hann köras av pool-jobbet (var 5:e minut,
+  startar en färsk `Storage` och läser `storage.py` från disk) innan backupen
+  togs. Additivt och nullbart ⇒ ofarligt, och 737 rader var intakta med
+  `first_fair` komplett efteråt. **Lärdom:** en ändring i `storage.py` går live
+  vid nästa launchd-tick, inte vid omstart av backend — ta backupen FÖRE
+  redigeringen nästa gång, eller lasta ur jobbet under arbetet.
+- **Orsak:** devigmetodens val rör ~3 pp medan flaggtröskeln är 2 pp; 11 % av
+  selektionerna skiljer mer än hela tröskeln mellan Pinnacle och Smarkets. Utan
+  mätning går det inte att säga om +2,65 % är marknadens felprissättning eller
+  vårt ankarval. Förregistrerad plan och beslutsregel:
+  `docs/tva-ankare-2026-07-25.md`.
+- **Runtime:** OFÖRÄNDRAT. `SHARP_PARAMS` och `signal_version` är orörda, samma
+  flaggor väljs, samma notiser går. Låst av
+  `tests/test_oddset_value.py::AnchorSourceTests` (fem fall, inkl. den tidigare
+  otestade ANKARE ≠ BOK-spärren).
+- **Efterkontroll:** ett riktigt Oddset-varv 2026-07-25 loggade första mätta
+  flaggan — Pinnacle-edge +2,6 % mot Smarkets −0,4 %, oenighet 0,82 pp. Den
+  hade alltså inte flaggats med det andra ankaret. Bakfyllning är omöjlig
+  (Smarkets-serien börjar 2026-07-24) och de 737 äldre raderna behåller NULL =
+  "ej mätt", aldrig "eniga".
+
+---
+
+## 2026-07-25 — pit-v4: nytt forwardexperiment efter falsk frånvaro
+
+- **Vad:** `pool_dataset.FEATURE_VERSION` `pit-v3` → **`pit-v4`**,
+  `FEATURE_START_AT` = 2026-07-25T16:00:00Z. Nytt manifest
+  `docs/pool-ph4-forward-manifest-v3.json` (`pool-streckmove-v3`).
+  **Ingen rad ändras eller raderas.**
+- **Orsak:** dubbeltrafikspärren mot Pinnacle returnerade tomma `hits`/`status`
+  utan fel, och `record_sharp_capture` skrev då `not_listed` per match. 52 % av
+  poolens sharp-ticks 2026-07-25 blev falska frånvaroobservationer (0 % dagen
+  före), så `sharp_eligible = 0` kunde betyda "vi frågade inte". Fixen ändrar vad
+  flaggan BETYDER — alltså nytt experiment, inte omskriven historik. Samma val som
+  v2→v3 gjorde i går. Analys: `docs/m20-och-falsk-franvaro-2026-07-25.md`.
+- **pit-v3 lämnas orört** (71 featurerader, `n_eval_draws = 0` — hann aldrig
+  forward-scoras). v2-manifestet ligger kvar som historik och skrivs aldrig om.
+- **Oförändrat i v3-manifestet:** toleranser (h24=45, h3=45, m20=10),
+  featureuppsättningar b–f, primärt mått, bootstrap-metod och seed,
+  promotionsgrind. Enda tillägget: `skipped_fetch_is_not_an_observation`.
+- **Konsumenter:** `scripts/ph4_ablationer.py` läser v3-manifestet;
+  `tests/test_ph4_forward.py` binder runtime-versionen till manifestet (den
+  kopplingen fångade bumpen direkt). `tests/test_pool_pit.py` flyttade sin
+  NOW-fixtur till 2026-07-27 så även h24-horisonten ligger efter feature-starten
+  — att i stället backa `FEATURE_START_AT` hade öppnat för bakfyllning i drift.
+- **Efterkontroll:** 239 tester gröna. Första v4-featurerader väntas när nästa
+  omgångs h3-fönster öppnas.

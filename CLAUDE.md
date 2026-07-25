@@ -46,7 +46,9 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/svenskaspel.py  SvS pools-API-klient (PRODUCTS, GAME_GROUPS, Draw)
   app/pinnacle.py     Pinnacle Arcadia (gratis guest-API), + derive.py (1X2 ur spread/total)
   app/betsson.py      Publik Betsson-bootstrap/headerkontext (ej inkopplad källa;
-                      eventtabellen CloudFront-blockerad utanför browser)
+                      eventtabellen CloudFront-blockerad utanför browser —
+                      omverifierat 2026-07-25: context-details 200, events-table 403.
+                      KRÄVER brotli i venv, se transportregeln nedan)
   app/analysis.py     fair_prob (power-metod), värde, taggar, speltyp, mover-flagga
   app/builder.py      radbyggare: matematiskt/reducerat/garanti/SvS R-system/EV-topp
   app/bomben.py       Poisson-målmodell för Bomben
@@ -64,6 +66,12 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/live_radar.py  shadow-radar för pågående matcher: observerad xG,
                       stora chanser/skott/boxtryck; råa femminuterscaptures,
                       aldrig automatiska spel eller runtime-modellinput
+  app/fotmob.py       ANDRA live-ögat (2026-07-25): live-xG/xGOT för Allsvenskan +
+                      Eliteserien där Sofascore saknar xG helt. EGEN tabell
+                      `oddset_live_fotmob` — xG blandas ALDRIG mellan providers,
+                      och används FotMob räknas HELA signalen (inkl. 15-min-deltat)
+                      i FotMobs egen serie. `signal.xg_source` säger vilken källa
+                      som talar. Shadow. Se docs/live-kallor-2026-07-25.md
   app/main.py         API-endpoints + PRIZE_PLANS (officiella vinstplaner)
   cli.py              show|spikar|snapshot|history|rad (snapshotvarvet settlar
                       även nyss avgjorda poolomgångar via settle_recent)
@@ -128,6 +136,24 @@ observationsögonblicket används som observationstid.**
    (rad före tidigare observation) eller med nutid (lögn om färskhet).
 5. **Transporthälsa använder riktig hämtningstid** — den mäter källan, inte
    priset.
+6. **En källa vi inte frågade är ingen observation.** Dubbeltrafikspärren
+   returnerar tomma `hits`/`status` UTAN fel; `status.get(event, "not_listed")`
+   gjorde då "vi frågade inte" till "Pinnacle listar inte matchen" — 52 % av
+   poolens sharp-ticks blev falska frånvaroobservationer på ett dygn (0 % dagen
+   före). Spärren får förbigås bara i ett öppet horisontfönster
+   (`pool_dataset.horizon_window_open`), eftersom en horisont observeras en enda
+   gång och aldrig får bakfyllas. Se `docs/m20-och-falsk-franvaro-2026-07-25.md`.
+
+### 📦 TRANSPORTREGELN — status 200 betyder inte läsbar kropp
+
+`brotli` MÅSTE finnas i venv:et (`requirements.txt`). CloudFront svarar
+`content-encoding: br` även på `Accept-Encoding: gzip`, och httpx avkodar br
+bara om paketet är installerat — annars kommer kroppen tillbaka som binärt
+skräp med status 200. Betsson-bootstrapen dog i drift 2026-07-25 med "saknar
+sportsbookBrandId" på en fullt fungerande sida, medan de fixturbaserade
+testerna var gröna. **En parse som misslyckas på 200 är ett transportfel
+tills motsatsen är bevisad** — kontrollera `content-encoding` innan du drar
+slutsatsen att sidan ändrats eller källan blockerar.
 
 ### 🎯 ANKARE ≠ BOK
 
@@ -136,7 +162,14 @@ VÄRDERINGEN. Båda behövs: `attach_value` byggde tidigare sin boklista som
 "allt utom pinnacle", så Smarkets blev automatiskt en bok att hitta värde hos
 trots att den låg utanför `BOOKS` — 192 felaktiga flaggor innan det upptäcktes.
 Lägger du till en sharp-referens (börs, andra sharp-böcker) MÅSTE den in i
-`ANCHOR_SOURCES`, annars förorenar den CLV-facitet.
+`ANCHOR_SOURCES`, annars förorenar den CLV-facitet. Spärren är låst av
+`tests/test_oddset_value.py::AnchorSourceTests` sedan 2026-07-25.
+
+Andra ankaret (`ANCHOR2_SOURCE`, i dag Smarkets) MÄTS i skugga på varje flagga
+(`anchor2_*` i `oddset_value_log`, ⚓-raden i Signal-loggen) men får ALDRIG
+påverka urval, edge, q eller notiser: en selektionsändring byter
+`signal_version` och nollställer facitgruppen. Promotion till gate sker bara
+enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
 - Push-notiser: `app/notify.py` via ntfy.sh, kräver `NTFY_TOPIC` i gitignore:ade
   `backend/.env`. Använd ett EGET topic (inte samma som svs — annars dubbla notiser).
   Notifieringsspåret är pausat på Samans begäran 2026-07-16 — återuppta inte utan besked.

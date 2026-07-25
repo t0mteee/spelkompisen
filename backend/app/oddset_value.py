@@ -72,6 +72,17 @@ PRICE_MAX_AGE_MIN = 45 # pris måste ha bekräftats i ett lyckat svar inom detta
 # träningsmatcher, snitt-edge 13,2 %) och började förorena CLV-facitet.
 # BOOKS i oddset.py styr insamlingen; denna spärr styr VÄRDERINGEN — båda behövs.
 ANCHOR_SOURCES = frozenset({"smarkets"})
+
+# ANDRA ANKARET — ren skuggmätning (2026-07-25). Projektets djupaste metodproblem
+# är att devigmetodens val rör ~3 pp medan flaggtröskeln är 2 pp: vi kan i dag
+# inte skilja "marknaden har fel pris" från "vår devig har fel". Mätt oenighet
+# Pinnacle vs Smarkets: median 1,12 pp, men 11 % av selektionerna skiljer mer än
+# HELA tröskeln. Därför loggas ankare 2 vid first och vid stängning — men det
+# får ALDRIG påverka urval, edge, q, notiser eller signal_version, eftersom en
+# selektionsändring byter signalversion och nollställer de 147 stängda flaggorna.
+# Promotion till en riktig gate är förregistrerad i docs/tva-ankare-2026-07-25.md.
+ANCHOR2_SOURCE = "smarkets"
+ANCHOR2_MARKETS = frozenset({"1x2"})   # Smarkets täcker bara 1X2 i dag
 PRICE_PRESENCE_VERSION = "last-seen-available-cdn-age-v2"
 Q_NOTIFY = 0.015       # push-notis på KVALITET q = edge/(odds−1) (Kelly-andelen):
                        # samma edge är mycket mer pålitlig på låga odds — ett litet
@@ -152,6 +163,26 @@ def _alt_fair(alt_market: dict, line, signs: tuple,
     return _devig(odds, signs)
 
 
+def anchor2_fair(odds: dict, market: str,
+                 signs: tuple) -> tuple[Optional[dict[str, float]], Optional[str]]:
+    """Devigad fair från ANDRA ankaret, eller (None, skäl).
+
+    Skuggmätning: returvärdet får aldrig gå in i edge/urval — bara i loggen.
+    Samma färskhetskrav som huvudankaret, annars mäter vi mot ett dött pris.
+    """
+    if market not in ANCHOR2_MARKETS:
+        return None, f"{ANCHOR2_SOURCE} saknar {MARKET_LABEL.get(market, market)}"
+    a2 = (odds.get(ANCHOR2_SOURCE) or {}).get(market)
+    if not a2:
+        return None, "ankare 2 saknar matchen"
+    if not a2.get("fresh"):
+        return None, f"ankare 2 äldre än {PRICE_MAX_AGE_MIN} min"
+    fair = _devig(a2, signs)
+    if not fair:
+        return None, "ankare 2 ofullständig marknad"
+    return fair, None
+
+
 def attach_value(matches: list[dict]) -> None:
     """Sätter m['value'] = {market: {sign: {edge, fair, odds, book}}} (in place).
     Fair = devigad Pinnacle; edge räknas mot BÄSTA odds bland övriga böcker
@@ -179,6 +210,9 @@ def attach_value(matches: list[dict]) -> None:
             fair_main = _devig(p, signs)
             if not fair_main:
                 continue
+            # ankare 2 räknas EN gång per marknad och används bara som mätvärde
+            # på den färdiga posten — aldrig i `best`-jämförelsen nedan.
+            a2_fair, a2_note = anchor2_fair(odds, market, signs)
             for sign in signs:
                 # bästa EDGE över böckerna: samma-linje-regeln uppfylls antingen
                 # via huvudlinan eller via sharpens alt-linje på BOKENS lina —
@@ -212,6 +246,16 @@ def attach_value(matches: list[dict]) -> None:
                     "line": line, "derived": bool(p.get("derived"))}
                 if via_alt:
                     entry["alt_line"] = True
+                # skuggmätning: samma pris, andra ankarets fair. Endast för
+                # loggen/UI-informationen — `edge` ovan är oberörd.
+                a2: dict = {"source": ANCHOR2_SOURCE}
+                if a2_fair and not (via_alt or market != "1x2"):
+                    a2["fair"] = round(a2_fair[sign], 4)
+                    a2["edge"] = round(a2_fair[sign] * o - 1.0, 4)
+                    a2["disagree_pp"] = round((fp - a2_fair[sign]) * 100, 2)
+                else:
+                    a2["note"] = a2_note or "ankare 2 saknar flaggans lina"
+                entry["anchor2"] = a2
                 val.setdefault(market, {})[sign] = entry
 
 
@@ -309,13 +353,19 @@ def log_and_notify(store: Storage, matches: list[dict],
             for sign, v in per_sign.items():
                 if v["edge"] < EDGE_LOG or v.get("derived"):
                     continue
+                a2 = v.get("anchor2") or {}
                 store.oddset_log_flag({
                     "match_id": m["id"], "market": market, "sign": sign,
                     "line": v.get("line"), "league": m.get("league"),
                     "description": desc, "match_start": m.get("start"),
                     "at": at, "odds": v["odds"], "fair": v["fair"],
                     "edge": v["edge"], "book": v.get("book"),
-                    "model_version": vers["sharp"], "git_hash": git})
+                    "model_version": vers["sharp"], "git_hash": git,
+                    # skuggmätning — ingår INTE i signalversionen
+                    "anchor2_source": a2.get("source"),
+                    "anchor2_fair": a2.get("fair"),
+                    "anchor2_edge": a2.get("edge"),
+                    "anchor2_note": a2.get("note")})
                 n_logged += 1
                 if v.get("q", 0) >= Q_NOTIFY:
                     if not _fresh(m["id"], v.get("book"), market):
@@ -467,15 +517,45 @@ def closing_snapshot(store: Storage, row: dict) -> dict:
 
     fair = (_devig({s: target[s]["odds"] for s in signs}, signs)
             if len(target) == len(signs) and note is None else None)
+    a2_close = _anchor2_closing(store, row, hist_market, signs, fresh_after)
     if not fair:
         return {"fair": None, "odds": None,
                 "note": note or "ingen sharp-stängning på flaggans lina",
                 "closing_line": closing_line, "line_delta": line_delta,
-                "line_move_score": move_score}
+                "line_move_score": move_score, "anchor2_fair": a2_close}
     return {"fair": round(fair[row["sign"]], 4),
             "odds": target[row["sign"]]["odds"], "note": None,
             "closing_line": closing_line, "line_delta": line_delta,
-            "line_move_score": move_score}
+            "line_move_score": move_score, "anchor2_fair": a2_close}
+
+
+def _anchor2_closing(store: Storage, row: dict, hist_market: str, signs: tuple,
+                     fresh_after: dt.datetime) -> Optional[float]:
+    """Andra ankarets stängningsfair för selektionen — skuggmätning.
+
+    Samma färskhetskrav som huvudstängningen. Returnerar None så snart något
+    fattas: en halvmätt stängning är värre än ingen, för den ser ut som enighet.
+    """
+    if hist_market not in ANCHOR2_MARKETS:
+        return None
+    rows = store.oddset_history_before(
+        row["match_id"], hist_market, row["match_start"],
+        sources=(ANCHOR2_SOURCE,))
+    last: dict[str, dict] = {}
+    for price in rows:
+        last[price["sign"]] = price
+    if len(last) < len(signs) or any(not p.get("available") for p in last.values()):
+        return None
+    for price in last.values():
+        try:
+            seen = dt.datetime.fromisoformat(
+                price["last_seen_at"].replace("Z", "+00:00"))
+        except (AttributeError, KeyError, ValueError):
+            return None
+        if seen < fresh_after:
+            return None
+    fair = _devig({s: last[s]["odds"] for s in signs}, signs)
+    return round(fair[row["sign"]], 4) if fair else None
 
 
 def resolve_closings(store: Storage) -> int:
@@ -487,7 +567,7 @@ def resolve_closings(store: Storage) -> int:
         store.oddset_set_closing(
             flag, close.get("fair"), close.get("odds"), close.get("note"),
             close.get("closing_line"), close.get("line_delta"),
-            close.get("line_move_score"))
+            close.get("line_move_score"), close.get("anchor2_fair"))
         n += 1
     return n
 
@@ -597,4 +677,54 @@ def clv_report(store: Storage) -> dict:
     # bakåtkompatibelt (UI:t före tier-uppdelningen)
     out["n"], out["n_resolved"] = out["sharp"]["n"], out["sharp"]["n_resolved"]
     out["avg_close_ev"] = out["sharp"]["avg_close_ev"]
+    out["anchor2"] = anchor2_report(rows)
     return out
+
+
+def anchor2_report(rows: list[dict]) -> dict:
+    """Skuggfacit för andra ankaret: är edgen marknadens eller devigens?
+
+    Svarar på tre frågor, alla utan att ändra en enda flagga:
+      1. Hur ofta är ankarna oense mer än hela flaggtröskeln (EDGE_LOG)?
+      2. Håller edgen även mot ankare 2 vid first (`survives`)?
+      3. Skiljer close-EV mellan de som höll mot båda och de som bara höll
+         mot Pinnacle?
+
+    Promotion till en riktig gate är förregistrerad i
+    docs/tva-ankare-2026-07-25.md — den här funktionen BESLUTAR ingenting.
+    Gamla flaggor (före 2026-07-25) har anchor2_fair = NULL och räknas som
+    ej mätta, aldrig som eniga.
+    """
+    sharp = [r for r in rows if (r.get("tier") or "sharp") == "sharp"]
+    measured = [r for r in sharp if r.get("anchor2_fair") is not None
+                and r.get("anchor2_edge") is not None]
+    disagree = sorted(abs(r["first_fair"] - r["anchor2_fair"]) * 100
+                      for r in measured if r.get("first_fair") is not None)
+    survives = [r for r in measured if r["anchor2_edge"] >= EDGE_LOG]
+
+    def _ev(subset: list[dict]) -> Optional[float]:
+        evs = [r["close_ev_w"] for r in subset if r.get("close_ev") is not None]
+        return round(sum(evs) / len(evs), 4) if evs else None
+
+    notes: dict[str, int] = {}
+    for r in sharp:
+        if r.get("anchor2_fair") is None:
+            notes[r.get("anchor2_note") or "ej mätt (före 2026-07-25)"] = \
+                notes.get(r.get("anchor2_note") or "ej mätt (före 2026-07-25)", 0) + 1
+    return {
+        "source": ANCHOR2_SOURCE,
+        "n_sharp": len(sharp),
+        "n_measured": len(measured),
+        "n_survives_both": len(survives),
+        "median_disagree_pp": (round(disagree[len(disagree) // 2], 2)
+                               if disagree else None),
+        # andelen där oenigheten ensam är större än hela tröskeln = andelen
+        # flaggor vars existens kan bero på vilket ankare vi råkade välja
+        "share_disagree_over_threshold": (
+            round(sum(1 for d in disagree if d / 100 > EDGE_LOG) / len(disagree), 4)
+            if disagree else None),
+        "avg_close_ev_survives_both": _ev(survives),
+        "avg_close_ev_pinnacle_only": _ev([r for r in measured
+                                           if r["anchor2_edge"] < EDGE_LOG]),
+        "unmeasured_reasons": dict(sorted(notes.items(), key=lambda kv: -kv[1])),
+    }

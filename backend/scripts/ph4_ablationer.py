@@ -15,10 +15,13 @@ MIN_TRAIN omgångar innan första utvärderingen — ALDRIG slumpad split).
 Mått: logloss per match; Δ mot (b) med 90 % blockbootstrap per omgång.
 Horisont h3 (bäst täckt). Endast omgångar med komplett facit.
 
-FÖRREGISTRERAD GATE läses ur docs/pool-ph4-forward-manifest-v2.json. Utvecklings-
-omgångar får användas som expanderande träningshistorik men får ALDRIG räknas
-i forward-volym, effekt eller KI. Kandidat-, feature- och timingversion är
-frysta i manifestet.
+FÖRREGISTRERAD GATE läses ur docs/pool-ph4-forward-manifest-v3.json (pit-v4).
+v2/pit-v3 ersattes 2026-07-25: dubbeltrafikspärren skrev falska
+`not_listed`-captures, så `sharp_eligible=0` kunde betyda "vi frågade inte".
+Gamla manifest ligger kvar orörda som historik och skrivs aldrig om.
+Utvecklings-omgångar får användas som expanderande träningshistorik men får
+ALDRIG räknas i forward-volym, effekt eller KI. Kandidat-, feature- och
+timingversion är frysta i manifestet.
 
 Körning: cd backend && .venv/bin/python -B scripts/ph4_ablationer.py
 Utdata:  docs/ph4-forward-status.json + sammanfattning på stdout. Den ursprungliga
@@ -40,7 +43,7 @@ from app import pool_dataset  # noqa: E402 — _series för PIT-ren streckrörel
 from app.storage import Storage  # noqa: E402
 
 DB = ROOT / "data" / "stryktips.db"
-MANIFEST_PATH = ROOT.parent / "docs" / "pool-ph4-forward-manifest-v2.json"
+MANIFEST_PATH = ROOT.parent / "docs" / "pool-ph4-forward-manifest-v3.json"
 OUT = ROOT.parent / "docs" / "ph4-forward-status.json"
 PRODUCTS = ("topptipset", "europatipset", "topptipsetextra",
             "stryktipset", "topptipsetstryk")

@@ -1,0 +1,79 @@
+{
+ "experiment_id": "pool-streckmove-v3",
+ "frozen_at": "2026-07-25T15:30:00Z",
+ "evaluation_start": "2026-07-25T16:00:00Z",
+ "supersedes": {
+  "experiment_id": "pool-streckmove-v2",
+  "manifest": "docs/pool-ph4-forward-manifest-v2.json",
+  "reason": "Dubbeltrafikspärren mot Pinnacle returnerade tomma hits/status UTAN fel, och record_sharp_capture skrev då status not_listed per match. 52 % av poolens sharp-ticks 2026-07-25 blev falska frånvaroobservationer (0 % dagen före), vilket gav sharp_eligible=0 där sharp aldrig efterfrågats. Datasemantiken för sharp_eligible ändras av fixen, alltså nytt experiment i stället för omskriven historik. pit-v3 hann aldrig forward-scoras (n_eval_draws=0, 71 featurerader)."
+ },
+ "feature_version": "pit-v4",
+ "feature_start_at": "2026-07-25T16:00:00Z",
+ "cohort": "observed_pit",
+ "horizon": "h3",
+ "primary_candidate": "d",
+ "baseline": "b",
+ "primary_product": "topptipset",
+ "features": {
+  "b": [],
+  "b*": [
+   "lnp"
+  ],
+  "c": [
+   "lnp",
+   "streck"
+  ],
+  "d": [
+   "lnp",
+   "streck",
+   "streckmove"
+  ],
+  "e": [
+   "lnp",
+   "sharpmove"
+  ],
+  "f": [
+   "lnp",
+   "streck",
+   "streckmove",
+   "sharpmove"
+  ]
+ },
+ "training": {
+  "scheme": "expanding_walk_forward",
+  "minimum_prior_draws": 15,
+  "development_rows_may_train": true,
+  "development_rows_may_not_score_forward_gate": true,
+  "ridge_l2": 0.0001,
+  "max_iterations": 800,
+  "gradient_tolerance": 1e-08
+ },
+ "eligibility": {
+  "complete_result": true,
+  "timing_policy": "presence-v2:h24=45,h3=45,m20=10;pinnacle=http-age",
+  "requires_timely_svs_streck": true,
+  "market": "timely sharp, otherwise timely SvS",
+  "missing": "exclude match, never impute movement",
+  "skipped_fetch_is_not_an_observation": true
+ },
+ "primary_metric": "mean_match_logloss",
+ "uncertainty": {
+  "method": "draw_block_bootstrap",
+  "confidence": 0.9,
+  "bootstrap_samples": 2000,
+  "seed": 20260725
+ },
+ "promotion_gate": {
+  "minimum_forward_draws_per_product": 40,
+  "candidate_delta_ci90_upper_below_zero": true,
+  "no_other_product_significantly_worse": true,
+  "system_level_change_must_also_beat_ph3_champion": true
+ },
+ "runtime_effect": "none_until_gate_passes",
+ "unchanged_from_v2": [
+  "toleranser (h24=45, h3=45, m20=10)",
+  "featureuppsättningar b..f",
+  "primärt mått, bootstrap-metod och seed",
+  "promotionsgrind"
+ ]
+}

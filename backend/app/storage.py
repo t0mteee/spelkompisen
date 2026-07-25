@@ -503,6 +503,43 @@ CREATE TABLE IF NOT EXISTS oddset_live_capture (
 );
 CREATE INDEX IF NOT EXISTS idx_oddset_live_capture_recent
     ON oddset_live_capture (captured_at DESC, event_id);
+
+-- FotMob-livecaptures i EGEN tabell (2026-07-25). xG blandas ALDRIG mellan
+-- providers (WP9a-regeln): FotMobs id-rymd, fältuppsättning och xG-modell är
+-- sina egna, och en radarserie för en match måste hålla sig till en provider —
+-- annars mäter xG-deltat mellan två ticks skillnaden mellan två modeller.
+-- Sofascore saknar xG helt för Allsvenskan, vilket är hela skälet att källan
+-- finns. Shadow: aldrig tips, Kelly, notiser, CLV eller modellinput.
+CREATE TABLE IF NOT EXISTS oddset_live_fotmob (
+    fotmob_id         INTEGER NOT NULL,
+    captured_at       TEXT NOT NULL,     -- hämtningstid − HTTP Age
+    capture_version   TEXT NOT NULL,
+    league            TEXT NOT NULL,
+    tournament        TEXT,
+    home              TEXT NOT NULL,
+    away              TEXT NOT NULL,
+    start_at          TEXT,
+    minute            INTEGER,
+    home_score        INTEGER,
+    away_score        INTEGER,
+    xg_home           REAL,
+    xg_away           REAL,
+    xgot_home         REAL,
+    xgot_away         REAL,
+    xg_open_home      REAL,
+    xg_open_away      REAL,
+    big_chances_home  REAL,
+    big_chances_away  REAL,
+    shots_home        REAL,
+    shots_away        REAL,
+    shots_on_home     REAL,
+    shots_on_away     REAL,
+    shots_inside_home REAL,
+    shots_inside_away REAL,
+    PRIMARY KEY (fotmob_id, captured_at, capture_version)
+);
+CREATE INDEX IF NOT EXISTS idx_oddset_live_fotmob_recent
+    ON oddset_live_fotmob (captured_at DESC, fotmob_id);
 """
 
 _SCHEMA = """
@@ -682,6 +719,15 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
     tier         TEXT DEFAULT 'sharp',
     model_version TEXT NOT NULL DEFAULT 'legacy',
     git_hash     TEXT,
+    -- ANDRA ANKARET (skuggmätning, 2026-07-25): påverkar ALDRIG urval, edge,
+    -- notiser eller signal_version. Finns bara för att kunna svara på frågan
+    -- "är edgen marknadens eller devigmetodens?" — devigvalet rör ~3 pp medan
+    -- flaggtröskeln är 2 pp. Skrivs vid first (aldrig omskrivet) + vid stängning.
+    anchor2_source       TEXT,
+    anchor2_fair         REAL,
+    anchor2_edge         REAL,
+    anchor2_closing_fair REAL,
+    anchor2_note         TEXT,
     PRIMARY KEY (match_id, market, sign, line_key, model_version)
 );
 """ + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + V22_SHADOW_SCHEMA + TEAM_EVENT_SCHEMA + POOL_SETTLEMENT_SCHEMA + POOL_PIT_SCHEMA + LIVE_RADAR_SCHEMA
@@ -710,7 +756,16 @@ class Storage:
                     "ALTER TABLE oddset_value_log ADD COLUMN model_version TEXT",
                     "ALTER TABLE oddset_value_log ADD COLUMN git_hash TEXT",
                     "ALTER TABLE oddset_odds ADD COLUMN last_seen_at TEXT",
-                    "ALTER TABLE oddset_odds ADD COLUMN available INTEGER NOT NULL DEFAULT 1"):
+                    "ALTER TABLE oddset_odds ADD COLUMN available INTEGER NOT NULL DEFAULT 1",
+                    # andra ankaret (skuggmätning) — additivt och nullbart:
+                    # gamla flaggor får NULL och räknas som "ej mätt", aldrig
+                    # som "ankarna var eniga". Ingen bakfyllning är möjlig:
+                    # Smarkets-serien börjar 2026-07-24.
+                    "ALTER TABLE oddset_value_log ADD COLUMN anchor2_source TEXT",
+                    "ALTER TABLE oddset_value_log ADD COLUMN anchor2_fair REAL",
+                    "ALTER TABLE oddset_value_log ADD COLUMN anchor2_edge REAL",
+                    "ALTER TABLE oddset_value_log ADD COLUMN anchor2_closing_fair REAL",
+                    "ALTER TABLE oddset_value_log ADD COLUMN anchor2_note TEXT"):
             try:   # migreringar för befintliga DB:er
                 self.conn.execute(mig)
             except sqlite3.OperationalError:
@@ -1389,6 +1444,39 @@ class Storage:
         self._commit()
         return cur.rowcount
 
+    LIVE_FOTMOB_COLUMNS = (
+        "fotmob_id", "captured_at", "capture_version", "league", "tournament",
+        "home", "away", "start_at", "minute", "home_score", "away_score",
+        "xg_home", "xg_away", "xgot_home", "xgot_away", "xg_open_home",
+        "xg_open_away", "big_chances_home", "big_chances_away", "shots_home",
+        "shots_away", "shots_on_home", "shots_on_away", "shots_inside_home",
+        "shots_inside_away",
+    )
+
+    def live_fotmob_save(self, capture: dict) -> int:
+        """Append-once per (match, observationstid, version) — egen tabell så
+        FotMobs xG aldrig kan blandas med Sofascores."""
+        cols = self.LIVE_FOTMOB_COLUMNS
+        cur = self.conn.execute(
+            f"INSERT OR IGNORE INTO oddset_live_fotmob({','.join(cols)}) "
+            f"VALUES({','.join('?' for _ in cols)})",
+            tuple(capture.get(key) for key in cols))
+        self._commit()
+        return cur.rowcount
+
+    def live_fotmob_captures(self, since: Optional[str] = None,
+                             capture_version: Optional[str] = None) -> list[dict]:
+        query = "SELECT * FROM oddset_live_fotmob WHERE 1=1"
+        args: list = []
+        if since:
+            query += " AND captured_at>=?"
+            args.append(since)
+        if capture_version:
+            query += " AND capture_version=?"
+            args.append(capture_version)
+        query += " ORDER BY fotmob_id, captured_at"
+        return [dict(row) for row in self.conn.execute(query, args)]
+
     def oddset_live_captures(
             self, since: Optional[str] = None,
             capture_version: Optional[str] = None) -> list[dict]:
@@ -1467,7 +1555,11 @@ class Storage:
         edge på ny lina eller under ny algoritmregim inte blandas med den gamla.
         model_version = semantiskt signal-fingeravtryck (facitet delas på den);
         git_hash = exakt kodversion vid first (reproducerbarhet). Granskningen
-        punkt 5: docs-commits får inte fragmentera facitet."""
+        punkt 5: docs-commits får inte fragmentera facitet.
+
+        anchor2_* är skuggmätning av det ANDRA ankaret vid first — aldrig
+        omskrivet (samma regel som first_fair: vi mäter läget när flaggan
+        föddes, inte det bästa läget i efterhand)."""
         line = r.get("line")
         line_key = (self.ODDSET_NO_LINE_KEY if line is None
                     else int(round(float(line) * 1000)))
@@ -1475,8 +1567,9 @@ class Storage:
         self.conn.execute(
             "INSERT INTO oddset_value_log(match_id, market, sign, line, line_key, league, "
             "description, match_start, first_at, first_odds, first_fair, first_edge, "
-            "best_edge, best_at, book, tier, model_version, git_hash) "
-            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+            "best_edge, best_at, book, tier, model_version, git_hash, "
+            "anchor2_source, anchor2_fair, anchor2_edge, anchor2_note) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
             "ON CONFLICT(match_id, market, sign, line_key, model_version) DO UPDATE SET "
             "best_edge=CASE WHEN excluded.best_edge > oddset_value_log.best_edge "
             "THEN excluded.best_edge ELSE oddset_value_log.best_edge END, "
@@ -1485,7 +1578,9 @@ class Storage:
             (r["match_id"], r["market"], r["sign"], line, line_key, r.get("league"),
              r.get("description"), r.get("match_start"), r["at"], r["odds"],
              r["fair"], r["edge"], r["edge"], r["at"], r.get("book"),
-             r.get("tier", "sharp"), version, r.get("git_hash")))
+             r.get("tier", "sharp"), version, r.get("git_hash"),
+             r.get("anchor2_source"), r.get("anchor2_fair"),
+             r.get("anchor2_edge"), r.get("anchor2_note")))
         self._commit()
 
     def oddset_unresolved_closings(self, now_iso: str) -> list[dict]:
@@ -1495,25 +1590,35 @@ class Storage:
             (now_iso,)).fetchall()]
 
     def oddset_history_before(self, match_id: str, market: str,
-                              before_iso: str) -> list[dict]:
-        """Pinnacle-serien (inkl. derived) före en tidpunkt, i tidsordning."""
+                              before_iso: str,
+                              sources: tuple[str, ...] = ("pinnacle", "derived")
+                              ) -> list[dict]:
+        """Prisserien för valda källor före en tidpunkt, i tidsordning.
+
+        Default = Pinnacle (inkl. derived) — det ordinarie stängningsankaret.
+        `sources` finns för skuggmätningen av ANDRA ankaret (Smarkets); byt
+        ALDRIG default utan att läsa 🎯 ANKARE ≠ BOK i CLAUDE.md."""
+        holes = ",".join("?" * len(sources))
         return [dict(r) for r in self.conn.execute(
             "SELECT sign, odds, line, fetched_at, last_seen_at, available "
             "FROM oddset_odds WHERE match_id=? "
-            "AND market=? AND source IN ('pinnacle','derived') AND fetched_at < ? "
+            f"AND market=? AND source IN ({holes}) AND fetched_at < ? "
             "AND odds IS NOT NULL ORDER BY fetched_at, id",
-            (match_id, market, before_iso)).fetchall()]
+            (match_id, market, *sources, before_iso)).fetchall()]
 
     def oddset_set_closing(self, flag: dict, fair: Optional[float],
                            odds: Optional[float], note: Optional[str],
                            closing_line: Optional[float] = None,
                            line_delta: Optional[float] = None,
-                           line_move_score: Optional[float] = None) -> None:
+                           line_move_score: Optional[float] = None,
+                           anchor2_closing_fair: Optional[float] = None) -> None:
         self.conn.execute(
             "UPDATE oddset_value_log SET closing_fair=?, closing_odds=?, closing_note=?, "
-            "closing_line=?, line_delta=?, line_move_score=? WHERE match_id=? "
+            "closing_line=?, line_delta=?, line_move_score=?, "
+            "anchor2_closing_fair=? WHERE match_id=? "
             "AND market=? AND sign=? AND line_key=? AND model_version=?",
             (fair, odds, note, closing_line, line_delta, line_move_score,
+             anchor2_closing_fair,
              flag["match_id"], flag["market"], flag["sign"], flag["line_key"],
              flag.get("model_version") or "legacy"))
         self._commit()

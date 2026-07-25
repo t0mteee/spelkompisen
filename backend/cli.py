@@ -102,8 +102,16 @@ def cmd_snapshot(product: str) -> float | None:
                 sharp_n = 0
                 sharp_result = None
                 try:
+                    # En horisont kan bara observeras EN gång och får aldrig
+                    # bakfyllas — där, och bara där, går poolen före
+                    # dubbeltrafikspärren mot Pinnacle.
+                    from app import pool_dataset as _pd
+                    horizon = _pd.horizon_window_open(draw.reg_close_time)
                     sharp_result = sharp_service.collect_pinnacle(
-                        product, draw=draw, cache=True)
+                        product, draw=draw, cache=True, force=bool(horizon))
+                    if horizon and not (sharp_result or {}).get("skipped"):
+                        print(f"{product} omg {dn}: sharp tvingad för "
+                              f"{horizon}-horisonten (spärren förbigången).")
                     sharp_n = len(sharp_result["hits"]) if sharp_result else 0
                 except Exception:  # noqa: BLE001
                     sharp_n = -1
@@ -283,10 +291,16 @@ def cmd_pool_tick() -> None:
 
 def cmd_live_tick() -> None:
     """Kort, isolerat shadow-varv för live-radarn; påverkar inga tips."""
-    from app import live_radar
+    from app import fotmob, live_radar
     store = Storage()
     try:
         report = live_radar.collect(store)
+        # FotMob är en EGEN källa med egen klient och egen tabell — den får
+        # aldrig kunna fälla Sofascore-varvet, och dess xG blandas inte in.
+        try:
+            fm = fotmob.collect(store)
+        except Exception as e:  # noqa: BLE001
+            fm = {"error": f"{type(e).__name__}: {str(e)[:60]}"}
     finally:
         store.close()
     partial = (
@@ -295,6 +309,12 @@ def cmd_live_tick() -> None:
     print(f"live-radar: {report['live']} matcher · "
           f"{report['stats_ok']} med statistik · "
           f"{report['saved']} captures{partial}")
+    if fm.get("error"):
+        print(f"fotmob: hoppade över ({fm['error']})")
+    else:
+        print(f"fotmob: {fm['live']} matcher i våra ligor · "
+              f"{fm['saved']} captures med xG"
+              + (f" · {fm['skipped']} över taket" if fm.get("skipped") else ""))
 
 
 def cmd_snapshot_smart(max_seconds: int = DENSE_BUDGET_S) -> None:

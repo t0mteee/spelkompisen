@@ -2,6 +2,99 @@
 
 ## STATUS-SAMMANFATTNING (2026-07-25 — läs detta först i ny session)
 
+**TVÅ ANKARE I SKUGGA + TRANSPORTFIX (2026-07-25 eftermiddag, Opus 5).**
+Sharp-facitets `+2,4 % [1,0..3,8]` över 166 stängda (uppdaterat från +2,65 %/147
+när fler flaggor stängt) kan i dag inte skiljas från ett devig-/ankarval: median
+oenighet Pinnacle vs Smarkets är 1,12 pp och 11 % av selektionerna skiljer mer än
+hela 2 %-tröskeln. Därför mäts nu ANDRA ANKARET i skugga —
+`anchor2_source/_fair/_edge/_closing_fair/_note` på `oddset_value_log`, rapport i
+`/api/oddset/clv` (`anchor2`) och en ⚓-rad i Signal-loggen. **Runtime är
+oförändrat**: `SHARP_PARAMS` och `signal_version` orörda, så de stängda flaggorna
+behåller sin facitgrupp. En riktig gate promoteras bara enligt den förregistrerade
+regeln i `docs/tva-ankare-2026-07-25.md` (n ≥ 50 mätta+stängda i primärgruppen,
+veckokadens, ≥ 1,0 pp bättre close-EV med undre KI > 0). Första mätta flaggan
+visade caset direkt: Pinnacle-edge +2,6 % mot Smarkets −0,4 %. Takt 14–32 nya
+1X2-flaggor/dygn ⇒ beslutsläge inom ~1 vecka.
+Dessutom: **ANKARE ≠ BOK har nu ett test** (spärren fanns i kod men i inget av de
+219 testfallen), och **brotli** ligger i `requirements.txt` — CloudFront svarar `br`
+även på `Accept-Encoding: gzip`, så Betsson-bootstrapen dog i drift på en hel sida
+medan fixturtesterna var gröna. Se 📦 TRANSPORTREGELN i CLAUDE.md. Betsson
+omverifierad: context-details 200, events-table **403** — fortsatt parkerad.
+Sviten är 226 tester grön.
+
+**PH5 RADVALSABLATION — v1 UNDERKÄND AV SITT EGET SANITY-KRAV (2026-07-25, Opus 5).**
+Nytt spår som svarar på frågan PH3-ledgern inte kan besvara i tid (6 settlade system
+i dag): slår vårt radval baslinjerna, mätt på 4 000 kompletta omgångar med faktiska
+vinnarantal och utdelningar? `scripts/ph5_radvalsablation.py` anropar den RIKTIGA
+`build_ev_system` på omgångar rekonstruerade ur settlementlagret — ingen tredje
+EV-implementation — mot folkets rad, favoritraden och slumpen, alla med samma
+information. Kohort `final_only`, hålls utanför pit-manifesten.
+**v1:s förregistrerade sanity-krav ("slump ska ligga klart sämst") FÖLL i fyra av fem
+produkter** — slump låg som mest +45,5 % med KI [−69,7..+197,7]. Slumpen var inte
+bättre, den var tyngre i svansen: ROI per omgång är golvad vid −100 % och obegränsad
+uppåt, så en enda toppvinst bär medelvärdet. Samma estimand-fälla som gav "+6,6 %"
+när sanningen var +2,65 %. **Ingen ROI-slutsats får dras ur v1.**
+v2 (specificerad före körning, motiverad av validitetsbrottet): PARAD differens per
+omgång — omgångens tur delas av alla armar — winsoriserad ±200 pp, plus andel
+omgångar vi vinner, plus per-omgångs-ROI sparad i JSON så omräkning aldrig kräver ny
+1,5-timmarskörning. Provkörning: `vs slump +16,6 pp [+1,8..+32,1]`, KI utan noll i
+rätt riktning. Läs `docs/ph5-radvalsablation-2026-07-25.md` INNAN någon läser
+v1-siffrorna i `ph5-radvalsablation-2026-07-25.json`.
+
+**PIT-v4 + RADARURVALET LAGAT (2026-07-25 kväll, Opus 5).** Samans beslut:
+`pit-v4` med nytt manifest `docs/pool-ph4-forward-manifest-v3.json`
+(`pool-streckmove-v3`) i stället för att skriva om pit-v3 — dess 71 featurerader
+lämnas orörda som historik och hann aldrig forward-scoras. Toleranser,
+featureuppsättningar, mått, seed och promotionsgrind är OFÖRÄNDRADE; enda tillägget
+är `skipped_fetch_is_not_an_observation`. `ph4_ablationer` läser v3-manifestet och
+testet som binder runtime till manifestet är uppdaterat.
+Live-radarns urval hade två riktiga fel: (1) bara EN träningsturnering var mappad,
+så England 20 / Bulgarien 11 / Polen 8 / Serbien 8 / Kroatien 5 / Tyskland 5 live
+låg helt utanför radarn — nu mappade bakom samma Oddset-spärr; (2) `MAX_MATCHES=14`
+delas av alla ligor och urvalet var *det Sofascore råkade lista först*, så 43
+behöriga träningsmatcher kunde tränga ut Allsvenskan — nu riktiga ligor först,
+därefter mest återstående speltid, och **vad som föll bort redovisas** i källhälsan
+och radarns fotnot. Kortens dubbeltext bort (`reason` + `warning` sa samma sak
+ovanpå en statsrad som redan visade siffrorna); proxyvarningen står nu en gång i
+fotnoten. **Mätt om träningsmatcher: 0 av 56 har xG** (FotMob har 0 nycklar även
+för Hoffenheim och Bologna — providerna täcker inte försäsong), 4 av 56 har skott,
+50 av 56 har hörnor. Fler träningsmatcher på skärmen = fler kort utan
+chansinformation; taket är inte begränsningen, datan är.
+Källsvar: Betsson 403 på events-table i HELA koncernen (betsson.com/betsafe/
+nordicbet; `.se` omdirigerar bara till `.com/sv`) — inget Saman kan göra utan att
+exportera WAF-session. Flashscore 401 = avsiktlig grind och ger inget FotMob inte
+redan ger ⇒ skippas. Opta gratis = renderade visualiseringar, feeds kräver betald
+outlet-nyckel. Detaljer: `docs/live-kallor-2026-07-25.md`.
+
+**FOTMOB SOM ANDRA LIVE-ÖGA (2026-07-25 eftermiddag, Opus 5).** Radarn var blind
+just där vi spelar mest — Sofascore saknar xG helt för Allsvenskan, och den rena
+skottproxyn har ett negativt facit. Recon av sju källor: FotMob ger live-xG, xGOT
+och open/set-play för Allsvenskan OCH Eliteserien; ESPN ger skott/possession utan xG
+(reserv); Flashscore svarar 401 utan privat `x-fsign` och Opta har ingen gratisväg —
+båda skippas, gränsen mot anti-bot står kvar. `app/fotmob.py` + tabellen
+`oddset_live_fotmob` + steg i `cli.py live-tick`. Verifierat live: Degerfors–Djurgården
+65' fick xG 0,73–1,45 (Sofascore: tomt) och gick från "xG saknas · proxy" till
+GRANSKA LIVE; på Eliteserien där båda källorna har xG är de **identiska** (0,36–0,08).
+**xG blandas aldrig mellan providers**: egen tabell, och när FotMob används räknas
+hela signalen inkl. 15-minutersdeltat i FotMobs egen serie (`signal.xg_source` säger
+vilken källa som talar). Fortsatt shadow — inga tips, Kelly, notiser eller CLV.
+Nio tester. Detaljer: `docs/live-kallor-2026-07-25.md`.
+
+**m20-FRÅGAN AVGJORD — FALSK FRÅNVARO HITTAD (2026-07-25 eftermiddag, Opus 5).**
+m20 skrivs INTE bort som scope: mätvärdet bakom "sharp kan strukturellt inte nå
+10-minuterstoleransen" var en artefakt av vår egen dubbeltrafikspärr. Captures var i
+tid överallt — det var PRISET som fattades, för `record_sharp_capture` bokförde
+spärrens tomma svar (`skipped`, inget fel) som `not_listed`. **Före spärren: 0 tomma
+sharp-ticks av 591. Efter: 228 av 435 (52 %).** Åtgärdat: överhoppad hämtning ger
+ingen capture; `collect_pinnacle(force=…)` förbigår spärren enbart i ett öppet
+horisontfönster (`pool_dataset.horizon_window_open`, max ett anrop per horisont och
+omgång, toleranser oförändrade); `/api/external-odds` svarar `ej ompollad` i stället
+för att påstå att Pinnacle inte listar matchen. Fyra regressionstester.
+**ÖPPET FÖR SAMAN:** 2 240 falska `not_listed`-rader (2026-07-25) + 474 (07-24) ligger
+kvar och `pit-v3`-features är beräknade på dem — där betyder `sharp_eligible=0` "vi
+frågade inte". Välj A) rensa + räkna om pit-v3, eller B) bumpa till `pit-v4` med nytt
+manifest (rekommenderat, kostar ~1 dygn, samma mönster som v2→v3).
+Full analys: `docs/m20-och-falsk-franvaro-2026-07-25.md`.
 
 **GRANSKNING AV CODEX-PASSET + FEM FIXAR (2026-07-25, Fable 5).** Codex arbete
 (live-radar, CDN-fix, pit-v3, m20-kadens, Betsson) granskades kritiskt. Det

@@ -417,6 +417,8 @@ function SharpPanel({ product, draw, onLoaded }) {
     derived: { txt: 'härledd från spread/total (1X2 ej öppnad)', cls: 'st-wait' },
     no_moneyline: { txt: '1X2 ej öppnad än', cls: 'st-wait' },
     not_listed: { txt: 'ej listad hos Pinnacle ännu', cls: 'st-miss' },
+    'ej ompollad': { txt: 'ej ompollad detta varv (dubbeltrafikspärr) — cachat pris gäller',
+                     cls: 'st-wait' },
   }
   const fetchSharp = async () => {
     if (!draw) return
@@ -1310,8 +1312,16 @@ function OddsetView({ focus = null } = {}) {
                     <div className="live-radar-teams"><b>{m.home}</b><span>–</span><b>{m.away}</b></div>
                     <div className="live-radar-stats">
                       {hasXg
-                        ? <span>xG <b>{Number(m.xg_home).toFixed(2)}–{Number(m.xg_away).toFixed(2)}</b></span>
-                        : <span>xG saknas · proxy</span>}
+                        ? <span title="xG från Sofascore">xG <b>{Number(m.xg_home).toFixed(2)}–{Number(m.xg_away).toFixed(2)}</b></span>
+                        : m.fotmob?.xg_home != null
+                          ? <span title="Sofascore saknar xG för den här ligan — värdet kommer från FotMob. xG blandas aldrig mellan källor: hela signalen räknas i FotMobs egen serie.">
+                              xG <b>{Number(m.fotmob.xg_home).toFixed(2)}–{Number(m.fotmob.xg_away).toFixed(2)}</b>
+                              {' '}<span className="rchip">FotMob</span>{' '}
+                              {m.fotmob.xgot_home != null && (
+                                <> xGOT {Number(m.fotmob.xgot_home).toFixed(2)}–{Number(m.fotmob.xgot_away).toFixed(2)}</>
+                              )}
+                            </span>
+                          : <span>xG saknas · proxy</span>}
                       <span>stora chanser {m.big_chances_home ?? '–'}–{m.big_chances_away ?? '–'}</span>
                       <span>skott på mål {m.shots_on_home ?? '–'}–{m.shots_on_away ?? '–'}</span>
                     </div>
@@ -1327,7 +1337,10 @@ function OddsetView({ focus = null } = {}) {
           )}
           <div className="live-radar-foot">
             Chansgap mäter skapade chanser mot faktiska mål medan tid återstår.
-            Det påverkar inte värdesignaler, Kelly, facit eller pushnotiser.
+            Utan xG används en proxy på skott och stora chanser — den har ännu
+            inte visat prediktiv mållyft i vår historik. Det påverkar inte
+            värdesignaler, Kelly, facit eller pushnotiser.
+            {liveRadar.dropped ? ` Urval: ${liveRadar.dropped}.` : ''}
           </div>
         </div>
       )}
@@ -1619,6 +1632,21 @@ function OddsetView({ focus = null } = {}) {
               {clv.model?.ci && <> · KI [{(clv.model.ci[0] * 100).toFixed(1)}..{(clv.model.ci[1] * 100).toFixed(1)}]</>}</>}
             {' '}{showLog ? '▲' : '▼'}
           </p>
+          {clv.anchor2?.n_measured > 0 && (
+            <p className="hint clvline"
+              title="Skuggmätning, påverkar inga flaggor: samma bokpris värderat mot ett ANDRA sharp-ankare (Smarkets). Devigmetodens val rör ~3 pp medan flaggtröskeln är 2 pp — utan detta går det inte att säga om edgen är marknadens eller vårt ankarval. Beslutsregeln är förregistrerad i docs/tva-ankare-2026-07-25.md; ingenting promoteras automatiskt.">
+              ⚓ Andra ankaret ({clv.anchor2.source}) — {clv.anchor2.n_measured} mätta
+              {' '}· {clv.anchor2.n_survives_both} håller mot båda
+              {clv.anchor2.median_disagree_pp != null && <> · oenighet median {clv.anchor2.median_disagree_pp} pp</>}
+              {clv.anchor2.share_disagree_over_threshold != null && <> · {(clv.anchor2.share_disagree_over_threshold * 100).toFixed(0)} % över hela tröskeln</>}
+              {clv.anchor2.avg_close_ev_survives_both != null && <> · close-EV båda{' '}
+                <b className={clv.anchor2.avg_close_ev_survives_both >= 0 ? 'pos' : 'neg'}>
+                  {(clv.anchor2.avg_close_ev_survives_both * 100).toFixed(1)}%</b></>}
+              {clv.anchor2.avg_close_ev_pinnacle_only != null && <> · endast Pinnacle{' '}
+                <b className={clv.anchor2.avg_close_ev_pinnacle_only >= 0 ? 'pos' : 'neg'}>
+                  {(clv.anchor2.avg_close_ev_pinnacle_only * 100).toFixed(1)}%</b></>}
+            </p>
+          )}
           {showLog && (
             <table className="logtable">
               <thead><tr><th>flagga</th><th>match</th><th>bok</th><th>odds</th><th>edge</th><th>bäst</th><th>stängning</th><th>tier</th></tr></thead>

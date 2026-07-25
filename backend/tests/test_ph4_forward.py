@@ -6,8 +6,8 @@ from scripts import ph4_ablationer as ph4
 class ForwardGateTests(unittest.TestCase):
     def test_current_manifest_matches_runtime_feature_version(self):
         manifest = ph4.load_manifest()
-        self.assertEqual("pit-v3", manifest["feature_version"])
-        self.assertEqual("pool-streckmove-v2", manifest["experiment_id"])
+        self.assertEqual("pit-v4", manifest["feature_version"])
+        self.assertEqual("pool-streckmove-v3", manifest["experiment_id"])
         self.assertEqual(
             ph4.pool_dataset.FEATURE_START_AT, manifest["feature_start_at"])
         self.assertEqual(

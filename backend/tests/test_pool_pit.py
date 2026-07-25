@@ -7,9 +7,12 @@ from pathlib import Path
 from app import pool_dataset, pool_system_ledger
 from app.storage import Storage
 
-# Efter pit-v3-aktiveringen; testdata före FEATURE_START_AT ska aldrig kunna
-# bakfyllas in i den nya CDN-ålderskorrigerade versionen.
-NOW = dt.datetime(2026, 7, 26, 12, 0, tzinfo=dt.timezone.utc)
+# Efter pit-v4-aktiveringen (FEATURE_START_AT 2026-07-25T16:00Z). Fixturen måste
+# ligga så att ÄVEN h24-horisonten (close − 24 h = NOW − 25 h) hamnar efter
+# feature-starten — testdata före den får aldrig kunna bakfyllas in. Flytta
+# därför NOW framåt när FEATURE_START_AT flyttas; att i stället backa
+# feature-starten hade öppnat för bakfyllning i drift.
+NOW = dt.datetime(2026, 7, 27, 12, 0, tzinfo=dt.timezone.utc)
 
 
 def _iso(t: dt.datetime) -> str:
@@ -184,6 +187,72 @@ def _draw_fixture(close, n_events=8):
             match_start=close.isoformat(), cancelled=False, kambi_id=None,
             outcomes=outcomes))
     return draw
+
+
+class SharpCaptureTests(unittest.TestCase):
+    """En källa vi inte frågade får aldrig bokföras som en källa utan utbud.
+
+    Dubbeltrafikspärren (2026-07-25) returnerar tomma `hits`/`status` utan fel.
+    `status.get(event, "not_listed")` gjorde då varje match till en falsk
+    frånvaroobservation: Stryktipset 4963 fick 13 rader per tick i 80 minuter,
+    vilket ensamt nollade `sharp_eligible` vid m20 och fick det att se ut som
+    att Pinnacle strukturellt inte når horisonten.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+        self.draw = _draw_fixture(NOW + dt.timedelta(hours=3))
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+
+    def _captures(self):
+        return [(r[0], r[1]) for r in self.store.conn.execute(
+            "SELECT status, COUNT(*) FROM pool_market_capture "
+            "WHERE source='sharp' GROUP BY status")]
+
+    def test_overhoppad_hamtning_bokfors_inte(self):
+        skipped = {"draw": self.draw, "hits": {}, "status": {},
+                   "fetched_at": _iso(NOW), "cache_age_s": 0,
+                   "skipped": "pinnacle hämtad av annat varv inom 10 min"}
+        self.assertEqual(0, pool_dataset.record_sharp_capture(
+            self.store, "topptipset", self.draw, skipped))
+        self.assertEqual([], self._captures())
+
+    def test_kallfel_bokfors_inte(self):
+        failed = {"draw": self.draw, "hits": {}, "status": {},
+                  "fetched_at": _iso(NOW), "pinnacle_error": "403 Cloudflare"}
+        self.assertEqual(0, pool_dataset.record_sharp_capture(
+            self.store, "topptipset", self.draw, failed))
+        self.assertEqual([], self._captures())
+
+    def test_horisontfonstret_oppnar_bara_i_toleransen(self):
+        """Spärren får bara förbigås i fönstren — annars är vi tillbaka i
+        dubbeltrafiken som spärren infördes för att stoppa."""
+        close = dt.datetime(2026, 7, 25, 14, 0, tzinfo=dt.timezone.utc)
+        iso = close.isoformat()
+        cases = {1440: "h24", 1410: "h24", 1380: None,   # tolerans h24 = 45 min
+                 180: "h3", 140: "h3", 120: None,        # tolerans h3 = 45 min
+                 20: "m20", 15: "m20", 5: None,          # tolerans m20 = 10 min
+                 600: None}
+        for minutes_before, expected in cases.items():
+            now = close - dt.timedelta(minutes=minutes_before)
+            self.assertEqual(expected,
+                             pool_dataset.horizon_window_open(iso, now),
+                             f"T−{minutes_before} min")
+        self.assertIsNone(pool_dataset.horizon_window_open(None))
+
+    def test_verklig_franvaro_bokfors_som_observation(self):
+        """not_listed från ett LYCKAT svar är värdefull information och sparas."""
+        real = {"draw": self.draw, "hits": {},
+                "status": {m.event_number: "not_listed" for m in self.draw.matches},
+                "fetched_at": _iso(NOW), "cache_age_s": 0}
+        n = pool_dataset.record_sharp_capture(
+            self.store, "topptipset", self.draw, real)
+        self.assertEqual(len(self.draw.matches), n)
+        self.assertEqual([("not_listed", len(self.draw.matches))], self._captures())
 
 
 class SystemLedgerTests(unittest.TestCase):

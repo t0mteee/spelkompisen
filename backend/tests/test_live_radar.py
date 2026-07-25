@@ -82,13 +82,17 @@ class LiveRadarTests(unittest.TestCase):
         self.assertEqual(20, signal["remaining_min"])
 
     def test_xg_missing_uses_explicitly_warned_proxy(self):
+        """Proxyn måste vara märkt som proxy. Märkningen bärs av `kind` (som
+        UI:t sorterar på) OCH av texten — den tidigare separata
+        `warning`-raden per kort sa samma sak en tredje gången och flyttades
+        till radarns fotnot 2026-07-25."""
         capture = live_radar.parse_capture(
             event(), stats(xg=(None, None)), captured_at=AT, now=NOW)
         signal = live_radar.radar_signal(capture)
 
         self.assertEqual("watch", signal["level"])
         self.assertEqual("proxy", signal["kind"])
-        self.assertIn("Proxy", signal["warning"])
+        self.assertIn("proxy", signal["reason"].casefold())
 
     def test_missing_chance_fields_are_not_interpreted_as_zero(self):
         capture = live_radar.parse_capture(
@@ -97,7 +101,9 @@ class LiveRadarTests(unittest.TestCase):
 
         self.assertEqual("no_stats", signal["kind"])
         self.assertEqual("info", signal["level"])
-        self.assertIn("saknar", signal["reason"])
+        self.assertEqual(0.0, signal["score"])
+        # texten ska peka ut KÄLLAN som gränsen, inte antyda ett mätt nollvärde
+        self.assertIn("källan", signal["reason"].casefold())
 
     def test_late_match_does_not_signal_even_with_historical_gap(self):
         capture = live_radar.parse_capture(

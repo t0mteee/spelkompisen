@@ -1,0 +1,227 @@
+{
+ "cohort": "final_only-radval-v1",
+ "seed": 20260725,
+ "budget": 100.0,
+ "products": {
+  "stryktipset": {
+   "n_available": 223,
+   "n_used": 223,
+   "n_incomplete_payout": 0,
+   "n_build_failed": 0,
+   "arms": {
+    "favoritrad": {
+     "n_draws": 223,
+     "mean_roi": -0.7549,
+     "ci90": [
+      -0.8605,
+      -0.5903
+     ],
+     "top_tier_hits": 1
+    },
+    "folkrad": {
+     "n_draws": 223,
+     "mean_roi": -0.7376,
+     "ci90": [
+      -0.8477,
+      -0.5728
+     ],
+     "top_tier_hits": 1
+    },
+    "slump": {
+     "n_draws": 223,
+     "mean_roi": -0.6631,
+     "ci90": [
+      -0.7697,
+      -0.5271
+     ],
+     "top_tier_hits": 1
+    },
+    "varderader": {
+     "n_draws": 223,
+     "mean_roi": -0.5827,
+     "ci90": [
+      -0.8468,
+      -0.2391
+     ],
+     "top_tier_hits": 0
+    }
+   }
+  },
+  "europatipset": {
+   "n_available": 505,
+   "n_used": 505,
+   "n_incomplete_payout": 0,
+   "n_build_failed": 0,
+   "arms": {
+    "favoritrad": {
+     "n_draws": 505,
+     "mean_roi": -0.7271,
+     "ci90": [
+      -0.8126,
+      -0.6229
+     ],
+     "top_tier_hits": 3
+    },
+    "folkrad": {
+     "n_draws": 505,
+     "mean_roi": -0.7254,
+     "ci90": [
+      -0.8074,
+      -0.6214
+     ],
+     "top_tier_hits": 4
+    },
+    "slump": {
+     "n_draws": 505,
+     "mean_roi": -0.2421,
+     "ci90": [
+      -0.757,
+      0.6018
+     ],
+     "top_tier_hits": 3
+    },
+    "varderader": {
+     "n_draws": 505,
+     "mean_roi": -0.7565,
+     "ci90": [
+      -0.8302,
+      -0.662
+     ],
+     "top_tier_hits": 1
+    }
+   }
+  },
+  "topptipset": {
+   "n_available": 2496,
+   "n_used": 2496,
+   "n_incomplete_payout": 0,
+   "n_build_failed": 0,
+   "arms": {
+    "favoritrad": {
+     "n_draws": 2496,
+     "mean_roi": -0.2402,
+     "ci90": [
+      -0.3326,
+      -0.1419
+     ],
+     "top_tier_hits": 273
+    },
+    "folkrad": {
+     "n_draws": 2496,
+     "mean_roi": -0.3426,
+     "ci90": [
+      -0.4217,
+      -0.2611
+     ],
+     "top_tier_hits": 263
+    },
+    "slump": {
+     "n_draws": 2496,
+     "mean_roi": -0.2108,
+     "ci90": [
+      -0.4007,
+      -0.0068
+     ],
+     "top_tier_hits": 138
+    },
+    "varderader": {
+     "n_draws": 2496,
+     "mean_roi": -0.2344,
+     "ci90": [
+      -0.3223,
+      -0.1344
+     ],
+     "top_tier_hits": 386
+    }
+   }
+  },
+  "topptipsetstryk": {
+   "n_available": 229,
+   "n_used": 229,
+   "n_incomplete_payout": 0,
+   "n_build_failed": 0,
+   "arms": {
+    "favoritrad": {
+     "n_draws": 229,
+     "mean_roi": -0.4611,
+     "ci90": [
+      -0.695,
+      -0.2003
+     ],
+     "top_tier_hits": 28
+    },
+    "folkrad": {
+     "n_draws": 229,
+     "mean_roi": -0.4796,
+     "ci90": [
+      -0.6742,
+      -0.2778
+     ],
+     "top_tier_hits": 29
+    },
+    "slump": {
+     "n_draws": 229,
+     "mean_roi": 0.4549,
+     "ci90": [
+      -0.6971,
+      1.9768
+     ],
+     "top_tier_hits": 11
+    },
+    "varderader": {
+     "n_draws": 229,
+     "mean_roi": -0.2431,
+     "ci90": [
+      -0.4718,
+      0.0248
+     ],
+     "top_tier_hits": 40
+    }
+   }
+  },
+  "topptipsetextra": {
+   "n_available": 523,
+   "n_used": 523,
+   "n_incomplete_payout": 0,
+   "n_build_failed": 0,
+   "arms": {
+    "favoritrad": {
+     "n_draws": 523,
+     "mean_roi": -0.5083,
+     "ci90": [
+      -0.6491,
+      -0.3476
+     ],
+     "top_tier_hits": 58
+    },
+    "folkrad": {
+     "n_draws": 523,
+     "mean_roi": -0.4506,
+     "ci90": [
+      -0.5991,
+      -0.2702
+     ],
+     "top_tier_hits": 60
+    },
+    "slump": {
+     "n_draws": 523,
+     "mean_roi": -0.6824,
+     "ci90": [
+      -0.8621,
+      -0.4347
+     ],
+     "top_tier_hits": 23
+    },
+    "varderader": {
+     "n_draws": 523,
+     "mean_roi": -0.0703,
+     "ci90": [
+      -0.294,
+      0.1812
+     ],
+     "top_tier_hits": 103
+    }
+   }
+  }
+ }
+}

@@ -41,7 +41,22 @@ def _live_get(path: str):
 
 # Träningsmatcher ingår i Oddset men saknar en enda stabil ligaidentitet.
 TARGET_UT = {tournament_id: league for league, tournament_id in SOFA_UT.items()}
-TARGET_UT[853] = "friendlies"
+# Sofascore delar upp träningsmatcher på MÅNGA turneringar. 853 (Club Friendly
+# Games) täckte 117 av 463 livematcher 2026-07-25, men de nationella
+# träningsturneringarna låg helt utanför radarn: England 20 live, Bulgarien 11,
+# Polen 8, Serbien 8, Kroatien 5, Tyskland 5. Alla går genom samma spärr som 853
+# (`_known_friendly`) — endast matcher som redan finns i Oddset släpps in.
+for _friendly_ut in (853, 35960, 27113, 27120, 32053, 32366, 27118):
+    TARGET_UT[_friendly_ut] = "friendlies"
+FRIENDLY_UT = frozenset({853, 35960, 27113, 27120, 32053, 32366, 27118})
+
+# Taket delas av ALLA ligor, så en lördag med 43 behöriga träningsmatcher kunde
+# tränga ut Allsvenskan helt — och urvalet blev det Sofascore råkade returnera
+# först. Riktiga ligor går därför före träningsmatcher, och inom gruppen väljs
+# de matcher som har mest kvar att spela (en match i 85:e minuten kan inte längre
+# ge en signal).
+LEAGUE_PRIORITY = {"allsvenskan": 0, "superettan": 0, "eliteserien": 0,
+                   "obosligaen": 0, "mls": 0, "friendlies": 1}
 
 STAT_KEYS = {
     "expectedGoals": ("xg_home", "xg_away"),
@@ -208,11 +223,14 @@ def radar_signal(current: dict, previous: Optional[dict] = None) -> dict:
         "touches_box_home", "touches_box_away",
     )
     if all(current.get(key) is None for key in proxy_keys):
+        # EN rad, inte två. "Källan saknar chansmått" + "därför räknas ingen
+        # signal" sa samma sak dubbelt, och kortets statsrad visar redan
+        # "xG saknas · stora chanser –––". Kvar blir det enda som INTE syns
+        # ovanför: att detta är källans gräns, inte vår.
         return {
             "level": "info", "kind": "no_stats", "score": 0.0,
             "remaining_min": remaining,
-            "reason": "Källan saknar xG och användbara chansmått för matchen.",
-            "warning": "Ingen chanssignal räknas från saknade värden.",
+            "reason": "Källan rapporterar inga skott- eller chansmått.",
         }
 
     # Allsvenskan saknar ofta xG. Proxyflaggan är medvetet strikt och märks
@@ -244,10 +262,10 @@ def radar_signal(current: dict, previous: Optional[dict] = None) -> dict:
         "score": round(gaps[index], 3),
         "proxy_index": round(gaps[index], 2),
         "remaining_min": remaining,
-        "reason": (
-            f"{team}: xG saknas · {big} stora chanser, "
-            f"{on_target} skott på mål, {inside} skott i box"),
-        "warning": "Proxy – historiken har ännu inte visat prediktiv mållyft.",
+        # Siffrorna står redan i statsraden ovanför — här behövs bara VEM och
+        # att måttet är en oprövad proxy. Varningen låg tidigare på varje kort
+        # och drunknade; den hör till radarns fotnot, en gång.
+        "reason": f"{team} trycker på — men xG saknas, detta är en proxy",
     }
 
 
@@ -272,7 +290,7 @@ def collect(store: Storage, *, now: Optional[dt.datetime] = None) -> dict:
         unique = ((event.get("tournament") or {}).get("uniqueTournament") or {})
         if (unique.get("id") in TARGET_UT and
                 (event.get("status") or {}).get("type") == "inprogress"):
-            if unique.get("id") == 853 and not _known_friendly(
+            if unique.get("id") in FRIENDLY_UT and not _known_friendly(
                     event, known_friendlies):
                 continue
             scoped.append(event)
@@ -280,6 +298,20 @@ def collect(store: Storage, *, now: Optional[dt.datetime] = None) -> dict:
     # Tak per varv: en lördagseftermiddag kan ge fler livematcher än vi hinner
     # med inom tickens fem minuter. Hellre ett ärligt redovisat urval än ett
     # varv som drar över och blockerar nästa poolinsamling.
+    # URVALET är dock inte längre "de 14 Sofascore råkade lista först" (uppmätt
+    # 2026-07-25: 43 behöriga träningsmatcher kunde tränga ut Allsvenskan).
+    # Riktiga ligor först, därefter mest återstående speltid.
+    def _rank(event: dict) -> tuple:
+        unique = ((event.get("tournament") or {}).get("uniqueTournament") or {})
+        league = TARGET_UT.get(unique.get("id"), "friendlies")
+        return (LEAGUE_PRIORITY.get(league, 9), _minute(event, now) or 0)
+
+    scoped.sort(key=_rank)
+    dropped_by_league: dict[str, int] = {}
+    for event in scoped[MAX_MATCHES:]:
+        unique = ((event.get("tournament") or {}).get("uniqueTournament") or {})
+        league = TARGET_UT.get(unique.get("id"), "friendlies")
+        dropped_by_league[league] = dropped_by_league.get(league, 0) + 1
     skipped = max(0, len(scoped) - MAX_MATCHES)
     scoped = scoped[:MAX_MATCHES]
 
@@ -309,14 +341,57 @@ def collect(store: Storage, *, now: Optional[dt.datetime] = None) -> dict:
     if scoped and stats_ok == 0:
         partial = partial or "ingen live-match hade läsbar statistik"
     if skipped:
+        # INGA TYSTA TAK: vad som föll bort, och ur vilken liga, ska stå i
+        # källhälsan. Ett dolt urval läser som "det här var allt som fanns".
+        detail = ", ".join(f"{league} {n}"
+                           for league, n in sorted(dropped_by_league.items()))
         note = (f"{skipped} matcher hoppade"
-                + (" (tidsbudget)" if budget_hit else " (matchtak)"))
+                + (" (tidsbudget)" if budget_hit else " (matchtak)")
+                + (f": {detail}" if detail else ""))
         partial = f"{partial}; {note}" if partial else note
     store.oddset_record_source_health(
         "sofascore", "-", "live", captured_at, health_ok, len(scoped), partial)
     store.meta_set("live_radar_last_run", captured_at)
+    store.meta_set("live_radar_dropped", ", ".join(
+        f"{league} {n} över taket"
+        for league, n in sorted(dropped_by_league.items())))
     return {"at": captured_at, "live": len(scoped), "stats_ok": stats_ok,
             "saved": saved, "skipped": skipped, "partial_errors": errors}
+
+
+def _same_team(a: str, b: str) -> bool:
+    """Konservativ namnlänkning MELLAN källor (Sofascore ↔ FotMob).
+
+    `norm_team` klarar 'Degerfors' ↔ 'Degerfors IF' men inte svensk genitiv:
+    'Djurgården' ↔ 'Djurgårdens IF' blir djurgarden ↔ djurgardens. Prefixregeln
+    med minst fyra tecken täcker det utan att öppna för allmän likhetsmatchning.
+    Ingen träff = matchen visas utan FotMob-data; vi gissar aldrig.
+    """
+    x, y = norm_team(a or ""), norm_team(b or "")
+    if len(x) < 4 or len(y) < 4:
+        return x == y and bool(x)
+    return x.startswith(y) or y.startswith(x)
+
+
+def _fotmob_series(store: Storage, since: str) -> list[list[dict]]:
+    """FotMob-captures grupperade per match, i tidsordning."""
+    from .fotmob import CAPTURE_VERSION as FOTMOB_VERSION
+    grouped: dict[int, list[dict]] = {}
+    for row in store.live_fotmob_captures(since, FOTMOB_VERSION):
+        grouped.setdefault(int(row["fotmob_id"]), []).append(row)
+    return list(grouped.values())
+
+
+def _fotmob_for(match: dict, series: list[list[dict]]) -> Optional[list[dict]]:
+    """Hitta FotMob-serien för en Sofascore-match: samma liga, samma två lag."""
+    for captures in series:
+        head = captures[-1]
+        if head.get("league") != match.get("league"):
+            continue
+        if (_same_team(head.get("home"), match.get("home")) and
+                _same_team(head.get("away"), match.get("away"))):
+            return captures
+    return None
 
 
 def payload(store: Storage, *,
@@ -330,6 +405,7 @@ def payload(store: Storage, *,
         RECENT_TOLERANCE_MIN)).strftime(
         "%Y-%m-%dT%H:%M:%SZ")
     rows = store.oddset_live_captures(since, CAPTURE_VERSION)
+    fotmob_series = _fotmob_series(store, since)
     grouped: dict[int, list[dict]] = {}
     for row in rows:
         grouped.setdefault(int(row["event_id"]), []).append(row)
@@ -356,7 +432,29 @@ def payload(store: Storage, *,
                     minutes=RECENT_TOLERANCE_MIN):
                 previous = None
         signal = radar_signal(current, previous)
-        matches.append({**current, "signal": signal,
+        signal["xg_source"] = "sofascore" if signal.get("kind") == "xg" else None
+        extra: dict = {}
+        # ANDRA KÄLLAN (2026-07-25): Sofascore saknar xG helt för Allsvenskan.
+        # Har FotMob xG för samma match används DEN serien — men hela signalen
+        # räknas då inom FotMobs egna punkter. Att ta xG från en provider och
+        # deltat från en annan hade mätt skillnaden mellan två modeller.
+        if signal.get("kind") != "xg":
+            fm = _fotmob_for(current, fotmob_series)
+            if fm and fm[-1].get("xg_home") is not None:
+                fm_current, fm_prev = fm[-1], (fm[-2] if len(fm) > 1 else None)
+                fm_signal = radar_signal(fm_current, fm_prev)
+                if fm_signal.get("kind") == "xg":
+                    fm_signal["xg_source"] = "fotmob"
+                    signal = fm_signal
+                extra["fotmob"] = {
+                    "xg_home": fm_current.get("xg_home"),
+                    "xg_away": fm_current.get("xg_away"),
+                    "xgot_home": fm_current.get("xgot_home"),
+                    "xgot_away": fm_current.get("xgot_away"),
+                    "minute": fm_current.get("minute"),
+                    "captured_at": fm_current.get("captured_at"),
+                }
+        matches.append({**current, **extra, "signal": signal,
                         "is_signal": signal["level"] in {"watch", "strong"}})
     # SORTERING (2026-07-25): xG-signalen mäts i MÅL, proxyn är ett enhetslöst
     # viktat index — att ranka dem mot varandra på samma `score` jämför äpplen
@@ -377,7 +475,12 @@ def payload(store: Storage, *,
         "coverage": {
             "xg": sum(row["signal"]["kind"] == "xg" for row in matches),
             "proxy": sum(row["signal"]["kind"] == "proxy" for row in matches),
+            "fotmob_xg": sum(row["signal"].get("xg_source") == "fotmob"
+                             for row in matches),
         },
+        # INGA TYSTA TAK: står här av samma skäl som i källhälsan — ett dolt
+        # urval läser som "det här var allt som fanns live".
+        "dropped": store.meta_get("live_radar_dropped") or "",
         "disclaimer": (
             "Informationsradar. Påverkar inte tips, Kelly, facit eller notiser."),
     }

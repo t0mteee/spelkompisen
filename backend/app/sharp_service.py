@@ -39,9 +39,17 @@ def _pinnacle_fetched_recently(store: Storage) -> bool:
 
 def collect_pinnacle(product: str = "stryktipset",
                      draw: Optional[Draw] = None,
-                     cache: bool = True) -> Optional[dict]:
+                     cache: bool = True,
+                     force: bool = False) -> Optional[dict]:
     """Hämta Pinnacle-odds för omgångens matcher. Returnerar hits + status.
-    Cachar matchade odds i SQLite (gratis, kostar inga credits)."""
+    Cachar matchade odds i SQLite (gratis, kostar inga credits).
+
+    force=True kringgår dubbeltrafikspärren. Används BARA när observationen
+    inte kan göras om: poolens horisontfönster (T−24h/−3h/−20min) inträffar en
+    gång per omgång och får aldrig bakfyllas. Spärren i övrigt är kvar —
+    Oddset-varvets snabbpoll höll annars låset varmt så gott som konstant, och
+    poolen förlorade sin sharp-observation i 52 % av alla ticks (2026-07-25).
+    """
     if draw is None:
         with SvenskaSpel() as ss:
             draw = ss.get_current_draw(product)
@@ -55,7 +63,7 @@ def collect_pinnacle(product: str = "stryktipset",
 
     _throttle_store = Storage()
     try:
-        if _pinnacle_fetched_recently(_throttle_store):
+        if not force and _pinnacle_fetched_recently(_throttle_store):
             return {"draw": draw, "hits": {}, "status": {},
                     "fetched_at": retrieved_at, "cache_age_s": 0,
                     "skipped": "pinnacle hämtad av annat varv inom "
