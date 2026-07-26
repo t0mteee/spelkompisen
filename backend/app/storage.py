@@ -712,6 +712,13 @@ CREATE TABLE IF NOT EXISTS oddset_matches (
     updated_at   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_oddset_matches_start ON oddset_matches (start);
+-- En extern provideridentitet får höra till exakt en canonical match.
+-- Indexen skapades på prod-DB först efter backup + audit/sanering via
+-- scripts/sanera_oddset_identitetskrockar.py (2026-07-26).
+CREATE UNIQUE INDEX IF NOT EXISTS uq_oddset_matches_pinnacle_id
+    ON oddset_matches (pinnacle_id) WHERE pinnacle_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_oddset_matches_kambi_id
+    ON oddset_matches (kambi_id) WHERE kambi_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS oddset_odds (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1309,8 +1316,8 @@ class Storage:
                "home=COALESCE(oddset_matches.home, excluded.home), "
                "away=COALESCE(oddset_matches.away, excluded.away), ")
             + "start=COALESCE(excluded.start, oddset_matches.start), "
-              "pinnacle_id=COALESCE(excluded.pinnacle_id, oddset_matches.pinnacle_id), "
-              "kambi_id=COALESCE(excluded.kambi_id, oddset_matches.kambi_id), "
+              "pinnacle_id=COALESCE(oddset_matches.pinnacle_id, excluded.pinnacle_id), "
+              "kambi_id=COALESCE(oddset_matches.kambi_id, excluded.kambi_id), "
               "status=COALESCE(excluded.status, oddset_matches.status), "
               "updated_at=excluded.updated_at",
             (m["id"], m["league"], m.get("home"), m.get("away"), m.get("start"),
@@ -1333,6 +1340,70 @@ class Storage:
         row = self.conn.execute(
             "SELECT * FROM oddset_matches WHERE id=?", (match_id,)).fetchone()
         return dict(row) if row else None
+
+    def oddset_match_by_source_id(
+            self, id_field: str, source_id) -> Optional[dict]:
+        """Globalt one-to-one-uppslag; får inte begränsas av UI-tidsfönstret."""
+        if id_field not in {"pinnacle_id", "kambi_id"}:
+            raise ValueError(f"otillåtet käll-id-fält: {id_field}")
+        row = self.conn.execute(
+            f"SELECT * FROM oddset_matches WHERE {id_field}=?",
+            (str(source_id),)).fetchone()
+        return dict(row) if row else None
+
+    def oddset_identity_conflicts(
+            self, match_ids: list[str]) -> dict[str, list[str]]:
+        """Härled identitetskollisioner som måste karantänsättas i läs-API:t.
+
+        Detta är medvetet en ren läsning: även innan en sanering hunnit köras
+        får en förorenad match aldrig skapa värdekort, modellfacit eller
+        prediktionscaptures. Tre oberoende invariants kontrolleras:
+        självbärande pin:/svs:-id, unikt externt id och två olika priser från
+        samma källa/marknad/tecken vid exakt samma observationstid.
+        """
+        if not match_ids:
+            return {}
+        wanted = set(match_ids)
+        marks = ",".join("?" for _ in match_ids)
+        conflicts: dict[str, list[str]] = {}
+
+        def add(mid: str, reason: str) -> None:
+            if mid in wanted and reason not in conflicts.setdefault(mid, []):
+                conflicts[mid].append(reason)
+
+        matches = [dict(row) for row in self.conn.execute(
+            f"SELECT id, pinnacle_id, kambi_id FROM oddset_matches "
+            f"WHERE id IN ({marks})", match_ids)]
+        for match in matches:
+            mid = match["id"]
+            if (mid.startswith("pin:") and match.get("pinnacle_id") is not None
+                    and mid[4:] != str(match["pinnacle_id"])):
+                add(mid, "Pinnacle-id stämmer inte med matchens canonical-id")
+            if (mid.startswith("svs:") and match.get("kambi_id") is not None
+                    and mid[4:] != str(match["kambi_id"])):
+                add(mid, "SvS-id stämmer inte med matchens canonical-id")
+
+        for field, label in (("pinnacle_id", "Pinnacle"),
+                             ("kambi_id", "SvS")):
+            rows = self.conn.execute(
+                f"SELECT {field}, GROUP_CONCAT(id) AS ids, COUNT(*) AS n "
+                f"FROM oddset_matches WHERE {field} IS NOT NULL "
+                f"GROUP BY {field} HAVING COUNT(*)>1").fetchall()
+            for row in rows:
+                for mid in str(row["ids"]).split(","):
+                    add(mid, f"{label}-id delas av flera matcher")
+
+        rows = self.conn.execute(
+            f"SELECT match_id, source, market, sign, fetched_at, "
+            f"COUNT(DISTINCT CAST(odds AS TEXT) || '|' || "
+            f"COALESCE(CAST(line AS TEXT), '')) AS variants "
+            f"FROM oddset_odds WHERE match_id IN ({marks}) "
+            f"GROUP BY match_id, source, market, sign, fetched_at "
+            f"HAVING variants>1", match_ids).fetchall()
+        for row in rows:
+            add(row["match_id"],
+                f"{row['source']} har flera priser för samma matchögonblick")
+        return conflicts
 
     def _oddset_latest_values(self, match_id: str, source: str,
                               market: str) -> dict[str, dict]:

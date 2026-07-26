@@ -70,6 +70,7 @@ def migrate(db: Path | str) -> dict:
             mappings.append({
                 "old_id": kambi["id"], "new_id": pin["id"],
                 "kambi_id": kambi["kambi_id"], "league": kambi["league"],
+                "updated_at": kambi.get("updated_at"),
             })
         with conn:
             for mapping in mappings:
@@ -83,13 +84,18 @@ def migrate(db: Path | str) -> dict:
                 conn.execute(
                     "UPDATE oddset_odds SET match_id=? WHERE match_id=?",
                     (mapping["new_id"], mapping["old_id"]))
-                conn.execute(
-                    "UPDATE oddset_matches SET kambi_id=?, updated_at=("
-                    "SELECT updated_at FROM oddset_matches WHERE id=?) WHERE id=?",
-                    (mapping["kambi_id"], mapping["old_id"], mapping["new_id"]))
+                # Provider-id:n är globalt unika sedan
+                # sanera_oddset_identitetskrockar.py. Ta därför bort den gamla
+                # ägaren INNAN id:t flyttas till canonical-raden; transaktionen
+                # gör fortfarande hela operationen atomisk.
                 conn.execute(
                     "DELETE FROM oddset_matches WHERE id=?",
                     (mapping["old_id"],))
+                conn.execute(
+                    "UPDATE oddset_matches SET kambi_id=?, "
+                    "updated_at=COALESCE(?, updated_at) WHERE id=?",
+                    (mapping["kambi_id"], mapping["updated_at"],
+                     mapping["new_id"]))
         integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
         return {
             "merged": len(mappings),

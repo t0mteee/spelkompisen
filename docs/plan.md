@@ -5,6 +5,34 @@
 > **Aktiv backlog och prioritering: `docs/backlog.md`** (2026-07-26).
 > WP-listan längre ned är historik över avslutat arbete.
 
+**LIVE-TÄCKNING + ODDSIDENTITET HÄRDADE (2026-07-26 em, Codex).**
+Superettan-matchen GIF Sundsvall–Falkenberg doldes trots FotMob-skott eftersom
+fallbacken krävde xG; nu väljs en hel providerserie enligt xG > skott/chansdata
+> saknad statistik. Verifierat live vid 85': FotMob 10–7 skott, 5–3 på mål,
+matchen synlig utan xG. En färsk FotMob-serie visas dessutom som ett eget
+namespacat kort om Sofascore helt saknar matchen; stats får inte vara beroende
+av att två providers först råkar länka. FotMobs xG vinner också i halvtid när
+dess egen minut tillfälligt är tom; en länkad matchklocka får komplettera
+metadata men aldrig blanda providers chansmått. Karlsruhe–Inter-kortets
++187–206 % var en bevisad
+eventkrock med Novara–Internazionale U23: per-lagströskel, write-once/globalt
+unika provider-id:n, per-varv-claims och `data_conflict`-karantän skyddar nu
+alla signal-/modell-/facitvägar. DB-backup + skript körda; 34 bevisat
+kolliderade matcher fick 30 value-loggar, 598 prediction-loggar/84 captures,
+frånvarocaptures och 80 falska lokala notiser borttagna. Karlsruhe reparerad,
+Novara egen rad, hela gamla Pinnacle-serien borttagen, DB-integritet ok.
+`DATA_VERSION 2→3`; detaljer:
+`docs/oddset-identitetsaudit-2026-07-26.md` och `docs/db-atgarder.md`.
+Efter första nya korrekta Pinnacle-varvet separerades priserna bevisligen
+(Karlsruhe 3,74/5,69/1,49; Novara 1,80/3,33/3,70). Karlsruhe har nu en riktig
+Pinnacle-edge +25,6 %, men Smarkets säger −6,9 %; UI:t märker därför kortet
+`OMTVISTAD EDGE`/⚓ utan att tyst promovera tvåankargaten.
+Versionsutfall efter saneringen: aktiv sharp `s-95e14fca`, aktiv modell
+`m-c4ee7c5d`; båda börjar samla i nästa capturefönster. Historiska rader finns
+kvar under sina äldre versioner men räknas aldrig ihop med post-fix-facitet.
+Tvåankarbeslutspaketet är nu ärligt nedjusterat till 13 mätta/9 stängda
+(3/9 överlever båda ankare, ~7 dygn till volymkravet vid nuvarande takt).
+
 **CLOSE-DRIFT-FACIT v1 KÖRT — MOMENTUM FALSIFIERAD, TIDIGA SKIFT REVERSERAR
 (2026-07-26 kväll, Fable 5, godkänd insats).** Förregistrerat i
 `docs/close-drift-facit-2026-07-26.md` FÖRE körning; 3 303 aktiva selektioner

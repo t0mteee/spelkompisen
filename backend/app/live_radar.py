@@ -474,16 +474,74 @@ def _fotmob_series(store: Storage, since: str) -> list[list[dict]]:
     return list(grouped.values())
 
 
-def _fotmob_for(match: dict, series: list[list[dict]]) -> Optional[list[dict]]:
-    """Hitta FotMob-serien för en Sofascore-match: samma liga, samma två lag."""
+def _fotmob_for(match: dict, series: list[list[dict]],
+                claimed: Optional[set[int]] = None) -> Optional[list[dict]]:
+    """Hitta FotMob-serien för en Sofascore-match: samma liga, samma två lag.
+
+    En provider-match får bara kopplas en gång. Om Sofascore råkar innehålla
+    dubbletter blir den kvarvarande FotMob-serien i stället ett eget kort,
+    aldrig statistik på två olika matcher.
+    """
     for captures in series:
         head = captures[-1]
+        fotmob_id = int(head["fotmob_id"])
+        if claimed is not None and fotmob_id in claimed:
+            continue
         if head.get("league") != match.get("league"):
             continue
         if (_same_team(head.get("home"), match.get("home")) and
                 _same_team(head.get("away"), match.get("away"))):
             return captures
     return None
+
+
+_FOTMOB_VIEW_KEYS = (
+    "xg_home", "xg_away", "xgot_home", "xgot_away",
+    "big_chances_home", "big_chances_away",
+    "shots_home", "shots_away",
+    "shots_on_home", "shots_on_away",
+    "shots_inside_home", "shots_inside_away",
+    "minute", "captured_at",
+)
+
+
+def _stats_rank(row: dict) -> int:
+    """Ranka faktiskt rapporterad statistik, oberoende av matchklockan."""
+    if row.get("xg_home") is not None and row.get("xg_away") is not None:
+        return 2
+    proxy_keys = (
+        "big_chances_home", "big_chances_away",
+        "shots_on_home", "shots_on_away",
+        "shots_inside_home", "shots_inside_away",
+    )
+    return 1 if any(row.get(key) is not None for key in proxy_keys) else 0
+
+
+def _fotmob_signal(captures: list[dict],
+                   match_fallback: Optional[dict] = None) -> tuple[dict, dict]:
+    """Signal + visningsfält ur en enda, sammanhängande FotMob-serie."""
+    current = captures[-1]
+    current_at = dt.datetime.fromisoformat(
+        current["captured_at"].replace("Z", "+00:00"))
+    previous = previous_capture(captures[:-1], current_at)
+    signal_row = current
+    # FotMob lämnar ibland minuten tom precis i halvtid trots att xG:n är
+    # färsk. Klocka och resultattavla är matchmetadata, inte chansmått, och får
+    # därför hämtas från den redan verifierade Sofascore-länken. Själva
+    # signalens xG/skott kommer fortfarande uteslutande från FotMob-serien.
+    if match_fallback and (
+            current.get("minute") is None or
+            current.get("home_score") is None or
+            current.get("away_score") is None):
+        signal_row = dict(current)
+        for key in ("minute", "home_score", "away_score"):
+            if signal_row.get(key) is None:
+                signal_row[key] = match_fallback.get(key)
+    signal = radar_signal(signal_row, previous)
+    signal["stats_source"] = "fotmob"
+    signal["xg_source"] = "fotmob" if signal.get("kind") == "xg" else None
+    view = {key: current.get(key) for key in _FOTMOB_VIEW_KEYS}
+    return signal, view
 
 
 def payload(store: Storage, *,
@@ -502,6 +560,7 @@ def payload(store: Storage, *,
     for row in rows:
         grouped.setdefault(int(row["event_id"]), []).append(row)
     matches = []
+    claimed_fotmob: set[int] = set()
     for captures in grouped.values():
         current = captures[-1]
         current_at = dt.datetime.fromisoformat(
@@ -510,30 +569,47 @@ def payload(store: Storage, *,
             continue
         previous = previous_capture(captures[:-1], current_at)
         signal = radar_signal(current, previous)
-        signal["xg_source"] = "sofascore" if signal.get("kind") == "xg" else None
+        signal["stats_source"] = "sofascore"
+        signal["xg_source"] = (
+            "sofascore" if signal.get("kind") == "xg" else None)
         extra: dict = {}
-        # ANDRA KÄLLAN (2026-07-25): Sofascore saknar xG helt för Allsvenskan.
-        # Har FotMob xG för samma match används DEN serien — men hela signalen
-        # räknas då inom FotMobs egna punkter. Att ta xG från en provider och
-        # deltat från en annan hade mätt skillnaden mellan två modeller.
-        if signal.get("kind") != "xg":
-            fm = _fotmob_for(current, fotmob_series)
-            if fm and fm[-1].get("xg_home") is not None:
-                fm_current, fm_prev = fm[-1], (fm[-2] if len(fm) > 1 else None)
-                fm_signal = radar_signal(fm_current, fm_prev)
-                if fm_signal.get("kind") == "xg":
-                    fm_signal["xg_source"] = "fotmob"
-                    signal = fm_signal
-                extra["fotmob"] = {
-                    "xg_home": fm_current.get("xg_home"),
-                    "xg_away": fm_current.get("xg_away"),
-                    "xgot_home": fm_current.get("xgot_home"),
-                    "xgot_away": fm_current.get("xgot_away"),
-                    "minute": fm_current.get("minute"),
-                    "captured_at": fm_current.get("captured_at"),
-                }
+        # ANDRA KÄLLAN (2026-07-25/26): Sofascore saknar ofta xG — och kan
+        # även sakna ALL chansstatistik — för de nordiska ligorna. FotMob får
+        # därför bära HELA signalen även när den bara har skottmått. Valordning:
+        # xG > skottproxy > ingen statistik; vid lika bra data behålls
+        # Sofascore för att undvika onödiga providerbyten. Provider-rader
+        # blandas aldrig: både nuläge och delta kommer från samma serie.
+        fm = _fotmob_for(current, fotmob_series, claimed_fotmob)
+        if fm:
+            fm_current = fm[-1]
+            claimed_fotmob.add(int(fm_current["fotmob_id"]))
+            fm_signal, extra["fotmob"] = _fotmob_signal(fm, current)
+            if _stats_rank(fm_current) > _stats_rank(current):
+                signal = fm_signal
         matches.append({**current, **extra, "signal": signal,
                         "is_signal": signal["level"] in {"watch", "strong"}})
+
+    # FotMob är inte bara en statistikreserv för Sofascore. Om Sofascore helt
+    # saknar en match men FotMob har en färsk serie ska matchen ändå synas.
+    # Detta stänger den sista luckan i löftet "stats finns → kort visas".
+    # Det namespacade event-id:t kan aldrig krocka med Sofascores heltals-id.
+    for fm in fotmob_series:
+        current = fm[-1]
+        fotmob_id = int(current["fotmob_id"])
+        if fotmob_id in claimed_fotmob:
+            continue
+        current_at = dt.datetime.fromisoformat(
+            current["captured_at"].replace("Z", "+00:00"))
+        if now - current_at > dt.timedelta(minutes=MAX_DISPLAY_AGE_MIN):
+            continue
+        signal, view = _fotmob_signal(fm)
+        matches.append({
+            **current,
+            "event_id": f"fotmob:{fotmob_id}",
+            "fotmob": view,
+            "signal": signal,
+            "is_signal": signal["level"] in {"watch", "strong"},
+        })
     # SORTERING (2026-07-25): xG-signalen mäts i MÅL, proxyn är ett enhetslöst
     # viktat index — att ranka dem mot varandra på samma `score` jämför äpplen
     # med päron. Grupperna hålls därför isär: xG-matcher först, proxy under,

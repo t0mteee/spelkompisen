@@ -214,6 +214,8 @@ def attach_value(matches: list[dict]) -> None:
     for m in matches:
         val: dict = {}
         m["value"] = val
+        if m.get("data_conflict"):
+            continue
         if (m.get("start") or "9") <= now:
             continue
         odds = m.get("odds") or {}
@@ -313,6 +315,8 @@ def attach_steam(matches: list[dict]) -> None:
     now = dt.datetime.now(dt.timezone.utc)
     signs = _MARKET_SIGNS["1x2"]
     for m in matches:
+        if m.get("data_conflict"):
+            continue
         current = ((m.get("odds") or {}).get("pinnacle") or {}).get("1x2") or {}
         if not current.get("fresh"):
             continue
@@ -373,6 +377,8 @@ def log_and_notify(store: Storage, matches: list[dict],
         return ((mid, book, market) in present
                 and (mid, "pinnacle", market) in present)
     for m in matches:
+        if m.get("data_conflict"):
+            continue
         desc = f"{m['home']} – {m['away']}"
         for market, per_sign in (m.get("value") or {}).items():
             for sign, v in per_sign.items():

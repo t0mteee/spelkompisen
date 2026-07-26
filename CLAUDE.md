@@ -91,12 +91,11 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/live_radar.py  shadow-radar för pågående matcher: observerad xG,
                       stora chanser/skott/boxtryck; råa femminuterscaptures,
                       aldrig automatiska spel eller runtime-modellinput
-  app/fotmob.py       ANDRA live-ögat (2026-07-25): live-xG/xGOT för Allsvenskan +
-                      Eliteserien där Sofascore saknar xG helt. EGEN tabell
-                      `oddset_live_fotmob` — xG blandas ALDRIG mellan providers,
-                      och används FotMob räknas HELA signalen (inkl. 15-min-deltat)
-                      i FotMobs egen serie. `signal.xg_source` säger vilken källa
-                      som talar. Shadow. Se docs/live-kallor-2026-07-25.md
+  app/fotmob.py       ANDRA live-ögat (2026-07-25/26): live-xG/xGOT/skott för
+                      nordiska ligor där Sofascore saknar mått. EGEN tabell;
+                      providrar blandas ALDRIG. Källval xG > skott/chansmått >
+                      no_stats och HELA signalen/deltat kommer från vald serie.
+                      `signal.stats_source` säger vilken. Shadow.
   app/main.py         API-endpoints + PRIZE_PLANS (officiella vinstplaner)
   cli.py              show|spikar|snapshot|history|rad (snapshotvarvet settlar
                       även nyss avgjorda poolomgångar via settle_recent)
@@ -143,6 +142,10 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
   bulk är CDN-cachad `max-age=905`, så anrop oftare än ~15 min returnerar samma
   objekt — det kostar trafik utan en enda ny prispunkt. Radarns källor är
   däremot färska (FotMob `max-age=10`, Sofascore live).
+  En färsk FotMob-match med chansdata ska visas även om Sofascore helt saknar
+  matchen; `fotmob:<id>` är då kortets namespacade event-id. Gör aldrig
+  livevisningen beroende av att reservkällan först kan länkas till en
+  Sofascore-rad.
   Live-radarn är shadow/informationsstöd och får inte påverka tips, Kelly,
   CLV, pushnotiser eller systemförslag utan ett nytt explicit beslut.
   Notiser går i Oddset-varvet, bakom **notisvakten** (presence-set: larm kräver att
@@ -411,6 +414,13 @@ måste Saman lägga in en Bash-behörighetsregel — se
   synas i `cli.py modeldata` tills de flyttats till `TEAM_ALIAS`/meta. Förslag i
   0,55–0,75 mergas aldrig. Kända falska par läggs i `TEAM_REJECTED_LINKS` och
   redovisas som verifierade avvisningar (Egersund ≠ Haugesund).
+- Odds-eventidentitet (incident 2026-07-26): minsta laglikhet 0,55 gäller på
+  BÅDA sidor och parscore ≥0,75. `pinnacle_id`/`kambi_id` är write-once,
+  globalt unika och får aldrig bytas via fuzzy-matchning. `pin:<id>` respektive
+  `svs:<id>` måste stämma med sin provideridentitet. Samtidiga prisvarianter
+  eller suffix/id-krock ger `data_conflict`: visa råodds diagnostiskt men
+  stoppa värde, steam, modell, ledger, CLV och notiser. Full audit:
+  `docs/oddset-identitetsaudit-2026-07-26.md`.
 
 ## Regler
 

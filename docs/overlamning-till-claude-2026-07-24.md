@@ -7,6 +7,25 @@ Detta är den aktuella arbetsöverlämningen till Claude. Läs först
 
 > **Codex 2026-07-24 — aktuell överlämning, läs denna ruta först.**
 >
+> **Tillägg 2026-07-26 — läs före äldre punkter.** FotMob-fallbacken visar nu
+> hela sin skottserie även utan xG (`signal.stats_source`), verifierat live
+> för GIF Sundsvall–Falkenberg. En färsk FotMob-serie blir även ett eget
+> `fotmob:<id>`-kort när Sofascore saknar matchen helt. Källvalet rankar
+> faktisk statistik, inte om FotMob råkar lämna minuten tom i halvtid; då får
+> endast matchklockan kompletteras från den länkade raden. En allvarlig Oddset-identitetskrock
+> (Karlsruhe–Inter sammanblandad med Novara–Internazionale U23) är härdad med
+> per-lagströskel, write-once/globalt unika provider-id:n och
+> `data_conflict`-karantän över värde/steam/modell/ledger/CLV/notiser.
+> Sanering + backup är körd; `DATA_VERSION=3`. Ändra inte tillbaka till
+> medelvärdesmatchning eller overwriting-upsert. Läs
+> `docs/oddset-identitetsaudit-2026-07-26.md` och senaste posten i
+> `docs/db-atgarder.md`. Aktiva versioner är nu sharp `s-95e14fca` och modell
+> `m-c4ee7c5d`; förvänta 0 aktiva cases tills nästa capturefönster — bakfyll
+> inte och återanvänd inte äldre version. Tvåankarpaketet är 13 mätta/9
+> stängda efter att kontaminerade matcher togs bort. Ändringarna är ännu inte
+> committade. Slutverifiering: 311 backendtester, grönt frontendbygge och
+> grönt live-API efter backendomstart.
+>
 > Saman bad Codex genomföra samtliga sex eftergranskningspunkter. De är nu
 > implementerade och verifierade; full metodrapport:
 > `docs/pool-pit-v2-2026-07-24.md`. Ingen poolfeature eller κ-korrektion har

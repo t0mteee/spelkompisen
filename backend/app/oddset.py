@@ -127,6 +127,12 @@ _NOISE = {"if", "ff", "fk", "bk", "sk", "ik", "ib", "is", "fc", "afc", "aif",
           "gif", "cf", "ac", "sc", "bp", "kff"}
 _CHARMAP = str.maketrans({"ø": "o", "Ø": "o", "æ": "a", "Æ": "a", "đ": "d", "ð": "d",
                           "ł": "l", "ß": "ss", "/": " ", "-": " ", ".": " ", "'": ""})
+# Ett perfekt lag på ena sidan får aldrig väga upp ett orelaterat lag på den
+# andra. Det hände när "Inter" gav 1,00 mot "Internazionale U23" medan
+# "Karlsruher" bara gav 0,25 mot "Novara"; medelvärdet 0,625 passerade då den
+# gamla gränsen 0,55. Hellre en olänkad källrad än två matcher i samma identitet.
+MIN_TEAM_SIDE_SIM = 0.55
+MIN_MATCH_SCORE = 0.75
 
 
 def norm_team(name: str) -> str:
@@ -149,16 +155,25 @@ def _team_sim(a: str, b: str) -> float:
     return SequenceMatcher(None, na, nb).ratio()
 
 
+def _team_pair_score(home_a: str, away_a: str,
+                     home_b: str, away_b: str) -> float:
+    home_score = _team_sim(home_a, home_b)
+    away_score = _team_sim(away_a, away_b)
+    if min(home_score, away_score) < MIN_TEAM_SIDE_SIM:
+        return 0.0
+    return (home_score + away_score) / 2
+
+
 def _match_score(home_a: str, away_a: str, start_a: Optional[str],
                  home_b: str, away_b: str, start_b: Optional[str]) -> float:
     ta, tb = _parse_ts(start_a), _parse_ts(start_b)
     if ta and tb and abs((ta - tb).total_seconds()) > 2 * 3600:
         return 0.0
-    return (_team_sim(home_a, home_b) + _team_sim(away_a, away_b)) / 2
+    return _team_pair_score(home_a, away_a, home_b, away_b)
 
 
 def _resolve(cands: list[dict], home: str, away: str, start: Optional[str],
-             min_score: float = 0.55) -> Optional[dict]:
+             min_score: float = MIN_MATCH_SCORE) -> Optional[dict]:
     """Hitta befintlig match (samma liga) för ett källevent — bästa fuzzy-träff."""
     best, best_s = None, min_score
     for c in cands:
@@ -166,6 +181,30 @@ def _resolve(cands: list[dict], home: str, away: str, start: Optional[str],
         if s > best_s:
             best, best_s = c, s
     return best
+
+
+def _resolve_source(cands: list[dict], home: str, away: str,
+                    start: Optional[str], source_id, id_field: str) -> Optional[dict]:
+    """Länka ett källevent utan att någonsin byta en redan låst identitet.
+
+    Exakt externt id vinner. Fuzzy-matchning får bara använda kandidater där
+    källans id ännu saknas; en match med ett ANNAT id från samma källa är redan
+    upptagen och kan inte tas över. `pin:<id>`/`svs:<id>` är dessutom en
+    självbärande identitet och en korrupt suffix/id-kombination räknas inte som
+    en exakt träff.
+    """
+    source_id = str(source_id)
+    prefix = {"pinnacle_id": "pin:", "kambi_id": "svs:"}.get(id_field)
+    for cand in cands:
+        existing = cand.get(id_field)
+        if existing is None or str(existing) != source_id:
+            continue
+        if prefix and str(cand.get("id") or "").startswith(prefix):
+            if str(cand["id"])[len(prefix):] != source_id:
+                continue
+        return cand
+    available = [cand for cand in cands if not cand.get(id_field)]
+    return _resolve(available, home, away, start)
 
 
 def _resolve_team_pair(cands: list[dict], home: str, away: str,
@@ -178,8 +217,7 @@ def _resolve_team_pair(cands: list[dict], home: str, away: str,
     alltid None i stället för en gissning.
     """
     ranked = sorted((
-        ((_team_sim(home, cand["home"]) + _team_sim(away, cand["away"])) / 2,
-         cand)
+        (_team_pair_score(home, away, cand["home"], cand["away"]), cand)
         for cand in cands
     ), key=lambda item: item[0], reverse=True)
     if not ranked or ranked[0][0] < min_score:
@@ -427,8 +465,13 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 "pinnacle", lg["key"], "markets", at, pin_ok, len(pin_rows), pin_error)
             pin_seen: set[str] = set()
             for r in pin_rows:
-                ex = next((c for c in cands if c.get("pinnacle_id") == r["id"]), None) \
-                    or _resolve(cands, r["home"], r["away"], r["start"])
+                locked = store.oddset_match_by_source_id(
+                    "pinnacle_id", r["id"])
+                ex = (_resolve_source(
+                    [locked], r["home"], r["away"], r["start"],
+                    r["id"], "pinnacle_id") if locked else None) or _resolve_source(
+                    cands, r["home"], r["away"], r["start"],
+                    r["id"], "pinnacle_id")
                 mid = ex["id"] if ex else f"pin:{r['id']}"
                 m = {"id": mid, "league": lg["key"], "home": r["home"], "away": r["away"],
                      "start": r["start"], "pinnacle_id": r["id"], "status": r.get("status")}
@@ -496,21 +539,25 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
             deep_errors: list[str] = []
             deep_checked = 0
             for e in kambi_rows:
-                id_match = next(
-                    (c for c in cands if c.get("kambi_id") == e["id"]), None)
-                timed_match = _resolve(
-                    cands, e["home"], e["away"], e["start"])
+                locked = store.oddset_match_by_source_id(
+                    "kambi_id", e["id"])
+                id_match = (_resolve_source(
+                    [locked], e["home"], e["away"], e["start"],
+                    e["id"], "kambi_id") if locked else None) or _resolve_source(
+                    cands, e["home"], e["away"], e["start"],
+                    e["id"], "kambi_id")
                 # Kambis tidiga höst/vår-scheman använder ibland en gemensam
                 # placeholdertid för nästan hela omgången. Pinnacle-raden är
                 # då starttidskanon; team-only används endast mot en redan
                 # verifierad Pinnacle-identitet i researchligor.
                 team_match = (
                     _resolve_team_pair(
-                        [cand for cand in cands if cand.get("pinnacle_id")],
+                        [cand for cand in cands
+                         if cand.get("pinnacle_id") and not cand.get("kambi_id")],
                         e["home"], e["away"])
-                    if research_only else None
+                    if research_only and id_match is None else None
                 )
-                ex = team_match or id_match or timed_match
+                ex = id_match or team_match
                 mid = ex["id"] if ex else f"svs:{e['id']}"
                 m = {"id": mid, "league": lg["key"], "home": e["home"], "away": e["away"],
                      "start": e["start"], "kambi_id": e["id"]}
@@ -594,6 +641,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     book["key"], lg["key"], "1x2", at, book_ok,
                     len(b_rows), book_error)
                 book_seen: set[str] = set()
+                book_claims: dict[str, str] = {}
                 book_deep_errors: list[str] = []
                 book_deep_checked = 0
                 for e in b_rows:
@@ -602,6 +650,14 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     ex = ex or _resolve(cands, e["home"], e["away"], e["start"])
                     if not ex or (e.get("start") or "9") <= at:
                         continue   # skapa inga matcher från sidoböcker; hoppa live
+                    claim = str(e.get("id"))
+                    if (ex["id"] in book_claims
+                            and book_claims[ex["id"]] != claim):
+                        report["errors"].append(
+                            f"{book['key']} identity collision {lg['key']}: "
+                            f"{book_claims[ex['id']]} och {claim} -> {ex['id']}")
+                        continue
+                    book_claims[ex["id"]] = claim
                     rows_saved += store.oddset_save_odds(ex["id"], book["key"], e["odds"], book_at)
                     book_seen.add(ex["id"])
                     if all(e["odds"].get(s) for s in ("1", "X", "2")):
@@ -693,10 +749,19 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     "smarkets", lg["key"], "1x2", at, anchor_ok,
                     len(a_rows), anchor_error)
                 anchor_seen: set[str] = set()
+                anchor_claims: dict[str, str] = {}
                 for e in a_rows:
                     ex = _resolve(cands, e["home"], e["away"], e["start"])
                     if not ex or (e.get("start") or "9") <= at:
                         continue   # börsen får aldrig skapa matchidentiteter
+                    claim = str(e.get("id"))
+                    if (ex["id"] in anchor_claims
+                            and anchor_claims[ex["id"]] != claim):
+                        report["errors"].append(
+                            f"smarkets identity collision {lg['key']}: "
+                            f"{anchor_claims[ex['id']]} och {claim} -> {ex['id']}")
+                        continue
+                    anchor_claims[ex["id"]] = claim
                     rows_saved += store.oddset_save_odds(
                         ex["id"], "smarkets", e["odds"], anchor_at)
                     anchor_seen.add(ex["id"])
@@ -731,23 +796,27 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
     try:
         payload = matches_payload(store, light=not deep, include_research=True)
         from . import oddset_ledger
+        safe_matches = [
+            match for match in payload["matches"]
+            if not match.get("data_conflict")
+        ]
         if deep:
             report["ledger_capture"] = oddset_ledger.capture_predictions(
-                store, payload["matches"])
+                store, safe_matches)
         else:
             # V2.2:s forskningsligor ingår inte i produktmodellens ordinarie
             # due-lista. Fitta bara de matcher vars fasta shadowhorisont är ny,
             # innan sharp + feature + shadow fryses atomärt.
             from . import oddset_model, oddset_v22
-            due_v22 = oddset_v22.due_matches(store, payload["matches"])
+            due_v22 = oddset_v22.due_matches(store, safe_matches)
             if due_v22:
                 oddset_model.attach_model(
                     store, due_v22,
                     allowed_leagues=set(oddset_v22.SCOPE_LEAGUES),
                     fit_pools=oddset_v22.FIT_POOLS)
             sharp_capture = oddset_ledger.capture_predictions(
-                store, payload["matches"], tiers=("sharp",))
-            due_model = oddset_ledger.due_model_matches(store, payload["matches"])
+                store, safe_matches, tiers=("sharp",))
+            due_model = oddset_ledger.due_model_matches(store, safe_matches)
             missing_model = [match for match in due_model if not match.get("model")]
             if missing_model:
                 oddset_model.attach_model(store, missing_model)
@@ -757,7 +826,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 key: sharp_capture[key] + model_capture[key]
                 for key in sharp_capture}
         actionable = [
-            match for match in payload["matches"]
+            match for match in safe_matches
             if match.get("league") in ACTIONABLE_LEAGUE_KEYS
         ]
         vs = oddset_value.log_and_notify(store, actionable, present=present)
@@ -842,11 +911,20 @@ def matches_payload(store: Storage, light: bool = False,
     latest = store.oddset_latest(ids)
     movement = store.oddset_movement(ids)
     alt = store.oddset_sharp_alt_latest(ids)
+    conflicts = store.oddset_identity_conflicts(ids)
     out = []
     for m in ms:
         row = {**m, "odds": latest.get(m["id"], {}),
                "movement": movement.get(m["id"], {}),
                "sharp_alt": alt.get(m["id"], {})}
+        if m["id"] in conflicts:
+            row["data_conflict"] = {
+                "kind": "identity",
+                "reasons": conflicts[m["id"]],
+                "message": (
+                    "Källidentiteten är i karantän. Odds visas för felsökning "
+                    "men inga signaler, modeller eller facitrader skapas."),
+            }
         if m["league"] in RESEARCH_LEAGUE_KEYS:
             row["research"] = True
         out.append(row)
@@ -868,11 +946,12 @@ def matches_payload(store: Storage, light: bool = False,
         try:
             from . import oddset_data, oddset_model
             oddset_model.attach_model(
-                store, out, allowed_leagues=oddset_data.MODEL_LEAGUES)
+                store, [m for m in out if not m.get("data_conflict")],
+                allowed_leagues=oddset_data.MODEL_LEAGUES)
             if include_research:
                 from . import oddset_v22
                 oddset_model.attach_model(
-                    store, out,
+                    store, [m for m in out if not m.get("data_conflict")],
                     allowed_leagues=oddset_data.RESEARCH_MODEL_LEAGUES,
                     fit_pools=oddset_v22.FIT_POOLS)
         except Exception:  # noqa: BLE001 — modellen (amber) får aldrig fälla listan

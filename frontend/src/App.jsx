@@ -982,11 +982,16 @@ function OddsetView({ focus = null } = {}) {
   // grön edge-pill: devigad Pinnacle säger att bok-oddset är för högt.
   // Kräver även kvalitet (edge/(odds−1)) — högoddsar-edges under kvalitetsgolvet
   // visas inte som pills (för sköra), men loggas ändå i facitet.
-  const edgePill = (v, prefix = '') => v && v.edge >= 0.02 && (v.q ?? 0) >= 0.0075 && (
-    <span className="epill" title={`Devigad Pinnacle: ${(v.fair * 100).toFixed(1)}% (fair odds ${(1 / v.fair).toFixed(2)})\nBoken betalar ${v.odds.toFixed(2)} → ${(v.edge * 100).toFixed(1)}% övervärde\nKvalitet (Kelly-andel): ${((v.q ?? 0) * 100).toFixed(1)}% — samma edge är skörare ju högre odds${v.derived ? '\n(P~ = härlett ur handikapp — ta med en nypa salt)' : ''}`}>
-      {prefix && `${prefix} `}+{Math.round(v.edge * 100)}%{v.derived ? '°' : ''}
-    </span>
-  )
+  const edgePill = (v, prefix = '') => {
+    if (!v || v.edge < 0.02 || (v.q ?? 0) < 0.0075) return null
+    const disputed = v.anchor2?.fair != null && v.anchor2.edge <= 0
+    return (
+      <span className={disputed ? 'epill disputed' : 'epill'}
+        title={`Devigad Pinnacle: ${(v.fair * 100).toFixed(1)}% (fair odds ${(1 / v.fair).toFixed(2)})\nBoken betalar ${v.odds.toFixed(2)} → ${(v.edge * 100).toFixed(1)}% övervärde\nKvalitet (Kelly-andel): ${((v.q ?? 0) * 100).toFixed(1)}% — samma edge är skörare ju högre odds${v.derived ? '\n(P~ = härlett ur handikapp — ta med en nypa salt)' : ''}${disputed ? `\n⚓ Smarkets motsäger signalen: ${(v.anchor2.edge * 100).toFixed(1)}% mot samma bokodds. Tvåankarmätningen är ännu shadow och ändrar inte urvalet.` : ''}`}>
+        {disputed ? '⚓ ' : ''}{prefix && `${prefix} `}+{Math.round(v.edge * 100)}%{v.derived ? '°' : ''}
+      </span>
+    )
+  }
 
   const absPos = { G: 'MV', D: 'B', M: 'MF', F: 'A' }
   const absLine = (p) => `${p.name}${p.position ? ` · ${absPos[p.position] || p.position}` : ''} (${p.reason}${p.apps != null ? `, ${p.apps} matcher${p.rating ? `, ${p.rating}` : ''}` : ''})${p.apps != null && p.apps < 5 ? ' — marginell' : ''}`
@@ -1184,7 +1189,7 @@ function OddsetView({ focus = null } = {}) {
   for (const m of data.matches) counts[m.league] = (counts[m.league] || 0) + 1
   const visible = data.matches.filter((m) => !hidden.includes(m.league))
   const hasSignal = (m) => {
-    if (m.research) return false   // forskningsliga: synlig men aldrig en signal
+    if (m.research || m.data_conflict) return false
     if (Object.values(m.value || {}).some((per) => Object.values(per).some((v) => v.edge >= 0.02))) return true
     if (Object.values(m.steam || {}).some((sh) => Math.abs(sh.h6 ?? 0) >= 1.5 || Math.abs(sh.h24 ?? 0) >= 1.5)) return true
     if (Object.values(m.model?.edges || {}).some((e) => e >= 0.05)) return true
@@ -1365,7 +1370,11 @@ function OddsetView({ focus = null } = {}) {
             <div className="live-radar-grid">
               {liveRadar.matches.slice(0, 8).map((m) => {
                 const sig = m.signal || {}
-                const hasXg = m.xg_home != null && m.xg_away != null
+                const stats = sig.stats_source === 'fotmob' && m.fotmob
+                  ? m.fotmob
+                  : m
+                const hasXg = stats.xg_home != null && stats.xg_away != null
+                const statsSource = sig.stats_source === 'fotmob' ? 'FotMob' : 'Sofascore'
                 return (
                   <div key={m.event_id} className={`live-radar-card ${sig.level || 'info'}`}>
                     <div className="live-radar-score">
@@ -1376,18 +1385,16 @@ function OddsetView({ focus = null } = {}) {
                     <div className="live-radar-teams"><b>{m.home}</b><span>–</span><b>{m.away}</b></div>
                     <div className="live-radar-stats">
                       {hasXg
-                        ? <span title="xG från Sofascore">xG <b>{Number(m.xg_home).toFixed(2)}–{Number(m.xg_away).toFixed(2)}</b></span>
-                        : m.fotmob?.xg_home != null
-                          ? <span title="Sofascore saknar xG för den här ligan — värdet kommer från FotMob. xG blandas aldrig mellan källor: hela signalen räknas i FotMobs egen serie.">
-                              xG <b>{Number(m.fotmob.xg_home).toFixed(2)}–{Number(m.fotmob.xg_away).toFixed(2)}</b>
-                              {' '}<span className="rchip">FotMob</span>{' '}
-                              {m.fotmob.xgot_home != null && (
-                                <> xGOT {Number(m.fotmob.xgot_home).toFixed(2)}–{Number(m.fotmob.xgot_away).toFixed(2)}</>
-                              )}
-                            </span>
-                          : <span title="Källan har ingen xG för den här matchen. Radarn räknar då på skott och stora chanser i stället — se fotnoten.">xG saknas</span>}
-                      <span>stora chanser {m.big_chances_home ?? '–'}–{m.big_chances_away ?? '–'}</span>
-                      <span>skott på mål {m.shots_on_home ?? '–'}–{m.shots_on_away ?? '–'}</span>
+                        ? <span title={`Hela signalen räknas med ${statsSource}s egen statistikserie; providrar blandas aldrig.`}>
+                            xG <b>{Number(stats.xg_home).toFixed(2)}–{Number(stats.xg_away).toFixed(2)}</b>
+                            {stats.xgot_home != null && (
+                              <> · xGOT {Number(stats.xgot_home).toFixed(2)}–{Number(stats.xgot_away).toFixed(2)}</>
+                            )}
+                          </span>
+                        : <span title={`${statsSource} saknar xG för den här matchen. Radarn räknar på samma källas skott och stora chanser i stället — se fotnoten.`}>xG saknas</span>}
+                      <span>stora chanser {stats.big_chances_home ?? '–'}–{stats.big_chances_away ?? '–'}</span>
+                      <span>skott på mål {stats.shots_on_home ?? '–'}–{stats.shots_on_away ?? '–'}</span>
+                      <span className="rchip" title="Källan som används för hela kortets chansstatistik och signal">{statsSource}</span>
                     </div>
                     {/* Raden finns bara när det ÄR ett utstick. Vid FÖLJER sa
                         den tidigare "trycker på" om en match i 9:e minuten med
@@ -1429,7 +1436,10 @@ function OddsetView({ focus = null } = {}) {
           <div className="tipgrid">
             {signals.slice(0, showAllValues ? 8 : 4).map(({ m, mk, sg, v }, i) => {
               const q = v.q ?? 0
-              const tier = q >= 0.04 ? ['STARK EDGE', 't3'] : q >= 0.02 ? ['EDGE', 't2'] : ['SVAG EDGE', 't1']
+              const anchorConflict = v.anchor2?.fair != null && v.anchor2.edge <= 0
+              const tier = anchorConflict ? ['OMTVISTAD EDGE', 't1']
+                : q >= 0.04 ? ['STARK EDGE', 't3']
+                  : q >= 0.02 ? ['EDGE', 't2'] : ['SVAG EDGE', 't1']
               const mvP = m.movement?.pinnacle?.[mk]?.[sg]
               // STÖD FÅR BARA KOMMA FRÅN MARKNADSPRISER (2026-07-24).
               // Amber-modellen mäter −4,5 % close-EV i facitet (MLS −6,5 %,
@@ -1467,6 +1477,12 @@ function OddsetView({ focus = null } = {}) {
                     {v.held_after_sharp && (
                       <span className="heldchip" title="Samma bokpris återbekräftades efter Pinnacles senaste prisändring. Det är alltså ett bevisat kvarhängande pris, inte en gammal cache.">
                         bekräftat kvar
+                      </span>
+                    )}
+                    {anchorConflict && (
+                      <span className="anchorwarn"
+                        title="Smarkets är ett oberoende sharp-ankare och värderar samma bokodds negativt. Tvåankarmätningen är fortfarande shadow och ändrar därför inte urvalet automatiskt, men signalen ska läsas som omtvistad.">
+                        ⚓ Smarkets säger {(v.anchor2.edge * 100).toFixed(1)} %
                       </span>
                     )}
                   </div>
@@ -1580,7 +1596,10 @@ function OddsetView({ focus = null } = {}) {
             <tr className="dayrow"><td colSpan={showCorners ? 8 : 7}>{d.label}</td></tr>
             {d.matches.map((m) => (
               <Fragment key={m.id}>
-                <tr className={m.start && new Date(m.start) < new Date() ? 'started' : ''}>
+                <tr className={[
+                  m.start && new Date(m.start) < new Date() ? 'started' : '',
+                  m.data_conflict ? 'data-conflict' : '',
+                ].filter(Boolean).join(' ')}>
                   <td className="time">{fmtTime(m.start)}</td>
                   <td className="teams clickable"
                     onClick={() => setExpanded(expanded === m.id ? null : m.id)}
@@ -1591,6 +1610,12 @@ function OddsetView({ focus = null } = {}) {
                     <span className="lgtag" title={leagueName[m.league] || m.league}>{(leagueName[m.league] || m.league).slice(0, 1)}</span>
                     {m.home} – {m.away}{steamBadge(m)}{absBadge(m)}
                     {m.research && <span className="rchip" title="Forskningsliga — V2.2 samlar data. Odds, prisålder och rörelser visas; värdesignaler, Kelly, notiser och facit är avstängda tills experimentet klarat sin forwarddom.">🔬</span>}
+                    {m.data_conflict && (
+                      <span className="conflictchip"
+                        title={`${m.data_conflict.message}\n${(m.data_conflict.reasons || []).join('\n')}`}>
+                        ⚠ datakrock · inga signaler
+                      </span>
+                    )}
                   </td>
                   {['1', 'X', '2'].map((s) => cell1x2(m, s))}
                   {cellPair(m, 'ah', 'H', 'A', fmtAh)}

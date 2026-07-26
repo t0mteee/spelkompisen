@@ -8,6 +8,38 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-07-26 — Oddset-identitetskrockar + Karlsruhe/Novara
+
+- **Orsak:** fuzzy-matchning med medelvärde lät ett exakt lagnamn väga upp ett
+  orelaterat motståndarlag, samtidigt som match-upserten skrev över redan satt
+  provider-id. Karlsruhe–Inter fick därför Pinnacle-priser från
+  Novara–Internazionale U23 och UI:t visade en falsk edge över +180 %.
+- **Skript:** `backend/scripts/sanera_oddset_identitetskrockar.py`
+  (idempotent; strikt kollisionsaudit, riktad Karlsruhe-reparation,
+  nedströmskarantänstädning och två unika provider-id-index).
+- **Backup före första skrivning:**
+  `backend/data/backups/stryktips-2026-07-26-fore-oddset-identitet.db`.
+- **Audit före sanering:** 34 matcher / 15 826 bevisade kollisionsgrupper:
+  32 friendlies, 1 MLS, 1 Superettan. Rådata för äldre fall bevaras för
+  forensik; de relänkas inte genom gissning och karantänsätts av API:t.
+- **Nedströmsrader borttagna:** 30 value-loggar, 598 prediction-loggar,
+  84 prediction-captures, 103 frånvarospelarrader, 20 frånvarocaptures och
+  80 lokala falska notisposter. De kan inte få ett styrkbart closing-/modell-
+  facit när matchidentiteten varit kolliderad.
+- **Karlsruhe:** canonical Pinnacle-id återställt till `1632753942`; Novara
+  fick egen `pin:1632967000`. Hela Karlsruhes gamla Pinnacle/derived-serie
+  togs bort efter att efterkontrollen visat att en ensam felrad föregick
+  första samtidiga dubbelpriset (1 015 odds- och 1 354 sharp-alt-rader över
+  de två idempotenta passen). SvS/Expekt/Smarkets bevarades.
+- **DB-spärr:** partiellt unika index
+  `uq_oddset_matches_pinnacle_id`/`uq_oddset_matches_kambi_id`.
+- **Efterkontroll:** Karlsruhe 0 krockgrupper, rätt provider-id, Novara egen
+  rad, `oddset_value_log=0` och `oddset_prediction_log=0` för Karlsruhe;
+  `PRAGMA integrity_check=ok`.
+- **Full metod/evidens:** `docs/oddset-identitetsaudit-2026-07-26.md`.
+
+---
+
 ## 2026-07-24 — PH2/PH3 v2: presence, proveniens och kontrafaktiskt facit
 
 - **Skript:** `backend/scripts/migrera_pool_capture_v2.py` (additivt,

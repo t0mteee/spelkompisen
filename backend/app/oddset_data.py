@@ -60,8 +60,10 @@ FD_TTL_H, XG_TTL_H, ELO_TTL_H, ABS_TTL_H = 12, 6, 24, 2
 # Databehandlingens version — ingår i signal_version-fingeravtrycken (gransknings-
 # punkt 5): bumpa MANUELLT när semantiken i datat ändras utan att en parameter gör
 # det. 1 = ursprunglig; 2 = normaltime + identitetsmerge (alias/±1 dygn),
-# 2026-07-13. Gemensam version hålls stabil när bara modellfitten påverkas.
-DATA_VERSION = 2
+# 2026-07-13; 3 = provideridentitet write-once + per-lagströskel och
+# läskarantän för bevisade odds-eventkrockar, 2026-07-26. Version 3 delar både
+# sharp- och modellfacit före/efter identitetsfixen; gamla grupper skrivs inte om.
+DATA_VERSION = 3
 # Målmodellens resultatsammanslagning: 3 = fuzzy 0,70→0,75 så review-bandet
 # aldrig auto-mergas (Egersund→Haugesund var en bevislig felkoppling vid 0,706).
 MODEL_DATA_VERSION = 3

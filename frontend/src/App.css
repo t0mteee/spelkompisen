@@ -492,6 +492,22 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
 .oddset-table tr.dayrow td { background: var(--panel); color: var(--muted); font-weight: 700;
   text-transform: capitalize; font-size: 12px; padding: 5px 8px; }
 .oddset-table tr.started { opacity: 0.55; }
+.oddset-table tr.data-conflict { opacity: 0.72; }
+.conflictchip {
+  display: inline-flex; margin-left: 6px; padding: 1px 6px; border-radius: 999px;
+  border: 1px solid rgba(224, 107, 107, 0.65); color: #f09a9a;
+  background: rgba(224, 107, 107, 0.10); font-size: 10px; font-weight: 700;
+}
+.epill.disputed {
+  color: #e8bc70; border-color: rgba(232, 188, 112, 0.65);
+  background: rgba(232, 188, 112, 0.10);
+}
+.anchorwarn {
+  display: inline-flex; margin-left: 7px; padding: 1px 7px;
+  border: 1px solid rgba(232, 188, 112, 0.55); border-radius: 999px;
+  color: #e8bc70; background: rgba(232, 188, 112, 0.10);
+  font-size: 10px; font-weight: 700;
+}
 .oddset-table .time { color: var(--muted); white-space: nowrap; width: 42px; }
 .oddset-table .teams { font-weight: 600; }
 .lgtag { display: inline-block; min-width: 16px; text-align: center; margin-right: 6px;

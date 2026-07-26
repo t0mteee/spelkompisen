@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from app import live_radar
+from app import fotmob, live_radar
 from app.storage import Storage
 
 
@@ -179,6 +179,130 @@ class LiveRadarTests(unittest.TestCase):
                 self.assertNotIn(901, visade)
                 self.assertEqual(1, payload["hidden_no_stats"])
                 self.assertIn("eliteserien", payload["hidden_by_league"])
+            finally:
+                store.close()
+
+    def test_payload_uses_fotmob_shots_when_sofascore_has_no_stats_or_xg(self):
+        """Superettan får inte döljas när FotMob har skott men saknar xG."""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                sofa_event = event()
+                sofa_event["id"] = 512557100
+                sofa_event["tournament"]["uniqueTournament"] = {
+                    "id": 46, "name": "Superettan"}
+                sofa_event["homeTeam"]["name"] = "GIF Sundsvall"
+                sofa_event["awayTeam"]["name"] = "Falkenbergs FF"
+                store.oddset_save_live_capture(live_radar.parse_capture(
+                    sofa_event, None, captured_at=AT, now=NOW))
+                store.live_fotmob_save({
+                    "fotmob_id": 5125571,
+                    "captured_at": AT,
+                    "capture_version": fotmob.CAPTURE_VERSION,
+                    "league": "superettan",
+                    "tournament": "Superettan",
+                    "home": "GIF Sundsvall",
+                    "away": "Falkenbergs FF",
+                    "minute": 55,
+                    "home_score": 1,
+                    "away_score": 1,
+                    "shots_home": 9,
+                    "shots_away": 5,
+                    "shots_on_home": 5,
+                    "shots_on_away": 2,
+                    "shots_inside_home": 6,
+                    "shots_inside_away": 3,
+                })
+
+                result = live_radar.payload(store, now=NOW)
+                self.assertEqual(1, len(result["matches"]))
+                match = result["matches"][0]
+                self.assertEqual("proxy", match["signal"]["kind"])
+                self.assertEqual("fotmob", match["signal"]["stats_source"])
+                self.assertIsNone(match["signal"]["xg_source"])
+                self.assertEqual(5, match["fotmob"]["shots_on_home"])
+                self.assertEqual(0, result["hidden_no_stats"])
+            finally:
+                store.close()
+
+    def test_payload_shows_fotmob_match_even_when_sofascore_misses_it(self):
+        """Stats finns → kortet visas, även utan en Sofascore-grundrad."""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                store.live_fotmob_save({
+                    "fotmob_id": 777001,
+                    "captured_at": AT,
+                    "capture_version": fotmob.CAPTURE_VERSION,
+                    "league": "superettan",
+                    "tournament": "Superettan",
+                    "home": "Örebro SK",
+                    "away": "Utsiktens BK",
+                    "minute": 40,
+                    "home_score": 0,
+                    "away_score": 0,
+                    "big_chances_home": 2,
+                    "big_chances_away": 0,
+                    "shots_home": 8,
+                    "shots_away": 2,
+                    "shots_on_home": 4,
+                    "shots_on_away": 1,
+                    "shots_inside_home": 6,
+                    "shots_inside_away": 1,
+                })
+
+                result = live_radar.payload(store, now=NOW)
+                self.assertEqual(1, len(result["matches"]))
+                match = result["matches"][0]
+                self.assertEqual("fotmob:777001", match["event_id"])
+                self.assertEqual("fotmob", match["signal"]["stats_source"])
+                self.assertEqual("Örebro SK", match["home"])
+                self.assertEqual(4, match["fotmob"]["shots_on_home"])
+                self.assertEqual(0, result["hidden_no_stats"])
+            finally:
+                store.close()
+
+    def test_fotmob_xg_wins_at_halftime_even_when_its_clock_is_empty(self):
+        """Tom FotMob-klocka får inte gömma xG som faktiskt rapporteras."""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                sofa_event = event("Halftime")
+                sofa_event["id"] = 15272470
+                sofa_event["tournament"]["uniqueTournament"] = {
+                    "id": 40, "name": "Allsvenskan"}
+                sofa_event["homeTeam"]["name"] = "IF Brommapojkarna"
+                sofa_event["awayTeam"]["name"] = "Hammarby IF"
+                sofa_capture = live_radar.parse_capture(
+                    sofa_event,
+                    stats(xg=(None, None), big=(0, 0), shots=(4, 10),
+                          on=(0, 2), inside=(4, 9), touches=(12, 27)),
+                    captured_at=AT, now=NOW)
+                self.assertEqual(45, sofa_capture["minute"])
+                store.oddset_save_live_capture(sofa_capture)
+                store.live_fotmob_save({
+                    "fotmob_id": 999001,
+                    "captured_at": AT,
+                    "capture_version": fotmob.CAPTURE_VERSION,
+                    "league": "allsvenskan",
+                    "tournament": "Allsvenskan",
+                    "home": "IF Brommapojkarna",
+                    "away": "Hammarby",
+                    "minute": None,
+                    "home_score": 0,
+                    "away_score": 0,
+                    "xg_home": 0.22,
+                    "xg_away": 0.96,
+                    "shots_on_home": 0,
+                    "shots_on_away": 2,
+                })
+
+                match = live_radar.payload(store, now=NOW)["matches"][0]
+                self.assertEqual("xg", match["signal"]["kind"])
+                self.assertEqual("fotmob", match["signal"]["stats_source"])
+                self.assertEqual("fotmob", match["signal"]["xg_source"])
+                self.assertEqual(0.96, match["fotmob"]["xg_away"])
+                self.assertEqual(45, match["signal"]["remaining_min"])
             finally:
                 store.close()
 

@@ -17,11 +17,11 @@ testning.
 
 | Mätning | Läge 2026-07-26 | Beslutspunkt |
 |---|---|---|
-| **Två ankare** (Pinnacle vs Smarkets, skugga) | 17 mätta, 12 stängda | n ≥ 50 mätta+stängda 1X2 i primärgruppen, veckokadens — regel i `docs/tva-ankare-2026-07-25.md` (~1 vecka) |
-| **Modell mot close** `m-3c7789ac` | 10/50 cases | grind i `docs/modell-mot-close-2026-07-25.md`; äldre version redan fälld som sämre än sharp |
-| **Hörnbaslinje** `corner-poisson-total-v1` | fryser från nästa horisont | samma close-grind, sist i ordningen (Samans ordning 2026-07-25) |
+| **Två ankare** (Pinnacle vs Smarkets, skugga) | 13 mätta, 9 mätta+stängda efter identitetssanering; ankarkrav behåller 3/9 | n ≥ 50 mätta+stängda 1X2 i primärgruppen, veckokadens — regel i `docs/tva-ankare-2026-07-25.md` (~7 dygn vid nuvarande takt) |
+| **Modell mot close** `m-c4ee7c5d` | ny aktiv version, 0 cases tills nästa capturefönster; `m-3c7789ac` historisk efter DATA_VERSION 3 | grind i `docs/modell-mot-close-2026-07-25.md`; äldre versioner blandas aldrig över identitetsfixen |
+| **Hörnbaslinje** `m-c4ee7c5d:corner-poisson-total-v1` | ny aktiv version, fryser från nästa horisont | samma close-grind, sist i ordningen (Samans ordning 2026-07-25) |
 | **pit-v4 forward** (`pool-streckmove-v3`) | 4 omgångar | ≥ 40 out-of-time-omgångar per produkt med hela KI90 < 0 |
-| **Sharp-CLV-facitet** | +2,4 % [1,0..3,8], 166 stängda | veckokadens (`EVAL_INTERVAL_H`), aldrig per varv |
+| **Sharp-CLV-facitet** | historiskt aggregat +2,3 % [1,1..3,4], 272 stängda efter sanering; ny aktiv `s-95e14fca` börjar från nästa capture | veckokadens (`EVAL_INTERVAL_H`), aldrig per varv; grönt beslutas per liga × marknad × version |
 | **V2.2 flerliga-shadow** | samlar | träningsgate 300 kompletta avgjorda/horisont, ≥ 50/liga, ≥ 42 dagar |
 | **Live-radar + FotMob** (shadow) | samlar sedan 2026-07-25 | ≥ 200 signalögonblick och ≥ 40 avslutade matcher per signaltyp, ≥ 28 dagar — `docs/live-radar-2026-07-25.md` |
 

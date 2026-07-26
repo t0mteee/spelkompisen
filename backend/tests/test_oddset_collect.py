@@ -91,6 +91,77 @@ class CollectionPresenceTests(unittest.TestCase):
         market = self.store.oddset_latest(["m1"])["m1"]["pinnacle"]["1x2"]
         self.assertFalse(market["available"])
 
+    def test_match_source_ids_are_write_once(self) -> None:
+        self.store.oddset_upsert_match({
+            "id": "m1", "league": "test", "home": "Other", "away": "Names",
+            "start": self.start, "pinnacle_id": "p2", "kambi_id": "k2",
+        }, prefer_names=True)
+
+        match = self.store.oddset_match("m1")
+        self.assertEqual("p1", match["pinnacle_id"])
+        self.assertEqual("k1", match["kambi_id"])
+        self.assertEqual("Other", match["home"])  # namn får fortfarande uppdateras
+
+    def test_source_id_lookup_is_global_and_field_is_whitelisted(self) -> None:
+        self.assertEqual(
+            "m1",
+            self.store.oddset_match_by_source_id(
+                "pinnacle_id", "p1")["id"])
+        with self.assertRaises(ValueError):
+            self.store.oddset_match_by_source_id("id OR 1=1", "p1")
+
+    def test_two_pinnacle_events_can_never_share_one_canonical_match(self) -> None:
+        self.store.oddset_upsert_match({
+            "id": "pin:100", "league": "test",
+            "home": "Karlsruher SC", "away": "Inter",
+            "start": self.start, "pinnacle_id": "100",
+        })
+        common = {
+            "start": self.start, "status": "open",
+            "odds_source": "pinnacle", "ah": None, "ou": None, "cor": None,
+            "alt": {},
+        }
+        rows = [
+            {**common, "id": "100", "home": "Karlsruher SC",
+             "away": "Internazionale",
+             "odds": {"1": 3.57, "X": 5.47, "2": 1.51}},
+            {**common, "id": "200", "home": "Novara",
+             "away": "Internazionale U23",
+             "odds": {"1": 1.93, "X": 3.28, "2": 3.33}},
+        ]
+
+        self._collect(mock.Mock(return_value=rows))
+
+        self.assertEqual("100", self.store.oddset_match("pin:100")["pinnacle_id"])
+        novara = self.store.oddset_match("pin:200")
+        self.assertIsNotNone(novara)
+        self.assertEqual("Novara", novara["home"])
+        prices = self.store.oddset_latest(["pin:100", "pin:200"])
+        self.assertEqual(3.57, prices["pin:100"]["pinnacle"]["1x2"]["1"])
+        self.assertEqual(1.93, prices["pin:200"]["pinnacle"]["1x2"]["1"])
+
+    def test_corrupt_canonical_identity_is_quarantined_from_value(self) -> None:
+        self.store.oddset_upsert_match({
+            "id": "pin:100", "league": "test",
+            "home": "Karlsruher SC", "away": "Inter",
+            "start": self.start, "pinnacle_id": "200",
+        })
+        at = self.now.strftime("%Y-%m-%dT%H:%M:%SZ")
+        self.store.oddset_save_odds(
+            "pin:100", "pinnacle",
+            {"1": 2.0, "X": 3.5, "2": 3.8}, at)
+        self.store.oddset_save_odds(
+            "pin:100", "svenskaspel",
+            {"1": 6.4, "X": 4.0, "2": 1.5}, at)
+
+        match = next(
+            row for row in oddset.matches_payload(
+                self.store, light=True, include_research=True)["matches"]
+            if row["id"] == "pin:100")
+        self.assertEqual("identity", match["data_conflict"]["kind"])
+        self.assertEqual({}, match["value"])
+        self.assertNotIn("steam", match)
+
     def _collect_cached(self, odds: dict, age_s: int = 900):
         row = {
             "id": "p1", "home": "Home", "away": "Away", "start": self.start,

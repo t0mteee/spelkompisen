@@ -40,6 +40,44 @@ class EventMatchingTests(unittest.TestCase):
         self.assertIsNotNone(match)
         self.assertEqual("right", match["id"])
 
+    def test_one_exact_team_cannot_hide_an_unrelated_other_team(self) -> None:
+        """Regression: Karlsruhe–Inter ≠ Novara–Internazionale U23."""
+        self.assertEqual(
+            0.0,
+            oddset._match_score(
+                "Karlsruher SC", "Inter", "2026-07-26T14:30:00Z",
+                "Novara", "Internazionale U23", "2026-07-26T15:30:00Z",
+            ),
+        )
+        self.assertIsNone(oddset._resolve(
+            [{
+                "id": "karlsruhe",
+                "home": "Karlsruher SC",
+                "away": "Inter",
+                "start": "2026-07-26T14:30:00Z",
+            }],
+            "Novara", "Internazionale U23", "2026-07-26T15:30:00Z",
+        ))
+
+    def test_source_resolver_never_replaces_an_existing_source_id(self) -> None:
+        candidates = [{
+            "id": "pin:100",
+            "home": "Karlsruher SC",
+            "away": "Inter",
+            "start": "2026-07-26T14:30:00Z",
+            "pinnacle_id": "100",
+        }]
+
+        self.assertIsNone(oddset._resolve_source(
+            candidates, "Karlsruher SC", "Inter",
+            "2026-07-26T14:30:00Z", "200", "pinnacle_id"))
+        self.assertEqual(
+            "pin:100",
+            oddset._resolve_source(
+                candidates, "Karlsruher", "Internazionale",
+                "2026-07-26T14:30:00Z", 100, "pinnacle_id")["id"],
+        )
+
     def test_research_team_pair_can_bridge_placeholder_kickoff(self) -> None:
         candidates = [
             {"id": "inter", "home": "Internazionale", "away": "Monza",
