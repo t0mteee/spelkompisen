@@ -1,7 +1,6 @@
-/* v3 — UI-experimentets skal. Scoped under .v3; återanvända komponenter
-   (analys/bygg/kupong/oddset) behåller App.css-stilen, v3 ger dem bara ett
-   nytt skal, en Idag-översikt och Historik-vyn. Teal-accent skiljer v3 från
-   klassiska vyn så man alltid ser vilken version man är i. */
+/* v3 — appskalets stilar. Scoped under .v3; återanvända komponenter
+   (analys/bygg/kupong/oddset) behåller App.css-stilen, v3 ger dem skalet,
+   Idag-översikten och Historik-vyn. Teal är skalets accentfärg. */
 .v3 {
   --v3acc: #3fb9a5;
   --v3acc-dim: #2b7f73;

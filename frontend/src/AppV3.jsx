@@ -1,8 +1,7 @@
-// v3 — UI-EXPERIMENT (Samans beställning 2026-07-24). Nytt skal ovanpå samma
-// data och samma tunga komponenter (analys/bygg/kupong/oddset importeras från
-// App.jsx). Klassiska vyn är orörd; växeln i App.jsx laddar om sidan så båda
-// läser färskt delat tillstånd (svs_state). Nytt här: Idag-översikten och
-// Historik-vyn (PH1-settlementlagret).
+// Appens skal (enda gränssnittet sedan 2026-07-26, då klassiska vyn revs).
+// De tunga komponenterna (analys/bygg/kupong/oddset) importeras från App.jsx,
+// som är komponentbiblioteket. Eget här: skalet med vyväxlingen samt
+// Idag-översikten, Historik-vyn (PH1-settlementlagret) och Labb.
 import { useEffect, useRef, useState } from 'react'
 import './AppV3.css'
 import {
@@ -375,7 +374,7 @@ function PoolV3() {
     if (game !== 'bomben') loadAnalysis(slug, dn)
   }
 
-  // tyst auto-uppdatering som i klassiska vyn (bakgrundsjobbet skriver var 5–30 min)
+  // tyst auto-uppdatering (bakgrundsjobbet skriver till DB:n var 5–30:e min)
   useEffect(() => {
     if (!draw || game === 'bomben') return
     const tick = () => {
@@ -387,7 +386,7 @@ function PoolV3() {
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', tick) }
   }, [product, draw, game])  // eslint-disable-line
 
-  // delat tillstånd med klassiska vyn — samma nyckel och form som v2
+  // tillståndet sparas löpande i svs_state så iOS-omladdningen kan återställa det
   useEffect(() => {
     try {
       localStorage.setItem('svs_state', JSON.stringify({
@@ -498,7 +497,7 @@ function PoolV3() {
               <div className="restored">
                 🔁 Grönmarkeringarna är din <b>sparade kupong</b>
                 {pickRows ? ` (${pickRows.length} rader)` : ` (${Object.keys(picks).length} matcher)`}
-                — delad med klassiska vyn.
+                — sparas så en omladdning inte tappar den.
                 <button onClick={clearCoupon}>Rensa</button>
               </div>
             )}
@@ -968,7 +967,7 @@ function LabbV3() {
 
 /* ================================= Skal =================================== */
 
-export default function AppV3({ onExit }) {
+export default function AppV3() {
   const [view, setView] = useState(() => {
     try { return localStorage.getItem('svs_v3_view') || 'idag' } catch { return 'idag' }
   })
@@ -998,7 +997,7 @@ export default function AppV3({ onExit }) {
     <div className="v3">
       <header className="v3top">
         <button type="button" className="v3brand" onClick={() => go('idag')}>
-          ⚽ Spelkompisen <span className="v3beta">v3 · experiment</span>
+          ⚽ Spelkompisen
         </button>
         <nav className="v3nav" aria-label="Vy">
           {VIEWS.map((v) => (
@@ -1010,10 +1009,6 @@ export default function AppV3({ onExit }) {
         </nav>
         <div className="v3right">
           <Collection />
-          <button className="v3exit" onClick={onExit}
-            title="Tillbaka till klassiska vyn — kupong och inställningar följer med">
-            ↩ Klassisk vy
-          </button>
         </div>
       </header>
       <main className="v3main">
@@ -1027,7 +1022,7 @@ export default function AppV3({ onExit }) {
         </ErrBoundary>}
         {view === 'labb' && <ErrBoundary><LabbV3 /></ErrBoundary>}
       </main>
-      <footer className="v3foot">Lokal data från Svenska Spel + Pinnacle · personligt verktyg · v3-experiment</footer>
+      <footer className="v3foot">Lokal data från Svenska Spel + Pinnacle · personligt verktyg</footer>
     </div>
   )
 }
