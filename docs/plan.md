@@ -5,6 +5,18 @@
 > **Aktiv backlog och prioritering: `docs/backlog.md`** (2026-07-26).
 > WP-listan längre ned är historik över avslutat arbete.
 
+**PH5 256/512 KLAR — 13-MATCHSDOMEN: TÄTHETSBEROENDE MEN ALDRIG EN FÖRDEL
+(2026-07-26 kväll, Fable 5, godkänd insats).** Förregistrerad uppföljning
+körd (`docs/ph5-radvalsablation-256-512-2026-07-26.md`): underskottet mot
+slump krymper monotont med budgeten (Stryk −8,2 → −5,0 → −2,3 pp; Europa
+neutral) — gleshetshypotesen stämmer — men ingen spelbar budget (≤512 rader
+= 0,03 % av utfallsrymden) vänder det till en fördel, och toppnivåträffarna
+hamnar systematiskt hos favorit-/folkraden (2 mot 7/7 vid 512). Kontrast:
+8-matchsprodukterna +7,7..+15,5 pp med KI > 0 vid 100 rader. Konsekvens
+enligt förregistreringen: ärlig text i byggaren för Stryktipset/Europatipset
+(ingen logikändring, levereras i v3-konsolideringen); gles-täckningsmetod är
+en egen framtida förregistrering.
+
 **LIVE-TÄCKNING + ODDSIDENTITET HÄRDADE (2026-07-26 em, Codex).**
 Superettan-matchen GIF Sundsvall–Falkenberg doldes trots FotMob-skott eftersom
 fallbacken krävde xG; nu väljs en hel providerserie enligt xG > skott/chansdata

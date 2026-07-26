@@ -96,7 +96,14 @@ Ordnade efter mitt förslag, inte beslutade.
    final_only-analyser (8 278 omgångar), ALDRIG som PIT-observation
    (ingen tidsstämpel).
 
-3. **PH5 v2 vid 256/512 rader** *(körs 2026-07-26 — resultat väntas)*
+3. ~~**PH5 v2 vid 256/512 rader**~~ ✅ KÖRD 2026-07-26
+   (`docs/ph5-radvalsablation-256-512-2026-07-26.md`): underskottet är
+   täthetsberoende (krymper monotont: −8,2 → −5,0 → −2,3 pp mot slump för
+   Stryk) men INGEN spelbar budget vänder det — vid 512 rader är metoden i
+   bästa fall likvärdig folk-/favoritrad och toppträffarna hamnar hos de
+   naiva raderna (2 mot 7/7). Konsekvens: ärlig byggartext för
+   Stryk/Europa (levereras i v3-konsolideringen). Ev. gles-täcknings-metod
+   (Hamming-spridning) är en egen förregistrerad framtida fråga.
 
 3b. ~~**close-drift-facit v1**~~ ✅ KÖRD 2026-07-26
    (`docs/close-drift-facit-2026-07-26.md`): ingen prediktor passerar gaten —
