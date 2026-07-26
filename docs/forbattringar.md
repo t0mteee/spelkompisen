@@ -1,17 +1,11 @@
-# Förbättringsbacklog — mot bättre +EV
+# Förbättringsbacklog — ARKIV (svs-ärvda lärdomar + källkartläggning)
 
-## STATUS (juli 2026) — läge just nu
-**Klart & committat:** power-devig, Värderader (P^k × EV, reglagestyrt — ren EV
-var ospelbar), smart streck-allokering, färgreducering + ColorLab, kupong-radläge
-med överlevnadsvisualisering, Egna rader-export (alla spel inkl. Bomben, med
-verifierade filrubriker utom Bombens), Bomben (kolumn-baserad byggare, Poisson-
-modell), jackpot/spelvärde + projicerad slutomsättning, Kelly, CLV-facit, steam
-i devigade pp, RLM-signal (◆/⚠), 🔥-notiser (ntfy, kräver NTFY_TOPIC i .env),
-smart snapshot-förtätning, backtest (SvS-facit + football-data: beslutsregeln
-validerad), UI v2 (kort-design, statusrad, byggpanel sticky bredvid kupongen).
-**Nästa i kö (användarens riktning):** mer UI-polish → sedan S2 (Oddset-fliken).
-**Öppna frågor:** Bombens filrubrik overifierad (inloggningsskyddad spec);
-RLM-trösklar ovaliderade; κ följs i nya oberoende tidsfönster.
+**Detta är inte längre projektets aktiva backlog — den ligger i
+`docs/backlog.md` (sedan 2026-07-26).** Filen behålls som referens: research-
+länkarna, metodlärdomarna från vm och bokkälls-kartläggningen (2026-07-24/25,
+längst ned) är fortfarande giltiga. STATUS-blocket från svs-eran är borttaget;
+öppna punkter härifrån är antingen avförda eller flyttade till backloggen
+(t.ex. Bomben-filrubriken, diversifiering, multinivå-Kelly).
 
 Prioriterad lista från projektgenomgång + poolspels-research (juni 2026).
 Teorin i korthet: i poolspel tas ~35 % (Stryk/Europa) av omsättningen — för +EV

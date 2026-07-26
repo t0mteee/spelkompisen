@@ -2,6 +2,85 @@
 
 ## STATUS-SAMMANFATTNING (2026-07-26 — läs detta först i ny session)
 
+> **Aktiv backlog och prioritering: `docs/backlog.md`** (2026-07-26).
+> WP-listan längre ned är historik över avslutat arbete.
+
+**DEVIG-ABLATIONEN KLAR — FACITET ÄR INTE EN DEVIG-ARTEFAKT, MEN 24
+POWER-FLAGGOR BÄR INGET VÄRDE (2026-07-26, Fable 5, godkänd insats).**
+Förregistrerat i `docs/devig-ablation-2026-07-26.md` FÖRE körning; 172 stängda
+sharp-1X2-flaggor/89 matcher, Pinnacle-trion rekonstruerad ur oddsserien
+(sanity: median |Δ| mot lagrad first_fair 0,002 pp). Under proportionell
+devigning överlever bara 125/172 (73 %), Shin 148/172. Huvudmåttet
+(power-estimand för båda grupperna): **konsensusflaggor (alla tre metoder)
++4,40 % close-EV [+2,54..+6,14] mot bara-power-flaggornas −0,49 %
+[−3,50..+2,45]**. Devig-tvetydighet är alltså en äkta filtersignal — samma
+mönster som två ankare-mätningens första flagga. Ingen runtime-ändring:
+eventuellt konsensusfilter tas som del av SAMMA signal_version-bump som två
+ankare-gaten om den promoteras (en bump, inte två).
+
+**PH3-SETTLEMENTAUDIT KLAR — MASKINERIET HÅLLER, SIFFRORNA FÅR INTE TOLKAS
+(2026-07-26, Fable 5, godkänd insats).** 30 settlade system (24 topptipset/
+6 topptipsetstryk, 5 omgångar) auditerade i `docs/ph3-settlementaudit-
+2026-07-26.md`: correct_dist re-zippad mot settlement-kanonen och
+utspädningen omräknad oberoende — **30/30 identiska**, alla timely, alla
+payout_complete. ⚠ Rollover-vägen (0 vinnare på träffad nivå ⇒ okänd ROI) är
+ännu oprövad av skarp data — verifiera manuellt första gången. ROI:erna
+(−100 % på 50-kronorsarmarna, −68,5 % på ev256 över 4–5 omgångar) är brus vid
+n=5 och citeras inte; ingen PH3-gate är förregistrerad än — skriv den innan
+någon vill läsa ledgern som bevis.
+
+**FIXPASSET F1–F5 GENOMFÖRT + DRIFTBUGG F5c HITTAD I TID (2026-07-26, Fable 5,
+godkänt av Saman).** Alla granskningsfynd åtgärdade; 292 tester gröna (14 nya
+regressionsfall), backend omstartad. F1: saknad Ö/U i Altenars lyckade
+listsvar markerar nu priset unavailable (spökpriset borta). F2: SvS-deep
+sparas med per-anropstid − Age. F3: Kambi-/Altenar-klienterna läser HTTP Age
+defensivt (uppmätt: Kambi skickar inget Age-huvud, Altenar `max-age=3`) och
+alla bokstämplar Age-justeras — "kvar"-bevisets cachefönster är nu ≤3 s.
+F4: spelade kuponger settlar mot settlement-kanonen (`played-v2`: officiellt
+outcome per eventNumber, events_order-join, hård breddvakt, struken match =
+fastställt tecken; livevyn räknar struken/okänd som oavgjord). F5:
+avsparkstider PIT-serialiseras i nya `oddset_sofa_team_event_start`
+(migration + backup, 6 728 seedade rader), forward-självguard 6 h, och
+wp9c-POLICY schema 3→4 fingeravtrycker statusomfång + forwardvikter — det
+bumpar f22 och V2.2-manifestets egen change_policy gav då nytt manifest
+`docs/model-v2.2-multileague-forward-manifest-v2.json`
+(`v2.2-wp9c-multileague-v2`, start 2026-07-26T11:00Z; v1-raderna 07-23→26
+kvar som historik under gammal shadow-version — de var redan fracturerade av
+den tysta payloadändringen). **F5c, allvarligast, hittad under fixarbetet:**
+capture-valideringen krävde `finished` medan insamlaren sedan 2026-07-25
+skickar även scheduled/inprogress — varje lagcapture med kommande fixtur hade
+kraschat tyst från ~16:26 i dag när 20h-TTL:n släppte, och rotationsriskdatat
+hade ALDRIG flödat (0 scheduled-event sparade). Fångad innan driftsmällen;
+efter fix gav force-refresh Allsvenskan 16/16 captures, 757 event varav 150
+scheduled, 0 fel. Detaljer + backup: `docs/db-atgarder.md` (2026-07-26).
+
+**GRANSKNING AV KVÄLLS-/NATTPASSET + NY BACKLOG (2026-07-26, Fable 5).**
+Codex Altenar-/modell-mot-close-pass granskat: metodiken HÖLL — ANKARE ≠ BOK
+intakt, ingen signalversions-drift (hörnversionen korrekt isolerad via
+`fair_source`), modell-mot-close-implementationen matchar förregistreringen
+punkt för punkt, Altenar-deep följer observationstidsregeln per event.
+Fem bekräftade fel lades i backloggen (F1–F5, fil:rad där): (F1) bok-ÖU utan
+else-gren markerar aldrig plockat ÖU-pris unavailable — draget pris kan
+flaggas i upp till 45 min; (F2, förelåg före passet) SvS-deep sparas med
+varvstart i stället för anropstid; (F3) "kvar"-etiketten läser inga
+Age-huvuden på bokssidan — CDN-cachat svar kan "återbekräfta" (villkoret i
+`oddset_value` är rätt, etiketten display-only); (F4) spelade kuponger settlar
+mot draw-payloadens Current-score positionsvis (events_order oanvänd, tyst
+trunkering, struken match = rätt för alla rader) i stället för
+settlement-kanon — 0 kuponger bokförda, inget skadat, fixa före första
+användning; (F5) rotationsrisk-upserten skriver över `start_at` (as-of-läsaren
+tappar PIT vid ombokning) och v22-POLICY bumpades inte trots ändrad
+wp9c-payload (whitelist skyddar modellfeatures — inget spelbart ändrat).
+Kvällens tre commits (spelade kuponger, rotationsrisk, radar-förtätning)
+saknade STATUS-poster — radar-förtätningen verifierad ren (ingen extra
+Pinnacle-trafik, budgetmatten håller). Verifierat i övrigt: 278 tester gröna,
+frontendbygge grönt, frysta manifest orörda, launchd + API friska, PH3 har nu
+30/42 settlade system (auditens blockerare släppt). Dokumentstädning:
+`docs/backlog.md` är enda aktiva backloggen (UTKAST tills Saman godkänt),
+`forbattringar.md` arkiv, källtabellen/portar rättade (FotMob i drift,
+Flashscore avförd), kallplanens tvåankarkrav pekar på den förregistrerade
+regeln i `tva-ankare-2026-07-25.md`.
+
 **ALTENAR SYNLIG + SPELBAR VÄRDEKÄLLA (2026-07-26, Codex).** `+ Fler odds`
 visar nu Ninja/Altenar som `N` även för Ö/U och totalhörnor, inte bara 1X2.
 Ninja döljs inte längre när 1X2 råkar vara identiskt med SvS eftersom Altenar
@@ -523,7 +602,7 @@ fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
   forskningsligor och är sedan 2026-07-24 synliga i vanliga Oddset-vyn
   (🔬, icke-actionable — se produktbeslutet ovan).
 
-## Backlog (WP-struktur efter granskningen 2026-07-13, prioriterad)
+## Backlog (WP-struktur efter granskningen 2026-07-13 — HISTORIK; aktiv backlog i `docs/backlog.md`)
 
 Research-grund: steam-värde dör på minuter, inte halvtimmar ("if you're seeing the
 same price after 10-20 min, the value is gone" — [SportBot om steam](https://www.sportbotai.com/blog/steam-moves-betting-explained-ai-data),
@@ -1037,11 +1116,12 @@ Oddset-flik (platshållare), detta dokument, CLAUDE.md omskriven.
 | ClubElo | klubbstyrkor, gratis API | ✅ verifierad 2026-07-12 — `api.clubelo.com/Hammarby` ger full historik; vm har `elo.py` |
 | Google News RSS | nyheter per lag | ✅ beprövad (vm) |
 | X syndication | klubbkontons flöden | ✅ beprövad (vm), 429-känslig |
-| **Sofascore (browser-kontext)** | **xG (!), hörnor, 43 statfält/match** för Allsvenskan & Eliteserien | ✅ verifierad 2026-07-12 — curl får 403 men riktig browser passerar; kräver Playwright-hämtare (mönster: `vm/tools/opta_token.py`). Detaljer under Prober. |
-| Flashscore | live/odds/lineups (inofficiellt) | 🟡 feed-endpointen svarar (200 med `x-fsign: SW9D1eZo`) men formatet kräver reverse-engineering — nedprioriterad nu när Sofascore ger xG |
+| **Sofascore (browser-TLS)** | **xG (!), hörnor, 43 statfält/match** för Allsvenskan & Eliteserien + live-radarns chansdata | ✅ i drift — `curl_cffi impersonate` ersatte Playwright-planen (Etapp 3). OBS: xG saknas helt för Allsvenskan i live-läge. |
+| **FotMob** | live-xG/xGOT/open-set-play — ANDRA live-ögat där Sofascore saknar xG | ✅ i drift 2026-07-25 (`app/fotmob.py`, egen tabell — xG blandas aldrig mellan providers). Gamla "skippa"-domen från 2026-07-12 upphävd. |
+| Flashscore | live/odds/lineups (inofficiellt) | ⛔ omtestad 2026-07-25: 401 utan privat `x-fsign` = avsiktlig grind, och ger inget FotMob inte redan ger — skippas (källgränsen) |
 | allsvenskan.se / eliteserien.no | officiell statistik | 🟡 WordPress med wp-json — undersök vid behov, låg prio |
 | FBref (browser-kontext) | tabeller/grundstats | 🟡 browser passerar Cloudflare (verifierat) men INGEN xG för Allsvenskan (22 tabeller kollade) — lågt värde, skippa |
-| Blockerade (omtestade 2026-07-12 från hemma-IP, slösa inte tid) | FotMob (gamla API:t 404:ar — kräver signerad `x-mas`-header numera), football-data.org (Allsvenskan i katalogen men datat kräver betald tier), Opta-webben (Akamai) | ⛔ — men Opta performfeeds data-API var öppet (showcase-outlet, `vm/backend/app/opta.py`) |
+| Blockerade (omtestade 2026-07-12; FotMob senare LÖST, se egen rad) | football-data.org (Allsvenskan i katalogen men datat kräver betald tier), Opta-webben (Akamai; gratisvägen = renderade bilder, feeds kräver betald outlet-nyckel — omkollat 2026-07-25) | ⛔ |
 | ASA (American Soccer Analysis) | MLS: xG/xPass/Goals Added/löner/domare/arenor — oberoende MLS-kvalitetskontroll | 🔴 certfel 2026-07-13 (hostname mismatch, både httpx & Chrome-TLS) — verifiera åtkomst innan planering (WP9a). Blanda aldrig providers' xG i samma fält. |
 | Sofascore shotmap | shot-xG + xGOT per skott | ✅ probat 2026-07-13: Eliteserien 30/30 skott med xG — Allsvenskan 0/31 (fältet saknas för SWE). Coverage-matrix (WP9b) innan features byggs. |
 | Sofascore team-events | lagets ALLA tävlingar (cup/Europa) | ✅ WP9c i drift 2026-07-17: 94 lag, 3 329 unika event, PIT-first-seen, vila/belastning + basarena-reseproxy; ännu inte modellinput |
@@ -1098,6 +1178,6 @@ Oddset-flik (platshållare), detta dokument, CLAUDE.md omskriven.
 
 | Projekt | Backend | Frontend | Preview | launchd |
 |---|---|---|---|---|
-| svs (fryses på sikt) | 8000 | 5173 | 5180 | com.saman.svs.snapshot (kör kvar, matar svs) |
+| svs (FRYST ARKIV 2026-07-20) | 8000 | 5173 | 5180 | urlastat (servrar stoppade, DB kvar) |
 | vm (Boll boll kollen) | 8001 | 5174 | — | com.saman.vm.* (5 jobb) |
-| **spelkompisen** | **8002** | **5175** | **5181** | inga ännu → com.saman.spelkompisen.* i Etapp 1 |
+| **spelkompisen** | **8002** | **5175** | **5181** | com.saman.spelkompisen.{snapshot,pool,backend} |

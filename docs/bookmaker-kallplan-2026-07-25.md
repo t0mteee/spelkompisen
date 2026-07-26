@@ -42,6 +42,11 @@ med samma feed får inte räknas som två bekräftelser av en edge.
 
 Acceptans före tvåankarkrav i runtime:
 
+> **Not 2026-07-26:** beslutsregeln förregistrerades senare samma dag i
+> `docs/tva-ankare-2026-07-25.md` (n ≥ 50 mätta+stängda 1X2 i primärgruppen,
+> veckokadens, ≥ 1,0 pp bättre close-EV med undre KI > 0) — **den gäller**
+> före volymkravet i listan nedan.
+
 - minst 200 stängda 1X2-observationer och minst 28 kalenderdagar;
 - båda ankarpriserna var observerade, färska och matchade mot samma match;
 - facit redovisar `båda`, `bara Pinnacle`, `bara Smarkets` och

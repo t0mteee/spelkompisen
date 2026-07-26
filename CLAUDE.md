@@ -74,13 +74,16 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       observed_pit — no backfill) + separat presence-ledger
                       och proveniensmärkt pool_draw_snapshot-serie
   app/pool_played.py  SPELADE kuponger: 🎟-knappen bokför att SAMAN själv lämnat
-                      in kupongen (lägger inga spel). Facit mot PUBLICERAD
-                      utdelning — kupongen låg i potten, så beloppen inkluderar
-                      den; utspädningen i PH3 gäller kontrafaktiska system och
-                      får ALDRIG återanvändas här. Livestatus för reducerade
-                      system ur SvS egen draw-payload (`match.result` med
-                      `sportEventResultType == "Current"` + `statusId`), så en
-                      oavgjord match håller alla tecken öppna
+                      in kupongen (lägger inga spel). FACIT = settlementlagrets
+                      officiella `outcome` per eventNumber (samma kanon som PH3;
+                      struken match = SvS fastställda tecken, aldrig "rätt för
+                      alla") mot PUBLICERAD utdelning — kupongen låg i potten,
+                      så beloppen inkluderar den; utspädningen i PH3 gäller
+                      kontrafaktiska system och får ALDRIG återanvändas här.
+                      LIVESTATUS (aldrig facit) ur SvS draw-payload
+                      (`match.result` "Current" + `statusId`), tecken parade
+                      via `events_order`, så en oavgjord/struken match håller
+                      alla tecken öppna
   app/pool_system_ledger.py PH3: förregistrerade benchmarksystem fryses
                       T−3h/T−20m i varvet, settlas kontrafaktiskt med egen
                       vinnarutspädning; rollover utan vinnare = okänd ROI
@@ -104,8 +107,10 @@ frontend/ React + Vite, mörkt tema. src/App.jsx + App.css är KLASSISKA vyn (v2
   i localStorage `svs_ui_version` och växling laddar om sidan (delat
   `svs_state` gör att kupong/omgång/inställningar följer med åt båda håll).
 start.sh / stop.sh    kör/stoppa båda lokalt (8002 + 5175)
-docs/plan.md          FÄRDPLANEN: etapper, datakällor, beslut — projektets sanning
-docs/forbattringar.md ärvd svs-backlog (poolspels-lärdomar, fortfarande giltiga)
+docs/plan.md          FÄRDPLANEN: status, datakällor, beslut — projektets sanning
+docs/backlog.md       AKTIV BACKLOG (2026-07-26): prioritering, pågående mätningar,
+                      parkerat/avfört — ändra prioritet bara med Samans godkännande
+docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (referens)
 ```
 
 ## Kommandon
