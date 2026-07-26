@@ -30,7 +30,8 @@ def _rows(store: Storage) -> dict:
     out: dict[tuple, dict] = {}
     for r in store.conn.execute(
             "SELECT match_id, market, line_key, sign, horizon, fair_prob, "
-            "closing_fair, eligible, captured_at FROM oddset_prediction_log "
+            "closing_fair, eligible, captured_at, match_start "
+            "FROM oddset_prediction_log "
             "WHERE tier='sharp' AND fair_source='pinnacle' "
             "AND fair_available=1 AND fair_fresh=1 AND market IN (?,?,?)",
             MARKETS):

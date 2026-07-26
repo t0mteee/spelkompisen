@@ -112,22 +112,17 @@ Ordnade efter mitt förslag, inte beslutade.
    (kräver godkännande):** förregistrera (a) reverseringshypotesen på NY
    kohort, (b) linjeflytt-som-drift för parmarknaderna (~500 exkluderade
    linjebyten ÄR driften), (c) frånvaro med större fönster.
-   Utsticken ÄR redan en slå-closing-strategi (+2,4–3 % close-EV mot
-   Pinnacle-close, KI > 0) — men den jagar bokens lagg, inte linjens
-   rörelse. Nästa tips-klass är DRIFT-prediktion: förutspå vart sharpen
-   flyttar före avspark. Prediction-ledgern har redan allt som behövs
-   offline (fryst sharp vid T−24h/T−3h/T−20m + close för varje match ×
-   marknad): förregistrera och mät vilka av våra BEFINTLIGA signaler som
-   förutspår drift T→close — (a) steam-momentum (fortsätter tidiga skift?),
-   (b) frånvaro/✓XI-bekräftelse, (c) vila/rotationsrisk (nu insamlat),
-   (d) ankaroenighet Pinnacle↔Smarkets (lead-lag), (e) linjeflytt ⇄ på
-   AH/ÖU, (f) RLM. Prediktorer som håller (KI > 0 på riktningsträff eller
-   drift-EV) blir en 🔮-driftradar i UI — shadow först, actionable via
-   vanliga trappan (candidate/green, signal_version-disciplin).
-   Egen-modell-spåret ("lita mer än marknaden") FORTSÄTTER bara i sina
-   gated banor: V2.2-shadow och hörnbaslinjen — den ordinarie modellen är
-   redan fälld mot close och får inte återuppstå utan att slå championen
-   på close-måttet.
+3c. ~~**close-drift-facit v2**~~ ✅ FÖRREGISTRERAD + FÖRSTA KÖRNING
+   2026-07-26 (`docs/close-drift-facit-v2-2026-07-26.md`,
+   `scripts/close_drift_facit_v2.py`, veckokadens):
+   **(b) Ö/U-LINJEFLYTTAR REVERSERAR** — fortsättningsandel 23,6 %
+   [15,3..31,9] (tvåsidigt förregistrerat ⇒ äkta fynd; AH neutral).
+   Konsistent med v1:s prisreversering: Pinnacles tidiga Ö/U-rörelser
+   överreagerar. (a) reversering forward: SAMLAR (0/100, kohort från
+   2026-07-26T21Z). (c) frånvaro brett fönster: ingen signal (n=26),
+   utforskande. FÖRE tips krävs: forward-replikering + pris-EV-storlek +
+   vanliga trappan. Egen-modell-spåret fortsätter bara i sina gated banor
+   (V2.2, hörnbaslinjen).
    Förregistrerad nästa körning: avgör om 13-matchs-underkännandet är
    budgetberoende (→ täthets-varning i byggar-UI:t) eller strukturellt
    (→ ärlig text: värderad-metoden är fel verktyg för Stryk/Europa).

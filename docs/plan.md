@@ -5,6 +5,18 @@
 > **Aktiv backlog och prioritering: `docs/backlog.md`** (2026-07-26).
 > WP-listan längre ned är historik över avslutat arbete.
 
+**CLOSE-DRIFT v2 — Ö/U-LINJEFLYTTAR REVERSERAR (2026-07-26 sen kväll,
+Fable 5, godkänd insats).** Förregistrerad i
+`docs/close-drift-facit-v2-2026-07-26.md` FÖRE körning. Tvåsidigt test av
+linjeflytt h24→h3 på befintlig data (v1 exkluderade dessa — utfallen aldrig
+granskade): **Ö/U-fortsättningsandel 23,6 % [15,3..31,9]** (72 vidareflyttade,
+139 stilla) — tidiga totallineflyttar dras TILLBAKA; AH neutral 46,8 %.
+Konsistent med v1:s prisreversering: Pinnacles tidiga Ö/U-rörelser
+överreagerar. Reverseringshypotesen (a) samlar forward-kohort från
+2026-07-26T21Z (veckokadens, ≥100 aktiva före tolkning); frånvaro (c)
+utforskande utan signal. Före tips: forward-replikering, pris-EV-storlek och
+vanliga trappan. Ingen runtime-ändring.
+
 **PH5 256/512 KLAR — 13-MATCHSDOMEN: TÄTHETSBEROENDE MEN ALDRIG EN FÖRDEL
 (2026-07-26 kväll, Fable 5, godkänd insats).** Förregistrerad uppföljning
 körd (`docs/ph5-radvalsablation-256-512-2026-07-26.md`): underskottet mot
