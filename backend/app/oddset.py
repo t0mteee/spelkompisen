@@ -428,6 +428,17 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
         report["errors"].append(f"smarkets events: {exc}")
         store.oddset_record_source_health(
             "smarkets", "-", "events", at, False, 0, str(exc))
+    # TREDJE MARKNADSREFERENSEN (2026-07-27): Matchbook — ENDAST skugg-
+    # insamling i snabbfönstret (kallplanens reservspår). Eventen hämtas
+    # LAT: först när en mappad liga faktiskt har en match som startar inom
+    # FAST_WITHIN_H — utanför fönstret rör vi inte källan alls (artighet +
+    # rule 6: en källa vi inte frågade är ingen observation). Ett anrop ger
+    # pris OCH likviditet för hela fönstret och delas mellan ligorna.
+    from . import matchbook
+    matchbook_client = matchbook.Matchbook()
+    matchbook_events: Optional[list[dict]] = None
+    matchbook_tried = False
+    matchbook_at = at   # sätts om EFTER lyckad hämtning (observationstidsregeln)
     try:
         for lg in (LEAGUES if leagues is None else leagues):
             research_only = bool(lg.get("research_only"))
@@ -773,15 +784,91 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                         store.oddset_mark_market_unavailable(
                             c["id"], "smarkets", "1x2")
 
+            # TREDJE MARKNADSREFERENSEN (2026-07-27): Matchbook-börsen, ENDAST
+            # skugginsamling i snabbfönstret enligt den förregistrerade planen
+            # (docs/bookmaker-kallplan-2026-07-25.md). Bästa back-odds sparas i
+            # oddset_odds och tillgänglig likviditet (EUR) i egen tabell — båda
+            # ur SAMMA svar, alltså samma observationstid. Matchbook ligger
+            # UTANFÖR BOOKS och ANCHOR_SOURCES/ANCHOR2_SOURCE (spärren
+            # oddset_value.SHADOW_SOURCES + payload-strippen) och får inte
+            # skapa flaggor, notiser, CLV, steam eller matchidentiteter.
+            # >= 28 dagar ren skugga innan någon runtimeroll ens prövas; tunn
+            # likviditet får aldrig bekräfta/underkänna en edge.
+            n_matchbook = 0
+            if lg["key"] in matchbook.LEAGUE_TAGS:
+                fast_cands = [c for c in cands
+                              if at < (c.get("start") or "") <= fast_until]
+                if fast_cands and not matchbook_tried:
+                    matchbook_tried = True
+                    try:
+                        # API-fönstret = exakt kandidatfönstret (at..fast_until)
+                        # så att ett lyckat svar bevisar närvaro/frånvaro för
+                        # just de matcher vi frågade om — inga andra.
+                        matchbook_events = matchbook_client.upcoming_events(
+                            after_iso=at, until_iso=fast_until)
+                        matchbook_at = cache_adjusted_iso(
+                            _now_iso(), matchbook_client.last_age_s)
+                    except Exception as exc:  # noqa: BLE001
+                        report["errors"].append(f"matchbook events: {exc}")
+                        store.oddset_record_source_health(
+                            "matchbook", "-", "events", at, False, 0, str(exc))
+                if fast_cands and matchbook_events is not None:
+                    mb_ok, mb_error = True, None
+                    try:
+                        # delat eventsvar — inget nytt anrop; observationstiden
+                        # är eventhämtningens (matchbook_at), inte "nu".
+                        mb_rows = matchbook_client.league_events(
+                            lg["key"], strict=True, events=matchbook_events)
+                    except Exception as exc:  # noqa: BLE001
+                        mb_rows = []
+                        mb_ok, mb_error = False, str(exc)
+                        report["errors"].append(f"matchbook {lg['key']}: {exc}")
+                    store.oddset_record_source_health(
+                        "matchbook", lg["key"], "1x2", at, mb_ok,
+                        len(mb_rows), mb_error)
+                    # Lazy-hämtningen kan ske minuter in i varvet: en match kan
+                    # ha hunnit starta efter `at` — live-odds sparas aldrig.
+                    live_guard = max(at, matchbook_at)
+                    mb_seen: set[str] = set()
+                    mb_claims: dict[str, str] = {}
+                    for e in mb_rows:
+                        ex = _resolve(fast_cands, e["home"], e["away"], e["start"])
+                        if not ex or (e.get("start") or "9") <= live_guard:
+                            continue   # referensen skapar ALDRIG matchidentiteter
+                        claim = str(e.get("id"))
+                        if (ex["id"] in mb_claims
+                                and mb_claims[ex["id"]] != claim):
+                            report["errors"].append(
+                                f"matchbook identity collision {lg['key']}: "
+                                f"{mb_claims[ex['id']]} och {claim} -> {ex['id']}")
+                            continue
+                        mb_claims[ex["id"]] = claim
+                        rows_saved += store.oddset_save_odds(
+                            ex["id"], "matchbook", e["odds"], matchbook_at)
+                        store.oddset_save_matchbook_liquidity(
+                            ex["id"], e["liquidity"], matchbook_at)
+                        mb_seen.add(ex["id"])
+                        n_matchbook += 1
+                    if mb_ok:
+                        # Frånvaro bevisas BARA för fönstret vi frågade om.
+                        for c in fast_cands:
+                            if (c["id"] in mb_seen
+                                    or (c.get("start") or "9") <= live_guard):
+                                continue
+                            store.oddset_mark_market_unavailable(
+                                c["id"], "matchbook", "1x2")
+
             report["leagues"][lg["key"]] = {
                 "pinnacle": n_pin, "kambi": n_kambi, "books": n_books,
-                "smarkets": n_anchor, "saved_rows": rows_saved,
+                "smarkets": n_anchor, "matchbook": n_matchbook,
+                "saved_rows": rows_saved,
                 "pinnacle_cache_age_s": pin_cache_age_s if pin_ok else None,
                 "pinnacle_observed_at": pin_observed_at if pin_ok else None}
     finally:
         pin.close()
         if smarkets_client is not None:
             smarkets_client.close()
+        matchbook_client.close()
     store.meta_set("oddset_last_run", at)
     # Etapp 3: resultat/xG/Elo till modellen (throttlat i modulen — oftast no-op)
     if deep:
@@ -917,6 +1004,12 @@ def matches_payload(store: Storage, light: bool = False,
         row = {**m, "odds": latest.get(m["id"], {}),
                "movement": movement.get(m["id"], {}),
                "sharp_alt": alt.get(m["id"], {})}
+        # Skuggkällor (Matchbook) når aldrig payloaden: inte värdemotorn
+        # (som annars hade räknat dem som bok), inte steam/notiser/ledger,
+        # inte UI:t. Serien ligger kvar i DB för det frysta shadow-facitet.
+        for shadow_src in oddset_value.SHADOW_SOURCES:
+            row["odds"].pop(shadow_src, None)
+            row["movement"].pop(shadow_src, None)
         if m["id"] in conflicts:
             row["data_conflict"] = {
                 "kind": "identity",

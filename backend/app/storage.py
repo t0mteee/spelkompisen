@@ -619,6 +619,28 @@ CREATE INDEX IF NOT EXISTS idx_live_moment_settlement_facit
     ON oddset_live_moment_settlement (signal_type, signal, league);
 """
 
+MATCHBOOK_SCHEMA = """
+-- Matchbook (2026-07-27): TREDJE oberoende marknadsreferensen — ENDAST
+-- skugginsamling i snabbfönstret (docs/bookmaker-kallplan-2026-07-25.md).
+-- Oddsen ligger i oddset_odds (source='matchbook'); denna tabell bär den
+-- TILLGÄNGLIGA back-likviditeten (EUR, vid bästa back-odds) per selektion,
+-- ur SAMMA källsvar som priset (en observationstid). Append-serie med
+-- monotonisk seen_at: nytt belopp = ny rad; oförändrat belopp flyttar
+-- senaste radens seen_at framåt; ett svar äldre än senaste observation
+-- skrivs aldrig (klockan går bara framåt). Läses av inget runtime-flöde —
+-- bara det kommande frysta shadow-facitet (>= 28 dagar). Tunn likviditet
+-- får ALDRIG bekräfta eller underkänna en edge.
+CREATE TABLE IF NOT EXISTS oddset_matchbook_liquidity (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    match_id  TEXT NOT NULL,
+    sign      TEXT NOT NULL,             -- 1/X/2
+    available REAL,                      -- EUR vid bästa tillgängliga back-odds
+    seen_at   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_oddset_matchbook_liq
+    ON oddset_matchbook_liquidity (match_id, sign, seen_at);
+"""
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS draws (
     product       TEXT NOT NULL,
@@ -814,7 +836,7 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
     anchor2_note         TEXT,
     PRIMARY KEY (match_id, market, sign, line_key, model_version)
 );
-""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + V22_SHADOW_SCHEMA + TEAM_EVENT_SCHEMA + POOL_SETTLEMENT_SCHEMA + POOL_PIT_SCHEMA + LIVE_RADAR_SCHEMA
+""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + V22_SHADOW_SCHEMA + TEAM_EVENT_SCHEMA + POOL_SETTLEMENT_SCHEMA + POOL_PIT_SCHEMA + LIVE_RADAR_SCHEMA + MATCHBOOK_SCHEMA
 
 
 class Storage:
@@ -1481,6 +1503,38 @@ class Storage:
         """Bekvämlighet för 1X2."""
         rows = {s: {"odds": odds.get(s), "line": None} for s in ("1", "X", "2")}
         return self.oddset_save_market(match_id, source, "1x2", rows, fetched_at)
+
+    def oddset_save_matchbook_liquidity(self, match_id: str, liquidity: dict,
+                                        seen_at: str) -> int:
+        """Matchbooks tillgängliga back-likviditet (EUR) per selektion — ren
+        skuggserie (se MATCHBOOK_SCHEMA). Append/upsert med monotonisk seen_at:
+        nytt belopp = ny rad, oförändrat belopp flyttar senaste radens seen_at
+        framåt med MAX(), och ett svar äldre än senaste observationen bär ingen
+        ny information och skrivs aldrig (observationstidsregeln p.4)."""
+        n = 0
+        for sign in ("1", "X", "2"):
+            value = liquidity.get(sign)
+            if value is None:
+                continue
+            prev = self.conn.execute(
+                "SELECT id, available, seen_at FROM oddset_matchbook_liquidity "
+                "WHERE match_id=? AND sign=? ORDER BY seen_at DESC, id DESC "
+                "LIMIT 1", (match_id, sign)).fetchone()
+            if prev and seen_at < prev["seen_at"]:
+                continue      # föråldrat svar — klockan går bara framåt
+            if prev and prev["available"] == value:
+                self.conn.execute(
+                    "UPDATE oddset_matchbook_liquidity "
+                    "SET seen_at=MAX(seen_at, ?) WHERE id=?",
+                    (seen_at, prev["id"]))
+                continue
+            self.conn.execute(
+                "INSERT INTO oddset_matchbook_liquidity"
+                "(match_id, sign, available, seen_at) VALUES(?,?,?,?)",
+                (match_id, sign, value, seen_at))
+            n += 1
+        self._commit()
+        return n
 
     @staticmethod
     def _oddset_ids_clause(ids: list[str]) -> tuple[str, list]:

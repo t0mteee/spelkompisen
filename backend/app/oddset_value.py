@@ -83,6 +83,18 @@ ANCHOR_SOURCES = frozenset({"smarkets"})
 # Promotion till en riktig gate är förregistrerad i docs/tva-ankare-2026-07-25.md.
 ANCHOR2_SOURCE = "smarkets"
 ANCHOR2_MARKETS = frozenset({"1x2"})   # Smarkets täcker bara 1X2 i dag
+
+# SKUGGKÄLLOR (2026-07-27) — ren insamling som varken är bok ELLER ankare.
+# Matchbook samlas som TREDJE oberoende marknadsreferens (bästa back-odds +
+# faktisk likviditet i snabbfönstret) men ska per den förregistrerade planen
+# (docs/bookmaker-kallplan-2026-07-25.md) enbart skuggjämföras mot Pinnacle/
+# Smarkets i minst 28 dagar: den får INTE in i BOOKS (insamlingens bokjakt),
+# INTE i ANCHOR_SOURCES/ANCHOR2_SOURCE (värderingens ankare) och får aldrig
+# skapa flaggor, notiser, CLV-rader eller steam. Spärren här är samma klass
+# som ankarspärren ovan: utan den hade "allt utom pinnacle och ankare" gjort
+# Matchbook till en bok att slå (192-flaggors-felet). matches_payload
+# strippar dessutom skuggkällorna ur payloaden — dubbelt skydd.
+SHADOW_SOURCES = frozenset({"matchbook"})
 PRICE_PRESENCE_VERSION = "last-seen-available-cdn-age-v2"
 Q_NOTIFY = 0.015       # push-notis på KVALITET q = edge/(odds−1) (Kelly-andelen):
                        # samma edge är mycket mer pålitlig på låga odds — ett litet
@@ -220,10 +232,12 @@ def attach_value(matches: list[dict]) -> None:
             continue
         odds = m.get("odds") or {}
         pin = odds.get("pinnacle") or {}
-        # Böcker vi letar värde HOS = allt utom Pinnacle OCH ankarkällorna
-        # (Smarkets m.fl. är sharp-referenser, inte spelbara mjuka böcker).
+        # Böcker vi letar värde HOS = allt utom Pinnacle, ankarkällorna OCH
+        # skuggkällorna (Smarkets är sharp-referens, Matchbook ren skugga —
+        # ingen av dem är en spelbar mjuk bok).
         books = {src: v for src, v in odds.items()
-                 if src != "pinnacle" and src not in ANCHOR_SOURCES}
+                 if src != "pinnacle" and src not in ANCHOR_SOURCES
+                 and src not in SHADOW_SOURCES}
         alt = m.get("sharp_alt") or {}
         for market, signs in _MARKET_SIGNS.items():
             p = pin.get(market)
