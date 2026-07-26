@@ -3015,6 +3015,7 @@ function AppClassic({ onSwitchV3 }) {
                 ) : <>spelvärde <b>{Math.round((payouts.spelvarde || payouts.payout_ratio || 0) * 100)} %</b></>}
               </span>
             )}
+            {payouts?.available && <PlayRec payouts={payouts} product={group} />}
             {payouts?.hurdle > 0 && (
               <span className="hurdle" title={`Poolspel betalar tillbaka ${Math.round((payouts.payout_ratio || 0) * 100)} % av omsättningen. För att gå plus måste dina rader alltså träffa ${Math.round(payouts.hurdle * 100)} % oftare än fältet i snitt — bara "positiv EV" i systemvyn räcker inte om den räknats på en för snäll pott.`}>
                 break-even <b>+{Math.round(payouts.hurdle * 100)} %</b> mot fältet
@@ -3152,6 +3153,23 @@ function switchUiVersion(version) {
   window.location.reload()
 }
 
+// SPELLÄGE (2026-07-26, Samans "förbättra allt"): uttaget är 30–40 %, så
+// VILKA omgångar man spelar styr EV mer än radvalet. Ren syntes av befintliga
+// tal (prognostiserat spelvärde + PH5-domen) — ingen ny signal, inget facit.
+function PlayRec({ payouts, product }) {
+  const sv = payouts.projected_turnover > payouts.turnover
+    ? (payouts.spelvarde_proj || 0)
+    : (payouts.spelvarde || payouts.payout_ratio || 0)
+  const thirteen = product === 'stryktipset' || product === 'europatipset'
+  const [label, cls] = sv >= 1 ? ['spelläge: jackpot — spela', 'go']
+    : sv >= 0.8 ? ['spelläge: tunt — spela smått', 'thin']
+      : ['spelläge: avstå', 'skip']
+  return (
+    <span className={`playrec ${cls}`} title={`Rekommendation ur prognostiserat spelvärde (${Math.round(sv * 100)} %). Under 80 %: uttaget äter mer än någon uppmätt radvalsfördel — avstå eller spela symboliskt. 80–100 %: tunt; kräver att slå break-even-hurdlen. ≥100 %: jackpot/rullpott subventionerar fältet — det är då poolspel kan bära positiv EV.${thirteen ? ' OBS 13-matchsspel: radvalet har ingen påvisad fördel (PH5 2026-07-26) — spelvärdet är hela caset.' : ' Topptipset-spelen: radvalsfördel uppmätt +7–15 pp mot folk-/favoritrad (PH5, 3 976 omgångar), men vinst kommer i en minoritet av omgångarna — variansen är stor.'}`}>
+      {label}
+    </span>)
+}
+
 export default function App() {
   let ui = 'v3'
   try { ui = localStorage.getItem(UI_KEY) || 'v3' } catch { /* ok */ }
@@ -3171,4 +3189,5 @@ export {
   BombenView, OddsetView, Legend, Collection, LoadingState, EmptyState,
   ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS,
   SYSTEM_BASE, SYSTEM_SVS, VARIANT, GAMES, kr, fmtClose, fmtFetched, timeAgo,
+  PlayRec,
 }

@@ -701,6 +701,11 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 }
 .pool-value { display: inline-flex; gap: 5px; align-items: baseline; flex-wrap: wrap; }
 .pool-value .current-value { color: var(--muted); font-size: 11px; }
+.playrec { border: 1px solid currentColor; border-radius: 10px; padding: 0 8px;
+  font-weight: 600; font-size: 11px; white-space: nowrap; }
+.playrec.go { color: #3ddc84; }
+.playrec.thin { color: #eab308; }
+.playrec.skip { color: #f87171; }
 
 /* Oddset: ligor och verktyg är två begripliga grupper. */
 .league-filter, .oddset-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

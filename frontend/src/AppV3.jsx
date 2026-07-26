@@ -9,7 +9,7 @@ import {
   AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel,
   BombenView, OddsetView, Legend, Collection, LoadingState, EmptyState,
   ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS,
-  SYSTEM_BASE, SYSTEM_SVS, VARIANT, kr, fmtClose, timeAgo,
+  SYSTEM_BASE, SYSTEM_SVS, VARIANT, kr, fmtClose, timeAgo, PlayRec,
 } from './App'
 
 const VIEWS = [
@@ -469,6 +469,7 @@ function PoolV3() {
             {payouts?.available && <> · spelvärde <b className={((payouts.spelvarde_proj ?? payouts.spelvarde) || 0) >= 1 ? 'pos' : ''}>
               {Math.round(((payouts.spelvarde_proj ?? payouts.spelvarde) || 0) * 100)}%</b></>}
             {payouts?.jackpot > 0 && <> · 💰 {kr(payouts.jackpot)}</>}
+            {payouts?.available && <PlayRec payouts={payouts} product={game} />}
           </span>
         )}
         <span className="v3steps">
