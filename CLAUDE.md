@@ -99,12 +99,14 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/main.py         API-endpoints + PRIZE_PLANS (officiella vinstplaner)
   cli.py              show|spikar|snapshot|history|rad (snapshotvarvet settlar
                       även nyss avgjorda poolomgångar via settle_recent)
-frontend/ React + Vite, mörkt tema. src/App.jsx + App.css är KLASSISKA vyn (v2,
-  default). src/AppV3.jsx + AppV3.css är v3-EXPERIMENTET (Idag-översikt,
-  Poolspel, Oddset, Historik) — återanvänder v2:s tunga komponenter via exports
-  ur App.jsx. Växel: ✨-knappen i v2-headern ↔ "Klassisk vy" i v3; valet ligger
-  i localStorage `svs_ui_version` och växling laddar om sidan (delat
-  `svs_state` gör att kupong/omgång/inställningar följer med åt båda håll).
+frontend/ React + Vite, mörkt tema. src/AppV3.jsx + AppV3.css är APPEN
+  (enda gränssnittet sedan 2026-07-26 — klassiska v2-vyn är RIVEN): vyerna
+  Idag, Poolspel, Oddset, Historik och 🧪 Labb (bevisytan: alla mät-/
+  shadowspår som statuskort — inget där är tips). src/App.jsx + App.css är
+  KOMPONENTBIBLIOTEKET (AnalysisTable, SystemView, CouponPanel, OddsetView,
+  PlayRec, PlayedPanel m.fl. via exportblocket i slutet) — nya tunga
+  komponenter definieras där och monteras i AppV3. Tillstånd (kupong/omgång/
+  inställningar) ligger i localStorage `svs_state`.
 start.sh / stop.sh    kör/stoppa båda lokalt (8002 + 5175)
 docs/plan.md          FÄRDPLANEN: status, datakällor, beslut — projektets sanning
 docs/backlog.md       AKTIV BACKLOG (2026-07-26): prioritering, pågående mätningar,
@@ -395,7 +397,7 @@ måste Saman lägga in en Bash-behörighetsregel — se
 
 ## UI-konventioner
 
-- v2-design: 13px bas, sektioner är kort (`section` = --panel, inre ytor = --panel2),
+- Designsystemet: 13px bas, sektioner är kort (`section` = --panel, inre ytor = --panel2),
   pill-tabbar i kompakt header, EN statusrad. Bred skärm (≥1280px): sektionspar i `.cols`-grid.
 - Mobil: ALLT i `@media (max-width:760px)` — desktop får inte ändras. OBS:
   `td:first-child`-regler måste exkludera `.chartrow`.

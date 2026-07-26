@@ -145,7 +145,14 @@ Ordnade efter mitt förslag, inte beslutade.
    2026-07-24 till GAMMAL STATUS och behåll en kort lägesbild + pekare hit.
    (Faktafel i källtabell/portar rättade 2026-07-26; resten är omflyttning.)
 
-7. **v3-KONSOLIDERINGEN — "ett UI, två ytor" (Samans riktning 2026-07-26)**
+7. ~~**v3-KONSOLIDERINGEN**~~ ✅ KLAR 2026-07-26 (alla fyra stegen samma
+   dag på Samans order): Labb-vyn, klickbara värdekort, PH5-byggartext,
+   default-byte OCH v2-vyn RIVEN (−412 rader; App.jsx = komponentbibliotek).
+   Dessutom: spelläge-pillret (spela/spela smått/avstå) i Poolspel + Idag,
+   🎟 Dina kuponger-kort med livestatus på Idag, personligt kupongfacit
+   (PlayedPanel) överst i Historik. KVAR SOM SMÅPUNKTER: rek-historik i
+   matchdetaljen (kräver flags i detail-payloaden), Bomben-spelläge (saknar
+   payouts-flöde). Ursprungsplanen:**
    *(medel-stor; UI-spårens svar på spretigheten)*
    Diagnosen stämmer: två UI:n (v2 default + v3-experimentet) och mätspår
    utspridda över paneler. Plan, i ordning:

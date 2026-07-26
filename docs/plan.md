@@ -17,6 +17,18 @@ Konsistent med v1:s prisreversering: Pinnacles tidiga Ö/U-rörelser
 utforskande utan signal. Före tips: forward-replikering, pris-EV-storlek och
 vanliga trappan. Ingen runtime-ändring.
 
+**ETT GRÄNSSNITT + BESLUTSSTÖD (2026-07-26 natt, Fable 5, Samans order).**
+Klassiska v2-vyn är RIVEN (−412 rader; App.jsx är nu komponentbiblioteket,
+AppV3 enda skalet — build/browser/311 tester gröna). Nya beslutsstöd, allt
+ur befintliga tal: spelläge-pillret (jackpot—spela / tunt—spela smått /
+avstå ur prognostiserat spelvärde + PH5-domen) i Poolspel-rubriken OCH på
+Idag per spelform; 🎟 Dina kuponger-kort på Idag med livestatus
+(avgjorda/bäst/vid liv); personligt kupongfacit (PlayedPanel) överst i
+Historik. Direkt utfall: nästa Europatipset (omg 2594) flaggar GRÖNT —
+spelvärde 110 % med 2 Mkr rullpott — medan dagens Topptipset säger avstå
+(70 %). NTFY förblir avstängt på Samans besked. Rek-historik i
+matchdetaljen kvar som småpunkt (kräver flags i detail-payloaden).
+
 **PH5 256/512 KLAR — 13-MATCHSDOMEN: TÄTHETSBEROENDE MEN ALDRIG EN FÖRDEL
 (2026-07-26 kväll, Fable 5, godkänd insats).** Förregistrerad uppföljning
 körd (`docs/ph5-radvalsablation-256-512-2026-07-26.md`): underskottet mot

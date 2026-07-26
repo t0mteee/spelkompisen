@@ -9,6 +9,7 @@ import {
   BombenView, OddsetView, Legend, Collection, LoadingState, EmptyState,
   ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS,
   SYSTEM_BASE, SYSTEM_SVS, VARIANT, kr, fmtClose, timeAgo, PlayRec,
+  PlayedPanel,
 } from './App'
 
 const VIEWS = [
@@ -87,6 +88,7 @@ function DashboardV3({ openPool, openOddset, openHistorik }) {
   const [ledger, setLedger] = useState(null)
   const [hist, setHist] = useState(null)
   const [systems, setSystems] = useState(null)
+  const [played, setPlayed] = useState(null)
   const [err, setErr] = useState(null)
 
   const load = () => {
@@ -111,6 +113,7 @@ function DashboardV3({ openPool, openOddset, openHistorik }) {
     get('/api/oddset/matches').then(setOddset).catch(() => setOddset(null))
     get('/api/oddset/predictions').then(setLedger).catch(() => setLedger(null))
     get('/api/pool/systems').then(setSystems).catch(() => setSystems(null))
+    get('/api/pool/played').then(setPlayed).catch(() => setPlayed(null))
     Promise.all(HIST_PRODUCTS.map((p) =>
       get(`/api/pool/history?product=${p.id}&limit=1`).then((j) => [p.id, j]).catch(() => [p.id, null])
     )).then((pairs) => setHist(Object.fromEntries(pairs)))
@@ -188,12 +191,42 @@ function DashboardV3({ openPool, openOddset, openHistorik }) {
                         {g.pay.jackpot > 0 && <span className="v3jackpot">💰 {kr(g.pay.jackpot)}</span>}
                       </span>
                     )}
+                    {g.pay?.available && <PlayRec payouts={g.pay} product={g.id} />}
                   </>
                 )}
               </button>
             ))}
           </div>
         </div>
+
+        {(played?.coupons || []).some((c) => !c.settled_at) && (
+          <div className="v3card">
+            <div className="v3cardhead"><h3>🎟 Dina kuponger</h3>
+              <button className="v3more" onClick={() => openHistorik()}>facit →</button></div>
+            {played.coupons.filter((c) => !c.settled_at).slice(0, 4).map((c) => {
+              const live = c.live || {}
+              const alive = Object.entries(live.alive_per_level || {})
+                .map(([lvl, n]) => [Number(lvl), n])
+                .filter(([, n]) => n > 0).sort((a, b) => b[0] - a[0])[0]
+              return (
+                <div key={`${c.product}-${c.draw_number}-${c.rows_hash}`} className="v3row">
+                  <b>{VARIANT[c.product] ? `Topptipset ${VARIANT[c.product]}` : c.product} {c.draw_number}</b>
+                  <span className="v3hint">
+                    {c.n_rows} rader ({kr(c.cost_kr)}) · {live.n_decided ?? '–'}/{live.n_events ?? '–'} avgjorda
+                    · bäst {live.best_secure ?? '–'} rätt
+                    {alive ? ` · ${alive[1]} rad${alive[1] > 1 ? 'er' : ''} vid liv för ${alive[0]}` : ''}
+                  </span>
+                </div>)
+            })}
+            {played?.summary?.n_settled > 0 && (
+              <span className="v3hint">
+                Facit hittills: {played.summary.n_settled} settlade · insats {kr(played.summary.spent_kr)} ·
+                utdelning {kr(played.summary.won_kr)}
+                {played.summary.roi != null ? ` · ROI ${Math.round(played.summary.roi * 100)} %` : ''}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="v3card">
           <div className="v3cardhead"><h3>💰 Värdespel</h3>
@@ -1018,6 +1051,7 @@ export default function AppV3() {
         {view === 'pool' && <ErrBoundary><PoolV3 /></ErrBoundary>}
         {view === 'oddset' && <ErrBoundary><OddsetView focus={oddsetFocus} /></ErrBoundary>}
         {view === 'historik' && <ErrBoundary>
+          <PlayedPanel />
           <HistorikV3 initialProduct={histProduct} focus={histFocus} />
         </ErrBoundary>}
         {view === 'labb' && <ErrBoundary><LabbV3 /></ErrBoundary>}
