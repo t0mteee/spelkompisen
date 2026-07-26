@@ -699,6 +699,30 @@ def oddset_radar_facit():
         store.close()
 
 
+@app.get("/api/oddset/match-flags")
+def oddset_match_flags(match_id: str):
+    """Rek-historiken för EN match: alla loggade värdeflaggor med utfall.
+    Läser bara value_log — inga nya flaggor skapas av ett GET-anrop."""
+    store = Storage()
+    try:
+        rows = [dict(r) for r in store.conn.execute(
+            "SELECT market, sign, line, book, tier, first_at, first_odds, "
+            "first_edge, best_edge, closing_fair, closing_odds, closing_note, "
+            "anchor2_edge, model_version FROM oddset_value_log "
+            "WHERE match_id=? ORDER BY first_at DESC", (match_id,))]
+        for r in rows:
+            # close-EV med samma definition som facitet: fair vid stängning ×
+            # oddset vi kunde ta − 1. Saknas stängning redovisas det öppet.
+            if r["closing_fair"] is not None and r["first_odds"]:
+                r["close_ev"] = round(
+                    r["closing_fair"] * r["first_odds"] - 1, 4)
+            else:
+                r["close_ev"] = None
+        return {"match_id": match_id, "flags": rows}
+    finally:
+        store.close()
+
+
 @app.get("/api/oddset/notices")
 def oddset_notices():
     """Notis-historik: alla triggade värde-/steam-larm (skickade OCH torrkörda

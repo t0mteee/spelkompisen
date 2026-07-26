@@ -776,6 +776,33 @@ function OddsetLegend() {
   )
 }
 
+// ---------- Delad värdenivå-logik (💰-korten + Rek-kolumnen) ----------
+// Rek-cellen är ren VISNING av värdemotorns output — samma urval och samma
+// nivåtrösklar som 💰-korten. Båda ytorna (och v3-dashboardens värdekort)
+// MÅSTE läsa dessa helpers, aldrig egna kopior, så att de inte kan glida isär.
+// Urval: bästa selektionen per match = högst kvalitet q = edge/(odds−1),
+// bakom spelgrinden edge ≥ 2 % och q ≥ 0,75 % (högoddsar-edges är för sköra).
+function oddsetBestValue(m) {
+  let best = null
+  for (const [mk, per] of Object.entries(m.value || {})) {
+    for (const [sg, v] of Object.entries(per)) {
+      if (v.edge < 0.02 || (v.q ?? 0) < 0.0075) continue
+      if (!best || (v.q ?? 0) > (best.v.q ?? 0)) best = { mk, sg, v }
+    }
+  }
+  return best
+}
+// Nivå: OMTVISTAD när andra sharp-ankaret (Smarkets) värderar samma bokodds
+// negativt; annars STARK/EDGE/SVAG på kvalitet q — inte på rå edge.
+function oddsetValueTier(v) {
+  const q = v.q ?? 0
+  const disputed = v.anchor2?.fair != null && v.anchor2.edge <= 0
+  if (disputed) return { cls: 't1', label: 'OMTVISTAD EDGE', short: 'OMTVISTAD', disputed }
+  if (q >= 0.04) return { cls: 't3', label: 'STARK EDGE', short: 'STARK', disputed }
+  if (q >= 0.02) return { cls: 't2', label: 'EDGE', short: 'EDGE', disputed }
+  return { cls: 't1', label: 'SVAG EDGE', short: 'SVAG', disputed }
+}
+
 function OddsetView({ focus = null } = {}) {
   const [data, setData] = useState(null)
   const [clv, setClv] = useState(null)
@@ -793,6 +820,8 @@ function OddsetView({ focus = null } = {}) {
   const [showLog, setShowLog] = useState(false)
   const [showLedger, setShowLedger] = useState(false)
   const [expanded, setExpanded] = useState(null)
+  // 📒 Rek-historiken för EN öppnad matchdetalj: { id, rows } | { id, error }
+  const [matchFlags, setMatchFlags] = useState(null)
   const [err, setErr] = useState(null)
   const [busy, setBusy] = useState(false)
   const [hidden, setHidden] = useState(() => {
@@ -856,6 +885,20 @@ function OddsetView({ focus = null } = {}) {
     const t = setTimeout(jump, 400)     // korrigeringspass efter sen reflow
     return () => clearTimeout(t)
   }, [focus, !!data])  // eslint-disable-line
+
+  // Rek-historiken hämtas BARA när en matchdetalj öppnas — aldrig för alla
+  // rader. Endpointen läser value_log; ett GET skapar inga nya flaggor.
+  // Ingen synkron "loading"-setState behövs: renderingen visar "hämtar…"
+  // så länge matchFlags.id inte matchar den öppnade matchen.
+  useEffect(() => {
+    if (!expanded) return undefined
+    let alive = true
+    fetch(`/api/oddset/match-flags?match_id=${encodeURIComponent(expanded)}&_t=${Date.now()}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => { if (alive) setMatchFlags({ id: expanded, rows: d.flags || [] }) })
+      .catch(() => { if (alive) setMatchFlags({ id: expanded, error: true }) })
+    return () => { alive = false }
+  }, [expanded])
 
   const refresh = async () => {
     setBusy(true)
@@ -1185,6 +1228,45 @@ function OddsetView({ focus = null } = {}) {
     svenskaspel: 'SvS', expekt: 'Expekt',
     betinia: 'Betinia', ninjacasino: 'Ninja/Altenar', // Betinia kvar för historiken
   }
+  // value_log prefixar modell-flaggornas marknad med m (m1x2/mah/mou/mcor)
+  const FLAG_MARKET = { m1x2: '1x2', mah: 'ah', mou: 'ou', mcor: 'cor' }
+
+  // Rek-kolumnen: ren VISNING av värdemotorns bästa selektion per match via
+  // de delade helprarna oddsetBestValue/oddsetValueTier (exakt 💰-kortens
+  // urval och nivåer — ingen egen urvalslogik, ingen loggning).
+  // Träningsmatcher och forskningsligor är utanför rek-scopet: cellen lämnas
+  // helt tom (inte ens "avstå").
+  const rekCell = (m) => {
+    if (m.league === 'friendlies' || m.research) return <td className="rek" />
+    const best = oddsetBestValue(m)
+    if (!best) {
+      return (
+        <td className="rek">
+          <span className="rekpill none"
+            title={'Ingen selektion i matchen når spelgrinden just nu (sharp-ankrad edge ≥ 2 % och kvalitet ≥ 0,75 %) — rekommendationen är att avstå matchen.'}>
+            avstå
+          </span>
+        </td>
+      )
+    }
+    const { mk, sg, v } = best
+    const tier = oddsetValueTier(v)
+    return (
+      <td className="rek">
+        <span className={`rekpill ${tier.cls}${tier.disputed ? ' disputed' : ''}`}
+          title={[
+            `${tier.label} — matchens bästa värdeselektion (samma motor och nivåer som 💰-korten; ren visning, loggar inget).`,
+            `Devigad Pinnacle: ${(v.fair * 100).toFixed(1)} % (fair ${(1 / v.fair).toFixed(2)}) — ${BOOK_NAME[v.book] || v.book} betalar ${v.odds.toFixed(2)} = +${(v.edge * 100).toFixed(1)} % övervärde.`,
+            `Kvalitet (Kelly-andel): ${((v.q ?? 0) * 100).toFixed(1)} % — nivån sätts på kvalitet, inte rå edge.`,
+            v.derived ? '° = sharp-priset är härlett ur handikapp — ta med en nypa salt.' : null,
+            tier.disputed ? `⚓ Smarkets (andra sharp-ankaret) motsäger signalen: ${(v.anchor2.edge * 100).toFixed(1)} % mot samma bokodds — edgen är omtvistad. Tvåankarmätningen är shadow och ändrar inte urvalet.` : null,
+          ].filter(Boolean).join('\n')}>
+          {tier.disputed ? '⚓ ' : ''}{tier.short} +{(v.edge * 100).toFixed(1)}%{v.derived ? '°' : ''}
+        </span>
+        <span className="reksel">{selLabel(m, mk, sg, v.line)}{v.book !== 'svenskaspel' ? ` · ${BOOK_NAME[v.book] || v.book}` : ''}</span>
+      </td>
+    )
+  }
 
   if (err) return <section><h2>Oddset</h2><ErrorState message={err} /></section>
   if (!data) return <section><h2>Oddset</h2><LoadingState label="Hämtar matcher och odds…" /></section>
@@ -1264,18 +1346,13 @@ function OddsetView({ focus = null } = {}) {
 
   // kvalitet q = edge/(odds−1) = Kelly-andelen: straffar högoddsare — samma edge
   // är mycket skörare på odds 15 än på 1.5 (litet fel i fair blåser upp den)
-  // En match = ett kort: bara den bästa selektionen (högst q) per match visas
+  // En match = ett kort: bara den bästa selektionen (högst q) per match visas.
+  // Urvalet ligger i delade oddsetBestValue — samma som Rek-kolumnen läser.
   const signals = []
   for (const m of visible) {
     if (m.research) continue   // aldrig spelkort/Kelly för forskningsligor
-    let best = null
-    for (const [mk, per] of Object.entries(m.value || {})) {
-      for (const [sg, v] of Object.entries(per)) {
-        if (v.edge < 0.02 || (v.q ?? 0) < 0.0075) continue
-        if (!best || (v.q ?? 0) > (best.v.q ?? 0)) best = { m, mk, sg, v }
-      }
-    }
-    if (best) signals.push(best)
+    const best = oddsetBestValue(m)
+    if (best) signals.push({ m, ...best })
   }
   signals.sort(valSortEdge
     ? (a, b) => (b.v.q ?? 0) - (a.v.q ?? 0)
@@ -1459,11 +1536,9 @@ function OddsetView({ focus = null } = {}) {
           </div>
           <div className="tipgrid">
             {signals.slice(0, showAllValues ? 8 : 4).map(({ m, mk, sg, v }, i) => {
-              const q = v.q ?? 0
-              const anchorConflict = v.anchor2?.fair != null && v.anchor2.edge <= 0
-              const tier = anchorConflict ? ['OMTVISTAD EDGE', 't1']
-                : q >= 0.04 ? ['STARK EDGE', 't3']
-                  : q >= 0.02 ? ['EDGE', 't2'] : ['SVAG EDGE', 't1']
+              // nivån kommer ur delade oddsetValueTier — samma som Rek-kolumnen
+              const tier = oddsetValueTier(v)
+              const anchorConflict = tier.disputed
               const mvP = m.movement?.pinnacle?.[mk]?.[sg]
               // STÖD FÅR BARA KOMMA FRÅN MARKNADSPRISER (2026-07-24).
               // Amber-modellen mäter −4,5 % close-EV i facitet (MLS −6,5 %,
@@ -1482,12 +1557,12 @@ function OddsetView({ focus = null } = {}) {
                 if (sh) support.push(['⇄ sharp-linjen flyttad', `Pinnacle har flyttat linjen ${sh.from} → ${sh.to}`])
               }
               return (
-                <div key={i} className={`tipcard ${tier[1]} clickable`}
+                <div key={i} className={`tipcard ${tier.cls} clickable`}
                   title="Visa matchdetalj" onClick={() => toggleDetail(m.id, true)}>
                   <div className="tiphead">
                     <b className="tipsel">{selLabel(m, mk, sg, v.line)} @ {v.odds.toFixed(2)}</b>
                     {v.book !== 'svenskaspel' && <span className="tipbook">hos {BOOK_NAME[v.book] || v.book}</span>}
-                    <span className={`edgechip ${tier[1]}`}>{tier[0]} +{(v.edge * 100).toFixed(1)}%{v.derived ? '°' : ''}</span>
+                    <span className={`edgechip ${tier.cls}`}>{tier.label} +{(v.edge * 100).toFixed(1)}%{v.derived ? '°' : ''}</span>
                   </div>
                   <div className="tipmatch">
                     <span className="lgtag">{(leagueName[m.league] || m.league).slice(0, 1)}</span>
@@ -1611,14 +1686,16 @@ function OddsetView({ focus = null } = {}) {
       <div className="oddset-table-wrap">
       <table className="oddset-table">
         <thead>
-          <tr><th>Tid</th><th>Match</th><th>1</th><th>X</th><th>2</th>
+          <tr><th>Tid</th><th>Match</th>
+            <th title="Matchens bästa värdeselektion ur värdemotorn (exakt samma urval och nivåer som 💰-korten) — eller avstå när ingen selektion når spelgrinden. Träningsmatcher och forskningsligor lämnas tomma: de är utanför rek-scopet.">Rek</th>
+            <th>1</th><th>X</th><th>2</th>
             <th title="Asian handicap (hemmalinje) · odds hemma / borta">AH</th>
             <th title="Asiatisk total (mål) · odds över / under">Ö/U</th>
             {showCorners && <th title="Totala hörnor · odds över / under. Pinnacle prissätter hörnor först nära avspark — saknas P-rad finns inget sharp-ankare.">Hörnor</th>}</tr>
         </thead>
         {days.map((d) => (
           <tbody key={d.key}>
-            <tr className="dayrow"><td colSpan={showCorners ? 8 : 7}>{d.label}</td></tr>
+            <tr className="dayrow"><td colSpan={showCorners ? 9 : 8}>{d.label}</td></tr>
             {d.matches.map((m) => (
               <Fragment key={m.id}>
                 <tr id={`oddsrow-${m.id}`} className={[
@@ -1642,13 +1719,14 @@ function OddsetView({ focus = null } = {}) {
                       </span>
                     )}
                   </td>
+                  {rekCell(m)}
                   {['1', 'X', '2'].map((s) => cell1x2(m, s))}
                   {cellPair(m, 'ah', 'H', 'A', fmtAh)}
                   {cellPair(m, 'ou', 'O', 'U', (l) => l)}
                   {showCorners && cellPair(m, 'cor', 'O', 'U', (l) => l)}
                 </tr>
                 {expanded === m.id && (
-                  <tr className="detailrow"><td colSpan={showCorners ? 8 : 7}>
+                  <tr className="detailrow"><td colSpan={showCorners ? 9 : 8}>
                     <div className="dcharts">
                       {['1', 'X', '2'].map((sg) => (
                         <DetailChart key={sg}
@@ -1675,13 +1753,34 @@ function OddsetView({ focus = null } = {}) {
                         m.absences[side]?.length
                           ? <span key={side}>🚑 {side === 'home' ? m.home : m.away}: {m.absences[side].map(absLine).join(', ')}</span>
                           : null))}
-                      {(clv?.rows || []).filter((r) => r.match_id === m.id).map((r, j) => (
-                        <span key={j} className={r.tier === 'model' ? 'apill' : 'epill'}>
-                          {r.market} {r.sign}{r.line != null ? ` (${clvLine(r.market, r.line)})` : ''} @{r.first_odds} {r.first_edge > 0 ? '+' : ''}{Math.round(r.first_edge * 100)}%
-                          {r.closing_fair != null ? ` → close-EV ${((r.closing_fair * r.first_odds - 1) * 100).toFixed(0)}%` : ''}
-                          {clvMoveText(r) ? ` · ${clvMoveText(r)}` : r.closing_fair == null ? ` · ${r.closing_note || 'öppen'}` : ''}
-                        </span>
-                      ))}
+                    </div>
+                    <div className="matchflags">
+                      <b>📒 Våra rekar i matchen</b>
+                      {matchFlags?.id !== m.id
+                        ? <span className="hint">hämtar…</span>
+                        : matchFlags.error
+                          ? <span className="hint">Kunde inte hämta rek-historiken.</span>
+                          : matchFlags.rows.length === 0
+                            ? <span className="hint">Inga rekar loggade i matchen.</span>
+                            : matchFlags.rows.map((r, j) => (
+                              <div key={j} className="flagrow">
+                                <span className="hint">{r.first_at ? new Date(r.first_at).toLocaleString('sv-SE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                                <span title={r.tier === 'model' ? 'Modell-flagga (amber-tier — utanför den spelbara signalen)' : 'Sharp-ankrad flagga (den spelbara signalen)'}>{r.tier === 'model' ? '🧪' : '💰'}</span>
+                                <b>{selLabel(m, FLAG_MARKET[r.market] || r.market, r.sign, r.line)}</b>
+                                <span>{BOOK_NAME[r.book] || r.book || 'SvS'} @ {r.first_odds}</span>
+                                <span className="hint" title="Edge när flaggan först loggades → bästa edge under flaggans livstid">
+                                  edge {r.first_edge > 0 ? '+' : ''}{(r.first_edge * 100).toFixed(1)}% → {r.best_edge > 0 ? '+' : ''}{(r.best_edge * 100).toFixed(1)}%</span>
+                                {r.anchor2_edge != null && r.anchor2_edge <= 0 && (
+                                  <span className="anchorwarn"
+                                    title={`⚓ Andra sharp-ankaret (Smarkets) värderade samma bokodds negativt (${(r.anchor2_edge * 100).toFixed(1)} %) — flaggan var omtvistad mellan ankarna.`}>⚓</span>
+                                )}
+                                {r.close_ev != null
+                                  ? <span className={`evpill ${r.close_ev >= 0 ? 'pos' : 'neg'}`}
+                                    title={`close-EV: devigad fair vid stängning × oddset vi flaggade − 1${r.closing_odds ? ` (stängningsodds ${r.closing_odds})` : ''}. Positivt = priset slog Pinnacles stängning (CLV).`}>
+                                    {r.close_ev >= 0 ? '+' : ''}{(r.close_ev * 100).toFixed(1)}%</span>
+                                  : <span className="hint">{r.closing_note || 'öppen'}</span>}
+                              </div>
+                            ))}
                     </div>
                   </td></tr>
                 )}
@@ -2747,6 +2846,15 @@ function BombenView({ draw, nonce }) {
   return (
     <section className="bomben-section">
       <div className="topinfo">
+        {/* Spelläge (samma logik som poolens PlayRec-tänk): utan extern
+            subvention äter Bombens uttag edgen — rullpotten är hela caset. */}
+        {data.rullpott != null && (data.rullpott > 0
+          ? <span className="playrec go"
+            title={`Rullpott ${kr(data.rullpott)} ligger kvar i potten från tidigare omgångar — extern subvention är det som kan lyfta Bomben över uttaget (~65 % återbetalning). OBS: Poisson-modellens EV är modellhärledd och ingår inte i CLV-facitet.`}>
+            spelläge: rullpott — spela</span>
+          : <span className="playrec skip"
+            title="Bomben återbetalar ~65 % — utan rullpott äter uttaget edgen; Poisson-modellens EV är modellhärledd och ingår inte i CLV-facitet.">
+            spelläge: avstå</span>)}
         <span>Omsättning <b>{kr(data.turnover)}</b></span>
         <span>{data.match_count} matcher · tippa exakt resultat</span>
         {data.jackpot > 0 && <span className="jackpot">💰 <b>Jackpot {kr(data.jackpot)}</b></span>}
@@ -2804,5 +2912,5 @@ export {
   BombenView, OddsetView, Legend, Collection, LoadingState, EmptyState,
   ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS,
   SYSTEM_BASE, SYSTEM_SVS, VARIANT, GAMES, kr, fmtClose, fmtFetched, timeAgo,
-  PlayRec, PlayedPanel,
+  PlayRec, PlayedPanel, oddsetBestValue,
 }

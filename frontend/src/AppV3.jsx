@@ -9,7 +9,7 @@ import {
   BombenView, OddsetView, Legend, Collection, LoadingState, EmptyState,
   ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS,
   SYSTEM_BASE, SYSTEM_SVS, VARIANT, kr, fmtClose, timeAgo, PlayRec,
-  PlayedPanel,
+  PlayedPanel, oddsetBestValue,
 } from './App'
 
 const VIEWS = [
@@ -131,19 +131,14 @@ function DashboardV3({ openPool, openOddset, openHistorik }) {
     }
   }, [])  // eslint-disable-line
 
-  // värdespel + rörelser ur samma payload som Oddset-vyn (sanerad: research bär inga)
+  // värdespel + rörelser ur samma payload som Oddset-vyn (sanerad: research bär inga).
+  // Urvalet ligger i delade oddsetBestValue (App.jsx) — samma som 💰-korten/Rek.
   const signals = []
   const movers = []
   for (const m of oddset?.matches || []) {
     if (m.start && new Date(m.start) < new Date()) continue
-    let best = null
-    for (const [mk, per] of Object.entries(m.value || {})) {
-      for (const [sg, v] of Object.entries(per)) {
-        if (v.edge < 0.02 || (v.q ?? 0) < 0.0075) continue
-        if (!best || (v.q ?? 0) > (best.v.q ?? 0)) best = { m, mk, sg, v }
-      }
-    }
-    if (best) signals.push(best)
+    const best = oddsetBestValue(m)
+    if (best) signals.push({ m, ...best })
     let move = null
     for (const [sg, sh] of Object.entries(m.steam || {})) {
       const pp = Math.max(sh.h6 ?? -99, sh.h24 ?? -99)
