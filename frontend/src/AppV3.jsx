@@ -17,6 +17,7 @@ const VIEWS = [
   { id: 'pool', label: 'Poolspel', icon: '🎟' },
   { id: 'oddset', label: 'Oddset', icon: '⚡' },
   { id: 'historik', label: 'Historik', icon: '🗄' },
+  { id: 'labb', label: 'Labb', icon: '🧪' },
 ]
 const POOL_GAMES = [
   { id: 'topptipset', label: 'Topptipset' },
@@ -778,6 +779,192 @@ function HistorikV3({ initialProduct, focus }) {
   )
 }
 
+/* ================================= Labb =================================== */
+// Bevisytan (konsolideringen "ett UI, två ytor", backlog punkt 7): ETT
+// statuskort per mät-/shadowspår. Labb visar mätningar — Idag/Poolspel/Oddset
+// är beslutsytan, Historik är facityta. Ingenting här är ett tips.
+
+const LABB_STATUS = {
+  samlar: ['SAMLAR', 'Serien växer och utvärderas bara på sin förregistrerade kadens — inga beslut i förtid.'],
+  candidate: ['CANDIDATE', 'Mängdkravet är nått — beslut tas enligt den förregistrerade regeln, inte löpande.'],
+  pass: ['GATE-PASS', 'Den förregistrerade grinden är passerad — se dokumentet för hela beslutet.'],
+  fals: ['FALSIFIERAD', 'Hypotesen föll mot facit — spåret byggs inte vidare som tips.'],
+}
+function LabbPill({ s }) {
+  const [label, tip] = LABB_STATUS[s] || LABB_STATUS.samlar
+  return <span className={`v3labbpill ${s}`} title={tip}>{label}</span>
+}
+
+// Primärgrupperna för sharp-CLV (speglar backend PRIMARY_LEAGUES × 1X2 × sharp)
+const LABB_PRIMARY = ['allsvenskan', 'superettan', 'eliteserien', 'obosligaen', 'mls']
+const LABB_LEAGUE = {
+  allsvenskan: 'Allsvenskan', superettan: 'Superettan', eliteserien: 'Eliteserien',
+  obosligaen: 'OBOS-ligaen', mls: 'MLS',
+}
+
+// Avslutade/pågående forskningsspår utan eget API — daterade kort med källdok.
+const LABB_RESEARCH = [
+  { icon: '🧮', title: 'Devig-ablation', date: '2026-07-26', status: 'pass',
+    text: 'Konsensusflaggor +4,40 % [+2,54..+6,14] mot bara-power −0,49 % — devig-tvetydighet är en äkta filtersignal.',
+    doc: 'docs/devig-ablation-2026-07-26.md' },
+  { icon: '🔮', title: 'Close-drift v1', date: '2026-07-26', status: 'fals',
+    text: 'Momentum FALSIFIERAD; tidiga AH/Ö/U-skift reverserar.',
+    doc: 'docs/close-drift-facit-2026-07-26.md' },
+  { icon: '🎟', title: 'PH5 256/512 rader', date: '2026-07-26', status: 'fals',
+    text: 'Värderader ger ingen påvisad fördel på 13-matchsspel ens vid 512 rader.',
+    doc: 'docs/ph5-radvalsablation-512rader-2026-07-26.json' },
+  { icon: '📐', title: 'pit-v4 (pool-streckmove-v3)', status: 'samlar',
+    text: 'Forward samlar, gate ≥40 out-of-time-omgångar per produkt.',
+    doc: 'docs/pool-ph4-forward-manifest-v3.json' },
+  { icon: '🔬', title: 'V2.2 flerliga-shadow', status: 'samlar',
+    text: 'Shadow, manifest v2 2026-07-26 — inga tips, notiser eller CLV.',
+    doc: 'docs/model-v2.2-multileague-forward-manifest-v2.json' },
+  { icon: '🔓', title: 'startOdds', date: '2026-07-26', status: 'pass',
+    text: 'Upplåst som omgångs-kovariat (final_only) — aldrig som PIT-observation.',
+    doc: 'docs/startodds-semantik-2026-07-26.md' },
+]
+
+function LabbV3() {
+  const [clv, setClv] = useState(null)
+  const [radar, setRadar] = useState(null)
+  const [systems, setSystems] = useState(null)
+  const [err, setErr] = useState(null)
+
+  useEffect(() => {
+    // engångsläsning — mätserierna rör sig på varv-/veckoskala, ingen poll
+    get('/api/oddset/clv').then(setClv).catch((e) => { setClv(null); setErr(String(e)) })
+    get('/api/oddset/radar-facit').then(setRadar).catch(() => setRadar(null))
+    get('/api/pool/systems').then(setSystems).catch(() => setSystems(null))
+  }, [])
+
+  const evPct = (v) => v == null ? '–' : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)} %`
+  const evCls = (v) => v == null ? 'v3hint' : v >= 0 ? 'v3pos' : 'v3neg'
+  const ciStr = (ci) => ci ? `[${(ci[0] * 100).toFixed(1)}..${(ci[1] * 100).toFixed(1)}]` : '–'
+  const rate = (v) => v == null ? '–' : `${Math.round(v * 100)} %`
+
+  const primaryClv = (clv?.groups || []).filter((g) =>
+    g.tier === 'sharp' && g.market === '1x2' && LABB_PRIMARY.includes(g.league))
+  const a2 = clv?.anchor2
+
+  const perProduct = {}
+  for (const g of systems?.groups || []) {
+    const p = perProduct[g.product] || (perProduct[g.product] = { frozen: 0, settled: 0 })
+    p.frozen += g.n_frozen || 0
+    p.settled += g.n_settled || 0
+  }
+  const products = Object.entries(perProduct)
+
+  return (
+    <div className="v3labb">
+      <h2 className="v3labbtitle">Mätningar och skuggspår — INGET här är tips.</h2>
+      {err && !clv && <ErrorState message={err} />}
+      <div className="v3grid">
+
+        <div className="v3card">
+          <div className="v3cardhead"><h3>💰 Signal-facit (sharp-CLV)</h3>
+            <LabbPill s={primaryClv.some((g) => g.green_ready) ? 'pass' : 'samlar'} /></div>
+          {!clv && !err && <LoadingState label="Hämtar facit…" />}
+          {primaryClv.map((g) => (
+            <div key={`${g.league}-${g.version}`} className="v3row">
+              <b>{LABB_LEAGUE[g.league] || g.league}</b>
+              <span className="v3hint">{g.version}</span>
+              <span>{g.n_resolved}/{g.n} stängda</span>
+              <span className={evCls(g.avg_close_ev)}>{evPct(g.avg_close_ev)}</span>
+              <span className="v3hint">KI {ciStr(g.ci)}</span>
+            </div>
+          ))}
+          {clv && !primaryClv.length && (
+            <span className="v3hint">Inga stängda flaggor i primärgrupperna ännu —
+              ny aktiv signalversion börjar om räkningen.</span>
+          )}
+          {clv?.sharp && (
+            <div className="v3row">
+              <b>Aggregat (alla sharp)</b>
+              <span>{clv.sharp.n_resolved}/{clv.sharp.n} stängda</span>
+              <span className={evCls(clv.sharp.avg_close_ev)}>{evPct(clv.sharp.avg_close_ev)}</span>
+              <span className="v3hint">KI {ciStr(clv.sharp.ci)}</span>
+            </div>
+          )}
+          <span className="v3hint">Close-EV mot devigad Pinnacle-stängning, winsoriserad ±20 %.
+            Grönt beslutas per liga × marknad × version på veckokadens — aggregatet ändrar aldrig gruppstatus.</span>
+        </div>
+
+        <div className="v3card">
+          <div className="v3cardhead"><h3>⚓ Två ankare (Pinnacle ↔ {a2?.source || 'Smarkets'})</h3>
+            <LabbPill s={(a2?.n_measured ?? 0) >= 50 ? 'candidate' : 'samlar'} /></div>
+          {!clv && !err && <LoadingState label="Hämtar ankarmätning…" />}
+          {a2 && (
+            <div className="v3row">
+              <b>{a2.n_measured ?? 0} mätta</b>
+              <span>oenighet median {a2.median_disagree_pp ?? '–'} pp</span>
+              <span>håller mot båda: <b className={evCls(a2.avg_close_ev_survives_both)}>
+                {evPct(a2.avg_close_ev_survives_both)}</b></span>
+              <span>endast Pinnacle: <b className={evCls(a2.avg_close_ev_pinnacle_only)}>
+                {evPct(a2.avg_close_ev_pinnacle_only)}</b></span>
+            </div>
+          )}
+          <span className="v3hint">Skuggmätning på varje flagga — ändrar aldrig urval, edge eller
+            notiser. Beslut vid n ≥ 50 mätta+stängda (veckokadens) — <code>docs/tva-ankare-2026-07-25.md</code>.</span>
+        </div>
+
+        <div className="v3card">
+          <div className="v3cardhead"><h3>⚡ Radar-facit (live-radarn)</h3>
+            <LabbPill s="samlar" /></div>
+          {['xg', 'proxy'].map((k) => {
+            const g = radar?.groups?.[k]
+            const a = g?.outcomes?.outcome_15min
+            return (
+              <div key={k} className="v3row">
+                <b>{k === 'xg' ? 'xG-signal' : 'proxy-signal'}</b>
+                {!g && <span className="v3hint">väntar på settlade ögonblick</span>}
+                {g && (
+                  <>
+                    <span>{g.n_signal_moments} ögonblick i {g.n_signal_matches} matcher</span>
+                    <span>utfall A {a?.n_resolved
+                      ? <>{a.hits}/{a.n_resolved} = <b>{rate(a.rate)}</b> mot bas {rate(a.base_rate)}</>
+                      : '–'}</span>
+                    <span className="v3hint">censur {a?.censored ?? 0} signal / {a?.control_censored ?? 0} kontroll</span>
+                  </>
+                )}
+              </div>
+            )
+          })}
+          <span className="v3hint">mode=shadow · {radar?.n_moments ?? 0} settlade ögonblick totalt ·
+            basrate villkorad liga × minutband × ställning · gate ≥200 signalögonblick, ≥40 matcher,
+            ≥28 dagar — <code>docs/live-radar-2026-07-25.md</code>.</span>
+        </div>
+
+        <div className="v3card">
+          <div className="v3cardhead"><h3>📋 PH3-systemledger</h3>
+            <LabbPill s="samlar" /></div>
+          {!systems && <span className="v3hint">väntar på ledgerdata</span>}
+          {products.map(([product, p]) => (
+            <div key={product} className="v3row">
+              <b>{product}</b>
+              <span>{p.frozen} frysta</span>
+              <span>{p.settled} rättade</span>
+            </div>
+          ))}
+          {systems && !products.length && (
+            <span className="v3hint">Inga frysta system ännu — första frysningen sker
+              automatiskt i nästa T−3h-fönster.</span>
+          )}
+          <span className="v3hint">Kontrafaktiskt facit för förregistrerade benchmarksystem.
+            Gate: ≥40 omgångar, ≥60 dagar, KI&gt;0 — <code>docs/ph3-gate-2026-07-26.md</code>.</span>
+        </div>
+
+        {LABB_RESEARCH.map((c) => (
+          <div key={c.title} className="v3card">
+            <div className="v3cardhead"><h3>{c.icon} {c.title}</h3><LabbPill s={c.status} /></div>
+            <div className="v3row"><span>{c.text}</span></div>
+            <span className="v3hint">{c.date ? `${c.date} · ` : ''}<code>{c.doc}</code></span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /* ================================= Skal =================================== */
 
 export default function AppV3({ onExit }) {
@@ -837,6 +1024,7 @@ export default function AppV3({ onExit }) {
         {view === 'historik' && <ErrBoundary>
           <HistorikV3 initialProduct={histProduct} focus={histFocus} />
         </ErrBoundary>}
+        {view === 'labb' && <ErrBoundary><LabbV3 /></ErrBoundary>}
       </main>
       <footer className="v3foot">Lokal data från Svenska Spel + Pinnacle · personligt verktyg · v3-experiment</footer>
     </div>

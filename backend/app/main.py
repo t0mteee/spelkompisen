@@ -686,6 +686,19 @@ def oddset_live_radar():
         store.close()
 
 
+@app.get("/api/oddset/radar-facit")
+def oddset_radar_facit():
+    """Radar-facit (mode=shadow): settlade capture-ögonblick per signaltyp mot
+    villkorad basrate (liga × minutband × ställning). Läser bara DB —
+    settlement sker i live-tick-varvet, aldrig i ett GET-anrop."""
+    from . import live_settlement
+    store = Storage()
+    try:
+        return live_settlement.facit(store)
+    finally:
+        store.close()
+
+
 @app.get("/api/oddset/notices")
 def oddset_notices():
     """Notis-historik: alla triggade värde-/steam-larm (skickade OCH torrkörda

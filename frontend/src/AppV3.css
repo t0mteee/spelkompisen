@@ -149,6 +149,21 @@
 .v3recent { margin-top: 6px; }
 .v3recent > summary { cursor: pointer; list-style: revert; padding: 4px 0; }
 
+/* ---------- Labb (bevisytan — mätningar och skuggspår) ---------- */
+/* Korten återanvänder .v3grid/.v3card: auto-fit ≥300px på bred skärm och
+   1 kolumn ≤760px via mobilblocket längst ned — ingen sidscroll. */
+.v3labbtitle { margin: 2px 0 12px; font-size: 14px; letter-spacing: 0.2px; }
+.v3labbpill {
+  margin-left: auto; align-self: center; white-space: nowrap;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.5px;
+  border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px;
+  color: var(--muted);
+}
+.v3labbpill.candidate { color: #e0c04b; border-color: color-mix(in srgb, #e0c04b 50%, transparent); }
+.v3labbpill.pass { color: var(--green); border-color: color-mix(in srgb, var(--green) 55%, transparent); }
+.v3labbpill.fals { color: #e06b6b; border-color: color-mix(in srgb, #e06b6b 50%, transparent); }
+.v3labb code { color: var(--v3acc); font-size: 11px; overflow-wrap: anywhere; }
+
 /* ---------- Historik ---------- */
 .v3histbar { margin-bottom: 10px; }
 .v3note {

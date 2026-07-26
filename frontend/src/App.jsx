@@ -526,7 +526,18 @@ function ColorLab({ sys, onRecalc }) {
 
 function SystemView({ sys, matches, payouts, onRecalc, onUse }) {
   const [mfCopied, setMfCopied] = useState(false)
-  if (!sys) return null
+  // Ärlig byggartext för 13-matchsspelen (PH5-radvalsablationen) — bara text,
+  // ingen logikändring. Produkt ur payouts; 13 matcher = Stryk/Europa som fallback.
+  const honest13 = (payouts?.product
+    ? payouts.product === 'stryktipset' || payouts.product === 'europatipset'
+    : matches?.length === 13) && (
+    <p className="hint build-honesty">
+      PH5-ablation (3 976 omgångar, 2026-07-26): radvalsmetoden ger ingen påvisad
+      fördel mot folk-/favoritrad på 13-matchsspel vid budgetar upp till 512 rader
+      — täckningen är för gles. På Topptipset-spelen är fördelen bevisad (+7–15 pp).
+    </p>
+  )
+  if (!sys) return honest13 || null
   const roleClass = { spik: 'r-spik', halvgardering: 'r-half', helgardering: 'r-full' }
   const st = systemStats(sys, matches, payouts)
   const mc = sys.portfolio_mc?.available ? sys.portfolio_mc : null
@@ -542,6 +553,7 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse }) {
   const fullCombos = sys.picks.reduce((a, p) => a * p.signs.length, 1)
   return (
     <div className="system">
+      {honest13}
       <div className="system-head">
         <strong>{sys.system_type}</strong> · {sys.strategy} ·
         <span className="rows"> {sys.num_rows} rader = {sys.cost} kr</span>
@@ -874,6 +886,18 @@ function OddsetView({ focus = null } = {}) {
   }
 
   const fmtAh = (l) => (l > 0 ? `+${l}` : `${l}`)
+
+  // Matchdetaljen (grafer/serier/flaggor) öppnas från matchraden OCH från
+  // 💰-värdekorten — samma handler och samma expanded-state. Kortet ligger
+  // ovanför tabellen, så det scrollar dessutom fram raden vars detalj öppnas.
+  const toggleDetail = (id, scroll = false) => {
+    const next = expanded === id ? null : id
+    setExpanded(next)
+    if (scroll && next != null) {
+      setTimeout(() => document.getElementById(`oddsrow-${id}`)
+        ?.scrollIntoView({ behavior: 'auto', block: 'center' }), 60)
+    }
+  }
 
   // parmarknader: serie med linje per punkt, pil på NUVARANDE linje, ⇄ vid linjeflytt
   const serieL = (mv) => (mv?.pts || []).map((p) =>
@@ -1458,7 +1482,8 @@ function OddsetView({ focus = null } = {}) {
                 if (sh) support.push(['⇄ sharp-linjen flyttad', `Pinnacle har flyttat linjen ${sh.from} → ${sh.to}`])
               }
               return (
-                <div key={i} className={`tipcard ${tier[1]}`}>
+                <div key={i} className={`tipcard ${tier[1]} clickable`}
+                  title="Visa matchdetalj" onClick={() => toggleDetail(m.id, true)}>
                   <div className="tiphead">
                     <b className="tipsel">{selLabel(m, mk, sg, v.line)} @ {v.odds.toFixed(2)}</b>
                     {v.book !== 'svenskaspel' && <span className="tipbook">hos {BOOK_NAME[v.book] || v.book}</span>}
@@ -1596,13 +1621,13 @@ function OddsetView({ focus = null } = {}) {
             <tr className="dayrow"><td colSpan={showCorners ? 8 : 7}>{d.label}</td></tr>
             {d.matches.map((m) => (
               <Fragment key={m.id}>
-                <tr className={[
+                <tr id={`oddsrow-${m.id}`} className={[
                   m.start && new Date(m.start) < new Date() ? 'started' : '',
                   m.data_conflict ? 'data-conflict' : '',
                 ].filter(Boolean).join(' ')}>
                   <td className="time">{fmtTime(m.start)}</td>
                   <td className="teams clickable"
-                    onClick={() => setExpanded(expanded === m.id ? null : m.id)}
+                    onClick={() => toggleDetail(m.id)}
                     title={[`Klicka för detaljvy (grafer, serier, flaggor)`,
                       m.elo && `ClubElo: ${m.elo.h ?? '?'} vs ${m.elo.a ?? '?'}`,
                       m.model && `Modell-μ: ${m.model.mu[0]}–${m.model.mu[1]}${m.model.anchored ? ' (ankrad mot sharp)' : ''}`]
@@ -3115,9 +3140,11 @@ function AppClassic({ onSwitchV3 }) {
 }
 
 // --- v2 ↔ v3-växeln -----------------------------------------------------------
-// v3 är ett UI-EXPERIMENT (Samans beställning 2026-07-24): nytt skal i
-// AppV3.jsx, klassiska vyn orörd. Växling laddar om sidan så att båda vyerna
-// läser färskt delat tillstånd (svs_state: kupong, omgång, inställningar).
+// v3 är DEFAULT sedan 2026-07-26 (konsolideringen "ett UI, två ytor",
+// backlog punkt 7): saknas sparat val laddas v3. Klassiska vyn finns kvar via
+// "↩ Klassisk vy" i v3 ↔ ✨ i v2 — ett uttryckligt val sparas åt båda håll.
+// Växling laddar om sidan så att båda vyerna läser färskt delat tillstånd
+// (svs_state: kupong, omgång, inställningar).
 const UI_KEY = 'svs_ui_version'
 
 function switchUiVersion(version) {
@@ -3126,8 +3153,8 @@ function switchUiVersion(version) {
 }
 
 export default function App() {
-  let ui = 'v2'
-  try { ui = localStorage.getItem(UI_KEY) || 'v2' } catch { /* ok */ }
+  let ui = 'v3'
+  try { ui = localStorage.getItem(UI_KEY) || 'v3' } catch { /* ok */ }
   if (ui === 'v3') {
     return (
       <Suspense fallback={<LoadingState label="Laddar v3…" />}>
