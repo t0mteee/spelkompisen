@@ -78,7 +78,49 @@ Ordnade efter mitt förslag, inte beslutade.
    är en äkta filtersignal; facitet är inte en devig-artefakt. Eventuellt
    konsensusfilter tas ihop med två ankare-gatens signal_version-bump.
 
+2b. ~~**Beslutspaket konsensus-gaten**~~ ✅ 2026-07-26:
+   `backend/scripts/tva_ankare_beslut.py` kör den förregistrerade
+   veckoutvärderingen + devigkonsensus + coverage-kostnad i en läsning.
+   Läge: SAMLAR (8/50 mätta+stängda i primärgruppen, ~8 dygn kvar).
+   Tidig varning: ankarkravet behåller bara 25 % av kohortens flaggor —
+   coverage-kostnaden måste vägas i beslutet.
+
+2c. ~~**PH3-gate förregistrerad**~~ ✅ 2026-07-26:
+   `docs/ph3-gate-2026-07-26.md` — n ≥ 40 omgångar, ≥ 60 dagars spann,
+   winsoriserad KI > 0, veckokadens; armarna frysta.
+
+2d. ~~**startOdds-semantiken verifierad — UPPLÅST**~~ ✅ 2026-07-26:
+   `docs/startodds-semantik-2026-07-26.md` — öppningsodds med tidiga
+   revisioner (23 %, median 4 % in i fönstret), därefter fryst; inte
+   stängning, trackar inte. Får användas som omgångs-kovariat i
+   final_only-analyser (8 278 omgångar), ALDRIG som PIT-observation
+   (ingen tidsstämpel).
+
 3. **PH5 v2 vid 256/512 rader** *(körs 2026-07-26 — resultat väntas)*
+
+3b. ~~**close-drift-facit v1**~~ ✅ KÖRD 2026-07-26
+   (`docs/close-drift-facit-2026-07-26.md`): ingen prediktor passerar gaten —
+   momentum FALSIFIERAD h24→h3 och signifikant åt motsatt håll för AH/Ö/U
+   (tidiga skift reverserar). Ingen 🔮-radar byggs på detta. **v2-FÖRSLAG
+   (kräver godkännande):** förregistrera (a) reverseringshypotesen på NY
+   kohort, (b) linjeflytt-som-drift för parmarknaderna (~500 exkluderade
+   linjebyten ÄR driften), (c) frånvaro med större fönster.
+   Utsticken ÄR redan en slå-closing-strategi (+2,4–3 % close-EV mot
+   Pinnacle-close, KI > 0) — men den jagar bokens lagg, inte linjens
+   rörelse. Nästa tips-klass är DRIFT-prediktion: förutspå vart sharpen
+   flyttar före avspark. Prediction-ledgern har redan allt som behövs
+   offline (fryst sharp vid T−24h/T−3h/T−20m + close för varje match ×
+   marknad): förregistrera och mät vilka av våra BEFINTLIGA signaler som
+   förutspår drift T→close — (a) steam-momentum (fortsätter tidiga skift?),
+   (b) frånvaro/✓XI-bekräftelse, (c) vila/rotationsrisk (nu insamlat),
+   (d) ankaroenighet Pinnacle↔Smarkets (lead-lag), (e) linjeflytt ⇄ på
+   AH/ÖU, (f) RLM. Prediktorer som håller (KI > 0 på riktningsträff eller
+   drift-EV) blir en 🔮-driftradar i UI — shadow först, actionable via
+   vanliga trappan (candidate/green, signal_version-disciplin).
+   Egen-modell-spåret ("lita mer än marknaden") FORTSÄTTER bara i sina
+   gated banor: V2.2-shadow och hörnbaslinjen — den ordinarie modellen är
+   redan fälld mot close och får inte återuppstå utan att slå championen
+   på close-måttet.
    Förregistrerad nästa körning: avgör om 13-matchs-underkännandet är
    budgetberoende (→ täthets-varning i byggar-UI:t) eller strukturellt
    (→ ärlig text: värderad-metoden är fel verktyg för Stryk/Europa).
@@ -100,6 +142,24 @@ Ordnade efter mitt förslag, inte beslutade.
    STATUS-sammanfattningen är > 500 rader logg; flytta daterade poster äldre än
    2026-07-24 till GAMMAL STATUS och behåll en kort lägesbild + pekare hit.
    (Faktafel i källtabell/portar rättade 2026-07-26; resten är omflyttning.)
+
+7. **v3-KONSOLIDERINGEN — "ett UI, två ytor" (Samans riktning 2026-07-26)**
+   *(medel-stor; UI-spårens svar på spretigheten)*
+   Diagnosen stämmer: två UI:n (v2 default + v3-experimentet) och mätspår
+   utspridda över paneler. Plan, i ordning:
+   1. **Städregel omedelbart:** nya ytor byggs BARA i v3; v2 är
+      underhållsfryst (buggfixar ja, paneler nej).
+   2. **Ny vy i v3: 🧪 Labb** — samlar ALLA mät-/shadow-spår på ETT ställe:
+      signal-facit per grupp, två ankare-/beslutspaketets läge (SAMLAR n/50),
+      modell-mot-close, devigkonsensus, live-radar + radar-facit,
+      PH3-ledger med gate-status, pit-v4-läge, kommande 🔮-driftradar.
+      Tydlig märkning: mätning ≠ tips — Labb är bevisytan, Idag/Oddset/
+      Poolspel är beslutsytan, Historik är facityta.
+   3. **Tips-klasserna i Oddset-vyn** (delad komponent): 💰 utstick
+      (actionable) + 🔮 drift (shadow tills close-drift-facitet bär).
+   4. **Default-byte till v3** när Labb landat och Saman kört v3 skarpt en
+      spelhelg utan att sakna något — därefter rivningsbeslut för v2
+      (aldrig före; mobilflödena sitter i muskelminnet).
 
 ## D. Väntar på Saman — beslut eller handling
 

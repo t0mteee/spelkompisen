@@ -524,3 +524,30 @@ DELETE FROM oddset_results
 - **Efterkontroll:** 292 tester gröna (14 nya regressionsfall: F1 spökpris,
   F2 deep-anropstid, F3 bok-Age, F4 kanonfacit/breddvakt/eventjoin,
   F5 självguard/statusomfång/starttidsserie).
+
+## 2026-07-26 — Radar-settlement: ny momenttabell + incidentrapport
+
+- **Skript:** `backend/scripts/migrera_radar_settlement.py` (körd i efterhand).
+  **Backup:** `backend/data/backups/stryktips-2026-07-26-fore-radar-settlement.db`.
+- **Ny tabell `oddset_live_moment_settlement`** (append-once, INSERT OR IGNORE):
+  ALLA capture-ögonblick settlas (kontrollgrupp = icke-signal) mot utfall A
+  (mål inom 15 min speltid, censur när fönstret inte täcks) och utfall B
+  (ytterligare mål före FT; 0 kräver slutstatus-capture — i praktiken
+  censureras B-nollor eftersom insamlingen bara sparar inprogress, syns
+  öppet i facitet). Signal räknas med DELADE `live_radar.radar_signal`
+  (chance-gap-shadow-v2) — ingen andra implementation. En settlad rad
+  skrivs aldrig om.
+- **INCIDENT (redovisad):** agentens första placering av settle-anropet låg i
+  `cmd_live_tick`; testsviten mockar `_live_pass` men inte `Storage`, så en
+  svitkörning skrev 2 335 settlementrader i produktions-DB (settled_at
+  2026-07-26T11:37:14Z) INNAN backup fanns. Raderna är deterministiskt
+  identiska med vad första riktiga körningen hade gett (append-once på
+  naturlig nyckel; omkörning ger 0 nya) och lämnas kvar. Anropet flyttat in
+  i `_live_pass` (mockas av sviten) — felet kan inte upprepas. Backupen
+  ovan togs i efterhand.
+- **Efterkontroll:** 302 tester gröna (10 nya); `radar-settle` idempotent
+  (0 nya rader vid omkörning, 3 öppna serier väntar korrekt). Första
+  facitläsning (shadow, små tal, autokorrelerade ögonblick — INGEN slutsats):
+  xg-signal utfall A 32,7 % mot villkorad basrate 48,2 % — pekar hittills
+  ÅT FEL HÅLL, i linje med 220-matchersprovet; utfall B är degenererat
+  (bara ettor löses) tills slutstatus-captures finns.

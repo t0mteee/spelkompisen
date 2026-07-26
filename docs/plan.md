@@ -5,6 +5,55 @@
 > **Aktiv backlog och prioritering: `docs/backlog.md`** (2026-07-26).
 > WP-listan längre ned är historik över avslutat arbete.
 
+**CLOSE-DRIFT-FACIT v1 KÖRT — MOMENTUM FALSIFIERAD, TIDIGA SKIFT REVERSERAR
+(2026-07-26 kväll, Fable 5, godkänd insats).** Förregistrerat i
+`docs/close-drift-facit-2026-07-26.md` FÖRE körning; 3 303 aktiva selektioner
+ur prediction-ledgern. Ingen cell passerar gaten till en 🔮-driftradar.
+Huvudfynd: h24→h3-momentum träffar UNDER 50 % med hela KI:t under för AH
+(39,8 % [32,2..47,5]) och Ö/U (36,5 % [28,8..44,2]) — sharpens tidiga skift
+tenderar att reversera mot close. Att vända hypotesen i efterhand är
+forking-paths; en reverseringshypotes kräver EGEN förregistrering på ny
+kohort. Driftmagnituderna på samma lina är små (±0,1–0,2 pp); för
+parmarknaderna är LINJEBYTENA driften (~500 exkluderade selektioner) — v2
+bör studera ⇄ ur alt-linjelagret. Frånvaro-cellen samlar (28 selektioner).
+Ingen runtime-ändring.
+
+**RADAR-SETTLEMENT LEVERERAD (2026-07-26 em, Codex-agent under Fable 5-granskning,
+godkänd insats).** Alla capture-ögonblick settlas nu mot de två förregistrerade
+utfallen (mål inom 15 min / fler mål före FT) med kontrollgrupp = icke-signal-
+ögonblick och villkorad basrate liga × minutband × ställning; DELAD
+signalfunktion `live_radar.radar_signal` (chance-gap-shadow-v2) — ingen andra
+implementation. `cli.py radar-settle`/`radar-facit`, settling i `_live_pass`
+(try/except, DB-only), append-once — settlade rader skrivs aldrig om.
+302 tester gröna (10 nya). En incident redovisad + åtgärdad i
+`docs/db-atgarder.md`: testsviten hann skriva 2 335 deterministiska
+settlementrader i prod-DB före backup (raderna identiska med riktig körning,
+lämnas; anropet flyttat så det inte kan upprepas; backup tagen i efterhand).
+Första facitläsning (shadow, INGEN slutsats): xg-signalens 15-minutersutfall
+32,7 % mot basrate 48,2 % — pekar hittills åt fel håll, i linje med
+220-matchersprovet; utfall B degenererat tills slutstatus-captures finns.
+
+**REKOMMENDATIONSPASSET (2026-07-26 em, Fable 5, godkänt av Saman).**
+(1) **PH3-gaten förregistrerad** (`docs/ph3-gate-2026-07-26.md`): n ≥ 40
+settlade timely omgångar, ≥ 60 dagars spann, winsoriserad KI > 0,
+veckokadens; armarna frysta, rollover-fallet manuellt första gången.
+(2) **Beslutspaketet för konsensus-gaten** (`backend/scripts/
+tva_ankare_beslut.py`): kör förregistrerade tvåankarregeln + devigkonsensus +
+coverage-kostnad i en läsning. Läge: SAMLAR — 8/50 mätta+stängda i
+primärgruppen, ~8 dygn till beslutsvolym; tidig varning: ankarkravet hade
+bara behållit 25 % av kohortens flaggor. (3) **startOdds-semantiken
+VERIFIERAD OCH UPPLÅST** (`docs/startodds-semantik-2026-07-26.md`):
+öppningsodds med tidiga engångsrevisioner (23 % av selektioner, median 4 %
+in i observationsfönstret), inte stängning, trackar inte aktuellt odds;
+result-API:ts version kanonisk. Användbar som omgångs-kovariat i
+final_only-analyser över 8 278 omgångar — aldrig som PIT-observation (ingen
+tidsstämpel). PH0-spärren hävd. (4) Radar-settlement byggs (separat post
+när klar). (5) **Nytt föreslaget spår efter Samans closing-fråga:
+close-drift-facit v1** — se backlogens 3b: förutspå sharpens drift till
+close med befintliga signaler (steam-momentum, XI/frånvaro, vila,
+ankar-lead-lag, ⇄, RLM) mätt offline i prediction-ledgern; 🔮-driftradar i
+UI som shadow om prediktorerna håller.
+
 **DEVIG-ABLATIONEN KLAR — FACITET ÄR INTE EN DEVIG-ARTEFAKT, MEN 24
 POWER-FLAGGOR BÄR INGET VÄRDE (2026-07-26, Fable 5, godkänd insats).**
 Förregistrerat i `docs/devig-ablation-2026-07-26.md` FÖRE körning; 172 stängda
