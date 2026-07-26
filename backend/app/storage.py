@@ -587,6 +587,36 @@ CREATE TABLE IF NOT EXISTS oddset_live_fotmob (
 );
 CREATE INDEX IF NOT EXISTS idx_oddset_live_fotmob_recent
     ON oddset_live_fotmob (captured_at DESC, fotmob_id);
+
+-- Settlement per capture-ÖGONBLICK (2026-07-26, steg 2–3 i den förregistrerade
+-- planen docs/live-radar-2026-07-25.md). VARJE capture-rad settlas — signal
+-- eller inte — eftersom kontrollgruppen för den villkorade basraten är just
+-- icke-signal-ögonblicken. Signalen räknas om deterministiskt ur radens råa
+-- fält med SAMMA funktion som API:t (live_radar.radar_signal); providrar
+-- blandas aldrig (Sofascore-serier settlas mot Sofascore, FotMob mot FotMob).
+-- Append-once: INSERT OR IGNORE på naturlig nyckel — en settlad rad skrivs
+-- ALDRIG om. NULL-utfall betyder censorerat (orsak i egen kolumn), aldrig 0.
+-- Shadow: läses bara av radar-facit, aldrig av tips/Kelly/notiser/CLV/modell.
+CREATE TABLE IF NOT EXISTS oddset_live_moment_settlement (
+    provider          TEXT NOT NULL,      -- 'sofascore' | 'fotmob' (= xg_source)
+    event_id          INTEGER NOT NULL,   -- sofa event_id resp. fotmob_id
+    captured_at       TEXT NOT NULL,
+    capture_version   TEXT NOT NULL,
+    league            TEXT,
+    minute            INTEGER,
+    score_diff        INTEGER,            -- hemma − borta vid ögonblicket
+    signal            INTEGER NOT NULL,   -- 0/1, omräknad ur råa capturefält
+    signal_type       TEXT,               -- radar_signal-kind: xg/proxy/no_stats/no_clock
+    signal_version    TEXT NOT NULL,
+    outcome_15min     INTEGER,            -- utfall A: mål inom 15 min SPELTID (NULL = censur)
+    outcome_more_before_ft INTEGER,       -- utfall B: fler mål före full tid (NULL = censur)
+    censored_15min    TEXT,               -- orsak när outcome_15min är NULL
+    censored_ft       TEXT,               -- orsak när outcome_more_before_ft är NULL
+    settled_at        TEXT NOT NULL,
+    PRIMARY KEY (provider, event_id, captured_at, capture_version)
+);
+CREATE INDEX IF NOT EXISTS idx_live_moment_settlement_facit
+    ON oddset_live_moment_settlement (signal_type, signal, league);
 """
 
 _SCHEMA = """
@@ -1537,6 +1567,36 @@ class Storage:
             args.append(capture_version)
         query += " ORDER BY event_id, captured_at"
         return [dict(row) for row in self.conn.execute(query, args).fetchall()]
+
+    LIVE_SETTLEMENT_COLUMNS = (
+        "provider", "event_id", "captured_at", "capture_version", "league",
+        "minute", "score_diff", "signal", "signal_type", "signal_version",
+        "outcome_15min", "outcome_more_before_ft", "censored_15min",
+        "censored_ft", "settled_at",
+    )
+
+    def live_settlement_save(self, row: dict) -> int:
+        """Append-once per ögonblick — en settlad rad skrivs aldrig om."""
+        cols = self.LIVE_SETTLEMENT_COLUMNS
+        cur = self.conn.execute(
+            f"INSERT OR IGNORE INTO oddset_live_moment_settlement"
+            f"({','.join(cols)}) VALUES({','.join('?' for _ in cols)})",
+            tuple(row.get(key) for key in cols))
+        self._commit()
+        return cur.rowcount
+
+    def live_settlement_keys(self) -> set[tuple]:
+        """Naturliga nycklar för redan settlade ögonblick (aldrig omskrivning)."""
+        return {(r["provider"], int(r["event_id"]), r["captured_at"],
+                 r["capture_version"])
+                for r in self.conn.execute(
+                    "SELECT provider, event_id, captured_at, capture_version "
+                    "FROM oddset_live_moment_settlement")}
+
+    def live_settlement_rows(self) -> list[dict]:
+        return [dict(row) for row in self.conn.execute(
+            "SELECT * FROM oddset_live_moment_settlement "
+            "ORDER BY provider, event_id, captured_at")]
 
     def oddset_movement(self, ids: list[str]) -> dict[str, dict]:
         """Rörelse (first/last/min/max/n + punktserie) för alla givna matcher i en

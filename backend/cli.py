@@ -7,6 +7,8 @@ Användning (från backend/ med aktiverat venv):
     python cli.py smart             # launchd-passet för Oddset + snabbvarv
     python cli.py pool-tick         # poolkadens: 30 min / 5 min nära stopp
     python cli.py live-tick         # shadow-radar för pågående matcher
+    python cli.py radar-settle      # settla radarögonblick (DB-only, shadow)
+    python cli.py radar-facit       # signalfacit mot villkorad basrate (shadow)
     python cli.py oddset [light]    # ett oddset-varv (light = snabbvarvet)
     python cli.py teamdata [backfill|force] [liga] # lagtävlingar/vila/resor
     python cli.py v2audit [backfill] # PIT-dataset/coverage; backfill är ej promotion
@@ -353,6 +355,19 @@ def _live_pass(store) -> tuple[dict, dict]:
         print(f"fotmob: {fm['live']} matcher i våra ligor · "
               f"{fm['saved']} captures med xG"
               + (f" · {fm['skipped']} över taket" if fm.get("skipped") else ""))
+    # Settla stängda serier EFTER varvets captures (DB-only, shadow, append-
+    # once — omkörningar är no-ops). Ett settlefel får ALDRIG fälla
+    # insamlingen, därav try/except. Steget ligger INNE i _live_pass så att
+    # tester som mockar varvet aldrig kan nå produktions-DB:n av misstag.
+    try:
+        from app.live_settlement import settle_moments
+        settle = settle_moments(store)
+        if settle["settled"]:
+            print(f"radar-settle: {settle['settled']} ögonblick settlade · "
+                  f"{settle['open_series']} öppna serier väntar")
+    except Exception as e:  # noqa: BLE001 — shadow fäller inget spelbart
+        print(f"radar-settle: hoppade över "
+              f"({type(e).__name__}: {str(e)[:60]})")
     return report, fm
 
 
@@ -856,6 +871,20 @@ def main() -> None:
         nums = [int(a) for a in rest if a.isdigit()]
         cmd_live_tick(nums[0] if nums else LIVE_DENSE_BUDGET_S,
                       nums[1] if len(nums) > 1 else LIVE_DENSE_INTERVAL_S)
+    elif cmd == "radar-settle":
+        from app.live_settlement import format_settle, settle_moments
+        store = Storage()
+        try:
+            print(format_settle(settle_moments(store)))
+        finally:
+            store.close()
+    elif cmd == "radar-facit":
+        from app.live_settlement import facit, format_facit
+        store = Storage()
+        try:
+            print(format_facit(facit(store)))
+        finally:
+            store.close()
     elif cmd == "history":
         cmd_history(rest)
     elif cmd in ("rad", "system"):

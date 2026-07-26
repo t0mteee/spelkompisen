@@ -425,6 +425,32 @@ def collect(store: Storage, *, now: Optional[dt.datetime] = None) -> dict:
             "saved": saved, "skipped": skipped, "partial_errors": errors}
 
 
+def previous_capture(earlier: list[dict],
+                     current_at: dt.datetime) -> Optional[dict]:
+    """Jämförelsepunkten ~RECENT_MINUTES före observationen, inom tolerans.
+
+    DELAD av API-payloaden och settlementet (app/live_settlement.py): signalens
+    15-minutersdelta ska väljas på exakt samma sätt var den än räknas — en
+    andra implementation hade förr eller senare divergerat.
+    """
+    target = current_at - dt.timedelta(minutes=RECENT_MINUTES)
+    candidate = min(
+        earlier,
+        key=lambda row: abs((
+            dt.datetime.fromisoformat(
+                row["captured_at"].replace("Z", "+00:00")) - target
+        ).total_seconds()),
+        default=None)
+    if candidate is None:
+        return None
+    candidate_at = dt.datetime.fromisoformat(
+        candidate["captured_at"].replace("Z", "+00:00"))
+    if abs(candidate_at - target) > dt.timedelta(
+            minutes=RECENT_TOLERANCE_MIN):
+        return None
+    return candidate
+
+
 def _same_team(a: str, b: str) -> bool:
     """Konservativ namnlänkning MELLAN källor (Sofascore ↔ FotMob).
 
@@ -482,21 +508,7 @@ def payload(store: Storage, *,
             current["captured_at"].replace("Z", "+00:00"))
         if now - current_at > dt.timedelta(minutes=MAX_DISPLAY_AGE_MIN):
             continue
-        target = current_at - dt.timedelta(minutes=RECENT_MINUTES)
-        candidate = min(
-            captures[:-1],
-            key=lambda row: abs((
-                dt.datetime.fromisoformat(
-                    row["captured_at"].replace("Z", "+00:00")) - target
-            ).total_seconds()),
-            default=None)
-        previous = candidate
-        if candidate:
-            candidate_at = dt.datetime.fromisoformat(
-                candidate["captured_at"].replace("Z", "+00:00"))
-            if abs(candidate_at - target) > dt.timedelta(
-                    minutes=RECENT_TOLERANCE_MIN):
-                previous = None
+        previous = previous_capture(captures[:-1], current_at)
         signal = radar_signal(current, previous)
         signal["xg_source"] = "sofascore" if signal.get("kind") == "xg" else None
         extra: dict = {}
