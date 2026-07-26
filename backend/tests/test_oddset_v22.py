@@ -35,10 +35,10 @@ def _event(event_id: int, start_at: str, home: int, away: int,
     }
 
 
-def _market(values: dict) -> dict:
+def _market(values: dict, last_seen_at: str) -> dict:
     return {
         **values, "line": None, "available": True, "fresh": True,
-        "last_seen_at": "2026-07-24T12:00:00Z",
+        "last_seen_at": last_seen_at,
     }
 
 
@@ -46,17 +46,27 @@ class V22ShadowTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.store = Storage(Path(self.tmp.name) / "test.db")
-        self.now = dt.datetime(2026, 7, 24, 12, tzinfo=UTC)
+        # Alla fixturdatum ligger RELATIVT manifestets insamlingsstart —
+        # change_policy kräver nytt manifest vid källversionsändring (hände
+        # 2026-07-26), och absoluta datum hamnade då före `starts_at` och
+        # föll som invalid_timing.
+        starts = dt.datetime.fromisoformat(
+            oddset_v22.load_manifest()["collection"]["starts_at"]
+            .replace("Z", "+00:00"))
+        self.now = (starts + dt.timedelta(days=2)).replace(
+            hour=12, minute=0, second=0, microsecond=0)
         self.match = {
             "id": "m-v22", "league": "allsvenskan",
             "home": "home", "away": "away",
-            "start": "2026-07-25T12:00:00Z",
+            "start": self._t(hours=24),
             "odds": {
                 "pinnacle": {
-                    "1x2": _market({"1": 2.0, "X": 3.5, "2": 4.0}),
+                    "1x2": _market({"1": 2.0, "X": 3.5, "2": 4.0},
+                                   self._t(hours=0)),
                 },
                 "svenskaspel": {
-                    "1x2": _market({"1": 2.1, "X": 3.4, "2": 3.9}),
+                    "1x2": _market({"1": 2.1, "X": 3.4, "2": 3.9},
+                                   self._t(hours=0)),
                 },
             },
             "model": {
@@ -65,7 +75,7 @@ class V22ShadowTests(unittest.TestCase):
             },
         }
         self.store.oddset_upsert_match(self.match)
-        base = dt.date(2026, 5, 1)
+        base = (self.now - dt.timedelta(days=84)).date()
         for index in range(45):
             self.store.oddset_save_result({
                 "league": "allsvenskan",
@@ -78,31 +88,33 @@ class V22ShadowTests(unittest.TestCase):
             })
         self.store.oddset_save_elo_history([
             {"club_key": "home", "club_raw": "Home", "country": "SWE",
-             "level": 1, "elo": 1510, "valid_from": "2026-07-01",
-             "valid_to": "2026-07-31"},
+             "level": 1, "elo": 1510,
+             "valid_from": (self.now - dt.timedelta(days=23)).date().isoformat(),
+             "valid_to": (self.now + dt.timedelta(days=7)).date().isoformat()},
             {"club_key": "away", "club_raw": "Away", "country": "SWE",
-             "level": 1, "elo": 1480, "valid_from": "2026-07-01",
-             "valid_to": "2026-07-31"},
-        ], "2026-07-10T08:00:00Z")
+             "level": 1, "elo": 1480,
+             "valid_from": (self.now - dt.timedelta(days=23)).date().isoformat(),
+             "valid_to": (self.now + dt.timedelta(days=7)).date().isoformat()},
+        ], self._t(days=-14))
         for team_id, name, lat, lon in (
                 (1, "home", 59.33, 18.07), (2, "away", 57.71, 11.97)):
             self.store.oddset_save_sofa_team(
-                _team(team_id, name, lat, lon), "2026-07-10T08:00:00Z",
+                _team(team_id, name, lat, lon), self._t(days=-14),
                 league="allsvenskan", season_id=1)
         self.store.oddset_save_sofa_team_event_capture({
-            "team_id": 1, "captured_at": "2026-07-23T08:00:00Z",
+            "team_id": 1, "captured_at": self._t(hours=-28),
             "policy_version": oddset_schedule.policy_version(), "page_count": 1,
             "raw_event_count": 2, "payload_hash": "home-events",
         }, [
-            _event(11, "2026-07-17T12:00:00Z", 1, 8),
-            _event(12, "2026-07-22T12:00:00Z", 9, 1, 999),
+            _event(11, self._t(days=-7), 1, 8),
+            _event(12, self._t(days=-2), 9, 1, 999),
         ])
         self.store.oddset_save_sofa_team_event_capture({
-            "team_id": 2, "captured_at": "2026-07-23T08:00:00Z",
+            "team_id": 2, "captured_at": self._t(hours=-28),
             "policy_version": oddset_schedule.policy_version(), "page_count": 1,
             "raw_event_count": 1, "payload_hash": "away-events",
         }, [
-            _event(13, "2026-07-21T12:00:00Z", 2, 7),
+            _event(13, self._t(days=-3), 2, 7),
         ])
         self.versions = {
             "sharp": {
@@ -114,6 +126,10 @@ class V22ShadowTests(unittest.TestCase):
                 "base_version": "m-c00f8a09",
             },
         }
+
+    def _t(self, **offset) -> str:
+        return (self.now + dt.timedelta(**offset)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ")
 
     def tearDown(self) -> None:
         self.store.close()
@@ -139,7 +155,7 @@ class V22ShadowTests(unittest.TestCase):
         self.assertGreater(payload["features"]["away_base_travel_km"], 390)
         self.assertEqual(2, payload["wp9c_source"]["home"]["event_count"])
         self.assertEqual(
-            "2026-07-23T08:00:00Z",
+            self._t(hours=-28),
             payload["wp9c_source"]["home"]["max_first_seen_at"])
         self.assertLessEqual(
             payload["wp9c_source"]["home"]["max_first_seen_at"],
@@ -221,8 +237,8 @@ class V22ShadowTests(unittest.TestCase):
                     "match_id": self.match["id"], "horizon": "h24",
                     "signal_version": self.versions["sharp"]["signal_version"],
                     "match_start": self.match["start"],
-                    "captured_at": "2026-07-24T12:00:00Z",
-                    "target_at": "2026-07-24T12:00:00Z",
+                    "captured_at": self._t(hours=0),
+                    "target_at": self._t(hours=0),
                 }, "live")
             base.update({
                 "schema": 2, "experiment": oddset_v22.load_manifest()["experiment"],

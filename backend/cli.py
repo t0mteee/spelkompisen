@@ -164,16 +164,18 @@ def _settle_recent(store: Storage, ss: SvenskaSpel, product: str) -> None:
     except Exception as e:  # noqa: BLE001
         print(f"{product}: PH2/PH3-efterarbete hoppade över ({e})")
     try:
-        n = _settle_played(store, ss, product)
+        n = _settle_played(store, product)
         if n:
             print(f"{product}: {n} spelad(e) kupong(er) settlade.")
     except Exception as e:  # noqa: BLE001
         print(f"{product}: kupongfacit hoppade över ({e})")
 
 
-def _settle_played(store: Storage, ss: SvenskaSpel, product: str) -> int:
-    """Sätt facit på VERKLIGT spelade kuponger vars omgång är färdigspelad.
+def _settle_played(store: Storage, product: str) -> int:
+    """Sätt facit på VERKLIGT spelade kuponger vars omgång är färdigsettlad.
 
+    Facit = settlementlagrets officiella utfall per eventNumber (samma kanon
+    som PH3 — körs EFTER settle_recent i samma varv, inget extra SvS-anrop).
     Utdelningen tas ur publicerade belopp per vinnare (`pool_payout_tier`) —
     kupongen låg i potten, så beloppen inkluderar den redan. Ingen
     utspädningskorrigering; den hör till PH3:s kontrafaktiska system.
@@ -183,16 +185,13 @@ def _settle_played(store: Storage, ss: SvenskaSpel, product: str) -> int:
     for coupon in pool_played.open_coupons(store):
         if coupon["product"] != product:
             continue
-        raw = ss.get_draw_raw(product, coupon["draw_number"])
-        states = [pool_played.event_state(e)
-                  for e in (raw.get("drawEvents") or [])]
         tiers = {int(c): (w, a) for c, w, a in store.conn.execute(
             "SELECT correct, winners, amount FROM pool_payout_tier "
             "WHERE product=? AND draw_number=? AND correct IS NOT NULL",
             (product, coupon["draw_number"]))}
         if not tiers:
             continue          # vinstplanen är inte publicerad än — vänta
-        if pool_played.settle(store, coupon, states, tiers).get("settled"):
+        if pool_played.settle(store, coupon, tiers).get("settled"):
             n += 1
     return n
 

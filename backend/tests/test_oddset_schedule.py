@@ -235,10 +235,6 @@ class ScheduleParserTests(unittest.TestCase):
         self.assertIsNone(oddset_schedule._event_entry(raw, 1))
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class RotationRiskTests(unittest.TestCase):
     """Samans beställning 2026-07-25: vikta vila OCH viktigare nästa match.
 
@@ -311,3 +307,83 @@ class RotationRiskTests(unittest.TestCase):
         vanlig = self._fixture("2026-08-03T12:00:00Z", 853, "club-friendly",
                                "Club Friendly Games")
         self.assertEqual(0, oddset_schedule.tournament_weight(vanlig, self.LIGA))
+
+    def test_matchen_vi_analyserar_blir_aldrig_sin_egen_nasta(self):
+        # Granskningsfix F5 (2026-07-26): Sofascores klocka kan ligga minuter
+        # från Kambis för samma match — utan marginal blev matchen sin egen
+        # "nästa match" med hours_to_next ≈ 0. Inget lag spelar två matcher
+        # inom sex timmar.
+        upcoming = [self._fixture("2026-08-01T16:03:00Z", self.LIGA, "a", "A"),
+                    self._fixture("2026-08-05T18:45:00Z", 7, "ucl", "UCL")]
+        out = oddset_schedule._forward_features(upcoming, 1, self.TARGET, self.LIGA)
+        self.assertEqual("2026-08-05T18:45:00Z", out["next_match_at"])
+        self.assertEqual(1, out["congested_after"])
+
+    def test_policykontraktet_bar_forwardsemantiken(self):
+        # F5b: schema 4 fingeravtrycker statusomfång och forwardvikter —
+        # payloadändringar utan versionbump var granskningens fynd.
+        policy = oddset_schedule.POLICY
+        self.assertGreaterEqual(policy["schema"], 4)
+        self.assertIn("notstarted", policy["event_status_scope"])
+        self.assertIn("tournament_weight", policy["forward"])
+        self.assertEqual(oddset_schedule.FORWARD_SELF_GUARD_H,
+                         policy["forward"]["self_guard_h"])
+
+
+class CaptureStatusScopeTests(unittest.TestCase):
+    """F5c (2026-07-26): valideringen krävde `finished` medan insamlaren sedan
+    2026-07-25 skickar även planerade/pågående — VARJE lagcapture med en
+    kommande fixtur kraschade tyst och WP9c-insamlingen stod still i drift."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+
+    def tearDown(self) -> None:
+        self.store.close()
+        self.tmp.cleanup()
+
+    def _capture(self, at: str, events: list[dict]) -> int:
+        return self.store.oddset_save_sofa_team_event_capture({
+            "team_id": 1, "captured_at": at, "page_count": 1,
+            "policy_version": oddset_schedule.policy_version(),
+            "raw_event_count": len(events), "payload_hash": f"h-{at}",
+        }, events)
+
+    def test_scheduled_och_inprogress_accepteras(self) -> None:
+        scheduled = {**_event(41, "2026-08-01T16:00:00Z", 1, 9),
+                     "status": "scheduled", "home_score": None,
+                     "away_score": None}
+        live = {**_event(42, "2026-07-26T16:00:00Z", 1, 8),
+                "status": "inprogress"}
+        self.assertEqual(2, self._capture("2026-07-20T08:00:00Z",
+                                          [scheduled, live]))
+
+    def test_okand_status_avvisas_fortfarande(self) -> None:
+        with self.assertRaises(ValueError):
+            self._capture("2026-07-20T08:00:00Z",
+                          [{**_event(43, "2026-08-01T16:00:00Z", 1, 9),
+                            "status": "postponed"}])
+
+    def test_fixtures_as_of_laser_starttiden_som_den_var_kand_da(self) -> None:
+        # F5a: eventet bokas om 2026-08-01 → 2026-08-03. En as-of-läsning
+        # mellan observationerna ska se den GAMLA tiden — huvudradens upsert
+        # skriver över start_at och får inte användas retroaktivt.
+        first = {**_event(51, "2026-08-01T16:00:00Z", 1, 9),
+                 "status": "scheduled", "home_score": None, "away_score": None}
+        moved = {**first, "start_at": "2026-08-03T16:00:00Z"}
+        self._capture("2026-07-20T08:00:00Z", [first])
+        self._capture("2026-07-24T08:00:00Z", [moved])
+
+        before = self.store.oddset_sofa_team_fixtures_as_of(
+            1, "2026-07-22T00:00:00Z")
+        after = self.store.oddset_sofa_team_fixtures_as_of(
+            1, "2026-07-25T00:00:00Z")
+        self.assertEqual(["2026-08-01T16:00:00Z"],
+                         [f["start_at"] for f in before])
+        self.assertEqual(["2026-08-03T16:00:00Z"],
+                         [f["start_at"] for f in after])
+
+
+if __name__ == "__main__":
+    unittest.main()

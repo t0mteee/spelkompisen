@@ -33,9 +33,13 @@ FIT_POOLS = {
     "la_liga": ("la_liga", "segunda"),
     "bundesliga": ("bundesliga", "zweite_bundesliga"),
 }
+# v2 sedan 2026-07-26 (granskningsfix F5): wp9c-POLICY schema 3→4 ändrade
+# feature_version, och manifestets egen change_policy kräver då nytt manifest +
+# ny shadow-version. v1-raderna (2026-07-23→26) ligger kvar som historik under
+# sin gamla shadow-version och blandas aldrig in.
 MANIFEST_PATH = (
     Path(__file__).resolve().parents[2] / "docs" /
-    "model-v2.2-multileague-forward-manifest.json"
+    "model-v2.2-multileague-forward-manifest-v2.json"
 )
 REQUIRED_BASE_FEATURES = (
     "attack_log_ratio", "defence_log_ratio", "home_adv_log",

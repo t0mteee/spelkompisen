@@ -64,18 +64,59 @@ VENUE_COORD_OVERRIDE = {
         "source": "openstreetmap:nominatim:way/28537290",
     },
 }
+# TURNERINGSVIKT (2026-07-25) för "har laget en viktigare match strax efter?".
+# Rankingen är en EXPLICIT tabell, aldrig en gissning ur namnet: europeiskt
+# gruppspel/slutspel väger tyngst, därefter europakval, sedan inhemsk cup, sedan
+# ligan, sist träningsmatcher. Sofascores uniqueTournament-id:n är stabila.
+# Okänd turnering får ligans vikt — vi antar aldrig att något är viktigare än
+# ligan utan att veta det.
+# Id:na är LÄSTA ur vår egen `oddset_sofa_team_event`, inte gissade.
+TOURNAMENT_WEIGHT = {
+    7: 5,        # UEFA Champions League
+    679: 4,      # UEFA Europa League
+    17015: 4,    # UEFA Conference League
+    465: 4,      # UEFA Super Cup
+    498: 4,      # CONCACAF Champions Cup
+    853: 0,      # Club Friendly Games
+}
+# Inhemska cuper i vår data fångas av slug-hintarna nedan: FA Cup (19),
+# EFL Cup (21), NM Cup (29), Svenska Cupen (80), US Open Cup (495).
+LEAGUE_WEIGHT = 2          # ligan vi analyserar
+CUP_WEIGHT = 3             # inhemsk cup (identifieras via country_code + slug)
+UNKNOWN_WEIGHT = LEAGUE_WEIGHT
+CUP_SLUG_HINTS = ("cup", "cupen", "svenska-cupen", "norgesmesterskapet",
+                  "us-open-cup", "coppa", "copa", "pokal")
+# Sofascores klocka kan ligga minuter från Kambis för SAMMA match — utan
+# marginal blir matchen vi analyserar sin egen "nästa match" (hours_to_next≈0).
+# Inget lag spelar två matcher inom sex timmar.
+FORWARD_SELF_GUARD_H = 6
+
+# Schema 4 (2026-07-26, granskningsfix F5b): insamlingen tar sedan 2026-07-25
+# även notstarted/inprogress och features() bär forwardfälten — det ÄR en
+# kontraktsändring och ska synas i versionen, inte smygas in under schema 3.
+# Forwardvikterna ingår i fingeravtrycket eftersom de påverkar featurevärdena.
 POLICY = {
-    "schema": 3,
+    "schema": 4,
     "source": "sofascore-team-events-all-competitions",
+    "event_status_scope": ("finished", "notstarted", "inprogress"),
     "scope": tuple(sorted(oddset_data.SOFA_UT.items())),
     "team_alias": SCHEDULE_TEAM_ALIAS,
     "team_identity": "explicit-aliases-as-undirected-equivalence-components",
     "venue_coordinate_override": VENUE_COORD_OVERRIDE,
-    "pit": "event-start<as-of-and-first-seen<=as-of",
+    "pit": ("history:event-start<as-of-and-first-seen<=as-of; "
+            "fixtures:first-seen<=as-of-and-start-as-known-at-as-of>as-of"),
+    "start_time_series": "oddset_sofa_team_event_start-change-series",
     "history": {"regular_pages": REGULAR_PAGES, "backfill_pages": BACKFILL_PAGES},
     "load_windows_days": (7, 14, 30),
     "rest": "target-kickoff-minus-last-known-kickoff-hours",
     "travel": "club-base-to-club-base-haversine-proxy-no-neutral-venue-claim",
+    "forward": {
+        "tournament_weight": tuple(sorted(TOURNAMENT_WEIGHT.items())),
+        "league_weight": LEAGUE_WEIGHT, "cup_weight": CUP_WEIGHT,
+        "unknown_weight": UNKNOWN_WEIGHT, "cup_slug_hints": CUP_SLUG_HINTS,
+        "heavier_within_h": 120, "congested_after_days": 7,
+        "self_guard_h": FORWARD_SELF_GUARD_H,
+    },
     "model_input": False,
 }
 
@@ -360,30 +401,6 @@ def _haversine_km(a_lat: float, a_lon: float,
     return radius * 2 * math.atan2(math.sqrt(value), math.sqrt(1 - value))
 
 
-# TURNERINGSVIKT (2026-07-25) för "har laget en viktigare match strax efter?".
-# Rankingen är en EXPLICIT tabell, aldrig en gissning ur namnet: europeiskt
-# gruppspel/slutspel väger tyngst, därefter europakval, sedan inhemsk cup, sedan
-# ligan, sist träningsmatcher. Sofascores uniqueTournament-id:n är stabila.
-# Okänd turnering får ligans vikt — vi antar aldrig att något är viktigare än
-# ligan utan att veta det.
-# Id:na är LÄSTA ur vår egen `oddset_sofa_team_event`, inte gissade.
-TOURNAMENT_WEIGHT = {
-    7: 5,        # UEFA Champions League
-    679: 4,      # UEFA Europa League
-    17015: 4,    # UEFA Conference League
-    465: 4,      # UEFA Super Cup
-    498: 4,      # CONCACAF Champions Cup
-    853: 0,      # Club Friendly Games
-}
-# Inhemska cuper i vår data fångas av slug-hintarna nedan: FA Cup (19),
-# EFL Cup (21), NM Cup (29), Svenska Cupen (80), US Open Cup (495).
-LEAGUE_WEIGHT = 2          # ligan vi analyserar
-CUP_WEIGHT = 3             # inhemsk cup (identifieras via country_code + slug)
-UNKNOWN_WEIGHT = LEAGUE_WEIGHT
-CUP_SLUG_HINTS = ("cup", "cupen", "svenska-cupen", "norgesmesterskapet",
-                  "us-open-cup", "coppa", "copa", "pokal")
-
-
 def tournament_weight(event: dict, primary_tournament_id: int) -> int:
     """Hur tungt väger turneringen mot den liga vi analyserar?"""
     ut = event.get("unique_tournament_id")
@@ -406,7 +423,8 @@ def _forward_features(upcoming: list[dict], team_id: int,
     laget kommer att rotera. Bara fixturer som ligger EFTER `target` räknas, och
     bara sådana vi observerat före as-of (filtreringen sker i lagret).
     """
-    later = [e for e in upcoming if _parse(e["start_at"]) > target]
+    guard = target + dt.timedelta(hours=FORWARD_SELF_GUARD_H)
+    later = [e for e in upcoming if _parse(e["start_at"]) >= guard]
     later.sort(key=lambda e: e["start_at"])
     nxt = later[0] if later else None
     if not nxt:

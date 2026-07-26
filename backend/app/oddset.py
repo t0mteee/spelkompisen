@@ -484,6 +484,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
             kambi_at = _now_iso()
             try:
                 kambi_rows = kambi.league_events(lg["kambi"], strict=True)
+                kambi_at = cache_adjusted_iso(_now_iso(), kambi.last_age_s)
             except Exception as e:  # noqa: BLE001
                 kambi_rows = []
                 kambi_ok, kambi_error = False, str(e)
@@ -532,8 +533,11 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     try:
                         mk = kambi.event_markets(
                             e["id"], e["home"], e["away"], strict=True)
+                        # Observationstidsregeln p.3: per-anropstid − Age,
+                        # aldrig varvstart — en ligaloop kan pågå 25 min.
+                        deep_at = cache_adjusted_iso(_now_iso(), kambi.last_age_s)
                         rows_saved += _observe_pair_markets(
-                            store, mid, "svenskaspel", mk, at)
+                            store, mid, "svenskaspel", mk, deep_at)
                         for mk_ in _PAIR_KEYS:
                             if mk.get(mk_):
                                 present.add((mid, "svenskaspel", mk_))
@@ -570,15 +574,18 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 if not book.get("kambi_op") and not (book.get("altenar") and lg.get("altenar")):
                     continue
                 book_ok, book_error = True, None
-                book_at = _now_iso()   # pristid = anropets tid, inte varvets start
+                book_at = _now_iso()   # fallback; sätts om per lyckat anrop nedan
                 try:
                     if book.get("kambi_op"):
                         b_rows = kambi.league_events(
                             lg["kambi"], operator=book["kambi_op"], strict=True)
+                        # pristid = anropets tid − CDN-Age, inte varvets start
+                        book_at = cache_adjusted_iso(_now_iso(), kambi.last_age_s)
                     else:
                         from . import altenar
                         b_rows = altenar.league_events(
                             lg["altenar"], integration=book["altenar"], strict=True)
+                        book_at = cache_adjusted_iso(_now_iso(), altenar.last_age_s)
                 except Exception as exc:  # noqa: BLE001
                     b_rows = []
                     book_ok, book_error = False, str(exc)
@@ -605,7 +612,17 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     # IDENTISKA med SvS (samma Kambi-feed), medan Altenar
                     # prissätter själv — uppmätt Brommapojkarna–Hammarby
                     # 2,25/1,57 @3,5 mot SvS 1,71/1,97 @3,0.
-                    if e.get("ou"):
+                    if book.get("altenar"):
+                        # Även en SAKNAD Ö/U i ett lyckat listsvar är
+                        # information: en plockad marknad får inte ligga kvar
+                        # som spelbart spökpris i upp till 45 min (samma
+                        # mönster som cor-vägen nedan; granskningsfix F1).
+                        rows_saved += _observe_pair_market(
+                            store, ex["id"], book["key"], "ou", e.get("ou"),
+                            book_at)
+                        if e.get("ou"):
+                            present.add((ex["id"], book["key"], "ou"))
+                    elif e.get("ou"):
                         rows_saved += _observe_pair_market(
                             store, ex["id"], book["key"], "ou", e["ou"], book_at)
                         present.add((ex["id"], book["key"], "ou"))
@@ -617,7 +634,8 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                             from . import altenar
                             mk = altenar.event_markets(
                                 e["id"], integration=book["altenar"], strict=True)
-                            detail_at = _now_iso()
+                            detail_at = cache_adjusted_iso(
+                                _now_iso(), altenar.last_age_s)
                             rows_saved += _observe_pair_market(
                                 store, ex["id"], book["key"], "cor",
                                 mk.get("cor"), detail_at)

@@ -17,6 +17,18 @@ BASE_TPL = "https://eu-offering-api.kambicdn.com/offering/v2018/{op}"
 BASE = BASE_TPL.format(op="svenskaspel")   # bakåtkompatibelt default
 HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
 PARAMS = {"lang": "sv_SE", "market": "SE"}
+
+# HTTP `Age` ur senaste lyckade svar (0 = huvudet saknas). Uppmätt 2026-07-26:
+# Kambi skickar inget Age-huvud i dag — fältet är defensivt (samma mönster som
+# Pinnacles last_age_s) så observationstiden förblir ärlig om CDN-beteendet ändras.
+last_age_s = 0
+
+
+def _age_s(r) -> int:
+    try:
+        return max(0, int(r.headers.get("age") or 0))
+    except (TypeError, ValueError):
+        return 0
 # Fler svenska Kambi-operatörer (verifierade 2026-07-12): expektse (Expekt), atg (ATG).
 # Kambis event-id:n är globala — samma match har samma id hos alla operatörer.
 
@@ -41,10 +53,12 @@ def league_events(path: str, timeout: float = 25.0,
                   operator: str = "svenskaspel", strict: bool = False) -> list[dict]:
     """Matcher + 1X2 för en ligaväg (t.ex. 'football/sweden/allsvenskan').
     Returnerar [{id, home, away, start, odds{'1','X','2'}}]. Tom lista vid fel."""
+    global last_age_s
     try:
         r = httpx.get(f"{BASE_TPL.format(op=operator)}/listView/{path}.json", params=PARAMS,
                       headers=HEADERS, timeout=timeout)
         r.raise_for_status()
+        last_age_s = _age_s(r)
         data = r.json()
     except Exception:  # noqa: BLE001 — best-effort för gamla direktanrop
         if strict:
@@ -105,10 +119,12 @@ def event_markets(event_id: str, home: str, away: str, timeout: float = 25.0,
     SvS 147, med identisk marknadsstruktur (Asian totalt, Asian handicap, Antal
     hörnor). Deep-marknader per bok är alltså bara en fråga om att fråga."""
     base = BASE_TPL.format(op=operator)
+    global last_age_s
     try:
         r = httpx.get(f"{base}/betoffer/event/{event_id}.json", params=PARAMS,
                       headers=HEADERS, timeout=timeout)
         r.raise_for_status()
+        last_age_s = _age_s(r)
         bos = (r.json() or {}).get("betOffers") or []
     except Exception:  # noqa: BLE001
         if strict:

@@ -202,6 +202,100 @@ class CollectionPresenceTests(unittest.TestCase):
         self.assertTrue(latest["ah"]["available"])
         self.assertTrue(latest["ou"]["available"])
 
+    def test_missing_altenar_ou_in_list_suspends_previous_price(self) -> None:
+        # Granskningsfix F1 (2026-07-26): matchen finns kvar i Altenars
+        # lyckade listsvar men Ö/U-marknaden är plockad. Det gamla priset får
+        # inte ligga kvar som spelbart spökpris i upp till 45 min — samma
+        # invariant som cor-vägen och SvS-deep.
+        league = {**self.league, "altenar": 999}
+        event = {"id": "k1", "home": "Home", "away": "Away", "start": self.start,
+                 "odds": {"1": 2.2, "X": 3.4, "2": 3.3}}
+        with_ou = {"id": "a1", "home": "Home", "away": "Away",
+                   "start": self.start,
+                   "odds": {"1": 2.25, "X": 3.3, "2": 3.2},
+                   "ou": {"O": 1.8, "U": 1.9, "line": 2.5}}
+        without_ou = {key: value for key, value in with_ou.items()
+                      if key != "ou"}
+        books = [{"key": "ninjacasino", "name": "Ninja",
+                  "altenar": "ninjacasinose"}]
+        for rows in ([with_ou], [without_ou]):
+            with mock.patch.object(oddset, "Pinnacle", return_value=_Pin()), \
+                    mock.patch.object(oddset, "pinnacle_league_index",
+                                      return_value=[]), \
+                    mock.patch.object(oddset.kambi, "league_events",
+                                      return_value=[event]), \
+                    mock.patch.object(oddset.kambi, "event_markets",
+                                      return_value={}), \
+                    mock.patch.object(oddset, "BOOKS", books), \
+                    mock.patch.object(altenar, "league_events",
+                                      return_value=rows), \
+                    mock.patch.object(altenar, "event_markets",
+                                      return_value={}), \
+                    mock.patch.object(oddset.time, "sleep"):
+                oddset.collect(self.store, leagues=[league], deep=False)
+
+        market = self.store.oddset_latest(["m1"])["m1"]["ninjacasino"]["ou"]
+        self.assertFalse(market["available"])
+
+    def test_svs_deep_markets_use_call_time_not_round_start(self) -> None:
+        # Granskningsfix F2 (2026-07-26): observationstidsregeln p.3 — en
+        # ligaloop kan pågå 25 min, så deep-marknader ska bära per-anropstid,
+        # aldrig varvstarten.
+        base = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+        ticks = {"n": 0}
+
+        def fake_now() -> str:
+            ticks["n"] += 1
+            return (base + dt.timedelta(seconds=ticks["n"])).strftime(
+                "%Y-%m-%dT%H:%M:%SZ")
+
+        event = {"id": "k1", "home": "Home", "away": "Away", "start": self.start,
+                 "odds": {"1": 2.2, "X": 3.4, "2": 3.3}}
+        deep = {"ah": {"H": 1.9, "A": 1.95, "line": -0.25}}
+        with mock.patch.object(oddset, "_now_iso", side_effect=fake_now), \
+                mock.patch.object(oddset, "Pinnacle", return_value=_Pin()), \
+                mock.patch.object(oddset, "pinnacle_league_index", return_value=[]), \
+                mock.patch.object(oddset.kambi, "league_events", return_value=[event]), \
+                mock.patch.object(oddset.kambi, "event_markets", return_value=deep), \
+                mock.patch.object(oddset, "BOOKS", []), \
+                mock.patch.object(oddset.time, "sleep"):
+            report = oddset.collect(self.store, leagues=[self.league], deep=False)
+
+        ah = self.store.oddset_latest(["m1"])["m1"]["svenskaspel"]["ah"]
+        self.assertGreater(ah["last_seen_at"], report["at"])
+
+    def test_book_cdn_age_backdates_confirmation(self) -> None:
+        # Granskningsfix F3 (2026-07-26): bokssidans "kvar"-bevis ska dra av
+        # HTTP Age precis som Pinnacle — annars kan ett CDN-cachat svar
+        # "återbekräfta" ett pris efter sharpflytten.
+        league = {**self.league, "altenar": 999}
+        ninja = {"id": "a1", "home": "Home", "away": "Away", "start": self.start,
+                 "odds": {"1": 2.25, "X": 3.3, "2": 3.2}}
+        with mock.patch.object(oddset, "Pinnacle", return_value=_Pin()), \
+                mock.patch.object(oddset, "pinnacle_league_index",
+                                  return_value=[]), \
+                mock.patch.object(oddset.kambi, "league_events",
+                                  return_value=[]), \
+                mock.patch.object(
+                    oddset, "BOOKS",
+                    [{"key": "ninjacasino", "name": "Ninja",
+                      "altenar": "ninjacasinose"}]), \
+                mock.patch.object(altenar, "league_events",
+                                  return_value=[ninja]), \
+                mock.patch.object(altenar, "last_age_s", 120), \
+                mock.patch.object(altenar, "event_markets", return_value={}), \
+                mock.patch.object(oddset.time, "sleep"):
+            report = oddset.collect(self.store, leagues=[league], deep=False)
+
+        seen = dt.datetime.fromisoformat(
+            self.store.oddset_latest(
+                ["m1"])["m1"]["ninjacasino"]["1x2"]["last_seen_at"]
+            .replace("Z", "+00:00"))
+        retrieved = dt.datetime.fromisoformat(
+            report["at"].replace("Z", "+00:00"))
+        self.assertAlmostEqual(
+            120, (retrieved - seen).total_seconds(), delta=5)
+
     def test_altenar_corners_are_fetched_from_event_details(self) -> None:
         league = {**self.league, "altenar": 999}
         event = {"id": "k1", "home": "Home", "away": "Away", "start": self.start,

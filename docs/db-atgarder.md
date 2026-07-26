@@ -488,3 +488,39 @@ DELETE FROM oddset_results
   — att i stället backa `FEATURE_START_AT` hade öppnat för bakfyllning i drift.
 - **Efterkontroll:** 239 tester gröna. Första v4-featurerader väntas när nästa
   omgångs h3-fönster öppnas.
+
+## 2026-07-26 — Granskningsfixar F4/F5: kupongfacit, PIT-avsparkstider, wp9c-version
+
+- **Skript:** `backend/scripts/migrera_team_event_start.py`.
+  **Backup:** `backend/data/backups/stryktips-2026-07-26-fore-event-start-serie.db`.
+- **Ny tabell `oddset_sofa_team_event_start`** (event_id, start_at, seen_at):
+  PIT-förändringsserie för avsparkstid. `oddset_sofa_team_event`-upserten
+  skriver över `start_at` vid ombokning, så `oddset_sofa_team_fixtures_as_of`
+  läste DAGENS tid för historiska `as_of`. Seedad med 6 728 rader
+  (`seen_at = first_seen_at`); ombokningar FÖRE migreringen kan inte
+  återskapas — för dem gäller nuvarande tid från first_seen_at.
+  Integritet: `ok`. **Ingen rad ändras eller raderas.**
+- **F5c (drift):** capture-valideringen krävde `finished` medan insamlaren
+  sedan 2026-07-25 22:39 skickar även `scheduled`/`inprogress` — varje
+  lagcapture med kommande fixtur hade kraschat tyst. TTL:n (20 h, senaste
+  captures 2026-07-25T20:26) gjorde att första skarpa försöket låg ~16:26
+  2026-07-26; buggen fångades och fixades INNAN dess, så inga captures gick
+  förlorade (0 scheduled-event fanns sparade = rotationsriskdatat hade aldrig
+  flödat). Verifierat efter fix: force-refresh Allsvenskan gav 16/16 captures,
+  757 event varav 150 scheduled, 0 fel.
+- **wp9c POLICY schema 3→4** (F5b): statusomfång, forwardvikter och
+  starttidsserien fingeravtrycks nu. Det bumpar `policy_version` →
+  `feature_version` → V2.2-manifestets `change_policy` kräver nytt manifest:
+  `docs/model-v2.2-multileague-forward-manifest-v2.json`
+  (experiment `v2.2-wp9c-multileague-v2`, `feature_version` `f22-952e86fe`,
+  start 2026-07-26T11:00Z). v1-raderna 2026-07-23→26 ligger kvar som historik
+  under gammal shadow-version och blandas aldrig in; de var redan fracturerade
+  av den tysta payloadändringen + insamlingsstoppet ovan.
+- **Spelade kuponger `played-v2`** (F4): facit tas nu ur
+  `pool_event_settlement.outcome` per eventNumber (samma kanon som PH3) i
+  stället för draw-payloadens Current-score; `events_order`-join, hård
+  breddvakt, struken match = SvS fastställda tecken (aldrig "rätt för alla").
+  0 kuponger fanns bokförda — ingen historik påverkad.
+- **Efterkontroll:** 292 tester gröna (14 nya regressionsfall: F1 spökpris,
+  F2 deep-anropstid, F3 bok-Age, F4 kanonfacit/breddvakt/eventjoin,
+  F5 självguard/statusomfång/starttidsserie).

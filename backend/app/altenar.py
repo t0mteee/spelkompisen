@@ -21,6 +21,19 @@ BASE = "https://sb2frontend-altenar2.biahosted.com/api/Widget"
 HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
 SOCCER = 66
 
+# HTTP `Age` ur senaste lyckade svar (0 = huvudet saknas). Uppmätt 2026-07-26:
+# Altenar svarar `cache-control: public,max-age=3` utan Age-huvud — fönstret är
+# alltså ≤3 s i dag. Fältet läses defensivt (Pinnacle-mönstret) så
+# observationstiden förblir ärlig om CDN-beteendet ändras.
+last_age_s = 0
+
+
+def _age_s(r) -> int:
+    try:
+        return max(0, int(r.headers.get("age") or 0))
+    except (TypeError, ValueError):
+        return 0
+
 
 def _params(integration: str) -> dict:
     return {"culture": "sv-SE", "timezoneOffset": "-120", "integration": integration,
@@ -96,12 +109,14 @@ def event_markets(event_id: str, integration: str = "betinia",
     inklusive alternativa linor; endast Altenars markerade huvudlina returneras
     så att nuvarande lagring aldrig blandar tecken från olika linjer.
     """
+    global last_age_s
     try:
         r = httpx.get(
             f"{BASE}/GetEventDetails",
             params={**_params(integration), "eventId": event_id},
             headers=HEADERS, timeout=timeout)
         r.raise_for_status()
+        last_age_s = _age_s(r)
         data = r.json()
     except Exception:  # noqa: BLE001
         if strict:
@@ -115,12 +130,14 @@ def league_events(champ_id: int, integration: str = "betinia",
                   timeout: float = 20.0, strict: bool = False) -> list[dict]:
     """Matcher + 1X2 för en liga. [{id, home, away, start, odds{'1','X','2'}}].
     Tom lista vid fel (best-effort — sidoböcker får aldrig fälla insamlingen)."""
+    global last_age_s
     try:
         r = httpx.get(f"{BASE}/GetEvents",
                       params={**_params(integration), "champIds": champ_id,
                               "sportId": SOCCER, "eventCount": "50"},
                       headers=HEADERS, timeout=timeout)
         r.raise_for_status()
+        last_age_s = _age_s(r)
         data = r.json()
     except Exception:  # noqa: BLE001
         if strict:

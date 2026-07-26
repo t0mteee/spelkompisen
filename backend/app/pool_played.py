@@ -13,6 +13,14 @@ Två saker som PH3-ledgern inte kan ge:
    `status`/`statusId`), så vi kan räkna rätt-så-långt per rad och se vilka
    rader som fortfarande kan nå en vinstnivå — utan någon ny datakälla.
 
+FACIT ≠ LIVESTATUS (granskningsfix F4 2026-07-26): draw-payloadens
+Current-score är enbart livevy. Slutfacit tas ALLTID ur settlementlagret
+(`pool_event_settlement.outcome` per eventNumber — samma kanon som PH3):
+Current-score kan avvika från pooltecknet (förlängning i cupmatch), och en
+struken match får sitt tecken FASTSTÄLLT av SvS — den är aldrig "rätt för
+alla rader". Radernas tecken paras alltid mot eventNumber via kupongens
+`events_order`, aldrig positionsvis mot payloadordningen.
+
 Ingenting här lägger spel. Knappen bokför bara att användaren själv har lämnat
 in kupongen.
 """
@@ -26,7 +34,10 @@ from typing import Optional
 from .storage import Storage
 
 SIGNS = ("1", "X", "2")
-SETTLEMENT_VERSION = "played-v1"
+# v2 (2026-07-26): facit ur pool_event_settlement (officiellt outcome per
+# eventNumber) i stället för draw-payloadens Current-score; events_order-join;
+# hård breddvakt. v1 hann aldrig settla en kupong i drift.
+SETTLEMENT_VERSION = "played-v2"
 
 # SvS-statusar: matchen är färdigspelad och tecknet står fast.
 FINISHED_STATUS_IDS = frozenset({31})       # 31 = "Slut"/Ended
@@ -126,7 +137,17 @@ def event_state(draw_event: dict) -> dict:
     score = (f"{current['home']}-{current['away']}"
              if current and current.get("home") is not None else None)
     return {"sign": sign, "final": final, "score": score,
+            "event_number": draw_event.get("eventNumber"),
             "cancelled": bool(draw_event.get("cancelled"))}
+
+
+def _coupon_events(coupon: dict, width: int) -> list[int]:
+    """Kupongens eventNumber per kolumn. Default 1..N när inget sparats."""
+    try:
+        events = [int(e) for e in json.loads(coupon.get("events_order") or "[]")]
+    except (TypeError, ValueError):
+        events = []
+    return events if len(events) == width else list(range(1, width + 1))
 
 
 def live_status(coupon: dict, states: list[dict]) -> dict:
@@ -135,51 +156,94 @@ def live_status(coupon: dict, states: list[dict]) -> dict:
     Det här är svaret på "följa reducerade system live": för varje rad räknas
     säkra träffar (avgjorda matcher) och möjliga träffar (säkra + de som ännu
     inte är avgjorda). En rad kan nå nivå k om möjliga ≥ k.
+
+    LIVEVY, aldrig facit. Tecknen paras mot eventNumber via kupongens
+    `events_order` (payloadordningen är inget kontrakt), en kolumn utan
+    matchande event räknas som oavgjord i stället för att tyst trunkeras, och
+    en struken match är oavgjord tills SvS fastställt tecknet i settlementet.
     """
     rows = (coupon.get("rows_text") or "").split("\n")
-    n_events = min(len(states), len(rows[0]) if rows and rows[0] else 0)
-    decided = sum(1 for s in states[:n_events] if s.get("final"))
+    width = len(rows[0]) if rows and rows[0] else 0
+    events = _coupon_events(coupon, width)
+    by_event: dict[int, dict] = {}
+    for i, state in enumerate(states):
+        number = state.get("event_number")
+        by_event[int(number) if number is not None else i + 1] = state
+    col_states = [by_event.get(events[i]) for i in range(width)]
+    decided = sum(1 for s in col_states
+                  if s and s.get("final") and not s.get("cancelled"))
     best_secure = 0
     secure_hist: dict[int, int] = {}
     possible_hist: dict[int, int] = {}
     for row in rows:
         secure = possible = 0
-        for i in range(n_events):
-            state = states[i]
-            if state.get("cancelled"):
-                secure += 1          # struken match räknas som rätt
-                possible += 1
+        for i in range(width):
+            state = col_states[i]
+            if state is None or state.get("cancelled") or not state.get("final"):
+                possible += 1        # okänd/struken/pågående kan ännu bli rätt
                 continue
             hit = state.get("sign") == row[i]
-            if state.get("final"):
-                secure += int(hit)
-                possible += int(hit)
-            else:
-                possible += 1        # oavgjord match kan fortfarande bli rätt
+            secure += int(hit)
+            possible += int(hit)
         best_secure = max(best_secure, secure)
         secure_hist[secure] = secure_hist.get(secure, 0) + 1
         possible_hist[possible] = possible_hist.get(possible, 0) + 1
     alive = {level: sum(n for p, n in possible_hist.items() if p >= level)
-             for level in range(max(1, n_events - 3), n_events + 1)}
-    return {"n_events": n_events, "n_decided": decided,
-            "all_decided": bool(n_events and decided == n_events),
+             for level in range(max(1, width - 3), width + 1)}
+    return {"n_events": width, "n_decided": decided,
+            "all_decided": bool(width and decided == width),
             "best_secure": best_secure,
             "secure_dist": dict(sorted(secure_hist.items(), reverse=True)),
             "alive_per_level": dict(sorted(alive.items(), reverse=True))}
 
 
-def settle(store: Storage, coupon: dict, states: list[dict],
-           tiers: dict[int, tuple]) -> dict:
-    """Slutfacit mot PUBLICERADE belopp — ingen utspädning (vi var i potten).
+def _mark_incomplete(store: Storage, coupon: dict, note: str) -> dict:
+    store.conn.execute(
+        "UPDATE pool_played_coupon SET settled_at=?, payout_complete=0, "
+        "settle_note=? WHERE id=?", (_now(), note, coupon["id"]))
+    store._commit()
+    return {"settled": True, "complete": False, "payout_kr": None,
+            "roi": None, "reason": note}
 
+
+def settle(store: Storage, coupon: dict, tiers: dict[int, tuple]) -> dict:
+    """Slutfacit ur settlementlagret + PUBLICERADE belopp (vi var i potten).
+
+    Facit = `pool_event_settlement.outcome` per eventNumber — samma kanon som
+    PH3-ledgern. Draw-payloadens Current-score används ALDRIG här (den kan
+    avvika efter förlängning, och strukna matcher får sitt tecken fastställt).
     tiers: {antal_rätt: (vinnare, belopp_per_vinnare)}. Saknas beloppet för en
     nivå vi träffat blir facitet uttryckligen ofullständigt; ROI får då INTE
     räknas som noll.
     """
-    status = live_status(coupon, states)
-    if not status["all_decided"]:
-        return {"settled": False, "reason": "alla matcher är inte avgjorda"}
-    dist = status["secure_dist"]
+    rows = (coupon.get("rows_text") or "").split("\n")
+    width = len(rows[0]) if rows and rows[0] else 0
+    events = _coupon_events(coupon, width)
+    outcomes = {int(number): outcome for number, outcome in store.conn.execute(
+        "SELECT event_number, outcome FROM pool_event_settlement "
+        "WHERE product=? AND draw_number=?",
+        (coupon["product"], coupon["draw_number"]))}
+    if not outcomes:
+        return {"settled": False,
+                "reason": "settlementlagret saknar omgången än"}
+    if len(outcomes) != width:
+        # Hård breddvakt — settla aldrig tyst på fel antal matcher.
+        return _mark_incomplete(
+            store, coupon,
+            f"breddfel: kupongen har {width} tecken/rad men omgången "
+            f"{len(outcomes)} matcher")
+    missing = sorted(e for e in events if outcomes.get(e) not in SIGNS)
+    if missing:
+        # Samma kanonregel som PH3: utfall saknas => aldrig "rätt för alla".
+        return _mark_incomplete(
+            store, coupon,
+            "officiellt utfall saknas för match "
+            + ",".join(str(e) for e in missing))
+    facit = [outcomes[e] for e in events]
+    dist: dict[int, int] = {}
+    for row in rows:
+        correct = sum(1 for sign, res in zip(row, facit) if sign == res)
+        dist[correct] = dist.get(correct, 0) + 1
     payout = 0.0
     complete = True
     notes = []
@@ -194,17 +258,18 @@ def settle(store: Storage, coupon: dict, states: list[dict],
         payout += n_rows * float(amount)
     cost = float(coupon.get("cost_kr") or 0.0)
     roi = ((payout - cost) / cost) if (complete and cost > 0) else None
+    correct_max = max(dist) if dist else 0
     store.conn.execute(
         "UPDATE pool_played_coupon SET settled_at=?, correct_max=?, "
         "correct_dist=?, payout_kr=?, payout_complete=?, roi=?, settle_note=? "
         "WHERE id=?",
-        (_now(), status["best_secure"], json.dumps(dist),
+        (_now(), correct_max, json.dumps(dist),
          round(payout, 2) if complete else None, int(complete), roi,
          "; ".join(notes) or SETTLEMENT_VERSION, coupon["id"]))
     store._commit()
     return {"settled": True, "payout_kr": round(payout, 2) if complete else None,
             "roi": roi, "complete": complete,
-            "correct_max": status["best_secure"], "correct_dist": dist}
+            "correct_max": correct_max, "correct_dist": dist}
 
 
 def open_coupons(store: Storage) -> list[dict]:

@@ -286,6 +286,16 @@ CREATE INDEX IF NOT EXISTS idx_sofa_team_event_away
     ON oddset_sofa_team_event (away_team_id, start_at);
 CREATE INDEX IF NOT EXISTS idx_sofa_team_event_pit
     ON oddset_sofa_team_event (first_seen_at, start_at);
+
+-- PIT-förändringsserie för avsparkstid (granskningsfix F5a 2026-07-26):
+-- upserten ovan skriver över start_at vid ombokning, så en as-of-läsning
+-- behöver tiden SOM DEN VAR KÄND vid as_of. En rad per observerad ändring.
+CREATE TABLE IF NOT EXISTS oddset_sofa_team_event_start (
+    event_id INTEGER NOT NULL,
+    start_at TEXT NOT NULL,
+    seen_at  TEXT NOT NULL,
+    PRIMARY KEY (event_id, seen_at)
+);
 """
 
 # PH1 (2026-07-24): immutable settlementlager för poolspelen. Append-once:
@@ -1910,9 +1920,15 @@ class Storage:
         if not capture.get("policy_version"):
             raise ValueError("Sofascore-capture saknar policyversion")
         for event in events:
-            if (event.get("status") != "finished" or event.get("event_id") is None or
-                    not event.get("start_at")):
-                raise ValueError("ogiltigt avslutat Sofascore-event")
+            # Sedan 2026-07-25 samlas även planerade/pågående matcher
+            # (rotationsrisk). Valideringen krävde fortfarande `finished` och
+            # hade fällt VARJE lagcapture med en kommande fixtur så fort
+            # TTL:n gjorde lagen förfallna (~16:26 2026-07-26) — 0 scheduled-
+            # event fanns sparade före fixen (granskningsfix F5c 2026-07-26).
+            if (event.get("status") not in ("finished", "scheduled", "inprogress")
+                    or event.get("event_id") is None
+                    or not event.get("start_at")):
+                raise ValueError("ogiltigt Sofascore-event")
             if team_id not in (event.get("home_team_id"), event.get("away_team_id")):
                 raise ValueError("Sofascore-eventet tillhör inte capture-laget")
         starts = [event["start_at"] for event in events]
@@ -1951,6 +1967,16 @@ class Storage:
                      event.get("country_code"), event.get("home_score"),
                      event.get("away_score"), capture["captured_at"],
                      capture["captured_at"]))
+                latest_start = self.conn.execute(
+                    "SELECT start_at FROM oddset_sofa_team_event_start "
+                    "WHERE event_id=? ORDER BY seen_at DESC LIMIT 1",
+                    (event["event_id"],)).fetchone()
+                if latest_start is None or latest_start[0] != event["start_at"]:
+                    self.conn.execute(
+                        "INSERT OR REPLACE INTO oddset_sofa_team_event_start("
+                        "event_id,start_at,seen_at) VALUES(?,?,?)",
+                        (event["event_id"], event["start_at"],
+                         capture["captured_at"]))
         return len(events)
 
     def oddset_sofa_team_events_as_of(self, team_id: int, as_of: str,
@@ -1974,12 +2000,27 @@ class Storage:
         avgör vad vi visste, inte vad som senare visade sig. Statusen läses inte
         — en fixtur vi såg som planerad räknas som planerad även om raden i dag
         är `finished`, annars smyger facit in i en förhandsfeature.
+        Avsparkstiden läses ur förändringsserien `oddset_sofa_team_event_start`
+        som den var känd VID `as_of` — huvudradens `start_at` skrivs över vid
+        ombokning och får inte användas retroaktivt (granskningsfix F5a).
         """
-        return [dict(row) for row in self.conn.execute(
-            "SELECT * FROM oddset_sofa_team_event WHERE "
-            "(home_team_id=? OR away_team_id=?) AND first_seen_at<=? "
-            "AND start_at>? ORDER BY start_at, event_id",
-            (team_id, team_id, as_of, as_of))]
+        out = []
+        for row in self.conn.execute(
+                "SELECT * FROM oddset_sofa_team_event WHERE "
+                "(home_team_id=? OR away_team_id=?) AND first_seen_at<=?",
+                (team_id, team_id, as_of)):
+            fixture = dict(row)
+            known = self.conn.execute(
+                "SELECT start_at FROM oddset_sofa_team_event_start "
+                "WHERE event_id=? AND seen_at<=? ORDER BY seen_at DESC LIMIT 1",
+                (fixture["event_id"], as_of)).fetchone()
+            # Fallback till huvudraden gäller bara data från före migreringen
+            # (scripts/migrera_team_event_start.py seedar serien).
+            start = known[0] if known else fixture["start_at"]
+            if start > as_of:
+                out.append({**fixture, "start_at": start})
+        out.sort(key=lambda fixture: (fixture["start_at"], fixture["event_id"]))
+        return out
 
     def oddset_prediction_states(self) -> dict[tuple, dict]:
         rows = self.conn.execute("SELECT * FROM oddset_prediction_group_state").fetchall()
