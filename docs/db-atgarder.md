@@ -583,3 +583,20 @@ DELETE FROM oddset_results
   xg-signal utfall A 32,7 % mot villkorad basrate 48,2 % — pekar hittills
   ÅT FEL HÅLL, i linje med 220-matchersprovet; utfall B är degenererat
   (bara ettor löses) tills slutstatus-captures finns.
+
+## 2026-07-27 — Matchbook-likviditet: ny skuggtabell
+
+- **Skript:** `backend/scripts/migrera_matchbook.py` (körd).
+  **Backup:** `backend/data/backups/stryktips-2026-07-27-fore-matchbook.db`.
+- **Ny tabell `oddset_matchbook_liquidity`** (match_id, sign, available EUR
+  vid bästa back-nivå, seen_at): nytt belopp = ny rad, oförändrat = seen_at
+  framåt med MAX, äldre svar skrivs aldrig. Odds sparas som vanlig källa
+  `matchbook` i oddset_odds — men matchbook ∉ BOOKS/ANCHOR_SOURCES/
+  ANCHOR2_SOURCE och en ny `SHADOW_SOURCES`-spärr i attach_value +
+  payload-strip skyddar dubbelt mot 192-flaggors-felet. Endast snabbfönstret
+  (< 3 h), identitetskonflikt ⇒ hoppa över, skapar aldrig matchrader.
+  Integritet: `ok`, 0 rader vid migrering (insamlingen börjar när nästa varv
+  träffar fönstret). Skuggreferens ≥ 28 dagar enligt
+  `docs/bookmaker-kallplan-2026-07-25.md` innan någon användning ens föreslås.
+- **Efterkontroll:** 331 tester gröna (20 nya, inkl. ANKARE≠BOK-lås för
+  matchbook och monotonisk seen_at).

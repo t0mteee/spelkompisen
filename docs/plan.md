@@ -1,9 +1,30 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-07-26 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-07-27 — läs detta först i ny session)
 
 > **Aktiv backlog och prioritering: `docs/backlog.md`** (2026-07-26).
 > WP-listan längre ned är historik över avslutat arbete.
+
+**BACKLOGGEN KÖRD (2026-07-27, Fable 5 + två agenter, Samans order "kör
+backloggen förutom ntfy").** (1) **Matchbook byggd i skugga**: öppen publik
+väg bekräftad utan konton (källgränsen), 1X2-pris + likviditet i samma
+observationstid, insamling enbart i 3h-snabbfönstret mot befintliga
+identiteter (kollision ⇒ hoppa), ny tabell `oddset_matchbook_liquidity`
+(migration + backup), sex ligor mappade. Aldrig i BOOKS/ankare — ny
+`SHADOW_SOURCES`-spärr i attach_value + payload-strip. Liveprov: Häcken–AIK
+1,90/4,30/4,00 (41/30/9 EUR — tunn likviditet dagar före avspark bekräftar
+snabbfönster-designen). ≥ 28 dagars ren skugga före all användning.
+(2) **Rek per match** (Samans beställning): "Rek"-kolumn i Oddset-vyn för
+följda ligor (ej träningsmatcher/research — de visar inget), bästa
+värdeselektion med nivå/OMTVISTAD eller nedtonad "avstå"; delade
+`oddsetBestValue`/`oddsetValueTier` gör att 💰-korten, Idag-panelen och Rek
+läser exakt samma urval. (3) **Rek-historik i matchdetaljen**: 📒-sektion ur
+nya `/api/oddset/match-flags` med close-EV-pills och ⚓-markering — första
+exemplet bekräftade OMTVISTAD-vakten skarpt (Karlsruher: close-EV −0,8 %
+precis som Smarkets varnade). (4) **Bomben-spelläge**: rullpott-styrd pill.
+(5) **STATUS-loggen komprimerad** (249 rader 07-13→24 till GAMMAL STATUS).
+331 tester gröna, build grönt, browser-verifierat. NTFY fortsatt av på
+Samans besked.
 
 **CLOSE-DRIFT v2 — Ö/U-LINJEFLYTTAR REVERSERAR (2026-07-26 sen kväll,
 Fable 5, godkänd insats).** Förregistrerad i
@@ -458,6 +479,183 @@ fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
   Separat pooljobb går var 5:e min; `pool-tick` gör basvarv var 30:e min och
   varje tick när omgång stänger inom 2 h, varefter `live-tick` samlar
   shadowdata för pågående matcher.
+- **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
+  2026-07-16** — notera: med notisvakt + källhälsa på plats är det säkert att
+  återaktivera, och utan pushar tävlar systemet inte i latens mot manuell
+  odds-inspektion; beslut om mobil-default för `Bara signaler` återstår;
+  P1/P2-backloggen finns nedan. Europaligorna är inlagda som isolerade
+  forskningsligor och är sedan 2026-07-24 synliga i vanliga Oddset-vyn
+  (🔬, icke-actionable — se produktbeslutet ovan).
+
+## Backlog (WP-struktur efter granskningen 2026-07-13 — HISTORIK; aktiv backlog i `docs/backlog.md`)
+
+Research-grund: steam-värde dör på minuter, inte halvtimmar ("if you're seeing the
+same price after 10-20 min, the value is gone" — [SportBot om steam](https://www.sportbotai.com/blog/steam-moves-betting-explained-ai-data),
+[Arbusers teknisk analys](https://arbusers.com/how-to-find-value-bets-on-sharps-by-odds-movements-aka-technical-analysis-t10188/),
+[CLV-metodik](https://www.wunderdog.com/sports-betting/how-to-beat-the-closing-line-in-sports-betting));
+Dixon-Coles-familjen står sig som guldstandard — XGBoost m. 40–100 features slår
+den sällan med >1 pp ([Wilkens 2026](https://journals.sagepub.com/doi/10.1177/22150218261416681)) →
+jaga inte ML, jaga LATENS, DATAKVALITET och ÄRLIGT FACIT. Granskningsevidens och
+acceptanskriterier per WP: `docs/granskning-2026-07-13.md`.
+
+**Metodregler (tillägg 2026-07-13/16, viker aldrig):**
+- Asiatiska sannolikheter hanteras alltid settlement-aware (push/half-win) —
+  i ankring såväl som prissättning.
+- Notiser kräver närvaro-bekräftat bokpris (sett i senaste varvet) — aldrig larm
+  på pris som kan vara plockat/suspenderat (✅ notisvakten, 2026-07-16).
+- Alla prediktioner loggas vid fasta horisonter med modellversion — flaggor är
+  ett urval för handling, aldrig underlaget för utvärdering (WP5).
+- **Grönt beslutas per signalgrupp** (tier × liga × marknad × version) — aldrig
+  per tier eller aggregat; aggregatraden är enbart översikt.
+- **DB-ändringar = skript + backup + rapport** (`docs/db-atgarder.md`) — aldrig
+  ad-hoc-SQL.
+- Versionspolicy: `signal_version` (s-/m-fingeravtryck av signalrelevanta
+  parametrar + T-kalibrering + DATA_VERSION) grupperar facitet; `git_hash` ger
+  reproducerbarhet. Docs/UI-commits får aldrig fragmentera facitet.
+
+**Klart ur granskningen:** *(2026-07-13)* WP3 identitetslager light (alias +
+datumtolerans ±1 dygn + audit-lista; MLS-fitten sanerad inkl. straff-resultat,
+normaltime-fixen), grönt-kriterium v2 (kluster-bootstrap-KI + versionsstämpel),
+decay-benämningen, A1-snabbpollen (`cli.py smart`). *(2026-07-16, runda 2)*
+WP0 (WAL/busy_timeout/`bulk()`), WP2-mini (notisvakten), version-split
+(signal_version + git_hash, migrerad). *(2026-07-16, Codex)* WP1 settlement-
+ankring + testgrund, WP2 full prisnärvaro/källhälsa, WP4 CLV-identitet +
+linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
+
+**P0 — sanningslager & matematik (i ordning):**
+- **WP1 ✅ 2026-07-16**: settlement-aware ÖU-ankring för hel/halv/kvart;
+  rotlösningen mäter den slutliga temperaturjusterade matrisen så T inte bryter
+  ankaret. `pair_fair` och ankaret delar settlement-matematik; `anchor` bumpad i
+  MODEL_PARAMS. Historisk T är fortfarande fittad på oankrade 1X2-prediktioner —
+  omkalibrera inte skenbart utan historiska Ö/U-linjer; WP5-ledgern ger PIT-data.
+- **WP2 full ✅ 2026-07-16**: persistent `last_seen_at` per selektion
+  (uppdateras vid dedup-skip), available/suspended, källhälsa, 45-minutersvakt
+  i värde/modell/steam/facit, bekräftelseålder i UI och SvS-deep i 3h-varvet.
+  Misslyckade källanrop ändrar aldrig availability. Migration + backup +
+  rapport finns i `docs/db-atgarder.md`.
+- **WP4 ✅ 2026-07-16**: CLV-identitet = `(match_id, market, sign, line_key,
+  model_version)`; `line_key` är heltalsnormaliserad lina och 1X2 har sentinel.
+  Stängningen använder färskt exakt-line-pris för jämförbart close-EV och
+  sparar samtidigt `closing_line`, `line_delta` och selektionsriktat
+  `line_move_score` (>0 = marknaden rörde sig med spelet). Finns inte färsk
+  exakt lina redovisas `linje flyttad`, aldrig ett fabricerat close-EV.
+  Skript, backup och produktionsutfall finns i `docs/db-atgarder.md`.
+- **WP5 ✅ 2026-07-16**: prediction ledger — ALLA prediktioner vid fasta
+  horisonter (T−24h/−3h/−20m) med sharp-fair/modell-fair, bästa bokpris,
+  availability, kontrollgrupp och komposit signalversion. Capture-markören är
+  atomär och skrivs även vid tomt källutfall; missade horisonter bakfylls aldrig.
+  Timingvakt: max 45/15/10 min sen för 24h/3h/20m i valideringsfacitet.
+  **Grönt-kriterium v3 på ledgern**:
+  status per grupp amber → candidate (n_flags ≥ 50 OCH n_matches ≥ 30 OCH
+  span ≥ 28 d OCH undre 90 %-KI > 0) → green (bekräftad out-of-time: ≥15 nya
+  matcher EFTER candidate-datumet med KI_lo > 0); förregistrerade primära
+  grupper = sharp × 1x2 × de fem riktiga ligorna, övriga (inkl.
+  träningsmatcher) är utforskande och kräver BH-FDR-korrigering (10 %) på
+  kluster-signflip-p-värden före candidate. Rapporten visar n_flags/n_matches/
+  n_weeks/span, kontrollantal och timing; KI märks instabilt under 10 matcher.
+  Modellen fittas i snabbvarv endast när en ny horisont saknas. Ersätter gamla
+  A2 (öppningslinje = första horisonten) och ger gamla A3 (odds-band-facit)
+  gratis.
+
+**P1 — EV-ärlighet, integritet, validering:**
+- **WP6 ✅ 2026-07-16** (S+M): jackpot före radvalet; κ̂-metod och
+  100-omgångsaudit; runtime κ=1,00 enligt konservativ riktning. Portfolio-
+  värderingen räknar alla 6 561 Topptipsetutfall eller 10 000 reproducerbara
+  13-matchsutfall, utfallsberoende Poisson-medvinnare, egna raders konkurrens,
+  EV/risk/percentiler och jämförelse mot snabbformeln.
+- **WP7 ✅ 2026-07-16** (S): ärliga benämningar — "xG-viktad Poisson-
+  styrkefit med DC-korrektion i prediktionen" i kod och alla centrala UI-
+  förklaringar; T:s in-sample-status visas och ledgern pekas ut som oberoende
+  forward-facit.
+- **WP8 ✅ 2026-07-16** (S/M): insamlingsintegritet — seen/retry,
+  tidsstämplad frånvaro med spelar-ID/position och PIT-Elo. Elo har både
+  observerade dagscaptures och providerintervall för historisk `as_of`-läsning;
+  källtimeout lämnar klubben omarkerad för retry. Tre klubbhistoriker är ännu
+  partiella enligt statusblocket, aldrig tyst klassade som kompletta.
+- **WP-test** (M, löpande): testgrund ✅ med standardbibliotekets `unittest`
+  (pytest-kompatibel, ingen dependency). 107 fall täcker bland annat
+  settlement/push/kvart, temperatur-roundtrip, normaltime, seen-retry/404,
+  bulk-rollback, prisnärvaro, Elo-PIT/retry samt CLV-identitet/linjeflytt och
+  WP6:s Poissonandel, portföljkonkurrens, full enumeration och reproducerbar MC.
+  Nya regressionsfall läggs före varje framtida fix.
+- **WP3-tillägg ✅ 2026-07-16** (S): fuzzy-links-audit — ALLA icke-exakta/
+  icke-alias-länkar visar likhet + antal berörda matcher + verified-flagga.
+  Godkända länkar ligger i TEAM_ALIAS/meta; kända falska länkar ligger i en
+  verifierad avvisningslista. Auto-gräns 0,75, review-band 0,55–0,75. Scope:
+  WP3 light löser resultatmergen — INTE pre-match-eventidentitet/spelare/
+  arenor/provider-ID generellt.
+- **Backtest v4 ✅ 2026-07-16:** q-grid med förregistrerad policy q=1,5 %,
+  edgegolv 2 %, matchblock-KI, B365-täckning/Max-tak och X-frekvens per liga.
+  Ingen policyändring; se `docs/backtest-v4-2026-07-16.md`.
+
+**P1 — datakällor (efter WP3, identiteten är förutsättningen):**
+- **WP9a**: ASA (American Soccer Analysis) som oberoende MLS-kontroll — **cert-
+  fel härifrån 2026-07-13** (hostname mismatch via både httpx och Chrome-TLS);
+  verifiera åtkomst innan planering. xG blandas ALDRIG mellan providers — egen
+  kolumn/tagg.
+- **WP9b**: Sofascore coverage-matrix per liga/säsong/endpoint/fält (script →
+  docs). Verifierat 2026-07-13: shot-xG+xGOT finns för Eliteserien (30/30),
+  saknas för Allsvenskan (0/31) — match-xG via /statistics finns för båda.
+- **WP9c ✅ 2026-07-17**: Sofascore team-events (alla tävlingar per lag) ger
+  PIT-säker vila, 7/14/30-dagars belastning och tydligt märkt basarena-reseproxy
+  utan cup-blindhet. 94/94 arenor; 48/48 kommande matcher komplett. Samlas
+  forward men är inte modellinput.
+
+**P2 — senare:**
+- Frånvaro-modellering (gamla B5) — när WP8-historiken samlats; amber tills facit.
+- MLS-kalibrering `oddsetcalibrate` + mls (gamla B7) — efter WP1+WP3 (nu sanerad
+  data, men ankringen först).
+- Hörn-värde grön väg (gamla B8) — efter WP5.
+- Officiell MLS-frånvarorapport, NFF fiksId-sidor (JS-RE), Fogis-spaning,
+  Open-Meteo point-in-time-väder, domare/underlag — features med liten väntad
+  effekt; Betfair Historical: skip tills konkret behov.
+- Manuell spel-journal i appen (skild från forskningsfacitet) — Samans beslut B8
+  i granskningen, öppet.
+
+**C. UI/mobil (Samans punkt: inte optimalt än — parallellspår, blockerar inget)**
+9. ✅ UI v3-pass: spelkorten är 1 kolumn utan sidscroll; 💰 visar fyra först;
+   📈 är kollapsad; datakällor ligger i expander; pool/Bomben har fasta
+   mobilåtgärder; panelernas öppet/stängt-läge sparas och detaljgraferna är
+   responsiva. Kvar som produktbeslut: om 🎯 Bara signaler ska vara mobil-default.
+10. ✅ Oddset-städning: Hörnor-kolumnen döljs när allt innehåll saknas;
+   sekundära bokrader (E/B) styrs med `Fler odds`; liga-/verktygsraden är sticky.
+11. ✅ PWA: manifest, maskbar SVG/PNG-ikon och Apple touch-ikon ger
+    hemskärms-appen egen identitet. Ingen offline-cache — odds ska vara färska.
+    iOS kan lägga sidan på hemskärmen direkt; Chromium kräver HTTPS utanför
+    localhost för att själv erbjuda installation (Tailscale Serve är separat).
+12. ✅ Facit per signalgrupp + candidate-ETA: aktuella primärgrupper har egna
+    statuskort på desktop/mobil; tier-raden är endast aggregat utan grönt-✓.
+
+**D. Stora ligorna — V2.2-research inlagt; UI-synlighet klar 2026-07-24.**
+PL, Bundesliga, La Liga och Serie A samlas nu med Pinnacle/Kambi-1X2,
+historiska topplige-/andradivisionsresultat, Elo och WP9c, och visas i vanliga
+Oddset-vyn som 🔬-märkta forskningsligor. Synligheten är implementerad separat
+från V2.2-actionability, notiser och CLV. Ligue 1 är inte inlagd.
+| Liga | football-data | Sofascore ut | Kambi-väg | Pinnacle |
+|---|---|---|---|---|
+| MLS ✅ (inlagd, i säsong) | new/USA.csv | 242 | football/usa/mls | 2663 |
+| Premier League ✅ research | mmz4281/{säsong}/E0.csv | 17 | football/england/premier_league | 1980 |
+| Bundesliga ✅ research | .../D1.csv | 35 | football/germany/bundesliga | 1842 |
+| La Liga ✅ research | .../SP1.csv | 8 | football/spain/la_liga | 2196 |
+| Serie A ✅ research | .../I1.csv | 23 | football/italy/serie_a | 2436 |
+| Ligue 1 | .../F1.csv | 34 | football/france/ligue_1 | proba |
+OBS: huvudligornas filer ligger under mmz4281/-strukturen (inte new/) och
+Div/FTHG/FTAG-formatet stöds nu av parsern. FÖRVÄNTNING: dessa
+marknader är extremt effektiva — SvS/Pinnacle-gap blir mindre och stängs fortare;
+värdet sitter i tidiga linjer + mindre marknader. Kärnvärdet förblir Norden/MLS.
+Verifiera alltid Sofascore-id:ns SPORT (handbolls-läxan).
+
+**E. Infra/övrigt**
+12. NTFY/notifieringar — pausat 2026-07-16; återuppta först när Saman ber om det.
+13. Betsson (egen oddsmotor) — `brandId`/OBG-kontext löst; eventtabellen
+    CloudFront-blockerad utanför browser, ingen cookie-/WAF-replay.
+14. Servermigrering (Pi 5/N100, launchd→systemd) — beslut öppet sedan tidigare.
+15. Altenar-champ för träningsmatcher/MLS hos Betinia (GetSportMenu-sväng).
+
+## GAMMAL STATUS (historik — nyaste överst)
+
+### Avslutade milstolpar 2026-07-13 → 2026-07-24 (flyttade ur STATUS 2026-07-27 — backlogpunkt C6)
+
 - **Granskningsrunda 2026-07-13** (Codex + Claude-verifiering, full rapport i
   `docs/granskning-2026-07-13.md`): 8/10 områden bekräftade med evidens.
   Åtgärdat samma dag: identitetslager light (WP3 — MLS-fitten 1648→1270 rader,
@@ -707,180 +905,6 @@ fryst arkiv efter verifierad total paritet (delad git-historik, svs sista commit
   Gränsen ändras inte — gamla priser ska inte göras spelbara. Om UX-problemet
   märks blir nästa lösning en separat nedtonad ”senast sedd signal” utan
   Kelly/notis/logg/facit. Se `docs/flimmer-audit-2026-07-23.md`.
-- **EJ GJORT ÄNNU**: NTFY/notifieringsspåret **PAUSAT på Samans begäran
-  2026-07-16** — notera: med notisvakt + källhälsa på plats är det säkert att
-  återaktivera, och utan pushar tävlar systemet inte i latens mot manuell
-  odds-inspektion; beslut om mobil-default för `Bara signaler` återstår;
-  P1/P2-backloggen finns nedan. Europaligorna är inlagda som isolerade
-  forskningsligor och är sedan 2026-07-24 synliga i vanliga Oddset-vyn
-  (🔬, icke-actionable — se produktbeslutet ovan).
-
-## Backlog (WP-struktur efter granskningen 2026-07-13 — HISTORIK; aktiv backlog i `docs/backlog.md`)
-
-Research-grund: steam-värde dör på minuter, inte halvtimmar ("if you're seeing the
-same price after 10-20 min, the value is gone" — [SportBot om steam](https://www.sportbotai.com/blog/steam-moves-betting-explained-ai-data),
-[Arbusers teknisk analys](https://arbusers.com/how-to-find-value-bets-on-sharps-by-odds-movements-aka-technical-analysis-t10188/),
-[CLV-metodik](https://www.wunderdog.com/sports-betting/how-to-beat-the-closing-line-in-sports-betting));
-Dixon-Coles-familjen står sig som guldstandard — XGBoost m. 40–100 features slår
-den sällan med >1 pp ([Wilkens 2026](https://journals.sagepub.com/doi/10.1177/22150218261416681)) →
-jaga inte ML, jaga LATENS, DATAKVALITET och ÄRLIGT FACIT. Granskningsevidens och
-acceptanskriterier per WP: `docs/granskning-2026-07-13.md`.
-
-**Metodregler (tillägg 2026-07-13/16, viker aldrig):**
-- Asiatiska sannolikheter hanteras alltid settlement-aware (push/half-win) —
-  i ankring såväl som prissättning.
-- Notiser kräver närvaro-bekräftat bokpris (sett i senaste varvet) — aldrig larm
-  på pris som kan vara plockat/suspenderat (✅ notisvakten, 2026-07-16).
-- Alla prediktioner loggas vid fasta horisonter med modellversion — flaggor är
-  ett urval för handling, aldrig underlaget för utvärdering (WP5).
-- **Grönt beslutas per signalgrupp** (tier × liga × marknad × version) — aldrig
-  per tier eller aggregat; aggregatraden är enbart översikt.
-- **DB-ändringar = skript + backup + rapport** (`docs/db-atgarder.md`) — aldrig
-  ad-hoc-SQL.
-- Versionspolicy: `signal_version` (s-/m-fingeravtryck av signalrelevanta
-  parametrar + T-kalibrering + DATA_VERSION) grupperar facitet; `git_hash` ger
-  reproducerbarhet. Docs/UI-commits får aldrig fragmentera facitet.
-
-**Klart ur granskningen:** *(2026-07-13)* WP3 identitetslager light (alias +
-datumtolerans ±1 dygn + audit-lista; MLS-fitten sanerad inkl. straff-resultat,
-normaltime-fixen), grönt-kriterium v2 (kluster-bootstrap-KI + versionsstämpel),
-decay-benämningen, A1-snabbpollen (`cli.py smart`). *(2026-07-16, runda 2)*
-WP0 (WAL/busy_timeout/`bulk()`), WP2-mini (notisvakten), version-split
-(signal_version + git_hash, migrerad). *(2026-07-16, Codex)* WP1 settlement-
-ankring + testgrund, WP2 full prisnärvaro/källhälsa, WP4 CLV-identitet +
-linjeflytt-facit, WP5 prediction ledger + grönt v3, WP8a Sofascore seen/retry.
-
-**P0 — sanningslager & matematik (i ordning):**
-- **WP1 ✅ 2026-07-16**: settlement-aware ÖU-ankring för hel/halv/kvart;
-  rotlösningen mäter den slutliga temperaturjusterade matrisen så T inte bryter
-  ankaret. `pair_fair` och ankaret delar settlement-matematik; `anchor` bumpad i
-  MODEL_PARAMS. Historisk T är fortfarande fittad på oankrade 1X2-prediktioner —
-  omkalibrera inte skenbart utan historiska Ö/U-linjer; WP5-ledgern ger PIT-data.
-- **WP2 full ✅ 2026-07-16**: persistent `last_seen_at` per selektion
-  (uppdateras vid dedup-skip), available/suspended, källhälsa, 45-minutersvakt
-  i värde/modell/steam/facit, bekräftelseålder i UI och SvS-deep i 3h-varvet.
-  Misslyckade källanrop ändrar aldrig availability. Migration + backup +
-  rapport finns i `docs/db-atgarder.md`.
-- **WP4 ✅ 2026-07-16**: CLV-identitet = `(match_id, market, sign, line_key,
-  model_version)`; `line_key` är heltalsnormaliserad lina och 1X2 har sentinel.
-  Stängningen använder färskt exakt-line-pris för jämförbart close-EV och
-  sparar samtidigt `closing_line`, `line_delta` och selektionsriktat
-  `line_move_score` (>0 = marknaden rörde sig med spelet). Finns inte färsk
-  exakt lina redovisas `linje flyttad`, aldrig ett fabricerat close-EV.
-  Skript, backup och produktionsutfall finns i `docs/db-atgarder.md`.
-- **WP5 ✅ 2026-07-16**: prediction ledger — ALLA prediktioner vid fasta
-  horisonter (T−24h/−3h/−20m) med sharp-fair/modell-fair, bästa bokpris,
-  availability, kontrollgrupp och komposit signalversion. Capture-markören är
-  atomär och skrivs även vid tomt källutfall; missade horisonter bakfylls aldrig.
-  Timingvakt: max 45/15/10 min sen för 24h/3h/20m i valideringsfacitet.
-  **Grönt-kriterium v3 på ledgern**:
-  status per grupp amber → candidate (n_flags ≥ 50 OCH n_matches ≥ 30 OCH
-  span ≥ 28 d OCH undre 90 %-KI > 0) → green (bekräftad out-of-time: ≥15 nya
-  matcher EFTER candidate-datumet med KI_lo > 0); förregistrerade primära
-  grupper = sharp × 1x2 × de fem riktiga ligorna, övriga (inkl.
-  träningsmatcher) är utforskande och kräver BH-FDR-korrigering (10 %) på
-  kluster-signflip-p-värden före candidate. Rapporten visar n_flags/n_matches/
-  n_weeks/span, kontrollantal och timing; KI märks instabilt under 10 matcher.
-  Modellen fittas i snabbvarv endast när en ny horisont saknas. Ersätter gamla
-  A2 (öppningslinje = första horisonten) och ger gamla A3 (odds-band-facit)
-  gratis.
-
-**P1 — EV-ärlighet, integritet, validering:**
-- **WP6 ✅ 2026-07-16** (S+M): jackpot före radvalet; κ̂-metod och
-  100-omgångsaudit; runtime κ=1,00 enligt konservativ riktning. Portfolio-
-  värderingen räknar alla 6 561 Topptipsetutfall eller 10 000 reproducerbara
-  13-matchsutfall, utfallsberoende Poisson-medvinnare, egna raders konkurrens,
-  EV/risk/percentiler och jämförelse mot snabbformeln.
-- **WP7 ✅ 2026-07-16** (S): ärliga benämningar — "xG-viktad Poisson-
-  styrkefit med DC-korrektion i prediktionen" i kod och alla centrala UI-
-  förklaringar; T:s in-sample-status visas och ledgern pekas ut som oberoende
-  forward-facit.
-- **WP8 ✅ 2026-07-16** (S/M): insamlingsintegritet — seen/retry,
-  tidsstämplad frånvaro med spelar-ID/position och PIT-Elo. Elo har både
-  observerade dagscaptures och providerintervall för historisk `as_of`-läsning;
-  källtimeout lämnar klubben omarkerad för retry. Tre klubbhistoriker är ännu
-  partiella enligt statusblocket, aldrig tyst klassade som kompletta.
-- **WP-test** (M, löpande): testgrund ✅ med standardbibliotekets `unittest`
-  (pytest-kompatibel, ingen dependency). 107 fall täcker bland annat
-  settlement/push/kvart, temperatur-roundtrip, normaltime, seen-retry/404,
-  bulk-rollback, prisnärvaro, Elo-PIT/retry samt CLV-identitet/linjeflytt och
-  WP6:s Poissonandel, portföljkonkurrens, full enumeration och reproducerbar MC.
-  Nya regressionsfall läggs före varje framtida fix.
-- **WP3-tillägg ✅ 2026-07-16** (S): fuzzy-links-audit — ALLA icke-exakta/
-  icke-alias-länkar visar likhet + antal berörda matcher + verified-flagga.
-  Godkända länkar ligger i TEAM_ALIAS/meta; kända falska länkar ligger i en
-  verifierad avvisningslista. Auto-gräns 0,75, review-band 0,55–0,75. Scope:
-  WP3 light löser resultatmergen — INTE pre-match-eventidentitet/spelare/
-  arenor/provider-ID generellt.
-- **Backtest v4 ✅ 2026-07-16:** q-grid med förregistrerad policy q=1,5 %,
-  edgegolv 2 %, matchblock-KI, B365-täckning/Max-tak och X-frekvens per liga.
-  Ingen policyändring; se `docs/backtest-v4-2026-07-16.md`.
-
-**P1 — datakällor (efter WP3, identiteten är förutsättningen):**
-- **WP9a**: ASA (American Soccer Analysis) som oberoende MLS-kontroll — **cert-
-  fel härifrån 2026-07-13** (hostname mismatch via både httpx och Chrome-TLS);
-  verifiera åtkomst innan planering. xG blandas ALDRIG mellan providers — egen
-  kolumn/tagg.
-- **WP9b**: Sofascore coverage-matrix per liga/säsong/endpoint/fält (script →
-  docs). Verifierat 2026-07-13: shot-xG+xGOT finns för Eliteserien (30/30),
-  saknas för Allsvenskan (0/31) — match-xG via /statistics finns för båda.
-- **WP9c ✅ 2026-07-17**: Sofascore team-events (alla tävlingar per lag) ger
-  PIT-säker vila, 7/14/30-dagars belastning och tydligt märkt basarena-reseproxy
-  utan cup-blindhet. 94/94 arenor; 48/48 kommande matcher komplett. Samlas
-  forward men är inte modellinput.
-
-**P2 — senare:**
-- Frånvaro-modellering (gamla B5) — när WP8-historiken samlats; amber tills facit.
-- MLS-kalibrering `oddsetcalibrate` + mls (gamla B7) — efter WP1+WP3 (nu sanerad
-  data, men ankringen först).
-- Hörn-värde grön väg (gamla B8) — efter WP5.
-- Officiell MLS-frånvarorapport, NFF fiksId-sidor (JS-RE), Fogis-spaning,
-  Open-Meteo point-in-time-väder, domare/underlag — features med liten väntad
-  effekt; Betfair Historical: skip tills konkret behov.
-- Manuell spel-journal i appen (skild från forskningsfacitet) — Samans beslut B8
-  i granskningen, öppet.
-
-**C. UI/mobil (Samans punkt: inte optimalt än — parallellspår, blockerar inget)**
-9. ✅ UI v3-pass: spelkorten är 1 kolumn utan sidscroll; 💰 visar fyra först;
-   📈 är kollapsad; datakällor ligger i expander; pool/Bomben har fasta
-   mobilåtgärder; panelernas öppet/stängt-läge sparas och detaljgraferna är
-   responsiva. Kvar som produktbeslut: om 🎯 Bara signaler ska vara mobil-default.
-10. ✅ Oddset-städning: Hörnor-kolumnen döljs när allt innehåll saknas;
-   sekundära bokrader (E/B) styrs med `Fler odds`; liga-/verktygsraden är sticky.
-11. ✅ PWA: manifest, maskbar SVG/PNG-ikon och Apple touch-ikon ger
-    hemskärms-appen egen identitet. Ingen offline-cache — odds ska vara färska.
-    iOS kan lägga sidan på hemskärmen direkt; Chromium kräver HTTPS utanför
-    localhost för att själv erbjuda installation (Tailscale Serve är separat).
-12. ✅ Facit per signalgrupp + candidate-ETA: aktuella primärgrupper har egna
-    statuskort på desktop/mobil; tier-raden är endast aggregat utan grönt-✓.
-
-**D. Stora ligorna — V2.2-research inlagt; UI-synlighet klar 2026-07-24.**
-PL, Bundesliga, La Liga och Serie A samlas nu med Pinnacle/Kambi-1X2,
-historiska topplige-/andradivisionsresultat, Elo och WP9c, och visas i vanliga
-Oddset-vyn som 🔬-märkta forskningsligor. Synligheten är implementerad separat
-från V2.2-actionability, notiser och CLV. Ligue 1 är inte inlagd.
-| Liga | football-data | Sofascore ut | Kambi-väg | Pinnacle |
-|---|---|---|---|---|
-| MLS ✅ (inlagd, i säsong) | new/USA.csv | 242 | football/usa/mls | 2663 |
-| Premier League ✅ research | mmz4281/{säsong}/E0.csv | 17 | football/england/premier_league | 1980 |
-| Bundesliga ✅ research | .../D1.csv | 35 | football/germany/bundesliga | 1842 |
-| La Liga ✅ research | .../SP1.csv | 8 | football/spain/la_liga | 2196 |
-| Serie A ✅ research | .../I1.csv | 23 | football/italy/serie_a | 2436 |
-| Ligue 1 | .../F1.csv | 34 | football/france/ligue_1 | proba |
-OBS: huvudligornas filer ligger under mmz4281/-strukturen (inte new/) och
-Div/FTHG/FTAG-formatet stöds nu av parsern. FÖRVÄNTNING: dessa
-marknader är extremt effektiva — SvS/Pinnacle-gap blir mindre och stängs fortare;
-värdet sitter i tidiga linjer + mindre marknader. Kärnvärdet förblir Norden/MLS.
-Verifiera alltid Sofascore-id:ns SPORT (handbolls-läxan).
-
-**E. Infra/övrigt**
-12. NTFY/notifieringar — pausat 2026-07-16; återuppta först när Saman ber om det.
-13. Betsson (egen oddsmotor) — `brandId`/OBG-kontext löst; eventtabellen
-    CloudFront-blockerad utanför browser, ingen cookie-/WAF-replay.
-14. Servermigrering (Pi 5/N100, launchd→systemd) — beslut öppet sedan tidigare.
-15. Altenar-champ för träningsmatcher/MLS hos Betinia (GetSportMenu-sväng).
-
-## GAMMAL STATUS (historik — nyaste överst)
 
 **2026-07-12 — Etapp 0 + Etapp 1 KLARA.**
 Etapp 0: repo klonat från svs, portar 8002/5175/5181, eget venv, DB seedad, Oddset-flik.

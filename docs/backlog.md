@@ -134,25 +134,33 @@ Ordnade efter mitt förslag, inte beslutade.
    facit för xG- och proxy-signal. Steg 2–3 i `docs/live-radar-2026-07-25.md`.
    Push kräver därefter nytt uttryckligt beslut av Saman.
 
-5. **Matchbook som tredje ankare/reservankare** *(medel-stor)*
+5. ~~**Matchbook som tredje referens**~~ ✅ BYGGD I SKUGGA 2026-07-27
+   (Samans "kör backloggen"): öppen publik väg bekräftad (inga konton/
+   sessioner — källgränsen hålls), `app/matchbook.py` + likviditetstabell,
+   insamling ENBART i 3h-snabbfönstret, sex ligor mappade (MLS/EU-research
+   omappade tills url-name observerats). Aldrig i BOOKS/ankare; ny
+   SHADOW_SOURCES-spärr i värdemotorn. ≥ 28 dagars ren skugga enligt
+   kallplanen innan någon användning föreslås. Ursprungstext:**
    Arbetspaket + acceptans i `docs/bookmaker-kallplan-2026-07-25.md` (börs,
    öppnar sent, likviditet nära avspark; endast shadow ≥ 28 dagar).
    Rekommendation: bygg EFTER två ankare-beslutet — annars bygger vi ankare
    nr 3 innan vi vet om nr 2 ändrar något.
 
-6. **Docs-hygien: komprimera STATUS-loggen i plan.md** *(liten)*
-   STATUS-sammanfattningen är > 500 rader logg; flytta daterade poster äldre än
-   2026-07-24 till GAMMAL STATUS och behåll en kort lägesbild + pekare hit.
-   (Faktafel i källtabell/portar rättade 2026-07-26; resten är omflyttning.)
+6. ~~**Docs-hygien: komprimera STATUS-loggen**~~ ✅ 2026-07-27: 249 rader
+   avslutade milstolpar (2026-07-13→24) flyttade till GAMMAL STATUS under
+   egen rubrik; STATUS bär nu bara aktuellt läge + senaste dygnens poster.
 
 7. ~~**v3-KONSOLIDERINGEN**~~ ✅ KLAR 2026-07-26 (alla fyra stegen samma
    dag på Samans order): Labb-vyn, klickbara värdekort, PH5-byggartext,
    default-byte OCH v2-vyn RIVEN (−412 rader; App.jsx = komponentbibliotek).
    Dessutom: spelläge-pillret (spela/spela smått/avstå) i Poolspel + Idag,
    🎟 Dina kuponger-kort med livestatus på Idag, personligt kupongfacit
-   (PlayedPanel) överst i Historik. KVAR SOM SMÅPUNKTER: rek-historik i
-   matchdetaljen (kräver flags i detail-payloaden), Bomben-spelläge (saknar
-   payouts-flöde). Ursprungsplanen:**
+   (PlayedPanel) överst i Historik. Småpunkterna stängda 2026-07-27:
+   rek-historik i matchdetaljen (📒-sektion via /api/oddset/match-flags),
+   Bomben-spelläge (rullpott-styrd pill) OCH Samans rek-per-match: "Rek"-
+   kolumn i Oddset-vyn för följda ligor (ej träningsmatcher/research) med
+   delade oddsetBestValue/oddsetValueTier så 💰-kort, Idag och Rek aldrig
+   glider isär; "avstå" när inget kvalar. Ursprungsplanen:**
    *(medel-stor; UI-spårens svar på spretigheten)*
    Diagnosen stämmer: två UI:n (v2 default + v3-experimentet) och mätspår
    utspridda över paneler. Plan, i ordning:
