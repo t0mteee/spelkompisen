@@ -29,6 +29,17 @@ LEAGUES = [
      "kambi": "football/norway/eliteserien", "altenar": 3458},
     {"key": "obosligaen", "name": "OBOS-ligaen", "pin_id": 2331,
      "kambi": "football/norway/obos-ligaen", "altenar": None},
+    # Besta deild (2026-07-27, Samans beställning). Recon: Pinnacle 2102
+    # ("Iceland - Premier League", 22 matchups), Kambi kör GAMLA namnet
+    # urvalsdeild (besta_deildin = 404), Ninja/Altenar saknar ligan.
+    # Sofascore ut 188 är VERIFIERAD (fotboll) men medvetet INTE inlagd i
+    # SOFA_UT: den ingår i wp9c-POLICY-fingeravtrycket och hade fraktuerat
+    # V2.2-manifestet — xG/frånvaro/WP9c för Island kopplas vid nästa
+    # naturliga omfrysning. Ingen modell (ingen football-data) — ren
+    # sharp-ankrad väg; facitgruppen är ny och utforskande (BH-FDR) tills
+    # egen volym finns. Smarkets/Matchbook omappade tills slug observerats.
+    {"key": "bestadeild", "name": "Besta deild", "pin_id": 2102,
+     "kambi": "football/iceland/urvalsdeild", "altenar": None},
     {"key": "mls", "name": "MLS", "pin_id": 2663,
      "kambi": "football/usa/mls", "altenar": None},
     {"key": "friendlies", "name": "Träningsmatcher", "pin_id": 1863,

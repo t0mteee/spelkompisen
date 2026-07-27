@@ -5,6 +5,23 @@
 > **Aktiv backlog och prioritering: `docs/backlog.md`** (2026-07-26).
 > WP-listan längre ned är historik över avslutat arbete.
 
+**BESTA DEILD INLAGD SOM SJUNDE LIGA (2026-07-27 kväll, Fable 5, Samans
+beställning).** Recon 30 min: Pinnacle 2102 ("Iceland - Premier League",
+22 matchups), Kambi kör GAMLA vägen `football/iceland/urvalsdeild`
+(besta_deildin = 404), Ninja/Altenar saknar ligan, Sofascore ut 188
+VERIFIERAD fotboll men medvetet INTE i SOFA_UT (hade fraktuerat V2.2-
+manifestet via wp9c-fingeravtrycket — kopplas vid nästa naturliga
+omfrysning ⇒ ingen xG/frånvaro/WP9c för Island än). Smarkets visade sig
+köra TVÅ aktiva slugs för ligan — LEAGUE_SLUGS är nu flervärdig (tupel).
+Ingen modell (ingen football-data); ren sharp-ankrad väg och NY utforskande
+facitgrupp (BH-FDR) — primärgrupperna orörda. Liveverifierad insamling:
+2 Pinnacle- + 2 Kambi-matcher, Smarkets matchad, 31 oddsrader, 0 fel; ligan
+syns i UI med Rek-kolumn. Känd skönhetsfläck: Kambis "ÍB Vestmennaeyjar"
+mot Pinnacles "IBV" mergar inte (fuzzy vågar rätteligen inte efter
+identitetssaneringen) — en dubblettrad för matchen 1/8; alias-mekanism för
+förkortningar är en backlog-småpunkt, INTE en tröskelsänkning.
+331 tester gröna.
+
 **BACKLOGGEN KÖRD (2026-07-27, Fable 5 + två agenter, Samans order "kör
 backloggen förutom ntfy").** (1) **Matchbook byggd i skugga**: öppen publik
 väg bekräftad utan konton (källgränsen), 1X2-pris + likviditet i samma

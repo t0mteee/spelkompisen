@@ -6,7 +6,7 @@ norska Eliteserien, träningsmatcher till att börja med) med sharp-odds, oddsr�
 egen modell och värdespels-tips (1X2, asian handicap, över/under, hörnor på sikt).
 
 **Läge (2026-07-25):** Etapp 0–5 KLARA + långt därutöver. Oddset-delen är i full drift:
-6 ligor (Allsvenskan/Superettan/Eliteserien/OBOS/MLS/träningsmatcher), 4 bokkällor +
+7 ligor (Allsvenskan/Superettan/Eliteserien/OBOS/Besta deild/MLS/träningsmatcher), 4 bokkällor +
 Pinnacle, kvalitetsviktade värdesignaler, steam-radar, xG-viktad Poisson-modell med
 DC-korrektion (amber, settlement-ankrad efter T — kalla den inte DC-MLE), frånvarodata, CLV-facit
 per tier med grönt-kriterium v2 (≥50 stängda OCH undre bootstrap-KI-gräns > 0, per

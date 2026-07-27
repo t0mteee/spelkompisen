@@ -51,6 +51,9 @@ LEAGUE_SLUGS = {
     "serie_a": "italy-serie-a",
     "la_liga": "spain-la-liga",
     "bundesliga": "germany-bundesliga",
+    # Smarkets kör TVÅ aktiva slugs för Besta deild (uppmätt 2026-07-27:
+    # en bettable match under vardera) — värdet får därför vara en tupel.
+    "bestadeild": ("iceland-premier-league", "iceland-besta-deild"),
 }
 
 
@@ -119,12 +122,15 @@ class Smarkets:
         ta. strict=True låter fel bubbla upp; annars tom lista.
         """
         try:
-            slug = LEAGUE_SLUGS.get(league)
-            if not slug:
+            slugs = LEAGUE_SLUGS.get(league)
+            if not slugs:
                 return []
+            if isinstance(slugs, str):
+                slugs = (slugs,)
             evs = events if events is not None else self.upcoming_events()
             mine = [e for e in evs
-                    if f"/{slug}/" in (e.get("full_slug") or "")
+                    if any(f"/{s}/" in (e.get("full_slug") or "")
+                           for s in slugs)
                     and e.get("bettable")]
             if not mine:
                 return []

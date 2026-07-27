@@ -178,6 +178,15 @@ Ordnade efter mitt förslag, inte beslutade.
       spelhelg utan att sakna något — därefter rivningsbeslut för v2
       (aldrig före; mobilflödena sitter i muskelminnet).
 
+### Småpunkter (efter Besta deild-passet 2026-07-27)
+
+- **Förkortningsalias i oddsmatchningen**: Kambis "ÍB Vestmennaeyjar" och
+  Pinnacles "IBV" mergar inte (en dubblettrad 1/8). Lös via explicit
+  aliaslista för odds-resolven — ALDRIG via sänkt fuzzy-tröskel
+  (identitetssaneringens läxa). Liten.
+- **Island → SOFA_UT** (xG/frånvaro/WP9c) vid nästa naturliga
+  V2.2-omfrysning; Matchbook-slug för Island när den observerats.
+
 ## D. Väntar på Saman — beslut eller handling
 
 - **NTFY-återaktivering** — pausad på egen begäran 2026-07-16. Notisvakten +
