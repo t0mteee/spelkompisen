@@ -1,8 +1,8 @@
 # Backlog — aktuell prioritering
 
-**Skapad 2026-07-26 (Fable 5). UTKAST — prioriteringen under "Förslag" kräver
-Samans godkännande innan arbete startar.** Detta är projektets enda aktiva
-backlog. `docs/forbattringar.md` är arkiv (svs-ärvda lärdomar + bokkälls-
+**Skapad 2026-07-26, omprioriterad 2026-07-28 (Fable 5) — aktiv arbetslista
+i "MODELLPLAN" längst ned; arbetsordningen där kräver Samans godkännande.**
+Detta är projektets enda aktiva backlog. `docs/forbattringar.md` är arkiv (svs-ärvda lärdomar + bokkälls-
 kartläggningen), WP-listan i `docs/plan.md` är historik över avslutat arbete.
 
 Metodreglerna i `CLAUDE.md` (observationstid, ANKARE ≠ BOK, transportregeln,
@@ -128,11 +128,10 @@ Ordnade efter mitt förslag, inte beslutade.
    (→ ärlig text: värderad-metoden är fel verktyg för Stryk/Europa).
    Per-omgångs-ROI ligger redan i `docs/ph5-radvalsablation-v2-2026-07-25.json`.
 
-4. **Radar-settlement** *(medel; bygga nu, facit mognar ~mitten av augusti)*
-   Settla radarsignaler mot de två förregistrerade utfallen (mål inom 15 min /
-   ytterligare mål före full tid) villkorat liga × minut × ställning, separata
-   facit för xG- och proxy-signal. Steg 2–3 i `docs/live-radar-2026-07-25.md`.
-   Push kräver därefter nytt uttryckligt beslut av Saman.
+4. ~~**Radar-settlement**~~ ✅ BYGGT (app/live_settlement.py + tester +
+   migrering; settlar i `_live_pass` efter varje varv). Facitet mognar
+   ~mitten av augusti enligt A-tabellens gate. Push kräver därefter nytt
+   uttryckligt beslut av Saman.
 
 5. ~~**Matchbook som tredje referens**~~ ✅ BYGGD I SKUGGA 2026-07-27
    (Samans "kör backloggen"): öppen publik väg bekräftad (inga konton/
@@ -229,16 +228,100 @@ Ordnade efter mitt förslag, inte beslutade.
   "din rad vs folkets"-överlapp, Måltipset (pid 8), veckodagsviktad
   omsättningsprognos.
 
-## Förslag: satsa på detta härnäst (kräver godkännande)
+## MODELLPLAN 2026-07-28 (odds + pool) — aktiv arbetslista
 
-1. **B-fixarna F1–F5** — F1 och F4 först (F1 kan skapa felaktiga flaggor i
-   drift; F4 måste in innan första kupongen bokförs). Allt är småfixar utan
-   signalversions-risk utom F5b som är en medveten versionbump.
-2. **C1 PH3-settlementaudit** — litet, tidskritiskt att göra rätt (första
-   riktiga systemfacitet; feltolkad ROI här förgiftar allt nedströms).
-3. **C2 devig-ablationen** — metodfrågan bakom hela +2,4 %-siffran, gratis data.
-4. **C3 PH5 256/512** — avgör vad byggaren ärligt får lova för 13-matchsspelen.
+**Samans beställning 2026-07-28: "vad mer bör vi köra för att förbättra
+modellerna (odds, pool)?" Ersätter det gamla Förslag-avsnittet (alla dess
+punkter ✅ ovan).** Grundprincip oförändrad: förregistrerade gater, aldrig
+sekventiell testning, marknadspriser äger facitet.
 
-Två ankare-gaten (A) avgör sig själv inom ~en vecka; Matchbook (C5) först
-därefter. C4 radar-settlement kan byggas när som helst — facit mognar ändå
-inte förrän ~mitten av augusti.
+### Spår 1 — Skörda pågående mätningar (ingen kod; beslutspunkter i ordning)
+
+Detta är den billigaste modellförbättringen som finns: mätningarna är redan
+byggda och betalda — de behöver bara läsas på sin kadens och omsättas i
+beslut. Uppskattade beslutsdatum:
+
+1. **Två ankare-gaten** (~första augustiveckan): kör
+   `scripts/tva_ankare_beslut.py` veckovis. Vid grönt: konsensusfilter
+   (devig-ablationens +4,40 % [+2,54..+6,14] mot bara-power −0,49 %) ihop
+   med signal_version-bump — EN bump, inte två. Väg coverage-kostnaden
+   (ankarkravet behöll bara 25 % av flaggorna vid första mätningen).
+2. **Close-drift v2 (a)** — forward-replikering av Ö/U-linjeflytts-
+   reverseringen (23,6 % [15,3..31,9] fortsättningsandel; kohort samlar
+   sedan 26/7): vid replikering → förregistrera pris-EV-storlek → trappan.
+   Först därefter ev. 🔮-tips. Detta är närmaste kandidaten till en HELT NY
+   signalklass sedan sharp-CLV.
+3. **Radar-settlementets facit** (~mitten av augusti): xG-signal vs proxy
+   villkorat liga × minut × ställning. Grönt → beslut om liveflagga (Samans
+   explicita beslut; shadow tills dess).
+4. **V2.2 forwarddom**: research-ligorna har premiärer 15/8; gaten (300
+   kompletta/horisont, ≥ 50/liga, ≥ 42 dagar) avgör om egen modell någonsin
+   får actionability. Passivt — rör inte.
+5. **pit-v4** (pool, ≥ 40 out-of-time-omgångar/produkt) och **PH3-gaten**
+   (n ≥ 40, ≥ 60 dagars spann): passiva, veckoläsning i Labb räcker.
+
+### Spår 2 — Byggbart nu, ordnat efter modellutdelning per timme
+
+**P1. Kappa-kalibrering av medvinnarmodellen** *(pool; medel; störst
+   modellvinst)*. `pool_mc.simulate_pool_portfolio` har medvinnar-
+   kalibreringen `kappa` men runtime kör okalibrerat 1,00 ("tills ett
+   oberoende tidsfönster motiverar annat" — det fönstret finns nu:
+   Historikfacit 697 Stryk / 1 371 Europa / 4 154 Topp med full utdelning).
+   Förregistrera: skatta kappa per produkt genom att jämföra oberoende-
+   antagandets utdelningsprognos (fält × P_folk) mot faktisk utdelning per
+   vinstnivå; out-of-time-split (träna ≤ 2024, validera 2025–26); KI per
+   produkt. Folk spelar korrelerade rader — EV-per-rad är idag systematiskt
+   fel åt optimistiska hållet för folkrader och pessimistiska för skräll.
+   Runtime-kappa byts BARA efter out-of-time-validering + Samans beslut.
+
+**P2. Resultatväg för icke-football-data-ligor** *(odds; medel;
+   facitlucka)*. `refresh_results` läser bara football-data-CSV:erna —
+   cupernas nya flaggor, Besta deild, MLS och friendlies får CLV-mot-close
+   men ALDRIG ROI-facit (BH-FDR-grupperna kan aldrig settla). Bygg
+   resultatinsamling via Sofascore-event (resultat är facit, ingen
+   PIT-fråga; källan används redan) med Kambi settled som rimlighetskoll.
+   Besta deild: prova football-datas new/ISL-fil först. Acceptans: cup-/
+   bestadeild-/mls-flaggor settlar i Signal-facit; inga modellhärledda
+   källor i facitet.
+
+**P3. Förkortningsalias i odds-resolven** *(odds; liten; växande behov)*.
+   IBV-fallet + cupernas ~100 nya klubbnamn över fyra källor gör explicit
+   aliaslista akutare än när punkten skrevs. ALDRIG sänkt fuzzy-tröskel
+   (identitetssaneringens läxa).
+
+**P4. Veckodagsviktad omsättningsprognos** *(pool; liten)*. Dagens
+   `_projected_turnover`-median per produkt missar veckodags-/jackpoteffekt;
+   EV-per-rad ärver felet linjärt. Median per produkt × spelstoppsveckodag
+   × jackpotläge ur Historikfacit; redovisa prognos-mot-utfall i Labb.
+   Komplement till P1 — båda sitter i samma EV-formel.
+
+**P5. PH5:s förregistrerade uppföljning** *(pool; liten; redan definierad)*.
+   Avgör om 13-matchs-underkännandet är budgetberoende (→ täthetsvarning i
+   byggar-UI) eller strukturellt (→ ärlig byggartext). Därefter, som egen
+   förregistrerad fråga: gles täckning via Hamming-spridning.
+
+**P6. Kalibreringsläsning per liga × marknad i Labb** *(odds; liten)*.
+   `oddsetcalibrate` finns som CLI — sätt den på veckokadens i Labb så
+   power-devigens k följs per liga. Cuperna är nya prismiljöer (annan
+   overround, tvåbenta möten) och Besta deild har tunn likviditet — fel
+   devig-form där äter edge-marginalen tyst.
+
+### Spår 3 — Väntar på beslut eller kalender
+
+- **NTFY-återaktivering** (Samans D-punkt): utan pushar tävlar close-drift-
+  och steamfynden aldrig i latens. Rekommenderas ihop med Spår 1.2-beslutet.
+- **Nästa V2.2-omfrysning**: ta in Island OCH ev. cuperna i SOFA_UT/xG/
+  frånvaro i EN omfrysning (inte tre). Kräver nytt fryst manifest.
+- **Rotationsrisk/frånvaro som flaggfilter**: wp9c-serien flödar sedan
+  26/7 (F5c) — förregistrera filterfrågan när serien har ~6 veckors volym
+  (≈ början av september).
+- **September, ligafasstart**: verifiera Kambi-/Smarkets-/FotMob-
+  huvudslugs för cuperna (mönsterhärledda idag, kommenterade i koden).
+- **Servermigrering** (Pi 5/N100): egen checklista när beslutet tas.
+
+### Föreslagen arbetsordning (kräver godkännande)
+
+P1 → P2 → P3 → P4 → P5+P6, med Spår 1-besluten insprängda när deras datum
+faller ut. P1 och P2 är de enda med verklig modellsubstans — resten är
+precision och hygien. Inget i Spår 2 rör signalversioner utom via sina
+förregistrerade beslut.
