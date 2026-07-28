@@ -25,7 +25,8 @@ from . import steam as steam_mod
 from .analysis import analyze_draw, analysis_to_dict
 from .builder import (build_math_system, build_reduced_system,
                       build_guarantee_system, build_svs_rsystem,
-                      build_ev_system, build_color_system, SVS_R12, system_to_dict)
+                      build_ev_system, build_color_system, SVS_R12,
+                      kappa_for, system_to_dict)
 from .collector import collector
 from .pool_mc import materialize_system_rows, simulate_pool_portfolio
 from . import sharp_service
@@ -617,6 +618,10 @@ def system(product: str = "stryktipset",
                 a, concrete_rows, plan, turnover=valuation_turnover,
                 row_price=a.row_price or 1.0, jackpot=jp,
                 turnover_basis=turnover_basis,
+                # PH4-κ per nivå — samma tabell som radvalets EV, så
+                # portföljvärderingen och byggaren berättar samma sanning
+                kappa_by_tier={int(c): kappa_for(product, int(c))
+                               for c in plan["splits"]},
             )
     return system_to_dict(s)
 

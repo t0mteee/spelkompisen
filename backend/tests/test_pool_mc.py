@@ -59,6 +59,32 @@ class PortfolioSimulationTests(unittest.TestCase):
         self.assertAlmostEqual(expected_return,
                                report["top_tier"]["poisson_exact_return"], places=2)
 
+    def test_kappa_per_niva_sanker_ev_som_builderns_radvardering(self) -> None:
+        """PH4-κ per nivå (2026-07-28): portföljvärderingen ska använda samma
+        kalibrering som builder._row_expected_value — κ > 1 ger fler externa
+        medvinnare, lägre utdelning, lägre EV. Konsistens, inte ny modell."""
+        analysis = _analysis([(0.6, 0.3, 0.1)])
+        base = simulate_pool_portfolio(
+            analysis, [["1"]], {"ratio": 0.70, "splits": {1: 1.0}},
+            turnover=10, row_price=1, simulations=100,
+        )
+        corrected = simulate_pool_portfolio(
+            analysis, [["1"]], {"ratio": 0.70, "splits": {1: 1.0}},
+            turnover=10, row_price=1, simulations=100,
+            kappa_by_tier={1: 1.10},
+        )
+        self.assertLess(corrected["mean_return"], base["mean_return"])
+        self.assertEqual({"1": 1.1}, corrected["kappa_by_tier"])
+        self.assertIsNone(base["kappa_by_tier"])
+        # nivå utan mätning faller tillbaka på skalära kappa (1,0)
+        fallback = simulate_pool_portfolio(
+            analysis, [["1"]], {"ratio": 0.70, "splits": {1: 1.0}},
+            turnover=10, row_price=1, simulations=100,
+            kappa_by_tier={0: 1.10},
+        )
+        self.assertAlmostEqual(base["mean_return"], fallback["mean_return"],
+                               places=6)
+
     def test_own_rows_compete_on_lower_prize_tier(self) -> None:
         analysis = _analysis([(0.5, 0.3, 0.2), (0.5, 0.3, 0.2)])
         report = simulate_pool_portfolio(

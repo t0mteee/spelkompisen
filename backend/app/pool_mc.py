@@ -194,14 +194,21 @@ def simulate_pool_portfolio(analysis, rows: list[list[str]], plan: dict,
                             jackpot: float = 0.0,
                             simulations: int = DEFAULT_SIMULATIONS,
                             kappa: float = 1.0,
+                            kappa_by_tier: Optional[dict[int, float]] = None,
                             seed: Optional[int] = None,
                             turnover_basis: str = "provided") -> dict:
     """Värdera ett helt poolsystem med utfallsberoende medvinnare.
 
     För kuponger med högst 3^8 möjliga utfall används full enumeration. För
-    13 matcher används ett deterministiskt Monte Carlo-stickprov. `kappa` är
-    medvinnarkalibrering; runtime ligger konservativt kvar på 1,00 tills ett
-    oberoende tidsfönster motiverar annat.
+    13 matcher används ett deterministiskt Monte Carlo-stickprov.
+
+    Medvinnarkalibrering: `kappa_by_tier` (PH4-κ per vinstnivå, samma tabell
+    som builder._row_expected_value och frontendens evalRows använder sedan
+    2026-07-24) gör portföljvärderingen KONSISTENT med rad-EV:n — tidigare
+    körde den okalibrerat 1,00 medan radvalet var κ-korrigerat, så samma
+    system fick två olika sanningar (2026-07-28). κ ≥ 1 sänker EV och kan
+    aldrig blåsa upp förväntningar (PH4:s ärlighetsargument). Skalära
+    `kappa` är kvar som fallback för nivåer utan mätning och för tester.
     """
     if not rows:
         raise ValueError("Portföljsimulering kräver minst en konkret rad.")
@@ -216,6 +223,12 @@ def simulate_pool_portfolio(analysis, rows: list[list[str]], plan: dict,
         raise ValueError("Portföljsimulering kräver en vinstplan.")
     simulations = max(100, int(simulations))
     kappa = max(0.01, float(kappa))
+    tier_kappa = {int(c): max(0.01, float(v))
+                  for c, v in (kappa_by_tier or {}).items()}
+
+    def _kappa(correct: int) -> float:
+        return tier_kappa.get(correct, kappa)
+
     jackpot = max(0.0, float(jackpot))
     fair, folk = _probability_tables(analysis)
     masks, all_rows = _row_masks(rows, n_matches)
@@ -238,7 +251,10 @@ def simulate_pool_portfolio(analysis, rows: list[list[str]], plan: dict,
         folk_hits = _poisson_binomial(
             [folk[i][sign_index] for i, sign_index in enumerate(encoded)])
         for correct, pool in pools.items():
-            dividend = pool / (field_rows * folk_hits[correct] + 1.0)
+            # samma κ som builder-EV:n — annars jämför vi mot en okalibrerad
+            # variant som inte längre finns i drift
+            dividend = pool / (
+                field_rows * folk_hits[correct] * _kappa(correct) + 1.0)
             analytical_by_tier[correct] += fair_hits[correct] * min(pool, dividend)
 
     # Toppnivån kan räknas utan utfalls-MC. Dubblettrader grupperas så även
@@ -250,7 +266,7 @@ def simulate_pool_portfolio(analysis, rows: list[list[str]], plan: dict,
         folk_probability = math.prod(
             folk[i][sign_index] for i, sign_index in enumerate(encoded))
         reciprocal = expected_poisson_reciprocal(
-            field_rows * folk_probability * kappa, multiplicity)
+            field_rows * folk_probability * _kappa(top_tier), multiplicity)
         top_exact += (fair_probability * pools[top_tier]
                       * multiplicity * reciprocal)
 
@@ -293,7 +309,8 @@ def simulate_pool_portfolio(analysis, rows: list[list[str]], plan: dict,
             own = own_counts[correct]
             if not own:
                 continue
-            expected_external = field_rows * external_hits[correct] * kappa
+            expected_external = (field_rows * external_hits[correct]
+                                 * _kappa(correct))
             portfolio_share = min(
                 pool,
                 pool * own * expected_poisson_reciprocal(expected_external, own),
@@ -336,6 +353,8 @@ def simulate_pool_portfolio(analysis, rows: list[list[str]], plan: dict,
         "turnover_basis": turnover_basis,
         "jackpot": round(jackpot, 2),
         "kappa": round(kappa, 4),
+        "kappa_by_tier": {str(c): round(v, 4)
+                          for c, v in sorted(tier_kappa.items())} or None,
         "cost": round(cost, 2),
         "mean_return": round(mean_return, 2),
         "net_ev": round(mean_return - cost, 2),
