@@ -648,6 +648,17 @@ class MultiSourceLeagueTests(unittest.TestCase):
         # 2 Pinnacle-batchar + 2 Kambi-batchar, ingen tappad på vägen
         self.assertEqual(4, len([m for m in ms if m["league"] == "cuptest"]))
 
+    def test_alias_kollapsar_forkortning_och_felstavning(self) -> None:
+        """IBV-fallet: Pinnacle 'IBV' och Kambi 'ÍB Vestmennaeyjar' ska bli
+        samma identitet. Aliaset sitter SIST i norm_team så exakta, fuzzy
+        och radarjämförelser alla ser kanoniskt namn."""
+        self.assertEqual("vestmannaeyjar", oddset.norm_team("IBV"))
+        self.assertEqual("vestmannaeyjar",
+                         oddset.norm_team("ÍB Vestmennaeyjar"))
+        self.assertEqual(1.0, oddset._team_sim("IBV", "ÍB Vestmennaeyjar"))
+        # Okända namn passerar orörda — listan är observerade par, ingen regel.
+        self.assertEqual("fram reykjavik", oddset.norm_team("Fram Reykjavík"))
+
     def test_vanlig_liga_faller_tillbaka_pa_singelfalten(self) -> None:
         self.assertEqual([1728], oddset._pin_ids(
             {"key": "allsvenskan", "pin_id": 1728}))

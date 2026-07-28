@@ -187,15 +187,29 @@ MIN_TEAM_SIDE_SIM = 0.55
 MIN_MATCH_SCORE = 0.75
 
 
+# Förkortningsalias (2026-07-28, backlog-småpunkten): normaliserat källnamn
+# → kanoniskt namn, tillämpat SIST i norm_team så alla jämförelser (exakta,
+# fuzzy, radar) ser samma identitet. ENDAST observerade par — identitets-
+# saneringens läxa är att hellre lämna en rad olänkad än felmerga, så listan
+# växer per bekräftat fall och ALDRIG via generella regler.
+# IBV-fallet: Pinnacle "IBV" ↔ Kambi "ÍB Vestmennaeyjar" (Kambi stavar
+# dessutom med e) mergade aldrig → dubblettrad i drift för 1/8-matchen.
+TEAM_ALIASES = {
+    "ibv": "vestmannaeyjar",
+    "vestmennaeyjar": "vestmannaeyjar",
+}
+
+
 def norm_team(name: str) -> str:
     """Normalisera klubbnamn för källmatchning: gemener, inga diakriter,
-    föreningssuffix borta (om något annat blir kvar)."""
+    föreningssuffix borta (om något annat blir kvar), känt alias sist."""
     s = (name or "").translate(_CHARMAP)
     s = unicodedata.normalize("NFD", s)
     s = "".join(c for c in s if not unicodedata.combining(c)).casefold()
     toks = [t for t in s.split() if t]
     kept = [t for t in toks if t not in _NOISE]
-    return " ".join(kept or toks)
+    out = " ".join(kept or toks)
+    return TEAM_ALIASES.get(out, out)
 
 
 def _team_sim(a: str, b: str) -> float:
