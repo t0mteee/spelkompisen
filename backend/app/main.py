@@ -259,15 +259,54 @@ def _payout_ratio(plan: dict) -> float:
     return plan["ratio"] * sum(plan["splits"].values())
 
 
-def _projected_turnover(product: str, current: float) -> float | None:
-    """Förväntad SLUTomsättning = medianen av de senaste avgjorda omgångarnas
-    slutomsättning (cachas 6 h i meta). Tidig låg omsättning ger annars
-    glädje-EV: både potter och medvinnare skalar med omsättningen."""
-    import json as _json
+def _finalturn_key(product: str, weekday: int | None) -> str:
+    return (f"finalturn_{product}:"
+            + (f"wd{weekday}" if weekday is not None else "any"))
 
+
+def _close_weekday(close_iso: str | None) -> int | None:
+    if not close_iso:
+        return None
+    try:
+        return dt.datetime.fromisoformat(
+            close_iso.replace("Z", "+00:00")).weekday()
+    except (TypeError, ValueError):
+        return None
+
+
+def _projection_basis(product: str, close_iso: str | None) -> dict | None:
+    """Prognosgrunden (veckodag, n, läge) för UI:t — läser cachen som
+    _projected_turnover just skrev; None om ingen prognos gjorts."""
+    import json as _json
     store = Storage()
     try:
-        key = f"finalturn_{product}"
+        cached = store.meta_get(
+            _finalturn_key(product, _close_weekday(close_iso)))
+        return _json.loads(cached) if cached else None
+    except (ValueError, TypeError):
+        return None
+    finally:
+        store.close()
+
+
+def _projected_turnover(product: str, current: float,
+                        close_iso: str | None = None) -> float | None:
+    """Förväntad SLUTomsättning ur det LOKALA settlementlagret (P4 2026-07-28):
+    medianen av de senaste 8 avgjorda omgångarna med SAMMA spelstoppsveckodag.
+    Europatipsets onsdagsomgångar omsätter en bråkdel av söndagens, och den
+    gamla senaste-6-medianen blandade dagtyperna (den gjorde dessutom upp till
+    15 resultat-anrop mot SvS per cache-miss — nu noll nätverk). Recency bär
+    säsongseffekten (sommar ~12 M mot årsmedel ~24 M för Stryk) utan egen
+    modell. Jackpotläget är MEDVETET utelämnat: settlementlagret saknar
+    jackpotkolumn och snapshot-serien började 2026-07-24 — omprövas när den
+    har volym. Tidig låg omsättning ger annars glädje-EV: både potter och
+    medvinnare skalar med omsättningen."""
+    import json as _json
+
+    weekday = _close_weekday(close_iso)
+    store = Storage()
+    try:
+        key = _finalturn_key(product, weekday)
         cached = store.meta_get(key)
         if cached:
             try:
@@ -278,23 +317,29 @@ def _projected_turnover(product: str, current: float) -> float | None:
                     return max(current, float(c["median"]))
             except (ValueError, KeyError):
                 pass
-        vals: list[float] = []
-        with SvenskaSpel() as ss:
-            ds = ss.list_draws(product, start_hint=_seed_hint(product))
-            nr = (min(d["draw_number"] for d in ds) - 1) if ds else None
-            tried = 0
-            while nr and len(vals) < 6 and tried < 15:
-                res = ss.get_result(product, nr)
-                tried += 1
-                nr -= 1
-                if res and res.get("turnover"):
-                    vals.append(res["turnover"])
+        rows = [(r[0], float(r[1])) for r in store.conn.execute(
+            "SELECT reg_close_time, net_sale FROM pool_draw_settlement "
+            "WHERE product=? AND net_sale > 0 AND reg_close_time IS NOT NULL "
+            "ORDER BY reg_close_time DESC LIMIT 60", (product,))]
+        mode, vals = "weekday", []
+        if weekday is not None:
+            for close_at, sale in rows:
+                if _close_weekday(close_at) == weekday:
+                    vals.append(sale)
+                if len(vals) >= 8:
+                    break
+        if len(vals) < 3:
+            # för få jämförbara veckodagsomgångar: senaste 6 oavsett dag
+            # (gamla semantiken) — redovisas som fallback, inte gömt
+            mode, vals = "fallback", [sale for _, sale in rows[:6]]
         if not vals:
             return None
-        vals.sort()
-        median = vals[len(vals) // 2]
+        ordered = sorted(vals)
+        median = ordered[len(ordered) // 2]
         store.meta_set(key, _json.dumps(
-            {"ts": dt.datetime.now(dt.timezone.utc).isoformat(), "median": median}))
+            {"ts": dt.datetime.now(dt.timezone.utc).isoformat(),
+             "median": median, "weekday": weekday, "n": len(vals),
+             "mode": mode}))
         return max(current, median)
     finally:
         store.close()
@@ -494,8 +539,10 @@ def payouts(product: str = "stryktipset", draw: int | None = None):
     # 65 % när verklig utbetalning är 59,7 % (uppmätt, se _payout_ratio).
     payout_ratio = _payout_ratio(plan)
     spelvarde = payout_ratio + (jackpot / turnover if turnover else 0.0)
-    projected = _projected_turnover(product, turnover) or turnover
+    projected = _projected_turnover(
+        product, turnover, close_iso=d.reg_close_time) or turnover
     spelvarde_proj = payout_ratio + (jackpot / projected if projected else 0.0)
+    basis = _projection_basis(product, d.reg_close_time)
     return {"available": turnover > 0, "draw_number": d.draw_number,
             "product": product,   # frontend behöver den för κ-korrektionen
             "turnover": turnover, "row_price": row_price,
@@ -506,6 +553,7 @@ def payouts(product: str = "stryktipset", draw: int | None = None):
             "extra_info": d.extra_info,
             "spelvarde": round(spelvarde, 4),
             "projected_turnover": projected,
+            "projection_basis": basis,
             "spelvarde_proj": round(spelvarde_proj, 4),
             "tiers": tiers}
 
@@ -559,8 +607,10 @@ def system(product: str = "stryktipset",
     turnover_basis = "live"
     if plan and valuation_turnover > 0:
         try:
-            projected_turnover = (_projected_turnover(product, valuation_turnover)
-                                  or valuation_turnover)
+            projected_turnover = (
+                _projected_turnover(product, valuation_turnover,
+                                    close_iso=a.reg_close_time)
+                or valuation_turnover)
         except Exception:  # prognosfel ska inte blockera ett spelbart system
             projected_turnover = valuation_turnover
         if projected_turnover > valuation_turnover:

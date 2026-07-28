@@ -90,7 +90,8 @@ def freeze_due(store: Storage, product: str, draw: Draw,
             if analysis is None:
                 analysis = analyze_draw(draw, sharp or {}, movement or {})
                 turnover_used, basis = _valuation_turnover(
-                    store, product, analysis.turnover or 0.0)
+                    store, product, analysis.turnover or 0.0,
+                    close_iso=close.isoformat())
                 if turnover_used > (analysis.turnover or 0.0):
                     analysis.turnover = turnover_used
                 jp = max(0.0, jackpot or 0.0)
@@ -129,13 +130,14 @@ def freeze_due(store: Storage, product: str, draw: Draw,
     return report
 
 
-def _valuation_turnover(store: Storage, product: str,
-                        current: float) -> tuple[float, str]:
+def _valuation_turnover(store: Storage, product: str, current: float,
+                        close_iso: str | None = None) -> tuple[float, str]:
     """Samma värderingshorisont som /api/system: prognostiserad slutomsättning
     om den är högre än live-omsättningen (annars glädje-EV tidigt i veckan)."""
     try:
         from .main import _projected_turnover
-        projected = _projected_turnover(product, current) or current
+        projected = (_projected_turnover(product, current, close_iso=close_iso)
+                     or current)
     except Exception:  # noqa: BLE001 — prognosfel får inte stoppa frysningen
         projected = current
     if projected > current:
