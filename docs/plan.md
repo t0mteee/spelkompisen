@@ -21,8 +21,9 @@ close-EV +2,5 % — close-EV äger grindarna, 🎯-raden är display.
 odds-flödet upptäckta = egen designpunkt (teckenspegling krävs — bygg
 inte utan förregistrering). (5) PH5:s Hamming-fråga förregistrerad
 (`docs/ph5-hamming-forregistrering-2026-07-28.md`), arm i scriptet,
-fullkörning 256/512 pågick vid skrivning — domen förs in i det
-dokumentet. (6) UI: 🎯 resultat-ROI + 🌡 kalibrering i Signal-loggen,
+fullkörning 256/512 KLAR 29/7: grinden passeras INTE (endast Stryk-256
+signifikant, gränsfall; slump ej klart sämst) — ingen byggaråtgärd,
+dom i förregistreringsdokumentet. (6) UI: 🎯 resultat-ROI + 🌡 kalibrering i Signal-loggen,
 prognosgrund-tooltip; 🧬 MODELLHÄLSA-kort i Labb (utfalls-facit,
 prognosfel per produkt/metod, PH4-OOT-räknare) via /api/pool/
 turnover-prognos. Prognos-METODVALET är datadrivet per produkt —

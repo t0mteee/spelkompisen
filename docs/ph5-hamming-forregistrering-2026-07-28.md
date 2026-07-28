@@ -39,6 +39,22 @@ bryts av högre marknadssannolikhet (lägre poolindex). Ingen slump.
 `scripts/ph5_radvalsablation.py --product stryktipset --product
 europatipset --budget {256,512} --json docs/ph5-hamming-{budget}-2026-07-28.json`
 
-## Resultat
+## Resultat (körd 2026-07-28→29; JSON: ph5-hamming-{256,512}-2026-07-28.json)
 
-*(fylls i efter körning)*
+Parad winsoriserad differens **varderader − hamming** (negativt = hamming
+bättre), block-bootstrap KI90:
+
+| Produkt | 256 rader | 512 rader |
+|---|---|---|
+| Stryktipset (n=223) | **−7,0 pp [−14,2..−0,0]** | +1,4 pp [−6,7..+8,9] |
+| Europatipset (n=506) | −2,0 pp [−6,5..+2,7] | +1,0 pp [−3,4..+5,7] |
+
+**DOM: grinden passeras INTE.** Hamming slår värderaderna med hela KI:t
+endast för Stryktipset vid 256 (och där tangerar övre gränsen noll) —
+inte för Europatipset, och ingenting vid 512. Sanity-kriteriet är
+dessutom ansträngt: slump ligger inte klart sämst (Stryk 256:
+varderader−slump −5,0 pp [−11,8..+1,8]), vilket förstärker bilden från
+täthetsanalysen att 13-matchsbudgetarna är brusdominerade snarare än
+metodskiljande. Ingen byggaråtgärd; Stryk-256-signalen får tala igen
+först i en NY förregistrering på framtida omgångar om frågan väcks.
+Den ärliga byggartexten för 13-matchsspelen står oförändrad kvar.

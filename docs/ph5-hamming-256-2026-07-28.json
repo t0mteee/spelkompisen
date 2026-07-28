@@ -1,0 +1,6041 @@
+{
+ "cohort": "final_only-radval-v2",
+ "seed": 20260725,
+ "budget": 256.0,
+ "products": {
+  "stryktipset": {
+   "n_available": 224,
+   "n_used": 224,
+   "n_incomplete_payout": 0,
+   "n_build_failed": 0,
+   "arms": {
+    "favoritrad": {
+     "n_draws": 224,
+     "mean_roi_unpaired": -0.2806,
+     "ci90_unpaired": [
+      -0.5933,
+      0.1228
+     ],
+     "top_tier_hits": 7
+    },
+    "folkrad": {
+     "n_draws": 224,
+     "mean_roi_unpaired": -0.3727,
+     "ci90_unpaired": [
+      -0.6671,
+      0.0166
+     ],
+     "top_tier_hits": 6
+    },
+    "hamming": {
+     "n_draws": 224,
+     "mean_roi_unpaired": -0.1013,
+     "ci90_unpaired": [
+      -0.6294,
+      0.6756
+     ],
+     "top_tier_hits": 4
+    },
+    "slump": {
+     "n_draws": 224,
+     "mean_roi_unpaired": -0.6578,
+     "ci90_unpaired": [
+      -0.7471,
+      -0.5543
+     ],
+     "top_tier_hits": 1
+    },
+    "varderader": {
+     "n_draws": 224,
+     "mean_roi_unpaired": -0.6111,
+     "ci90_unpaired": [
+      -0.7899,
+      -0.4067
+     ],
+     "top_tier_hits": 1
+    }
+   },
+   "paired_vs_baselines": {
+    "favoritrad": {
+     "n": 224,
+     "mean_diff_w": -0.0419,
+     "median_diff": 0.0,
+     "ci90": [
+      -0.1124,
+      0.0245
+     ],
+     "win_share": 0.1964
+    },
+    "folkrad": {
+     "n": 224,
+     "mean_diff_w": -0.0281,
+     "median_diff": 0.0,
+     "ci90": [
+      -0.0962,
+      0.04
+     ],
+     "win_share": 0.2098
+    },
+    "hamming": {
+     "n": 224,
+     "mean_diff_w": -0.0703,
+     "median_diff": 0.0,
+     "ci90": [
+      -0.1419,
+      -0.0002
+     ],
+     "win_share": 0.1786
+    },
+    "slump": {
+     "n": 224,
+     "mean_diff_w": -0.0501,
+     "median_diff": 0.0,
+     "ci90": [
+      -0.1175,
+      0.0181
+     ],
+     "win_share": 0.192
+    }
+   },
+   "per_draw_roi": [
+    {
+     "draw": 4723,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4725,
+     "varderader": -0.70703125,
+     "folkrad": 0.15230468750000004,
+     "favoritrad": -0.043007812499999964,
+     "slump": 0.054648437500000036,
+     "hamming": -0.31644531249999996
+    },
+    {
+     "draw": 4726,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.625,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4727,
+     "varderader": -1.0,
+     "folkrad": 0.9060546875,
+     "favoritrad": 0.5975390625000001,
+     "slump": 0.2889453125000001,
+     "hamming": 0.4803515625000001
+    },
+    {
+     "draw": 4728,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4729,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4730,
+     "varderader": -1.0,
+     "folkrad": -0.28910156249999996,
+     "favoritrad": 0.44914062500000007,
+     "slump": 5.2909375,
+     "hamming": 1.0115625000000001
+    },
+    {
+     "draw": 4731,
+     "varderader": 0.8123828125000001,
+     "folkrad": -0.640625,
+     "favoritrad": -0.640625,
+     "slump": -1.0,
+     "hamming": -0.8203125
+    },
+    {
+     "draw": 4732,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4733,
+     "varderader": -1.0,
+     "folkrad": -0.23441406249999996,
+     "favoritrad": -0.80859375,
+     "slump": 0.5310937499999999,
+     "hamming": -0.80859375
+    },
+    {
+     "draw": 4734,
+     "varderader": -1.0,
+     "folkrad": -0.31257812500000004,
+     "favoritrad": -0.65625,
+     "slump": -0.65625,
+     "hamming": -0.65625
+    },
+    {
+     "draw": 4735,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4736,
+     "varderader": -1.0,
+     "folkrad": -0.17191406249999996,
+     "favoritrad": -0.8046875,
+     "slump": -0.51171875,
+     "hamming": -0.609375
+    },
+    {
+     "draw": 4737,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4738,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4739,
+     "varderader": -1.0,
+     "folkrad": 23.9617578125,
+     "favoritrad": 23.6727734375,
+     "slump": -1.0,
+     "hamming": -0.13289062500000004
+    },
+    {
+     "draw": 4740,
+     "varderader": -0.87109375,
+     "folkrad": -0.7421875,
+     "favoritrad": -1.0,
+     "slump": -0.61328125,
+     "hamming": -0.5391015625
+    },
+    {
+     "draw": 4741,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4742,
+     "varderader": -0.7109375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4743,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.578125,
+     "hamming": -0.578125
+    },
+    {
+     "draw": 4744,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4745,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.43363281249999996,
+     "hamming": -0.43363281249999996
+    },
+    {
+     "draw": 4746,
+     "varderader": 0.3826562499999999,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4749,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4750,
+     "varderader": -0.08609374999999997,
+     "folkrad": 13.524921875,
+     "favoritrad": 13.524921875,
+     "slump": -0.6953125,
+     "hamming": 12.306484375
+    },
+    {
+     "draw": 4751,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4752,
+     "varderader": -0.09773437500000004,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4753,
+     "varderader": 10.417890625,
+     "folkrad": -0.26175781249999996,
+     "favoritrad": 0.6444140625000001,
+     "slump": 0.8240624999999999,
+     "hamming": 0.6131640625000001
+    },
+    {
+     "draw": 4754,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4756,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4757,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.484375,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4759,
+     "varderader": -0.8828125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4760,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4761,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4762,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4763,
+     "varderader": -1.0,
+     "folkrad": -0.08597656249999996,
+     "favoritrad": -0.4921875,
+     "slump": 0.6287499999999999,
+     "hamming": 0.6287499999999999
+    },
+    {
+     "draw": 4764,
+     "varderader": -0.86328125,
+     "folkrad": -1.0,
+     "favoritrad": -0.86328125,
+     "slump": 0.28507812500000007,
+     "hamming": -0.31644531249999996
+    },
+    {
+     "draw": 4765,
+     "varderader": -1.0,
+     "folkrad": -0.7890625,
+     "favoritrad": -0.9296875,
+     "slump": -0.859375,
+     "hamming": -0.859375
+    },
+    {
+     "draw": 4766,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4767,
+     "varderader": -0.73828125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.10164062500000004,
+     "hamming": -0.4765625
+    },
+    {
+     "draw": 4768,
+     "varderader": -0.6875,
+     "folkrad": -0.84375,
+     "favoritrad": -0.6875,
+     "slump": -0.6875,
+     "hamming": -0.84375
+    },
+    {
+     "draw": 4769,
+     "varderader": 0.21867187500000007,
+     "folkrad": 0.01945312500000007,
+     "favoritrad": 0.4178515625000001,
+     "slump": -0.32425781249999996,
+     "hamming": 3.5061328124999998
+    },
+    {
+     "draw": 4770,
+     "varderader": 1.38234375,
+     "folkrad": -0.70703125,
+     "favoritrad": -0.70703125,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4771,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4773,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4774,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4775,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4776,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.6875
+    },
+    {
+     "draw": 4777,
+     "varderader": -1.0,
+     "folkrad": -0.78125,
+     "favoritrad": -1.0,
+     "slump": -0.78125,
+     "hamming": -0.78125
+    },
+    {
+     "draw": 4779,
+     "varderader": -0.8828125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.8828125,
+     "hamming": -0.8828125
+    },
+    {
+     "draw": 4780,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4781,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4782,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4783,
+     "varderader": -1.0,
+     "folkrad": 30.9854296875,
+     "favoritrad": 30.2433984375,
+     "slump": -0.25785156249999996,
+     "hamming": 29.1301953125
+    },
+    {
+     "draw": 4784,
+     "varderader": -1.0,
+     "folkrad": -0.14457031249999996,
+     "favoritrad": -0.011757812499999964,
+     "slump": 0.29679687500000007,
+     "hamming": -0.14457031249999996
+    },
+    {
+     "draw": 4785,
+     "varderader": -1.0,
+     "folkrad": -0.8359375,
+     "favoritrad": -0.671875,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4787,
+     "varderader": -0.94140625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.94140625
+    },
+    {
+     "draw": 4788,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4789,
+     "varderader": -0.78515625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4790,
+     "varderader": -0.734375,
+     "folkrad": -0.6016015625,
+     "favoritrad": -0.734375,
+     "slump": -0.8671875,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4791,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4792,
+     "varderader": 0.45695312500000007,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4793,
+     "varderader": -0.71484375,
+     "folkrad": 14.6707421875,
+     "favoritrad": 15.240859375,
+     "slump": -0.71484375,
+     "hamming": 13.5302734375
+    },
+    {
+     "draw": 4794,
+     "varderader": -0.65625,
+     "folkrad": -0.65625,
+     "favoritrad": -0.7421875,
+     "slump": -0.45703125,
+     "hamming": -0.62890625
+    },
+    {
+     "draw": 4795,
+     "varderader": -0.828125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4796,
+     "varderader": -1.0,
+     "folkrad": -0.8046875,
+     "favoritrad": -0.8046875,
+     "slump": -0.46875,
+     "hamming": -0.8046875
+    },
+    {
+     "draw": 4797,
+     "varderader": -0.24613281249999996,
+     "folkrad": 0.10929687500000007,
+     "favoritrad": 0.3084765625000001,
+     "slump": -0.66796875,
+     "hamming": -0.33597656249999996
+    },
+    {
+     "draw": 4798,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4799,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -0.9296875,
+     "slump": -0.71875,
+     "hamming": -0.859375
+    },
+    {
+     "draw": 4800,
+     "varderader": -1.0,
+     "folkrad": -0.6875,
+     "favoritrad": -0.6875,
+     "slump": -0.84375,
+     "hamming": -0.6875
+    },
+    {
+     "draw": 4801,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4802,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4803,
+     "varderader": 0.597421875,
+     "folkrad": 0.7653515625,
+     "favoritrad": 0.42949218749999996,
+     "slump": 1.6048437500000001,
+     "hamming": 2.1976171875
+    },
+    {
+     "draw": 4804,
+     "varderader": -0.6250390625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4805,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4806,
+     "varderader": -1.0,
+     "folkrad": -0.765625,
+     "favoritrad": -0.84375,
+     "slump": -0.84375,
+     "hamming": -0.84375
+    },
+    {
+     "draw": 4807,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4808,
+     "varderader": -1.0,
+     "folkrad": -0.578125,
+     "favoritrad": -0.6484375,
+     "slump": -0.6484375,
+     "hamming": -0.453125
+    },
+    {
+     "draw": 4809,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.8203125,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4810,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4811,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4812,
+     "varderader": 1.4646484375000002,
+     "folkrad": -0.859375,
+     "favoritrad": -0.859375,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4813,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4814,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4815,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4816,
+     "varderader": -1.0,
+     "folkrad": -0.578125,
+     "favoritrad": -0.578125,
+     "slump": -0.578125,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4817,
+     "varderader": -1.0,
+     "folkrad": -0.6796875,
+     "favoritrad": -0.6796875,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4818,
+     "varderader": -1.0,
+     "folkrad": 0.8357812499999999,
+     "favoritrad": -0.68359375,
+     "slump": -0.89453125,
+     "hamming": -0.7890625
+    },
+    {
+     "draw": 4819,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4820,
+     "varderader": 0.19527343750000004,
+     "folkrad": -0.82421875,
+     "favoritrad": -0.765625,
+     "slump": -0.94140625,
+     "hamming": -0.8828125
+    },
+    {
+     "draw": 4821,
+     "varderader": -0.87890625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4822,
+     "varderader": 20.1973828125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4823,
+     "varderader": -1.0,
+     "folkrad": -0.46488281249999996,
+     "favoritrad": 0.0701953125000001,
+     "slump": -1.0,
+     "hamming": -0.46488281249999996
+    },
+    {
+     "draw": 4824,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4826,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4827,
+     "varderader": -0.58984375,
+     "folkrad": -0.86328125,
+     "favoritrad": -0.7265625,
+     "slump": -0.7265625,
+     "hamming": -0.86328125
+    },
+    {
+     "draw": 4828,
+     "varderader": -0.8203125,
+     "folkrad": -0.8203125,
+     "favoritrad": -0.8203125,
+     "slump": -0.8203125,
+     "hamming": -0.640625
+    },
+    {
+     "draw": 4829,
+     "varderader": -1.0,
+     "folkrad": 4.7486328125,
+     "favoritrad": 4.7486328125,
+     "slump": -1.0,
+     "hamming": -0.734375
+    },
+    {
+     "draw": 4830,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4832,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.39847656249999996
+    },
+    {
+     "draw": 4833,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.5625,
+     "hamming": -0.78125
+    },
+    {
+     "draw": 4834,
+     "varderader": -0.80859375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4835,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4836,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4837,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4838,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": 0.06636718750000004,
+     "hamming": -0.390625
+    },
+    {
+     "draw": 4839,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.25003906249999996,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4840,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4841,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4842,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.32425781249999996
+    },
+    {
+     "draw": 4843,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4844,
+     "varderader": -0.12503906249999996,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.78125
+    },
+    {
+     "draw": 4845,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4846,
+     "varderader": -0.578125,
+     "folkrad": -0.71875,
+     "favoritrad": -0.5078125,
+     "slump": -0.26566406249999996,
+     "hamming": -0.5625
+    },
+    {
+     "draw": 4847,
+     "varderader": -0.5078125,
+     "folkrad": 0.14835937500000007,
+     "favoritrad": 1.5934374999999998,
+     "slump": 1.8901953125,
+     "hamming": 2.08546875
+    },
+    {
+     "draw": 4848,
+     "varderader": -0.65625,
+     "folkrad": 0.374765625,
+     "favoritrad": 16.633203125,
+     "slump": -0.65625,
+     "hamming": 0.374765625
+    },
+    {
+     "draw": 4849,
+     "varderader": -0.48441406249999996,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4850,
+     "varderader": 0.44121093749999996,
+     "folkrad": -0.8671875,
+     "favoritrad": -0.734375,
+     "slump": -1.0,
+     "hamming": -0.93359375
+    },
+    {
+     "draw": 4851,
+     "varderader": -1.0,
+     "folkrad": -0.7421875,
+     "favoritrad": -0.9140625,
+     "slump": -0.828125,
+     "hamming": -0.9140625
+    },
+    {
+     "draw": 4852,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4853,
+     "varderader": -0.6797265625,
+     "folkrad": 6.3978125,
+     "favoritrad": 7.037890624999999,
+     "slump": 5.4372265625,
+     "hamming": -0.5196093749999999
+    },
+    {
+     "draw": 4854,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4855,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4856,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4857,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4858,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4859,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.25785156249999996,
+     "hamming": -0.38675781249999996
+    },
+    {
+     "draw": 4860,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.15644531250000004,
+     "hamming": -0.7734375
+    },
+    {
+     "draw": 4861,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4862,
+     "varderader": 0.07027343750000004,
+     "folkrad": -0.34765625,
+     "favoritrad": -0.23050781249999996,
+     "slump": -0.3984375,
+     "hamming": 0.37882812500000007
+    },
+    {
+     "draw": 4863,
+     "varderader": -0.25785156249999996,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4864,
+     "varderader": -0.828125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4865,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4866,
+     "varderader": -0.55859375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4867,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.44925781249999996,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4868,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.40234375,
+     "hamming": -0.80078125
+    },
+    {
+     "draw": 4869,
+     "varderader": -0.7890625,
+     "folkrad": -0.47269531249999996,
+     "favoritrad": 0.3826953125000001,
+     "slump": 0.2772265625000001,
+     "hamming": 0.581796875
+    },
+    {
+     "draw": 4870,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4871,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4872,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4873,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -0.81640625,
+     "slump": -0.6328125,
+     "hamming": -0.6328125
+    },
+    {
+     "draw": 4874,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4876,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4878,
+     "varderader": -1.0,
+     "folkrad": -0.8828125,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.8828125
+    },
+    {
+     "draw": 4879,
+     "varderader": -1.0,
+     "folkrad": -0.6094140625,
+     "favoritrad": -0.6875,
+     "slump": -1.0,
+     "hamming": 0.1209765625000001
+    },
+    {
+     "draw": 4880,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4881,
+     "varderader": -0.8984375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.6953125,
+     "hamming": -0.8984375
+    },
+    {
+     "draw": 4882,
+     "varderader": -1.0,
+     "folkrad": -0.4609375,
+     "favoritrad": -0.91015625,
+     "slump": 0.08589843750000004,
+     "hamming": 0.07804687500000007
+    },
+    {
+     "draw": 4884,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -0.6953125,
+     "slump": -0.08597656249999996,
+     "hamming": -0.39066406249999996
+    },
+    {
+     "draw": 4885,
+     "varderader": -0.5469140625,
+     "folkrad": -0.5469140625,
+     "favoritrad": 1.0661718750000002,
+     "slump": -0.7734375,
+     "hamming": -0.66015625
+    },
+    {
+     "draw": 4886,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.7890625,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4887,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4888,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4889,
+     "varderader": 0.44523437500000007,
+     "folkrad": -0.609375,
+     "favoritrad": -0.609375,
+     "slump": -0.84375,
+     "hamming": -0.921875
+    },
+    {
+     "draw": 4890,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4891,
+     "varderader": -0.74609375,
+     "folkrad": -0.49222656249999996,
+     "favoritrad": -0.49222656249999996,
+     "slump": -0.49222656249999996,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4892,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4893,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.39066406249999996,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4894,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.8671875,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4895,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4896,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4897,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4898,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -0.89453125,
+     "slump": -1.0,
+     "hamming": -0.89453125
+    },
+    {
+     "draw": 4899,
+     "varderader": -0.484375,
+     "folkrad": -1.0,
+     "favoritrad": -0.828125,
+     "slump": -0.828125,
+     "hamming": -0.828125
+    },
+    {
+     "draw": 4900,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4901,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.609375,
+     "hamming": -0.8046875
+    },
+    {
+     "draw": 4902,
+     "varderader": -0.9375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4903,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4904,
+     "varderader": -1.0,
+     "folkrad": -0.6953515625,
+     "favoritrad": -0.796875,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4905,
+     "varderader": -0.859375,
+     "folkrad": 1.3352343750000002,
+     "favoritrad": 2.2563671875,
+     "slump": 0.413828125,
+     "hamming": 81.9319921875
+    },
+    {
+     "draw": 4906,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4907,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4908,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.91015625,
+     "hamming": -0.91015625
+    },
+    {
+     "draw": 4909,
+     "varderader": -0.5391015625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4910,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4911,
+     "varderader": -0.6953125,
+     "folkrad": -0.28914062500000004,
+     "favoritrad": -0.28914062500000004,
+     "slump": 5.0299609375,
+     "hamming": 0.3904687499999999
+    },
+    {
+     "draw": 4912,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4913,
+     "varderader": -0.32816406249999996,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4914,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": 0.05460937500000007,
+     "hamming": -0.36722656249999996
+    },
+    {
+     "draw": 4915,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.74609375
+    },
+    {
+     "draw": 4916,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4917,
+     "varderader": 0.8396484375,
+     "folkrad": -0.578125,
+     "favoritrad": -0.36722656249999996,
+     "slump": -0.859375,
+     "hamming": -0.5078515625
+    },
+    {
+     "draw": 4918,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4920,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4921,
+     "varderader": 6.6574609375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": 3.9950390625,
+     "hamming": 0.7498437499999999
+    },
+    {
+     "draw": 4922,
+     "varderader": -0.68359375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4923,
+     "varderader": -1.0,
+     "folkrad": 0.3123437499999999,
+     "favoritrad": 0.3123437499999999,
+     "slump": -1.0,
+     "hamming": -0.34378906249999996
+    },
+    {
+     "draw": 4924,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4925,
+     "varderader": -0.89453125,
+     "folkrad": -0.68359375,
+     "favoritrad": -0.68359375,
+     "slump": -0.7890625,
+     "hamming": -0.89453125
+    },
+    {
+     "draw": 4926,
+     "varderader": -1.0,
+     "folkrad": -0.18753906249999996,
+     "favoritrad": -0.59375,
+     "slump": -0.59375,
+     "hamming": -0.59375
+    },
+    {
+     "draw": 4927,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4928,
+     "varderader": -1.0,
+     "folkrad": -0.25003906249999996,
+     "favoritrad": -0.25003906249999996,
+     "slump": 0.12492187500000007,
+     "hamming": 0.4998828125000001
+    },
+    {
+     "draw": 4929,
+     "varderader": -1.0,
+     "folkrad": -0.89453125,
+     "favoritrad": -0.7890625,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4930,
+     "varderader": -0.8671875,
+     "folkrad": -0.734375,
+     "favoritrad": -0.8671875,
+     "slump": -0.8671875,
+     "hamming": -0.8671875
+    },
+    {
+     "draw": 4931,
+     "varderader": 6.9980859375,
+     "folkrad": -0.921875,
+     "favoritrad": -0.765625,
+     "slump": -0.921875,
+     "hamming": -0.84375
+    },
+    {
+     "draw": 4932,
+     "varderader": -0.9296875,
+     "folkrad": 0.7733203125000001,
+     "favoritrad": 0.34367187500000007,
+     "slump": 1.0583984375000002,
+     "hamming": 3.4131640625
+    },
+    {
+     "draw": 4933,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -0.8515625,
+     "slump": -0.765625,
+     "hamming": -0.62890625
+    },
+    {
+     "draw": 4936,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4937,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4938,
+     "varderader": -0.6875,
+     "folkrad": -0.84375,
+     "favoritrad": -1.0,
+     "slump": -0.375,
+     "hamming": -0.53125
+    },
+    {
+     "draw": 4939,
+     "varderader": -0.73046875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.73046875,
+     "hamming": -0.73046875
+    },
+    {
+     "draw": 4941,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4942,
+     "varderader": -1.0,
+     "folkrad": -0.14847656249999996,
+     "favoritrad": -0.57421875,
+     "slump": -0.14847656249999996,
+     "hamming": -0.57421875
+    },
+    {
+     "draw": 4943,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.703125,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4944,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4945,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4946,
+     "varderader": -1.0,
+     "folkrad": -0.5000390625,
+     "favoritrad": -0.6250390625,
+     "slump": 0.9957421875000001,
+     "hamming": 1.245703125
+    },
+    {
+     "draw": 4947,
+     "varderader": -0.54296875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4948,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4949,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4950,
+     "varderader": -1.0,
+     "folkrad": -0.7734375,
+     "favoritrad": -1.0,
+     "slump": -0.88671875,
+     "hamming": -0.88671875
+    },
+    {
+     "draw": 4951,
+     "varderader": 0.6639453125000001,
+     "folkrad": -0.4453125,
+     "favoritrad": -0.25785156249999996,
+     "slump": -0.75,
+     "hamming": -0.5078125
+    },
+    {
+     "draw": 4952,
+     "varderader": -0.90625,
+     "folkrad": -0.90625,
+     "favoritrad": -0.90625,
+     "slump": -1.0,
+     "hamming": -0.90625
+    },
+    {
+     "draw": 4953,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4954,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4955,
+     "varderader": -0.75,
+     "folkrad": -1.0,
+     "favoritrad": -0.625,
+     "slump": -0.625,
+     "hamming": -0.30472656249999996
+    },
+    {
+     "draw": 4956,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4957,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4958,
+     "varderader": -0.8515625,
+     "folkrad": -0.5547265625,
+     "favoritrad": -0.703125,
+     "slump": -0.23050781249999996,
+     "hamming": -0.6289453125
+    },
+    {
+     "draw": 4959,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 4960,
+     "varderader": -0.23050781249999996,
+     "folkrad": 0.03898437500000007,
+     "favoritrad": -0.05085937500000004,
+     "slump": -0.41019531249999996,
+     "hamming": -0.5508203125
+    },
+    {
+     "draw": 4961,
+     "varderader": -1.0,
+     "folkrad": -0.875,
+     "favoritrad": -0.875,
+     "slump": -0.875,
+     "hamming": -0.9375
+    },
+    {
+     "draw": 4962,
+     "varderader": -0.3907421875,
+     "folkrad": -0.49226562500000004,
+     "favoritrad": 1.1869140625,
+     "slump": -0.3907421875,
+     "hamming": -0.3907421875
+    },
+    {
+     "draw": 4963,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    }
+   ]
+  },
+  "europatipset": {
+   "n_available": 506,
+   "n_used": 506,
+   "n_incomplete_payout": 0,
+   "n_build_failed": 0,
+   "arms": {
+    "favoritrad": {
+     "n_draws": 506,
+     "mean_roi_unpaired": -0.577,
+     "ci90_unpaired": [
+      -0.7566,
+      -0.3219
+     ],
+     "top_tier_hits": 7
+    },
+    "folkrad": {
+     "n_draws": 506,
+     "mean_roi_unpaired": -0.6235,
+     "ci90_unpaired": [
+      -0.7403,
+      -0.477
+     ],
+     "top_tier_hits": 8
+    },
+    "hamming": {
+     "n_draws": 506,
+     "mean_roi_unpaired": -0.6987,
+     "ci90_unpaired": [
+      -0.7688,
+      -0.6171
+     ],
+     "top_tier_hits": 3
+    },
+    "slump": {
+     "n_draws": 506,
+     "mean_roi_unpaired": -0.4643,
+     "ci90_unpaired": [
+      -0.7786,
+      -0.0876
+     ],
+     "top_tier_hits": 2
+    },
+    "varderader": {
+     "n_draws": 506,
+     "mean_roi_unpaired": -0.6589,
+     "ci90_unpaired": [
+      -0.7698,
+      -0.5107
+     ],
+     "top_tier_hits": 3
+    }
+   },
+   "paired_vs_baselines": {
+    "favoritrad": {
+     "n": 506,
+     "mean_diff_w": -0.0111,
+     "median_diff": 0.0,
+     "ci90": [
+      -0.0516,
+      0.0289
+     ],
+     "win_share": 0.1838
+    },
+    "folkrad": {
+     "n": 506,
+     "mean_diff_w": -0.0155,
+     "median_diff": 0.0,
+     "ci90": [
+      -0.0642,
+      0.0272
+     ],
+     "win_share": 0.1996
+    },
+    "hamming": {
+     "n": 506,
+     "mean_diff_w": -0.0196,
+     "median_diff": 0.0,
+     "ci90": [
+      -0.0651,
+      0.027
+     ],
+     "win_share": 0.2095
+    },
+    "slump": {
+     "n": 506,
+     "mean_diff_w": 0.0098,
+     "median_diff": 0.0,
+     "ci90": [
+      -0.0347,
+      0.0558
+     ],
+     "win_share": 0.2253
+    }
+   },
+   "per_draw_roi": [
+    {
+     "draw": 2051,
+     "varderader": 7.362890625,
+     "folkrad": -0.36726562500000004,
+     "favoritrad": -0.0626171875,
+     "slump": 0.4762109375000001,
+     "hamming": 0.28863281249999995
+    },
+    {
+     "draw": 2052,
+     "varderader": -0.5469140625,
+     "folkrad": -0.7734375,
+     "favoritrad": -0.5469140625,
+     "slump": -0.35160156249999996,
+     "hamming": -0.46488281249999996
+    },
+    {
+     "draw": 2053,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2054,
+     "varderader": -0.6484375,
+     "folkrad": -0.43753906249999996,
+     "favoritrad": -0.5078515625,
+     "slump": -0.7890625,
+     "hamming": -0.18757812500000004
+    },
+    {
+     "draw": 2055,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2056,
+     "varderader": -0.9140625,
+     "folkrad": -0.5703515625,
+     "favoritrad": -0.7421875,
+     "slump": -0.7421875,
+     "hamming": -0.5703515625
+    },
+    {
+     "draw": 2057,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2059,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2060,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": 0.8276953125,
+     "hamming": -0.5430078125
+    },
+    {
+     "draw": 2061,
+     "varderader": -0.71875,
+     "folkrad": -0.90625,
+     "favoritrad": -0.90625,
+     "slump": -0.90625,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2062,
+     "varderader": -1.0,
+     "folkrad": -0.8203125,
+     "favoritrad": -0.91015625,
+     "slump": -0.91015625,
+     "hamming": -0.91015625
+    },
+    {
+     "draw": 2063,
+     "varderader": -0.22671874999999997,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2064,
+     "varderader": -0.9375,
+     "folkrad": -0.5000390625,
+     "favoritrad": -0.8125,
+     "slump": -0.31253906249999996,
+     "hamming": -0.6875
+    },
+    {
+     "draw": 2065,
+     "varderader": -0.77734375,
+     "folkrad": -0.77734375,
+     "favoritrad": -0.8515625,
+     "slump": -0.92578125,
+     "hamming": -0.77734375
+    },
+    {
+     "draw": 2066,
+     "varderader": -0.2815234375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2067,
+     "varderader": -0.93359375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2068,
+     "varderader": -0.8125,
+     "folkrad": -1.0,
+     "favoritrad": -0.8125,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2069,
+     "varderader": -1.0,
+     "folkrad": -0.6016015625,
+     "favoritrad": -0.80078125,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2070,
+     "varderader": 0.05851562500000007,
+     "folkrad": 0.48808593749999996,
+     "favoritrad": 0.8278125000000001,
+     "slump": 17.010078125,
+     "hamming": 0.8473828125
+    },
+    {
+     "draw": 2071,
+     "varderader": -0.5351953125,
+     "folkrad": -0.5351953125,
+     "favoritrad": 64.47515625,
+     "slump": 62.616328125,
+     "hamming": -0.5351953125
+    },
+    {
+     "draw": 2072,
+     "varderader": -1.0,
+     "folkrad": -0.8046875,
+     "favoritrad": -0.8046875,
+     "slump": -0.8046875,
+     "hamming": -0.8046875
+    },
+    {
+     "draw": 2073,
+     "varderader": -0.7578515625,
+     "folkrad": -0.7578515625,
+     "favoritrad": -0.7578515625,
+     "slump": -0.5157031249999999,
+     "hamming": -0.6367578125
+    },
+    {
+     "draw": 2074,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2075,
+     "varderader": 0.5933984375000001,
+     "folkrad": 1.1556640625,
+     "favoritrad": 1.1556640625,
+     "slump": -0.7890625,
+     "hamming": -0.7890625
+    },
+    {
+     "draw": 2076,
+     "varderader": -0.7812890625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2077,
+     "varderader": -0.90625,
+     "folkrad": -0.5313281249999999,
+     "favoritrad": -0.5313281249999999,
+     "slump": -1.0,
+     "hamming": -0.7187890625
+    },
+    {
+     "draw": 2078,
+     "varderader": -1.0,
+     "folkrad": -0.26187499999999997,
+     "favoritrad": -0.75390625,
+     "slump": -0.07441406250000004,
+     "hamming": -0.5898828125
+    },
+    {
+     "draw": 2079,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2080,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2081,
+     "varderader": -0.7031640625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2082,
+     "varderader": -0.16031249999999997,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2083,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2084,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2085,
+     "varderader": -0.027539062500000044,
+     "folkrad": 0.05054687499999999,
+     "favoritrad": 0.05054687499999999,
+     "slump": -0.6875390625,
+     "hamming": -0.1837109375
+    },
+    {
+     "draw": 2086,
+     "varderader": -1.0,
+     "folkrad": -0.71484375,
+     "favoritrad": -0.71484375,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2087,
+     "varderader": -0.8671875,
+     "folkrad": -0.6016796875,
+     "favoritrad": -0.6016796875,
+     "slump": -0.6016796875,
+     "hamming": -0.7344140625
+    },
+    {
+     "draw": 2089,
+     "varderader": -1.0,
+     "folkrad": 24.561796875,
+     "favoritrad": 1.0729687499999998,
+     "slump": -1.0,
+     "hamming": 1.7634375000000002
+    },
+    {
+     "draw": 2090,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2091,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2093,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2094,
+     "varderader": -0.2032421875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2095,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2096,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.44535156249999996,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2097,
+     "varderader": 0.2770703125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.86328125,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2098,
+     "varderader": -0.8125,
+     "folkrad": -0.75,
+     "favoritrad": -0.75,
+     "slump": -0.9375,
+     "hamming": -0.875
+    },
+    {
+     "draw": 2099,
+     "varderader": -0.7656640625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2100,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2101,
+     "varderader": -1.0,
+     "folkrad": -0.5703515625,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.5703515625
+    },
+    {
+     "draw": 2102,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2103,
+     "varderader": -0.84375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.84375
+    },
+    {
+     "draw": 2104,
+     "varderader": -0.8125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2105,
+     "varderader": -0.4376171875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2106,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2107,
+     "varderader": -1.0,
+     "folkrad": -0.6484765625,
+     "favoritrad": -0.8828125,
+     "slump": -0.82421875,
+     "hamming": -0.8828125
+    },
+    {
+     "draw": 2108,
+     "varderader": -1.0,
+     "folkrad": 1.6126953125,
+     "favoritrad": 1.0387499999999998,
+     "slump": 0.4099999999999999,
+     "hamming": 0.398203125
+    },
+    {
+     "draw": 2109,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2110,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2111,
+     "varderader": -0.7891015625,
+     "folkrad": -0.5782031249999999,
+     "favoritrad": -0.5782031249999999,
+     "slump": -0.7891015625,
+     "hamming": 4.6671875
+    },
+    {
+     "draw": 2112,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2113,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2115,
+     "varderader": -0.75,
+     "folkrad": 0.32402343749999996,
+     "favoritrad": 0.19906249999999992,
+     "slump": 10.6905859375,
+     "hamming": 0.07406249999999992
+    },
+    {
+     "draw": 2117,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -0.88671875,
+     "slump": -0.7734375,
+     "hamming": -0.88671875
+    },
+    {
+     "draw": 2118,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2119,
+     "varderader": -0.6484765625,
+     "folkrad": 0.132578125,
+     "favoritrad": -0.1173046875,
+     "slump": 0.062304687499999956,
+     "hamming": -0.25789062500000004
+    },
+    {
+     "draw": 2120,
+     "varderader": -1.0,
+     "folkrad": 0.09359374999999992,
+     "favoritrad": -0.17976562500000004,
+     "slump": 0.92140625,
+     "hamming": -0.7265625
+    },
+    {
+     "draw": 2122,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2127,
+     "varderader": -0.875,
+     "folkrad": -0.875,
+     "favoritrad": -0.75,
+     "slump": -0.9375,
+     "hamming": -0.875
+    },
+    {
+     "draw": 2128,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2131,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2132,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.6719140625,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2133,
+     "varderader": 24.4854296875,
+     "folkrad": -1.0,
+     "favoritrad": -0.004101562500000044,
+     "slump": -0.40242187500000004,
+     "hamming": -0.004101562500000044
+    },
+    {
+     "draw": 2134,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2135,
+     "varderader": -0.5234765625,
+     "folkrad": -0.76171875,
+     "favoritrad": -0.5234765625,
+     "slump": 0.7028125000000001,
+     "hamming": -0.046992187500000004
+    },
+    {
+     "draw": 2136,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2137,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2138,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2139,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2141,
+     "varderader": -0.6680078125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2142,
+     "varderader": -1.0,
+     "folkrad": -0.4532421875,
+     "favoritrad": 2.513828125,
+     "slump": -0.6094140625,
+     "hamming": -0.6875390625
+    },
+    {
+     "draw": 2144,
+     "varderader": -1.0,
+     "folkrad": -0.40632812500000004,
+     "favoritrad": -0.40632812500000004,
+     "slump": 0.18718750000000006,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2145,
+     "varderader": -0.35550781249999996,
+     "folkrad": -0.875,
+     "favoritrad": -0.8125,
+     "slump": -0.875,
+     "hamming": -0.9375
+    },
+    {
+     "draw": 2146,
+     "varderader": -1.0,
+     "folkrad": -0.6407031249999999,
+     "favoritrad": -0.46109374999999997,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2147,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2148,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2149,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2150,
+     "varderader": -0.7773828125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2151,
+     "varderader": -0.20710937500000004,
+     "folkrad": 0.5855859375000001,
+     "favoritrad": 0.5855859375000001,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2152,
+     "varderader": -0.6289453125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2153,
+     "varderader": -1.0,
+     "folkrad": -0.76953125,
+     "favoritrad": -0.76953125,
+     "slump": -0.5391015625,
+     "hamming": -0.76953125
+    },
+    {
+     "draw": 2154,
+     "varderader": -1.0,
+     "folkrad": 1.05375,
+     "favoritrad": 0.8548046874999999,
+     "slump": 0.5659765625,
+     "hamming": 0.3863671875000001
+    },
+    {
+     "draw": 2155,
+     "varderader": 0.03109374999999992,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2156,
+     "varderader": -0.86328125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2157,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2158,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2159,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2160,
+     "varderader": -0.7421875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.7421875,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2161,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2162,
+     "varderader": -0.42203124999999997,
+     "folkrad": -0.7109765625,
+     "favoritrad": -0.42203124999999997,
+     "slump": -0.7109765625,
+     "hamming": 2.6221484375
+    },
+    {
+     "draw": 2163,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2164,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2165,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2166,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2167,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2168,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2169,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2170,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.7187890625,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2171,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2172,
+     "varderader": -0.859375,
+     "folkrad": -0.5782031249999999,
+     "favoritrad": -0.4376171875,
+     "slump": -0.29707031250000004,
+     "hamming": -0.12531250000000005
+    },
+    {
+     "draw": 2173,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2174,
+     "varderader": -1.0,
+     "folkrad": -0.6563281249999999,
+     "favoritrad": -0.8281640625,
+     "slump": -1.0,
+     "hamming": -0.9140625
+    },
+    {
+     "draw": 2175,
+     "varderader": -0.5117968749999999,
+     "folkrad": -0.4141796875,
+     "favoritrad": -0.4141796875,
+     "slump": -0.21894531250000004,
+     "hamming": -0.31656249999999997
+    },
+    {
+     "draw": 2176,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2177,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2179,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2181,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.80078125,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2182,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2183,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2184,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2185,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2186,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2187,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.9375
+    },
+    {
+     "draw": 2188,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2189,
+     "varderader": -1.0,
+     "folkrad": -0.37117187500000004,
+     "favoritrad": -0.43757812500000004,
+     "slump": -0.5586328125,
+     "hamming": -0.37117187500000004
+    },
+    {
+     "draw": 2190,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2191,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.80859375
+    },
+    {
+     "draw": 2192,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2193,
+     "varderader": -1.0,
+     "folkrad": -0.5079296875,
+     "favoritrad": -0.5079296875,
+     "slump": -0.34394531250000004,
+     "hamming": -0.016054687500000053
+    },
+    {
+     "draw": 2194,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2195,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2198,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2199,
+     "varderader": -0.8828125,
+     "folkrad": 0.23015625000000006,
+     "favoritrad": -0.06269531250000004,
+     "slump": -0.6484765625,
+     "hamming": 0.11300781250000003
+    },
+    {
+     "draw": 2200,
+     "varderader": -1.0,
+     "folkrad": 1.0305468750000002,
+     "favoritrad": -0.8203125,
+     "slump": -1.0,
+     "hamming": 0.5814453125000001
+    },
+    {
+     "draw": 2201,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2202,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2203,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2204,
+     "varderader": 0.441171875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2205,
+     "varderader": -0.8359375,
+     "folkrad": -0.6719531249999999,
+     "favoritrad": -0.6719531249999999,
+     "slump": -0.8359375,
+     "hamming": -0.8359375
+    },
+    {
+     "draw": 2206,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2207,
+     "varderader": 0.284921875,
+     "folkrad": 2.7946484375,
+     "favoritrad": 3.8438671875,
+     "slump": -0.7070703125,
+     "hamming": 3.2582421874999996
+    },
+    {
+     "draw": 2208,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2209,
+     "varderader": -0.8359375,
+     "folkrad": -0.42585937500000004,
+     "favoritrad": -0.1368359375,
+     "slump": 0.15207031250000003,
+     "hamming": 0.3980859375000001
+    },
+    {
+     "draw": 2210,
+     "varderader": 1.4328906250000002,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2211,
+     "varderader": -1.0,
+     "folkrad": 0.2339843749999999,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.3829296875
+    },
+    {
+     "draw": 2212,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2213,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.8828125,
+     "hamming": -0.8828125
+    },
+    {
+     "draw": 2214,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2216,
+     "varderader": -0.89453125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2217,
+     "varderader": -0.73046875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2218,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2219,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2220,
+     "varderader": -0.86328125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2221,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2224,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2225,
+     "varderader": -0.82421875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": 0.015234374999999911,
+     "hamming": -0.1605078125
+    },
+    {
+     "draw": 2226,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.8828125,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2227,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2228,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.89453125,
+     "hamming": -0.89453125
+    },
+    {
+     "draw": 2229,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": 0.2926171875000001,
+     "hamming": -0.5547265625
+    },
+    {
+     "draw": 2230,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2231,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2233,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2235,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2236,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2237,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2238,
+     "varderader": -1.0,
+     "folkrad": -0.765625,
+     "favoritrad": -0.84375,
+     "slump": -0.921875,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2239,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2240,
+     "varderader": -0.8984375,
+     "folkrad": -0.49222656249999996,
+     "favoritrad": -0.6953125,
+     "slump": -0.10957031250000004,
+     "hamming": -0.25007812500000004
+    },
+    {
+     "draw": 2241,
+     "varderader": -0.39851562500000004,
+     "folkrad": 0.20285156250000003,
+     "favoritrad": -0.39851562500000004,
+     "slump": -0.39851562500000004,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2242,
+     "varderader": 0.49945312500000005,
+     "folkrad": 0.49945312500000005,
+     "favoritrad": 0.49945312500000005,
+     "slump": -1.0,
+     "hamming": -0.2501171875
+    },
+    {
+     "draw": 2243,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2244,
+     "varderader": 0.847109375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2245,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2246,
+     "varderader": -1.0,
+     "folkrad": -0.82421875,
+     "favoritrad": -0.82421875,
+     "slump": -0.82421875,
+     "hamming": -0.82421875
+    },
+    {
+     "draw": 2247,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2248,
+     "varderader": -1.0,
+     "folkrad": 14.6214453125,
+     "favoritrad": 14.192265625,
+     "slump": -1.0,
+     "hamming": 12.474375
+    },
+    {
+     "draw": 2249,
+     "varderader": 0.1326953125000001,
+     "folkrad": 0.007695312500000107,
+     "favoritrad": 0.5076171875,
+     "slump": -0.37503906249999996,
+     "hamming": -0.24226562500000004
+    },
+    {
+     "draw": 2250,
+     "varderader": -0.9375,
+     "folkrad": 0.5151171875,
+     "favoritrad": 0.5151171875,
+     "slump": -0.875,
+     "hamming": -0.8125390625
+    },
+    {
+     "draw": 2251,
+     "varderader": -0.92578125,
+     "folkrad": -0.8515625,
+     "favoritrad": -0.8515625,
+     "slump": -0.92578125,
+     "hamming": -0.92578125
+    },
+    {
+     "draw": 2252,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2253,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2254,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2255,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2256,
+     "varderader": -0.8984375,
+     "folkrad": 0.7025390625000001,
+     "favoritrad": -0.047070312500000044,
+     "slump": 0.9444140624999999,
+     "hamming": 0.7256640624999999
+    },
+    {
+     "draw": 2257,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2258,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2259,
+     "varderader": 1.43640625,
+     "folkrad": -0.1876171875,
+     "favoritrad": 0.6244921875,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2260,
+     "varderader": -0.87890625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2261,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2262,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2263,
+     "varderader": 1.0894140625,
+     "folkrad": -0.890625,
+     "favoritrad": -0.890625,
+     "slump": -1.0,
+     "hamming": -0.890625
+    },
+    {
+     "draw": 2264,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2265,
+     "varderader": -0.90625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2266,
+     "varderader": -0.6641015625,
+     "folkrad": -0.6641015625,
+     "favoritrad": -0.6641015625,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2267,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2268,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.88671875,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2269,
+     "varderader": -0.89453125,
+     "folkrad": -0.6836328125,
+     "favoritrad": -0.6836328125,
+     "slump": -1.0,
+     "hamming": -0.89453125
+    },
+    {
+     "draw": 2270,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2271,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2272,
+     "varderader": -0.34394531250000004,
+     "folkrad": 0.3117578125,
+     "favoritrad": 0.3117578125,
+     "slump": -0.34394531250000004,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2273,
+     "varderader": -0.6250390625,
+     "folkrad": -0.43757812500000004,
+     "favoritrad": -0.2501171875,
+     "slump": -0.43757812500000004,
+     "hamming": 0.281015625
+    },
+    {
+     "draw": 2275,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2276,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2277,
+     "varderader": -0.7070703125,
+     "folkrad": 0.554140625,
+     "favoritrad": -0.047070312500000044,
+     "slump": 0.1441406249999999,
+     "hamming": -0.47273437500000004
+    },
+    {
+     "draw": 2278,
+     "varderader": 1.6619531250000001,
+     "folkrad": 0.62421875,
+     "favoritrad": 1.4863671875,
+     "slump": -0.94140625,
+     "hamming": -0.7071093749999999
+    },
+    {
+     "draw": 2279,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2280,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.6094531249999999,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2281,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2282,
+     "varderader": -0.32832031250000004,
+     "folkrad": -0.4962109375,
+     "favoritrad": -0.16046875000000005,
+     "slump": 0.6784375,
+     "hamming": 1.0958984374999998
+    },
+    {
+     "draw": 2283,
+     "varderader": -1.0,
+     "folkrad": -0.7266015625,
+     "favoritrad": -0.45320312500000004,
+     "slump": -0.17988281250000004,
+     "hamming": 1.4736328125
+    },
+    {
+     "draw": 2284,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2285,
+     "varderader": -0.89453125,
+     "folkrad": -0.6836328125,
+     "favoritrad": -0.3673046875,
+     "slump": -0.2813671875,
+     "hamming": -0.05105468749999997
+    },
+    {
+     "draw": 2286,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.8320703125
+    },
+    {
+     "draw": 2287,
+     "varderader": -0.6484765625,
+     "folkrad": 0.14042968749999996,
+     "favoritrad": 0.14042968749999996,
+     "slump": -0.09390624999999997,
+     "hamming": -0.5625781249999999
+    },
+    {
+     "draw": 2288,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.89453125,
+     "hamming": -0.89453125
+    },
+    {
+     "draw": 2289,
+     "varderader": -1.0,
+     "folkrad": -0.80859375,
+     "favoritrad": -1.0,
+     "slump": -0.80859375,
+     "hamming": -0.6172265625
+    },
+    {
+     "draw": 2290,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2291,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2292,
+     "varderader": 0.6048046874999999,
+     "folkrad": 0.3549609375,
+     "favoritrad": 0.41742187500000005,
+     "slump": -0.9375,
+     "hamming": 0.5423437499999999
+    },
+    {
+     "draw": 2293,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2294,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2295,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2296,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2297,
+     "varderader": -0.82421875,
+     "folkrad": 0.499765625,
+     "favoritrad": 0.441171875,
+     "slump": -0.82421875,
+     "hamming": -0.5898828125
+    },
+    {
+     "draw": 2298,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2299,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2300,
+     "varderader": 4.5434765625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2301,
+     "varderader": -0.921875,
+     "folkrad": 0.491953125,
+     "favoritrad": 0.491953125,
+     "slump": 0.7339453125,
+     "hamming": 7.011523437499999
+    },
+    {
+     "draw": 2302,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2303,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.0743359375,
+     "hamming": -0.5781640625
+    },
+    {
+     "draw": 2304,
+     "varderader": -0.46882812500000004,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2305,
+     "varderader": -0.8671875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.93359375,
+     "hamming": -0.93359375
+    },
+    {
+     "draw": 2306,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2307,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2309,
+     "varderader": 1.55359375,
+     "folkrad": -0.7070703125,
+     "favoritrad": -0.8046875,
+     "slump": -0.8046875,
+     "hamming": -0.90234375
+    },
+    {
+     "draw": 2310,
+     "varderader": -1.0,
+     "folkrad": -0.6875781249999999,
+     "favoritrad": -0.921875,
+     "slump": -0.921875,
+     "hamming": -0.7656640625
+    },
+    {
+     "draw": 2312,
+     "varderader": -0.8125390625,
+     "folkrad": -0.8125390625,
+     "favoritrad": -0.8125390625,
+     "slump": -1.0,
+     "hamming": -0.9375
+    },
+    {
+     "draw": 2313,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2314,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.9375,
+     "hamming": -0.9375
+    },
+    {
+     "draw": 2315,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.7109765625,
+     "hamming": -0.27765625000000005
+    },
+    {
+     "draw": 2316,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": 0.5738671875000001,
+     "hamming": 0.5738671875000001
+    },
+    {
+     "draw": 2317,
+     "varderader": -1.0,
+     "folkrad": -0.6797265625,
+     "favoritrad": -0.6797265625,
+     "slump": -1.0,
+     "hamming": -0.83984375
+    },
+    {
+     "draw": 2318,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2319,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2320,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2321,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2322,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2323,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2324,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.78125
+    },
+    {
+     "draw": 2325,
+     "varderader": -0.89453125,
+     "folkrad": -0.36726562500000004,
+     "favoritrad": -0.5781640625,
+     "slump": -0.6836328125,
+     "hamming": -0.36726562500000004
+    },
+    {
+     "draw": 2326,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2327,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2328,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2329,
+     "varderader": 0.6167578125,
+     "folkrad": -0.82421875,
+     "favoritrad": -0.7656640625,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2330,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2331,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2332,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.5117578125,
+     "hamming": -0.5117578125
+    },
+    {
+     "draw": 2333,
+     "varderader": -0.83984375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.83984375
+    },
+    {
+     "draw": 2334,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2336,
+     "varderader": -0.6367578125,
+     "folkrad": -1.0,
+     "favoritrad": -0.87890625,
+     "slump": -0.31648437500000004,
+     "hamming": -0.7578125
+    },
+    {
+     "draw": 2337,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.17214843749999997,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2338,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.8984375
+    },
+    {
+     "draw": 2339,
+     "varderader": -0.9140625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2340,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2342,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.828125,
+     "hamming": -0.828125
+    },
+    {
+     "draw": 2343,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2344,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2345,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2346,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2347,
+     "varderader": -1.0,
+     "folkrad": 0.3353515625000001,
+     "favoritrad": 0.3353515625000001,
+     "slump": -0.33218749999999997,
+     "hamming": -0.33218749999999997
+    },
+    {
+     "draw": 2348,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2349,
+     "varderader": -0.81640625,
+     "folkrad": -0.81640625,
+     "favoritrad": -0.08226562500000001,
+     "slump": 0.03484375000000006,
+     "hamming": -0.08226562500000001
+    },
+    {
+     "draw": 2350,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.77734375,
+     "hamming": -0.77734375
+    },
+    {
+     "draw": 2351,
+     "varderader": -1.0,
+     "folkrad": -0.29316406250000004,
+     "favoritrad": -0.29316406250000004,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2353,
+     "varderader": -0.195546875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2354,
+     "varderader": -0.75,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2355,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2356,
+     "varderader": -1.0,
+     "folkrad": -0.82421875,
+     "favoritrad": -0.82421875,
+     "slump": -1.0,
+     "hamming": -0.29695312500000004
+    },
+    {
+     "draw": 2357,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2358,
+     "varderader": -0.34378906249999996,
+     "folkrad": -0.828125,
+     "favoritrad": -0.828125,
+     "slump": -1.0,
+     "hamming": -0.828125
+    },
+    {
+     "draw": 2361,
+     "varderader": 0.27312500000000006,
+     "folkrad": -0.7070703125,
+     "favoritrad": -0.6094140625,
+     "slump": -0.5117968749999999,
+     "hamming": -0.8046875
+    },
+    {
+     "draw": 2362,
+     "varderader": -0.83203125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2363,
+     "varderader": -1.0,
+     "folkrad": -0.7031640625,
+     "favoritrad": -0.7031640625,
+     "slump": -0.8515625,
+     "hamming": -0.8515625
+    },
+    {
+     "draw": 2364,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2365,
+     "varderader": 0.6558203125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2366,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2367,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.78515625,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2368,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2369,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -0.6055078125,
+     "slump": -1.0,
+     "hamming": -0.6055078125
+    },
+    {
+     "draw": 2370,
+     "varderader": -0.6875781249999999,
+     "folkrad": -0.7500390625,
+     "favoritrad": -0.7500390625,
+     "slump": -1.0,
+     "hamming": -0.9375
+    },
+    {
+     "draw": 2371,
+     "varderader": -0.8125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2372,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2373,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.85546875
+    },
+    {
+     "draw": 2374,
+     "varderader": -0.7578125,
+     "folkrad": -0.03148437500000001,
+     "favoritrad": -0.03148437500000001,
+     "slump": 0.97578125,
+     "hamming": 0.4915624999999999
+    },
+    {
+     "draw": 2375,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2376,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.46101562500000004,
+     "hamming": -0.7305078125
+    },
+    {
+     "draw": 2377,
+     "varderader": -0.41410156249999996,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2378,
+     "varderader": -1.0,
+     "folkrad": -0.5078515625,
+     "favoritrad": -1.0,
+     "slump": -0.5781640625,
+     "hamming": -0.36726562500000004
+    },
+    {
+     "draw": 2379,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2380,
+     "varderader": -0.5860156249999999,
+     "folkrad": -1.0,
+     "favoritrad": -0.17214843749999997,
+     "slump": -0.5860156249999999,
+     "hamming": -0.17214843749999997
+    },
+    {
+     "draw": 2381,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.7656640625,
+     "hamming": -0.921875
+    },
+    {
+     "draw": 2382,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2383,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2384,
+     "varderader": 0.5536328125000001,
+     "folkrad": -0.22292968749999997,
+     "favoritrad": 0.5536328125000001,
+     "slump": -0.22292968749999997,
+     "hamming": -0.22292968749999997
+    },
+    {
+     "draw": 2385,
+     "varderader": 22.867890625,
+     "folkrad": -0.5937890625,
+     "favoritrad": 0.5151953125,
+     "slump": -0.49226562500000004,
+     "hamming": -0.08613281250000004
+    },
+    {
+     "draw": 2386,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.83203125,
+     "hamming": -0.83203125
+    },
+    {
+     "draw": 2388,
+     "varderader": -0.8984375,
+     "folkrad": 2.0765625,
+     "favoritrad": 1.6705859374999998,
+     "slump": -0.8984375,
+     "hamming": 1.1628906250000002
+    },
+    {
+     "draw": 2389,
+     "varderader": -0.6797265625,
+     "folkrad": 3.62109375,
+     "favoritrad": 3.1412109375000004,
+     "slump": -0.5196484375,
+     "hamming": 2.18078125
+    },
+    {
+     "draw": 2390,
+     "varderader": -0.6719140625,
+     "folkrad": -0.34390624999999997,
+     "favoritrad": -0.34390624999999997,
+     "slump": -1.0,
+     "hamming": -0.6719140625
+    },
+    {
+     "draw": 2391,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2392,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2393,
+     "varderader": -0.7812890625,
+     "folkrad": -0.6719531249999999,
+     "favoritrad": -0.7812890625,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2394,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2395,
+     "varderader": -1.0,
+     "folkrad": -0.6836328125,
+     "favoritrad": -1.0,
+     "slump": -0.050976562500000044,
+     "hamming": 0.22585937499999997
+    },
+    {
+     "draw": 2396,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2397,
+     "varderader": 0.9058203125,
+     "folkrad": -1.0,
+     "favoritrad": -0.8125,
+     "slump": -0.6250390625,
+     "hamming": -0.8125
+    },
+    {
+     "draw": 2398,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2399,
+     "varderader": -1.0,
+     "folkrad": -0.8359375,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2400,
+     "varderader": -0.859375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.5782031249999999,
+     "hamming": -0.7187890625
+    },
+    {
+     "draw": 2401,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2402,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.5274218749999999
+    },
+    {
+     "draw": 2403,
+     "varderader": -0.8828125,
+     "folkrad": 2.5958984375,
+     "favoritrad": 2.713046875,
+     "slump": 87.2240625,
+     "hamming": 2.2444140625
+    },
+    {
+     "draw": 2404,
+     "varderader": -1.0,
+     "folkrad": 1.3111328125,
+     "favoritrad": -0.7187890625,
+     "slump": -0.90625,
+     "hamming": -0.8125390625
+    },
+    {
+     "draw": 2405,
+     "varderader": -0.87890625,
+     "folkrad": 0.15609374999999992,
+     "favoritrad": -0.27351562500000004,
+     "slump": 0.22238281250000003,
+     "hamming": 0.7613671875000001
+    },
+    {
+     "draw": 2406,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2407,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.6406640625,
+     "hamming": -0.8203125
+    },
+    {
+     "draw": 2408,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2409,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2410,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2411,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.90625,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2412,
+     "varderader": -0.80859375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2413,
+     "varderader": -0.94140625,
+     "folkrad": -0.8828125,
+     "favoritrad": -0.8828125,
+     "slump": -0.94140625,
+     "hamming": -0.94140625
+    },
+    {
+     "draw": 2414,
+     "varderader": -0.7891015625,
+     "folkrad": -0.859375,
+     "favoritrad": -0.859375,
+     "slump": -1.0,
+     "hamming": -0.859375
+    },
+    {
+     "draw": 2415,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2416,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.91015625,
+     "hamming": -0.91015625
+    },
+    {
+     "draw": 2417,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2418,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2419,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2421,
+     "varderader": -1.0,
+     "folkrad": -0.7578515625,
+     "favoritrad": -0.7578515625,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2422,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": 0.5842578125,
+     "hamming": -0.31265624999999997
+    },
+    {
+     "draw": 2423,
+     "varderader": -1.0,
+     "folkrad": 11.383671875,
+     "favoritrad": 11.383671875,
+     "slump": -0.6562890625,
+     "hamming": 10.35265625
+    },
+    {
+     "draw": 2426,
+     "varderader": -0.8828125,
+     "folkrad": -0.8828125,
+     "favoritrad": -0.8828125,
+     "slump": -1.0,
+     "hamming": -0.94140625
+    },
+    {
+     "draw": 2427,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2428,
+     "varderader": -0.859375,
+     "folkrad": -0.7891015625,
+     "favoritrad": -0.859375,
+     "slump": -0.9296875,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2429,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2430,
+     "varderader": -0.91796875,
+     "folkrad": -0.26191406250000004,
+     "favoritrad": -0.5899218749999999,
+     "slump": 1.4355859375,
+     "hamming": 0.96
+    },
+    {
+     "draw": 2431,
+     "varderader": -1.0,
+     "folkrad": -0.8359375,
+     "favoritrad": -1.0,
+     "slump": -0.75390625,
+     "hamming": -0.5078515625
+    },
+    {
+     "draw": 2432,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": 0.04660156250000003,
+     "hamming": -0.5703515625
+    },
+    {
+     "draw": 2433,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.78125,
+     "hamming": -0.890625
+    },
+    {
+     "draw": 2434,
+     "varderader": -0.6875781249999999,
+     "folkrad": -0.6094921875,
+     "favoritrad": -0.5314062500000001,
+     "slump": -0.84375,
+     "hamming": -0.5314062500000001
+    },
+    {
+     "draw": 2435,
+     "varderader": -0.9140625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2436,
+     "varderader": -1.0,
+     "folkrad": -0.2891796875,
+     "favoritrad": -0.6445703125,
+     "slump": -1.0,
+     "hamming": -0.6445703125
+    },
+    {
+     "draw": 2437,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2438,
+     "varderader": -1.0,
+     "folkrad": -0.7187890625,
+     "favoritrad": -0.9296875,
+     "slump": -0.9296875,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2439,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2440,
+     "varderader": -0.35941406249999996,
+     "folkrad": 0.21859374999999992,
+     "favoritrad": 0.8550390625,
+     "slump": -0.35941406249999996,
+     "hamming": 3.9427734374999996
+    },
+    {
+     "draw": 2441,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2442,
+     "varderader": -0.10960937500000001,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2443,
+     "varderader": -0.8359375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2444,
+     "varderader": -0.43757812500000004,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.8125,
+     "hamming": -0.90625
+    },
+    {
+     "draw": 2445,
+     "varderader": -0.8203125,
+     "folkrad": -0.8203125,
+     "favoritrad": -0.6406640625,
+     "slump": -1.0,
+     "hamming": -0.8203125
+    },
+    {
+     "draw": 2446,
+     "varderader": -0.875,
+     "folkrad": -0.75,
+     "favoritrad": -0.875,
+     "slump": -0.6250390625,
+     "hamming": -0.875
+    },
+    {
+     "draw": 2447,
+     "varderader": -0.43363281249999996,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2448,
+     "varderader": -0.6719140625,
+     "folkrad": -0.890625,
+     "favoritrad": -0.890625,
+     "slump": -1.0,
+     "hamming": -0.890625
+    },
+    {
+     "draw": 2449,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.68359375,
+     "hamming": -0.89453125
+    },
+    {
+     "draw": 2450,
+     "varderader": 1.553125,
+     "folkrad": 0.597109375,
+     "favoritrad": 1.0771875,
+     "slump": 0.597109375,
+     "hamming": 1.8684375000000002
+    },
+    {
+     "draw": 2451,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2452,
+     "varderader": -0.14078124999999997,
+     "folkrad": -0.14078124999999997,
+     "favoritrad": -0.14078124999999997,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2453,
+     "varderader": -0.42972656249999996,
+     "folkrad": -0.14851562500000004,
+     "favoritrad": -0.42972656249999996,
+     "slump": -0.5000390625,
+     "hamming": -0.5078515625
+    },
+    {
+     "draw": 2454,
+     "varderader": 0.8270312500000001,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2455,
+     "varderader": -1.0,
+     "folkrad": -0.859375,
+     "favoritrad": -0.71875,
+     "slump": -0.859375,
+     "hamming": -0.6484765625
+    },
+    {
+     "draw": 2456,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2457,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2458,
+     "varderader": -1.0,
+     "folkrad": -0.89453125,
+     "favoritrad": -0.89453125,
+     "slump": -1.0,
+     "hamming": -0.89453125
+    },
+    {
+     "draw": 2459,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2460,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2461,
+     "varderader": -1.0,
+     "folkrad": -0.796875,
+     "favoritrad": -0.796875,
+     "slump": -0.796875,
+     "hamming": -0.6953125
+    },
+    {
+     "draw": 2462,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2463,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.92578125,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2464,
+     "varderader": -0.92578125,
+     "folkrad": -0.8515625,
+     "favoritrad": -0.8515625,
+     "slump": -0.77734375,
+     "hamming": -0.92578125
+    },
+    {
+     "draw": 2465,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2466,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2467,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2468,
+     "varderader": -1.0,
+     "folkrad": -0.765625,
+     "favoritrad": -0.7070703125,
+     "slump": -0.94140625,
+     "hamming": -0.94140625
+    },
+    {
+     "draw": 2469,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.7109375,
+     "hamming": -0.7109375
+    },
+    {
+     "draw": 2470,
+     "varderader": -0.7344140625,
+     "folkrad": -0.6016796875,
+     "favoritrad": -0.46894531250000004,
+     "slump": 1.9346484375,
+     "hamming": -0.6016796875
+    },
+    {
+     "draw": 2471,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.83984375,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2472,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2473,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.6914453125
+    },
+    {
+     "draw": 2474,
+     "varderader": -1.0,
+     "folkrad": -0.016015624999999978,
+     "favoritrad": -0.5078906249999999,
+     "slump": 0.3198046875,
+     "hamming": -0.17996093749999997
+    },
+    {
+     "draw": 2475,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2476,
+     "varderader": -0.5391406249999999,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.5391406249999999,
+     "hamming": -0.76953125
+    },
+    {
+     "draw": 2477,
+     "varderader": -0.796875,
+     "folkrad": -0.6953515625,
+     "favoritrad": -0.6953515625,
+     "slump": -0.6953515625,
+     "hamming": -0.6953515625
+    },
+    {
+     "draw": 2478,
+     "varderader": -1.0,
+     "folkrad": -0.8164453125,
+     "favoritrad": -0.8164453125,
+     "slump": -0.8164453125,
+     "hamming": -0.8164453125
+    },
+    {
+     "draw": 2479,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2480,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.28925781250000004,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2481,
+     "varderader": -0.41421874999999997,
+     "folkrad": 8.5772265625,
+     "favoritrad": 9.4547265625,
+     "slump": -1.0,
+     "hamming": 0.1712890625000001
+    },
+    {
+     "draw": 2482,
+     "varderader": -0.5235156249999999,
+     "folkrad": -0.5235156249999999,
+     "favoritrad": -0.5235156249999999,
+     "slump": -1.0,
+     "hamming": -0.5235156249999999
+    },
+    {
+     "draw": 2483,
+     "varderader": -1.0,
+     "folkrad": -0.6953515625,
+     "favoritrad": -0.84765625,
+     "slump": -0.84765625,
+     "hamming": -0.84765625
+    },
+    {
+     "draw": 2484,
+     "varderader": -0.6016406249999999,
+     "folkrad": -0.6016406249999999,
+     "favoritrad": -0.6016406249999999,
+     "slump": -0.6016406249999999,
+     "hamming": -0.46890624999999997
+    },
+    {
+     "draw": 2485,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2486,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2487,
+     "varderader": -0.26187499999999997,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2488,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2489,
+     "varderader": -0.8671875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2490,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2491,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2492,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2493,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2494,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2495,
+     "varderader": -0.6562890625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2496,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2497,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2498,
+     "varderader": -1.0,
+     "folkrad": -0.875,
+     "favoritrad": -0.7500390625,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2499,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2500,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.5782031249999999,
+     "hamming": -0.36347656250000004
+    },
+    {
+     "draw": 2501,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2502,
+     "varderader": -0.875,
+     "folkrad": -0.9375,
+     "favoritrad": -0.875,
+     "slump": -0.9375,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2503,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2504,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2505,
+     "varderader": -0.77734375,
+     "folkrad": -0.17195312500000004,
+     "favoritrad": -0.48050781249999996,
+     "slump": -0.5547265625,
+     "hamming": -0.08601562500000004
+    },
+    {
+     "draw": 2506,
+     "varderader": -0.25410156250000004,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2507,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2508,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2509,
+     "varderader": -1.0,
+     "folkrad": -0.7344140625,
+     "favoritrad": -0.8671875,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2510,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.80859375
+    },
+    {
+     "draw": 2511,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2512,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2513,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -0.71484375,
+     "slump": -0.71484375,
+     "hamming": 0.14031250000000006
+    },
+    {
+     "draw": 2514,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2515,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2516,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2517,
+     "varderader": -0.7890625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2518,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2519,
+     "varderader": -1.0,
+     "folkrad": -0.671875,
+     "favoritrad": -0.671875,
+     "slump": -0.015742187500000004,
+     "hamming": -0.34378906249999996
+    },
+    {
+     "draw": 2520,
+     "varderader": -0.78125,
+     "folkrad": -0.6719140625,
+     "favoritrad": -0.78125,
+     "slump": -0.78125,
+     "hamming": -0.6719140625
+    },
+    {
+     "draw": 2521,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2522,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2523,
+     "varderader": -0.93359375,
+     "folkrad": -0.80078125,
+     "favoritrad": -0.80078125,
+     "slump": -1.0,
+     "hamming": -0.93359375
+    },
+    {
+     "draw": 2524,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2525,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.875,
+     "hamming": -0.75
+    },
+    {
+     "draw": 2526,
+     "varderader": 0.05046875000000006,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2527,
+     "varderader": -1.0,
+     "folkrad": -0.87109375,
+     "favoritrad": -0.87109375,
+     "slump": -0.87109375,
+     "hamming": -0.7421875
+    },
+    {
+     "draw": 2528,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2529,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2530,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.5937890625,
+     "hamming": -0.796875
+    },
+    {
+     "draw": 2531,
+     "varderader": -0.6484375,
+     "folkrad": -0.71875,
+     "favoritrad": -0.71875,
+     "slump": -1.0,
+     "hamming": -0.7890625
+    },
+    {
+     "draw": 2532,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.6719140625,
+     "hamming": -0.8359375
+    },
+    {
+     "draw": 2533,
+     "varderader": -1.0,
+     "folkrad": -0.8515625,
+     "favoritrad": -0.8515625,
+     "slump": -1.0,
+     "hamming": -0.8515625
+    },
+    {
+     "draw": 2534,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2535,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2536,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2537,
+     "varderader": -0.5117578125,
+     "folkrad": -0.70703125,
+     "favoritrad": -0.6094140625,
+     "slump": -0.33992187500000004,
+     "hamming": -0.5351953125
+    },
+    {
+     "draw": 2538,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2539,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2540,
+     "varderader": -1.0,
+     "folkrad": 0.02304687499999991,
+     "favoritrad": 0.02304687499999991,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2541,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2542,
+     "varderader": 0.02695312499999991,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2543,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2544,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2545,
+     "varderader": -1.0,
+     "folkrad": -0.8828125,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2547,
+     "varderader": -0.21882812500000004,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2548,
+     "varderader": -0.7734375,
+     "folkrad": -0.88671875,
+     "favoritrad": -0.88671875,
+     "slump": -0.7734375,
+     "hamming": -0.88671875
+    },
+    {
+     "draw": 2549,
+     "varderader": -1.0,
+     "folkrad": 0.9679296875000001,
+     "favoritrad": -0.015820312500000044,
+     "slump": -1.0,
+     "hamming": -0.015820312500000044
+    },
+    {
+     "draw": 2550,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2551,
+     "varderader": -0.828125,
+     "folkrad": -0.7422265625,
+     "favoritrad": -0.7422265625,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2552,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": 0.23394531249999995,
+     "hamming": 0.23394531249999995
+    },
+    {
+     "draw": 2553,
+     "varderader": -1.0,
+     "folkrad": -0.5117578125,
+     "favoritrad": -0.6094140625,
+     "slump": 0.12874999999999992,
+     "hamming": -0.48441406249999996
+    },
+    {
+     "draw": 2554,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2555,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.91015625,
+     "hamming": -0.91015625
+    },
+    {
+     "draw": 2556,
+     "varderader": -1.0,
+     "folkrad": -0.765625,
+     "favoritrad": -0.765625,
+     "slump": -0.94140625,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2557,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.28132812500000004,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2558,
+     "varderader": -0.8242578125,
+     "folkrad": 1.60359375,
+     "favoritrad": 1.7206640625,
+     "slump": 0.27296875,
+     "hamming": -0.47285156250000004
+    },
+    {
+     "draw": 2559,
+     "varderader": 1.7648046874999999,
+     "folkrad": -1.0,
+     "favoritrad": -0.72265625,
+     "slump": -0.72265625,
+     "hamming": -0.72265625
+    },
+    {
+     "draw": 2560,
+     "varderader": -0.7421875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.828125,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2561,
+     "varderader": -0.7773828125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2562,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.45710937500000004,
+     "hamming": -0.45710937500000004
+    },
+    {
+     "draw": 2563,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2564,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.78515625
+    },
+    {
+     "draw": 2565,
+     "varderader": -1.0,
+     "folkrad": -0.42195312500000004,
+     "favoritrad": -0.7109375,
+     "slump": -0.7109375,
+     "hamming": -0.1641796875
+    },
+    {
+     "draw": 2566,
+     "varderader": -0.5782031249999999,
+     "folkrad": -0.859375,
+     "favoritrad": -0.859375,
+     "slump": -1.0,
+     "hamming": -0.859375
+    },
+    {
+     "draw": 2567,
+     "varderader": 0.8862109375,
+     "folkrad": -0.8828125,
+     "favoritrad": -0.8828125,
+     "slump": -1.0,
+     "hamming": -0.94140625
+    },
+    {
+     "draw": 2568,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2569,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2570,
+     "varderader": -0.6758203125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2571,
+     "varderader": -0.8671875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2572,
+     "varderader": -0.6485156249999999,
+     "folkrad": -0.8828125,
+     "favoritrad": -0.7656640625,
+     "slump": -1.0,
+     "hamming": -0.7656640625
+    },
+    {
+     "draw": 2573,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2574,
+     "varderader": -0.6836328125,
+     "folkrad": -0.7890625,
+     "favoritrad": -0.7890625,
+     "slump": -0.2735546875,
+     "hamming": -0.7890625
+    },
+    {
+     "draw": 2575,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2576,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2577,
+     "varderader": -1.0,
+     "folkrad": -0.93359375,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.93359375
+    },
+    {
+     "draw": 2578,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2579,
+     "varderader": -0.7656640625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2580,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2582,
+     "varderader": -1.0,
+     "folkrad": -0.765625,
+     "favoritrad": -0.94140625,
+     "slump": -0.94140625,
+     "hamming": -0.578125
+    },
+    {
+     "draw": 2583,
+     "varderader": -1.0,
+     "folkrad": -0.703125,
+     "favoritrad": -0.703125,
+     "slump": -1.0,
+     "hamming": -0.8515625
+    },
+    {
+     "draw": 2584,
+     "varderader": -1.0,
+     "folkrad": -0.48441406249999996,
+     "favoritrad": -0.48441406249999996,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2585,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -0.9296875
+    },
+    {
+     "draw": 2586,
+     "varderader": -0.72265625,
+     "folkrad": 19.3675,
+     "favoritrad": 0.10917968749999996,
+     "slump": -0.44535156249999996,
+     "hamming": -0.72265625
+    },
+    {
+     "draw": 2587,
+     "varderader": 0.9676562500000001,
+     "folkrad": -1.0,
+     "favoritrad": -0.75390625,
+     "slump": -0.75390625,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2588,
+     "varderader": 0.7645703125000001,
+     "folkrad": -0.6290234375,
+     "favoritrad": 0.6162890624999999,
+     "slump": -0.6290234375,
+     "hamming": -0.6290234375
+    },
+    {
+     "draw": 2589,
+     "varderader": 13.6669140625,
+     "folkrad": -0.5157421875,
+     "favoritrad": -0.5157421875,
+     "slump": -1.0,
+     "hamming": -0.7578515625
+    },
+    {
+     "draw": 2590,
+     "varderader": 2.46140625,
+     "folkrad": -1.0,
+     "favoritrad": -0.6368359375,
+     "slump": -1.0,
+     "hamming": -0.7578515625
+    },
+    {
+     "draw": 2591,
+     "varderader": -0.91796875,
+     "folkrad": -0.75390625,
+     "favoritrad": -0.8359375,
+     "slump": -0.75390625,
+     "hamming": -0.75390625
+    },
+    {
+     "draw": 2592,
+     "varderader": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    },
+    {
+     "draw": 2593,
+     "varderader": -0.86328125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0,
+     "hamming": -1.0
+    }
+   ]
+  }
+ }
+}
