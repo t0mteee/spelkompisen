@@ -191,7 +191,34 @@ def arms(draw: Draw, n_rows: int, rng: random.Random,
     # 4. Slump bland samma kandidater — golvet.
     pool = _candidate_rows(draw, max(n_rows * 8, 200), lambda r: p_row(r, _p_market))
     out["slump"] = rng.sample(pool, min(n_rows, len(pool)))
+    # 5. Hamming-spridning (förregistrerad 2026-07-28, docs/ph5-hamming-
+    # forregistrering-2026-07-28.md): gles täckning ur SAMMA kandidatpool —
+    # deterministisk girig farthest-point på minsta Hammingavstånd.
+    out["hamming"] = _hamming_spread(pool, n_rows)
     return out
+
+
+def _hamming_spread(pool: list[tuple], n_rows: int) -> list[tuple]:
+    """Girig max-min-Hamming: starta i marknadens toppard, välj sedan raden
+    längst från de valda; lika avstånd bryts av lägre poolindex (= högre
+    marknadssannolikhet). Inkrementell min-avståndslista håller kostnaden
+    på O(rader × pool)."""
+    if not pool:
+        return []
+    target = min(n_rows, len(pool))
+    chosen = [pool[0]]
+    cands = list(pool[1:])
+    mind = [sum(a != b for a, b in zip(c, pool[0])) for c in cands]
+    while len(chosen) < target and cands:
+        i = max(range(len(cands)), key=lambda j: (mind[j], -j))
+        pick = cands.pop(i)
+        mind.pop(i)
+        chosen.append(pick)
+        for j, cand in enumerate(cands):
+            d = sum(a != b for a, b in zip(cand, pick))
+            if d < mind[j]:
+                mind[j] = d
+    return chosen
 
 
 def evaluate(rows: list[tuple], facit: list[str], tiers: dict,

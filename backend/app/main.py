@@ -698,11 +698,27 @@ def oddset_matches():
 @app.get("/api/oddset/clv")
 def oddset_clv():
     """Signal-facit för Oddset: loggade sharp-edges vs devigad Pinnacle-stängning."""
+    import json as _json
     from . import oddset_value
     store = Storage()
     try:
         oddset_value.resolve_closings(store)
-        return oddset_value.clv_report(store)
+        # utfalls-facitet settlas opportunistiskt här precis som stängningarna
+        oddset_value.resolve_outcomes(store)
+        report = oddset_value.clv_report(store)
+        # kalibreringsläsning (P6): senaste `oddsetcalibrate`-körningen per
+        # liga (modelltemperatur mot football-data-backtesten). Display-only;
+        # tom tills CLI-körningen gjorts.
+        cal = {}
+        for lg in ("allsvenskan", "eliteserien"):
+            raw = store.meta_get(f"oddset_cal:{lg}")
+            if raw:
+                try:
+                    cal[lg] = _json.loads(raw)
+                except ValueError:
+                    pass
+        report["calibration"] = cal or None
+        return report
     finally:
         store.close()
 

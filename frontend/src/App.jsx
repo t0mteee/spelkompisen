@@ -621,7 +621,7 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse }) {
             const stP = systemStats(sys, matches, { ...payouts, turnover: payouts.projected_turnover })
             if (!stP || stP.tooBig) return null
             return (
-              <div className="rule" title="Potterna växer mot spelstopp men det gör medvinnarna också — detta är EV räknat mot medianen av senaste omgångarnas slutomsättning.">
+              <div className="rule" title={`Potterna växer mot spelstopp men det gör medvinnarna också — detta är EV räknat mot prognostiserad slutomsättning.${payouts.projection_basis ? `\nPrognosgrund: ${payouts.projection_basis.mode === 'weekday' ? `median av ${payouts.projection_basis.n} senaste omgångarna med samma spelstoppsveckodag (${['mån', 'tis', 'ons', 'tors', 'fre', 'lör', 'sön'][payouts.projection_basis.weekday] ?? '?'})` : `median av senaste ${payouts.projection_basis.n} omgångarna oavsett veckodag (för få jämförbara på veckodagen)`}.` : ''}`}>
                 Vid förväntad slutomsättning ({kr(payouts.projected_turnover)}): förv. utdelning {kr(stP.evPayout)}
                 {' '}· EV <b className={stP.ev >= 0 ? 'pos' : 'neg'}>{stP.ev >= 0 ? '+' : ''}{kr(stP.ev)}</b>
                 {' '}· ROI {stP.roi == null ? '–' : (stP.roi * 100).toFixed(0) + ' %'} — den ärliga siffran tidigt i veckan.
@@ -1879,12 +1879,20 @@ function OddsetView({ focus = null } = {}) {
             {clv.sharp?.n_line_moved > 0 && <> · {clv.sharp.n_line_moved} linjeflytt{clv.sharp.n_line_moved === 1 ? '' : 'ar'}</>}
             {clv.sharp?.avg_close_ev != null && <> · snitt <b className={clv.sharp.avg_close_ev >= 0 ? 'pos' : 'neg'}>{(clv.sharp.avg_close_ev * 100).toFixed(1)}%</b></>}
             {clv.sharp?.ci && <> · KI [{(clv.sharp.ci[0] * 100).toFixed(1)}..{(clv.sharp.ci[1] * 100).toFixed(1)}]</>}
+            {clv.sharp?.n_outcomes > 0 && <> · 🎯 resultat <b className={clv.sharp.result_roi >= 0 ? 'pos' : 'neg'}>{clv.sharp.result_roi >= 0 ? '+' : ''}{(clv.sharp.result_roi * 100).toFixed(1)}%</b> ROI · {clv.sharp.n_outcomes} settlade · träff {(clv.sharp.hit_rate * 100).toFixed(0)}%</>}
             {clv.model?.n > 0 && <> &nbsp;|&nbsp; 🧪 modell: {clv.model.n} flaggor · {clv.model.n_resolved} stängda
               {clv.model.n_line_moved > 0 && <> · {clv.model.n_line_moved} linjeflytt{clv.model.n_line_moved === 1 ? '' : 'ar'}</>}
               {clv.model.avg_close_ev != null && <> · snitt <b className={clv.model.avg_close_ev >= 0 ? 'pos' : 'neg'}>{(clv.model.avg_close_ev * 100).toFixed(1)}%</b></>}
               {clv.model?.ci && <> · KI [{(clv.model.ci[0] * 100).toFixed(1)}..{(clv.model.ci[1] * 100).toFixed(1)}]</>}</>}
             {' '}{showLog ? '▲' : '▼'}
           </p>
+          {clv.calibration && (
+            <p className="hint clvline"
+              title="Modelltemperaturen ur senaste oddsetcalibrate-körningen (backtest mot football-data). t nära 1,0 = devigade marknadssannolikheter är välkalibrerade som de är; display-only, ändrar inga flaggor.">
+              🌡 Kalibrering: {Object.entries(clv.calibration).map(([lg, c]) =>
+                `${lg} t=${c.t?.toFixed?.(2) ?? c.t} (n=${c.n})`).join(' · ')}
+            </p>
+          )}
           {clv.anchor2?.n_measured > 0 && (
             <p className="hint clvline"
               title="Skuggmätning, påverkar inga flaggor: samma bokpris värderat mot ett ANDRA sharp-ankare (Smarkets). Devigmetodens val rör ~3 pp medan flaggtröskeln är 2 pp — utan detta går det inte att säga om edgen är marknadens eller vårt ankarval. Beslutsregeln är förregistrerad i docs/tva-ankare-2026-07-25.md; ingenting promoteras automatiskt.">
