@@ -319,9 +319,27 @@ beslut. Uppskattade beslutsdatum:
   huvudslugs för cuperna (mönsterhärledda idag, kommenterade i koden).
 - **Servermigrering** (Pi 5/N100): egen checklista när beslutet tas.
 
-### Föreslagen arbetsordning (kräver godkännande)
+### Arbetsordningen KÖRD 2026-07-28 (Samans "kör samtliga i ordning")
 
-P1 → P2 → P3 → P4 → P5+P6, med Spår 1-besluten insprängda när deras datum
-faller ut. P1 och P2 är de enda med verklig modellsubstans — resten är
-precision och hygien. Inget i Spår 2 rör signalversioner utom via sina
-förregistrerade beslut.
+- **P1 ✅** — men som KONSISTENSFIX, inte ny skattning: mätningen fanns
+  redan (PH4, 7 754 omgångar); det trasiga var att portföljsimuleringen
+  körde κ=1,00 medan radvalet var κ-korrigerat. `kappa_by_tier` in i
+  pool_mc + /api/system. `docs/kappa-kalibrering-2026-07-28.md`.
+- **P2 ✅** — OMFORMULERAD efter kartläggning: Signal-facit settlar på
+  close-EV, ingen outcome-kolumn fanns alls. Nu: outcome i value_log,
+  resolve_outcomes (1X2, modellspårets join), resultat-ROI som display,
+  RESULT_ONLY_UT (cuper/bestadeild/friendlies via Sofascore, normaltid,
+  inga statistik-anrop; SOFA_UT orörd). Skarpt: 370 resultat, 176
+  settlade — resultat-ROI −1,6 % mot close-EV +2,5 % (n lågt, brus).
+- **P3 ✅** — TEAM_ALIASES i norm_team (IBV-fallet). DB-skanningen fann
+  även SPEGELPAR i odds-flödet (Pau–Espanyol m.fl.) → egen designpunkt:
+  merge kräver teckenspegling av oddsen. EJ byggd — kräver design.
+- **P4 ✅** — veckodagsviktad prognos ur lokala settlementlagret (0
+  nätverksanrop; Europatipset to 7,36 M mot blandade 4,33 M).
+  Jackpotdimension utelämnad: settlementlagret saknar jackpotkolumn.
+- **P5 🔄** — 256/512-körningen var redan gjord (26/7). Den öppna frågan
+  (Hamming-spridning) FÖRREGISTRERAD (`docs/ph5-hamming-forregistrering-
+  2026-07-28.md`) + arm inlagd; fullkörning pågår.
+- **P6 ✅ (omskopad)** — utfalls-ROI + 🌡-kalibrering i Signal-loggen,
+  prognosgrund som tooltip. `oddsetcalibrate` på veckokadens återstår
+  som driftbeslut (CLI:n gör nätverksbacktest).
