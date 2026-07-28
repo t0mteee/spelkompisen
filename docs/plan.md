@@ -5,6 +5,27 @@
 > **Aktiv backlog och prioritering: `docs/backlog.md`** (2026-07-26).
 > WP-listan längre ned är historik över avslutat arbete.
 
+**MODELLPLANEN P1–P6 KÖRD (2026-07-28 kväll, Fable 5, Samans "kör
+samtliga i ordning"; detaljer + avvikelser i backlog.md:s MODELLPLAN).**
+Kärnpunkter för nästa session: (1) **κ nu i ALLA tre värderingsvägar**
+(builder + evalRows + pool_mc `kappa_by_tier`) — PH4 äger mätningen, dess
+gate (≥40 OOT-omgångar efter 24/7) styr nästa steg. (2) **Utfalls-facit**:
+`oddset_value_log.outcome` settlas via `resolve_outcomes` (1X2,
+modellspårets join); `RESULT_ONLY_UT` ger cuper/bestadeild/friendlies
+resultat via Sofascore (normaltid, inga statistik-anrop, SOFA_UT ORÖRD).
+Skarpt: 370 resultat, 176 settlade, resultat-ROI −1,6 % (träff 34 %) mot
+close-EV +2,5 % — close-EV äger grindarna, 🎯-raden är display.
+(3) **Omsättningsprognosen** veckodagsviktad ur lokala settlementlagret
+(`projection_basis` i /api/payouts; Europatipset to 7,36 M mot blandade
+4,33 M; 0 nätverk). (4) `TEAM_ALIASES` i norm_team (IBV); SPEGELPAR i
+odds-flödet upptäckta = egen designpunkt (teckenspegling krävs — bygg
+inte utan förregistrering). (5) PH5:s Hamming-fråga förregistrerad
+(`docs/ph5-hamming-forregistrering-2026-07-28.md`), arm i scriptet,
+fullkörning 256/512 pågick vid skrivning — domen förs in i det
+dokumentet. (6) UI: 🎯 resultat-ROI + 🌡 kalibrering i Signal-loggen,
+prognosgrund-tooltip. 351 tester gröna. OBS: test_book_cdn_age är
+nätverksflaky (Smarkets-anrop i collect — fix-chip skapad).
+
 **EUROPACUPERNA INLAGDA (LIGA 8–10) + FOTMOB PRIMÄR LIVEKÄLLA (2026-07-28,
 Fable 5, Samans beställningar).** (1) **FotMob är radarns primära källa**
 (Sofascore reserv — bär signalen bara med strikt bättre statistik; körs

@@ -284,8 +284,10 @@ enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
   7 754 omgångar) mätte κ>1 överallt** (4–29 %; U-formad folkkorrelation =
   fetare svansar; favoriter överstreckade). Sedan 2026-07-24 är κ per produkt
   och nivå INKOPPLAD i radvalet: `builder.KAPPA` + `KAPPA` i App.jsx måste
-  hållas identiska. κ>1 sänker EV — korrektionen kan aldrig blåsa upp
-  förväntningar, och PH3-ledgern mäter nu champion MED κ.
+  hållas identiska. Sedan 2026-07-28 även i PORTFÖLJSIMULERINGEN
+  (`pool_mc kappa_by_tier` via /api/system) — alla tre värderingsvägarna
+  ska berätta samma sanning. κ>1 sänker EV — korrektionen kan aldrig blåsa
+  upp förväntningar, och PH3-ledgern mäter nu champion MED κ.
 - **Streck-golv:** `builder._pq` och frontendens `folkProb` golvar folkets
   sannolikhet vid 0,001. Utan golv gav streck = 0 utdelning = hela potten.
 - **Pool-PIT presence-regel:** `snapshots`/`sharp_snapshots` är ENBART
@@ -303,8 +305,12 @@ enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
   24h-skiftet (≥3,5 pp markant, ≥6 pp stark). `movement_with_steam` är delade helpern.
 - Bomben: kolumn-baserad byggare (rader = manuell ifyllnad = fil = kostnad), Poisson-modell,
   hålls utanför CLV-facitet (modell-härledd). INGEN exakt-rad-reducering.
-- Projicerad slutomsättning: `_projected_turnover` i main.py — EV-/färgsystem räknar mot
-  prognosen; EV mot dagens omsättning är glädjesiffror.
+- Projicerad slutomsättning: `_projected_turnover` i main.py — sedan 2026-07-28
+  median av senaste 8 avgjorda omgångar med SAMMA spelstoppsveckodag ur LOKALA
+  `pool_draw_settlement` (0 nätverk; Europatipsets onsdag ≠ söndag), fallback
+  senaste-6 redovisad i `projection_basis`. EV-/färgsystem räknar mot
+  prognosen; EV mot dagens omsättning är glädjesiffror. Jackpotläge saknas
+  medvetet (ingen jackpotkolumn i settlementlagret).
 
 ### Export till Svenska Spel ("Egna rader")
 
@@ -318,6 +324,13 @@ enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
 
 - `app/clv.py` + `value_log`-tabellen: gröna värde-kvoter (≥1.08) / sharp-edge (≥2 %) loggas
   first/best per selektion; stängning = devigad Pinnacle; facit från resultat-API:t.
+- **Utfalls-facit för Oddset-flaggor (P2, 2026-07-28):** `oddset_value_log`
+  har `outcome`/`outcome_key`; `resolve_outcomes` settlar 1X2 via modell-
+  spårets join (alias, ±1 dygn, tvetydighet ⇒ ingen gissning). Resultat-ROI/
+  träff är DISPLAY (🎯 i Signal-loggen) — grindarna ägs av close-EV. Ligor
+  utan football-data får resultat via `RESULT_ONLY_UT` (Sofascore, normaltid,
+  INGA statistik-anrop; en EGEN tabell — SOFA_UT ingår i wp9c-/V2.2-
+  fingeravtrycken och rörs bara vid omfrysning).
 - **Metodregel (dyrast lärdom från vm):** ENDAST marknadspriser får logga flaggor —
   modellhärledda sannolikheter förorenar facitet. Sedan 2026-07-24 gäller den
   även UI:t: amber-modellen mäter −4,2 % close-EV (KI utan noll) och får därför
