@@ -53,6 +53,17 @@ SOFA_UT = {"allsvenskan": 40, "eliteserien": 20, "superettan": 46,
 MODEL_LEAGUES = set(FD_URLS) | {"superettan", "obosligaen"}
 RESEARCH_MODEL_LEAGUES = set(RESEARCH_LEAGUE_KEYS)
 RESULT_LEAGUES = MODEL_LEAGUES | set(FD_SEASON_CODES)
+# Resultat-ENDAST-ligor (P2, 2026-07-28): utanför football-data OCH utanför
+# modellspåret, men värdeflaggorna behöver facitresultat (utfalls-ROI).
+# MEDVETET en EGEN tabell, inte SOFA_UT — SOFA_UT ingår i wp9c-POLICY-/
+# V2.2-fingeravtrycken och rörs bara vid en omfrysning. Endast slutresultat
+# hämtas (inga statistik-anrop): ingen xG, ingen modell, ingen PIT-fråga.
+# Cupkvalen delar huvudturneringens UT (verifierat 28/7); bestadeild ut 188
+# verifierad fotboll (27/7); friendlies UT 853 är global men resultatrader
+# joinas ändå per liga+lag+datum så överskottet är harmlöst.
+RESULT_ONLY_UT = {"champions_league": 7, "europa_league": 679,
+                  "conference_league": 17015, "bestadeild": 188,
+                  "friendlies": 853}
 SOFA_MAX_PAGES = 4            # events/last/{page} per körning (backfill tar några pass)
 
 FD_TTL_H, XG_TTL_H, ELO_TTL_H, ABS_TTL_H = 12, 6, 24, 2
@@ -188,33 +199,38 @@ def _sofa_get(path: str, timeout: float = 20.0):
     return r.json()
 
 
-def _sofa_season(store: Storage, lg: str) -> Optional[int]:
+def _sofa_season(store: Storage, lg: str,
+                 ut: Optional[int] = None) -> Optional[int]:
     """Innevarande säsongs id, cachat i meta (30 d).
 
     Tournament-id ingår i cachevärdet. Det förhindrar att ett gammalt säsongs-id
     från en felaktigt identifierad sport återanvänds efter att SOFA_UT rättats
     (OBOS hade kvar handbollssäsongen 97377 trots korrekt fotbolls-UT 22).
+    `ut` låter resultat-ENDAST-ligorna (RESULT_ONLY_UT) använda samma väg
+    utan att stå i SOFA_UT.
     """
+    ut = SOFA_UT[lg] if ut is None else ut
     key = f"oddset_sofa_season:{lg}"
     cached = store.meta_get(key)
     if cached:
         try:
             tournament_id, sid, at = cached.split("|")
-            if (int(tournament_id) == SOFA_UT[lg] and
+            if (int(tournament_id) == ut and
                     (_now() - dt.datetime.fromisoformat(at)).days < 30):
                 return int(sid)
         except ValueError:
             pass
     try:
-        seasons = _sofa_get(f"/unique-tournament/{SOFA_UT[lg]}/seasons")["seasons"]
+        seasons = _sofa_get(f"/unique-tournament/{ut}/seasons")["seasons"]
         sid = seasons[0]["id"]
-        store.meta_set(key, f"{SOFA_UT[lg]}|{sid}|{_now().isoformat()}")
+        store.meta_set(key, f"{ut}|{sid}|{_now().isoformat()}")
         return sid
     except Exception:  # noqa: BLE001
         return None
 
 
-def _ingest_event(store: Storage, lg: str, e: dict) -> bool:
+def _ingest_event(store: Storage, lg: str, e: dict,
+                  results_only: bool = False) -> bool:
     """Spara ett avslutat Sofascore-event (resultat + xG + hörnor).
 
     Resultatet är användbart även om statistik-anropet tillfälligt fallerar och
@@ -222,6 +238,11 @@ def _ingest_event(store: Storage, lg: str, e: dict) -> bool:
     förrän statistik-endpointen svarat (404/410 = permanent utan statistik).
     På så vis kan nästa 6h-varv fylla xG/hörnor i stället för att luckan blir
     permanent. False betyder känt/ej avslutat eller väntar på retry.
+
+    `results_only` (RESULT_ONLY_UT-ligorna): hoppa över statistik-anropet
+    helt — slutresultatet är hela behovet och varje extra anrop mot den
+    delade källan är en kostnad (samma artighetsprincip som live-radarns
+    matchtak).
     """
     if e.get("status", {}).get("type") != "finished":
         return False
@@ -245,6 +266,9 @@ def _ingest_event(store: Storage, lg: str, e: dict) -> bool:
     # Basresultatet ska inte gå förlorat bara för att detaljstatistiken ligger
     # nere; COALESCE-upserten fyller xG/hörnor vid ett senare lyckat försök.
     store.oddset_save_result(row)
+    if results_only:
+        store.meta_set(f"oddset_sofa_seen:{eid}", row["date"])
+        return True
     time.sleep(1.1)
     try:
         payload = _sofa_get(f"/event/{eid}/statistics")
@@ -281,6 +305,54 @@ def _ingest_event(store: Storage, lg: str, e: dict) -> bool:
     store.meta_delete(f"oddset_sofa_retry:{eid}")
     store.meta_set(f"oddset_sofa_seen:{eid}", row["date"])
     return True
+
+
+def refresh_results_extra(store: Storage, force: bool = False) -> dict:
+    """Slutresultat för resultat-ENDAST-ligorna (RESULT_ONLY_UT).
+
+    Samma sid-/säsongsväg som refresh_xg men utan statistik-anrop: en
+    sidhämtning per varv och liga när cachen är kall, inget mer. Utfalls-
+    facitet (oddset_value.resolve_outcomes) är enda konsumenten."""
+    out = {}
+    for lg, ut in RESULT_ONLY_UT.items():
+        if not force and not _stale(store, f"oddset_resx_at:{lg}", FD_TTL_H):
+            continue
+        sid = _sofa_season(store, lg, ut)
+        if not sid:
+            out[lg] = "ingen säsong"
+            continue
+        n_new = 0
+        failed = None
+        for page in range(SOFA_MAX_PAGES):
+            try:
+                evs = _sofa_get(
+                    f"/unique-tournament/{ut}/season/{sid}/events/last/{page}") \
+                    .get("events") or []
+            except Exception as e:  # noqa: BLE001
+                # Sofascore svarar 404 EFTER sista sidan (inte tom lista) —
+                # för en cup med en enda sida är 404 på sida 1 normalflöde,
+                # inte ett fel. Uppmätt 28/7: sida 0 ingesterades och felet
+                # skrev över räknaren. Bara sida 0-fel är ett riktigt fel.
+                status = getattr(getattr(e, "response", None),
+                                 "status_code", None)
+                if page > 0 and status == 404:
+                    break
+                failed = f"fel: {e}"
+                break
+            if not evs:
+                break
+            new_on_page = sum(
+                _ingest_event(store, lg, e, results_only=True)
+                for e in evs)
+            n_new += new_on_page
+            if new_on_page == 0:
+                break   # hela sidan redan känd -> äldre sidor också
+        if failed and not n_new:
+            out[lg] = failed
+            continue
+        _mark(store, f"oddset_resx_at:{lg}")
+        out[lg] = n_new
+    return out
 
 
 def refresh_xg(store: Storage, force: bool = False) -> dict:
@@ -533,6 +605,7 @@ def refresh_all(store: Storage, force: bool = False) -> dict:
     """Körs i varje insamlingspass — throttlarna gör det billigt."""
     from . import oddset_schedule
     out = {"results": refresh_results(store, force),
+           "results_extra": refresh_results_extra(store, force),
            "xg": refresh_xg(store, force),
            "elo": refresh_elo(store, force),
            "absences": refresh_absences(store, force)}

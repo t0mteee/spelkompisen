@@ -834,6 +834,12 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
     anchor2_edge         REAL,
     anchor2_closing_fair REAL,
     anchor2_note         TEXT,
+    -- UTFALLS-FACIT (P2, 2026-07-28): resultatbaserad ROI som KOMPLEMENT till
+    -- close-EV. Grindarna (grönt-kriteriet) ägs fortsatt av close-EV; utfallet
+    -- är display/validering. Settlas endast för 1X2 i v1 (par-marknaders
+    -- push-/kvartslinjelogik är en egen fråga). NULL = ej settlad än.
+    outcome      INTEGER,
+    outcome_key  TEXT,
     PRIMARY KEY (match_id, market, sign, line_key, model_version)
 );
 """ + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + V22_SHADOW_SCHEMA + TEAM_EVENT_SCHEMA + POOL_SETTLEMENT_SCHEMA + POOL_PIT_SCHEMA + LIVE_RADAR_SCHEMA + MATCHBOOK_SCHEMA
@@ -871,7 +877,11 @@ class Storage:
                     "ALTER TABLE oddset_value_log ADD COLUMN anchor2_fair REAL",
                     "ALTER TABLE oddset_value_log ADD COLUMN anchor2_edge REAL",
                     "ALTER TABLE oddset_value_log ADD COLUMN anchor2_closing_fair REAL",
-                    "ALTER TABLE oddset_value_log ADD COLUMN anchor2_note TEXT"):
+                    "ALTER TABLE oddset_value_log ADD COLUMN anchor2_note TEXT",
+                    # utfalls-facitet (P2, 2026-07-28) — additivt och nullbart:
+                    # gamla flaggor settlas i efterhand när resultat finns
+                    "ALTER TABLE oddset_value_log ADD COLUMN outcome INTEGER",
+                    "ALTER TABLE oddset_value_log ADD COLUMN outcome_key TEXT"):
             try:   # migreringar för befintliga DB:er
                 self.conn.execute(mig)
             except sqlite3.OperationalError:
@@ -1820,6 +1830,30 @@ class Storage:
             "SELECT * FROM oddset_value_log WHERE closing_fair IS NULL "
             "AND closing_note IS NULL AND match_start IS NOT NULL AND match_start < ?",
             (now_iso,)).fetchall()]
+
+    def oddset_unsettled_outcomes(self, now_iso: str,
+                                  max_age_days: int = 45) -> list[dict]:
+        """1X2-flaggor utan utfall, för matcher som rimligen hunnit avgöras.
+        Åldersgränsen hindrar evig omskanning av rader vars resultat aldrig
+        dyker upp (ligor utan resultatkälla)."""
+        floor = (dt.datetime.fromisoformat(now_iso.replace("Z", "+00:00"))
+                 - dt.timedelta(days=max_age_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return [dict(r) for r in self.conn.execute(
+            "SELECT * FROM oddset_value_log WHERE outcome IS NULL "
+            "AND market='1x2' AND match_start IS NOT NULL "
+            "AND match_start < ? AND match_start > ?",
+            (now_iso, floor)).fetchall()]
+
+    def oddset_set_outcome(self, flag: dict, outcome: int,
+                           outcome_key: Optional[str]) -> None:
+        self.conn.execute(
+            "UPDATE oddset_value_log SET outcome=?, outcome_key=? "
+            "WHERE match_id=? AND market=? AND sign=? AND line_key=? "
+            "AND model_version=?",
+            (outcome, outcome_key,
+             flag["match_id"], flag["market"], flag["sign"], flag["line_key"],
+             flag.get("model_version") or "legacy"))
+        self._commit()
 
     def oddset_history_before(self, match_id: str, market: str,
                               before_iso: str,

@@ -1013,6 +1013,8 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
         ]
         vs = oddset_value.log_and_notify(store, actionable, present=present)
         vs["closings"] = oddset_value.resolve_closings(store)
+        # utfalls-facitet (P2): settla 1X2-flaggor mot resultat när de finns
+        vs["outcomes"] = oddset_value.resolve_outcomes(store)
         report["value"] = vs
     except Exception as e:  # noqa: BLE001 — får inte fälla insamlingen
         report["errors"].append(f"värde/notiser: {e}")

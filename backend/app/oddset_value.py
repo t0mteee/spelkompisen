@@ -617,6 +617,49 @@ def resolve_closings(store: Storage) -> int:
     return n
 
 
+def resolve_outcomes(store: Storage) -> int:
+    """Settla 1X2-flaggor mot facitresultat (P2, 2026-07-28).
+
+    KOMPLEMENT till close-EV: grindarna (grönt-kriteriet) ägs oförändrat av
+    stängningslinjen — utfallet är validering mot verkligheten och bär allt
+    brus låga n innebär. Endast 1X2 i v1; par-marknadernas push-/kvarts-
+    linjelogik är en egen fråga. Joinen är oddset_v2._outcome — samma som
+    modellspåret (alias, ±1 dygn, tvetydighet ⇒ ingen gissning)."""
+    from . import oddset_data
+    from .oddset_v2 import _outcome
+    now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    flags = store.oddset_unsettled_outcomes(now)
+    if not flags:
+        return 0
+    results = {lg: oddset_data.merged_results(store, lg)
+               for lg in {f.get("league") or "?" for f in flags}}
+    n = 0
+    for flag in flags:
+        match = store.oddset_match(flag["match_id"])
+        if not match or not match.get("start"):
+            continue
+        facit, key = _outcome(store, match, results)
+        if facit is None:
+            continue
+        store.oddset_set_outcome(flag, 1 if facit == flag["sign"] else 0, key)
+        n += 1
+    return n
+
+
+def _outcome_stats(rows: list[dict]) -> dict:
+    """Resultat-facit (display-only): ROI till first-odds på settlade flaggor."""
+    settled = [r for r in rows
+               if r.get("outcome") is not None and r.get("first_odds")]
+    if not settled:
+        return {"n_outcomes": 0, "result_roi": None, "hit_rate": None}
+    returns = [(r["first_odds"] if r["outcome"] else 0.0) - 1.0
+               for r in settled]
+    return {"n_outcomes": len(settled),
+            "result_roi": round(sum(returns) / len(settled), 4),
+            "hit_rate": round(sum(1 for r in settled if r["outcome"])
+                              / len(settled), 4)}
+
+
 GREEN_MIN_N = 50          # grönt-kriterium v2 (granskningen 2026-07-13):
 GREEN_CI_ALPHA = 0.10     # ≥50 stängda OCH undre 90 %-KI-gräns > 0 — KI via
 WINSOR_EV = 0.20          # kluster-bootstrap per MATCH (flaggor i samma match är
@@ -708,7 +751,7 @@ def clv_report(store: Storage) -> dict:
     out = {"rows": rows}
     for tier in ("sharp", "model"):
         trows = [r for r in rows if (r.get("tier") or "sharp") == tier]
-        out[tier] = _tier_stats(trows)
+        out[tier] = {**_tier_stats(trows), **_outcome_stats(trows)}
     # nedbrutet facit: liga × marknad × version inom tier (bara grupper med data)
     groups: dict[tuple, list[dict]] = {}
     for r in rows:
@@ -717,7 +760,7 @@ def clv_report(store: Storage) -> dict:
         groups.setdefault(key, []).append(r)
     out["groups"] = [
         {"tier": k[0], "league": k[1], "market": k[2], "version": k[3],
-         **_tier_stats(v)}
+         **_tier_stats(v), **_outcome_stats(v)}
         for k, v in sorted(groups.items()) if any(r["close_ev"] is not None for r in v)]
     # bakåtkompatibelt (UI:t före tier-uppdelningen)
     out["n"], out["n_resolved"] = out["sharp"]["n"], out["sharp"]["n_resolved"]
