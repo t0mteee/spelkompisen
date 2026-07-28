@@ -858,11 +858,13 @@ function LabbV3() {
   const [systems, setSystems] = useState(null)
   const [err, setErr] = useState(null)
 
+  const [halsa, setHalsa] = useState(null)
   useEffect(() => {
     // engångsläsning — mätserierna rör sig på varv-/veckoskala, ingen poll
     get('/api/oddset/clv').then(setClv).catch((e) => { setClv(null); setErr(String(e)) })
     get('/api/oddset/radar-facit').then(setRadar).catch(() => setRadar(null))
     get('/api/pool/systems').then(setSystems).catch(() => setSystems(null))
+    get('/api/pool/turnover-prognos').then(setHalsa).catch(() => setHalsa(null))
   }, [])
 
   const evPct = (v) => v == null ? '–' : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)} %`
@@ -915,6 +917,29 @@ function LabbV3() {
           )}
           <span className="v3hint">Close-EV mot devigad Pinnacle-stängning, winsoriserad ±20 %.
             Grönt beslutas per liga × marknad × version på veckokadens — aggregatet ändrar aldrig gruppstatus.</span>
+        </div>
+
+        <div className="v3card">
+          <div className="v3cardhead"><h3>🧬 Modellhälsa</h3>
+            <LabbPill s="samlar" /></div>
+          {clv?.sharp?.n_outcomes > 0 && (
+            <div className="v3row" title="Resultatbaserad ROI till first-odds på settlade 1X2-flaggor. Display — grönt beslutas fortfarande av close-EV-grinden.">
+              <b>🎯 Utfalls-facit (sharp)</b>
+              <span>{clv.sharp.n_outcomes} settlade</span>
+              <span className={evCls(clv.sharp.result_roi)}>{evPct(clv.sharp.result_roi)} ROI</span>
+              <span className="v3hint">träff {rate(clv.sharp.hit_rate)}</span>
+            </div>
+          )}
+          {halsa && Object.entries(halsa).map(([p, h]) => (
+            <div key={p} className="v3row" title="Rullande backtest: medianabsolutfel för slutomsättningsprognosen, räknad enbart på data som fanns före respektive omgång. Veckodagsmetoden ska ligga under den gamla blandade medianen.">
+              <b>{p}</b>
+              <span>prognosfel {h.medianfel_veckodag == null ? '–' : `${(h.medianfel_veckodag * 100).toFixed(0)} %`}
+                {h.medianfel_blandad != null && <span className="v3hint"> (blandad {(h.medianfel_blandad * 100).toFixed(0)} %)</span>}</span>
+              <span className="v3hint">PH4-OOT {h.ph4_oot}/{h.ph4_oot_krav}</span>
+            </div>
+          ))}
+          <span className="v3hint">Utfalls-ROI är brusig vid låga n och ändrar inga grindar.
+            PH4-räknaren visar out-of-time-fönstret som krävs innan nya κ-varianter får föreslås.</span>
         </div>
 
         <div className="v3card">

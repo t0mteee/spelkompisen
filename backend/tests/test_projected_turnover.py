@@ -54,7 +54,7 @@ class ProjectedTurnoverTests(unittest.TestCase):
         self.assertEqual(7_000_000, sunday)
         self.assertEqual(1_000_000, wednesday)
 
-    def test_fa_veckodagsomgangar_ger_redovisad_fallback(self):
+    def test_fa_veckodagsomgangar_ger_redovisad_blandad_median(self):
         with tempfile.TemporaryDirectory() as tmp:
             factory = self._store_factory(tmp)
             seedstore = factory()
@@ -71,7 +71,7 @@ class ProjectedTurnoverTests(unittest.TestCase):
                 basis = main._projection_basis(
                     "stryktipset", "2026-08-03T18:00:00Z")
         self.assertEqual(12_000_000, got)
-        self.assertEqual("fallback", basis["mode"])
+        self.assertEqual("blandad", basis["mode"])
 
     def test_prognosen_ligger_aldrig_under_liveomsattningen(self):
         with tempfile.TemporaryDirectory() as tmp:

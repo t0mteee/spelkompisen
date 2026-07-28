@@ -321,17 +321,46 @@ def _projected_turnover(product: str, current: float,
             "SELECT reg_close_time, net_sale FROM pool_draw_settlement "
             "WHERE product=? AND net_sale > 0 AND reg_close_time IS NOT NULL "
             "ORDER BY reg_close_time DESC LIMIT 60", (product,))]
-        mode, vals = "weekday", []
-        if weekday is not None:
-            for close_at, sale in rows:
-                if _close_weekday(close_at) == weekday:
-                    vals.append(sale)
-                if len(vals) >= 8:
+        # METODVALET ÄR DATADRIVET PER PRODUKT (2026-07-28, upptäckt av
+        # modellhälso-backtesten samma kväll som veckodagsmetoden byggdes):
+        # för veckoprodukter (Stryk) vinner veckodagsmedianen, men för
+        # dagliga produkter (Topptipset) är 8 samma-veckodagar = 8 veckors
+        # säsongsdrift och den färska senaste-6 slår den stort (uppmätt
+        # 173 % mot 43 % medianfel). Samma rullande backtest som
+        # /api/pool/turnover-prognos väljer därför metod — bara på data
+        # som fanns före respektive omgång.
+        def _wd_vals(hist, wd, cap=8):
+            picked = []
+            for close_at, sale in hist:
+                if _close_weekday(close_at) == wd:
+                    picked.append(sale)
+                if len(picked) >= cap:
                     break
-        if len(vals) < 3:
-            # för få jämförbara veckodagsomgångar: senaste 6 oavsett dag
-            # (gamla semantiken) — redovisas som fallback, inte gömt
-            mode, vals = "fallback", [sale for _, sale in rows[:6]]
+            return picked
+
+        errs_wd, errs_mix = [], []
+        for i in range(min(20, max(0, len(rows) - 10))):
+            t_close, actual = rows[i]
+            hist = rows[i + 1:]
+            for vals_i, errs in ((_wd_vals(hist, _close_weekday(t_close)),
+                                  errs_wd),
+                                 ([s for _, s in hist[:6]], errs_mix)):
+                if len(vals_i) >= 3 and actual > 0:
+                    errs.append(abs(sorted(vals_i)[len(vals_i) // 2] - actual)
+                                / actual)
+        def _median(xs):
+            return sorted(xs)[len(xs) // 2] if xs else None
+        wd_err, mix_err = _median(errs_wd), _median(errs_mix)
+        vals = _wd_vals(rows, weekday) if weekday is not None else []
+        # utan backtest-underlag gäller veckodagsprioren (dagtyperna skiljer);
+        # bara ett UPPMÄTT övertag för blandade medianen väljer bort den
+        use_weekday = (len(vals) >= 3
+                       and (wd_err is None or mix_err is None
+                            or wd_err <= mix_err))
+        if use_weekday:
+            mode = "weekday"
+        else:
+            mode, vals = "blandad", [sale for _, sale in rows[:6]]
         if not vals:
             return None
         ordered = sorted(vals)
@@ -339,7 +368,9 @@ def _projected_turnover(product: str, current: float,
         store.meta_set(key, _json.dumps(
             {"ts": dt.datetime.now(dt.timezone.utc).isoformat(),
              "median": median, "weekday": weekday, "n": len(vals),
-             "mode": mode}))
+             "mode": mode,
+             "backtest_fel": {"veckodag": wd_err and round(wd_err, 4),
+                              "blandad": mix_err and round(mix_err, 4)}}))
         return max(current, median)
     finally:
         store.close()
@@ -680,6 +711,50 @@ def system(product: str = "stryktipset",
 def rsystems():
     """Lista Svenska Spels 12-rättsgaranti-R-system."""
     return {"systems": [{"name": k, **v} for k, v in SVS_R12.items()]}
+
+
+@app.get("/api/pool/turnover-prognos")
+def turnover_prognos():
+    """Modellhälsa (Labb, 2026-07-28): (a) rullande backtest av veckodags-
+    prognosen mot gamla blandade senaste-6-medianen — medianabsolutfel över
+    senaste ~20 avgjorda omgångarna per produkt, räknat enbart på data som
+    fanns FÖRE respektive omgång; (b) PH4-gatens OOT-räknare (avgjorda
+    omgångar efter 2026-07-24, krav ≥ 40 innan nya κ-varianter föreslås)."""
+    import statistics
+    store = Storage()
+    try:
+        out = {}
+        for product in PRIZE_PLANS:
+            rows = [(r[0], float(r[1])) for r in store.conn.execute(
+                "SELECT reg_close_time, net_sale FROM pool_draw_settlement "
+                "WHERE product=? AND net_sale > 0 AND reg_close_time IS NOT "
+                "NULL ORDER BY reg_close_time DESC LIMIT 80", (product,))]
+            errs_wd, errs_mix = [], []
+            for i in range(min(20, max(0, len(rows) - 10))):
+                target_close, actual = rows[i]
+                hist = rows[i + 1:]
+                wd = _close_weekday(target_close)
+                same = [s for c, s in hist if _close_weekday(c) == wd][:8]
+                mixed = [s for _, s in hist[:6]]
+                for vals, errs in ((same, errs_wd), (mixed, errs_mix)):
+                    if len(vals) >= 3 and actual > 0:
+                        med = sorted(vals)[len(vals) // 2]
+                        errs.append(abs(med - actual) / actual)
+            oot = store.conn.execute(
+                "SELECT COUNT(*) FROM pool_draw_settlement WHERE product=? "
+                "AND reg_close_time > '2026-07-24T23:59:59Z'",
+                (product,)).fetchone()[0]
+            out[product] = {
+                "n_backtest": len(errs_wd),
+                "medianfel_veckodag": (round(statistics.median(errs_wd), 4)
+                                       if errs_wd else None),
+                "medianfel_blandad": (round(statistics.median(errs_mix), 4)
+                                      if errs_mix else None),
+                "ph4_oot": oot, "ph4_oot_krav": 40,
+            }
+        return out
+    finally:
+        store.close()
 
 
 @app.get("/api/oddset/matches")

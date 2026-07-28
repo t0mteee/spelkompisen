@@ -23,7 +23,11 @@ inte utan förregistrering). (5) PH5:s Hamming-fråga förregistrerad
 (`docs/ph5-hamming-forregistrering-2026-07-28.md`), arm i scriptet,
 fullkörning 256/512 pågick vid skrivning — domen förs in i det
 dokumentet. (6) UI: 🎯 resultat-ROI + 🌡 kalibrering i Signal-loggen,
-prognosgrund-tooltip. 351 tester gröna. OBS: test_book_cdn_age är
+prognosgrund-tooltip; 🧬 MODELLHÄLSA-kort i Labb (utfalls-facit,
+prognosfel per produkt/metod, PH4-OOT-räknare) via /api/pool/
+turnover-prognos. Prognos-METODVALET är datadrivet per produkt —
+backtesten fångade att veckodag förlorar stort för dagliga produkter
+(topptipset 173 % mot 43 %); blandad median väljs då automatiskt. 351 tester gröna. OBS: test_book_cdn_age är
 nätverksflaky (Smarkets-anrop i collect — fix-chip skapad).
 
 **EUROPACUPERNA INLAGDA (LIGA 8–10) + FOTMOB PRIMÄR LIVEKÄLLA (2026-07-28,

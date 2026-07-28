@@ -621,7 +621,7 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse }) {
             const stP = systemStats(sys, matches, { ...payouts, turnover: payouts.projected_turnover })
             if (!stP || stP.tooBig) return null
             return (
-              <div className="rule" title={`Potterna växer mot spelstopp men det gör medvinnarna också — detta är EV räknat mot prognostiserad slutomsättning.${payouts.projection_basis ? `\nPrognosgrund: ${payouts.projection_basis.mode === 'weekday' ? `median av ${payouts.projection_basis.n} senaste omgångarna med samma spelstoppsveckodag (${['mån', 'tis', 'ons', 'tors', 'fre', 'lör', 'sön'][payouts.projection_basis.weekday] ?? '?'})` : `median av senaste ${payouts.projection_basis.n} omgångarna oavsett veckodag (för få jämförbara på veckodagen)`}.` : ''}`}>
+              <div className="rule" title={`Potterna växer mot spelstopp men det gör medvinnarna också — detta är EV räknat mot prognostiserad slutomsättning.${payouts.projection_basis ? `\nPrognosgrund: ${payouts.projection_basis.mode === 'weekday' ? `median av ${payouts.projection_basis.n} senaste omgångarna med samma spelstoppsveckodag (${['mån', 'tis', 'ons', 'tors', 'fre', 'lör', 'sön'][payouts.projection_basis.weekday] ?? '?'})` : `median av senaste ${payouts.projection_basis.n} omgångarna oavsett veckodag (backtestet visar att den träffar bättre för produkten, eller för få jämförbara)`}.` : ''}`}>
                 Vid förväntad slutomsättning ({kr(payouts.projected_turnover)}): förv. utdelning {kr(stP.evPayout)}
                 {' '}· EV <b className={stP.ev >= 0 ? 'pos' : 'neg'}>{stP.ev >= 0 ? '+' : ''}{kr(stP.ev)}</b>
                 {' '}· ROI {stP.roi == null ? '–' : (stP.roi * 100).toFixed(0) + ' %'} — den ärliga siffran tidigt i veckan.
