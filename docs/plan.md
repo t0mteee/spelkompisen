@@ -1,9 +1,37 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-07-27 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-07-28 — läs detta först i ny session)
 
 > **Aktiv backlog och prioritering: `docs/backlog.md`** (2026-07-26).
 > WP-listan längre ned är historik över avslutat arbete.
+
+**EUROPACUPERNA INLAGDA (LIGA 8–10) + FOTMOB PRIMÄR LIVEKÄLLA (2026-07-28,
+Fable 5, Samans beställningar).** (1) **FotMob är radarns primära källa**
+(Sofascore reserv — bär signalen bara med strikt bättre statistik; körs
+efter FotMob i `_live_pass`, båda med eget skyddsnät). FotMob täcker nu
+även Oddset-spärrade friendlies via DELADE `live_radar.known_friendly`
+(spegling 1↔2 — odds- och statskällor är oense om hemmalag på turnématcher,
+Chelsea–WSW-fallet — plus `_same_team` i stället för exakt likhet: FotMob
+kortar namnen). (2) **CL/EL/Conference INKL. kval**: cuperna är TVÅ
+Pinnacle-ligor (2627/205451, 2630/2632, 214101/271382) och TVÅ Kambi-vägar
+per nyckel — `pin_ids`/`kambi_paths` i oddset.py, batcharna stämplas med
+sin EGEN observationstid (🕐 p.3). Smarkets: kvalslugs + Conference-huvudslug
+OBSERVERADE, CL/EL-huvudslug mönsterhärledda tills ligafasen (september).
+Sofascore lägger kvalet under huvudturneringens UT (verifierat) — 7/679/17015
+direkt i radarns TARGET_UT, medvetet INTE i SOFA_UT (wp9c-fingeravtrycket,
+samma som Besta deild). FotMobs SEPARATA kvalligor (10611/10613/10615)
+mappade till samma nycklar. Sharp-ankrad väg utan modell; actionable.
+(3) `_NOISE` utökad med föreningsformer (nk/gnk/hnk/kf/ks/pfc) — löste
+dubbelkort i radarn (Sofascore "GNK Dinamo Zagreb" ↔ FotMob "Dinamo
+Zagreb"). Liveverifierat 28/7 kväll under pågående CL-/ECL-kval: insamling
+10+9+45 Pinnacle / 10+9+42 Kambi / Smarkets matchad, ~1024 oddsrader, 0 fel;
+radarn visade kvalmatcher live med FotMob-xG; kommande cupmatcher får
+SvS-odds + sharp + värde. Startade matcher får korrekt INGA odds
+(live-odds-regeln). 342 tester gröna. Radartaken HÖJDA samma kväll
+(Samans beslut): Sofascore 30→60, FotMob 20→60 — kvaltorsdagen 30/7 spelar
+53 cupmatcher samtidigt och kvalen HAR chansdata (15/23 uppmätt), så gamla
+"det som klipps döljs ändå"-argumentet höll inte längre. Sortering +
+skipped-loggning kvar som skydd; isolationstestets gräns flyttad till 60.
 
 **BESTA DEILD INLAGD SOM SJUNDE LIGA (2026-07-27 kväll, Fable 5, Samans
 beställning).** Recon 30 min: Pinnacle 2102 ("Iceland - Premier League",

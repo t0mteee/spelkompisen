@@ -44,6 +44,30 @@ LEAGUES = [
      "kambi": "football/usa/mls", "altenar": None},
     {"key": "friendlies", "name": "Träningsmatcher", "pin_id": 1863,
      "kambi": "football/club_friendly_matches", "altenar": None},
+    # Europacuperna (Samans beställning 2026-07-28): CL/EL/Conference INKL.
+    # kval. Varje cup är TVÅ ligor hos Pinnacle och TVÅ vägar hos Kambi
+    # (huvudturnering + kval) — `pin_ids`/`kambi_paths` listar båda och slås
+    # ihop i collect (_pin_ids/_kambi_paths). Kambis huvudvägar finns redan
+    # men är tomma tills ligafasen startar i september; kvalvägarna bär
+    # matcherna nu (verifierat 28/7: 12+9+46 kvalmatcher med odds).
+    # Sharp-ankrad väg som Besta deild: ingen modell (ingen football-data),
+    # och Sofascore-UT medvetet INTE i SOFA_UT (wp9c-POLICY-fingeravtrycket) —
+    # live-radarn scope:ar cuperna direkt i TARGET_UT i stället.
+    {"key": "champions_league", "name": "Champions League",
+     "pin_ids": [2627, 205451],
+     "kambi_paths": ["football/champions_league",
+                     "football/champions_league_qualification"],
+     "altenar": None},
+    {"key": "europa_league", "name": "Europa League",
+     "pin_ids": [2630, 2632],
+     "kambi_paths": ["football/europa_league",
+                     "football/europa_league_qualification"],
+     "altenar": None},
+    {"key": "conference_league", "name": "Conference League",
+     "pin_ids": [214101, 271382],
+     "kambi_paths": ["football/conference_league",
+                     "football/conference_league_qualification"],
+     "altenar": None},
     # Forskningsligor för V2.2-EU. `research_only` styr insamlingsdjup och
     # actionability: lätt insamling (1X2, ingen deep/sidoböcker/frånvaro), inga
     # värdesignaler/Kelly/notiser/CLV, ingen ordinarie model-capture — V2.2-
@@ -67,6 +91,17 @@ LEAGUES = [
 # Actionable = får skapa spelbar signal, Kelly, notis och CLV-/value_log-rader.
 ACTIONABLE_LEAGUE_KEYS = frozenset(
     league["key"] for league in LEAGUES if not league.get("research_only"))
+
+
+def _pin_ids(league: dict) -> list[int]:
+    """Pinnacle-id:n för en liga. Cuperna listar huvudturnering + kval i
+    `pin_ids`; vanliga ligor har ett enda `pin_id`."""
+    return league.get("pin_ids") or [league["pin_id"]]
+
+
+def _kambi_paths(league: dict) -> list[str]:
+    """Kambi-vägar för en liga — samma mönster som _pin_ids."""
+    return league.get("kambi_paths") or [league["kambi"]]
 # Synlig i ordinarie UI-payload (/api/oddset/matches utan interna flaggor).
 VISIBLE_LEAGUE_KEYS = frozenset(
     league["key"] for league in LEAGUES
@@ -135,7 +170,13 @@ def _parse_ts(s: Optional[str]) -> Optional[dt.datetime]:
 
 # vanliga föreningssuffix som skiljer källorna åt ("Hammarby IF" vs "Hammarby")
 _NOISE = {"if", "ff", "fk", "bk", "sk", "ik", "ib", "is", "fc", "afc", "aif",
-          "gif", "cf", "ac", "sc", "bp", "kff"}
+          "gif", "cf", "ac", "sc", "bp", "kff",
+          # Europacupernas föreningsformer (2026-07-28): samma klass som
+          # fc/fk ovan. Källorna är oense om prefixet (Sofascore "GNK Dinamo
+          # Zagreb", FotMob/Pinnacle "Dinamo Zagreb") vilket gav dubbelkort i
+          # radarn när _same_team inte länkade providrarna. Identitetsnamn
+          # som AEK/CSKA hör INTE hit — bara juridisk form.
+          "nk", "gnk", "hnk", "kf", "ks", "pfc"}
 _CHARMAP = str.maketrans({"ø": "o", "Ø": "o", "æ": "a", "Æ": "a", "đ": "d", "ð": "d",
                           "ł": "l", "ß": "ss", "/": " ", "-": " ", ".": " ", "'": ""})
 # Ett perfekt lag på ena sidan får aldrig väga upp ett orelaterat lag på den
@@ -460,33 +501,44 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
             pin_ok, pin_error = True, None
             pin_cache_age_s = 0
             pin_observed_at = at
+            pin_rows = []
             try:
-                reset_age = getattr(pin, "reset_cache_age", None)
-                if reset_age:
-                    reset_age()
-                pin_rows = (
-                    pinnacle_known_moneylines(pin, lg["pin_id"], cands)
-                    if not deep and research_only and any(
-                        cand.get("pinnacle_id") for cand in cands)
-                    else pinnacle_league_index(pin, lg["pin_id"])
-                )
-                # Båda insamlingsvägarna hämtar marknader sist; det är
-                # prisendpointens Age som ska korrigera prisets observation.
-                # ÖVERKORRIGERINGSFIX (2026-07-25): Age måste dras från det
-                # EGNA anropets tid, inte från varvets start `at`. Ligaloopen
-                # kan pågå i upp till 25 min, så sena ligor bakåtdaterades
-                # tidigare med Age PLUS hela den förflutna insamlingstiden.
-                pin_fetch_at = _now_iso()
-                pin_cache_age_s = int(getattr(pin, "last_age_s", 0) or 0)
-                pin_observed_at = cache_adjusted_iso(pin_fetch_at, pin_cache_age_s)
+                # Cuperna är TVÅ Pinnacle-ligor (huvudturnering + kval). Varje
+                # id hämtas separat och raderna stämplas med sitt EGET anrops
+                # observationstid (_observed_at/_age_s): batcharna kan ligga
+                # olika i Pinnacles CDN-cache (max-age 905), så en gemensam
+                # stämpel hade daterat ena batchens priser upp till ~15 min fel.
+                for pin_league_id in _pin_ids(lg):
+                    reset_age = getattr(pin, "reset_cache_age", None)
+                    if reset_age:
+                        reset_age()
+                    batch = (
+                        pinnacle_known_moneylines(pin, pin_league_id, cands)
+                        if not deep and research_only and any(
+                            cand.get("pinnacle_id") for cand in cands)
+                        else pinnacle_league_index(pin, pin_league_id)
+                    )
+                    # Båda insamlingsvägarna hämtar marknader sist; det är
+                    # prisendpointens Age som ska korrigera prisets observation.
+                    # ÖVERKORRIGERINGSFIX (2026-07-25): Age måste dras från det
+                    # EGNA anropets tid, inte från varvets start `at`. Ligaloopen
+                    # kan pågå i upp till 25 min, så sena ligor bakåtdaterades
+                    # tidigare med Age PLUS hela den förflutna insamlingstiden.
+                    pin_fetch_at = _now_iso()
+                    age_s = int(getattr(pin, "last_age_s", 0) or 0)
+                    observed = cache_adjusted_iso(pin_fetch_at, age_s)
+                    for r in batch:
+                        r["_observed_at"], r["_age_s"] = observed, age_s
+                    pin_rows.extend(batch)
             except Exception as e:  # noqa: BLE001 — Arcadia Cloudflare-blockar ibland
-                pin_rows = []
                 pin_ok, pin_error = False, str(e)
                 report["errors"].append(f"pinnacle {lg['key']}: {e}")
             store.oddset_record_source_health(
                 "pinnacle", lg["key"], "markets", at, pin_ok, len(pin_rows), pin_error)
             pin_seen: set[str] = set()
             for r in pin_rows:
+                pin_observed_at = r.get("_observed_at") or pin_observed_at
+                pin_cache_age_s = r.get("_age_s", pin_cache_age_s)
                 locked = store.oddset_match_by_source_id(
                     "pinnacle_id", r["id"])
                 ex = (_resolve_source(
@@ -547,11 +599,18 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
             # kan pågå i 25 min; `at` som pristid daterar sena ligors priser
             # upp till en halvtimme fel i rörelseserierna.
             kambi_at = _now_iso()
+            kambi_rows = []
             try:
-                kambi_rows = kambi.league_events(lg["kambi"], strict=True)
-                kambi_at = cache_adjusted_iso(_now_iso(), kambi.last_age_s)
+                # Cupernas två vägar (huvudturnering + kval): varje batch
+                # stämplas med sin EGEN pristid (_at), samma skäl som
+                # Pinnacle-batcharna ovan.
+                for kambi_path in _kambi_paths(lg):
+                    batch = kambi.league_events(kambi_path, strict=True)
+                    batch_at = cache_adjusted_iso(_now_iso(), kambi.last_age_s)
+                    for e in batch:
+                        e["_at"] = batch_at
+                    kambi_rows.extend(batch)
             except Exception as e:  # noqa: BLE001
-                kambi_rows = []
                 kambi_ok, kambi_error = False, str(e)
                 report["errors"].append(f"kambi {lg['key']}: {e}")
             store.oddset_record_source_health(
@@ -561,6 +620,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
             deep_errors: list[str] = []
             deep_checked = 0
             for e in kambi_rows:
+                kambi_at = e.get("_at") or kambi_at
                 locked = store.oddset_match_by_source_id(
                     "kambi_id", e["id"])
                 id_match = (_resolve_source(
@@ -646,9 +706,18 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 book_at = _now_iso()   # fallback; sätts om per lyckat anrop nedan
                 try:
                     if book.get("kambi_op"):
-                        b_rows = kambi.league_events(
-                            lg["kambi"], operator=book["kambi_op"], strict=True)
-                        # pristid = anropets tid − CDN-Age, inte varvets start
+                        b_rows = []
+                        for kambi_path in _kambi_paths(lg):
+                            b_batch = kambi.league_events(
+                                kambi_path, operator=book["kambi_op"],
+                                strict=True)
+                            # pristid = anropets tid − CDN-Age, inte varvets
+                            # start; stämplas per batch (cupernas två vägar)
+                            b_batch_at = cache_adjusted_iso(
+                                _now_iso(), kambi.last_age_s)
+                            for e in b_batch:
+                                e["_at"] = b_batch_at
+                            b_rows.extend(b_batch)
                         book_at = cache_adjusted_iso(_now_iso(), kambi.last_age_s)
                     else:
                         from . import altenar
@@ -667,6 +736,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 book_deep_errors: list[str] = []
                 book_deep_checked = 0
                 for e in b_rows:
+                    book_at = e.get("_at") or book_at
                     ex = next((c for c in cands if c.get("kambi_id") == e["id"]), None) \
                         if book.get("kambi_op") else None
                     ex = ex or _resolve(cands, e["home"], e["away"], e["start"])

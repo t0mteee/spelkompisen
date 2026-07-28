@@ -337,24 +337,33 @@ LIVE_DENSE_INTERVAL_S = 120
 
 def _live_pass(store) -> tuple[dict, dict]:
     from app import fotmob, live_radar
-    report = live_radar.collect(store)
-    # FotMob är en EGEN källa med egen klient och egen tabell — den får aldrig
-    # kunna fälla Sofascore-varvet, och dess xG blandas inte in.
+    # FotMob är radarns PRIMÄRA källa (Samans beslut 2026-07-28 — Sofascore
+    # saknar oftast chansmåtten) och körs därför först. Källorna är fortsatt
+    # helt separerade: egna klienter, egna tabeller, xG blandas aldrig — och
+    # ingen av dem får fälla den andras varv, därav var sitt skyddsnät.
     try:
         fm = fotmob.collect(store)
     except Exception as e:  # noqa: BLE001
         fm = {"error": f"{type(e).__name__}: {str(e)[:60]}"}
-    partial = (f" · {len(report['partial_errors'])} event utan full statistik"
-               if report["partial_errors"] else "")
-    print(f"live-radar: {report['live']} matcher · "
-          f"{report['stats_ok']} med statistik · "
-          f"{report['saved']} captures{partial}")
+    try:
+        report = live_radar.collect(store)
+    except Exception as e:  # noqa: BLE001
+        report = {"live": 0, "stats_ok": 0, "saved": 0, "partial_errors": [],
+                  "error": f"{type(e).__name__}: {str(e)[:60]}"}
     if fm.get("error"):
         print(f"fotmob: hoppade över ({fm['error']})")
     else:
         print(f"fotmob: {fm['live']} matcher i våra ligor · "
-              f"{fm['saved']} captures med xG"
+              f"{fm['saved']} captures med statistik"
               + (f" · {fm['skipped']} över taket" if fm.get("skipped") else ""))
+    if report.get("error"):
+        print(f"live-radar (sofascore): hoppade över ({report['error']})")
+    else:
+        partial = (f" · {len(report['partial_errors'])} event utan full "
+                   "statistik" if report["partial_errors"] else "")
+        print(f"live-radar (sofascore): {report['live']} matcher · "
+              f"{report['stats_ok']} med statistik · "
+              f"{report['saved']} captures{partial}")
     # Settla stängda serier EFTER varvets captures (DB-only, shadow, append-
     # once — omkörningar är no-ops). Ett settlefel får ALDRIG fälla
     # insamlingen, därav try/except. Steget ligger INNE i _live_pass så att

@@ -40,15 +40,21 @@ LIVE_TIMEOUT_S = 8.0        # kortare än modellens 20 s — shadow får inte h�
 # fyrdubbla lasten för en shadow-funktion är precis den risk radarn en gång
 # fick egen klient för att undvika.
 #
-# Lösningen är sortering, inte ett högre tak. Matcher vi REDAN VET saknar
-# chansmått läggs sist (`_known_empty_events`), så taket klipper dem i stället
-# för Allsvenskan. Uppmätt läge: av ~47 behöriga matcher har ~8 chansdata.
-# Med sorteringen räcker 30 platser för ALLA som har data — och de som klipps
-# är just de som ändå hade dolts i vyn. Ett tak på 60 hade gett samma SYNLIGA
-# lista till dubbla antalet anrop.
+# Lösningen är sortering FÖRST, taket som artighetsgräns. Matcher vi REDAN
+# VET saknar chansmått läggs sist (`_known_empty_events`), så taket klipper
+# dem i stället för Allsvenskan.
+# TAKET HÖJT 30→60 (Samans beslut 2026-07-28). Det gamla argumentet ("de som
+# klipps är ändå de som döljs — 60 hade gett samma synliga lista till dubbla
+# anropen") byggde på träningsmatchernas täckning (~8 av 47 med chansdata).
+# Europacuperna ändrade mätläget: kvalmatcher HAR chansdata (15 av 23 uppmätt
+# 28/7), och en kvaltorsdag spelar 43 ECL- + 10 EL-matcher samtidigt — vid
+# tak 30 klipps matcher som skulle ha VISATS. 60 rymmer hela kvällens slate;
+# kostnaden (upp till ~60 × 12 anrop/h, ~30/h i förtätning) accepteras för
+# cupkvällar och sorteringen ser till att ett eventuellt klipp fortfarande
+# tar det minst värdefulla först.
 # De tomma pollas fortfarande när det finns plats kvar, så vi märker om
 # statistik dyker upp sent; ett hårt skip hade gjort oss permanent blinda.
-MAX_MATCHES = 30
+MAX_MATCHES = 60
 BUDGET_S = 90.0             # backstopp, inte den styrande gränsen
 EMPTY_AFTER_MIN = 25        # först efter denna minut räknas "saknar chansmått"
                             # som ett besked; tidigare är tomt helt normalt
@@ -73,13 +79,24 @@ for _friendly_ut in (853, 35960, 27113, 27120, 32053, 32366, 27118):
     TARGET_UT[_friendly_ut] = "friendlies"
 FRIENDLY_UT = frozenset({853, 35960, 27113, 27120, 32053, 32366, 27118})
 
+# Europacuperna (2026-07-28): kvalet delar huvudturneringens UT hos Sofascore
+# (verifierat: Maccabi TA–Sheriff ut=679, Austria Wien–Liepaja ut=17015), så
+# ett id per cup täcker även kvalrundorna. Medvetet DIREKT här och inte via
+# SOFA_UT: SOFA_UT ingår i wp9c-POLICY-fingeravtrycket och cuperna ska inte
+# fraktuera V2.2-manifestet (samma skäl som Besta deild hölls utanför).
+for _cup_ut, _cup_key in ((7, "champions_league"), (679, "europa_league"),
+                          (17015, "conference_league")):
+    TARGET_UT[_cup_ut] = _cup_key
+
 # Taket delas av ALLA ligor, så en lördag med 43 behöriga träningsmatcher kunde
 # tränga ut Allsvenskan helt — och urvalet blev det Sofascore råkade returnera
 # först. Riktiga ligor går därför före träningsmatcher, och inom gruppen väljs
 # de matcher som har mest kvar att spela (en match i 85:e minuten kan inte längre
 # ge en signal).
 LEAGUE_PRIORITY = {"allsvenskan": 0, "superettan": 0, "eliteserien": 0,
-                   "obosligaen": 0, "mls": 0, "friendlies": 1}
+                   "obosligaen": 0, "mls": 0,
+                   "champions_league": 0, "europa_league": 0,
+                   "conference_league": 0, "friendlies": 1}
 
 STAT_KEYS = {
     "expectedGoals": ("xg_home", "xg_away"),
@@ -171,25 +188,48 @@ def _known_empty_events(store: Storage,
     return out
 
 
-def _known_friendly(event: dict, known: list[dict]) -> bool:
-    """Tränings-UT 853 är global: ta bara matcher som redan finns i Oddset."""
-    home = norm_team((event.get("homeTeam") or {}).get("name") or "")
-    away = norm_team((event.get("awayTeam") or {}).get("name") or "")
-    start = event.get("startTimestamp")
+def known_friendly(home: str, away: str, start_ts: Optional[int],
+                   known: list[dict]) -> bool:
+    """Oddset-spärren för globala träningsturneringar. DELAS av båda
+    insamlarna (Sofascore här, FotMob i fotmob.py) — spärren ska bedöma en
+    match likadant oavsett vilken källa som såg den.
+
+    Jämförelsen accepterar spegelvänd hemma/borta (2026-07-28): odds-källorna
+    och statskällorna är ofta oense om hemmalaget på turné-/neutralplans-
+    matcher (Oddset: "WSW–Chelsea", Sofascore: "Chelsea–WSW" — samma avspark),
+    och den strikta jämförelsen dolde matchen helt. Samma spegling 1↔2 som
+    Pinnacle-matchningen på poolsidan. Tidsfönstret nedan skyddar mot att
+    returmötet i en dubbelmatch länkas fel.
+
+    Lagjämförelsen är `_same_team` (prefix ≥4 tecken), inte exakt likhet:
+    FotMob kortar namnen ("Western Sydney" för "Western Sydney Wanderers"),
+    precis som genitivfallet Djurgården/Djurgårdens IF som regeln byggdes för.
+    """
     for match in known:
-        if (norm_team(match.get("home") or "") != home or
-                norm_team(match.get("away") or "") != away):
+        known_home, known_away = match.get("home"), match.get("away")
+        if not ((_same_team(known_home, home) and
+                 _same_team(known_away, away)) or
+                (_same_team(known_home, away) and
+                 _same_team(known_away, home))):
             continue
-        if start is None or not match.get("start"):
+        if start_ts is None or not match.get("start"):
             return True
         try:
             known_start = dt.datetime.fromisoformat(
                 match["start"].replace("Z", "+00:00")).timestamp()
         except (TypeError, ValueError):
             return True
-        if abs(known_start - int(start)) <= 2 * 3600:
+        if abs(known_start - int(start_ts)) <= 2 * 3600:
             return True
     return False
+
+
+def _known_friendly(event: dict, known: list[dict]) -> bool:
+    """Tränings-UT 853 är global: ta bara matcher som redan finns i Oddset."""
+    return known_friendly(
+        (event.get("homeTeam") or {}).get("name") or "",
+        (event.get("awayTeam") or {}).get("name") or "",
+        event.get("startTimestamp"), known)
 
 
 def parse_capture(event: dict, stats_payload: Optional[dict], *,
@@ -573,24 +613,25 @@ def payload(store: Storage, *,
         signal["xg_source"] = (
             "sofascore" if signal.get("kind") == "xg" else None)
         extra: dict = {}
-        # ANDRA KÄLLAN (2026-07-25/26): Sofascore saknar ofta xG — och kan
-        # även sakna ALL chansstatistik — för de nordiska ligorna. FotMob får
-        # därför bära HELA signalen även när den bara har skottmått. Valordning:
-        # xG > skottproxy > ingen statistik; vid lika bra data behålls
-        # Sofascore för att undvika onödiga providerbyten. Provider-rader
-        # blandas aldrig: både nuläge och delta kommer från samma serie.
+        # FOTMOB ÄR PRIMÄR KÄLLA (Samans beslut 2026-07-28 — Sofascore saknar
+        # oftast chansmåtten i våra ligor; inkopplad som andra öga 25/26).
+        # Valordning: xG > skottproxy > ingen statistik, och vid lika bra data
+        # vinner FotMob — Sofascore bär signalen bara när den har strikt
+        # bättre statistik. Provider-rader blandas aldrig: både nuläge och
+        # delta kommer från samma serie.
         fm = _fotmob_for(current, fotmob_series, claimed_fotmob)
         if fm:
             fm_current = fm[-1]
             claimed_fotmob.add(int(fm_current["fotmob_id"]))
             fm_signal, extra["fotmob"] = _fotmob_signal(fm, current)
-            if _stats_rank(fm_current) > _stats_rank(current):
+            if _stats_rank(fm_current) >= _stats_rank(current):
                 signal = fm_signal
         matches.append({**current, **extra, "signal": signal,
                         "is_signal": signal["level"] in {"watch", "strong"}})
 
-    # FotMob är inte bara en statistikreserv för Sofascore. Om Sofascore helt
-    # saknar en match men FotMob har en färsk serie ska matchen ändå synas.
+    # FotMob står på egna ben (och är sedan 2026-07-28 primär källa). Om
+    # Sofascore helt saknar en match men FotMob har en färsk serie ska
+    # matchen ändå synas.
     # Detta stänger den sista luckan i löftet "stats finns → kort visas".
     # Det namespacade event-id:t kan aldrig krocka med Sofascores heltals-id.
     for fm in fotmob_series:

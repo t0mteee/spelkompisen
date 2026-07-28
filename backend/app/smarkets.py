@@ -54,6 +54,17 @@ LEAGUE_SLUGS = {
     # Smarkets kör TVÅ aktiva slugs för Besta deild (uppmätt 2026-07-27:
     # en bettable match under vardera) — värdet får därför vara en tupel.
     "bestadeild": ("iceland-premier-league", "iceland-besta-deild"),
+    # Europacuperna (2026-07-28): kvalslugs + Conference-huvudslug OBSERVERADE
+    # i upcoming-listan (9/9/37+8 event). CL/EL-huvudslugs är mönsterhärledda
+    # ur `international-clubs-uefa-conference-league` och overifierade tills
+    # ligafasen startar i september — en oanvänd slug matchar aldrig fel,
+    # den matchar bara ingenting.
+    "champions_league": ("international-clubs-uefa-champions-league",
+                         "uefa-champions-league-qualification"),
+    "europa_league": ("international-clubs-uefa-europa-league",
+                      "uefa-europa-league-qualification"),
+    "conference_league": ("international-clubs-uefa-conference-league",
+                          "uefa-europa-conference-league-qualification"),
 }
 
 

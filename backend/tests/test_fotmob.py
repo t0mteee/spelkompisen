@@ -75,6 +75,58 @@ class ParseTests(unittest.TestCase):
         self.assertNotIn(("DEN", "Allsvenskan"), fotmob.LEAGUE_NAMES)
         self.assertNotIn(("SWE", "Allsvenskan Handboll"), fotmob.LEAGUE_NAMES)
 
+    def test_europacupernas_kval_och_huvudturnering_delar_liganyckel(self):
+        """FotMob har SEPARATA ligor för kval och huvudturnering — båda ska
+        landa på samma projektnyckel så radarserien överlever säsongsbytet."""
+        for cup, key in (("Champions League", "champions_league"),
+                         ("Europa League", "europa_league"),
+                         ("Conference League", "conference_league")):
+            self.assertEqual(key, fotmob.LEAGUE_NAMES[("INT", cup)])
+            self.assertEqual(
+                key, fotmob.LEAGUE_NAMES[("INT", f"{cup} Qualification")])
+
+
+class FriendlyScopeTests(unittest.TestCase):
+    """Club Friendlies är global: samma Oddset-spärr som Sofascore-varvet,
+    inkl. spegelvänd hemma/borta (primärkälle-beslutet 2026-07-28)."""
+
+    KNOWN = [{"league": "friendlies",
+              "home": "Western Sydney Wanderers", "away": "Chelsea",
+              "start": "2026-07-28T09:45:00Z"}]
+
+    def _match(self, home, away, league="friendlies",
+               start="2026-07-28T09:45:00.000Z"):
+        return {"league": league, "home": home, "away": away,
+                "start_at": start, "minute_label": "27’"}
+
+    def test_spegelvand_friendly_i_oddset_slapps_in(self):
+        live = [self._match("Chelsea", "Western Sydney Wanderers")]
+        self.assertEqual(live, fotmob._scope_friendlies(None, live, self.KNOWN))
+
+    def test_fotmobs_kortnamn_matchar_oddsets_fulla_namn(self):
+        """FotMob listar 'Western Sydney' — spärren jämför med `_same_team`
+        (prefix ≥4), inte exakt likhet; annars föll turnématchen bort igen
+        (uppmätt live 2026-07-28, Chelsea–WSW)."""
+        live = [self._match("Chelsea", "Western Sydney")]
+        self.assertEqual(live, fotmob._scope_friendlies(None, live, self.KNOWN))
+
+    def test_okand_friendly_filtreras_fore_detaljanropet(self):
+        live = [self._match("Trafford FC", "Bury FC")]
+        self.assertEqual([], fotmob._scope_friendlies(None, live, self.KNOWN))
+
+    def test_ligamatcher_gar_alltid_forbi_sparren(self):
+        live = [self._match("Rosenborg", "Molde", league="eliteserien")]
+        self.assertEqual(live, fotmob._scope_friendlies(None, live, []))
+
+    def test_taket_klipper_friendlies_fore_riktiga_ligor(self):
+        """Riktiga ligor sorteras först, mest kvarvarande speltid först."""
+        friendly = self._match("Chelsea", "Western Sydney Wanderers")
+        sen_liga = dict(self._match("AIK", "Häcken", league="allsvenskan"),
+                        minute_label="80’")
+        tidig_liga = self._match("Rosenborg", "Molde", league="eliteserien")
+        ordning = sorted([friendly, sen_liga, tidig_liga], key=fotmob._rank)
+        self.assertEqual([tidig_liga, sen_liga, friendly], ordning)
+
 
 class ObservationTimeTests(unittest.TestCase):
     """🕐 Observationstidsregeln: hämtningstid − Age, per anrop."""

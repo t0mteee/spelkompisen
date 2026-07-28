@@ -6,7 +6,9 @@ norska Eliteserien, träningsmatcher till att börja med) med sharp-odds, oddsr�
 egen modell och värdespels-tips (1X2, asian handicap, över/under, hörnor på sikt).
 
 **Läge (2026-07-25):** Etapp 0–5 KLARA + långt därutöver. Oddset-delen är i full drift:
-7 ligor (Allsvenskan/Superettan/Eliteserien/OBOS/Besta deild/MLS/träningsmatcher), 4 bokkällor +
+10 ligor (Allsvenskan/Superettan/Eliteserien/OBOS/Besta deild/MLS/träningsmatcher + CL/EL/
+Conference INKL. kval — cuperna är två Pinnacle-ligor + två Kambi-vägar per nyckel,
+`pin_ids`/`kambi_paths` i oddset.py), 4 bokkällor +
 Pinnacle, kvalitetsviktade värdesignaler, steam-radar, xG-viktad Poisson-modell med
 DC-korrektion (amber, settlement-ankrad efter T — kalla den inte DC-MLE), frånvarodata, CLV-facit
 per tier med grönt-kriterium v2 (≥50 stängda OCH undre bootstrap-KI-gräns > 0, per
@@ -91,11 +93,13 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/live_radar.py  shadow-radar för pågående matcher: observerad xG,
                       stora chanser/skott/boxtryck; råa femminuterscaptures,
                       aldrig automatiska spel eller runtime-modellinput
-  app/fotmob.py       ANDRA live-ögat (2026-07-25/26): live-xG/xGOT/skott för
-                      nordiska ligor där Sofascore saknar mått. EGEN tabell;
-                      providrar blandas ALDRIG. Källval xG > skott/chansmått >
-                      no_stats och HELA signalen/deltat kommer från vald serie.
-                      `signal.stats_source` säger vilken. Shadow.
+  app/fotmob.py       PRIMÄRA live-ögat (Samans beslut 2026-07-28; inkopplad
+                      25/26): live-xG/xGOT/skott, täcker även Oddset-spärrade
+                      friendlies. Sofascore är reserv och bär signalen bara
+                      med strikt bättre statistik. EGEN tabell; providrar
+                      blandas ALDRIG. Källval xG > skott/chansmått > no_stats,
+                      vid lika vinner FotMob; HELA signalen/deltat kommer från
+                      vald serie. `signal.stats_source` säger vilken. Shadow.
   app/main.py         API-endpoints + PRIZE_PLANS (officiella vinstplaner)
   cli.py              show|spikar|snapshot|history|rad (snapshotvarvet settlar
                       även nyss avgjorda poolomgångar via settle_recent)

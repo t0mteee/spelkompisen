@@ -599,5 +599,61 @@ class ResearchLeagueIsolationTests(unittest.TestCase):
         deep.assert_not_called()
 
 
+class MultiSourceLeagueTests(unittest.TestCase):
+    """Europacuperna är TVÅ ligor hos Pinnacle och TVÅ vägar hos Kambi
+    (huvudturnering + kval) — collect ska hämta och slå ihop samtliga."""
+
+    def test_cupliga_hamtar_alla_pin_id_och_kambi_vagar(self) -> None:
+        league = {"key": "cuptest", "name": "Cuptest",
+                  "pin_ids": [11, 12],
+                  "kambi_paths": ["football/cup",
+                                  "football/cup_qualification"],
+                  "altenar": None}
+        start = (dt.datetime.now(dt.timezone.utc) +
+                 dt.timedelta(hours=48)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        def pin_index(_pin, league_id):
+            return [{"id": f"p{league_id}", "home": f"Hemma{league_id}",
+                     "away": f"Borta{league_id}", "start": start,
+                     "odds_source": "pinnacle",
+                     "odds": {"1": 2.0, "X": 3.5, "2": 3.8}}]
+
+        def kambi_events(path, **_kw):
+            stage = "kval" if "qualification" in path else "huvud"
+            return [{"id": f"k-{stage}", "home": f"KHemma-{stage}",
+                     "away": f"KBorta-{stage}", "start": start,
+                     "odds": {"1": 2.1, "X": 3.4, "2": 3.6}}]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                with mock.patch.object(oddset, "Pinnacle",
+                                       return_value=_Pin()), \
+                        mock.patch.object(oddset, "pinnacle_league_index",
+                                          side_effect=pin_index) as pin_calls, \
+                        mock.patch.object(oddset.kambi, "league_events",
+                                          side_effect=kambi_events) as kb_calls, \
+                        mock.patch.object(oddset, "BOOKS", []):
+                    oddset.collect(store, leagues=[league], deep=False)
+                fetched_ids = [c.args[1] for c in pin_calls.call_args_list]
+                fetched_paths = [c.args[0] for c in kb_calls.call_args_list]
+                ms = store.oddset_matches(since="2000-01-01T00:00:00Z",
+                                          until="2100-01-01T00:00:00Z")
+            finally:
+                store.close()
+
+        self.assertEqual([11, 12], fetched_ids)
+        self.assertEqual(["football/cup", "football/cup_qualification"],
+                         fetched_paths)
+        # 2 Pinnacle-batchar + 2 Kambi-batchar, ingen tappad på vägen
+        self.assertEqual(4, len([m for m in ms if m["league"] == "cuptest"]))
+
+    def test_vanlig_liga_faller_tillbaka_pa_singelfalten(self) -> None:
+        self.assertEqual([1728], oddset._pin_ids(
+            {"key": "allsvenskan", "pin_id": 1728}))
+        self.assertEqual(["football/sweden/allsvenskan"], oddset._kambi_paths(
+            {"key": "allsvenskan", "kambi": "football/sweden/allsvenskan"}))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -50,6 +50,17 @@ def stats(xg=(3.0, 0.4), big=(4, 1), shots=(18, 5),
 
 
 class LiveRadarTests(unittest.TestCase):
+    def test_europacuperna_ar_i_radarscopet_via_huvudturneringens_ut(self):
+        """Kvalet delar huvudturneringens UT hos Sofascore (verifierat
+        2026-07-28), så ETT id per cup täcker även kvalrundorna. Direkt i
+        TARGET_UT, inte via SOFA_UT (wp9c-fingeravtrycket)."""
+        self.assertEqual("champions_league", live_radar.TARGET_UT[7])
+        self.assertEqual("europa_league", live_radar.TARGET_UT[679])
+        self.assertEqual("conference_league", live_radar.TARGET_UT[17015])
+        for key in ("champions_league", "europa_league", "conference_league"):
+            self.assertEqual(0, live_radar.LEAGUE_PRIORITY[key],
+                             "cuperna får inte klippas som friendlies")
+
     def test_global_friendly_requires_match_in_our_oddset_view(self):
         friendly = event()
         friendly["tournament"]["uniqueTournament"] = {
@@ -58,6 +69,24 @@ class LiveRadarTests(unittest.TestCase):
         self.assertTrue(live_radar._known_friendly(friendly, [{
             "league": "friendlies", "home": "Home FC", "away": "Away",
             "start": "2026-07-25T18:00:00Z",
+        }]))
+
+    def test_friendly_med_spegelvant_hemmalag_slapps_in(self):
+        """Odds-källorna och Sofascore är oense om hemmalaget på turné-
+        matcher (Chelsea–WSW 2026-07-28 låg spegelvänd och doldes helt);
+        spärren ska matcha laguppsättningen, inte planhalvorna."""
+        friendly = event()
+        friendly["tournament"]["uniqueTournament"] = {
+            "id": 853, "name": "Club Friendly Games"}
+        self.assertTrue(live_radar._known_friendly(friendly, [{
+            "league": "friendlies", "home": "Away", "away": "Home FC",
+            "start": "2026-07-25T18:00:00Z",
+        }]))
+        # Speglingen får inte öppna för fel avspark: samma lag men >2 h bort
+        # (returmötet i en dubbelmatch) ska fortfarande avvisas.
+        self.assertFalse(live_radar._known_friendly(friendly, [{
+            "league": "friendlies", "home": "Away", "away": "Home FC",
+            "start": "2026-07-25T08:00:00Z",
         }]))
 
     def test_capture_parses_observed_xg_and_match_clock(self):
@@ -306,6 +335,41 @@ class LiveRadarTests(unittest.TestCase):
             finally:
                 store.close()
 
+    def test_fotmob_ar_primar_och_vinner_vid_lika_bra_data(self):
+        """Samans beslut 2026-07-28: Sofascore slutar vara primär källa.
+        När båda providrarna har xG (lika rang) ska FotMob bära signalen;
+        Sofascore vinner bara med strikt bättre statistik."""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                sofa_event = event()
+                sofa_event["id"] = 611001
+                sofa_event["homeTeam"]["name"] = "Rosenborg"
+                sofa_event["awayTeam"]["name"] = "Molde"
+                store.oddset_save_live_capture(live_radar.parse_capture(
+                    sofa_event, stats(xg=(1.4, 0.3)), captured_at=AT, now=NOW))
+                store.live_fotmob_save({
+                    "fotmob_id": 611002,
+                    "captured_at": AT,
+                    "capture_version": fotmob.CAPTURE_VERSION,
+                    "league": "eliteserien",
+                    "tournament": "Eliteserien",
+                    "home": "Rosenborg",
+                    "away": "Molde",
+                    "minute": 70,
+                    "home_score": 1,
+                    "away_score": 0,
+                    "xg_home": 2.1,
+                    "xg_away": 0.4,
+                })
+
+                match = live_radar.payload(store, now=NOW)["matches"][0]
+                self.assertEqual("fotmob", match["signal"]["stats_source"])
+                self.assertEqual("fotmob", match["signal"]["xg_source"])
+                self.assertEqual(2.1, match["fotmob"]["xg_home"])
+            finally:
+                store.close()
+
     def test_payload_uses_real_fifteen_minute_capture_for_recent_xg(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = Storage(Path(tmp) / "test.db")
@@ -368,7 +432,10 @@ class LiveRadarIsolationTests(unittest.TestCase):
 
     def test_tak_och_budget_ar_satta(self):
         self.assertGreater(live_radar.MAX_MATCHES, 0)
-        self.assertLessEqual(live_radar.MAX_MATCHES, 30)
+        # 30→60 (Samans beslut 2026-07-28): en kvaltorsdag spelar 53 cup-
+        # matcher samtidigt och kvalen har chansdata — gränsen här finns för
+        # att nästa höjning också ska vara ett medvetet beslut, inte en drift.
+        self.assertLessEqual(live_radar.MAX_MATCHES, 60)
         self.assertLess(live_radar.BUDGET_S, 300)   # måste rymmas i en 5-min-tick
 
     def test_proxy_och_xg_har_skilda_faltnamn(self):

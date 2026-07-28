@@ -284,3 +284,19 @@ utan token, vilket räckte för mätningen ovan.
   gäller värderingen; skulle live-odds någon gång användas som ren
   uppmärksamhetssignal är det ett eget beslut med eget facit, inte en utökning
   av den här.
+
+## 2026-07-28 — FotMob blir PRIMÄR källa (Samans beslut)
+
+Sofascore saknade oftast chansmåtten helt i våra ligor (Superettan/OBOS utan
+skottdata 27/7, Chelsea–WSW helt utan mått 28/7), så rollerna byttes:
+
+- **FotMob primär**: körs först i `_live_pass`, och vid lika bra data bär
+  FotMob signalen (`_stats_rank >=` i `live_radar.payload`). Sofascore är
+  reserv och vinner bara med strikt bättre statistik.
+- **FotMob täcker nu friendlies**: `("INT", "Club Friendlies")` i
+  `LEAGUE_NAMES`, genom SAMMA delade Oddset-spärr som Sofascore-varvet
+  (`live_radar.known_friendly`, inkl. spegelvänd hemma/borta), tillämpad före
+  detaljanropen. Tak 12→20; riktiga ligor sorteras före friendlies så taket
+  aldrig klipper Allsvenskan.
+- Källorna är fortsatt separerade (egna klienter/tabeller, xG blandas aldrig)
+  och ingen får fälla den andras varv.

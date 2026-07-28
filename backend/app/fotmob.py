@@ -1,10 +1,13 @@
-"""FotMob — publik live-statistik med xG för de nordiska ligorna.
+"""FotMob — live-radarns PRIMÄRA statistikkälla (Samans beslut 2026-07-28).
 
 Varför källan finns: Sofascore saknar xG HELT för Allsvenskan (uppmätt 0/31 i
 WP9b), och live-radarns 220-matcherstest visade att en ren skottsignal inte
 förutsäger mål. FotMob levererar `expected_goals`, xGOT, xG open play/set play
 och stora chanser för både Allsvenskan och Eliteserien — verifierat live
 2026-07-25 (Degerfors–Djurgården 62': xG 0,73–1,29, xGOT 0,00–0,76).
+Inkopplad som andra öga 25/26; PRIMÄR sedan 28/7 eftersom Sofascore oftast
+saknar chansmåtten helt i våra ligor. Sofascore är kvar som reserv och bär
+signalen bara när den har strikt bättre statistik (live_radar.payload).
 
 METODGRÄNSER som gäller här:
 * **xG blandas ALDRIG mellan providers** (WP9a-regeln). FotMob-data ligger i en
@@ -30,7 +33,17 @@ import httpx
 
 BASE = "https://www.fotmob.com/api/data"
 TIMEOUT_S = 8.0          # shadow får aldrig hänga varvet
-MAX_MATCHES = 12         # tak per varv
+# Taket höjdes 12→20 (2026-07-28) när träningsmatcherna kom in i scopet,
+# och 20→60 samma kväll (Samans beslut) när europacuperna kom in: en
+# kvaltorsdag spelar 43 Conference- + 10 EL-matcher samtidigt, alla med
+# ligaprioritet 0, så tak 20 hade klippt ~33 cupmatcher — inte friendlies.
+# 60 rymmer hela kvällens slate; FotMob är radarns EGEN källa (delas inte
+# med den spelbara pipelinen) så kostnaden är ren artighet: värsta fall
+# ~60 detaljanrop per varv, sekventiellt, väl inom tidsbudgeten nedan.
+# Riktiga ligor sorteras före friendlies (_rank), så ett eventuellt klipp
+# tar turnématcher först. Bortklippta räknas i `skipped` och redovisas i
+# tick-loggen; inga tysta tak.
+MAX_MATCHES = 60         # tak per varv
 BUDGET_S = 60.0          # total väggklocka
 CAPTURE_VERSION = "fotmob-live-v1"
 
@@ -51,6 +64,20 @@ LEAGUE_NAMES = {
     ("NOR", "OBOS-ligaen"): "obosligaen",
     ("NOR", "1. Division"): "obosligaen",
     ("USA", "MLS"): "mls",
+    # Club Friendlies är GLOBAL (som Sofascores UT 853) och går därför genom
+    # samma Oddset-spärr som Sofascore-varvet (_scope_friendlies) — utan den
+    # hade varje turnématch i världen ätit varvets matchtak.
+    ("INT", "Club Friendlies"): "friendlies",
+    # Europacuperna (2026-07-28). FotMob delar upp kval och huvudturnering i
+    # SEPARATA ligor (kvalen verifierade live: id 10611/10613/10615) — båda
+    # namnen mappas till samma nyckel. Huvudsäsongsnamnen är antagna tills
+    # ligafasen startar i september; verifiera då mot dagslistan.
+    ("INT", "Champions League"): "champions_league",
+    ("INT", "Champions League Qualification"): "champions_league",
+    ("INT", "Europa League"): "europa_league",
+    ("INT", "Europa League Qualification"): "europa_league",
+    ("INT", "Conference League"): "conference_league",
+    ("INT", "Conference League Qualification"): "conference_league",
 }
 
 # FotMob-statistiknyckel → vår kolumn. Endast kumulativa ALL-värden.
@@ -186,12 +213,55 @@ def parse_minute(payload: dict) -> Optional[int]:
         return None
 
 
+def _start_ts(match: dict) -> Optional[int]:
+    """FotMobs utcTime (ISO) → epoksekunder; None när formatet är okänt."""
+    raw = match.get("start_at")
+    if not raw:
+        return None
+    try:
+        return int(dt.datetime.fromisoformat(
+            str(raw).replace("Z", "+00:00")).timestamp())
+    except (TypeError, ValueError):
+        return None
+
+
+def _scope_friendlies(store, live: list[dict],
+                      known_matches: Optional[list[dict]]) -> list[dict]:
+    """Släpp bara in träningsmatcher som finns i Oddset — SAMMA delade spärr
+    (inkl. spegelvänd hemma/borta) som Sofascore-varvet, tillämpad FÖRE
+    detaljanropen så att bortfiltrerade matcher inte kostar trafik."""
+    from .live_radar import known_friendly
+    if not any(m["league"] == "friendlies" for m in live):
+        return live
+    if known_matches is None:
+        now = _now()
+        known_matches = store.oddset_matches(
+            _iso(now - dt.timedelta(hours=6)),
+            _iso(now + dt.timedelta(hours=6)))
+    friendlies = [m for m in known_matches
+                  if m.get("league") == "friendlies"]
+    return [m for m in live
+            if m["league"] != "friendlies"
+            or known_friendly(m.get("home") or "", m.get("away") or "",
+                              _start_ts(m), friendlies)]
+
+
+def _rank(match: dict) -> tuple:
+    """Riktiga ligor före friendlies, mest kvarvarande speltid först — taket
+    ska klippa det som betyder minst, aldrig Allsvenskan (samma princip som
+    Sofascore-varvets sortering)."""
+    from .live_radar import LEAGUE_PRIORITY
+    minute = _minute_from_label(match.get("minute_label")) or 0
+    return (LEAGUE_PRIORITY.get(match["league"], 9), minute)
+
+
 def collect(store, known_matches: Optional[list[dict]] = None,
             date: Optional[dt.date] = None) -> dict:
-    """Ett radarvarv mot FotMob. Sparar bara PÅGÅENDE matcher i våra ligor.
+    """Ett radarvarv mot FotMob — radarns primära källa. Sparar bara
+    PÅGÅENDE matcher i våra ligor + Oddset-spärrade träningsmatcher.
 
-    known_matches används inte för att filtrera ligorna (de är explicit
-    mappade) utan för att kunna länka captures till Oddset-matcher i UI:t.
+    known_matches (Oddset-vyn) kan skickas in av anroparen; annars hämtas
+    den ur store när listan innehåller träningsmatcher.
     """
     started_at = time.monotonic()
     saved = skipped = 0
@@ -204,6 +274,8 @@ def collect(store, known_matches: Optional[list[dict]] = None,
                     "error": f"{type(exc).__name__}: {str(exc)[:80]}"}
         live = [m for m in listing
                 if m["started"] and not m["finished"] and not m["cancelled"]]
+        live = _scope_friendlies(store, live, known_matches)
+        live.sort(key=_rank)
         for match in live[:MAX_MATCHES]:
             if time.monotonic() - started_at > BUDGET_S:
                 skipped += 1
