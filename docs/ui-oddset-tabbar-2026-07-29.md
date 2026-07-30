@@ -26,19 +26,19 @@ Låsta designbeslut:
 - ✅ **E1: SortableTable-komponenten** + CSS (App.jsx-biblioteket).
   Props: id, columns [{key, label, sort(a,b)|numeric, title}], rows,
   renderRow, defaultSort. Persistens via befintliga svs_state-mönstret.
-- ☐ **E2: Tabbstruktur** i Oddset-vyn (AppV3): sub-pills 📋 Matcher ·
+- ✅ **E2: Tabbstruktur** i Oddset-vyn (AppV3): sub-pills 📋 Matcher ·
   ⚡ Live · 💰 Värdespel · 📈 Rörelser, räknarrad, persisterat tabbval,
   befintliga ankar-id:n (#oddset-live-radar m.fl.) behålls för fokusläge.
-- ☐ **E3: Live-radarn som sorterbar tabell** (desktop): min, ställning,
+- ✅ **E3: Live-radarn som sorterbar tabell** (desktop): min, ställning,
   liga, match, xG h–b, chansgap/proxyindex, stora chanser, skott på mål,
   källa, signalnivå. Default: signal-score fallande. Mobil: kortvyn kvar.
-- ☐ **E4: Värdespel som sorterbar tabell**: tid, liga, match, tecken,
+- ✅ **E4: Värdespel som sorterbar tabell**: tid, liga, match, tecken,
   odds, edge, ¼-Kelly, tier/OMTVISTAD, ankare. Default: edge fallande.
-- ☐ **E5: Sorterbara rubriker på Marknadsradarn + huvudtabellen**
+- ✅ **E5: Sorterbara rubriker på Marknadsradarn + huvudtabellen**
   (datum/tid, liga, edge, rörelse — befintliga tabeller, bara rubriker).
-- ☐ **E6: Flytta Signal-facit/Signal-loggen till Labb**; Oddset-sidan
+- ✅ **E6: Flytta Signal-facit/Signal-loggen till Labb**; Oddset-sidan
   slutar rendera clvbox/ledger (Labb har redan clv-datat).
-- ☐ **E7: Mobilverifiering** (resize_window 390px, sortering i kortläge),
+- ✅ **E7: Mobilverifiering** (resize_window 390px, sortering i kortläge),
   dokumentation: CLAUDE.md UI-konventioner + plan.md STATUS + denna fil.
 
 ## Verifiering per etapp
@@ -49,5 +49,10 @@ funktioner (fokusläge, "Bara signaler", Rek-kolumnen) får inte regrediera.
 
 ## Läge
 
-Påbörjad 2026-07-29. Inga etapper klara ännu vid skrivning — markörerna
-ovan är sanningen.
+Klar 2026-07-30. E1 låg redan committad; E2–E7 slutfördes i nästa pass.
+Browser verifierad på 1280 px och 390 px: desktop-tabeller, mobila kort,
+sortering i båda lägena och persistens över omladdning. Signalgruppstabellen
+och signalloggen finns nu i Labb; den stora signalloggen renderas 200 rader
+i taget för att inte låsa mobilen. Uppföljning samma dag: Matcher-fliken har
+ett persisterat **Dölj/Visa startade**-filter med antal, utan att påverka de
+andra tre flikarna. Frontend-build och 351 backendtester gröna.

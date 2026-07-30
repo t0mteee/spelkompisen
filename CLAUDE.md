@@ -110,7 +110,10 @@ frontend/ React + Vite, mörkt tema. src/AppV3.jsx + AppV3.css är APPEN
   KOMPONENTBIBLIOTEKET (AnalysisTable, SystemView, CouponPanel, OddsetView,
   PlayRec, PlayedPanel m.fl. via exportblocket i slutet) — nya tunga
   komponenter definieras där och monteras i AppV3. Tillstånd (kupong/omgång/
-  inställningar) ligger i localStorage `svs_state`.
+  inställningar) ligger i localStorage `svs_state`. Oddset är uppdelat i
+  Matcher/Live/Värdespel/Rörelser; desktop använder delade `SortableTable`,
+  mobil samma sortering över kort. Signalgruppsfacit och signallogg hör
+  hemma i Labb, aldrig som en femte Oddset-sektion.
 start.sh / stop.sh    kör/stoppa båda lokalt (8002 + 5175)
 docs/plan.md          FÄRDPLANEN: status, datakällor, beslut — projektets sanning
 docs/backlog.md       AKTIV BACKLOG (2026-07-26): prioritering, pågående mätningar,
@@ -422,6 +425,13 @@ måste Saman lägga in en Bash-behörighetsregel — se
 - Tillstånd sparas i `localStorage` (`svs_state`); bootstrap återställer.
 - Inga `cursor: help`-frågetecken; förklaringar som title-tooltips.
 - Oddset-delen: röd = oddset NER (ökad vinstchans), grön = UPP (vm-konvention).
+- Oddset har fyra persisterade sub-tabbar och en alltid synlig räknarrad.
+  Jämförbara listor använder EN `SortableTable`: rubrikklick på desktop,
+  sortval + samma kortordning på mobil. Matcher-flikens persisterade
+  Dölj/Visa startade-filter får inte filtrera Live eller signalflikarna.
+  Skapa aldrig tabbspecifika kopior.
+- Labb äger validering och fulla loggar. Oddset är beslutsytan; Labb är
+  bevisytan. Stora loggar visas stegvis (200 rader) så mobilen inte låser sig.
 - Frånvaro: `oddset_absence_capture` + `oddset_absence_player` är PIT-historiken;
   capture skrivs även för en lyckad tom lista. Sofascore `player.id` och position
   bevaras. `meta oddset_abs:*` är bara senaste-payload för bakåtkompatibilitet.

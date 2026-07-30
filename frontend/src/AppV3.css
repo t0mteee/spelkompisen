@@ -67,6 +67,7 @@
   min-width: 0;
 }
 .v3span2 { grid-column: span 2; }
+.v3wide { grid-column: 1 / -1; }
 .v3cardhead { display: flex; align-items: baseline; gap: 10px; }
 .v3cardhead h3 { margin: 0; font-size: 13px; letter-spacing: 0.3px; }
 .v3cardhead .v3hint { margin-left: auto; }
@@ -162,6 +163,40 @@
 .v3labbpill.pass { color: var(--green); border-color: color-mix(in srgb, var(--green) 55%, transparent); }
 .v3labbpill.fals { color: #e06b6b; border-color: color-mix(in srgb, #e06b6b 50%, transparent); }
 .v3labb code { color: var(--v3acc); font-size: 11px; overflow-wrap: anywhere; }
+.v3evidence { gap: 10px; }
+.v3evidence-summary {
+  display: flex; align-items: baseline; gap: 6px 14px; flex-wrap: wrap;
+  padding: 8px 10px; color: var(--muted); font-size: 11.5px;
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+}
+.v3evidence-summary b { color: var(--text); }
+.v3evidence-toggle {
+  align-self: flex-start; color: var(--v3acc); background: transparent;
+  border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px;
+  font-size: 11px; font-weight: 700;
+}
+.v3evidence-toggle:hover { border-color: var(--v3acc-dim); }
+.v3evidence-table {
+  width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: 8px;
+}
+.v3evidence .logtable {
+  width: 100%; min-width: 820px; border-collapse: collapse;
+  background: var(--panel2); font-size: 11.5px;
+}
+.v3evidence .logtable th {
+  text-align: left; color: var(--muted); font-size: 10px; text-transform: uppercase;
+  letter-spacing: .35px; padding: 6px 8px; border-bottom: 1px solid var(--line);
+}
+.v3evidence .logtable td {
+  padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top;
+  white-space: nowrap;
+}
+.v3evidence .logtable tr:last-child td { border-bottom: 0; }
+.v3evidence .historical-version { opacity: .58; }
+.v3evidence .ledgerstatus { font-weight: 700; }
+.v3evidence .ledgerstatus.amber { color: #dca85e; }
+.v3evidence .ledgerstatus.candidate { color: #7db9e8; }
+.v3evidence .ledgerstatus.green { color: var(--green); }
 
 /* ---------- Historik ---------- */
 .v3histbar { margin-bottom: 10px; }
@@ -228,6 +263,7 @@
   .v3exit { padding: 4px 9px; font-size: 11px; }
   .v3main { padding: 10px; }
   .v3span2 { grid-column: span 1; }
+  .v3wide { grid-column: 1; }
   .v3grid { grid-template-columns: 1fr; }
   .v3stops { grid-template-columns: 1fr 1fr; }
   .v3poolbar { gap: 8px; }

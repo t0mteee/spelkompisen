@@ -82,7 +82,7 @@ function MiniSpark({ values, width = 220, height = 44 }) {
 
 /* ================================ Idag ==================================== */
 
-function DashboardV3({ openPool, openOddset, openHistorik }) {
+function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
   const [pool, setPool] = useState(null)
   const [oddset, setOddset] = useState(null)
   const [ledger, setLedger] = useState(null)
@@ -269,7 +269,7 @@ function DashboardV3({ openPool, openOddset, openHistorik }) {
 
         <div className="v3card">
           <div className="v3cardhead"><h3>🧭 Signal-facit</h3>
-            <button className="v3more" onClick={() => openOddset('facit')}>detaljer →</button></div>
+            <button className="v3more" onClick={openLabb}>detaljer i Labb →</button></div>
           {!primaryGroups.length && <span className="v3hint">Inga primära signalgrupper ännu.</span>}
           {primaryGroups.map((g) => (
             <div key={`${g.league}-${g.market}`} className="v3row">
@@ -829,6 +829,13 @@ const LABB_LEAGUE = {
   allsvenskan: 'Allsvenskan', superettan: 'Superettan', eliteserien: 'Eliteserien',
   obosligaen: 'OBOS-ligaen', mls: 'MLS',
 }
+const LABB_MARKET = {
+  '1x2': '1X2', ah: 'AH', ou: 'Ö/U', cor: 'Hörnor',
+}
+const LABB_BOOK = {
+  svenskaspel: 'SvS', expekt: 'Expekt', ninjacasino: 'Ninja/Altenar',
+  pinnacle: 'Pinnacle', smarkets: 'Smarkets',
+}
 
 // Avslutade/pågående forskningsspår utan eget API — daterade kort med källdok.
 const LABB_RESEARCH = [
@@ -854,14 +861,19 @@ const LABB_RESEARCH = [
 
 function LabbV3() {
   const [clv, setClv] = useState(null)
+  const [ledger, setLedger] = useState(null)
   const [radar, setRadar] = useState(null)
   const [systems, setSystems] = useState(null)
   const [err, setErr] = useState(null)
+  const [showLedger, setShowLedger] = useState(false)
+  const [showLog, setShowLog] = useState(false)
+  const [logLimit, setLogLimit] = useState(200)
 
   const [halsa, setHalsa] = useState(null)
   useEffect(() => {
     // engångsläsning — mätserierna rör sig på varv-/veckoskala, ingen poll
     get('/api/oddset/clv').then(setClv).catch((e) => { setClv(null); setErr(String(e)) })
+    get('/api/oddset/predictions').then(setLedger).catch(() => setLedger(null))
     get('/api/oddset/radar-facit').then(setRadar).catch(() => setRadar(null))
     get('/api/pool/systems').then(setSystems).catch(() => setSystems(null))
     get('/api/pool/turnover-prognos').then(setHalsa).catch(() => setHalsa(null))
@@ -875,6 +887,39 @@ function LabbV3() {
   const primaryClv = (clv?.groups || []).filter((g) =>
     g.tier === 'sharp' && g.market === '1x2' && LABB_PRIMARY.includes(g.league))
   const a2 = clv?.anchor2
+  const candidateReq = ledger?.criteria?.candidate || {
+    n_resolved: 50, n_matches: 30, span_days: 28,
+  }
+  const modelCloseRows = ledger?.model_close?.summary || []
+  const activePrimaryGroups = (ledger?.groups || []).filter(
+    (g) => g.primary && g.active_version)
+  const ledgerTiming = Object.values(ledger?.capture_quality || {}).reduce(
+    (sum, h) => ({ n: sum.n + (h.n || 0), timely: sum.timely + (h.n_timely || 0) }),
+    { n: 0, timely: 0 })
+  const modelCloseLabel = (status) => ({
+    better: '✓ slår sharp', worse: '✕ sämre än sharp',
+    inconclusive: '◐ oklart', collecting: '● samlar',
+  }[status] || status)
+  const statusLabel = (status) => status === 'green'
+    ? '✓ grön' : status === 'candidate' ? '◐ kandidat' : '● samlar'
+  const candidateText = (g) => {
+    if (g.status === 'green') {
+      return g.green_at
+        ? `Grön sedan ${new Date(g.green_at).toLocaleDateString('sv-SE')}` : 'Grön'
+    }
+    if (g.status === 'candidate') {
+      return g.candidate_at
+        ? `Kandidat sedan ${new Date(g.candidate_at).toLocaleDateString('sv-SE')}` : 'Kandidat'
+    }
+    if (g.candidate_eta_at) {
+      return `Tidigast ~${new Date(g.candidate_eta_at).toLocaleDateString(
+        'sv-SE', { day: 'numeric', month: 'short' })} vid nuvarande takt`
+    }
+    return 'För lite data för ett rimligt datum'
+  }
+  const clvLine = (market, line) => market?.endsWith('ah') && line > 0 ? `+${line}` : line
+  const closeEv = (r) => r.closing_fair == null
+    ? null : r.closing_fair * r.first_odds - 1
 
   const perProduct = {}
   for (const g of systems?.groups || []) {
@@ -940,6 +985,173 @@ function LabbV3() {
           ))}
           <span className="v3hint">Utfalls-ROI är brusig vid låga n och ändrar inga grindar.
             PH4-räknaren visar out-of-time-fönstret som krävs innan nya κ-varianter får föreslås.</span>
+        </div>
+
+        <div className="v3card v3wide v3evidence">
+          <div className="v3cardhead">
+            <h3>🧭 Modell mot close och full signallogg</h3>
+            <span className="v3hint">bevisyta — inte tips</span>
+          </div>
+          {!ledger && !clv && !err && <LoadingState label="Hämtar valideringen…" />}
+          {ledger && (
+            <div className="v3evidence-summary">
+              <span><b>{ledger.n_predictions}</b> frysta prediktioner</span>
+              <span><b>{ledger.n_captures}</b> fångster</span>
+              <span>{ledger.horizons?.h24 || 0}×24 h · {ledger.horizons?.h3 || 0}×3 h ·
+                {' '}{ledger.horizons?.m20 || 0}×20 min</span>
+              {ledgerTiming.n > 0 && <span><b>{ledgerTiming.timely}/{ledgerTiming.n}</b> i tid</span>}
+              {ledger.n_empty_captures > 0 &&
+                <span>{ledger.n_empty_captures} utan tillgänglig prognos</span>}
+            </div>
+          )}
+          {modelCloseRows.length > 0 && (
+            <div className="model-close-wrap">
+              <div className="model-close-title">
+                <b>🧪 Modell mot Pinnacle-close</b>
+                <span className="v3hint">alla frysta prediktioner, även oflaggade</span>
+              </div>
+              <div className="model-close-grid">
+                {modelCloseRows.map((g) => (
+                  <div className={`model-close-card ${g.status}`}
+                    key={`${g.market}-${g.version}`}
+                    title={`Parad log-score mot Pinnacle vid samma horisont. Positivt KI helt över noll krävs.\nVersion ${g.version}${g.active_version ? ' (nuvarande)' : ' (äldre)'}`}>
+                    <div><b>{LABB_MARKET[g.market] || g.market}</b>
+                      <span className={`model-close-status ${g.status}`}>
+                        {modelCloseLabel(g.status)}</span></div>
+                    <div className="model-close-mae">
+                      M <b>{g.model_mae_pp?.toFixed(2) ?? '–'} pp</b>
+                      {' '}· P <b>{g.sharp_mae_pp?.toFixed(2) ?? '–'} pp</b>
+                    </div>
+                    <div className="v3hint">{g.n_cases} fall · {g.n_matches} matcher ·
+                      {' '}{g.span_days} dagar · {g.active_version ? 'nuvarande' : 'äldre'} {g.version}</div>
+                    {g.logscore_gain_ci && (
+                      <div className="v3hint">log-score Δ {g.logscore_gain >= 0 ? '+' : ''}
+                        {g.logscore_gain.toFixed(4)} · KI [{g.logscore_gain_ci[0].toFixed(4)}
+                        ..{g.logscore_gain_ci[1].toFixed(4)}]</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {activePrimaryGroups.length > 0 && (
+            <div className="validation-grid">
+              {activePrimaryGroups.map((g) => (
+                <div className={`validation-card ${g.status}`}
+                  key={`${g.league}-${g.market}-${g.version}`}
+                  title="Kandidat kräver mängdkraven och positiv undre 90 %-KI-gräns. Datumet uppskattar bara mängd och tid.">
+                  <div className="validation-head">
+                    <b>{LABB_LEAGUE[g.league] || g.league} ·
+                      {' '}{LABB_MARKET[g.market] || g.market}</b>
+                    <span className={`ledgerstatus ${g.status}`}>{statusLabel(g.status)}</span>
+                  </div>
+                  <div className="validation-progress">
+                    <span><b>{g.n_resolved}</b>/{candidateReq.n_resolved} stängda</span>
+                    <span><b>{g.n_matches}</b>/{candidateReq.n_matches} matcher</span>
+                    <span><b>{g.span_days}</b>/{candidateReq.span_days} dagar</span>
+                  </div>
+                  <div className="validation-eta">{candidateText(g)}</div>
+                  <div className="validation-ci">90 % KI {g.ci
+                    ? `[${(g.ci[0] * 100).toFixed(1)}..${(g.ci[1] * 100).toFixed(1)}]`
+                    : '–'}{!g.ci_stable && g.ci ? ' · instabilt' : ''}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {ledger && (
+            <button className="v3evidence-toggle" onClick={() => setShowLedger(!showLedger)}
+              aria-expanded={showLedger}>
+              {showLedger ? 'Dölj alla signalgrupper ▲' : `Visa alla ${ledger.groups?.length || 0} signalgrupper ▼`}
+            </button>
+          )}
+          {showLedger && (
+            <div className="v3evidence-table">
+              <table className="logtable">
+                <thead><tr><th>Status</th><th>Grupp</th><th>Pred/kontroll</th>
+                  <th>Flaggor</th><th>Bredd</th><th>Close-EV</th><th>90 % KI</th></tr></thead>
+                <tbody>{(ledger?.groups || []).map((g) => (
+                  <tr className={g.active_version ? '' : 'historical-version'}
+                    key={`${g.tier}-${g.league}-${g.market}-${g.version}`}>
+                    <td className={`ledgerstatus ${g.status}`}>{statusLabel(g.status)}</td>
+                    <td>{g.tier === 'model' ? '🧪' : '💰'} {LABB_LEAGUE[g.league] || g.league}
+                      {' '}· {LABB_MARKET[g.market] || g.market}{g.primary ? ' · primär' : ''}
+                      <span className="v3hint"> · {g.active_version ? 'nuvarande' : 'äldre'} {g.version}</span></td>
+                    <td>{g.n_timely}/{g.n_controls}{g.n_late > 0 ? ` · ${g.n_late} sena` : ''}</td>
+                    <td>{g.n_resolved}/{g.n_flags} stängda</td>
+                    <td>{g.n_matches} matcher · {g.n_weeks} v · {g.span_days} d</td>
+                    <td className={g.avg_close_ev == null ? '' : g.avg_close_ev >= 0 ? 'v3pos' : 'v3neg'}>
+                      {g.avg_close_ev == null ? '–'
+                        : `${g.avg_close_ev >= 0 ? '+' : ''}${(g.avg_close_ev * 100).toFixed(1)} %`}</td>
+                    <td>{g.ci ? `[${(g.ci[0] * 100).toFixed(1)}..${(g.ci[1] * 100).toFixed(1)}]${g.ci_stable ? '' : ' · instabilt'}` : '–'}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
+          {clv && (clv.sharp?.n > 0 || clv.model?.n > 0) && (
+            <>
+              <div className="v3evidence-summary">
+                <b>📒 Faktiskt flaggade signaler</b>
+                <span>sharp: {clv.sharp?.n ?? 0} · {clv.sharp?.n_resolved ?? 0} stängda
+                  {clv.sharp?.avg_close_ev != null &&
+                    <> · snitt <b className={evCls(clv.sharp.avg_close_ev)}>{evPct(clv.sharp.avg_close_ev)}</b></>}</span>
+                {clv.model?.n > 0 && <span>modell: {clv.model.n} ·
+                  {' '}{clv.model.n_resolved} stängda
+                  {clv.model.avg_close_ev != null &&
+                    <> · snitt <b className={evCls(clv.model.avg_close_ev)}>{evPct(clv.model.avg_close_ev)}</b></>}</span>}
+              </div>
+              {clv.calibration && (
+                <span className="v3hint">🌡 Kalibrering: {Object.entries(clv.calibration)
+                  .map(([lg, c]) => `${lg} t=${c.t?.toFixed?.(2) ?? c.t} (n=${c.n})`).join(' · ')}</span>
+              )}
+              <button className="v3evidence-toggle" onClick={() => {
+                if (!showLog) setLogLimit(200)
+                setShowLog(!showLog)
+              }}
+                aria-expanded={showLog}>
+                {showLog ? 'Dölj signalloggen ▲' : `Visa ${clv.rows?.length || 0} flaggade signaler ▼`}
+              </button>
+              {showLog && (
+                <div className="v3evidence-table">
+                  <table className="logtable">
+                    <thead><tr><th>Flagga</th><th>Match</th><th>Bok</th><th>Odds</th>
+                      <th>Edge</th><th>Bäst</th><th>Stängning</th><th>Tier</th></tr></thead>
+                    <tbody>{(clv.rows || []).slice(0, logLimit).map((r, i) => {
+                      const cev = closeEv(r)
+                      return (
+                        <tr key={i}>
+                          <td>{r.market} {r.sign}
+                            {r.line != null ? ` (${clvLine(r.market, r.line)})` : ''}</td>
+                          <td>{r.description}</td>
+                          <td>{LABB_BOOK[r.book] || r.book || 'SvS'}</td>
+                          <td>{r.first_odds}</td>
+                          <td>{r.first_edge > 0 ? '+' : ''}{(r.first_edge * 100).toFixed(1)} %</td>
+                          <td>{r.best_edge > 0 ? '+' : ''}{(r.best_edge * 100).toFixed(1)} %</td>
+                          <td className={cev == null ? '' : cev >= 0 ? 'v3pos' : 'v3neg'}>
+                            {cev == null ? r.closing_note || 'öppen'
+                              : `${cev >= 0 ? '+' : ''}${(cev * 100).toFixed(1)} %`}
+                            {r.closing_line != null && r.line !== r.closing_line &&
+                              <span className="v3hint"> · lina {clvLine(r.market, r.line)}
+                                →{clvLine(r.market, r.closing_line)}</span>}
+                          </td>
+                          <td>{r.tier === 'model' ? '🧪' : '💰'}</td>
+                        </tr>
+                      )
+                    })}</tbody>
+                  </table>
+                </div>
+              )}
+              {showLog && (clv.rows?.length || 0) > logLimit && (
+                <button className="v3evidence-toggle"
+                  onClick={() => setLogLimit((n) => n + 200)}>
+                  Visa {Math.min(200, clv.rows.length - logLimit)} till
+                  {' '}({logLimit} av {clv.rows.length})
+                </button>
+              )}
+            </>
+          )}
+          <span className="v3hint">Grönt beslutas per liga × marknad × version.
+            Aggregat, utfalls-ROI och känsla får aldrig ändra gruppstatus.</span>
         </div>
 
         <div className="v3card">
@@ -1066,7 +1278,8 @@ export default function AppV3() {
       </header>
       <main className="v3main">
         {view === 'idag' && <ErrBoundary>
-          <DashboardV3 openPool={openPool} openOddset={openOddset} openHistorik={openHistorik} />
+          <DashboardV3 openPool={openPool} openOddset={openOddset}
+            openHistorik={openHistorik} openLabb={() => go('labb')} />
         </ErrBoundary>}
         {view === 'pool' && <ErrBoundary><PoolV3 /></ErrBoundary>}
         {view === 'oddset' && <ErrBoundary><OddsetView focus={oddsetFocus} /></ErrBoundary>}

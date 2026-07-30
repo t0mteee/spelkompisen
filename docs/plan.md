@@ -5,6 +5,18 @@
 > **Aktiv backlog och prioritering: `docs/backlog.md`** (2026-07-26).
 > WP-listan längre ned är historik över avslutat arbete.
 
+**ODDSET-UI REFRESH KLAR (2026-07-30, Claude E1 + Codex E2–E7).**
+Oddset är nu fyra persisterade sub-tabbar: Matcher, Live, Värdespel och
+Rörelser, med en alltid synlig räknarrad. Desktop visar sorterbara
+jämförelsetabeller; vid ≤760 px används samma sortering över mobilkort.
+Huvudtabellen och marknadsradarn är också sorterbara. Prognosledger,
+modell-mot-close, gruppgrindar och hela signalloggen har flyttats till Labb;
+loggen laddas 200 rader i taget. Vald flik och sortering överlever omladdning.
+Matcher-fliken har dessutom ett persisterat val för att dölja redan startade
+matcher; Live och signalflikarna påverkas inte.
+Verifierat i browser på 1280/390 px, frontend-build grön och 351 backendtester
+gröna. Arbetsplan och verifiering: `docs/ui-oddset-tabbar-2026-07-29.md`.
+
 **MODELLPLANEN P1–P6 KÖRD (2026-07-28 kväll, Fable 5, Samans "kör
 samtliga i ordning"; detaljer + avvikelser i backlog.md:s MODELLPLAN).**
 Kärnpunkter för nästa session: (1) **κ nu i ALLA tre värderingsvägar**

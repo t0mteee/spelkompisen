@@ -482,6 +482,21 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
 
 .oddset-bar .lg { border-radius: 999px; padding: 4px 12px; }
 .oddset-bar .lg.off { opacity: 0.4; text-decoration: line-through; }
+.oddset-tabs {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin: 10px 0; padding-bottom: 8px; border-bottom: 1px solid var(--line);
+}
+.oddset-tab {
+  border-radius: 999px; padding: 5px 13px; color: var(--muted);
+  background: var(--panel); border: 1px solid var(--line); font-weight: 700;
+}
+.oddset-tab:hover { color: var(--text); border-color: var(--muted); }
+.oddset-tab.active {
+  color: var(--green); border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 8%, var(--panel));
+}
+.oddset-tabcount { margin-left: auto; }
+.tab-panel { min-width: 0; }
 /* Forskningsliga: synlig men inte actionable — dämpad, prickad kant */
 .oddset-bar .lg.research { border-style: dotted; color: var(--muted); }
 .rchip { display: inline-block; margin-left: 6px; padding: 0 6px; font-size: 10px;
@@ -786,8 +801,60 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 }
 .live-radar-level.watch { color: #dca85e; }
 .live-radar-level.strong { color: #e06b6b; }
+.radar-table-level {
+  display: inline-flex; border: 1px solid var(--line); border-radius: 999px;
+  padding: 1px 7px; color: var(--muted); font-size: 9.5px;
+  font-weight: 800; letter-spacing: .04em; white-space: nowrap;
+}
+.radar-table-level.watch { color: #dca85e; border-color: rgba(220,168,94,.5); }
+.radar-table-level.strong { color: #e06b6b; border-color: rgba(224,107,107,.55); }
 .live-radar-foot { margin-top: 7px; color: var(--muted); font-size: 10.5px; }
 .oddset-table-wrap { max-width: 100%; overflow-x: auto; border-radius: 8px; }
+.oddset-list-table {
+  width: 100%; border-collapse: collapse; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; font-size: 12px;
+}
+.oddset-list-table th {
+  text-align: left; color: var(--muted); font-size: 10px; text-transform: uppercase;
+  letter-spacing: .35px; padding: 7px 8px; border-bottom: 1px solid var(--line);
+}
+.oddset-list-table td {
+  padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: middle;
+}
+.oddset-list-table tbody tr:last-child td { border-bottom: 0; }
+.oddset-list-table tr.clickable:hover td {
+  color: var(--text); background: color-mix(in srgb, var(--green) 5%, transparent);
+}
+.oddset-list-table .match-name { min-width: 170px; white-space: normal; }
+.oddset-list-table .pos { color: var(--green); }
+.oddset-list-table .neg { color: #e06b6b; }
+.live-list-table tr.watch td:first-child { box-shadow: inset 3px 0 #dca85e; }
+.live-list-table tr.strong td:first-child { box-shadow: inset 3px 0 #e06b6b; }
+.mobile-sortbar {
+  align-items: center; gap: 7px; margin: 4px 0 8px; color: var(--muted);
+  font-size: 11px;
+}
+.mobile-sortbar select {
+  min-width: 0; flex: 1 1 auto; color: var(--text); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 7px; padding: 5px 7px;
+}
+.mobile-sortbar button { flex: 0 0 auto; padding: 5px 8px; }
+.sortcards { gap: 8px; }
+.mover-card {
+  display: flex; flex-direction: column; gap: 4px; padding: 9px 10px;
+  background: var(--panel); border: 1px solid var(--line);
+  border-left: 3px solid #e0853b; border-radius: 8px;
+}
+.mover-card > div:first-child {
+  display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
+}
+.movement-cell { color: var(--muted); white-space: nowrap; }
+.match-list-toolbar {
+  display: flex; justify-content: flex-end; align-items: center; gap: 8px;
+  margin: 0 0 7px;
+}
+.match-list-toolbar .lg { border-radius: 999px; padding: 4px 11px; }
+.match-list-toolbar .lg.on { color: var(--green); border-color: var(--green); }
 .moverlist.collapsed { border-color: var(--line); padding: 6px 10px; }
 .section-toggle {
   width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -894,6 +961,17 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   .oddset-tools { margin: 3px 0 0; gap: 6px; }
   .oddset-tools .odds-fetched { margin-left: auto; }
   .source-health-list { padding: 7px; }
+  .oddset-tabs {
+    flex-wrap: wrap; overflow-x: auto; scrollbar-width: none;
+    margin-top: 8px; padding-bottom: 8px;
+  }
+  .oddset-tabs::-webkit-scrollbar { display: none; }
+  .oddset-tab { flex: 0 0 auto; padding: 5px 11px; }
+  .oddset-tabcount {
+    order: -1; flex: 0 0 100%; margin-left: 0; white-space: nowrap;
+  }
+  .mobile-sortbar.mobile-only { display: flex; }
+  .sortcards.mobile-only { display: grid; }
   .tipgrid { grid-template-columns: minmax(0, 1fr); }
   .tipcard { min-width: 0; }
   .detail-chart-svg { max-width: none; }
@@ -911,8 +989,16 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
     padding: 9px; margin-bottom: 8px; gap: 6px;
   }
   .oddset-table tr.dayrow td { padding: 8px 2px 4px; }
-  .oddset-table .time { order: 1; color: var(--text); font-weight: 700; }
-  .oddset-table .teams { order: 2; flex: 1 1 calc(100% - 58px); }
+  .oddset-table .time {
+    order: 1; display: flex; gap: 5px; align-items: baseline;
+    width: auto; color: var(--text); font-weight: 700;
+  }
+  .oddset-table .league-cell { order: 1; margin-left: auto; }
+  .oddset-table .league-cell .rchip { margin-left: 0; margin-right: 0; }
+  .oddset-table .teams { order: 2; flex: 1 1 100%; font-size: 15px; }
+  .oddset-table .movement-cell {
+    order: 3; flex: 0 0 auto; padding: 2px 4px;
+  }
   .oddset-table .oc { order: 3; flex: 1 1 28%; min-width: 0; overflow: hidden; white-space: normal; border: 1px solid var(--line); border-radius: 7px; padding: 5px; }
   .oddset-table .oc .o, .oddset-table .oc .p { white-space: normal; overflow-wrap: anywhere; }
   .oddset-table .oc::before {
