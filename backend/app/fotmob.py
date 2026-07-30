@@ -275,6 +275,15 @@ def collect(store, known_matches: Optional[list[dict]] = None,
         live = [m for m in listing
                 if m["started"] and not m["finished"] and not m["cancelled"]]
         live = _scope_friendlies(store, live, known_matches)
+        # Dagens lista innehåller även kommande och avslutade matcher. När den
+        # lyckats och inte är helt tom kan vi därför säkert registrera vilka
+        # tidigare aktiva event som just lämnat live-läget. Payloaden tar då
+        # bort dem utan att vänta ut capture-TTL:n; nätfel ändrar ingen state.
+        if listing:
+            from .live_radar import FOTMOB_PRESENCE_KEY, record_presence
+            record_presence(
+                store, FOTMOB_PRESENCE_KEY,
+                [match.get("fotmob_id") for match in live], _listed_at)
         live.sort(key=_rank)
         for match in live[:MAX_MATCHES]:
             if time.monotonic() - started_at > BUDGET_S:

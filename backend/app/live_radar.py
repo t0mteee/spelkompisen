@@ -8,6 +8,7 @@ spel/notiser skapas.
 from __future__ import annotations
 
 import datetime as dt
+import json
 import time
 from typing import Optional
 
@@ -20,6 +21,18 @@ RADAR_VERSION = "chance-gap-shadow-v2"
 RECENT_MINUTES = 15
 RECENT_TOLERANCE_MIN = 6
 MAX_DISPLAY_AGE_MIN = 12
+SOFA_PRESENCE_KEY = "live_radar_sofascore_presence"
+FOTMOB_PRESENCE_KEY = "live_radar_fotmob_presence"
+
+# Providerspecifika lagalias för live-länken. Håll dem här, inte i Oddsets
+# TEAM_ALIASES: en bekräftad live-dubblett ska inte ändra modellens
+# identitetsbehandling eller signalversion. Endast observerade par.
+LIVE_TEAM_ALIASES = {
+    # Sofascore `ETO FC Győr` ↔ FotMob `Györi ETO`, 2026-07-30.
+    "gyori eto": "eto gyor",
+    # Samma driftverifiering fann `RSC Anderlecht` ↔ `Anderlecht`.
+    "rsc anderlecht": "anderlecht",
+}
 
 # EGEN HTTP-VÄG (2026-07-25). Radarn använde `oddset_data._sofa_get` — samma
 # klient som matar xG/hörnor till den SPELBARA modellen. En shadow-funktion som
@@ -114,6 +127,91 @@ def _iso(timestamp: Optional[int]) -> Optional[str]:
         return None
     return dt.datetime.fromtimestamp(
         int(timestamp), dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _parse_iso(value: str) -> dt.datetime:
+    parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.timezone.utc)
+
+
+def record_presence(store: Storage, key: str, active_ids, observed_at: str) -> None:
+    """Spara verifierade övergångar från aktiv till ej längre live.
+
+    Frånvaro i EN lista räcker inte ensam: eventet måste finnas i föregående
+    lyckade live-lista och saknas i den nya. Det gör att ett tomt/cachat svar
+    vid uppstart inte kan radera färska kort. Vid nätfel anropas funktionen
+    inte alls och den vanliga 12-minuters-TTL:n fortsätter vara skyddsnät.
+    """
+    active = {int(value) for value in active_ids if value is not None}
+    previous_active: set[int] = set()
+    ended_at: dict[int, str] = {}
+    previous_observed: Optional[dt.datetime] = None
+    raw = store.meta_get(key)
+    if raw:
+        try:
+            saved = json.loads(raw)
+            previous_active = {
+                int(value) for value in saved.get("active_ids") or []}
+            ended_at = {
+                int(event_id): str(ended)
+                for event_id, ended in (saved.get("ended_at") or {}).items()}
+            previous_observed = _parse_iso(saved["observed_at"])
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            previous_active, ended_at, previous_observed = set(), {}, None
+
+    observed = _parse_iso(observed_at)
+    # En CDN-cache får aldrig skriva en äldre roster ovanpå en nyare.
+    if previous_observed and observed < previous_observed:
+        return
+    for event_id in previous_active - active:
+        ended_at.setdefault(event_id, observed_at)
+    for event_id in active:
+        ended_at.pop(event_id, None)
+
+    # Slutmarkeringarna behövs bara medan en capture fortfarande kan visas.
+    keep_after = observed - dt.timedelta(minutes=MAX_DISPLAY_AGE_MIN)
+    ended_at = {
+        event_id: ended
+        for event_id, ended in ended_at.items()
+        if _parse_iso(ended) >= keep_after
+    }
+    store.meta_set(key, json.dumps({
+        "observed_at": observed_at,
+        "active_ids": sorted(active),
+        "ended_at": {str(event_id): ended
+                     for event_id, ended in sorted(ended_at.items())},
+    }, separators=(",", ":"), sort_keys=True))
+
+
+def _recently_ended(store: Storage, key: str,
+                    now: dt.datetime) -> dict[int, dt.datetime]:
+    """Läs endast färska, välformade slutövergångar; annars säkert tomt."""
+    raw = store.meta_get(key)
+    if not raw:
+        return {}
+    try:
+        saved = json.loads(raw)
+        observed = _parse_iso(saved["observed_at"])
+        if (now - observed > dt.timedelta(minutes=MAX_DISPLAY_AGE_MIN) or
+                observed - now > dt.timedelta(minutes=1)):
+            return {}
+        return {
+            int(event_id): _parse_iso(ended)
+            for event_id, ended in (saved.get("ended_at") or {}).items()
+            if now - _parse_iso(ended) <= dt.timedelta(
+                minutes=MAX_DISPLAY_AGE_MIN)
+        }
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return {}
+
+
+def _ended_after_capture(current: dict, id_key: str,
+                         ended: dict[int, dt.datetime]) -> bool:
+    event_id = int(current[id_key])
+    ended_at = ended.get(event_id)
+    if ended_at is None:
+        return False
+    return ended_at >= _parse_iso(current["captured_at"])
 
 
 def _score(event: dict, side: str) -> int:
@@ -381,6 +479,15 @@ def collect(store: Storage, *, now: Optional[dt.datetime] = None) -> dict:
     # inte återuppstå i varje ny insamlare.
     captured_at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     events = _live_get("/sport/football/events/live").get("events") or []
+    # Spara hela football-rosterlistan, inte bara våra ligor. Då kan en ändrad
+    # turneringsmappning aldrig misstolkas som att matchen tog slut. Ett helt
+    # tomt 200-svar används däremot inte som slutsignal — TTL:n är säkrare.
+    if events:
+        record_presence(
+            store, SOFA_PRESENCE_KEY,
+            [item.get("id") for item in events
+             if (item.get("status") or {}).get("type") == "inprogress"],
+            captured_at)
     known = store.oddset_matches(
         (now - dt.timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ"),
         (now + dt.timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ"))
@@ -500,6 +607,7 @@ def _same_team(a: str, b: str) -> bool:
     Ingen träff = matchen visas utan FotMob-data; vi gissar aldrig.
     """
     x, y = norm_team(a or ""), norm_team(b or "")
+    x, y = LIVE_TEAM_ALIASES.get(x, x), LIVE_TEAM_ALIASES.get(y, y)
     if len(x) < 4 or len(y) < 4:
         return x == y and bool(x)
     return x.startswith(y) or y.startswith(x)
@@ -596,6 +704,12 @@ def payload(store: Storage, *,
         "%Y-%m-%dT%H:%M:%SZ")
     rows = store.oddset_live_captures(since, CAPTURE_VERSION)
     fotmob_series = _fotmob_series(store, since)
+    sofa_ended = _recently_ended(store, SOFA_PRESENCE_KEY, now)
+    fotmob_ended = _recently_ended(store, FOTMOB_PRESENCE_KEY, now)
+    fotmob_series = [
+        captures for captures in fotmob_series
+        if not _ended_after_capture(
+            captures[-1], "fotmob_id", fotmob_ended)]
     grouped: dict[int, list[dict]] = {}
     for row in rows:
         grouped.setdefault(int(row["event_id"]), []).append(row)
@@ -603,6 +717,8 @@ def payload(store: Storage, *,
     claimed_fotmob: set[int] = set()
     for captures in grouped.values():
         current = captures[-1]
+        if _ended_after_capture(current, "event_id", sofa_ended):
+            continue
         current_at = dt.datetime.fromisoformat(
             current["captured_at"].replace("Z", "+00:00"))
         if now - current_at > dt.timedelta(minutes=MAX_DISPLAY_AGE_MIN):

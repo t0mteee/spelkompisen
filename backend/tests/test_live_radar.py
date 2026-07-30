@@ -254,6 +254,113 @@ class LiveRadarTests(unittest.TestCase):
             finally:
                 store.close()
 
+    def test_gyori_provider_alias_merges_to_one_live_card(self):
+        """Samma Győr-match hade olika ordföljd hos providrarna och visades
+        därför dubbelt: Sofascore `ETO FC Győr`, FotMob `Györi ETO`."""
+        self.assertTrue(live_radar._same_team(
+            "RSC Anderlecht", "Anderlecht"))
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                sofa_event = event()
+                sofa_event["id"] = 15337001
+                sofa_event["tournament"]["uniqueTournament"] = {
+                    "id": 17015, "name": "Conference League"}
+                sofa_event["homeTeam"]["name"] = "ETO FC Győr"
+                sofa_event["awayTeam"]["name"] = "Atert Bissen"
+                store.oddset_save_live_capture(live_radar.parse_capture(
+                    sofa_event,
+                    stats(xg=(None, None), big=(0, 1), shots=(1, 3),
+                          on=(0, 1), inside=(1, 2), touches=(3, 7)),
+                    captured_at=AT, now=NOW))
+                store.live_fotmob_save({
+                    "fotmob_id": 7772026,
+                    "captured_at": AT,
+                    "capture_version": fotmob.CAPTURE_VERSION,
+                    "league": "conference_league",
+                    "tournament": "Conference League Qualification",
+                    "home": "Györi ETO",
+                    "away": "Atert Bissen",
+                    "minute": 70,
+                    "home_score": 0,
+                    "away_score": 0,
+                    "xg_home": 0.03,
+                    "xg_away": 0.15,
+                    "shots_on_home": 0,
+                    "shots_on_away": 1,
+                })
+
+                result = live_radar.payload(store, now=NOW)
+                self.assertEqual(1, len(result["matches"]))
+                match = result["matches"][0]
+                self.assertEqual(15337001, match["event_id"])
+                self.assertEqual("fotmob", match["signal"]["stats_source"])
+                self.assertEqual(0.15, match["fotmob"]["xg_away"])
+            finally:
+                store.close()
+
+    def test_fresh_provider_roster_hides_matches_that_are_no_longer_live(self):
+        """En lyckad ny live-lista är ett starkare slutbesked än capture-TTL:n.
+
+        Båda providrarna har här observerat sina live-listor efter de senaste
+        capturerna, och match-id:n finns inte längre kvar. Korten ska då bort
+        direkt i stället för att ligga kvar i tolv minuter.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                store.oddset_save_live_capture(live_radar.parse_capture(
+                    event(), stats(), captured_at=AT, now=NOW))
+                store.live_fotmob_save({
+                    "fotmob_id": 777001,
+                    "captured_at": AT,
+                    "capture_version": fotmob.CAPTURE_VERSION,
+                    "league": "superettan",
+                    "tournament": "Superettan",
+                    "home": "Örebro SK",
+                    "away": "Utsiktens BK",
+                    "minute": 70,
+                    "home_score": 0,
+                    "away_score": 0,
+                    "xg_home": 1.0,
+                    "xg_away": 0.4,
+                })
+                live_radar.record_presence(
+                    store, live_radar.SOFA_PRESENCE_KEY, [123], AT)
+                live_radar.record_presence(
+                    store, live_radar.FOTMOB_PRESENCE_KEY, [777001], AT)
+                observed = "2026-07-25T19:11:00Z"
+                live_radar.record_presence(
+                    store, live_radar.SOFA_PRESENCE_KEY, [], observed)
+                live_radar.record_presence(
+                    store, live_radar.FOTMOB_PRESENCE_KEY, [], observed)
+
+                result = live_radar.payload(
+                    store, now=NOW + dt.timedelta(minutes=2))
+                self.assertEqual([], result["matches"])
+            finally:
+                store.close()
+
+    def test_provider_roster_older_than_capture_cannot_hide_live_match(self):
+        """Ordningen skyddar mot cache/tidsförskjutning: en roster måste vara
+        minst lika ny som capturen innan frånvaro får tolkas som slutsignal."""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                store.oddset_save_live_capture(live_radar.parse_capture(
+                    event(), stats(), captured_at=AT, now=NOW))
+                live_radar.record_presence(
+                    store, live_radar.SOFA_PRESENCE_KEY, [123],
+                    "2026-07-25T19:08:00Z")
+                live_radar.record_presence(
+                    store, live_radar.SOFA_PRESENCE_KEY, [],
+                    "2026-07-25T19:09:00Z")
+
+                result = live_radar.payload(store, now=NOW)
+                self.assertEqual(1, len(result["matches"]))
+            finally:
+                store.close()
+
     def test_payload_shows_fotmob_match_even_when_sofascore_misses_it(self):
         """Stats finns → kortet visas, även utan en Sofascore-grundrad."""
         with tempfile.TemporaryDirectory() as tmp:
@@ -404,6 +511,9 @@ class LiveRadarTests(unittest.TestCase):
 
                 self.assertEqual(1, report["live"])
                 self.assertEqual(0, report["stats_ok"])
+                self.assertIn(
+                    '"active_ids":[123]',
+                    store.meta_get(live_radar.SOFA_PRESENCE_KEY))
                 health = next(
                     row for row in store.oddset_source_health()
                     if row["source"] == "sofascore" and row["scope"] == "live")

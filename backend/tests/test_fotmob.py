@@ -1,7 +1,9 @@
 import datetime as dt
+import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from app import fotmob
 from app.storage import Storage
@@ -166,6 +168,70 @@ class StorageTests(unittest.TestCase):
                 self.assertEqual(0.73, got[0]["xg_home"])
                 # Sofascore-tabellen är orörd
                 self.assertEqual([], store.oddset_live_captures())
+            finally:
+                store.close()
+
+    def test_collect_marks_transition_from_live_to_finished(self):
+        """En lyckad FotMob-lista ska ta bort ett nyss avslutat kort snabbare
+        än capture-TTL:n, men bara efter att eventet faktiskt setts live."""
+        active = {
+            "fotmob_id": 991001,
+            "league": "allsvenskan",
+            "tournament": "Allsvenskan",
+            "home": "AIK",
+            "away": "Häcken",
+            "start_at": "2026-07-25T18:00:00Z",
+            "started": True,
+            "finished": False,
+            "cancelled": False,
+            "minute_label": "70’",
+            "score": "1 - 0",
+        }
+
+        class FakeFotMob:
+            def __init__(self, listing, observed):
+                self.listing = listing
+                self.observed = observed
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_exc):
+                return None
+
+            def matches(self, _date=None):
+                return self.listing, self.observed
+
+            def details(self, _fotmob_id):
+                return DETAILS, "2026-07-25T19:10:01Z"
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                with patch.object(
+                        fotmob, "FotMob",
+                        return_value=FakeFotMob(
+                            [active], "2026-07-25T19:10:00Z")):
+                    self.assertEqual(
+                        1, fotmob.collect(store, known_matches=[])["live"])
+                first = json.loads(store.meta_get(
+                    "live_radar_fotmob_presence"))
+                self.assertEqual([991001], first["active_ids"])
+                self.assertEqual({}, first["ended_at"])
+
+                finished = dict(active, finished=True)
+                with patch.object(
+                        fotmob, "FotMob",
+                        return_value=FakeFotMob(
+                            [finished], "2026-07-25T19:12:00Z")):
+                    self.assertEqual(
+                        0, fotmob.collect(store, known_matches=[])["live"])
+                second = json.loads(store.meta_get(
+                    "live_radar_fotmob_presence"))
+                self.assertEqual([], second["active_ids"])
+                self.assertEqual(
+                    "2026-07-25T19:12:00Z",
+                    second["ended_at"]["991001"])
             finally:
                 store.close()
 
