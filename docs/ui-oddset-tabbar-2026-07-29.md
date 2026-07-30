@@ -23,7 +23,7 @@ Låsta designbeslut:
 
 ## Etapper
 
-- ☐ **E1: SortableTable-komponenten** + CSS (App.jsx-biblioteket).
+- ✅ **E1: SortableTable-komponenten** + CSS (App.jsx-biblioteket).
   Props: id, columns [{key, label, sort(a,b)|numeric, title}], rows,
   renderRow, defaultSort. Persistens via befintliga svs_state-mönstret.
 - ☐ **E2: Tabbstruktur** i Oddset-vyn (AppV3): sub-pills 📋 Matcher ·

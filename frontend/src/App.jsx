@@ -2915,10 +2915,61 @@ function PlayRec({ payouts, product }) {
 }
 
 // Byggstenar som appskalet (AppV3.jsx) använder
+/* ---------- Sorterbar tabell (UI-passet 2026-07-29) ----------
+   EN delad komponent för Oddset-sidans listor — rubrikklick växlar
+   fallande/stigande, null-värden sist OAVSETT riktning (en match utan xG
+   ska aldrig toppa en xG-sortering), valet persisteras per tabell-id.
+   useSortedRows är separat så mobilens kortvyer kan återanvända samma
+   sortering utan tabellmarkup — kortordning och tabellordning får aldrig
+   glida isär. */
+function useSortedRows(id, rows, columns, defaultSort) {
+  const [sort, setSort] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(`svs_sort_${id}`)) || defaultSort } catch { return defaultSort }
+  })
+  const toggle = (key) => setSort((s) => {
+    const next = { key, dir: s?.key === key && s?.dir === 'desc' ? 'asc' : 'desc' }
+    try { localStorage.setItem(`svs_sort_${id}`, JSON.stringify(next)) } catch { /* ok */ }
+    return next
+  })
+  const col = columns.find((c) => c.key === sort?.key)
+  const sorted = [...rows]
+  if (col) {
+    const val = col.value || ((r) => r[col.key])
+    sorted.sort((a, b) => {
+      const va = val(a), vb = val(b)
+      if (va == null && vb == null) return 0
+      if (va == null) return 1
+      if (vb == null) return -1
+      const cmp = typeof va === 'string' ? va.localeCompare(vb, 'sv') : va - vb
+      return sort.dir === 'desc' ? -cmp : cmp
+    })
+  }
+  return { sorted, sort, toggle }
+}
+
+function SortableTable({ id, columns, rows, renderRow, defaultSort, className }) {
+  const { sorted, sort, toggle } = useSortedRows(id, rows, columns, defaultSort)
+  return (
+    <div className="tablewrap">
+      <table className={`sorttable ${className || ''}`}>
+        <thead><tr>{columns.map((c) => (
+          <th key={c.key} title={c.title}
+            className={c.sortable === false ? '' : 'sortable'}
+            onClick={c.sortable === false ? undefined : () => toggle(c.key)}>
+            {c.label}{sort?.key === c.key ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+          </th>))}
+        </tr></thead>
+        <tbody>{sorted.map(renderRow)}</tbody>
+      </table>
+    </div>
+  )
+}
+
+
 export {
   AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel,
   BombenView, OddsetView, Legend, Collection, LoadingState, EmptyState,
   ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS,
   SYSTEM_BASE, SYSTEM_SVS, VARIANT, GAMES, kr, fmtClose, fmtFetched, timeAgo,
-  PlayRec, PlayedPanel, oddsetBestValue,
+  PlayRec, PlayedPanel, oddsetBestValue, SortableTable, useSortedRows,
 }

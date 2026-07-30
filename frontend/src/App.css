@@ -945,3 +945,8 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 /* Spelade kuponger: facit + livestatus för reducerade system (2026-07-25) */
 .playedbtn.on { border-color: var(--ok); color: var(--ok); }
 .playedbox .grid.compact td { vertical-align: top; }
+
+/* Sorterbar tabell (UI-passet 2026-07-29) — delas av Oddset-sidans listor */
+.sorttable th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.sorttable th.sortable:hover { color: var(--text); text-decoration: underline; }
+.sorttable td { white-space: nowrap; }
