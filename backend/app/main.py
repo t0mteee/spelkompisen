@@ -834,9 +834,9 @@ def oddset_live_radar():
 
 @app.get("/api/oddset/radar-facit")
 def oddset_radar_facit():
-    """Radar-facit (mode=shadow): settlade capture-ögonblick per signaltyp mot
-    villkorad basrate (liga × minutband × ställning). Läser bara DB —
-    settlement sker i live-tick-varvet, aldrig i ett GET-anrop."""
+    """Radar-facit (mode=shadow): kontrollögonblick mot villkorad basrate plus
+    framåtriktad signaljournal med nivå, live-Ö/U och slutresultat. Läser bara
+    DB — settlement sker i live-tick-varvet, aldrig i ett GET-anrop."""
     from . import live_settlement
     store = Storage()
     try:

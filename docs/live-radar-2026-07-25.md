@@ -1,4 +1,4 @@
-# Live-radar v1 — observerat chansgap i shadow mode
+# Live-radar v2 — observerat chansgap och signaljournal i shadow mode
 
 Datum: 2026-07-25.
 
@@ -23,8 +23,25 @@ dess egna observationer samlas innan notiser eller modellstöd övervägs.
 - Träningsmatchernas globala Sofascore-turnering filtreras mot matcher som
   redan finns i Spelkompisens Oddset-vy; radarn fylls inte med godtyckliga
   träningsmatcher från hela världen.
-- `oddset_live_capture` sparar råa femminuterssnapshots. Inga härledda
-  signaler lagras som facit.
+- `oddset_live_capture` och FotMobs separata capturetabell sparar råa
+  snapshots. De används både som kontrollgrupp och för att återskapa vad som
+  hände efter signalögonblicket; providrarnas chansmått blandas aldrig.
+- `app/live_signal_ledger.py` sparar från 2026-07-31 den **första** synliga
+  förekomsten per match × signaltyp × nivå. En signal som ligger kvar genom
+  tio radarvarv blir alltså ett beslut, inte tio påhittade spel. Om Följer
+  senare blir Stark sparas det som ett nytt, separat beslutstillfälle.
+- Signaljournalen sparar källversion, minut, ställning, lag, alla relevanta
+  xG-/skottmått, regelns förklaring samt observerad live-Ö/U-huvudlina och
+  Över-/Under-odds från SvS/Kambi. Oddsets observationstid sparas separat
+  från statistikkällans capturetid och korrigeras för Kambis eventuella
+  CDN-`Age`.
+- Stängd eller suspenderad Kambi-marknad räknas inte som spelbar. Saknat
+  match-id, saknad marknad och källfel får egna statusvärden och bakfylls
+  aldrig. Livepriser skrivs aldrig till prematchtabellen `oddset_odds`.
+- Efter matchen sparas normaltidsresultat, antal mål efter signalen, mål inom
+  nästa 15 matchminuter, ytterligare mål före full tid och faktiskt
+  enhetsresultat för Över-linan (inklusive push/halv vinst/halv förlust på
+  kvartslinjer). Resultatet är append-only och skriver aldrig om signalen.
 - `/api/oddset/live-radar` räknar signalen vid läsning och är märkt
   `mode=shadow`.
 - Oddset-vyn har en mobilanpassad Live-radar med minut, ställning, xG/proxy,
@@ -32,9 +49,9 @@ dess egna observationer samlas innan notiser eller modellstöd övervägs.
 - Samma fasta femminutersjobb som poolinsamlingen kör `live-tick`. Det är
   förskjutet två minuter från Oddset-jobbet.
 
-## Signalpolicy v1
+## Signalpolicy v2
 
-`chance-gap-shadow-v1` använder i första hand:
+`chance-gap-shadow-v2` använder i första hand:
 
 - lagets `xG − mål`;
 - matchens `total xG − totala mål`;
@@ -46,13 +63,30 @@ box och boxberöringar. Proxyflaggan visar uttryckligen varningen att historiken
 ännu inte har visat någon prediktiv mållyft. Den får aldrig blandas ihop med
 Oddsets gröna värdesignaler.
 
-Inget i v1 påverkar:
+Inget i v2 påverkar:
 
 - värdesignaler eller Kelly;
 - Oddset- eller poolmodellen;
 - CLV-/prediction-facit;
 - pushnotiser;
 - systemförslag.
+
+## Nivåerna som visas
+
+- **Info**: ännu ingen aktiv signal. Råögonblicket finns i den gamla
+  momentserien men räknas inte som ett möjligt spel i signaljournalen.
+- **Följer · xG**: minut 15–78, minst tolv minuter kvar och antingen lagets
+  `xG − mål ≥ 0,65` eller matchens `total xG − mål ≥ 1,00`.
+- **Stark · xG**: samma tidsfönster och antingen lagets
+  `xG − mål ≥ 1,15` eller matchens `total xG − mål ≥ 1,65`.
+- **Följer · skott**: minut 20–78, minst tolv minuter kvar och antingen
+  `stora chanser − mål ≥ 1,5` eller `skott på mål − mål ≥ 5` samtidigt som
+  laget har minst åtta skott i box.
+- Skottspåret har ingen Stark-nivå i `chance-gap-shadow-v2`. Det ska inte
+  skapas en sådan nivå genom efterhandsgranskning av resultaten.
+
+Reglerna skrivs ut direkt på Labb-sidans **Radar-facit och signaljournal** så
+att trösklarna kan granskas samtidigt som utfallet, utan att behöva läsa kod.
 
 ## Databasåtgärd
 
@@ -66,17 +100,36 @@ Första migreringen skapade 26 kolumner, 0 rader och gav
 kvar som auditerbar `sofa-live-v1`, men är efter scope-rättningen exkluderade
 från API och utvärdering. Aktuell captureversion är `sofa-live-v2`.
 
+Signaljournalens additiva migration:
+`backend/scripts/migrera_live_signal_ledger.py`. Backup:
+`backend/data/backups/stryktips-2026-07-31-fore-live-signal-ledger.db`.
+Tabellerna `oddset_live_signal` och `oddset_live_signal_result` var tomma när
+migrationen verifierades; inga historiska liveodds har bakfyllts.
+
+## Två frågor, två facit
+
+1. **Ger signalregeln mer mål än jämförbara ögonblick?** Den äldre
+   momentsettlingen jämför varje capture mot liga × minutband × aktuell
+   målskillnad. Den får svara på prediktiv lyft och coverage.
+2. **Hade det gått att rygga signalen blint?** Signaljournalens förregistrerade
+   blindkohort använder bara den första aktiva signalen per match, kräver ett
+   faktiskt observerat livepris och räknar enhets-ROI på Över-linan. Beslut
+   tas först vid minst **200 oddssatta och avgjorda signalmatcher**, minst
+   **60 dagars** spann och undre 90-procentig bootstrapgräns över noll.
+
+Följer→Stark-raderna och nivågrupperna visas också, men de får inte ersätta
+den frysta blindkohorten efter att resultaten blivit kända. Fram till gaten
+passerar är status alltid `shadow`/samlar och sidan ger ingen uppmaning att
+rygga.
+
 ## Nästa konkreta actions
 
-1. Samla minst 200 riktiga signalögonblick och minst 40 avslutade matcher per
-   signaltyp (`xg` respektive `proxy`).
-2. Settla två utfall utan efterhandsval:
-   - mål i matchen under nästa 15 minuter;
-   - minst ett ytterligare mål före full tid.
-3. Jämför mot liga × minut × aktuell målställning, inte mot en global basrate.
-4. Behåll UI-radarn även om prediktionen är neutral, men aktivera push först
-   om undre 90-procentig bootstrapgräns för lyftet är över noll.
-5. Om proxyspåret återigen är neutralt: visa bara xG-ligor som
+1. Låt launchd-varvet samla utan manuell intervention och kontrollera
+   veckovis coverage för Kambi-livepris samt varför priser saknades.
+2. Vid mognad: redovisa först den frysta blindkohorten, därefter Följer/Stark,
+   xG/skott, liga och minutband som diagnostik — aldrig välj bästa delgrupp
+   som nytt huvudresultat i efterhand.
+3. Om skottspåret återigen är neutralt: visa bara xG-ligor som
    “granska”-signal och behåll proxydata som coverage.
 
 ## Acceptanskriterier före notiser
@@ -87,3 +140,6 @@ från API och utvärdering. Aktuell captureversion är `sofa-live-v2`.
 - separat facit för xG och proxy;
 - positiv undre 90-procentig KI-gräns mot konditionerad basrate;
 - nytt uttryckligt beslut från Saman innan push aktiveras.
+
+Notisgaten ovan är separat från blind-ROI-gaten och kan inte i sig göra
+signalen spelbar. Inga notiser aktiverades i arbetet 2026-07-31.

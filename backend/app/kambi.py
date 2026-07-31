@@ -182,3 +182,60 @@ def event_markets(event_id: str, home: str, away: str, timeout: float = 25.0,
     if co:
         res["cor"] = {"O": co["a"], "U": co["b"], "line": co["line"]}
     return res
+
+
+def live_total(event_id: str, timeout: float = 8.0,
+               strict: bool = False, operator: str = "svenskaspel") -> dict:
+    """Öppen huvudlina för live Ö/U på fulltid.
+
+    Kambi använder INTE prematchetiketten ``Asian totalt`` när matchen pågår.
+    Liveflödet heter ``Antal mål`` / ``Total Goals`` och huvudlinan märks med
+    taggen ``MAIN_LINE``. Båda utfallen måste vara ``OPEN``; ett synligt men
+    suspenderat pris får aldrig bokföras som möjligt att rygga.
+    """
+    base = BASE_TPL.format(op=operator)
+    global last_age_s
+    try:
+        r = httpx.get(f"{base}/betoffer/event/{event_id}.json", params=PARAMS,
+                      headers=HEADERS, timeout=timeout)
+        r.raise_for_status()
+        last_age_s = _age_s(r)
+        bos = (r.json() or {}).get("betOffers") or []
+    except Exception:  # noqa: BLE001 — samma best-effort-kontrakt som övriga
+        if strict:
+            raise
+        return {}
+
+    pairs: list[tuple[float, float, float, bool]] = []
+    for offer in bos:
+        criterion = offer.get("criterion") or {}
+        label = (criterion.get("label") or "").strip()
+        english = (criterion.get("englishLabel") or "").strip()
+        tags = set(offer.get("tags") or [])
+        if ((label != "Antal mål" and english != "Total Goals") or
+                criterion.get("lifetime") != "FULL_TIME" or
+                "OFFERED_LIVE" not in tags):
+            continue
+        by_line: dict[float, dict] = {}
+        for outcome in offer.get("outcomes") or []:
+            line = outcome.get("line")
+            if line is None or outcome.get("status") != "OPEN":
+                continue
+            side = outcome.get("type")
+            if side in {"OT_OVER", "OT_UNDER"}:
+                by_line.setdefault(float(line) / 1000, {})[side] = outcome
+        for line, sides in by_line.items():
+            over, under = sides.get("OT_OVER"), sides.get("OT_UNDER")
+            if not over or not under:
+                continue
+            over_odds = _milli(over.get("odds"))
+            under_odds = _milli(under.get("odds"))
+            if over_odds and under_odds:
+                pairs.append((over_odds, under_odds, line,
+                              "MAIN_LINE" in tags))
+    if not pairs:
+        return {}
+    main = [pair for pair in pairs if pair[3]] or pairs
+    over, under, line, _tag = min(
+        main, key=lambda pair: abs(pair[0] - 2) + abs(pair[1] - 2))
+    return {"ou": {"O": over, "U": under, "line": line}}

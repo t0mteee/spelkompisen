@@ -364,6 +364,18 @@ def _live_pass(store) -> tuple[dict, dict]:
         print(f"live-radar (sofascore): {report['live']} matcher · "
               f"{report['stats_ok']} med statistik · "
               f"{report['saved']} captures{partial}")
+    # Spara bara FÖRSTA förekomsten per match × signaltyp × nivå. Eventuellt
+    # live-Ö/U hämtas här, medan matchen fortfarande är öppen, och ligger i ett
+    # eget shadowlager — aldrig i prematch-tabellen oddset_odds.
+    try:
+        from app.live_signal_ledger import capture_signals
+        signals = capture_signals(store)
+        if signals["saved"]:
+            print(f"radar-ledger: {signals['saved']} nya signalnivåer · "
+                  f"{signals['priced']} med live-Ö/U")
+    except Exception as e:  # noqa: BLE001 — ledgern får aldrig fälla radarn
+        print(f"radar-ledger: hoppade över "
+              f"({type(e).__name__}: {str(e)[:60]})")
     # Settla stängda serier EFTER varvets captures (DB-only, shadow, append-
     # once — omkörningar är no-ops). Ett settlefel får ALDRIG fälla
     # insamlingen, därav try/except. Steget ligger INNE i _live_pass så att
@@ -376,6 +388,15 @@ def _live_pass(store) -> tuple[dict, dict]:
                   f"{settle['open_series']} öppna serier väntar")
     except Exception as e:  # noqa: BLE001 — shadow fäller inget spelbart
         print(f"radar-settle: hoppade över "
+              f"({type(e).__name__}: {str(e)[:60]})")
+    try:
+        from app.live_signal_ledger import settle_signals
+        signal_settle = settle_signals(store)
+        if signal_settle["settled"]:
+            print(f"radar-ledger: {signal_settle['settled']} signaler fick "
+                  "slutresultat")
+    except Exception as e:  # noqa: BLE001 — shadow fäller inget spelbart
+        print(f"radar-ledger-settle: hoppade över "
               f"({type(e).__name__}: {str(e)[:60]})")
     return report, fm
 

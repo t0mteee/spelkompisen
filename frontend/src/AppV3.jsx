@@ -883,6 +883,18 @@ function LabbV3() {
   const evCls = (v) => v == null ? 'v3hint' : v >= 0 ? 'v3pos' : 'v3neg'
   const ciStr = (ci) => ci ? `[${(ci[0] * 100).toFixed(1)}..${(ci[1] * 100).toFixed(1)}]` : '–'
   const rate = (v) => v == null ? '–' : `${Math.round(v * 100)} %`
+  const radarLevel = (level) => level === 'strong' ? 'Stark' : 'Följer'
+  const radarType = (kind) => kind === 'xg' ? 'xG' : 'Skottbaserad'
+  const radarTime = (value) => value
+    ? new Date(value).toLocaleString('sv-SE', {
+      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+    }) : '–'
+  const radarOddsStatus = (row) => ({
+    no_canonical_match: 'matchen saknade oddskoppling',
+    no_svenskaspel_id: 'SvS-id saknades',
+    not_offered: 'Ö/U erbjöds inte just då',
+  }[row.odds_status] || (row.odds_status?.startsWith('source_error')
+    ? 'oddsfel vid signalen' : 'liveodds saknas'))
 
   const primaryClv = (clv?.groups || []).filter((g) =>
     g.tier === 'sharp' && g.market === '1x2' && LABB_PRIMARY.includes(g.league))
@@ -1172,31 +1184,108 @@ function LabbV3() {
             notiser. Beslut vid n ≥ 50 mätta+stängda (veckokadens) — <code>docs/tva-ankare-2026-07-25.md</code>.</span>
         </div>
 
-        <div className="v3card">
-          <div className="v3cardhead"><h3>⚡ Radar-facit (live-radarn)</h3>
-            <LabbPill s="samlar" /></div>
-          {['xg', 'proxy'].map((k) => {
-            const g = radar?.groups?.[k]
-            const a = g?.outcomes?.outcome_15min
-            return (
-              <div key={k} className="v3row">
-                <b>{k === 'xg' ? 'xG-signal' : 'proxy-signal'}</b>
-                {!g && <span className="v3hint">väntar på settlade ögonblick</span>}
-                {g && (
-                  <>
+        <div className="v3card v3radar-facit">
+          <div className="v3cardhead"><h3>⚡ Radar-facit och signaljournal</h3>
+            <LabbPill s={radar?.signal_ledger?.blind_gate?.status === 'pass'
+              ? 'pass' : radar?.signal_ledger?.blind_gate?.status === 'no_support'
+                ? 'fals' : 'samlar'} /></div>
+
+          <div className="v3radar-rules" aria-label="Radarns signalregler">
+            <div><b>Följer · xG</b>
+              <span>{radar?.signal_ledger?.thresholds?.xg_watch?.minute
+                || 'Minut 15–78, minst 12 minuter kvar'}</span>
+              <span>{radar?.signal_ledger?.thresholds?.xg_watch?.rule
+                || 'Lagets xG−mål ≥ 0,65 eller matchens xG−mål ≥ 1,00'}</span></div>
+            <div className="strong"><b>Stark · xG</b>
+              <span>{radar?.signal_ledger?.thresholds?.xg_strong?.minute
+                || 'Samma tidsfönster som Följer'}</span>
+              <span>{radar?.signal_ledger?.thresholds?.xg_strong?.rule
+                || 'Lagets xG−mål ≥ 1,15 eller matchens xG−mål ≥ 1,65'}</span></div>
+            <div><b>Följer · skott</b>
+              <span>{radar?.signal_ledger?.thresholds?.proxy_watch?.minute
+                || 'Minut 20–78, minst 12 minuter kvar'}</span>
+              <span>{radar?.signal_ledger?.thresholds?.proxy_watch?.rule
+                || 'Stora chanser−mål ≥ 1,5, eller skott på mål−mål ≥ 5 och minst 8 skott i box'}</span></div>
+          </div>
+          <span className="v3hint">Det finns två aktiva nivåer: <b>Följer</b> och <b>Stark</b>.
+            Informationsläget före Följer är ingen signal. Skottmåttet har ingen Stark-nivå i v2.
+            Första gången en nivå nås sparas; samma nivå varannan minut räknas inte som nya spel.</span>
+
+          <div className="v3radar-gate">
+            <b>Blindtest: första aktiva signalen per match</b>
+            <span>{radar?.signal_ledger?.blind_gate?.n_priced_settled ?? 0} av{' '}
+              {radar?.signal_ledger?.blind_gate?.required_priced_settled ?? 200} oddssatta och avgjorda</span>
+            <span>{radar?.signal_ledger?.blind_gate?.span_days ?? 0} av{' '}
+              {radar?.signal_ledger?.blind_gate?.required_span_days ?? 60} dagar</span>
+            <span>Över-ROI <b className={evCls(radar?.signal_ledger?.blind_gate?.roi_over)}>
+              {evPct(radar?.signal_ledger?.blind_gate?.roi_over)}</b>{' '}
+              KI90 {ciStr(radar?.signal_ledger?.blind_gate?.roi_ci90)}</span>
+          </div>
+          <span className="v3hint">Ingen rekommendation om att rygga blint före minst 200
+            framåtriktade signalmatcher med observerat livepris, minst 60 dagar och positiv
+            undre 90 %-KI-gräns. Saknat livepris räknas öppet som saknat — det bakfylls aldrig.</span>
+
+          {!!radar?.signal_ledger?.groups?.length && (
+            <div className="v3radar-groups">
+              {radar.signal_ledger.groups.map((g) => (
+                <div key={`${g.signal_type}-${g.signal_level}`}>
+                  <b>{radarLevel(g.signal_level)} · {radarType(g.signal_type)}</b>
+                  <span>{g.n_settled}/{g.n_signals} avgjorda</span>
+                  <span>mål ≤15 min {rate(g.goal_15min_rate)}</span>
+                  <span>snitt mål efter {g.avg_goals_after ?? '–'}</span>
+                  <span>Över-ROI <b className={evCls(g.roi_over)}>{evPct(g.roi_over)}</b></span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <details className="v3radar-old">
+            <summary>Tidigare momentfacit utan liveodds</summary>
+            {['xg', 'proxy'].map((k) => {
+              const g = radar?.groups?.[k]
+              const a = g?.outcomes?.outcome_15min
+              return (
+                <div key={k} className="v3row">
+                  <b>{k === 'xg' ? 'xG' : 'Skottbaserad'}</b>
+                  {!g && <span className="v3hint">väntar på settlade ögonblick</span>}
+                  {g && <>
                     <span>{g.n_signal_moments} ögonblick i {g.n_signal_matches} matcher</span>
-                    <span>utfall A {a?.n_resolved
+                    <span>mål ≤15 min {a?.n_resolved
                       ? <>{a.hits}/{a.n_resolved} = <b>{rate(a.rate)}</b> mot bas {rate(a.base_rate)}</>
                       : '–'}</span>
-                    <span className="v3hint">censur {a?.censored ?? 0} signal / {a?.control_censored ?? 0} kontroll</span>
-                  </>
-                )}
+                  </>}
+                </div>
+              )
+            })}
+          </details>
+
+          {!!radar?.signal_ledger?.rows?.length && (
+            <details className="v3radar-log" open>
+              <summary>Signaljournal · senaste {radar.signal_ledger.rows.length}</summary>
+              <div className="v3radar-logrows">
+                {radar.signal_ledger.rows.map((row) => (
+                  <div className="v3radar-logrow" key={row.id}>
+                    <div><b>{row.home} – {row.away}</b>
+                      <span>{radarTime(row.captured_at)} · {row.minute ?? '–'}′ ·{' '}
+                        {row.home_score ?? '–'}–{row.away_score ?? '–'}</span></div>
+                    <div><b className={row.signal_level === 'strong' ? 'v3neg' : ''}>
+                      {radarLevel(row.signal_level)} · {radarType(row.signal_type)}</b>
+                      <span>{row.reason}</span></div>
+                    <div><b>Live Ö/U</b>
+                      <span>{row.odds_status === 'captured'
+                        ? `Ö ${row.ou_line} @ ${Number(row.over_odds).toFixed(2)} · U @ ${Number(row.under_odds).toFixed(2)} · läst ${radarTime(row.odds_observed_at)}`
+                        : radarOddsStatus(row)}</span></div>
+                    <div><b>Facit</b>
+                      <span>{row.settled_at
+                        ? `${row.final_home_score}–${row.final_away_score} · ${row.goals_after_signal} mål efter · Över ${row.over_result || 'ej prissatt'}${row.over_profit == null ? '' : ` (${row.over_profit >= 0 ? '+' : ''}${row.over_profit.toFixed(2)} u)`}`
+                        : 'väntar på slutresultat'}</span></div>
+                  </div>
+                ))}
               </div>
-            )
-          })}
-          <span className="v3hint">mode=shadow · {radar?.n_moments ?? 0} settlade ögonblick totalt ·
-            basrate villkorad liga × minutband × ställning · gate ≥200 signalögonblick, ≥40 matcher,
-            ≥28 dagar — <code>docs/live-radar-2026-07-25.md</code>.</span>
+            </details>
+          )}
+          <span className="v3hint">Shadow: detta påverkar inga tips, Kelly, notiser eller
+            systemförslag. Metod: <code>docs/live-radar-2026-07-25.md</code>.</span>
         </div>
 
         <div className="v3card">

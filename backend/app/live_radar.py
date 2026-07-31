@@ -2,8 +2,9 @@
 
 Radarn är informationsstöd, inte en spelmodell. Den läser publika, kumulativa
 Sofascore-stats för projektets ligor, sparar observerade snapshots och visar
-en försiktig xG- eller proxyflagga. Inga liveodds läses och inga automatiska
-spel/notiser skapas.
+en försiktig xG- eller proxyflagga. Modulen läser inga liveodds; den separata
+``live_signal_ledger`` observerar Kambi-priset när en synlig signal först
+uppstår. Inga automatiska spel/notiser skapas.
 """
 from __future__ import annotations
 
@@ -644,6 +645,8 @@ def _fotmob_for(match: dict, series: list[list[dict]],
 
 
 _FOTMOB_VIEW_KEYS = (
+    "fotmob_id", "capture_version", "league", "tournament",
+    "home", "away", "start_at", "home_score", "away_score",
     "xg_home", "xg_away", "xgot_home", "xgot_away",
     "big_chances_home", "big_chances_away",
     "shots_home", "shots_away",

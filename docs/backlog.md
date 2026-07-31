@@ -23,7 +23,7 @@ testning.
 | **pit-v4 forward** (`pool-streckmove-v3`) | 4 omgångar | ≥ 40 out-of-time-omgångar per produkt med hela KI90 < 0 |
 | **Sharp-CLV-facitet** | historiskt aggregat +2,3 % [1,1..3,4], 272 stängda efter sanering; ny aktiv `s-95e14fca` börjar från nästa capture | veckokadens (`EVAL_INTERVAL_H`), aldrig per varv; grönt beslutas per liga × marknad × version |
 | **V2.2 flerliga-shadow** | samlar | träningsgate 300 kompletta avgjorda/horisont, ≥ 50/liga, ≥ 42 dagar |
-| **Live-radar + FotMob** (shadow) | samlar sedan 2026-07-25 | ≥ 200 signalögonblick och ≥ 40 avslutade matcher per signaltyp, ≥ 28 dagar — `docs/live-radar-2026-07-25.md` |
+| **Live-radar + FotMob** (shadow) | råmoment samlar sedan 2026-07-25; beslutssignaler med live-Ö/U sedan 2026-07-31 | prediktiv lyft: separat momentgate; blind Över-ROI: första aktiva signal/match, ≥200 oddssatta+avgjorda, ≥60 dagar och undre KI90 > 0 — `docs/live-radar-2026-07-25.md` |
 
 ## B. Fixar ur granskningen 2026-07-26 — ✅ GENOMFÖRDA samma dag (godkända)
 
@@ -129,7 +129,9 @@ Ordnade efter mitt förslag, inte beslutade.
    Per-omgångs-ROI ligger redan i `docs/ph5-radvalsablation-v2-2026-07-25.json`.
 
 4. ~~**Radar-settlement**~~ ✅ BYGGT (app/live_settlement.py + tester +
-   migrering; settlar i `_live_pass` efter varje varv). Facitet mognar
+   migrering; settlar i `_live_pass` efter varje varv). Kompletterat 31/7 med
+   `app/live_signal_ledger.py`: första faktiska Följer/Stark-beslutet, live
+   Ö/U, slutresultat och en fryst blind-ROI-gate. Facitet mognar
    ~mitten av augusti enligt A-tabellens gate. Push kräver därefter nytt
    uttryckligt beslut av Saman.
 

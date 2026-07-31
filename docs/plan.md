@@ -1,9 +1,25 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-07-28 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-07-31 — läs detta först i ny session)
 
 > **Aktiv backlog och prioritering: `docs/backlog.md`** (2026-07-26).
 > WP-listan längre ned är historik över avslutat arbete.
+
+**LIVE-RADARNS SIGNALJOURNAL OCH BLINDFACIT BYGGT (2026-07-31, Codex).**
+Råcapture-/kontrollgruppsfacitet fanns redan; nu sparas dessutom exakt den
+första synliga Följer- respektive Stark-signalen per match × typ, med minut,
+ställning, provider/version, xG-/skottmått, samtidigt observerad öppen
+SvS/Kambi-huvudlina för live Ö/U samt separat oddsobservationstid. Suspenderat
+eller saknat pris loggas som saknat, aldrig som spelbart, och livepriser kan
+inte förorena prematchtabellen. Efter matchen sparas normaltidsresultat, mål
+efter signalen, mål inom nästa 15 matchminuter, fler mål före full tid och
+korrekt Asian-Över-resultat inklusive kvartslinjer. Labb visar alla trösklar,
+nivåfacit och detaljerad journal. Blindkohorten är fryst till första aktiva
+signalen per match och får först ge stöd vid ≥200 oddssatta+avgjorda matcher,
+≥60 dagar och undre KI90 > 0. Allt är shadow; inga tips/notiser/system ändras.
+Additiv migration + backup + DB-logg klara; inga historiska liveodds
+bakfyllda. 363 backendtester och frontend-build gröna. Metod:
+`docs/live-radar-2026-07-25.md`.
 
 **ODDSET-UI REFRESH KLAR (2026-07-30, Claude E1 + Codex E2–E7).**
 Oddset är nu fyra persisterade sub-tabbar: Matcher, Live, Värdespel och

@@ -30,8 +30,9 @@ Allsvenskan + research-only Premier League/Serie A/La Liga/Bundesliga med WP9c
 i isolerad sharp-identitetskontroll; se
 `docs/model-v2.2-multileague-forward-manifest.json`. Det är inte en tränad
 modell och får inte påverka tips, notiser eller CLV.
-**Aktuell överlämning:** `docs/overlamning-2026-07-25-kvall.md` (LÄS FÖRST).
-Föregående: `docs/overlamning-till-claude-2026-07-24.md`.
+**Aktuell överlämning:**
+`docs/overlamning-2026-07-31-live-signaljournal.md` (LÄS FÖRST).
+Föregående: `docs/overlamning-2026-07-25-kvall.md`.
 Beställning 1 är LEVERERAD 2026-07-24: de fyra Europaligorna syns i ordinarie
 Oddset-vyn (🔬 forskningsmärkta, `visible_in_ui`) men är fortsatt icke-
 actionable — `VISIBLE_LEAGUE_KEYS` ≠ `ACTIONABLE_LEAGUE_KEYS` i `oddset.py`.
@@ -93,6 +94,10 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/live_radar.py  shadow-radar för pågående matcher: observerad xG,
                       stora chanser/skott/boxtryck; råa femminuterscaptures,
                       aldrig automatiska spel eller runtime-modellinput
+  app/live_signal_ledger.py framåtriktad append-only-journal över den första
+                      synliga Följer/Stark-nivån per match × signaltyp:
+                      minut/ställning/mått + observerad öppen Kambi-live-Ö/U,
+                      normaltidsfacit och Asian-Över-ROI. Aldrig tipsinput
   app/fotmob.py       PRIMÄRA live-ögat (Samans beslut 2026-07-28; inkopplad
                       25/26): live-xG/xGOT/skott, täcker även Oddset-spärrade
                       friendlies. Sofascore är reserv och bär signalen bara
@@ -127,7 +132,8 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
 - Tester: `cd backend && .venv/bin/python -B -m unittest discover -s tests -v`.
 - V2.2-status: `cd backend && .venv/bin/python -B cli.py v22audit`.
 - Live-radar manuellt prov: `cd backend && .venv/bin/python -B cli.py live-tick`
-  (shadowdata; påverkar inga tips/notiser).
+  (shadowdata; påverkar inga tips/notiser). Varvet sparar även nya
+  beslutssignaler och settlar avslutade signaler append-once.
 - **Backend har INGEN auto-reload** — efter ändring:
   `lsof -ti:8002 -sTCP:LISTEN | xargs kill -9; cd backend && nohup .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8002 &`
 - ALDRIG `pkill -f uvicorn` (dödar svs 8000 och vm 8001 — samma kommando).
@@ -157,6 +163,10 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
   Sofascore-rad.
   Live-radarn är shadow/informationsstöd och får inte påverka tips, Kelly,
   CLV, pushnotiser eller systemförslag utan ett nytt explicit beslut.
+  Signaljournalens blindkohort är FÖRSTA aktiva signalen per match (en
+  Följer→Stark-eskalering får finnas i diagnostiken men får inte dubblera
+  blindtestet). Minst 200 oddssatta+avgjorda signalmatcher, minst 60 dagar och
+  undre KI90 > 0 krävs före stöd; inga historiska liveodds bakfylls.
   Notiser går i Oddset-varvet, bakom **notisvakten** (presence-set: larm kräver att
   priset observerades i det aktuella lyckade varvet).
 - **WP2-prisregel:** `fetched_at` = prisförändring, `last_seen_at` = senaste

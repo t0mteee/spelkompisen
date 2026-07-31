@@ -8,6 +8,32 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-07-31 — framåtriktad signal- och resultatjournal för live-radarn
+
+- **Orsak:** råa radarögonblick och kontrollgruppsfacit fanns, men inte den
+  exakta signal användaren såg med nivå, minut, ställning, live-Ö/U och
+  efterföljande matchutfall. Därför gick det inte att mäta blind ryggning utan
+  att överräkna samma kvarliggande signal flera gånger.
+- **Skript:** `backend/scripts/migrera_live_signal_ledger.py` (additivt,
+  idempotent, integritetstestat).
+- **Backup vid produktionskörningen:**
+  `backend/data/backups/stryktips-2026-07-31-fore-live-signal-ledger.db`.
+- **Schema:** `oddset_live_signal` (42 kolumner, unik match × signalversion ×
+  typ × nivå) och `oddset_live_signal_result` (13 kolumner, append-once per
+  signal-id). Båda hade 0 rader vid migreringskontrollen.
+- **Viktig revisionsdetalj:** de två tomma tabellerna hade redan
+  materialiserats av `Storage`-schemats additiva `CREATE TABLE IF NOT EXISTS`
+  innan det explicita migreringsskriptet kördes. Backupen är tagen före den
+  explicita migrationen men innehåller därför samma två tomma tabeller; ingen
+  signal- eller resultatdata förelåg eller ändrades.
+- **Ingen bakfyllning:** historiska captureögonblick saknar ett samtidigt
+  observerat livepris. Journalen börjar framåt; saknad/stängd marknad får ett
+  statusvärde och ersätts aldrig med dagens eller ett antaget odds.
+- **Efterkontroll:** `PRAGMA integrity_check=ok`; migrationen dubbelkörs i
+  test; totalt 363 backendtester och frontend-build gröna före driftstart.
+
+---
+
 ## 2026-07-26 — Oddset-identitetskrockar + Karlsruhe/Novara
 
 - **Orsak:** fuzzy-matchning med medelvärde lät ett exakt lagnamn väga upp ett

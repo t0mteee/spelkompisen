@@ -330,6 +330,12 @@ def facit(store) -> dict:
                                         if row[field] is None),
             }
         out["groups"][signal_type] = group
+    # Framåtriktade signalrader med nivå, exakt ställning, live-Ö/U och
+    # slutresultat. Hålls separat från kontrollögonblicken ovan: ledgern mäter
+    # vad ett faktiskt beslut hade gett, medan momentfacitet mäter prediktiv
+    # lyft mot konditionerad basrate.
+    from . import live_signal_ledger
+    out["signal_ledger"] = live_signal_ledger.facit(store)
     return out
 
 
@@ -357,6 +363,15 @@ def format_facit(report: dict) -> str:
                 f"{data['control_censored']} kontroll"
                 + (f" · {data['without_cell']} signalögonblick utan basratecell"
                    if data["without_cell"] else ""))
+    ledger = report.get("signal_ledger") or {}
+    gate = ledger.get("blind_gate") or {}
+    lines.append(
+        "signaljournal: "
+        f"{gate.get('n_priced_settled', 0)}/"
+        f"{gate.get('required_priced_settled', 200)} oddssatta+avgjorda · "
+        f"{gate.get('span_days', 0)}/"
+        f"{gate.get('required_span_days', 60)} dagar · "
+        f"blindstatus {gate.get('status', 'collecting')}")
     lines.append("Shadow-läge: påverkar inga tips, Kelly, notiser, CLV eller "
                  "modellinput.")
     return "\n".join(lines)

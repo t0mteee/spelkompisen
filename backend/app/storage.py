@@ -617,6 +617,79 @@ CREATE TABLE IF NOT EXISTS oddset_live_moment_settlement (
 );
 CREATE INDEX IF NOT EXISTS idx_live_moment_settlement_facit
     ON oddset_live_moment_settlement (signal_type, signal, league);
+
+-- Det användaren faktiskt såg som signal (2026-07-31). Till skillnad från
+-- momenttabellen ovan sparas bara FÖRSTA förekomsten per match × typ × nivå.
+-- Det gör raden till ett reproducerbart beslutstillfälle i stället för att en
+-- tvåminuterssignal räknas som 20 separata "spel". Live-Ö/U ligger ENDAST här
+-- och kan därför aldrig förorena prematch-serien i oddset_odds.
+CREATE TABLE IF NOT EXISTS oddset_live_signal (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    match_key           TEXT NOT NULL,
+    match_id            TEXT,
+    provider            TEXT NOT NULL,
+    provider_event_id   INTEGER NOT NULL,
+    captured_at         TEXT NOT NULL,
+    capture_version     TEXT NOT NULL,
+    signal_version      TEXT NOT NULL,
+    league              TEXT NOT NULL,
+    tournament          TEXT,
+    home                TEXT NOT NULL,
+    away                TEXT NOT NULL,
+    start_at            TEXT,
+    minute              INTEGER,
+    home_score          INTEGER,
+    away_score          INTEGER,
+    signal_level        TEXT NOT NULL,       -- watch | strong
+    signal_type         TEXT NOT NULL,       -- xg | proxy
+    signal_team         TEXT,
+    signal_side         TEXT,
+    signal_score        REAL,
+    chance_gap          REAL,
+    total_gap           REAL,
+    recent_xg           REAL,
+    proxy_index         REAL,
+    remaining_min       INTEGER,
+    reason              TEXT,
+    xg_home             REAL,
+    xg_away             REAL,
+    big_chances_home    REAL,
+    big_chances_away    REAL,
+    shots_on_home       REAL,
+    shots_on_away       REAL,
+    shots_inside_home   REAL,
+    shots_inside_away   REAL,
+    odds_source         TEXT,
+    odds_observed_at    TEXT,
+    ou_line             REAL,
+    over_odds           REAL,
+    under_odds          REAL,
+    odds_status         TEXT NOT NULL,
+    recorded_at         TEXT NOT NULL,
+    UNIQUE (match_key, signal_version, signal_type, signal_level)
+);
+CREATE INDEX IF NOT EXISTS idx_live_signal_recent
+    ON oddset_live_signal (captured_at DESC, signal_type, signal_level);
+
+-- Append-once-resultat för signalraden. Det separata lagret gör att
+-- signalögonblicket aldrig behöver uppdateras i efterhand och att vi kan skilja
+-- "inget resultat ännu" från ett verkligt nollutfall.
+CREATE TABLE IF NOT EXISTS oddset_live_signal_result (
+    signal_id               INTEGER PRIMARY KEY,
+    settled_at              TEXT NOT NULL,
+    final_home_score        INTEGER NOT NULL,
+    final_away_score        INTEGER NOT NULL,
+    goals_after_signal      INTEGER,
+    outcome_15min           INTEGER,
+    outcome_more_before_ft  INTEGER,
+    censored_15min          TEXT,
+    censored_ft             TEXT,
+    over_result             TEXT,
+    over_profit             REAL,
+    result_source           TEXT,
+    result_key              TEXT,
+    FOREIGN KEY (signal_id) REFERENCES oddset_live_signal(id)
+);
 """
 
 MATCHBOOK_SCHEMA = """
@@ -1689,6 +1762,20 @@ class Storage:
         query += " ORDER BY fotmob_id, captured_at"
         return [dict(row) for row in self.conn.execute(query, args)]
 
+    def live_provider_series(self, provider: str, event_id: int,
+                             capture_version: str) -> list[dict]:
+        """En providers råserie för signal-settlement, aldrig en källblandning."""
+        if provider == "sofascore":
+            table, id_column = "oddset_live_capture", "event_id"
+        elif provider == "fotmob":
+            table, id_column = "oddset_live_fotmob", "fotmob_id"
+        else:
+            raise ValueError(f"okänd liveprovider: {provider}")
+        return [dict(row) for row in self.conn.execute(
+            f"SELECT * FROM {table} WHERE {id_column}=? AND capture_version=? "
+            "ORDER BY captured_at",
+            (int(event_id), capture_version))]
+
     def oddset_live_captures(
             self, since: Optional[str] = None,
             capture_version: Optional[str] = None) -> list[dict]:
@@ -1732,6 +1819,83 @@ class Storage:
         return [dict(row) for row in self.conn.execute(
             "SELECT * FROM oddset_live_moment_settlement "
             "ORDER BY provider, event_id, captured_at")]
+
+    LIVE_SIGNAL_COLUMNS = (
+        "match_key", "match_id", "provider", "provider_event_id",
+        "captured_at", "capture_version", "signal_version", "league",
+        "tournament", "home", "away", "start_at", "minute", "home_score",
+        "away_score", "signal_level", "signal_type", "signal_team",
+        "signal_side", "signal_score", "chance_gap", "total_gap", "recent_xg",
+        "proxy_index", "remaining_min", "reason", "xg_home", "xg_away",
+        "big_chances_home", "big_chances_away", "shots_on_home",
+        "shots_on_away", "shots_inside_home", "shots_inside_away",
+        "odds_source", "odds_observed_at", "ou_line", "over_odds",
+        "under_odds", "odds_status", "recorded_at",
+    )
+
+    def live_signal_exists(self, match_key: str, signal_version: str,
+                           signal_type: str, signal_level: str) -> bool:
+        return self.conn.execute(
+            "SELECT 1 FROM oddset_live_signal WHERE match_key=? "
+            "AND signal_version=? AND signal_type=? AND signal_level=?",
+            (match_key, signal_version, signal_type, signal_level)).fetchone() \
+            is not None
+
+    def live_signal_save(self, row: dict) -> int:
+        """Append-once per match × signaltyp × nivå × signalversion."""
+        cols = self.LIVE_SIGNAL_COLUMNS
+        cur = self.conn.execute(
+            f"INSERT OR IGNORE INTO oddset_live_signal({','.join(cols)}) "
+            f"VALUES({','.join('?' for _ in cols)})",
+            tuple(row.get(key) for key in cols))
+        self._commit()
+        return cur.rowcount
+
+    def live_signal_rows(self, limit: Optional[int] = None) -> list[dict]:
+        query = "SELECT * FROM oddset_live_signal ORDER BY captured_at,id"
+        args: list = []
+        if limit is not None:
+            query = ("SELECT * FROM (SELECT * FROM oddset_live_signal "
+                     "ORDER BY captured_at DESC,id DESC LIMIT ?) "
+                     "ORDER BY captured_at,id")
+            args.append(int(limit))
+        return [dict(row) for row in self.conn.execute(query, args)]
+
+    def live_unsettled_signals(self) -> list[dict]:
+        return [dict(row) for row in self.conn.execute(
+            "SELECT s.* FROM oddset_live_signal s "
+            "LEFT JOIN oddset_live_signal_result r ON r.signal_id=s.id "
+            "WHERE r.signal_id IS NULL ORDER BY s.captured_at,s.id")]
+
+    LIVE_SIGNAL_RESULT_COLUMNS = (
+        "signal_id", "settled_at", "final_home_score", "final_away_score",
+        "goals_after_signal", "outcome_15min", "outcome_more_before_ft",
+        "censored_15min", "censored_ft", "over_result", "over_profit",
+        "result_source", "result_key",
+    )
+
+    def live_signal_result_save(self, row: dict) -> int:
+        """Append-once: ett signalresultat skrivs aldrig om."""
+        cols = self.LIVE_SIGNAL_RESULT_COLUMNS
+        cur = self.conn.execute(
+            f"INSERT OR IGNORE INTO oddset_live_signal_result({','.join(cols)}) "
+            f"VALUES({','.join('?' for _ in cols)})",
+            tuple(row.get(key) for key in cols))
+        self._commit()
+        return cur.rowcount
+
+    def live_signal_results(self) -> list[dict]:
+        return [dict(row) for row in self.conn.execute(
+            "SELECT * FROM oddset_live_signal_result ORDER BY signal_id")]
+
+    def live_signal_facit_rows(self) -> list[dict]:
+        return [dict(row) for row in self.conn.execute(
+            "SELECT s.*,r.settled_at,r.final_home_score,r.final_away_score,"
+            "r.goals_after_signal,r.outcome_15min,r.outcome_more_before_ft,"
+            "r.censored_15min,r.censored_ft,r.over_result,r.over_profit,"
+            "r.result_source,r.result_key FROM oddset_live_signal s "
+            "LEFT JOIN oddset_live_signal_result r ON r.signal_id=s.id "
+            "ORDER BY s.captured_at,s.id")]
 
     def oddset_movement(self, ids: list[str]) -> dict[str, dict]:
         """Rörelse (first/last/min/max/n + punktserie) för alla givna matcher i en
