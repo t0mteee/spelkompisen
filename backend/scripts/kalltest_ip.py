@@ -28,9 +28,10 @@ Loggen (kalltest-logg.jsonl, bredvid skriptet) är append-only med tidsstämpel
 per KÄLLA (satt efter varje anrop — observationstidsregeln). --rapport
 sammanfattar per källa: andel OK, per dygn, senaste fel.
 
-Bedömningsgrund: >95 % OK per källa över ≥3 dygn OCH inga 403-perioder på
-Pinnacle/Sofascore/FotMob ⇒ IP:n duger. Enstaka timeouts är normalt brus;
-403/skräp-kroppar i kluster är IP-blockning och diskvalificerar.
+Bedömningsgrund: >95 % OK per källa över ≥3 dygn ⇒ IP:n duger. Enstaka
+timeouts är normalt brus; 403/skräp-kroppar i kluster är IP-blockning.
+En KRITISK källa som faller diskvalificerar IP:n oavsett de andra —
+`--rapport` skriver ut vad varje fallerande källa faktiskt kostar.
 """
 from __future__ import annotations
 
@@ -121,6 +122,35 @@ def check_fotmob() -> tuple[bool, str]:
     return _check_json(r, "leagues")
 
 
+def check_flashscore() -> tuple[bool, str]:
+    """Dagsfeed + en statistikfeed — samma två anrop som radarvarvet gör."""
+    headers = {"User-Agent": UA_CHROME, "Accept": "*/*",
+               "Accept-Language": "sv-SE,sv;q=0.9,en;q=0.8",
+               "Referer": "https://www.flashscore.se/",
+               "x-fsign": "SW9D1eZo"}
+    base = "https://local-global.flashscore.ninja/2/x/feed"
+    r = httpx.get(f"{base}/f_1_0_3_se_1", headers=headers, timeout=TIMEOUT)
+    if r.status_code != 200:
+        return False, f"dagsfeed status {r.status_code}"
+    text = r.text
+    # TRANSPORTREGELN: brotli-kodat svar utan avkodning ser ut som skräp
+    if "÷" not in text:
+        encoding = r.headers.get("content-encoding", "-")
+        return False, f"otolkbar dagsfeed (content-encoding: {encoding})"
+    live = [chunk for chunk in text.split("~")
+            if "AA÷" in chunk and "AB÷2" in chunk]
+    if not live:
+        return True, "dagsfeed ok, inga livematcher just nu"
+    match_id = live[0].split("AA÷", 1)[1].split("¬", 1)[0]
+    s = httpx.get(f"{base}/df_st_1_{match_id}", headers=headers,
+                  timeout=TIMEOUT)
+    if s.status_code != 200:
+        return False, f"statistikfeed status {s.status_code}"
+    has_stats = "SG÷" in s.text
+    return True, (f"{len(live)} live, statistik "
+                  + ("ok" if has_stats else "saknas för provmatchen"))
+
+
 def check_altenar() -> tuple[bool, str]:
     r = httpx.get("https://sb2frontend-altenar2.biahosted.com/api/Widget"
                   "/GetEvents",
@@ -134,20 +164,30 @@ def check_altenar() -> tuple[bool, str]:
     return _check_json(r, "events")
 
 
+# (namn, kontroll, kritisk?, vad den matar — visas när den fallerar)
 CHECKS = (
-    ("svenskaspel", check_svenskaspel),
-    ("pinnacle", check_pinnacle),
-    ("kambi", check_kambi),
-    ("sofascore", check_sofascore),
-    ("fotmob", check_fotmob),
-    ("altenar", check_altenar),
+    ("svenskaspel", check_svenskaspel, True,
+     "poolspelen: omgångar, streck, omsättning, resultat"),
+    ("pinnacle", check_pinnacle, True,
+     "sharp-ankaret: hela värdemotorn, CLV-facitet och steam"),
+    ("kambi", check_kambi, True,
+     "SvS Oddset-priser: det vi faktiskt kan spela"),
+    ("sofascore", check_sofascore, True,
+     "MODELLENS datarygg: historisk xG, frånvaro, cupresultat och "
+     "WP9c-schema (refresh_all) — INTE bara live-radarn"),
+    ("flashscore", check_flashscore, True,
+     "live-radarns primära chansdata (xG/skott) sedan 2026-08-01"),
+    ("fotmob", check_fotmob, False,
+     "live-radarns andra öga; radarn tappar täckning men modellen består"),
+    ("altenar", check_altenar, False,
+     "sidobok (Ninja) för 1X2/Ö/U/hörnor — mjuk bok, inget ankare"),
 )
 
 
 def run_once(quiet: bool) -> int:
     failures = 0
     with LOG.open("a", encoding="utf-8") as log:
-        for name, check in CHECKS:
+        for name, check, _critical, _feeds in CHECKS:
             started = dt.datetime.now(dt.timezone.utc)
             try:
                 ok, note = check()
@@ -180,7 +220,8 @@ def report() -> int:
     print(f"Käll-rapport · {len(rows)} mätpunkter · "
           f"{days[0]} – {days[-1]} ({len(days)} dygn)\n")
     verdict_ok = True
-    for name, _ in CHECKS:
+    broken_critical: list[tuple[str, str]] = []
+    for name, _check, critical, feeds in CHECKS:
         mine = [row for row in rows if row["source"] == name]
         if not mine:
             continue
@@ -191,15 +232,28 @@ def report() -> int:
             f"{day[5:]}:{sum(r['ok'] for r in mine if r['at'][:10] == day)}"
             f"/{sum(1 for r in mine if r['at'][:10] == day)}"
             for day in days)
-        flag = "✅" if ok_share > 0.95 else "❌"
-        verdict_ok &= ok_share > 0.95
-        print(f"{flag} {name:12s} {100 * ok_share:5.1f} % OK av {len(mine)}"
+        healthy = ok_share > 0.95
+        verdict_ok &= healthy
+        if not healthy and critical:
+            broken_critical.append((name, feeds))
+        print(f"{'✅' if healthy else '❌'} {name:12s}"
+              f"{' (kritisk)' if critical else '          '}"
+              f" {100 * ok_share:5.1f} % OK av {len(mine)}"
               + (f" · senaste fel {last_fail['at']}: {last_fail['note']}"
                  if last_fail else " · inga fel"))
         print(f"   per dygn: {per_day}")
-    print("\nBedömning:", "IP:n ser ren ut — men kräv ≥3 dygn innan beslut."
-          if verdict_ok else
-          "MINST EN KÄLLA UNDER 95 % — utred felnoterna innan migrering.")
+        if not healthy:
+            print(f"   kostar: {feeds}")
+    print()
+    if verdict_ok:
+        print("Bedömning: IP:n ser ren ut — men kräv ≥3 dygn innan beslut.")
+    elif broken_critical:
+        print("Bedömning: DISKVALIFICERAD — kritisk källa blockerad:")
+        for name, feeds in broken_critical:
+            print(f"  • {name}: {feeds}")
+    else:
+        print("Bedömning: bara icke-kritiska källor faller — utred "
+              "felnoterna, men IP:n kan vara användbar.")
     return 0 if verdict_ok else 1
 
 
