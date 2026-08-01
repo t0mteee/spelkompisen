@@ -199,7 +199,10 @@ class AbsenceSnapshotTests(unittest.TestCase):
                 mock.patch.object(oddset_data.time, "sleep"):
             result = oddset_data.refresh_absences(self.store, force=True)
 
-        self.assertEqual({"checked": 1, "found": 1}, result)
+        # Sofascore är tredje alternativet sedan 2026-08-01 och redovisar
+        # hur många matcher den primära källan redan täckt
+        self.assertEqual({"checked": 1, "found": 1,
+                          "flashscore_hade_redan": 0}, result)
         latest = oddset_data.get_absences(self.store, ["m1"])["m1"]
         self.assertEqual(794516, latest["away"][0]["player_id"])
         self.assertEqual("G", latest["away"][0]["position"])

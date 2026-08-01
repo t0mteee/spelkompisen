@@ -524,7 +524,16 @@ def refresh_absences(store: Storage, force: bool = False) -> dict:
     ms = [m for m in store.oddset_matches(since=frm, until=to)
           if m["league"] in SOFA_UT and
           m["league"] not in RESEARCH_MODEL_LEAGUES]
-    out = {"checked": 0, "found": 0}
+    # Sofascore är TREDJE alternativet sedan 2026-08-01: matcher där den
+    # primära källan (Flashscore) redan skrivit en färsk capture hoppas över,
+    # annars blir den sämre källan "senaste" och tar över visningen.
+    covered = store.oddset_absence_sources(
+        [m["id"] for m in ms],
+        (now - dt.timedelta(hours=ABS_TTL_H)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    skipped = [m for m in ms
+               if "flashscore" in covered.get(m["id"], set())]
+    ms = [m for m in ms if "flashscore" not in covered.get(m["id"], set())]
+    out = {"checked": 0, "found": 0, "flashscore_hade_redan": len(skipped)}
     ev_index: dict[str, list] = {}
     for lg in {m["league"] for m in ms}:
         sid = _sofa_season(store, lg)
@@ -604,22 +613,26 @@ def get_absences(store: Storage, match_ids: list[str]) -> dict[str, dict]:
 def refresh_all(store: Storage, force: bool = False) -> dict:
     """Körs i varje insamlingspass — throttlarna gör det billigt."""
     from . import oddset_schedule
-    out = {"results": refresh_results(store, force),
-           "results_extra": refresh_results_extra(store, force),
-           "xg": refresh_xg(store, force),
-           "elo": refresh_elo(store, force),
-           "absences": refresh_absences(store, force)}
-    # FLASHSCORE ÄR PRIMÄR STATISTIKKÄLLA (Samans beslut 2026-08-01). Den
-    # körs EFTER Sofascore-vägarna och fyller bara luckor: xG bara där den
-    # saknas, frånvaro bara där Sofascore inte redan skrivit en capture i
-    # samma varv. Ingen befintlig rad skrivs över — se flashscore_data.py.
+    # KÄLLORDNING (Samans beslut 2026-08-01): Flashscore är PRIMÄR och körs
+    # FÖRST, Sofascore är tredje alternativet och fyller bara det som är kvar.
+    # Ordningen räcker inte ensam — lagret måste också vara "första
+    # observationen vinner", annars vinner den som råkar skriva sist:
+    #   * `oddset_save_result` behåller lagrad xG (COALESCE, lagrat först)
+    #   * `refresh_absences` hoppar över matcher Flashscore redan täckt
+    # Football-data (mål) och ClubElo är egna källor utan konflikt.
     from . import flashscore_data
+    out = {}
     for name, fn in (("fs_xg", flashscore_data.refresh_xg),
                      ("fs_absences", flashscore_data.refresh_absences)):
         try:
             out[name] = fn(store, force)
         except Exception as exc:  # noqa: BLE001 — får aldrig fälla varvet
             out[name] = {"error": f"{type(exc).__name__}: {str(exc)[:80]}"}
+    out.update({"results": refresh_results(store, force),
+                "results_extra": refresh_results_extra(store, force),
+                "xg": refresh_xg(store, force),
+                "elo": refresh_elo(store, force),
+                "absences": refresh_absences(store, force)})
     try:
         out["team_events"] = oddset_schedule.refresh(store, force=force)
     except Exception as exc:  # noqa: BLE001 — WP9c får inte fälla övrig insamling

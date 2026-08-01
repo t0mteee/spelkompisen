@@ -104,9 +104,16 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       headerkonstant (samma klass som Pinnacles gästnyckel);
                       brotli KRÄVS. Minuten HÄRLEDS ur stadiets starttid
                       (AC 12/13 + AO) — okänt stadium ⇒ None, aldrig gissad.
-  app/flashscore_data.py Flashscore som MODELLDATAKÄLLA (2026-08-01): fyller
-                      SAKNAD xG på nyss avgjorda matcher och hämtar
-                      frånvarande spelare (publik persisted query, hash i
+  app/flashscore_data.py Flashscore som PRIMÄR MODELLDATAKÄLLA (2026-08-01):
+                      körs FÖRST i `refresh_all`, Sofascore är alternativ 3
+                      och fyller bara det som är kvar. Ordningen räcker inte
+                      ensam — lagret är därför "FÖRSTA OBSERVATIONEN VINNER":
+                      `oddset_save_result` behåller lagrad xG/hörnor (COALESCE
+                      med lagrat värde först) och Sofascores `refresh_absences`
+                      hoppar över matcher med färsk `fs:`-capture. Utan båda
+                      skulle den som råkar skriva SIST vinna.
+                      Modulen fyller SAKNAD xG på nyss avgjorda matcher och
+                      hämtar frånvarande spelare (publik persisted query, hash i
                       flashscore.py). Två hårda regler: (1) INGEN bakfyllning
                       — bara dagsfeeds ~5 dygn bakåt, aldrig säsongsfeeds;
                       (2) en befintlig xG skrivs ALDRIG över (`oddset_fill_xg`

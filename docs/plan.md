@@ -17,9 +17,17 @@ frånvarande spelare med orsak via Flashscores publika persisted query
 ingen bakfyllning (bara dagsfeeds ~5 dygn bakåt trots att säsongsfeeds finns)
 och befintlig xG skrivs aldrig över (`oddset_fill_xg` har `xg_h IS NULL` i
 SQL:en). Proveniens: `source='sofa+fs'`, `source_event_id='fs:<id>'`.
-Första körningen fyllde 7 xG-luckor och skrev 19 frånvarocaptures.
-425 tester gröna, backup + rapport i `docs/db-atgarder.md`.
-Sofascore är kvar som komplement — inget är avstängt.
+**Källordningen är Flashscore → FotMob → Sofascore i BÅDA lagren**
+(Samans beslut: "kör Flashscore primärt och ha Sofascore som alternativ 3").
+Live-radarn hade redan ordningen; modelldatan vändes 2026-08-01 så att
+Flashscore körs FÖRST i `refresh_all`. Ordningen räcker inte ensam — lagret
+är därför **första observationen vinner**: `oddset_save_result` behåller
+lagrad xG/hörnor och Sofascores frånvarohämtning hoppar över matcher med
+färsk `fs:`-capture. Utan båda skulle den som skriver SIST vinna.
+Första varvet med ny ordning: Flashscore 39 frånvaromatcher, Sofascore
+hoppade över 19 och fyllde 8 kvarvarande. 430 tester gröna, backup +
+rapport i `docs/db-atgarder.md`. Sofascore är kvar påslaget — inget är
+avstängt, den är tredjehandsval.
 
 **FLASHSCORE ÄR RADARNS PRIMÄRA STATISTIKKÄLLA (2026-08-01, Samans beslut).**
 Saman såg att Chelsea–Tottenham saknade chansdata hos oss. Utredningen visade

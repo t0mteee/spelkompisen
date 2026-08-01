@@ -2061,18 +2061,27 @@ class Storage:
         return cur.rowcount
 
     def oddset_save_result(self, r: dict) -> None:
-        """COALESCE-upsert: xG från Sofascore fyller på football-data-rader
-        (samma PK tack vare normaliserade namn) utan att skriva över mål."""
+        """COALESCE-upsert: statistik fyller på football-data-rader (samma PK
+        tack vare normaliserade namn) utan att skriva över mål.
+
+        FÖRSTA OBSERVATIONEN VINNER (2026-08-01). Tidigare vann `excluded`
+        för xG/hörnor, vilket lät en senare källa skriva om ett redan lagrat
+        värde. Med Flashscore som primär källa och Sofascore som tredje
+        alternativ skulle den ordningen låta den SÄMRE källan skriva sist och
+        vinna. Ett lagrat värde är dessutom modellindata i en pågående
+        mätserie och får inte byta värde i efterhand — luckor fylls, inget
+        skrivs om.
+        """
         self.conn.execute(
             "INSERT INTO oddset_results(league, date, home, away, home_raw, away_raw, "
             "hg, ag, xg_h, xg_a, cor_h, cor_a, source) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) "
             "ON CONFLICT(league, date, home, away) DO UPDATE SET "
             "hg=COALESCE(oddset_results.hg, excluded.hg), "
             "ag=COALESCE(oddset_results.ag, excluded.ag), "
-            "xg_h=COALESCE(excluded.xg_h, oddset_results.xg_h), "
-            "xg_a=COALESCE(excluded.xg_a, oddset_results.xg_a), "
-            "cor_h=COALESCE(excluded.cor_h, oddset_results.cor_h), "
-            "cor_a=COALESCE(excluded.cor_a, oddset_results.cor_a)",
+            "xg_h=COALESCE(oddset_results.xg_h, excluded.xg_h), "
+            "xg_a=COALESCE(oddset_results.xg_a, excluded.xg_a), "
+            "cor_h=COALESCE(oddset_results.cor_h, excluded.cor_h), "
+            "cor_a=COALESCE(oddset_results.cor_a, excluded.cor_a)",
             (r["league"], r["date"], r["home"], r["away"], r.get("home_raw"),
              r.get("away_raw"), r.get("hg"), r.get("ag"), r.get("xg_h"),
              r.get("xg_a"), r.get("cor_h"), r.get("cor_a"), r.get("source")))
@@ -2600,6 +2609,26 @@ class Storage:
                      p.get("reason"), p.get("description"), p.get("expected_end"),
                      p.get("apps"), p.get("rating")))
         return len(players)
+
+    def oddset_absence_sources(self, match_ids: list[str],
+                               since: str) -> dict[str, set[str]]:
+        """Vilka källor som redan skrivit en frånvarocapture per match.
+
+        Används av den TREDJE källan (Sofascore) för att inte skriva över en
+        färsk capture från den primära (Flashscore, prefix `fs:`)."""
+        if not match_ids:
+            return {}
+        marks = ",".join("?" for _ in match_ids)
+        out: dict[str, set[str]] = {}
+        for row in self.conn.execute(
+                f"SELECT match_id, source_event_id FROM oddset_absence_capture "
+                f"WHERE match_id IN ({marks}) AND captured_at>=?",
+                [*match_ids, since]):
+            source = ("flashscore"
+                      if str(row["source_event_id"] or "").startswith("fs:")
+                      else "sofascore")
+            out.setdefault(row["match_id"], set()).add(source)
+        return out
 
     def oddset_latest_absences(self, match_ids: list[str]) -> dict[str, dict]:
         if not match_ids:

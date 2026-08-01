@@ -201,3 +201,61 @@ class RefreshAbsenceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SourcePriorityTests(unittest.TestCase):
+    """Flashscore primär, Sofascore alternativ 3 — ordningen måste hålla
+    även när den sämre källan skriver sist i samma varv."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self._tmp.name) / "test.db")
+
+    def tearDown(self):
+        self.store.close()
+        self._tmp.cleanup()
+
+    def test_a_later_source_never_overwrites_a_stored_xg(self):
+        base = {"league": "allsvenskan", "date": "2026-07-27",
+                "home": norm_team("BK Häcken"), "away": norm_team("AIK"),
+                "hg": 0, "ag": 0, "source": "fd"}
+        self.store.oddset_save_result({**base, "xg_h": 1.99, "xg_a": 0.16})
+        # Sofascore kör efteråt med ett annat värde
+        self.store.oddset_save_result({**base, "xg_h": 9.9, "xg_a": 9.9})
+        row = dict(self.store.conn.execute(
+            "SELECT * FROM oddset_results").fetchone())
+        self.assertEqual(1.99, row["xg_h"])
+        self.assertEqual(0.16, row["xg_a"])
+
+    def test_gaps_are_still_filled_by_a_later_source(self):
+        base = {"league": "allsvenskan", "date": "2026-07-27",
+                "home": norm_team("BK Häcken"), "away": norm_team("AIK"),
+                "hg": 0, "ag": 0, "source": "fd"}
+        self.store.oddset_save_result(base)
+        self.store.oddset_save_result({**base, "xg_h": 1.5, "xg_a": 0.4})
+        row = dict(self.store.conn.execute(
+            "SELECT * FROM oddset_results").fetchone())
+        self.assertEqual(1.5, row["xg_h"])
+
+    def test_absence_sources_are_distinguishable_by_provenance(self):
+        # olika captured_at: capture-lagret är append-once per (match, tid)
+        for at, source_event_id in (("2026-08-01T10:00:00Z", "fs:ABC123"),
+                                    ("2026-08-01T10:05:00Z", "998877")):
+            self.store.oddset_save_absence_capture({
+                "match_id": "pin:1", "captured_at": at,
+                "source_event_id": source_event_id,
+                "match_start": "2026-08-01T15:00:00Z",
+                "confirmed": 0, "payload_hash": source_event_id,
+            }, [])
+        sources = self.store.oddset_absence_sources(
+            ["pin:1"], "2026-08-01T00:00:00Z")
+        self.assertEqual({"flashscore", "sofascore"}, sources["pin:1"])
+
+    def test_old_flashscore_capture_does_not_block_a_fresh_sofascore_run(self):
+        self.store.oddset_save_absence_capture({
+            "match_id": "pin:1", "captured_at": "2026-07-20T10:00:00Z",
+            "source_event_id": "fs:GAMMAL", "match_start": None,
+            "confirmed": 0, "payload_hash": "x"}, [])
+        sources = self.store.oddset_absence_sources(
+            ["pin:1"], "2026-08-01T00:00:00Z")
+        self.assertEqual({}, sources)

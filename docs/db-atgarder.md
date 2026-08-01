@@ -8,6 +8,28 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-08-01 (natt) — källordning: Flashscore primär, Sofascore alternativ 3
+
+- **Ingen schema- eller dataändring** — men SKRIVSEMANTIKEN i
+  `oddset_save_result` är ändrad och det påverkar all framtida statistik:
+  xG och hörnor är nu **första observationen vinner**
+  (`COALESCE(oddset_results.xg_h, excluded.xg_h)` i stället för tvärtom).
+  Skälet: med Flashscore som primär källa och Sofascore som tredje skulle den
+  gamla ordningen låta den som råkar skriva SIST vinna — och ett lagrat värde
+  är modellindata i en pågående mätserie som inte får byta värde i efterhand.
+  Luckor fylls precis som förut; bara omskrivning är borta.
+- **Sofascores frånvarohämtning hoppar över** matcher där den primära källan
+  redan skrivit en capture inom `ABS_TTL_H` (`oddset_absence_sources`,
+  proveniens via `fs:`-prefixet). Annars hade den sämre källan blivit
+  "senaste capture" och tagit över visningen.
+- **Första varvet med ny ordning:** Flashscore skrev 39 frånvaromatcher,
+  Sofascore hoppade över 19 och fyllde 8 kvarvarande. xG: 97 matchade,
+  0 nya att fylla (allt redan gjort i förra körningen).
+- **Efterkontroll:** 430 backendtester gröna (4 nya som låser
+  först-vinner-semantiken och proveniensskillnaden).
+
+---
+
 ## 2026-08-01 (sent) — Flashscore som modelldatakälla (xG + frånvaro)
 
 - **Orsak:** mätning samma dag visade att Flashscore har allt Sofascore ger
