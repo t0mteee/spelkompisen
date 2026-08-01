@@ -3,6 +3,7 @@ import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from app.storage import Storage
 from scripts import migrera_flashscore
@@ -42,6 +43,30 @@ class FlashscoreMigrationTests(unittest.TestCase):
                      f"SELECT {cols} FROM gammal")
         conn.executescript("DROP TABLE gammal;"
                            "DROP TABLE IF EXISTS oddset_live_flashscore;")
+        conn.commit()
+        conn.close()
+
+    def _real_0731_db(self, path: Path) -> None:
+        """Verklig pre-fix-DDL: INTEGER-id och inga klockprovenienskolumner."""
+        ddl = migrera_flashscore._ddl("oddset_live_signal").replace(
+            "provider_event_id   TEXT NOT NULL,   -- ogenomskinlig per provider:"
+            "\n                                         -- Flashscores id är alfanumeriskt",
+            "provider_event_id   INTEGER NOT NULL,")
+        ddl = "\n".join(
+            line for line in ddl.splitlines()
+            if "clock_source" not in line and "clock_observed_at" not in line)
+        conn = sqlite3.connect(path)
+        conn.execute(ddl)
+        conn.execute(migrera_flashscore._ddl("oddset_live_signal_result"))
+        conn.execute(
+            "INSERT INTO oddset_live_signal("
+            "match_key,provider,provider_event_id,captured_at,capture_version,"
+            "signal_version,league,home,away,signal_level,signal_type,odds_status,"
+            "recorded_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("sofa:1", "sofascore", 123, "2026-07-31T20:00:00Z",
+             "sofa-live-v2", "chance-gap-shadow-v2", "allsvenskan",
+             "Hammarby", "AIK", "watch", "xg", "not_offered",
+             "2026-07-31T20:00:01Z"))
         conn.commit()
         conn.close()
 
@@ -115,6 +140,74 @@ class FlashscoreMigrationTests(unittest.TestCase):
             self.assertFalse(second["signal_rebuilt"])
             self.assertFalse(second["flashscore_created"])
             self.assertEqual(1, second["signal_rows"])
+
+    def test_real_0731_schema_without_clock_columns_is_supported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db = Path(tmp) / "test.db"
+            self._real_0731_db(db)
+
+            result = migrera_flashscore.migrate(db)
+
+            self.assertTrue(result["signal_rebuilt"])
+            conn = sqlite3.connect(db)
+            columns = {row[1]: row[2] for row in conn.execute(
+                "PRAGMA table_info(oddset_live_signal)")}
+            row = conn.execute(
+                "SELECT provider_event_id,clock_source,clock_observed_at "
+                "FROM oddset_live_signal").fetchone()
+            conn.close()
+            self.assertEqual("TEXT", columns["provider_event_id"].upper())
+            self.assertEqual(("123", None, None), row)
+
+    def test_validation_failure_leaves_all_existing_schema_untouched(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db = Path(tmp) / "test.db"
+            self._legacy_db(db)
+            conn = sqlite3.connect(db)
+            conn.execute("CREATE TABLE oddset_live_flashscore("
+                         "flashscore_id TEXT PRIMARY KEY)")
+            conn.commit()
+            before = {row[1]: row[2] for row in conn.execute(
+                "PRAGMA table_info(oddset_live_signal)")}
+            conn.close()
+
+            with self.assertRaises(RuntimeError):
+                migrera_flashscore.migrate(db)
+
+            conn = sqlite3.connect(db)
+            after = {row[1]: row[2] for row in conn.execute(
+                "PRAGMA table_info(oddset_live_signal)")}
+            malformed = [row[1] for row in conn.execute(
+                "PRAGMA table_info(oddset_live_flashscore)")]
+            conn.close()
+            self.assertEqual(before, after)
+            self.assertEqual(["flashscore_id"], malformed)
+
+    def test_failure_after_rebuild_rolls_back_the_whole_migration(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db = Path(tmp) / "test.db"
+            self._legacy_db(db)
+
+            with patch.object(
+                    migrera_flashscore, "_repair_result_fk",
+                    side_effect=RuntimeError("simulerat fel efter ombyggnad")):
+                with self.assertRaisesRegex(RuntimeError, "simulerat fel"):
+                    migrera_flashscore.migrate(db)
+
+            conn = sqlite3.connect(db)
+            provider_type = next(
+                row[2] for row in conn.execute(
+                    "PRAGMA table_info(oddset_live_signal)")
+                if row[1] == "provider_event_id")
+            flashscore_exists = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+                ("oddset_live_flashscore",)).fetchone()
+            rows = conn.execute(
+                "SELECT COUNT(*) FROM oddset_live_signal").fetchone()[0]
+            conn.close()
+            self.assertEqual("INTEGER", provider_type.upper())
+            self.assertIsNone(flashscore_exists)
+            self.assertEqual(1, rows)
 
 
 if __name__ == "__main__":

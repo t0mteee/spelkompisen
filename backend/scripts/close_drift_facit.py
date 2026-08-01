@@ -15,6 +15,7 @@ from typing import Optional
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
+from app import oddset_ledger     # noqa: E402
 from app.storage import Storage   # noqa: E402
 
 MARKETS = ("1x2", "ah", "ou")
@@ -26,17 +27,22 @@ SEED, BOOT = 42, 2000
 GATE_MIN_MATCHES = 30
 
 
-def _rows(store: Storage) -> dict:
+def _rows(store: Storage, signal_version: Optional[str] = None) -> dict:
+    """Läs exakt en sharp-regim; version ingår även i minnesnyckeln."""
+    signal_version = (signal_version or
+                      oddset_ledger.prediction_versions(store)["sharp"][
+                          "signal_version"])
     out: dict[tuple, dict] = {}
     for r in store.conn.execute(
-            "SELECT match_id, market, line_key, sign, horizon, fair_prob, "
+            "SELECT signal_version,match_id,market,line_key,sign,horizon,fair_prob, "
             "closing_fair, eligible, captured_at, match_start "
             "FROM oddset_prediction_log "
             "WHERE tier='sharp' AND fair_source='pinnacle' "
-            "AND fair_available=1 AND fair_fresh=1 AND market IN (?,?,?)",
-            MARKETS):
-        out[(r["match_id"], r["market"], r["line_key"], r["sign"],
-             r["horizon"])] = dict(r)
+            "AND fair_available=1 AND fair_fresh=1 "
+            "AND signal_version=? AND market IN (?,?,?)",
+            (signal_version, *MARKETS)):
+        out[(r["signal_version"], r["match_id"], r["market"],
+             r["line_key"], r["sign"], r["horizon"])] = dict(r)
     return out
 
 
@@ -61,15 +67,19 @@ def _established_missing(store: Storage, match_id: str,
                          at: str) -> Optional[dict[str, int]]:
     """Etablerad frånvaro per sida enligt senaste capture ≤ at (PIT)."""
     cap = store.conn.execute(
-        "SELECT captured_at FROM oddset_absence_capture WHERE match_id=? "
-        "AND captured_at<=? ORDER BY captured_at DESC LIMIT 1",
+        "SELECT captured_at,provider FROM oddset_absence_capture WHERE match_id=? "
+        "AND captured_at<=? AND status='observed' "
+        "ORDER BY confirmed DESC,captured_at DESC,"
+        "CASE provider WHEN 'sofascore' THEN 0 WHEN 'flashscore' THEN 1 ELSE 2 END "
+        "LIMIT 1",
         (match_id, at)).fetchone()
     if not cap:
         return None
     counts = {"home": 0, "away": 0}
     for side, appearances in store.conn.execute(
             "SELECT side, appearances FROM oddset_absence_player "
-            "WHERE match_id=? AND captured_at=?", (match_id, cap[0])):
+            "WHERE match_id=? AND captured_at=? AND provider=?",
+            (match_id, cap[0], cap[1])):
         if side in counts and (appearances is None or appearances >= 5):
             counts[side] += 1
     return counts
@@ -98,20 +108,23 @@ def _report_cell(label: str, samples: list[tuple[str, float, float]]) -> None:
 
 def main() -> None:
     store = Storage()
-    rows = _rows(store)
+    version = oddset_ledger.prediction_versions(store)["sharp"]["signal_version"]
+    rows = _rows(store, version)
     total_active = 0
 
+    print(f"Sharp-version: {version}")
     print("P1 MOMENTUM (fortsätter sharpens drift?)")
     for market in MARKETS:
         for target, source in CHAIN.items():
             samples, line_switch = [], 0
             for key, row in rows.items():
-                match_id, mkt, line_key, sign, horizon = key
+                row_version, match_id, mkt, line_key, sign, horizon = key
                 if mkt != market or horizon != target:
                     continue
                 if not row["eligible"] or row["closing_fair"] is None:
                     continue
-                src = rows.get((match_id, mkt, line_key, sign, source))
+                src = rows.get((row_version, match_id, mkt, line_key, sign,
+                                source))
                 if src is None:
                     # samma selektion saknas i källhorisonten (ofta linjebyte)
                     line_switch += 1
@@ -133,12 +146,13 @@ def main() -> None:
     for target, source in CHAIN.items():
         samples = []
         for key, row in rows.items():
-            match_id, mkt, line_key, sign, horizon = key
+            row_version, match_id, mkt, line_key, sign, horizon = key
             if mkt != "1x2" or horizon != target or sign not in ("1", "2"):
                 continue
             if not row["eligible"] or row["closing_fair"] is None:
                 continue
-            src = rows.get((match_id, mkt, line_key, sign, source))
+            src = rows.get((row_version, match_id, mkt, line_key, sign,
+                            source))
             if src is None:
                 continue
             before = _established_missing(store, match_id, src["captured_at"])
@@ -159,7 +173,8 @@ def main() -> None:
 
     n_cor = store.conn.execute(
         "SELECT COUNT(*) FROM oddset_prediction_log WHERE tier='sharp' "
-        "AND market='cor' AND closing_fair IS NOT NULL").fetchone()[0]
+        "AND market='cor' AND closing_fair IS NOT NULL "
+        "AND signal_version=?", (version,)).fetchone()[0]
     print(f"(hörnor: {n_cor} stängda rader — för tunt, ingår ej i v1)")
     print(f"SANITY: {total_active} aktiva selektioner totalt "
           f"({'PASS' if total_active >= 100 else 'SAMLAR — tolka inte'} "

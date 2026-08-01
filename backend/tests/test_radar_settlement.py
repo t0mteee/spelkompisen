@@ -2,8 +2,9 @@
 
 Testerna låser de förregistrerade reglerna i docs/live-radar-2026-07-25.md:
 utfall A/B ur senare captures i SAMMA serie, censur i stället för gissning,
-append-once utan omskrivning, delad signalfunktion med API-payloaden och
-strikt provider-separation (Sofascore settlas aldrig mot FotMob).
+append-once utan omskrivning, delad tröskelfunktion och strikt
+provider-separation. Momentfacitet är uttryckligen rå-providerdiagnostik;
+signaljournalen bär UI:ts eventuella lånade klocka/ställning.
 """
 import datetime as dt
 import sqlite3
@@ -12,11 +13,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from app import fotmob, live_radar, live_settlement
+from app import flashscore, fotmob, live_radar, live_settlement
 from app.storage import Storage
-from scripts import migrera_radar_settlement
+from scripts import migrera_radar_event_id_text, migrera_radar_settlement
 
-NOW = dt.datetime(2026, 7, 26, 12, 0, tzinfo=dt.timezone.utc)
+NOW = dt.datetime(2026, 8, 2, 12, 0, tzinfo=dt.timezone.utc)
 T0 = NOW - dt.timedelta(hours=5)     # stängd serie: sista capture > 3 h gammal
 
 
@@ -43,6 +44,18 @@ def fotmob_capture(fotmob_id, at, minute, home_score=0, away_score=0,
     return {
         "fotmob_id": fotmob_id, "captured_at": iso(at),
         "capture_version": fotmob.CAPTURE_VERSION,
+        "league": "eliteserien", "tournament": "Eliteserien",
+        "home": "Home", "away": "Away", "start_at": None,
+        "minute": minute, "home_score": home_score, "away_score": away_score,
+        "xg_home": xg[0], "xg_away": xg[1],
+    }
+
+
+def flashscore_capture(flashscore_id, at, minute, home_score=0, away_score=0,
+                       xg=(1.8, 0.2)):
+    return {
+        "flashscore_id": flashscore_id, "captured_at": iso(at),
+        "capture_version": flashscore.CAPTURE_VERSION,
         "league": "eliteserien", "tournament": "Eliteserien",
         "home": "Home", "away": "Away", "start_at": None,
         "minute": minute, "home_score": home_score, "away_score": away_score,
@@ -88,14 +101,14 @@ class RadarSettlementTests(unittest.TestCase):
 
         live_settlement.settle_moments(self.store, now=NOW)
 
-        ensam = next(r for r in self.rows() if r["event_id"] == 2)
+        ensam = next(r for r in self.rows() if r["event_id"] == "2")
         self.assertIsNone(ensam["outcome_15min"])
         self.assertEqual("window_not_covered", ensam["censored_15min"])
         self.assertIsNone(ensam["outcome_more_before_ft"])
         self.assertEqual("no_final_capture", ensam["censored_ft"])
 
         tvetydig = next(r for r in self.rows()
-                        if r["event_id"] == 3 and r["minute"] == 30)
+                        if r["event_id"] == "3" and r["minute"] == 30)
         self.assertIsNone(tvetydig["outcome_15min"], "gap över fönstergränsen "
                           "får inte tolkas som nej — och inte som ja")
         self.assertEqual("window_not_covered", tvetydig["censored_15min"])
@@ -118,11 +131,11 @@ class RadarSettlementTests(unittest.TestCase):
         live_settlement.settle_moments(self.store, now=NOW)
 
         med_mal = next(r for r in self.rows()
-                       if r["event_id"] == 4 and r["minute"] == 60)
+                       if r["event_id"] == "4" and r["minute"] == 60)
         self.assertEqual(1, med_mal["outcome_more_before_ft"])
 
         oavgjord = next(r for r in self.rows()
-                        if r["event_id"] == 5 and r["minute"] == 70)
+                        if r["event_id"] == "5" and r["minute"] == 70)
         self.assertEqual(0, oavgjord["outcome_more_before_ft"],
                          "slutstatus-capture med samma total bevisar 0")
         self.assertEqual(0, oavgjord["outcome_15min"])
@@ -142,6 +155,64 @@ class RadarSettlementTests(unittest.TestCase):
         self.assertEqual(0, second["settled"])
         self.assertEqual(before, self.rows(),
                          "settlade rader får aldrig skrivas om")
+
+    def test_alphanumeric_flashscore_id_is_idempotent_on_second_run(self):
+        event_id = "SKg88Q3T"
+        self.store.live_flashscore_save(
+            flashscore_capture(event_id, T0, 30))
+        self.store.live_flashscore_save(flashscore_capture(
+            event_id, T0 + dt.timedelta(minutes=10), 40, home_score=1))
+
+        first = live_settlement.settle_moments(self.store, now=NOW)
+        second = live_settlement.settle_moments(
+            self.store, now=NOW + dt.timedelta(hours=1))
+
+        self.assertEqual(2, first["settled"])
+        self.assertEqual(0, second["settled"])
+        self.assertEqual({event_id}, {row["event_id"] for row in self.rows()
+                                     if row["provider"] == "flashscore"})
+
+    def test_pending_previous_capture_version_is_not_abandoned(self):
+        event_id = "old-v1-event"
+        first_at = dt.datetime(2026, 8, 1, 18, 0, tzinfo=dt.timezone.utc)
+        first = flashscore_capture(event_id, first_at, 30)
+        later = flashscore_capture(
+            event_id, first_at + dt.timedelta(minutes=10), 40, home_score=1)
+        first["capture_version"] = "flashscore-live-v1"
+        later["capture_version"] = "flashscore-live-v1"
+        self.store.live_flashscore_save(first)
+        self.store.live_flashscore_save(later)
+
+        report = live_settlement.settle_moments(self.store, now=NOW)
+
+        self.assertEqual(2, report["settled"])
+        rows = [row for row in self.rows() if row["event_id"] == event_id]
+        self.assertEqual({"flashscore-live-v1"},
+                         {row["capture_version"] for row in rows})
+        self.assertEqual({"chance-gap-shadow-v3"},
+                         {row["signal_version"] for row in rows})
+
+    def test_delayed_settlement_uses_capture_time_version_boundaries(self):
+        captures = (
+            ("v2", dt.datetime(2026, 8, 1, 7, 59,
+                               tzinfo=dt.timezone.utc)),
+            ("v3", dt.datetime(2026, 8, 1, 8, 1,
+                               tzinfo=dt.timezone.utc)),
+            ("v4", dt.datetime(2026, 8, 1, 21, 1,
+                               tzinfo=dt.timezone.utc)),
+        )
+        for event_id, captured_at in captures:
+            self.store.oddset_save_live_capture(
+                sofa_capture(event_id, captured_at, 30, xg_home=0.3,
+                             xg_away=0.2))
+
+        live_settlement.settle_moments(self.store, now=NOW)
+
+        versions = {row["event_id"]: row["signal_version"]
+                    for row in self.rows()}
+        self.assertEqual("chance-gap-shadow-v2", versions["v2"])
+        self.assertEqual("chance-gap-shadow-v3", versions["v3"])
+        self.assertEqual(live_radar.RADAR_VERSION, versions["v4"])
 
     # (e) signalen räknas om med den DELADE funktionen — ingen egen kopia
     def test_signal_recomputation_uses_shared_radar_signal(self):
@@ -237,6 +308,8 @@ class RadarSettlementTests(unittest.TestCase):
         report = live_settlement.facit(self.store)
 
         self.assertEqual("shadow", report["mode"])
+        self.assertEqual("raw_provider", report["moment_basis"])
+        self.assertIn("signaljournalen", report["moment_basis_description"])
         group = report["groups"]["xg"]
         self.assertEqual(1, group["n_signal_moments"])
         outcome = group["outcomes"]["outcome_15min"]
@@ -245,6 +318,33 @@ class RadarSettlementTests(unittest.TestCase):
         self.assertEqual(0.5, outcome["base_rate"])
         self.assertEqual(2, outcome["control_resolved"])
         self.assertIn("mode=shadow", live_settlement.format_facit(report))
+
+    def test_facit_never_mixes_signal_versions(self):
+        common = {
+            "provider": "sofascore", "captured_at": iso(T0),
+            "capture_version": live_radar.CAPTURE_VERSION,
+            "league": "eliteserien", "minute": 30, "score_diff": 0,
+            "signal": 1, "signal_type": "xg", "outcome_15min": 1,
+            "outcome_more_before_ft": 1, "settled_at": iso(NOW),
+        }
+        self.store.live_settlement_save({
+            **common, "event_id": "current",
+            "signal_version": live_radar.RADAR_VERSION,
+        })
+        self.store.live_settlement_save({
+            **common, "event_id": "legacy",
+            "signal_version": "chance-gap-shadow-v2",
+        })
+
+        report = live_settlement.facit(self.store)
+
+        self.assertEqual(1, report["n_moments"])
+        self.assertEqual(2, report["all_versions_n_moments"])
+        self.assertEqual(1, report["groups"]["xg"]["n_signal_moments"])
+        self.assertEqual(1, len(report["historical_versions"]))
+        legacy = report["historical_versions"][0]
+        self.assertEqual("chance-gap-shadow-v2", legacy["signal_version"])
+        self.assertEqual(1, legacy["n_moments"])
 
 
 class RadarSettlementMigrationTests(unittest.TestCase):
@@ -269,6 +369,56 @@ class RadarSettlementMigrationTests(unittest.TestCase):
             try:
                 self.assertEqual(1, conn.execute(
                     "SELECT COUNT(*) FROM legacy").fetchone()[0])
+            finally:
+                conn.close()
+
+    def test_event_id_text_migration_preserves_rows_and_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db = Path(tmp) / "legacy-integer.db"
+            conn = sqlite3.connect(db)
+            conn.execute("""
+                CREATE TABLE oddset_live_moment_settlement (
+                    provider TEXT NOT NULL,
+                    event_id INTEGER NOT NULL,
+                    captured_at TEXT NOT NULL,
+                    capture_version TEXT NOT NULL,
+                    league TEXT,
+                    minute INTEGER,
+                    score_diff INTEGER,
+                    signal INTEGER NOT NULL,
+                    signal_type TEXT,
+                    signal_version TEXT NOT NULL,
+                    outcome_15min INTEGER,
+                    outcome_more_before_ft INTEGER,
+                    censored_15min TEXT,
+                    censored_ft TEXT,
+                    settled_at TEXT NOT NULL,
+                    PRIMARY KEY(provider,event_id,captured_at,capture_version)
+                )
+            """)
+            conn.execute(
+                "INSERT INTO oddset_live_moment_settlement "
+                "(provider,event_id,captured_at,capture_version,signal,"
+                "signal_version,settled_at) VALUES(?,?,?,?,?,?,?)",
+                ("flashscore", "SKg88Q3T", iso(T0), "fs-v1", 1,
+                 "chance-gap-shadow-v3", iso(NOW)))
+            conn.commit()
+            conn.close()
+
+            first = migrera_radar_event_id_text.migrate(db)
+            second = migrera_radar_event_id_text.migrate(db)
+
+            self.assertTrue(first["rebuilt"])
+            self.assertFalse(second["rebuilt"])
+            self.assertEqual("TEXT", second["columns"]["event_id"])
+            self.assertEqual(1, second["count"])
+            self.assertEqual("ok", second["integrity"])
+            self.assertEqual(0, second["foreign_key_errors"])
+            conn = sqlite3.connect(db)
+            try:
+                self.assertEqual("SKg88Q3T", conn.execute(
+                    "SELECT event_id FROM oddset_live_moment_settlement"
+                ).fetchone()[0])
             finally:
                 conn.close()
 

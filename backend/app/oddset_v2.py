@@ -160,7 +160,8 @@ def _input_rows(store: Storage, league: str, cutoff_day: str,
 
 
 def _input_fingerprint(rows: list[dict]) -> str:
-    fields = ("league", "date", "home", "away", "hg", "ag", "xg_h", "xg_a")
+    fields = ("league", "date", "home", "away", "hg", "ag", "xg_h", "xg_a",
+              "xg_provider")
     return _hash([{key: row.get(key) for key in fields} for row in rows])
 
 

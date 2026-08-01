@@ -116,10 +116,11 @@ class V22ShadowTests(unittest.TestCase):
         }, [
             _event(13, self._t(days=-3), 2, 7),
         ])
+        frozen = oddset_v22.load_manifest()["source_versions_at_freeze"]
         self.versions = {
             "sharp": {
-                "signal_version": "s-a4e45b6c",
-                "base_version": "s-776ca0e0",
+                "signal_version": frozen["sharp_signal_version"],
+                "base_version": frozen["sharp_base_version"],
             },
             "model": {
                 "signal_version": "m-d82792f7",
@@ -202,6 +203,24 @@ class V22ShadowTests(unittest.TestCase):
         self.assertEqual(0, shadow["eligible"])
         self.assertEqual("source_version_changed", shadow["fallback_reason"])
         self.assertIn("model_source_version_changed", issues)
+
+    def test_v4_manifest_is_frozen_to_current_provider_policy(self) -> None:
+        manifest = oddset_v22.load_manifest()
+        frozen = manifest["source_versions_at_freeze"]
+        self.assertEqual("v2.2-wp9c-multileague-v4", manifest["experiment"])
+        self.assertEqual("m22-5d7d5120", oddset_v22.model_source_version(self.store))
+        self.assertEqual(frozen["model_signal_version"],
+                         oddset_v22.model_source_version(self.store))
+        self.assertEqual(frozen["feature_version"],
+                         oddset_v22.feature_version(self.store))
+
+    def test_feeder_alias_change_bumps_feature_version(self) -> None:
+        before = oddset_v22.feature_version(self.store)
+        self.store.meta_set("oddset_alias:championship", json.dumps({
+            "example feeder alias": "example feeder canonical",
+        }))
+
+        self.assertNotEqual(before, oddset_v22.feature_version(self.store))
 
     def test_feature_failure_rolls_back_sharp_ledger_and_can_retry(self) -> None:
         with patch.object(oddset_ledger, "prediction_versions",

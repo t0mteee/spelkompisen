@@ -25,18 +25,31 @@ BACKUP = (ROOT / "data" / "backups" /
           "stryktips-2026-07-16-fore-wp8-franvaro.db")
 
 
-def _player_key(player: dict) -> str:
+def _player_key(player: dict, provider: str = "sofascore") -> str:
     player_id = player.get("player_id")
     if player_id is not None:
-        return f"sofa:{player_id}"
-    return "name:" + str(player.get("name") or "okänd").casefold().strip()
+        raw = str(player_id)
+        return raw if ":" in raw else f"{'fs' if provider == 'flashscore' else 'sofa'}:{raw}"
+    return (f"{provider}:name:" +
+            str(player.get("name") or "okänd").casefold().strip())
+
+
+def _execute_schema(conn: sqlite3.Connection) -> None:
+    statement = ""
+    for line in ABSENCE_SCHEMA.splitlines(keepends=True):
+        statement += line
+        if sqlite3.complete_statement(statement):
+            if statement.strip():
+                conn.execute(statement)
+            statement = ""
 
 
 def migrate(db: Path | str) -> dict:
     conn = sqlite3.connect(db, timeout=10)
     try:
         conn.execute("PRAGMA busy_timeout=10000")
-        conn.executescript("BEGIN IMMEDIATE;\n" + ABSENCE_SCHEMA)
+        conn.execute("BEGIN IMMEDIATE")
+        _execute_schema(conn)
         inserted_captures = inserted_players = legacy_payloads = 0
         for key, raw in conn.execute(
                 "SELECT key, value FROM meta WHERE key LIKE 'oddset_abs:%'").fetchall():
@@ -54,11 +67,15 @@ def migrate(db: Path | str) -> dict:
             home, away = rec.get("home") or [], rec.get("away") or []
             canonical = json.dumps(rec, ensure_ascii=False, sort_keys=True,
                                    separators=(",", ":"))
+            source_event_id = rec.get("source_event_id")
+            provider = ("flashscore" if str(source_event_id or "").startswith("fs:")
+                        else "sofascore")
             cur = conn.execute(
                 "INSERT OR IGNORE INTO oddset_absence_capture(match_id, captured_at, "
-                "source_event_id, match_start, confirmed, payload_hash, home_missing, "
-                "away_missing, missing_count) VALUES(?,?,?,?,?,?,?,?,?)",
-                (match_id, captured_at, rec.get("source_event_id"),
+                "provider, status, source_event_id, match_start, confirmed, "
+                "payload_hash, home_missing, away_missing, missing_count) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (match_id, captured_at, provider, "observed", source_event_id,
                  match[0] if match else None, int(bool(rec.get("confirmed"))),
                  hashlib.sha256(canonical.encode()).hexdigest(),
                  len(home), len(away), len(home) + len(away)))
@@ -68,12 +85,15 @@ def migrate(db: Path | str) -> dict:
             for side, players in (("home", home), ("away", away)):
                 for player in players:
                     conn.execute(
-                        "INSERT INTO oddset_absence_player(match_id, captured_at, side, "
+                        "INSERT INTO oddset_absence_player(match_id, captured_at, provider, side, "
                         "player_key, player_id, name, position, reason_code, reason, "
                         "description, expected_end, appearances, rating) "
-                        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                        (match_id, captured_at, side, _player_key(player),
-                         player.get("player_id"), player.get("name") or "okänd",
+                        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        (match_id, captured_at, provider, side,
+                         _player_key(player, provider),
+                         (_player_key(player, provider)
+                          if player.get("player_id") is not None else None),
+                         player.get("name") or "okänd",
                          player.get("position"), player.get("reason_code"),
                          player.get("reason"), player.get("description"),
                          player.get("expected_end"), player.get("apps"),

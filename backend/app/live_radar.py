@@ -1,8 +1,8 @@
 """Shadow-radar för livefotboll: chansskapande som överstiger utdelningen.
 
-Radarn är informationsstöd, inte en spelmodell. Den läser publika, kumulativa
-Sofascore-stats för projektets ligor, sparar observerade snapshots och visar
-en försiktig xG- eller proxyflagga. Modulen läser inga liveodds; den separata
+Radarn är informationsstöd, inte en spelmodell. Den läser separata,
+kumulativa serier från Flashscore, FotMob och Sofascore och visar en försiktig
+xG- eller proxyflagga. Modulen läser inga liveodds; den separata
 ``live_signal_ledger`` observerar Kambi-priset när en synlig signal först
 uppstår. Inga automatiska spel/notiser skapas.
 """
@@ -18,15 +18,20 @@ from .oddset_data import SOFA_UT
 from .storage import Storage
 
 CAPTURE_VERSION = "sofa-live-v2"
-# v3 (2026-08-01): Flashscore inkopplad som PRIMÄR statistikkälla. Trösklarna
-# är oförändrade, men vilka matcher som ÖVERHUVUDTAGET kan ge en signal ändras
-# — alltså kohortens datagenererande process. Signaljournalens blindtest
-# nollställs därför medvetet till v3 (den innehöll en enda rad, bokförd innan
-# bytet); v2-raden ligger kvar som historik och blandas aldrig med v3.
-RADAR_VERSION = "chance-gap-shadow-v3"
+# v4 (2026-08-01): källvalet använder kompletthet, färskhet och verifierad
+# matchidentitet innan en signal räknas. Det ändrar kohortens datagenererande
+# process trots oförändrade trösklar, så blindtestet får en ny version. Äldre
+# rader ligger kvar som historik och ska aldrig blandas med v4.
+RADAR_VERSION = "chance-gap-shadow-v4"
+# Fryst före driftsstart. Råcaptures saknar radarversion, så settlement använder
+# dessa gränser för v2 (<08), v3 (08–21) och den rena v4-kohorten (>=21).
+# ÄNDRA ALDRIG efter att insamlingen startats igen.
+RADAR_V3_STARTED_AT = "2026-08-01T08:00:00Z"
+RADAR_VERSION_STARTED_AT = "2026-08-01T21:00:00Z"
 RECENT_MINUTES = 15
 RECENT_TOLERANCE_MIN = 6
 MAX_DISPLAY_AGE_MIN = 12
+LINK_START_TOLERANCE_MIN = 30
 SOFA_PRESENCE_KEY = "live_radar_sofascore_presence"
 FOTMOB_PRESENCE_KEY = "live_radar_fotmob_presence"
 
@@ -113,7 +118,9 @@ for _cup_ut, _cup_key in ((7, "champions_league"), (679, "europa_league"),
 # de matcher som har mest kvar att spela (en match i 85:e minuten kan inte längre
 # ge en signal).
 LEAGUE_PRIORITY = {"allsvenskan": 0, "superettan": 0, "eliteserien": 0,
-                   "obosligaen": 0, "mls": 0,
+                   "obosligaen": 0, "bestadeild": 0, "mls": 0,
+                   "premier_league": 0, "serie_a": 0,
+                   "la_liga": 0, "bundesliga": 0,
                    "champions_league": 0, "europa_league": 0,
                    "conference_league": 0, "friendlies": 1}
 
@@ -384,6 +391,11 @@ def radar_signal(current: dict, previous: Optional[dict] = None) -> dict:
     if minute is None:
         return {"level": "info", "kind": "no_clock", "score": 0.0,
                 "reason": "Matchklockan saknas i källan."}
+    if (current.get("home_score") is None or
+            current.get("away_score") is None):
+        return {"level": "info", "kind": "no_score", "score": 0.0,
+                "remaining_min": max(0, 90 - int(minute)),
+                "reason": "Ställningen saknas i källan; inget chansgap räknas."}
     remaining = max(0, 90 - int(minute))
     goals = [_num(current, "home_score"), _num(current, "away_score")]
     xg = [current.get("xg_home"), current.get("xg_away")]
@@ -483,6 +495,7 @@ def radar_signal(current: dict, previous: Optional[dict] = None) -> dict:
 
 def collect(store: Storage, *, now: Optional[dt.datetime] = None) -> dict:
     """Samla ett snapshot för alla pågående matcher i projektets ligor."""
+    fixed_now = now
     now = now or dt.datetime.now(dt.timezone.utc)
     started = time.monotonic()
     # `captured_at` för varvet används bara till hälsorad och meta. VARJE
@@ -490,17 +503,33 @@ def collect(store: Storage, *, now: Optional[dt.datetime] = None) -> dict:
     # matchen med loopens starttid. Samma fel som pit-v1 (förändringstid ≠
     # observationstid) och Pinnacles CDN-Age (hämtningstid ≠ pristid); det ska
     # inte återuppstå i varje ny insamlare.
-    captured_at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-    events = _live_get("/sport/football/events/live").get("events") or []
+    try:
+        listing = _live_get("/sport/football/events/live")
+        if (not isinstance(listing, dict) or "events" not in listing or
+                not isinstance(listing["events"], list)):
+            raise ValueError("Sofascores livefeed saknar events-lista")
+        events = listing["events"]
+    except Exception as exc:  # noqa: BLE001 — inget falskt slutbesked vid källfel
+        checked_at = (fixed_now or dt.datetime.now(dt.timezone.utc)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ")
+        error = f"{type(exc).__name__}: {str(exc)[:80]}"
+        store.oddset_record_source_health(
+            "sofascore", "-", "live", checked_at, False, 0, error)
+        return {"at": checked_at, "live": 0, "stats_ok": 0, "saved": 0,
+                "skipped": 0, "error": error, "partial_errors": []}
+    # Observationstid sätts EFTER rosteranropet. Ett explicit `now` används
+    # bara av deterministiska tester/rekonstruktioner; driftvägen tar ny tid.
+    roster_at = fixed_now or dt.datetime.now(dt.timezone.utc)
+    captured_at = roster_at.strftime("%Y-%m-%dT%H:%M:%SZ")
     # Spara hela football-rosterlistan, inte bara våra ligor. Då kan en ändrad
-    # turneringsmappning aldrig misstolkas som att matchen tog slut. Ett helt
-    # tomt 200-svar används däremot inte som slutsignal — TTL:n är säkrare.
-    if events:
-        record_presence(
-            store, SOFA_PRESENCE_KEY,
-            [item.get("id") for item in events
-             if (item.get("status") or {}).get("type") == "inprogress"],
-            captured_at)
+    # turneringsmappning aldrig misstolkas som att matchen tog slut. En
+    # validerad tom `events`-lista är ett positivt slutbesked; en trasig feed
+    # returnerar redan ovan utan att röra presence.
+    record_presence(
+        store, SOFA_PRESENCE_KEY,
+        [item.get("id") for item in events
+         if (item.get("status") or {}).get("type") == "inprogress"],
+        captured_at)
     known = store.oddset_matches(
         (now - dt.timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ"),
         (now + dt.timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ"))
@@ -563,7 +592,6 @@ def collect(store: Storage, *, now: Optional[dt.datetime] = None) -> dict:
         saved += store.oddset_save_live_capture(capture)
 
     partial = "; ".join(errors[:5]) if errors else None
-    health_ok = not scoped or stats_ok > 0
     if scoped and stats_ok == 0:
         partial = partial or "ingen live-match hade läsbar statistik"
     if skipped:
@@ -575,6 +603,9 @@ def collect(store: Storage, *, now: Optional[dt.datetime] = None) -> dict:
                 + (" (tidsbudget)" if budget_hit else " (matchtak)")
                 + (f": {detail}" if detail else ""))
         partial = f"{partial}; {note}" if partial else note
+    # `ok` betyder ett komplett rent varv. Tidigare räckte ett enda lyckat
+    # statsanrop för grönt trots fel på resten; då doldes partialfelet i UI.
+    health_ok = (not scoped or stats_ok > 0) and partial is None
     store.oddset_record_source_health(
         "sofascore", "-", "live", captured_at, health_ok, len(scoped), partial)
     store.meta_set("live_radar_last_run", captured_at)
@@ -582,7 +613,8 @@ def collect(store: Storage, *, now: Optional[dt.datetime] = None) -> dict:
         f"{league} {n} över taket"
         for league, n in sorted(dropped_by_league.items())))
     return {"at": captured_at, "live": len(scoped), "stats_ok": stats_ok,
-            "saved": saved, "skipped": skipped, "partial_errors": errors}
+            "saved": saved, "skipped": skipped, "health_ok": health_ok,
+            "partial_errors": errors}
 
 
 def previous_capture(earlier: list[dict],
@@ -612,18 +644,65 @@ def previous_capture(earlier: list[dict],
 
 
 def _same_team(a: str, b: str) -> bool:
-    """Konservativ namnlänkning MELLAN källor (Sofascore ↔ FotMob).
+    """Konservativ namnlänkning mellan livekällorna.
 
     `norm_team` klarar 'Degerfors' ↔ 'Degerfors IF' men inte svensk genitiv:
     'Djurgården' ↔ 'Djurgårdens IF' blir djurgarden ↔ djurgardens. Prefixregeln
     med minst fyra tecken täcker det utan att öppna för allmän likhetsmatchning.
     Ingen träff = matchen visas utan FotMob-data; vi gissar aldrig.
     """
-    x, y = norm_team(a or ""), norm_team(b or "")
+    def live_norm(value: str) -> str:
+        normalized = norm_team(value or "")
+        # Flashscore märker klubbar i globala träningsmatcher med landkod,
+        # t.ex. `Chelsea (Eng)`. Det är providerpresentation, inte lagidentitet.
+        tokens = [token for token in normalized.split()
+                  if not (token.startswith("(") and token.endswith(")") and
+                          2 <= len(token[1:-1]) <= 3 and
+                          token[1:-1].isalpha())]
+        return " ".join(tokens)
+
+    x, y = live_norm(a), live_norm(b)
     x, y = LIVE_TEAM_ALIASES.get(x, x), LIVE_TEAM_ALIASES.get(y, y)
+    # Truppmarkörer är IDENTITET, inte föreningsform. Den gamla prefixregeln
+    # gjorde t.ex. `Inter` och `Inter U23` till samma lag. Hellre två kort än
+    # att statistik och ställning från skilda matcher blandas.
+    squad_markers = {"b", "ii", "reserve", "reserves", "academy",
+                     "youth", "women", "damer"}
+
+    def qualifiers(value: str) -> set[str]:
+        return {token for token in value.split()
+                if token in squad_markers
+                or (token.startswith("u") and token[1:].isdigit())}
+
+    if qualifiers(x) != qualifiers(y):
+        return False
     if len(x) < 4 or len(y) < 4:
         return x == y and bool(x)
-    return x.startswith(y) or y.startswith(x)
+    if x == y:
+        return True
+    # Svensk genitiv är det enda tillåtna enords-prefixet. Det bevarar
+    # Djurgården↔Djurgårdens men stoppar Inter↔Inter Miami.
+    if " " not in x or " " not in y:
+        return x + "s" == y or y + "s" == x
+    return x.startswith(y + " ") or y.startswith(x + " ")
+
+
+def _start_at(row: dict) -> Optional[dt.datetime]:
+    """Provideroberoende avspark; en live-länk kräver ett läsbart värde."""
+    raw = row.get("start_at")
+    if not raw:
+        return None
+    try:
+        return _parse_iso(str(raw))
+    except (TypeError, ValueError):
+        return None
+
+
+def _same_start(a: dict, b: dict) -> bool:
+    """Avspark är en obligatorisk del av provideridentiteten."""
+    left, right = _start_at(a), _start_at(b)
+    return bool(left and right and abs(left - right) <= dt.timedelta(
+        minutes=LINK_START_TOLERANCE_MIN))
 
 
 def _fotmob_series(store: Storage, since: str) -> list[list[dict]]:
@@ -652,17 +731,25 @@ def _fotmob_for(match: dict, series: list[list[dict]],
     dubbletter blir den kvarvarande FotMob-serien i stället ett eget kort,
     aldrig statistik på två olika matcher.
     """
+    candidates = []
     for captures in series:
         head = captures[-1]
         fotmob_id = int(head["fotmob_id"])
-        if claimed is not None and fotmob_id in claimed:
-            continue
         if head.get("league") != match.get("league"):
             continue
-        if (_same_team(head.get("home"), match.get("home")) and
+        if (_same_start(head, match) and
+                _same_team(head.get("home"), match.get("home")) and
                 _same_team(head.get("away"), match.get("away"))):
-            return captures
-    return None
+            candidates.append(captures)
+    # En unik kandidat krävs FÖRE claimed-filtret. Om två provider-events har
+    # samma identitet får det första kortet aldrig godtyckligt "ta" den ena
+    # och därmed göra den andra skenbart unik för nästa kort.
+    if len(candidates) != 1:
+        return None
+    candidate = candidates[0]
+    if claimed is not None and int(candidate[-1]["fotmob_id"]) in claimed:
+        return None
+    return candidate
 
 
 def _series_for(match: dict, series: list[list[dict]], id_key: str,
@@ -672,15 +759,20 @@ def _series_for(match: dict, series: list[list[dict]], id_key: str,
     Spegelvänd hemma/borta accepteras inte här: en länk som byter sida skulle
     göra lagens statistik omvänd. Ingen träff = matchen står på egna ben.
     """
+    candidates = []
     for captures in series:
         head = captures[-1]
         key = str(head[id_key])
-        if key in claimed or head.get("league") != match.get("league"):
+        if head.get("league") != match.get("league"):
             continue
-        if (_same_team(head.get("home"), match.get("home")) and
+        if (_same_start(head, match) and
+                _same_team(head.get("home"), match.get("home")) and
                 _same_team(head.get("away"), match.get("away"))):
-            return captures
-    return None
+            candidates.append(captures)
+    if len(candidates) != 1:
+        return None
+    candidate = candidates[0]
+    return None if str(candidate[-1][id_key]) in claimed else candidate
 
 
 _FOTMOB_VIEW_KEYS = (
@@ -707,43 +799,85 @@ _FLASHSCORE_VIEW_KEYS = (
 )
 
 
-def _stats_rank(row: dict) -> int:
-    """Ranka faktiskt rapporterad statistik, oberoende av matchklockan."""
+def _stats_rank(row: dict) -> tuple[int, int]:
+    """Ranka fälttäckning, aldrig signalvärdet eller utfallet.
+
+    Ett ensamt skottfält är inte likvärdigt med en komplett proxy. Den gamla
+    `any(...)`-rankningen lät därför en partiell Flashscore-rad dölja en
+    signalbar FotMob-rad. Nivåerna beskriver bara vilka par som finns:
+    xG > komplett kärnproxy > komplett signalgren > partiell > inget.
+    """
     if row.get("xg_home") is not None and row.get("xg_away") is not None:
-        return 2
-    proxy_keys = (
-        "big_chances_home", "big_chances_away",
-        "shots_on_home", "shots_on_away",
-        "shots_inside_home", "shots_inside_away",
-    )
-    return 1 if any(row.get(key) is not None for key in proxy_keys) else 0
+        return (4, 0)
+
+    def pair(name: str) -> bool:
+        return (row.get(f"{name}_home") is not None and
+                row.get(f"{name}_away") is not None)
+
+    big = pair("big_chances")
+    on_target = pair("shots_on")
+    inside = pair("shots_inside")
+    touches = pair("touches_box")
+    complete_pairs = sum((big, on_target, inside, touches))
+    if big and on_target and inside:
+        return (3, complete_pairs)
+    if big or (on_target and inside):
+        return (2, complete_pairs)
+    proxy_keys = ("big_chances_home", "big_chances_away",
+                  "shots_on_home", "shots_on_away",
+                  "shots_inside_home", "shots_inside_away",
+                  "touches_box_home", "touches_box_away")
+    reported = sum(row.get(key) is not None for key in proxy_keys)
+    return (1, reported) if reported else (0, 0)
+
+
+_SOURCE_PRIORITY = {"sofascore": 0, "fotmob": 1, "flashscore": 2}
+
+
+def _best_source(candidates: list[tuple[str, list[dict]]]
+                 ) -> tuple[str, list[dict]]:
+    """Välj källa på schema/täckning + fast prioritet, aldrig på signalvärde."""
+    return max(candidates, key=lambda item: (
+        _stats_rank(item[1][-1]), _SOURCE_PRIORITY[item[0]]))
+
+
+def _signal_with_basis(provider: str, captures: list[dict], view_keys,
+                       match_fallback: Optional[dict] = None
+                       ) -> tuple[dict, dict]:
+    """Signal och exakt per-fält-proveniens ur en providerserie.
+
+    Chansmåtten kommer alltid från `provider`. Bara saknad minut/ställning får
+    lånas från den verifierade ankarraden, och UI:t får både det effektiva
+    värdet och dess källa så att en fallback aldrig ser providerspecifik ut.
+    """
+    current = captures[-1]
+    current_at = _parse_iso(current["captured_at"])
+    previous = previous_capture(captures[:-1], current_at)
+    signal_row = dict(current)
+    basis = {}
+    for key in ("minute", "home_score", "away_score"):
+        value = current.get(key)
+        source = provider
+        if value is None and match_fallback is not None:
+            value = match_fallback.get(key)
+            if value is not None:
+                source = "sofascore"
+        signal_row[key] = value
+        basis[key] = value
+        basis[f"{key}_source"] = source if value is not None else None
+    signal = radar_signal(signal_row, previous)
+    signal["stats_source"] = provider
+    signal["xg_source"] = provider if signal.get("kind") == "xg" else None
+    signal["basis"] = basis
+    view = {key: current.get(key) for key in view_keys}
+    return signal, view
 
 
 def _fotmob_signal(captures: list[dict],
                    match_fallback: Optional[dict] = None) -> tuple[dict, dict]:
     """Signal + visningsfält ur en enda, sammanhängande FotMob-serie."""
-    current = captures[-1]
-    current_at = dt.datetime.fromisoformat(
-        current["captured_at"].replace("Z", "+00:00"))
-    previous = previous_capture(captures[:-1], current_at)
-    signal_row = current
-    # FotMob lämnar ibland minuten tom precis i halvtid trots att xG:n är
-    # färsk. Klocka och resultattavla är matchmetadata, inte chansmått, och får
-    # därför hämtas från den redan verifierade Sofascore-länken. Själva
-    # signalens xG/skott kommer fortfarande uteslutande från FotMob-serien.
-    if match_fallback and (
-            current.get("minute") is None or
-            current.get("home_score") is None or
-            current.get("away_score") is None):
-        signal_row = dict(current)
-        for key in ("minute", "home_score", "away_score"):
-            if signal_row.get(key) is None:
-                signal_row[key] = match_fallback.get(key)
-    signal = radar_signal(signal_row, previous)
-    signal["stats_source"] = "fotmob"
-    signal["xg_source"] = "fotmob" if signal.get("kind") == "xg" else None
-    view = {key: current.get(key) for key in _FOTMOB_VIEW_KEYS}
-    return signal, view
+    return _signal_with_basis(
+        "fotmob", captures, _FOTMOB_VIEW_KEYS, match_fallback)
 
 
 def _flashscore_signal(captures: list[dict],
@@ -756,24 +890,28 @@ def _flashscore_signal(captures: list[dict],
     verifierade Sofascore-länken när Flashscores stadieklocka är okänd
     (halvtid, förlängning). Lånet påverkar aldrig xG eller skott.
     """
-    current = captures[-1]
-    current_at = dt.datetime.fromisoformat(
-        current["captured_at"].replace("Z", "+00:00"))
-    previous = previous_capture(captures[:-1], current_at)
-    signal_row = current
-    if match_fallback and (
-            current.get("minute") is None or
-            current.get("home_score") is None or
-            current.get("away_score") is None):
-        signal_row = dict(current)
-        for key in ("minute", "home_score", "away_score"):
-            if signal_row.get(key) is None:
-                signal_row[key] = match_fallback.get(key)
-    signal = radar_signal(signal_row, previous)
-    signal["stats_source"] = "flashscore"
-    signal["xg_source"] = "flashscore" if signal.get("kind") == "xg" else None
-    view = {key: current.get(key) for key in _FLASHSCORE_VIEW_KEYS}
-    return signal, view
+    return _signal_with_basis(
+        "flashscore", captures, _FLASHSCORE_VIEW_KEYS, match_fallback)
+
+
+def _sofascore_signal(captures: list[dict]) -> dict:
+    """Sofascore-signal med samma explicita bas/proveniens som övriga."""
+    signal, _view = _signal_with_basis(
+        "sofascore", captures, tuple(captures[-1].keys()))
+    return signal
+
+
+def _fresh_series(captures: list[dict], now: dt.datetime) -> bool:
+    """En länkbar serie måste vara lika färsk som ett fristående livekort."""
+    if not captures:
+        return False
+    try:
+        observed = _parse_iso(captures[-1]["captured_at"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    age = now - observed
+    return (-dt.timedelta(minutes=1) <= age <=
+            dt.timedelta(minutes=MAX_DISPLAY_AGE_MIN))
 
 
 def payload(store: Storage, *,
@@ -801,6 +939,13 @@ def payload(store: Storage, *,
         captures for captures in flashscore_series
         if not _ended_after_capture(
             captures[-1], "flashscore_id", flashscore_ended)]
+    # Samma färskhetsgrind gäller INNAN providerlänkning. Förr kunde en
+    # 30-minutersserie länkas till ett färskt Sofascore-kort och bära signalen,
+    # trots att samma serie hade dolts som fristående kort.
+    fotmob_series = [captures for captures in fotmob_series
+                     if _fresh_series(captures, now)]
+    flashscore_series = [captures for captures in flashscore_series
+                         if _fresh_series(captures, now)]
     grouped: dict[int, list[dict]] = {}
     for row in rows:
         grouped.setdefault(int(row["event_id"]), []).append(row)
@@ -815,40 +960,34 @@ def payload(store: Storage, *,
             current["captured_at"].replace("Z", "+00:00"))
         if now - current_at > dt.timedelta(minutes=MAX_DISPLAY_AGE_MIN):
             continue
-        previous = previous_capture(captures[:-1], current_at)
-        signal = radar_signal(current, previous)
-        signal["stats_source"] = "sofascore"
-        signal["xg_source"] = (
-            "sofascore" if signal.get("kind") == "xg" else None)
         extra: dict = {}
-        # FOTMOB ÄR PRIMÄR KÄLLA (Samans beslut 2026-07-28 — Sofascore saknar
-        # oftast chansmåtten i våra ligor; inkopplad som andra öga 25/26).
-        # Valordning: xG > skottproxy > ingen statistik, och vid lika bra data
-        # vinner FotMob — Sofascore bär signalen bara när den har strikt
-        # bättre statistik. Provider-rader blandas aldrig: både nuläge och
-        # delta kommer från samma serie.
-        best_rank = _stats_rank(current)
+        candidates = [("sofascore", captures)]
         fm = _fotmob_for(current, fotmob_series, claimed_fotmob)
         if fm:
             fm_current = fm[-1]
             claimed_fotmob.add(int(fm_current["fotmob_id"]))
-            fm_signal, extra["fotmob"] = _fotmob_signal(fm, current)
-            if _stats_rank(fm_current) >= best_rank:
-                signal = fm_signal
-                best_rank = _stats_rank(fm_current)
-        # FLASHSCORE ÄR PRIMÄR KÄLLA (Samans beslut 2026-08-01, mätt samma
-        # dag: xG där FotMob bara hade skott eller ingenting, aldrig sämre).
-        # Den prövas SIST och vinner därför vid LIKA datakvalitet — men
-        # rankningen står över källordningen, så en match där FotMob har xG
-        # och Flashscore bara skott nedgraderas aldrig.
+            extra["fotmob"] = {
+                key: fm_current.get(key) for key in _FOTMOB_VIEW_KEYS}
+            candidates.append(("fotmob", fm))
         fs = _series_for(current, flashscore_series, "flashscore_id",
                          claimed_flashscore)
         if fs:
             fs_current = fs[-1]
             claimed_flashscore.add(str(fs_current["flashscore_id"]))
-            fs_signal, extra["flashscore"] = _flashscore_signal(fs, current)
-            if _stats_rank(fs_current) >= best_rank:
-                signal = fs_signal
+            extra["flashscore"] = {
+                key: fs_current.get(key) for key in _FLASHSCORE_VIEW_KEYS}
+            candidates.append(("flashscore", fs))
+
+        # Valet görs enbart på rapporterad fälttäckning och fast källprioritet.
+        # Signalen räknas FÖRST EFTER valet, så ett dramatiskt värde kan aldrig
+        # få en sämre provider att vinna.
+        source, chosen = _best_source(candidates)
+        if source == "flashscore":
+            signal, _ = _flashscore_signal(chosen, current)
+        elif source == "fotmob":
+            signal, _ = _fotmob_signal(chosen, current)
+        else:
+            signal = _sofascore_signal(chosen)
         matches.append({**current, **extra, "signal": signal,
                         "is_signal": signal["level"] in {"watch", "strong"}})
 
@@ -875,9 +1014,12 @@ def payload(store: Storage, *,
         if fs:
             fs_current = fs[-1]
             claimed_flashscore.add(str(fs_current["flashscore_id"]))
-            fs_signal, extra["flashscore"] = _flashscore_signal(fs, current)
-            if _stats_rank(fs_current) >= _stats_rank(current):
-                signal = fs_signal
+            extra["flashscore"] = {
+                key: fs_current.get(key) for key in _FLASHSCORE_VIEW_KEYS}
+            source, chosen = _best_source(
+                [("fotmob", fm), ("flashscore", fs)])
+            if source == "flashscore":
+                signal, _ = _flashscore_signal(chosen, current)
         matches.append({
             **current,
             "event_id": f"fotmob:{fotmob_id}",
@@ -933,10 +1075,31 @@ def payload(store: Storage, *,
     for row in hidden:
         league = row.get("league") or "?"
         hidden_leagues[league] = hidden_leagues.get(league, 0) + 1
+    live_health = [row for row in store.oddset_source_health()
+                   if row.get("scope") == "live" and
+                   row.get("source") in {"flashscore", "fotmob", "sofascore"}]
+    source_runs = {}
+    for source in ("flashscore", "fotmob", "sofascore"):
+        checked = [row.get("checked_at") for row in live_health
+                   if row.get("source") == source and row.get("checked_at")]
+        if checked:
+            source_runs[source] = max(checked)
+    # `last_run` betyder att hela källgruppen har kontrollerats, inte bara att
+    # den sist körda Sofascore-loopen är färsk. Minsta av varje källas senaste
+    # kontroll är den konservativa gemensamma vattenstämpeln.
+    if len(source_runs) == 3:
+        combined_last_run = min(source_runs.values())
+    else:
+        # En delkällas färska tid får inte se ut som att HELA radarn körts.
+        # De enskilda tiderna finns kvar i source_runs; gemensam watermark
+        # förblir okänd tills alla tre faktiskt har kontrollerats.
+        combined_last_run = None
     return {
         "version": RADAR_VERSION,
         "mode": "shadow",
-        "last_run": store.meta_get("live_radar_last_run"),
+        "last_run": combined_last_run,
+        "source_runs": source_runs,
+        "source_health": live_health,
         "matches": matches,
         "signal_count": sum(row["is_signal"] for row in matches),
         # inga tysta filter: antalet dolda och ur vilka ligor redovisas

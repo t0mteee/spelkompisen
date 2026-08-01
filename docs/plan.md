@@ -2,49 +2,63 @@
 
 ## STATUS-SAMMANFATTNING (2026-08-01 — läs detta först i ny session)
 
-> **Aktiv backlog och prioritering: `docs/backlog.md`** (2026-07-26).
+> **Aktiv backlog och prioritering: `docs/backlog.md`** (uppdaterad 2026-08-01).
 > WP-listan längre ned är historik över avslutat arbete.
 
-**FLASHSCORE INKÖRD FULLT UT (2026-08-01 sent, Samans beslut "kör in
-Flashscore totalt").** Head-to-head över 8 dygn: **noll** bekräftade fall där
-Sofascore har statistik och Flashscore saknar den; de två skenbara undantagen
-var datumgränsfall. Flashscore är dessutom bättre där det räknas — xG för
-Allsvenskan (10 av 10) där Sofascore ger 0, och Sofascores Allsvenskan-serie
-har dessutom stannat (0 av de 19 senaste mot 63 % historiskt). Ny
-`app/flashscore_data.py` fyller saknad xG på nyss avgjorda matcher och hämtar
-frånvarande spelare med orsak via Flashscores publika persisted query
-(hash observerad i deras egen trafik — inom källgränsen). Två hårda regler:
-ingen bakfyllning (bara dagsfeeds ~5 dygn bakåt trots att säsongsfeeds finns)
-och befintlig xG skrivs aldrig över (`oddset_fill_xg` har `xg_h IS NULL` i
-SQL:en). Proveniens: `source='sofa+fs'`, `source_event_id='fs:<id>'`.
-**Källordningen är Flashscore → FotMob → Sofascore i BÅDA lagren**
-(Samans beslut: "kör Flashscore primärt och ha Sofascore som alternativ 3").
-Live-radarn hade redan ordningen; modelldatan vändes 2026-08-01 så att
-Flashscore körs FÖRST i `refresh_all`. Ordningen räcker inte ensam — lagret
-är därför **första observationen vinner**: `oddset_save_result` behåller
-lagrad xG/hörnor och Sofascores frånvarohämtning hoppar över matcher med
-färsk `fs:`-capture. Utan båda skulle den som skriver SIST vinna.
-Första varvet med ny ordning: Flashscore 39 frånvaromatcher, Sofascore
-hoppade över 19 och fyllde 8 kvarvarande. 430 tester gröna, backup +
-rapport i `docs/db-atgarder.md`. Sofascore är kvar påslaget — inget är
-avstängt, den är tredjehandsval.
+**CODEX-HÄRDNING: REN LIVEKOHORT v4 (2026-08-01).** Flashscore, FotMob och
+Sofascore samlar var sin råserie, presence och source-health. Ett livekort får
+bara länkas mellan providers vid unik liga/lag/avsparksträff; starttid är
+obligatorisk, ungdoms-/prefixkrockar och tvetydighet faller stängt. En färsk
+olänkad serie står på egna ben. Alla kandidater måste vara högst 12 minuter
+gamla. Källvalet rankar **strukturell fälttäckning** — komplett xG-par,
+komplett proxygren, partiellt, inget — och aldrig signalvärdet; först vid lika
+vinner Flashscore, sedan FotMob, sedan Sofascore. Chansmåtten kommer alltid ur
+en enda provider. Endast saknad minut/ställning får lånas fältvis från en
+verifierad Sofascore-länk och API/UI redovisar exakt
+`minute_source`/`home_score_source`/`away_score_source` plus
+`stats_source`. `last_run` är gemensam vattenstämpel först när alla tre
+källor kontrollerats; annars visar UI det uttryckligen.
+Malformed 200-svar (`{}`/`leagues:null` hos FotMob eller Flashscore utan
+globalt `SA÷`-huvud) får inte tömma presence. Partiella detaljfel är aldrig
+gröna; de visas amber i UI medan fulla fel/saknade/gamla kontroller är röda.
 
-**FLASHSCORE ÄR RADARNS PRIMÄRA STATISTIKKÄLLA (2026-08-01, Samans beslut).**
-Saman såg att Chelsea–Tottenham saknade chansdata hos oss. Utredningen visade
-att varken FotMob (tomt stats-block, tom shotmap) eller Sofascore (bara
-innehav/hörnor/kort) hade siffror — men Flashscore hade full xG, xGOT, skott
-och stora chanser. Mätning över alla samtidiga livematcher: Flashscore hade
-xG där FotMob bara hade skott eller ingenting, aldrig sämre. Ny `app/
-flashscore.py` + egen tabell `oddset_live_flashscore`; källvalet rankar
-DATAKVALITET först och låter Flashscore vinna vid lika, så en match där
-FotMob har xG aldrig nedgraderas. Signalversionen bumpad till
-`chance-gap-shadow-v3` (trösklarna oförändrade — men kohortens
-datagenererande process ändras av en ny källa). Provider-id är nu
-ogenomskinlig sträng överallt (Flashscores är alfanumeriskt); `provider_
-event_id` byggd om till TEXT med bevarade rader. 412 tester gröna, migration
-med backup + reparerad FK-incident (se `docs/db-atgarder.md`), verifierat i
-browser: Flashscore bär två av tre livekort och Östersund–Öster gick från
-dold till synlig. Metod: `docs/live-radar-2026-07-25.md`.
+Den korta v3-perioden **2026-08-01 08:00–21:00Z är en ogiltig historisk
+pilot**: den hade inte dagens sammanhängande färskhets-, identitets-,
+presence- och koherenskontrakt och får aldrig användas som stöd. Ren kohort är
+`chance-gap-shadow-v4` från exakt **2026-08-01T21:00:00Z**. v2, v3 och v4
+settlas efter capturetid och redovisas var för sig. Flashscore och FotMob har
+nya råformat `flashscore-live-v2` respektive `fotmob-live-v2`: resultat och
+stats måste vara koherenta inom 20/15 sekunder, annars omhämtas hela listan
+eller capturen hoppas över. Lyckad tom providerlista avslutar presence;
+transport-/parsefel gör det aldrig. Provider-id är ogenomskinlig TEXT hela
+vägen, inklusive momentsettlementets `event_id`; säker migration + backup:
+`scripts/migrera_radar_event_id_text.py`. Metod och driftbevis:
+`docs/live-radar-2026-07-25.md` och den aktuella överlämningen.
+
+**MODELLDATA v4 + V2.2-MANIFEST v4 (2026-08-01).** Resultatidentiteten i
+`oddset_results.source` är nu skild från statistikproveniensen; `+fs` används
+inte längre. En komplett football-data-rad vinner atomiskt som normaltidsfacit
+(källa, råa namn och båda målen). Flashscore och Sofascore skriver parallella
+rader i `oddset_result_stats`. Läsningen väljer ett helt xG-par och ett helt
+hörnpar separat med explicit provider/event-id/observationstid — aldrig
+fältvis providerblandning. Frånvarocaptures har provider i primärnyckeln,
+status `observed`/`unavailable` och namespacade spelar-id:n; lyckat tomt svar
+är observation, transportfel är inte `unavailable`. Resultatskelettet hämtas
+före providerstatistiken och Flashscore-matchning kräver unik exakt
+providerstart + slutresultat. `MODEL_DATA_VERSION=4`. Manifest v3 från 21:00Z
+hann få 0 captures innan slutgranskningen upptäckte att matarligornas alias i
+`FIT_POOLS` inte ingick i featurefingeravtrycket. Det lämnades oförändrat som
+historik. V2.2 börjar därför rent 2026-08-01T21:20Z under
+`docs/model-v2.2-multileague-forward-manifest-v4.json`, där både huvud- och
+matarligor fingeravtrycks. Äldre manifest/shadowversioner blandas aldrig in.
+
+**FACITETSIDENTITET HÄRDAD (2026-08-01).** Momentsettlement läser alla gamla
+captureformat men grupperar per provider × event-id × capture-version och
+stämplar radarversion från observationstiden. Signalledgern behåller exakt
+lånad minut/ställning som signalen faktiskt räknades på. Close-drift v1/v2
+väljer en exakt `signal_version` (default aktuell sharp-version); både
+minnesnycklar och linjeflyttsjoin innehåller versionen, så historiska och
+aktuella modeller kan inte korsblandas.
 
 **SIGNALJOURNALEN GRANSKAD OCH HÄRDAD (2026-08-01, Fable 5).**
 Multi-agent-granskning av 38a45ff gav 17 verifierade fynd — alla åtgärdade
@@ -119,10 +133,11 @@ backtesten fångade att veckodag förlorar stort för dagliga produkter
 (topptipset 173 % mot 43 %); blandad median väljs då automatiskt. 351 tester gröna. OBS: test_book_cdn_age är
 nätverksflaky (Smarkets-anrop i collect — fix-chip skapad).
 
-**EUROPACUPERNA INLAGDA (LIGA 8–10) + FOTMOB PRIMÄR LIVEKÄLLA (2026-07-28,
-Fable 5, Samans beställningar).** (1) **FotMob är radarns primära källa**
-(Sofascore reserv — bär signalen bara med strikt bättre statistik; körs
-efter FotMob i `_live_pass`, båda med eget skyddsnät). FotMob täcker nu
+**HISTORISK MILSTOLPE FÖRE v4: EUROPACUPERNA INLAGDA (LIGA 8–10) + FOTMOB
+INKOPPLAD LIVE (2026-07-28, Fable 5, Samans beställningar).** (1) FotMob var
+då radarns första livekälla med Sofascore som reserv. Detta källval är
+**ersatt** av v4:s tre separata serier och strukturella täckningsrankning;
+avsnittet beskriver bara vad som levererades den dagen. FotMob täcker nu
 även Oddset-spärrade friendlies via DELADE `live_radar.known_friendly`
 (spegling 1↔2 — odds- och statskällor är oense om hemmalag på turnématcher,
 Chelsea–WSW-fallet — plus `_same_team` i stället för exakt likhet: FotMob
@@ -370,8 +385,9 @@ Pinnacle-trafik, budgetmatten håller). Verifierat i övrigt: 278 tester gröna,
 frontendbygge grönt, frysta manifest orörda, launchd + API friska, PH3 har nu
 30/42 settlade system (auditens blockerare släppt). Dokumentstädning:
 `docs/backlog.md` är enda aktiva backloggen (UTKAST tills Saman godkänt),
-`forbattringar.md` arkiv, källtabellen/portar rättade (FotMob i drift,
-Flashscore avförd), kallplanens tvåankarkrav pekar på den förregistrerade
+`forbattringar.md` arkiv. Den dåvarande källdomen (FotMob i drift,
+Flashscore avförd) **ersattes 2026-08-01** när den publika pipe-feeden
+verifierades och infördes; kallplanens tvåankarkrav pekar på den förregistrerade
 regeln i `tva-ankare-2026-07-25.md`.
 
 **ALTENAR SYNLIG + SPELBAR VÄRDEKÄLLA (2026-07-26, Codex).** `+ Fler odds`
@@ -505,16 +521,20 @@ för Hoffenheim och Bologna — providerna täcker inte försäsong), 4 av 56 ha
 chansinformation; taket är inte begränsningen, datan är.
 Källsvar: Betsson 403 på events-table i HELA koncernen (betsson.com/betsafe/
 nordicbet; `.se` omdirigerar bara till `.com/sv`) — inget Saman kan göra utan att
-exportera WAF-session. Flashscore 401 = avsiktlig grind och ger inget FotMob inte
-redan ger ⇒ skippas. Opta gratis = renderade visualiseringar, feeds kräver betald
-outlet-nyckel. Detaljer: `docs/live-kallor-2026-07-25.md`.
+exportera WAF-session. Den dåvarande Flashscore-domen (401 och inget mervärde)
+**upphävdes 2026-08-01** när en publik pipe-feed med statisk publik
+headerkonstant verifierades; se v4-statusen överst. Opta gratis = renderade
+visualiseringar, feeds kräver betald outlet-nyckel. Detaljer om det historiska
+försöket: `docs/live-kallor-2026-07-25.md`.
 
-**FOTMOB SOM ANDRA LIVE-ÖGA (2026-07-25 eftermiddag, Opus 5).** Radarn var blind
+**HISTORISK MILSTOLPE: FOTMOB SOM ANDRA LIVE-ÖGA (2026-07-25 eftermiddag,
+Opus 5).** Radarn var blind
 just där vi spelar mest — Sofascore saknar xG helt för Allsvenskan, och den rena
 skottproxyn har ett negativt facit. Recon av sju källor: FotMob ger live-xG, xGOT
 och open/set-play för Allsvenskan OCH Eliteserien; ESPN ger skott/possession utan xG
-(reserv); Flashscore svarar 401 utan privat `x-fsign` och Opta har ingen gratisväg —
-båda skippas, gränsen mot anti-bot står kvar. `app/fotmob.py` + tabellen
+(reserv). Flashscore-bedömningen i detta daterade recon var fel och ersattes
+2026-08-01 av den verifierade publika pipe-feeden; Opta har fortfarande ingen
+gratisväg. `app/fotmob.py` + tabellen
 `oddset_live_fotmob` + steg i `cli.py live-tick`. Verifierat live: Degerfors–Djurgården
 65' fick xG 0,73–1,45 (Sofascore: tomt) och gick från "xG saknas · proxy" till
 GRANSKA LIVE; på Eliteserien där båda källorna har xG är de **identiska** (0,36–0,08).
@@ -1352,14 +1372,16 @@ Oddset-flik (platshållare), detta dokument, CLAUDE.md omskriven.
   scoreboard + `/summary` med skott/hörnor/possession), football-data.co.uk (SWE.csv,
   NOR.csv — resultat + historiska odds, perfekt backtest-facit), ClubElo (klubbstyrkor,
   täcker nordiska ligor).
-- ~~Undersök fler källor~~ GJORT 2026-07-12 (se Prober): **Sofascore = xG-källan**
-  (Playwright-hämtare); Flashscore/FBref/FotMob/football-data.org skippas (detaljer i
-  källtabellen); allsvenskan.se kvar som lågprio-spår.
+- ~~Undersök fler källor~~ GJORT 2026-07-12 (se Prober): Sofascore valdes då
+  som ensam xG-källa. **Det beslutet är historiskt:** FotMob kopplades in
+  2026-07-25 och Flashscore 2026-08-01; modelldata v4 lagrar providers
+  parallellt. FBref/football-data.org är fortsatt avförda.
 - Modell: xG-viktad Poisson-styrkefit per liga med DC-korrektion i prediktionen
   (vm:s `model.py` som bas; rho refittas för klubbfotboll,
   vm fann −0.04 landslag vs litteraturens −0.13 klubbar), hemmafördel per liga,
-  ClubElo som prior/korsreferens. **xG från Sofascore** som primär offensiv-/defensiv-
-  styrkesignal; ESPN-skottdata som fallback-proxy.
+  ClubElo som prior/korsreferens. Ursprungligen kom xG bara från Sofascore;
+  aktuellt v4-kontrakt väljer ett komplett providerpar enligt fryst prioritet
+  och redovisar proveniensen. ESPN-skottdata är fallback-proxy.
 - μ kalibreras mot devigad sharp ÖU-linje där Pinnacle finns (linje ≈ median, inte medel).
 - Output: modell-tips som AMBER-tier (bakom toggle, UR CLV) tills backtest (Etapp 5)
   visar att de håller. Sharp-ankrade tips förblir enda gröna.
@@ -1412,9 +1434,9 @@ Oddset-flik (platshållare), detta dokument, CLAUDE.md omskriven.
 | ClubElo | klubbstyrkor, gratis API | ✅ verifierad 2026-07-12 — `api.clubelo.com/Hammarby` ger full historik; vm har `elo.py` |
 | Google News RSS | nyheter per lag | ✅ beprövad (vm) |
 | X syndication | klubbkontons flöden | ✅ beprövad (vm), 429-känslig |
-| **Sofascore (browser-TLS)** | **xG (!), hörnor, 43 statfält/match** för Allsvenskan & Eliteserien + live-radarns chansdata | ✅ i drift — `curl_cffi impersonate` ersatte Playwright-planen (Etapp 3). OBS: xG saknas helt för Allsvenskan i live-läge. |
-| **FotMob** | live-xG/xGOT/open-set-play — ANDRA live-ögat där Sofascore saknar xG | ✅ i drift 2026-07-25 (`app/fotmob.py`, egen tabell — xG blandas aldrig mellan providers). Gamla "skippa"-domen från 2026-07-12 upphävd. |
-| Flashscore | live/odds/lineups (inofficiellt) | ⛔ omtestad 2026-07-25: 401 utan privat `x-fsign` = avsiktlig grind, och ger inget FotMob inte redan ger — skippas (källgränsen) |
+| **Sofascore (browser-TLS)** | xG/hörnor/resultat/frånvaro + livechansdata | ✅ i drift via `curl_cffi`; egen livecapture, presence och source-health. Modelldata samlas parallellt med Flashscore; resultat-only-ligor använder normaltidsresultat. OBS: live-xG saknas ofta i Allsvenskan. |
+| **FotMob** | live-xG/xGOT/open-play-xG/skott | ✅ i drift med `fotmob-live-v2`; egen tabell/presence/health, koherent ställning+stats och fristående kort vid unik identitet. Ingen providerblandning. |
+| **Flashscore** | live-xG/xGOT/skott/stora chanser/hörnor + avslutad xG/hörnor/frånvaro | ✅ i drift med publik pipe-feed/persisted query inom källgränsen; `flashscore-live-v2`, egen tabell/presence/health och parallella providerobservationer i modelldata v4. Ingen säsongsbakfyllning. |
 | allsvenskan.se / eliteserien.no | officiell statistik | 🟡 WordPress med wp-json — undersök vid behov, låg prio |
 | FBref (browser-kontext) | tabeller/grundstats | 🟡 browser passerar Cloudflare (verifierat) men INGEN xG för Allsvenskan (22 tabeller kollade) — lågt värde, skippa |
 | Blockerade (omtestade 2026-07-12; FotMob senare LÖST, se egen rad) | football-data.org (Allsvenskan i katalogen men datat kräver betald tier), Opta-webben (Akamai; gratisvägen = renderade bilder, feeds kräver betald outlet-nyckel — omkollat 2026-07-25) | ⛔ |
@@ -1463,10 +1485,13 @@ Oddset-flik (platshållare), detta dokument, CLAUDE.md omskriven.
   vecka totalt — snällt tempo, paca anropen).
 - **FBref**: curl 403, browser passerar Cloudflare — men INGEN xG för Allsvenskan
   (alla 22 tabeller sakna xG-kolumner). Skippa.
-- **FotMob**: gamla `/api/leagues` är borta (404, HTML tillbaka) — nutida API kräver
-  signerad `x-mas`-header. Skippa (Sofascore täcker behovet).
+- **FotMob, historisk rekognosering:** gamla `/api/leagues` var borta (404),
+  men slutsatsen att källan skulle skippas upphävdes 2026-07-25. Den nutida
+  publika vägen används i `app/fotmob.py`; aktuellt capturekontrakt är v2.
 - **Flashscore**: `d.flashscore.com/x/feed/...` svarar 200 med header `x-fsign: SW9D1eZo`
-  — åtkomsten finns men feed-formatet är odokumenterat teckenprotokoll. Nedprioriterad.
+  — åtkomsten finns och feed-formatet är odokumenterat teckenprotokoll. Det
+  parseras nu i `app/flashscore.py`/`flashscore_data.py` med fail-closed-
+  koherensvakter; källan är i drift sedan 2026-08-01.
 - **football-data.org**: `/v4/competitions` listar Allsvenskan (188 ligor, utan token) men
   match-datat svarar "check your subscription" — gratis-tiern täcker inte våra ligor. Skippa.
 

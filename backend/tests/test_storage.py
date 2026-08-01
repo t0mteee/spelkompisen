@@ -143,7 +143,7 @@ class OddsetAbsenceSnapshotTests(unittest.TestCase):
         self.assertFalse(latest["confirmed"])
         self.assertEqual("15171583", latest["source_event_id"])
         self.assertEqual([], latest["home"])
-        self.assertEqual(794516, latest["away"][0]["player_id"])
+        self.assertEqual("sofa:794516", latest["away"][0]["player_id"])
         self.assertEqual("G", latest["away"][0]["position"])
         self.assertEqual(13, latest["away"][0]["reason_code"])
 
@@ -192,6 +192,45 @@ class OddsetAbsenceSnapshotTests(unittest.TestCase):
 
         self.assertEqual(0, self.store.conn.execute(
             "SELECT COUNT(*) FROM oddset_absence_capture").fetchone()[0])
+
+    def test_sources_are_collected_and_freshest_unconfirmed_capture_is_displayed(self) -> None:
+        base = {"match_id": "m1", "match_start": None, "confirmed": False}
+        self.store.oddset_save_absence_capture({
+            **base, "captured_at": "2026-07-16T12:00:00Z",
+            "provider": "flashscore", "status": "observed",
+            "source_event_id": "fs:A", "payload_hash": "fs",
+        }, [{"side": "home", "player_id": "fs:X", "name": "Tunn"}])
+        self.store.oddset_save_absence_capture({
+            **base, "captured_at": "2026-07-16T11:59:00Z",
+            "provider": "sofascore", "status": "observed",
+            "source_event_id": "7", "payload_hash": "sofa",
+        }, [{"side": "home", "player_id": 7, "name": "Rik",
+             "position": "F", "apps": 18, "rating": 7.1}])
+
+        selected = self.store.oddset_latest_absences(["m1"])["m1"]
+        self.assertEqual("flashscore", selected["provider"])
+        self.assertEqual("Tunn", selected["home"][0]["name"])
+        self.assertEqual("fs:X", selected["home"][0]["player_id"])
+
+    def test_same_second_provider_captures_never_mix_players(self) -> None:
+        base = {
+            "match_id": "m1", "captured_at": "2026-07-16T12:00:00Z",
+            "match_start": None, "confirmed": False, "status": "observed",
+        }
+        self.store.oddset_save_absence_capture({
+            **base, "provider": "flashscore", "source_event_id": "fs:A",
+            "payload_hash": "fs",
+        }, [{"side": "home", "player_id": "fs:X", "name": "Flash"}])
+        self.store.oddset_save_absence_capture({
+            **base, "provider": "sofascore", "source_event_id": "7",
+            "payload_hash": "sofa",
+        }, [{"side": "away", "player_id": 7, "name": "Sofa"}])
+
+        selected = self.store.oddset_latest_absences(["m1"])["m1"]
+        self.assertEqual("sofascore", selected["provider"])
+        self.assertEqual([], selected["home"])
+        self.assertEqual(["Sofa"], [p["name"] for p in selected["away"]])
+        self.assertEqual(2, len(self.store.oddset_absence_history("m1")))
 
 
 class OddsetEloHistoryTests(unittest.TestCase):

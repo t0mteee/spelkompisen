@@ -1,6 +1,6 @@
 # Backlog — aktuell prioritering
 
-**Skapad 2026-07-26, omprioriterad 2026-07-28 (Fable 5) — aktiv arbetslista
+**Skapad 2026-07-26, hardening-status uppdaterad 2026-08-01 — aktiv arbetslista
 i "MODELLPLAN" längst ned; arbetsordningen där kräver Samans godkännande.**
 Detta är projektets enda aktiva backlog. `docs/forbattringar.md` är arkiv (svs-ärvda lärdomar + bokkälls-
 kartläggningen), WP-listan i `docs/plan.md` är historik över avslutat arbete.
@@ -9,29 +9,54 @@ Metodreglerna i `CLAUDE.md` (observationstid, ANKARE ≠ BOK, transportregeln,
 signalversions-disciplin, källgränsen) gäller varje punkt nedan och upprepas
 inte per rad.
 
+## Hardening 2026-08-01 — levererat och driftverifierat
+
+- **Live v4:** `chance-gap-shadow-v4` börjar rent 21:00Z. v3-fönstret
+  08:00–21:00Z är ogiltig historisk pilot och får aldrig ge stöd. Tre separata
+  provider-serier/presence/health, ≤12 min färskhet, unik start-/lagidentitet,
+  strukturell täckningsrankning och exakt minut-/ställnings-/statsproveniens.
+  Flashscore/FotMob har capture v2 och score/stats-koherensvakter. Malformed
+  tomma svar kan inte tömma presence och partiella detaljfel visas aldrig
+  gröna.
+- **Livefacit:** provider-id är TEXT, äldre råformat settlas men hålls isär
+  och versionen bestäms av capturetid. Momentfacitet använder råproviderns
+  egen klocka/ställning; signaljournalens facit behåller exakt den eventuellt
+  lånade minut/ställning som användes i den synliga signalen. Close-drift
+  väljer och joinar en exakt sharp-version.
+- **Modelldata v4:** resultatskelett och providerstatistik är separata;
+  football-data vinner atomiskt som normaltidsfacit, xG/hörnor väljs som två
+  separata hela providerpar och frånvaro lagras per provider/status med
+  namespacade spelar-id:n. V2.2 samlar under manifest v4 från 21:20Z; v3 fick
+  0 captures och ersattes när matarligornas alias saknades i fingeravtrycket.
+- **Drift:** säkra migrationsskript tog egna backuper och validerade radantal,
+  schema, FK och integritet. Exakta produktionsantal finns i
+  `docs/db-atgarder.md` och den aktuella överlämningen.
+
 ## A. Pågående mätningar — avgör sig själva, rör inte
 
 Dessa kräver inget bygge, bara att serierna växer och utvärderas på sin
 förregistrerade kadens. Att "hjälpa" dem i förtid är samma fel som sekventiell
 testning.
 
-| Mätning | Läge 2026-07-26 | Beslutspunkt |
+| Mätning | Läge 2026-08-01 | Beslutspunkt |
 |---|---|---|
 | **Två ankare** (Pinnacle vs Smarkets, skugga) | 13 mätta, 9 mätta+stängda efter identitetssanering; ankarkrav behåller 3/9 | n ≥ 50 mätta+stängda 1X2 i primärgruppen, veckokadens — regel i `docs/tva-ankare-2026-07-25.md` (~7 dygn vid nuvarande takt) |
-| **Modell mot close** `m-c4ee7c5d` | ny aktiv version, 0 cases tills nästa capturefönster; `m-3c7789ac` historisk efter DATA_VERSION 3 | grind i `docs/modell-mot-close-2026-07-25.md`; äldre versioner blandas aldrig över identitetsfixen |
-| **Hörnbaslinje** `m-c4ee7c5d:corner-poisson-total-v1` | ny aktiv version, fryser från nästa horisont | samma close-grind, sist i ordningen (Samans ordning 2026-07-25) |
+| **Modell mot close** (aktuell `model_version`) | modelldata v4 nollställer den jämförbara serien; exakta versions-id:n tas ur ledgern | grind i `docs/modell-mot-close-2026-07-25.md`; close-scriptet väljer exakt aktuell version och historik blandas aldrig |
+| **Hörnbaslinje** (aktuell modell + `corner-poisson-total-v1`) | börjar om under modelldata v4; hörnprovider redovisas separat från xG | samma close-grind, sist i ordningen (Samans ordning 2026-07-25) |
 | **pit-v4 forward** (`pool-streckmove-v3`) | 4 omgångar | ≥ 40 out-of-time-omgångar per produkt med hela KI90 < 0 |
 | **Sharp-CLV-facitet** | historiskt aggregat +2,3 % [1,1..3,4], 272 stängda efter sanering; ny aktiv `s-95e14fca` börjar från nästa capture | veckokadens (`EVAL_INTERVAL_H`), aldrig per varv; grönt beslutas per liga × marknad × version |
-| **V2.2 flerliga-shadow** | samlar | träningsgate 300 kompletta avgjorda/horisont, ≥ 50/liga, ≥ 42 dagar |
-| **Live-radar + FotMob** (shadow) | råmoment samlar sedan 2026-07-25; beslutssignaler med live-Ö/U sedan 2026-07-31 | prediktiv lyft: separat momentgate; blind Över-ROI: första aktiva signal/match, ≥200 oddssatta+avgjorda, ≥60 dagar och undre KI90 > 0 — `docs/live-radar-2026-07-25.md` |
+| **V2.2 flerliga-shadow v4** | ren samling från 2026-08-01T21:20Z under manifest v4; v1/v2 historik och v3 0 captures | träningsgate 300 kompletta avgjorda/horisont, ≥ 50/liga, ≥ 42 dagar |
+| **Live-radar tre källor v4** (shadow) | ren kohort från 2026-08-01T21:00Z; v3 är ogiltig pilot, v2/v3 endast historik | prediktiv lyft: separat momentgate; blind Över-ROI: första aktiva signal/match, ≥200 oddssatta+avgjorda, ≥60 dagar och undre KI90 > 0 — `docs/live-radar-2026-07-25.md` |
 
 ## B. Fixar ur granskningen 2026-07-26 — ✅ GENOMFÖRDA samma dag (godkända)
 
 Alla fem åtgärdade + en driftbugg (F5c) hittad under arbetet: capture-
 valideringen krävde `finished` och hade fällt hela WP9c-insamlingen från
 ~16:26 när TTL:n släppte — fångad innan dess, rotationsriskdatat flödar nu
-för första gången. wp9c-POLICY schema 4 → f22-bump → nytt V2.2-manifest v2
-enligt dess egen change_policy. 292 tester gröna (14 nya regressionsfall).
+för första gången. wp9c-POLICY schema 4 → f22-bump → dåvarande V2.2-manifest
+v2 enligt dess egen change_policy (ersatt av manifest v3 och därefter v4
+2026-08-01).
+292 tester gröna (14 nya regressionsfall).
 Detaljer: `docs/db-atgarder.md` (2026-07-26) + STATUS i plan.md.
 
 - **F1 — Bok-ÖU-spökpris** *(litet)*: `oddset.py` ~608 saknar else-gren; när
@@ -123,6 +148,10 @@ Ordnade efter mitt förslag, inte beslutade.
    utforskande. FÖRE tips krävs: forward-replikering + pris-EV-storlek +
    vanliga trappan. Egen-modell-spåret fortsätter bara i sina gated banor
    (V2.2, hörnbaslinjen).
+   **Hardening 2026-08-01:** både v1/v2-scriptet väljer en exakt
+   `signal_version` (default aktuell sharp-version). Nycklar och
+   linjeflyttsjoin innehåller versionen, så en ny modellversion aldrig kan
+   paras med en historisk rad.
    Förregistrerad nästa körning: avgör om 13-matchs-underkännandet är
    budgetberoende (→ täthets-varning i byggar-UI:t) eller strukturellt
    (→ ärlig text: värderad-metoden är fel verktyg för Stryk/Europa).
@@ -210,9 +239,10 @@ Ordnade efter mitt förslag, inte beslutade.
 - **Betsson** — header-löst men events-table är CloudFront-403 utanför browser;
   ingen session-replay (källgränsen). Omprövas bara om en cookie-fri väg dyker upp.
 - **Coolbet** (Imperva), **bet365/Betano** (botskydd) — stängda enligt källgränsen.
-- **Flashscore** — 401 är en avsiktlig grind och innehållet ger inget FotMob
-  inte redan ger (mätt 2026-07-25). **Opta** — gratisvägen är renderade bilder,
-  feeds kräver betald outlet-nyckel.
+- **Flashscore är INTE parkerad längre** — 2026-07-25-domen upphävdes när en
+  publik pipe-feed/persisted query verifierades. Källan är i drift för live
+  och framåtriktad modelldata sedan 2026-08-01. **Opta** är fortsatt avfört:
+  gratisvägen är renderade bilder, feeds kräver betald outlet-nyckel.
 - **Fler Kambi-/Altenar-skins** — samma prisfeed, noll ny information
   (uppmätt 2026-07-24). Expekt kvar bara som diff-visning.
 - **X-bias-korrigering** — backtest v4 (2026-07-16): ingen X-korrigering. Avfört.
@@ -312,8 +342,9 @@ beslut. Uppskattade beslutsdatum:
 
 - **NTFY-återaktivering** (Samans D-punkt): utan pushar tävlar close-drift-
   och steamfynden aldrig i latens. Rekommenderas ihop med Spår 1.2-beslutet.
-- **Nästa V2.2-omfrysning**: ta in Island OCH ev. cuperna i SOFA_UT/xG/
-  frånvaro i EN omfrysning (inte tre). Kräver nytt fryst manifest.
+- **Nästa V2.2-omfrysning efter manifest v4**: låt först v4 samla orört.
+  Ta senare in Island OCH ev. cuperna i SOFA_UT/xG/frånvaro i EN framtida
+  omfrysning (inte tre); det kräver ett nytt manifest och ny shadow-version.
 - **Rotationsrisk/frånvaro som flaggfilter**: wp9c-serien flödar sedan
   26/7 (F5c) — förregistrera filterfrågan när serien har ~6 veckors volym
   (≈ början av september).

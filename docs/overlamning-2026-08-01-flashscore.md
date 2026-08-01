@@ -1,7 +1,10 @@
 # Överlämning 2026-08-01 — Flashscore inkörd + signaljournalen härdad
 
-Aktuell överlämning. Läs STATUS-blocket i `docs/plan.md` först; det här
-dokumentet är detaljerna och de öppna trådarna.
+> **ERSATT SAMMA DAG.** Detta dokument beskriver den första Flashscore-piloten
+> och behålls endast som historik. v3, den gamla källordningen och
+> “första observationen vinner” får inte användas som aktuella instruktioner.
+> Läs `docs/overlamning-2026-08-01-codex-hardening.md` och STATUS-blocket i
+> `docs/plan.md` i stället.
 
 ## Vad som hände (fyra leveranser)
 
@@ -25,7 +28,7 @@ alla åtgärdade samma dag medan lagret bara hade en rad.
 Fixarna verifierades adversariellt av tre oberoende skeptiker som **fällde och
 skärpte tre av dem**. Full rapport: `docs/granskning-codex-38a45ff-2026-08-01.md`.
 
-### 2. Flashscore som live-radarns primära källa (`5e69c84`)
+### 2. Historisk pilot: Flashscore som första livekälla (`5e69c84`)
 
 Saman upptäckte att Chelsea–Tottenham saknade chansdata. Varken FotMob (tomt
 stats-block, tom shotmap) eller Sofascore (bara innehav/hörnor/kort) hade
@@ -35,7 +38,8 @@ Ny `app/flashscore.py` med egen klient, egen tabell och egen härledd klocka
 (stadiets starttid, validerad mot FotMob; okänt stadium ⇒ ingen minut).
 **Källvalet rankar DATAKVALITET först** (xG > skott > inget) och låter
 Flashscore vinna vid lika, så en match där FotMob har xG nedgraderas aldrig.
-Signalversion bumpad till `chance-gap-shadow-v3`.
+Piloten stämplades `chance-gap-shadow-v3`; versionen är numera ogiltig
+historik och ersatt av v4 från 21:00Z.
 
 ### 3. Flashscore som modelldatakälla (`a6287fd`)
 
@@ -47,7 +51,7 @@ Ny `app/flashscore_data.py` fyller saknad xG och hämtar frånvarande spelare
 med orsak via Flashscores publika persisted query (hash observerad i deras
 egen trafik — inom källgränsen).
 
-### 4. Källordning: Flashscore primär, Sofascore alternativ 3 (`440bb64`)
+### 4. Historisk källordning, ersatt av providerlagret v4 (`440bb64`)
 
 Ordningen ensam räckte inte — den som skrev sist vann. Två spärrar gör
 prioriteringen verklig: `oddset_save_result` är nu **första observationen
@@ -79,16 +83,16 @@ med färsk `fs:`-capture.
    allt Sofascore gav, är molnspåret mindre blockerat än tidigare, men
    frånvaro och cupresultat skulle behöva verifieras först. Pi-spåret hemma
    står kvar som enkla alternativet.
-3. **Signaljournalen samlar och v3 har redan börjat producera** — vid
-   överlämningen 8 signaler i 8 matcher, varav 3 oddssatta och avgjorda.
-   Blindgaten står alltså på 3/200 och 0/60 dagar, status `collecting`.
-   v2:s två rader är historik och blandas aldrig med v3.
+3. **v3 hann producera pilotdata** — vid den dåvarande överlämningen 8
+   signaler i 8 matcher, varav 3 oddssatta och avgjorda. De är nu ogiltig
+   historik och får inte räknas mot blindgaten. Ren gate börjar med v4 från
+   21:00Z.
 4. **Flashscores säsongsfeeds finns** (`tr_1_181_<tid>_185_<sida>_2_sv_1` på
    `23.flashscore.ninja`) och når hela säsongen med full xG. De används
    MEDVETET inte — historik ska samlas framåt, inte bakfyllas. Om du någon
    gång vill bygga historik måste det förregistreras som ett eget experiment.
 
-## Nästa säkra arbete
+## Då föreslaget arbete — ersatt av nya överlämningen
 
 * Låt serierna växa. Kontrollera veckovis: signaljournalens statusfördelning
   (`suspended`/`not_offered`/`source_error`), Flashscores xG-fyllnadsgrad och

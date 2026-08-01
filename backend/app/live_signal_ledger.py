@@ -348,6 +348,34 @@ def _over_profit(total_goals: int, line: Optional[float],
     return label, round(profit, 4)
 
 
+def _journal_moment(signal: dict, raw_moment: dict) -> dict:
+    """Återskapa exakt den minut/ställning som signalraden bokförde.
+
+    En FotMob-/Flashscore-signal kan ha lånat saknad minut eller ställning från
+    sitt verifierade Sofascore-kort. Råproviderns capture är fortfarande rätt
+    serie för framtida observationer, men den är då INTE signalögonblickets
+    faktiska bas. Journalen är det append-only beslutskvitto användaren såg och
+    dess tre fält måste därför vinna även när värdet är NULL (ärlig censur).
+    """
+    moment = dict(raw_moment)
+    for field in ("minute", "home_score", "away_score"):
+        moment[field] = signal.get(field)
+    return moment
+
+
+def _later_after_decision(signal: dict, later: list[dict]) -> list[dict]:
+    """Ignorera providerpunkter som föregår ett lånat klockögonblick.
+
+    Statistikcapturen kan vara några sekunder äldre än den Sofascore-klocka
+    journalen lånade. En capture mellan dessa tider är inte en observation
+    *efter* signalbasen och får inte avgöra utfallet.
+    """
+    observed = _at(signal["captured_at"])
+    if signal.get("clock_observed_at"):
+        observed = max(observed, _at(signal["clock_observed_at"]))
+    return [row for row in later if _at(row["captured_at"]) > observed]
+
+
 def settle_signals(store: Storage, *,
                    now: Optional[dt.datetime] = None) -> dict:
     """Settla öppna signaler mot observerat slutresultat, append-once."""
@@ -381,7 +409,8 @@ def settle_signals(store: Storage, *,
         except StopIteration:
             report["ambiguous_or_invalid"] += 1
             continue
-        moment, later = series[index], series[index + 1:]
+        moment = _journal_moment(signal, series[index])
+        later = _later_after_decision(signal, series[index + 1:])
         final = {**moment, "minute": 90, "status": "Ended",
                  "home_score": home_final, "away_score": away_final}
         outcome_a, censor_a = live_settlement._outcome_within_window(
@@ -455,8 +484,8 @@ def _summary(rows: list[dict]) -> dict:
     }
 
 
-def facit(store: Storage, limit: int = 200) -> dict:
-    rows = store.live_signal_facit_rows()
+def _version_facit(rows: list[dict]) -> dict:
+    """Blindgate och nivågrupper för exakt en, redan filtrerad version."""
     first_by_match: dict[str, dict] = {}
     for row in rows:
         first_by_match.setdefault(row["match_key"], row)
@@ -483,9 +512,30 @@ def facit(store: Storage, limit: int = 200) -> dict:
         groups.append({"signal_type": kind, "signal_level": level,
                        **_summary(selected)})
     return {
-        "mode": "shadow", "signal_version": live_radar.RADAR_VERSION,
         "forward_only_since": rows[0]["captured_at"] if rows else None,
+        "last_captured_at": rows[-1]["captured_at"] if rows else None,
         "blind_gate": blind_gate, "groups": groups,
+    }
+
+
+def facit(store: Storage, limit: int = 200) -> dict:
+    """Aktuell blindkohort, med äldre signalversioner tydligt separerade."""
+    all_rows = store.live_signal_facit_rows()
+    current = live_radar.RADAR_VERSION
+    rows = [row for row in all_rows if row["signal_version"] == current]
+    old_versions = sorted({row["signal_version"] for row in all_rows
+                           if row["signal_version"] != current})
+    historical = [
+        {"signal_version": version,
+         **_version_facit([row for row in all_rows
+                           if row["signal_version"] == version])}
+        for version in old_versions
+    ]
+    return {
+        "mode": "shadow", "signal_version": current,
+        "all_versions_n_signals": len(all_rows),
+        **_version_facit(rows),
+        "historical_versions": historical,
         "rows": list(reversed(rows[-max(1, int(limit)):])),
         "thresholds": {
             "xg_watch": {

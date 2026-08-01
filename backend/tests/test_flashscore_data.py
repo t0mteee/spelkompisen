@@ -45,6 +45,18 @@ class ParseAbsenceTests(unittest.TestCase):
                 {"type": {"side": "HOME"}, "lineup": None}]}}}))
         self.assertEqual([], flashscore.parse_absences({}))
 
+    def test_observation_distinguishes_valid_empty_from_unavailable(self):
+        valid_empty = {"data": {"findEventById": {"eventParticipants": [
+            {"type": {"side": "HOME"}, "lineup": {"missingPlayers": []}},
+            {"type": {"side": "AWAY"}, "lineup": {"missingPlayers": []}},
+        ]}}}
+        self.assertEqual("observed", flashscore.parse_absence_observation(
+            valid_empty)["status"])
+        self.assertEqual([], flashscore.parse_absence_observation(
+            valid_empty)["players"])
+        self.assertEqual("unavailable", flashscore.parse_absence_observation(
+            {"data": {"findEventById": {"eventParticipants": []}}})["status"])
+
 
 class TeamMatchTests(unittest.TestCase):
     def test_prefix_rule_links_known_spellings(self):
@@ -92,12 +104,19 @@ class RefreshXgTests(unittest.TestCase):
                "hg": 2, "ag": 1, "source": "fd"}
         row.update(over)
         self.store.oddset_save_result(row)
+        self.store.oddset_upsert_match({
+            "id": f"pin:{self.date}", "league": "allsvenskan",
+            "home": "BK Häcken", "away": "Kalmar FF",
+            "start": (NOW - dt.timedelta(days=1)).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"),
+        })
 
     def _run(self, stats, day_rows=None):
         start = int((NOW - dt.timedelta(days=1)).timestamp())
         rows = day_rows if day_rows is not None else [{
             "flashscore_id": "FSX", "league": "allsvenskan",
-            "home": "Hacken", "away": "Kalmar", "start_ts": start}]
+            "home": "Hacken", "away": "Kalmar", "start_ts": start,
+            "home_score": 2, "away_score": 1}]
 
         def day(_self, offset, _status):
             return (rows if offset == -1 else [], NOW)
@@ -113,28 +132,71 @@ class RefreshXgTests(unittest.TestCase):
         report = self._run({"xg_home": 1.9, "xg_away": 0.7,
                             "corners_home": 6, "corners_away": 3})
         self.assertEqual(1, report["fyllda"])
-        row = dict(self.store.conn.execute(
-            "SELECT * FROM oddset_results").fetchone())
+        row = self.store.oddset_results("allsvenskan")[0]
         self.assertEqual(1.9, row["xg_h"])
         self.assertEqual(0.7, row["xg_a"])
-        self.assertIn("+fs", row["source"])
+        self.assertEqual("fd", row["source"])
+        self.assertEqual("flashscore", row["stats_provider"])
         self.assertEqual(2, row["hg"], "målen får aldrig röras")
 
-    def test_never_overwrites_an_existing_sofascore_value(self):
+    def test_flashscore_and_sofascore_are_stored_separately(self):
         self._result(xg_h=1.11, xg_a=0.22, source="sofa")
         report = self._run({"xg_home": 9.9, "xg_away": 9.9})
-        self.assertEqual(0, report["saknade"])
-        row = dict(self.store.conn.execute(
-            "SELECT * FROM oddset_results").fetchone())
-        self.assertEqual(1.11, row["xg_h"])
+        self.assertEqual(1, report["fyllda"])
+        stats = self.store.oddset_result_stats("allsvenskan")
+        self.assertEqual({"flashscore", "sofascore"},
+                         {row["provider"] for row in stats})
+        selected = self.store.oddset_results("allsvenskan")[0]
+        self.assertEqual(9.9, selected["xg_h"])
+        self.assertEqual("flashscore", selected["stats_provider"])
+
+    def test_xg_can_complete_a_corners_only_row_without_reusing_its_time(self):
+        self._result()
+        corners_at = (NOW - dt.timedelta(hours=2)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ")
+        self.store.oddset_save_result_stats({
+            "league": "allsvenskan", "date": self.date,
+            "home": norm_team("BK Häcken"), "away": norm_team("Kalmar FF"),
+            "provider": "flashscore", "provider_event_id": "FSX",
+            "observed_at": corners_at, "cor_h": 8, "cor_a": 1,
+        })
+
+        report = self._run({"xg_home": 1.9, "xg_away": 0.7})
+
+        self.assertEqual(1, report["fyllda"])
+        raw = self.store.oddset_result_stats(
+            "allsvenskan", provider="flashscore")[0]
+        self.assertEqual(corners_at, raw["corners_observed_at"])
+        self.assertEqual("2026-08-01T12:00:00Z", raw["xg_observed_at"])
+        selected = self.store.oddset_results("allsvenskan")[0]
+        self.assertEqual(corners_at, selected["corners_observed_at"])
+        self.assertEqual("2026-08-01T12:00:00Z", selected["xg_observed_at"])
+        self.assertEqual((8, 1), (selected["cor_h"], selected["cor_a"]))
+
+    def test_partial_pair_uses_the_time_when_the_pair_became_complete(self):
+        self._result()
+        base = {
+            "league": "allsvenskan", "date": self.date,
+            "home": norm_team("BK Häcken"), "away": norm_team("Kalmar FF"),
+            "provider": "flashscore",
+        }
+        self.store.oddset_save_result_stats({
+            **base, "xg_h": 1.9, "observed_at": "2026-08-01T10:00:00Z",
+        })
+        self.store.oddset_save_result_stats({
+            **base, "xg_a": 0.7, "observed_at": "2026-08-01T11:00:00Z",
+        })
+
+        selected = self.store.oddset_results("allsvenskan")[0]
+        self.assertEqual((1.9, 0.7), (selected["xg_h"], selected["xg_a"]))
+        self.assertEqual("2026-08-01T11:00:00Z", selected["xg_observed_at"])
 
     def test_source_without_xg_leaves_the_row_untouched(self):
         self._result()
         report = self._run({"shots_home": 12, "shots_away": 4})
         self.assertEqual(1, report["matchade"])
         self.assertEqual(0, report["fyllda"])
-        row = dict(self.store.conn.execute(
-            "SELECT * FROM oddset_results").fetchone())
+        row = self.store.oddset_results("allsvenskan")[0]
         self.assertIsNone(row["xg_h"])
 
     def test_unmatched_match_is_never_guessed(self):
@@ -142,7 +204,32 @@ class RefreshXgTests(unittest.TestCase):
         report = self._run({"xg_home": 1.9, "xg_away": 0.7}, day_rows=[{
             "flashscore_id": "FSX", "league": "allsvenskan",
             "home": "Djurgarden", "away": "Malmo",
-            "start_ts": int((NOW - dt.timedelta(days=1)).timestamp())}])
+            "start_ts": int((NOW - dt.timedelta(days=1)).timestamp()),
+            "home_score": 2, "away_score": 1}])
+        self.assertEqual(0, report["matchade"])
+        self.assertEqual(0, report["fyllda"])
+
+    def test_same_teams_and_score_are_disambiguated_by_observed_start(self):
+        self._result()
+        reference = int((NOW - dt.timedelta(days=1)).timestamp())
+        report = self._run({"xg_home": 1.9, "xg_away": 0.7}, day_rows=[
+            {"flashscore_id": "RIGHT", "league": "allsvenskan",
+             "home": "Hacken", "away": "Kalmar", "start_ts": reference,
+             "home_score": 2, "away_score": 1},
+            {"flashscore_id": "WRONG", "league": "allsvenskan",
+             "home": "Hacken", "away": "Kalmar", "start_ts": reference + 5 * 3600,
+             "home_score": 2, "away_score": 1},
+        ])
+        self.assertEqual(1, report["fyllda"])
+        stat = self.store.oddset_result_stats("allsvenskan", provider="flashscore")[0]
+        self.assertEqual("RIGHT", stat["provider_event_id"])
+
+    def test_missing_reference_start_fails_closed(self):
+        row = {"league": "allsvenskan", "date": self.date,
+               "home": "hacken", "away": "kalmar", "home_raw": "BK Häcken",
+               "away_raw": "Kalmar FF", "hg": 2, "ag": 1, "source": "fd"}
+        self.store.oddset_save_result(row)
+        report = self._run({"xg_home": 1.9, "xg_away": 0.7})
         self.assertEqual(0, report["matchade"])
         self.assertEqual(0, report["fyllda"])
 
@@ -169,8 +256,9 @@ class RefreshAbsenceTests(unittest.TestCase):
         with patch.object(flashscore.Flashscore, "day",
                           lambda _s, o, _st: (rows if o == 0 else [], NOW)), \
                 patch.object(
-                    flashscore.Flashscore, "absences",
-                    lambda _s, _m: (flashscore.parse_absences(payload), NOW)), \
+                    flashscore.Flashscore, "absence_observation",
+                    lambda _s, _m: (
+                        flashscore.parse_absence_observation(payload), NOW)), \
                 patch.object(flashscore_data, "_now", return_value=NOW):
             return flashscore_data.refresh_absences(self.store, force=True)
 
@@ -184,13 +272,40 @@ class RefreshAbsenceTests(unittest.TestCase):
         players = [dict(r) for r in self.store.conn.execute(
             "SELECT * FROM oddset_absence_player")]
         self.assertEqual(3, len(players))
+        self.assertTrue(all(p["player_id"].startswith("fs:") for p in players))
         self.assertIn("Ryggskada", {p["reason"] for p in players})
 
-    def test_empty_absence_list_writes_nothing(self):
+    def test_valid_empty_absence_list_is_persisted(self):
         report = self._run(payload={"data": {"findEventById":
-                                             {"eventParticipants": []}}})
+            {"eventParticipants": [
+                {"type": {"side": "HOME"}, "lineup": {"missingPlayers": []}},
+                {"type": {"side": "AWAY"}, "lineup": {"missingPlayers": []}},
+            ]}}})
         self.assertEqual(1, report["matchade"])
         self.assertEqual(0, report["med_franvaro"])
+        self.assertEqual(1, report["observerade"])
+        capture = self.store.oddset_absence_history("pin:77")[0]
+        self.assertEqual("observed", capture["status"])
+        self.assertEqual(0, capture["missing_count"])
+
+    def test_unavailable_is_persisted_but_not_selected_for_ui(self):
+        report = self._run(payload={"data": {"findEventById":
+                                             {"eventParticipants": []}}})
+        self.assertEqual(1, report["unavailable"])
+        self.assertEqual({}, self.store.oddset_latest_absences(["pin:77"]))
+
+    def test_transport_error_is_not_recorded_as_unavailable(self):
+        rows = [{"flashscore_id": "Sjdjc0cm", "league": "allsvenskan",
+                 "home": "Hacken", "away": "Kalmar",
+                 "start_ts": int((NOW + dt.timedelta(hours=3)).timestamp())}]
+        with patch.object(flashscore.Flashscore, "day",
+                          lambda _s, o, _st: (rows if o == 0 else [], NOW)), \
+                patch.object(flashscore.Flashscore, "absence_observation",
+                             side_effect=RuntimeError("network")), \
+                patch.object(flashscore_data, "_now", return_value=NOW):
+            report = flashscore_data.refresh_absences(self.store, force=True)
+        self.assertEqual(0, report["unavailable"])
+        self.assertEqual([], self.store.oddset_absence_history("pin:77"))
 
     def test_ui_meta_is_written_for_the_match(self):
         self._run()
@@ -222,8 +337,7 @@ class SourcePriorityTests(unittest.TestCase):
         self.store.oddset_save_result({**base, "xg_h": 1.99, "xg_a": 0.16})
         # Sofascore kör efteråt med ett annat värde
         self.store.oddset_save_result({**base, "xg_h": 9.9, "xg_a": 9.9})
-        row = dict(self.store.conn.execute(
-            "SELECT * FROM oddset_results").fetchone())
+        row = self.store.oddset_results("allsvenskan")[0]
         self.assertEqual(1.99, row["xg_h"])
         self.assertEqual(0.16, row["xg_a"])
 
@@ -233,8 +347,7 @@ class SourcePriorityTests(unittest.TestCase):
                 "hg": 0, "ag": 0, "source": "fd"}
         self.store.oddset_save_result(base)
         self.store.oddset_save_result({**base, "xg_h": 1.5, "xg_a": 0.4})
-        row = dict(self.store.conn.execute(
-            "SELECT * FROM oddset_results").fetchone())
+        row = self.store.oddset_results("allsvenskan")[0]
         self.assertEqual(1.5, row["xg_h"])
 
     def test_absence_sources_are_distinguishable_by_provenance(self):
@@ -259,3 +372,41 @@ class SourcePriorityTests(unittest.TestCase):
         sources = self.store.oddset_absence_sources(
             ["pin:1"], "2026-08-01T00:00:00Z")
         self.assertEqual({}, sources)
+
+    def test_football_data_identity_wins_even_when_sofa_created_row_first(self):
+        identity = {"league": "allsvenskan", "date": "2026-07-27",
+                    "home": "hacken", "away": "aik"}
+        self.store.oddset_save_result({
+            **identity, "source": "sofa", "home_raw": "BK Häcken",
+            "away_raw": "AIK Fotboll", "hg": 10, "ag": 9,
+        })
+        self.store.oddset_save_result({
+            **identity, "source": "fd", "home_raw": "Hacken",
+            "away_raw": "AIK", "hg": 1, "ag": 1,
+        })
+        self.store.oddset_save_result({**identity, "source": "sofa",
+                                      "xg_h": 1.2, "xg_a": 0.4})
+
+        row = self.store.oddset_results("allsvenskan")[0]
+        self.assertEqual("fd", row["source"])
+        self.assertEqual("Hacken", row["home_raw"])
+        self.assertEqual("AIK", row["away_raw"])
+        self.assertEqual((1, 1), (row["hg"], row["ag"]))
+
+    def test_xg_and_corners_keep_separate_pair_provenance(self):
+        base = {"league": "allsvenskan", "date": "2026-07-27",
+                "home": "hacken", "away": "aik", "hg": 0, "ag": 0,
+                "source": "fd"}
+        self.store.oddset_save_result({**base, "cor_h": 7, "cor_a": 3,
+                                      "stats_provider": "football_data"})
+        self.store.oddset_save_result_stats({
+            "league": "allsvenskan", "date": "2026-07-27",
+            "home": "hacken", "away": "aik", "provider": "flashscore",
+            "xg_h": 1.8, "xg_a": 0.4,
+        })
+
+        row = self.store.oddset_results("allsvenskan")[0]
+        self.assertEqual((1.8, 0.4, "flashscore"),
+                         (row["xg_h"], row["xg_a"], row["xg_provider"]))
+        self.assertEqual((7, 3, "football_data"),
+                         (row["cor_h"], row["cor_a"], row["corners_provider"]))

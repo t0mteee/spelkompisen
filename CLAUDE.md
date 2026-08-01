@@ -27,12 +27,15 @@ det oförändrade bokpriset återobserverats efter Pinnacles senaste prisändrin
 vanlig färskhet eller ett gammalt cachepris räcker inte.
 Den underkända V2.1 är fortsatt vilande. Ett separat V2.2-experiment samlar
 Allsvenskan + research-only Premier League/Serie A/La Liga/Bundesliga med WP9c
-i isolerad sharp-identitetskontroll; se
-`docs/model-v2.2-multileague-forward-manifest.json`. Det är inte en tränad
-modell och får inte påverka tips, notiser eller CLV.
+i isolerad sharp-identitetskontroll. **Aktuellt fryst kontrakt är manifest v4**
+från 2026-08-01T21:20Z:
+`docs/model-v2.2-multileague-forward-manifest-v4.json`. V1/v2 är historik;
+v3 hann få 0 captures innan ett ofullständigt aliasfingeravtryck upptäcktes
+och ersattes. Äldre manifest blandas aldrig in. Det är inte en tränad modell
+och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
-`docs/overlamning-2026-08-01-flashscore.md` (LÄS FÖRST).
-Föregående: `docs/overlamning-2026-07-31-live-signaljournal.md`.
+`docs/overlamning-2026-08-01-codex-hardening.md` (LÄS FÖRST).
+Föregående Flashscore-överlämning är ersatt och gäller bara som historik.
 Beställning 1 är LEVERERAD 2026-07-24: de fyra Europaligorna syns i ordinarie
 Oddset-vyn (🔬 forskningsmärkta, `visible_in_ui`) men är fortsatt icke-
 actionable — `VISIBLE_LEAGUE_KEYS` ≠ `ACTIONABLE_LEAGUE_KEYS` i `oddset.py`.
@@ -91,48 +94,39 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       T−3h/T−20m i varvet, settlas kontrafaktiskt med egen
                       vinnarutspädning; rollover utan vinnare = okänd ROI
                       (/api/pool/systems; champion = dagens byggare)
-  app/live_radar.py  shadow-radar för pågående matcher: observerad xG,
-                      stora chanser/skott/boxtryck; råa femminuterscaptures,
-                      aldrig automatiska spel eller runtime-modellinput
+  app/live_radar.py  shadow-radar för pågående matcher: tre separata
+                      provider-serier, högst 12 min gamla. Källan väljs på
+                      strukturell fälttäckning (aldrig på signalvärdet),
+                      därefter fast prioritet Flashscore→FotMob→Sofascore.
+                      Länk kräver unik liga/lag/avsparksträff; en olänkad
+                      färsk providerserie får eget kort. Aldrig automatiska
+                      spel eller runtime-modellinput
   app/live_signal_ledger.py framåtriktad append-only-journal över den första
                       synliga Följer/Stark-nivån per match × signaltyp:
                       minut/ställning/mått + observerad öppen Kambi-live-Ö/U,
                       normaltidsfacit och Asian-Över-ROI. Aldrig tipsinput
-  app/flashscore.py   PRIMÄRA live-ögat (Samans beslut 2026-08-01, mätt samma
-                      dag: xG där FotMob bara hade skott eller ingenting,
-                      aldrig sämre). Publik pipe-feed, statisk publik
+  app/flashscore.py   liveprovider med `flashscore-live-v2`: publik pipe-feed,
+                      statisk publik
                       headerkonstant (samma klass som Pinnacles gästnyckel);
                       brotli KRÄVS. Minuten HÄRLEDS ur stadiets starttid
-                      (AC 12/13 + AO) — okänt stadium ⇒ None, aldrig gissad.
-  app/flashscore_data.py Flashscore som PRIMÄR MODELLDATAKÄLLA (2026-08-01):
-                      körs FÖRST i `refresh_all`, Sofascore är alternativ 3
-                      och fyller bara det som är kvar. Ordningen räcker inte
-                      ensam — lagret är därför "FÖRSTA OBSERVATIONEN VINNER":
-                      `oddset_save_result` behåller lagrad xG/hörnor (COALESCE
-                      med lagrat värde först) och Sofascores `refresh_absences`
-                      hoppar över matcher med färsk `fs:`-capture. Utan båda
-                      skulle den som råkar skriva SIST vinna.
-                      Modulen fyller SAKNAD xG på nyss avgjorda matcher och
-                      hämtar frånvarande spelare (publik persisted query, hash i
-                      flashscore.py). Två hårda regler: (1) INGEN bakfyllning
-                      — bara dagsfeeds ~5 dygn bakåt, aldrig säsongsfeeds;
-                      (2) en befintlig xG skrivs ALDRIG över (`oddset_fill_xg`
-                      har `xg_h IS NULL` i SQL:en), källan märks `+fs` och
-                      frånvarocaptures får `source_event_id='fs:<id>'` så
-                      proveniensen syns i efterhand. Lagmatchning är strängare
-                      än live-radarns: norm_team + svensk genitiv + strippat
-                      landssuffix ('Chelsea (Eng)'), tvetydighet länkar aldrig.
-  app/fotmob.py       ANDRA live-ögat (var primärt 2026-07-28→08-01):
-                      live-xG/xGOT/skott, täcker även Oddset-spärrade
-                      friendlies. Sofascore är tredje källa.
-                      ALLA TRE: EGEN tabell; providrar blandas ALDRIG.
-                      Källval rankar DATAKVALITET först (xG > skott/chansmått
-                      > no_stats) och vid lika vinner Flashscore, sedan
-                      FotMob — en match där FotMob har xG och Flashscore bara
-                      skott nedgraderas alltså aldrig. HELA signalen/deltat
-                      kommer från vald serie. `signal.stats_source` säger
-                      vilken; `coverage.by_source` redovisar fördelningen.
-                      Shadow.
+                      (AC 12/13 + AO) — okänt stadium ⇒ None. Lista och
+                      eventdetalj får skilja högst 20 s; annars omhämtning
+                      eller ingen capture. Lyckad tom lista avslutar presence,
+                      transport-/parsefel gör det aldrig.
+  app/flashscore_data.py Flashscore samlar modelldata PARALLELLT med
+                      Sofascore till `oddset_result_stats`; resultatkällan
+                      överlastas aldrig och `+fs` är avskaffat. xG väljs som
+                      ett helt hem/borta-par, hörnor som ett separat helt par,
+                      båda med explicit provider/event-id/observationstid.
+                      Ingen historisk Flashscore-bakfyllning; bara dagsfeeds.
+                      Frånvaro lagras separat per provider/status och tomt
+                      lyckat svar är en riktig observation.
+  app/fotmob.py       liveprovider med `fotmob-live-v2`: live-xG/xGOT/skott,
+                      även Oddset-spärrade friendlies. Ställningen tas ur samma
+                      eventdetalj som statistiken; äldre listställning får
+                      skilja högst 15 s innan hela listan/id-indexet omhämtas.
+                      Saknas koherent ställning sparas ingen rad. Egen tabell,
+                      egen presence och egen source-health.
   app/main.py         API-endpoints + PRIZE_PLANS (officiella vinstplaner)
   cli.py              show|spikar|snapshot|history|rad (snapshotvarvet settlar
                       även nyss avgjorda poolomgångar via settle_recent)
@@ -187,7 +181,10 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
   däremot färska (FotMob `max-age=10`, Sofascore live, Flashscore `Age` ~3 s).
   Flashscores dagsfeed är 173 kB på tråden (1,4 MB avkodad) — en begäran per
   varv, så den hämtas färsk varje gång i stället för att cachas med en
-  inaktuell ställning som följd.
+  inaktuell ställning som följd. Varje liveprovider har egen presence och
+  source-health. Ett **lyckat** tomt roster avslutar tidigare kort direkt;
+  nät-/parsefel får aldrig göra det. `last_run` i API/UI är den äldsta av de
+  tre källornas senaste kontroller och är tom tills alla tre har kontrollerats.
   En färsk match med chansdata ska visas även om de andra källorna saknar
   den; `fotmob:<id>` respektive `flashscore:<id>` är då kortets namespacade
   event-id. Gör aldrig livevisningen beroende av att en källa först kan
@@ -198,13 +195,17 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
   Följer→Stark-eskalering får finnas i diagnostiken men får inte dubblera
   blindtestet). Minst 200 oddssatta+avgjorda signalmatcher, minst 60 dagar och
   undre KI90 > 0 krävs före stöd; inga historiska liveodds bakfylls.
-  **Signalversionen är `chance-gap-shadow-v3`** sedan 2026-08-01: trösklarna
-  är oförändrade, men Flashscore ändrar VILKA matcher som kan ge signal —
-  alltså kohortens datagenererande process. v2:s två rader ligger kvar som
-  historik och blandas aldrig med v3. En ny statistikkälla kräver alltid
-  samma versionsbump.
+  **Aktiv signalversion är `chance-gap-shadow-v4` från exakt
+  2026-08-01T21:00:00Z.** v3-fönstret 08:00–21:00Z var en ogiltig pilot:
+  källval/färskhet/identitet/presence var inte tillräckligt låsta och serien
+  får aldrig användas som stöd. v2 (<08:00Z), v3 och v4 behålls som tre
+  separata historiska kohorter. Settlement stämplar efter capturetid, aldrig
+  efter versionen som råkar vara aktiv när kön körs. En ändrad datagenererande
+  process kräver alltid ny signalversion.
   Provider-id hanteras som ogenomskinlig STRÄNG i presence, journal och
-  settlement (Flashscores är alfanumeriskt: `SKg88Q3T`).
+  settlement (Flashscores är alfanumeriskt: `SKg88Q3T`). Tabellen
+  `oddset_live_moment_settlement.event_id` är därför TEXT; ändringen görs
+  endast med `scripts/migrera_radar_event_id_text.py` + backup.
   Notiser går i Oddset-varvet, bakom **notisvakten** (presence-set: larm kräver att
   priset observerades i det aktuella lyckade varvet).
 - **WP2-prisregel:** `fetched_at` = prisförändring, `last_seen_at` = senaste
@@ -373,6 +374,17 @@ enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
 
 ### CLV-facit (signalvalidering)
 
+- **Modelldata v4:** `oddset_results` bär bara matchidentitet och normaltids-
+  resultat. En komplett football-data-rad vinner atomiskt som resultatfacit
+  (källa, råa lagnamn, hemma- och bortamål som ett paket). xG och hörnor bor i
+  `oddset_result_stats`: välj alltid ett komplett hem/borta-par per
+  statistikfamilj och redovisa `xg_provider*` respektive
+  `corners_provider*`; blanda aldrig fält mellan providers. Flashscore och
+  Sofascore samlas parallellt. Frånvaro har provider i primärnyckeln,
+  namespacade spelar-id:n och status `observed`/`unavailable`; transportfel är
+  aldrig `unavailable`, medan ett lyckat tomt svar är en riktig observation.
+  `MODEL_DATA_VERSION=4` och V2.2-manifest v4 isolerar äldre kohorter.
+
 - `app/clv.py` + `value_log`-tabellen: gröna värde-kvoter (≥1.08) / sharp-edge (≥2 %) loggas
   first/best per selektion; stängning = devigad Pinnacle; facit från resultat-API:t.
 - **Utfalls-facit för Oddset-flaggor (P2, 2026-07-28):** `oddset_value_log`
@@ -399,6 +411,10 @@ enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
   semantisk signalversion. Stäng alltid mot flaggans lina när ett färskt pris
   finns; spara annars slutlinans delta som `linje flyttad` utan fabricerat
   close-EV. Positivt `line_move_score` betyder rörelse med selektionen.
+- `scripts/close_drift_facit.py` och `close_drift_facit_v2.py` väljer en
+  **exakt** `signal_version` (default = aktuell sharp-version). Nycklar och
+  linjeflyttsjoin innehåller versionen; rapporter får aldrig slå ihop eller
+  korsjoina historiska versioner.
 - WP5-ledgern (`app/oddset_ledger.py`) är forskningsfacitet: alla prediktioner
   och oflaggade kontroller fryses vid T−24 h/T−3 h/T−20 min. Bakfyll aldrig en
   missad horisont; capture-markören bevarar även tomt källutfall. Endast captures

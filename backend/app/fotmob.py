@@ -1,13 +1,13 @@
-"""FotMob — live-radarns PRIMÄRA statistikkälla (Samans beslut 2026-07-28).
+"""FotMob — live-radarns andra statistikkälla (primär 2026-07-28–31).
 
 Varför källan finns: Sofascore saknar xG HELT för Allsvenskan (uppmätt 0/31 i
 WP9b), och live-radarns 220-matcherstest visade att en ren skottsignal inte
 förutsäger mål. FotMob levererar `expected_goals`, xGOT, xG open play/set play
 och stora chanser för både Allsvenskan och Eliteserien — verifierat live
 2026-07-25 (Degerfors–Djurgården 62': xG 0,73–1,29, xGOT 0,00–0,76).
-Inkopplad som andra öga 25/26; PRIMÄR sedan 28/7 eftersom Sofascore oftast
-saknar chansmåtten helt i våra ligor. Sofascore är kvar som reserv och bär
-signalen bara när den har strikt bättre statistik (live_radar.payload).
+Inkopplad som andra öga 25/7 och primär 28–31/7. Flashscore är primär sedan
+1/8, men faktisk fälttäckning står alltid över källordningen i
+``live_radar.payload``.
 
 METODGRÄNSER som gäller här:
 * **xG blandas ALDRIG mellan providers** (WP9a-regeln). FotMob-data ligger i en
@@ -45,7 +45,8 @@ TIMEOUT_S = 8.0          # shadow får aldrig hänga varvet
 # tick-loggen; inga tysta tak.
 MAX_MATCHES = 60         # tak per varv
 BUDGET_S = 60.0          # total väggklocka
-CAPTURE_VERSION = "fotmob-live-v1"
+CAPTURE_VERSION = "fotmob-live-v2"
+MAX_SCORE_STATS_SKEW_S = 15
 
 _HEADERS = {
     "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -63,7 +64,14 @@ LEAGUE_NAMES = {
     ("NOR", "Eliteserien"): "eliteserien",
     ("NOR", "OBOS-ligaen"): "obosligaen",
     ("NOR", "1. Division"): "obosligaen",
+    ("ISL", "Besta deild karla"): "bestadeild",
+    ("ISL", "Besta deild"): "bestadeild",
     ("USA", "MLS"): "mls",
+    ("ENG", "Premier League"): "premier_league",
+    ("ITA", "Serie A"): "serie_a",
+    ("ESP", "LaLiga"): "la_liga",
+    ("ESP", "La Liga"): "la_liga",
+    ("GER", "Bundesliga"): "bundesliga",
     # Club Friendlies är GLOBAL (som Sofascores UT 853) och går därför genom
     # samma Oddset-spärr som Sofascore-varvet (_scope_friendlies) — utan den
     # hade varje turnématch i världen ätit varvets matchtak.
@@ -142,13 +150,28 @@ class FotMob:
         response = self._client.get(f"{BASE}/matches", params={"date": day})
         response.raise_for_status()
         observed_at = _observed_at(response, requested_at)
+        payload = response.json()
+        # TRANSPORTREGELN: status 200 utan den dokumenterade rosterformen är
+        # ett källfel, inte ett positivt besked om att inga matcher är live.
+        # Framför allt får `{}`/`leagues: null` aldrig tömma presence.
+        if (not isinstance(payload, dict) or "leagues" not in payload or
+                not isinstance(payload["leagues"], list)):
+            raise ValueError("FotMobs dagslista saknar leagues-lista")
         out = []
-        for league in (response.json().get("leagues") or []):
+        for league in payload["leagues"]:
+            if not isinstance(league, dict):
+                raise ValueError("FotMobs dagslista har ogiltig ligarad")
             key = LEAGUE_NAMES.get((league.get("ccode"),
                                     (league.get("name") or "").strip()))
             if not key:
                 continue
-            for match in league.get("matches") or []:
+            matches = league.get("matches")
+            if not isinstance(matches, list):
+                raise ValueError(
+                    "FotMobs dagslista saknar matchlista för känd liga")
+            for match in matches:
+                if not isinstance(match, dict):
+                    raise ValueError("FotMobs dagslista har ogiltig matchrad")
                 status = match.get("status") or {}
                 out.append({
                     "fotmob_id": match.get("id"),
@@ -213,6 +236,16 @@ def parse_minute(payload: dict) -> Optional[int]:
         return None
 
 
+def parse_score(payload: dict) -> tuple[Optional[int], Optional[int]]:
+    """Ställning ur SAMMA matchDetails-svar som minut och statistik."""
+    status = (payload.get("header") or {}).get("status") or {}
+    return _score_pair(status.get("scoreStr"))
+
+
+def _at(value: str) -> dt.datetime:
+    return dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+
+
 def _start_ts(match: dict) -> Optional[int]:
     """FotMobs utcTime (ISO) → epoksekunder; None när formatet är okänt."""
     raw = match.get("start_at")
@@ -257,47 +290,94 @@ def _rank(match: dict) -> tuple:
 
 def collect(store, known_matches: Optional[list[dict]] = None,
             date: Optional[dt.date] = None) -> dict:
-    """Ett radarvarv mot FotMob — radarns primära källa. Sparar bara
+    """Ett radarvarv mot FotMob — radarns andra källa. Sparar bara
     PÅGÅENDE matcher i våra ligor + Oddset-spärrade träningsmatcher.
 
     known_matches (Oddset-vyn) kan skickas in av anroparen; annars hämtas
     den ur store när listan innehåller träningsmatcher.
     """
     started_at = time.monotonic()
-    saved = skipped = 0
+    saved = skipped = stats_ok = 0
     errors: list[str] = []
     with FotMob() as api:
         try:
             listing, _listed_at = api.matches(date)
         except Exception as exc:                      # noqa: BLE001
+            checked_at = _iso(_now())
+            error = f"{type(exc).__name__}: {str(exc)[:80]}"
+            store.oddset_record_source_health(
+                "fotmob", "-", "live", checked_at, False, 0, error)
             return {"saved": 0, "skipped": 0, "live": 0,
-                    "error": f"{type(exc).__name__}: {str(exc)[:80]}"}
-        live = [m for m in listing
-                if m["started"] and not m["finished"] and not m["cancelled"]]
-        live = _scope_friendlies(store, live, known_matches)
+                    "health_ok": False, "error": error}
+        def active(rows: list[dict]) -> list[dict]:
+            return _scope_friendlies(store, [
+                m for m in rows if m["started"] and not m["finished"]
+                and not m["cancelled"]], known_matches)
+
+        live = active(listing)
         # Dagens lista innehåller även kommande och avslutade matcher. När den
         # lyckats och inte är helt tom kan vi därför säkert registrera vilka
         # tidigare aktiva event som just lämnat live-läget. Payloaden tar då
         # bort dem utan att vänta ut capture-TTL:n; nätfel ändrar ingen state.
-        if listing:
-            from .live_radar import FOTMOB_PRESENCE_KEY, record_presence
-            record_presence(
-                store, FOTMOB_PRESENCE_KEY,
-                [match.get("fotmob_id") for match in live], _listed_at)
+        from .live_radar import FOTMOB_PRESENCE_KEY, record_presence
+        record_presence(
+            store, FOTMOB_PRESENCE_KEY,
+            [match.get("fotmob_id") for match in live], _listed_at)
         live.sort(key=_rank)
-        for match in live[:MAX_MATCHES]:
+        live_by_id = {str(match["fotmob_id"]): match for match in live}
+        for queued in live[:MAX_MATCHES]:
             if time.monotonic() - started_at > BUDGET_S:
                 skipped += 1
                 continue
+            match = live_by_id.get(str(queued["fotmob_id"]))
+            if match is None:
+                continue
             try:
                 payload, observed_at = api.details(match["fotmob_id"])
+                stats_ok += 1
             except Exception as exc:                  # noqa: BLE001
                 errors.append(f"{match['home']}: {type(exc).__name__}")
                 continue
             stats = parse_stats(payload)
             if not stats:
                 continue        # ingen statistik = ingen rad, aldrig nollor
-            home_goals, away_goals = _score_pair(match.get("score"))
+            home_goals, away_goals = parse_score(payload)
+            if home_goals is None or away_goals is None:
+                skew_s = abs((_at(observed_at) - _at(_listed_at)).total_seconds())
+                if skew_s > MAX_SCORE_STATS_SKEW_S:
+                    # Listans ställning är för gammal för detaljsvarets
+                    # statistik. Förnya hela indexet så även kommande
+                    # matcher använder den nya listans rad/tid.
+                    try:
+                        refreshed, refreshed_at = api.matches(date)
+                        refreshed_live = active(refreshed)
+                        record_presence(
+                            store, FOTMOB_PRESENCE_KEY,
+                            [item.get("fotmob_id") for item in refreshed_live],
+                            refreshed_at)
+                        live_by_id = {
+                            str(item["fotmob_id"]): item
+                            for item in refreshed_live}
+                        _listed_at = refreshed_at
+                        match = live_by_id.get(str(queued["fotmob_id"]))
+                    except Exception as exc:          # noqa: BLE001
+                        match = None
+                        errors.append(
+                            f"{queued['home']}: roster-refresh "
+                            f"{type(exc).__name__}")
+                    if match is None:
+                        continue
+                    skew_s = abs(
+                        (_at(observed_at) - _at(_listed_at)).total_seconds())
+                    if skew_s > MAX_SCORE_STATS_SKEW_S:
+                        errors.append(
+                            f"{match['home']}: metadata {int(skew_s)} s "
+                            "från stats")
+                        continue
+                home_goals, away_goals = _score_pair(match.get("score"))
+            if home_goals is None or away_goals is None:
+                # Okänd ställning är inte 0–0 och kan inte ge chansgap.
+                continue
             store.live_fotmob_save({
                 "fotmob_id": int(match["fotmob_id"]),
                 "captured_at": observed_at,
@@ -312,7 +392,21 @@ def collect(store, known_matches: Optional[list[dict]] = None,
                 **stats})
             saved += 1
         skipped += max(0, len(live) - MAX_MATCHES)
+    checked_at = _iso(_now())
+    health_error = "; ".join(errors[:5]) or None
+    if live and stats_ok == 0:
+        health_error = health_error or "ingen live-match hade läsbar statistik"
+    if skipped:
+        note = f"{skipped} matcher hoppade över (tidsbudget/matchtak)"
+        health_error = f"{health_error}; {note}" if health_error else note
+    # En enda lyckad detalj får inte maskera fel för övriga matcher. `ok`
+    # betyder en komplett, ren kontroll; feltexten ligger kvar i payload/UI.
+    health_ok = (not live or stats_ok > 0) and health_error is None
+    store.oddset_record_source_health(
+        "fotmob", "-", "live", checked_at, health_ok, len(live), health_error)
+    store.meta_set("live_radar_fotmob_last_run", checked_at)
     return {"saved": saved, "skipped": skipped, "live": len(live),
+            "stats_ok": stats_ok, "health_ok": health_ok,
             "partial_errors": errors}
 
 

@@ -7,8 +7,9 @@
   Allsvenskan = unique-tournament 40, Eliteserien = 20. Paca anropen. Cache 6 h.
 - ClubElo (api.clubelo.com/{datum}): hela rankingen i ett anrop. Cache 24 h.
 
-Lagnamn lagras NORMALISERADE (oddset.norm_team) så källorna kolliderar på PK
-och xG fyller på resultatraderna via COALESCE-upsert.
+Lagnamn lagras NORMALISERADE (oddset.norm_team) så resultatidentiteter kan
+sammanfogas. xG och hörnor lagras som separata providerobservationer och väljs
+parvis vid läsning; resultatets källa överlastas aldrig med statistikproveniens.
 """
 from __future__ import annotations
 
@@ -53,6 +54,9 @@ SOFA_UT = {"allsvenskan": 40, "eliteserien": 20, "superettan": 46,
 MODEL_LEAGUES = set(FD_URLS) | {"superettan", "obosligaen"}
 RESEARCH_MODEL_LEAGUES = set(RESEARCH_LEAGUE_KEYS)
 RESULT_LEAGUES = MODEL_LEAGUES | set(FD_SEASON_CODES)
+# Avsiktligt xG-scope: ordinarie fitpooler + V2.2:s huvud-/matarligor. Cuper,
+# Besta deild och träningsmatcher är resultatfacit, aldrig modellträning.
+MODEL_STATS_LEAGUES = RESULT_LEAGUES
 # Resultat-ENDAST-ligor (P2, 2026-07-28): utanför football-data OCH utanför
 # modellspåret, men värdeflaggorna behöver facitresultat (utfalls-ROI).
 # MEDVETET en EGEN tabell, inte SOFA_UT — SOFA_UT ingår i wp9c-POLICY-/
@@ -67,17 +71,21 @@ RESULT_ONLY_UT = {"champions_league": 7, "europa_league": 679,
 SOFA_MAX_PAGES = 4            # events/last/{page} per körning (backfill tar några pass)
 
 FD_TTL_H, XG_TTL_H, ELO_TTL_H, ABS_TTL_H = 12, 6, 24, 2
+# Hellre utebliven Sofascore-frånvaro än fel spelares frånvaro. Lagnamn
+# måste matcha, provider-eventet måste ha en avspark nära Oddset-matchen och
+# exakt en kandidat måste återstå.
+ABSENCE_START_TOLERANCE_MIN = 30
 
 # Databehandlingens version — ingår i signal_version-fingeravtrycken (gransknings-
 # punkt 5): bumpa MANUELLT när semantiken i datat ändras utan att en parameter gör
 # det. 1 = ursprunglig; 2 = normaltime + identitetsmerge (alias/±1 dygn),
 # 2026-07-13; 3 = provideridentitet write-once + per-lagströskel och
-# läskarantän för bevisade odds-eventkrockar, 2026-07-26. Version 3 delar både
-# sharp- och modellfacit före/efter identitetsfixen; gamla grupper skrivs inte om.
+# läskarantän för bevisade odds-eventkrockar, 2026-07-26. Sharp-pipelinen ändras
+# inte av providerstatistikens modellv4 och behåller därför dataversion 3.
 DATA_VERSION = 3
-# Målmodellens resultatsammanslagning: 3 = fuzzy 0,70→0,75 så review-bandet
-# aldrig auto-mergas (Egersund→Haugesund var en bevislig felkoppling vid 0,706).
-MODEL_DATA_VERSION = 3
+# Målmodellens resultatsammanslagning: 4 = separat providerobservation,
+# Flashscore→Sofascore→football-data/legacy och aldrig fältvis källblandning.
+MODEL_DATA_VERSION = 4
 # missingPlayers-orsakskoder (Sofascore): observerade typer
 _ABS_REASON = {0: "annat", 1: "skada", 2: "tveksam", 3: "avstängd",
                11: "avstängd", 12: "avstängd", 13: "avstängd"}
@@ -149,6 +157,7 @@ def _fd_result_rows(text: str, league: str) -> list[dict]:
         try:
             if row.get("HC") not in (None, "") and row.get("AC") not in (None, ""):
                 result["cor_h"], result["cor_a"] = float(row["HC"]), float(row["AC"])
+                result["stats_provider"] = "football_data"
         except ValueError:
             pass
         rows.append(result)
@@ -264,7 +273,7 @@ def _ingest_event(store: Storage, lg: str, e: dict,
            "ag": as_.get("normaltime", as_.get("current")),
            "source": "sofa"}
     # Basresultatet ska inte gå förlorat bara för att detaljstatistiken ligger
-    # nere; COALESCE-upserten fyller xG/hörnor vid ett senare lyckat försök.
+    # nere; en senare lyckad detaljhämtning får en egen providerobservation.
     store.oddset_save_result(row)
     if results_only:
         store.meta_set(f"oddset_sofa_seen:{eid}", row["date"])
@@ -301,6 +310,13 @@ def _ingest_event(store: Storage, lg: str, e: dict,
             elif s.get("name") == "Corner kicks":
                 row["cor_h"] = float(s["home"])
                 row["cor_a"] = float(s["away"])
+    row.update({
+        "stats_provider": "sofascore",
+        "provider_event_id": str(eid),
+        "stats_observed_at": _now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "match_start_at": dt.datetime.fromtimestamp(
+            e["startTimestamp"], dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    })
     store.oddset_save_result(row)
     store.meta_delete(f"oddset_sofa_retry:{eid}")
     store.meta_set(f"oddset_sofa_seen:{eid}", row["date"])
@@ -356,7 +372,7 @@ def refresh_results_extra(store: Storage, force: bool = False) -> dict:
 
 
 def refresh_xg(store: Storage, force: bool = False) -> dict:
-    """Hämta xG/hörnor för färdigspelade matcher som saknas (innevarande säsong)."""
+    """Hämta Sofa-xG/hörnor för färdigspelade matcher (innevarande säsong)."""
     out = {}
     for lg, ut in SOFA_UT.items():
         if not force and not _stale(store, f"oddset_xg_at:{lg}", XG_TTL_H):
@@ -510,6 +526,42 @@ def _absence_entry(raw: dict) -> dict:
     }
 
 
+def _sofa_absence_event(candidates: list[dict], match: dict,
+                        team_similarity) -> Optional[dict]:
+    """Entydig Sofascore-länk för frånvaro, inklusive avspark.
+
+    Namnlikhet ensam är inte en matchidentitet: samma feed kan innehålla
+    herr-, U23- och reservlag med nästan samma namn. Saknad/ogiltig avspark,
+    fler än en kandidat eller en tidsavvikelse över toleransen stänger därför
+    länken i stället för att välja första träffen.
+    """
+    try:
+        target_start = dt.datetime.fromisoformat(
+            str(match["start"]).replace("Z", "+00:00"))
+        if target_start.tzinfo is None:
+            target_start = target_start.replace(tzinfo=dt.timezone.utc)
+    except (KeyError, TypeError, ValueError):
+        return None
+    home = norm_team(match.get("home") or "")
+    away = norm_team(match.get("away") or "")
+    hits = []
+    for event in candidates:
+        try:
+            source_start = dt.datetime.fromtimestamp(
+                float(event["startTimestamp"]), dt.timezone.utc)
+            source_home = norm_team(event["homeTeam"]["name"])
+            source_away = norm_team(event["awayTeam"]["name"])
+        except (KeyError, TypeError, ValueError, OverflowError):
+            continue
+        if abs(source_start - target_start) > dt.timedelta(
+                minutes=ABSENCE_START_TOLERANCE_MIN):
+            continue
+        if (team_similarity(home, source_home) >= 0.75 and
+                team_similarity(away, source_away) >= 0.75):
+            hits.append(event)
+    return hits[0] if len(hits) == 1 else None
+
+
 def refresh_absences(store: Storage, force: bool = False) -> dict:
     """Frånvarolistor (skador/avstängningar/tveksamma) + bekräftade elvor från
     Sofascore /event/{id}/lineups för kommande matcher (<48 h). Strukturerad
@@ -524,17 +576,11 @@ def refresh_absences(store: Storage, force: bool = False) -> dict:
     ms = [m for m in store.oddset_matches(since=frm, until=to)
           if m["league"] in SOFA_UT and
           m["league"] not in RESEARCH_MODEL_LEAGUES]
-    # Sofascore är TREDJE alternativet sedan 2026-08-01: matcher där den
-    # primära källan (Flashscore) redan skrivit en färsk capture hoppas över,
-    # annars blir den sämre källan "senaste" och tar över visningen.
-    covered = store.oddset_absence_sources(
-        [m["id"] for m in ms],
-        (now - dt.timedelta(hours=ABS_TTL_H)).strftime("%Y-%m-%dT%H:%M:%SZ"))
-    skipped = [m for m in ms
-               if "flashscore" in covered.get(m["id"], set())]
-    ms = [m for m in ms if "flashscore" not in covered.get(m["id"], set())]
-    out = {"checked": 0, "found": 0, "flashscore_hade_redan": len(skipped)}
-    ev_index: dict[str, list] = {}
+    # Båda providrarna samlas. Visningen väljer en hel capture explicit i
+    # Storage; en tunn Flashscore-lista får därför aldrig blockera Sofascores
+    # position/framträdanden/rating.
+    out = {"checked": 0, "found": 0, "unavailable": 0}
+    ev_index: dict[str, list[dict]] = {}
     for lg in {m["league"] for m in ms}:
         sid = _sofa_season(store, lg)
         if not sid:
@@ -544,20 +590,33 @@ def refresh_absences(store: Storage, force: bool = False) -> dict:
                             f"/events/next/0").get("events") or []
         except Exception:  # noqa: BLE001
             continue
-        ev_index[lg] = [(e["id"], norm_team(e["homeTeam"]["name"]),
-                         norm_team(e["awayTeam"]["name"])) for e in evs]
+        ev_index[lg] = evs
     for m in ms:
         cands = ev_index.get(m["league"]) or []
-        hn, an = norm_team(m["home"]), norm_team(m["away"])
-        eid = next((i for i, h, a in cands
-                    if _team_sim(hn, h) >= 0.75 and _team_sim(an, a) >= 0.75), None)
-        if not eid:
+        event = _sofa_absence_event(cands, m, _team_sim)
+        if event is None:
             continue
+        eid = event["id"]
         out["checked"] += 1
         time.sleep(1.0)
         try:
             lu = _sofa_get(f"/event/{eid}/lineups")
-        except Exception:  # noqa: BLE001 — 404 tills lineups/frånvaro publicerats
+        except Exception as exc:  # noqa: BLE001 — 404 tills lineups publicerats
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            if status != 404:
+                # Nät-/transportfel bevisar inte att källan saknar data.
+                continue
+            captured_at = _now().strftime("%Y-%m-%dT%H:%M:%SZ")
+            payload = json.dumps({"provider": "sofascore", "status": "unavailable",
+                                  "event_id": str(eid)}, sort_keys=True)
+            store.oddset_save_absence_capture({
+                "match_id": m["id"], "captured_at": captured_at,
+                "provider": "sofascore", "status": "unavailable",
+                "source_event_id": str(eid), "match_start": m.get("start"),
+                "confirmed": False,
+                "payload_hash": hashlib.sha256(payload.encode()).hexdigest(),
+            }, [])
+            out["unavailable"] += 1
             continue
         captured_at = _now().strftime("%Y-%m-%dT%H:%M:%SZ")
         rec = {"at": captured_at, "confirmed": bool(lu.get("confirmed")),
@@ -588,6 +647,7 @@ def refresh_absences(store: Storage, force: bool = False) -> dict:
                              separators=(",", ":"))
         store.oddset_save_absence_capture({
             "match_id": m["id"], "captured_at": captured_at,
+            "provider": "sofascore", "status": "observed",
             "source_event_id": str(eid), "match_start": m.get("start"),
             "confirmed": rec["confirmed"],
             "payload_hash": hashlib.sha256(payload.encode()).hexdigest(),
@@ -613,24 +673,20 @@ def get_absences(store: Storage, match_ids: list[str]) -> dict[str, dict]:
 def refresh_all(store: Storage, force: bool = False) -> dict:
     """Körs i varje insamlingspass — throttlarna gör det billigt."""
     from . import oddset_schedule
-    # KÄLLORDNING (Samans beslut 2026-08-01): Flashscore är PRIMÄR och körs
-    # FÖRST, Sofascore är tredje alternativet och fyller bara det som är kvar.
-    # Ordningen räcker inte ensam — lagret måste också vara "första
-    # observationen vinner", annars vinner den som råkar skriva sist:
-    #   * `oddset_save_result` behåller lagrad xG (COALESCE, lagrat först)
-    #   * `refresh_absences` hoppar över matcher Flashscore redan täckt
-    # Football-data (mål) och ClubElo är egna källor utan konflikt.
+    # Resultatskelettet måste finnas INNAN providerstatistik länkas. Därefter
+    # samlas Flashscore och Sofascore oberoende i separata rader. Modelläsningen
+    # väljer Flashscore→Sofascore deterministiskt; körordning kan inte längre
+    # skriva om eller blanda en observation.
     from . import flashscore_data
-    out = {}
+    out = {"results": refresh_results(store, force),
+           "results_extra": refresh_results_extra(store, force)}
     for name, fn in (("fs_xg", flashscore_data.refresh_xg),
                      ("fs_absences", flashscore_data.refresh_absences)):
         try:
             out[name] = fn(store, force)
         except Exception as exc:  # noqa: BLE001 — får aldrig fälla varvet
             out[name] = {"error": f"{type(exc).__name__}: {str(exc)[:80]}"}
-    out.update({"results": refresh_results(store, force),
-                "results_extra": refresh_results_extra(store, force),
-                "xg": refresh_xg(store, force),
+    out.update({"xg": refresh_xg(store, force),
                 "elo": refresh_elo(store, force),
                 "absences": refresh_absences(store, force)})
     try:
@@ -704,7 +760,7 @@ def merged_results(store: Storage, league: str,
                    audit: Optional[dict] = None) -> list[dict]:
     """Resultat med källorna ihopslagna: Sofascore-lagnamn kanoniseras till
     football-data-namnen (alias-tabell → exakt → fuzzy >0.7) och dubblettrader
-    för samma match slås ihop (xG vinner). Matchnyckeln tål ±1 dygns datumskillnad
+    för samma match slås ihop (providerprioritet per statistikpar). Matchnyckeln tål ±1 dygns datumskillnad
     mellan källorna (MLS: Sofascore = UTC-datum, football-data = lokalt/brittiskt
     → 304 dubbletter i fitten före fixen) — kräver samma lagpar, olika källor och
     samma mål. audit (dict) fylls med alla automatiska/öppna identitetsbeslut:
@@ -720,6 +776,40 @@ def merged_results(store: Storage, league: str,
     fuzzy_links: dict[tuple[str, str], dict] = {}
     unmatched_links: dict[tuple[str, str], dict] = {}
     rejected_links: dict[tuple[str, str], dict] = {}
+
+    stats_priority = {provider: index for index, provider in
+                      enumerate(Storage.RESULT_STATS_PRIORITY)}
+
+    def provider_rank(provider: Optional[str]) -> tuple:
+        return (stats_priority.get(provider, len(stats_priority)), provider or "")
+
+    def merge_into(base: dict, fill: dict) -> None:
+        """Slå ihop identitet/resultat och bevara hela hem/borta-par.
+
+        xG och hörnor är olika statistikfamiljer och får ha olika providers,
+        men hem/borta inom ett par får aldrig plockas fältvis från olika källor.
+        """
+        for key in ("hg", "ag"):
+            if base.get(key) is None and fill.get(key) is not None:
+                base[key] = fill[key]
+        # xG-paret och hörnparet väljs var för sig, men aldrig ett fält i paret
+        # från vardera källa. Då kan FS-xG samexistera med football-data-hörnor.
+        if (fill.get("xg_h") is not None and fill.get("xg_a") is not None and
+                (base.get("xg_h") is None or base.get("xg_a") is None or
+                 provider_rank(fill.get("xg_provider")) <
+                 provider_rank(base.get("xg_provider")))):
+            for key in ("xg_h", "xg_a", "xg_provider",
+                        "xg_provider_event_id", "xg_observed_at"):
+                base[key] = fill.get(key)
+        if (fill.get("cor_h") is not None and fill.get("cor_a") is not None and
+                (base.get("cor_h") is None or base.get("cor_a") is None or
+                 provider_rank(fill.get("corners_provider")) <
+                 provider_rank(base.get("corners_provider")))):
+            for key in ("cor_h", "cor_a", "corners_provider",
+                        "corners_provider_event_id", "corners_observed_at"):
+                base[key] = fill.get(key)
+        base["stats_provider"] = (base.get("xg_provider") or
+                                  base.get("corners_provider"))
 
     def to_canon(name: str, match_key: tuple) -> str:
         if not canon or name in canon:
@@ -764,9 +854,7 @@ def merged_results(store: Storage, league: str,
         if not prev:
             merged[key] = r
             continue
-        for k in ("xg_h", "xg_a", "cor_h", "cor_a", "hg", "ag"):
-            if prev.get(k) is None and r.get(k) is not None:
-                prev[k] = r[k]
+        merge_into(prev, r)
 
     if audit is not None:
         links = []
@@ -806,9 +894,7 @@ def merged_results(store: Storage, league: str,
             r, nxt = pair_rows[i], pair_rows[i + 1] if i + 1 < len(pair_rows) else None
             if nxt is not None and _same_match(r, nxt):
                 base, fill = (r, nxt) if r.get("source") == "fd" else (nxt, r)
-                for k in ("xg_h", "xg_a", "cor_h", "cor_a", "hg", "ag"):
-                    if base.get(k) is None and fill.get(k) is not None:
-                        base[k] = fill[k]
+                merge_into(base, fill)
                 out.append(base)
                 i += 2
                 continue

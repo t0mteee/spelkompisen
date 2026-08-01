@@ -21,6 +21,36 @@ from .svenskaspel import Draw
 
 DEFAULT_DB = Path(__file__).resolve().parent.parent / "data" / "stryktips.db"
 
+RESULT_STATS_SCHEMA = """
+-- Providerstatistik hålls skild från resultatets identitet. En match kan ha
+-- observationer från flera källor. Läsningen väljer ett komplett xG-par och
+-- ett komplett hörnpar var för sig enligt en versionsstyrd providerordning.
+-- Därmed blandas aldrig hem/borta inom samma statistikfamilj och
+-- `oddset_results.source` fortsätter enbart betyda resultatkälla.
+CREATE TABLE IF NOT EXISTS oddset_result_stats (
+    league             TEXT NOT NULL,
+    date               TEXT NOT NULL,
+    home               TEXT NOT NULL,
+    away               TEXT NOT NULL,
+    provider           TEXT NOT NULL,
+    provider_event_id  TEXT,
+    -- Observationstid hör till statistikfamiljen, inte provider-raden som
+    -- helhet. xG och hörnor kan kompletteras vid olika hämtningar.
+    xg_observed_at      TEXT,
+    corners_observed_at TEXT,
+    match_start_at     TEXT,
+    final_home_score   INTEGER,
+    final_away_score   INTEGER,
+    xg_h               REAL,
+    xg_a               REAL,
+    cor_h              REAL,
+    cor_a              REAL,
+    PRIMARY KEY (league, date, home, away, provider)
+);
+CREATE INDEX IF NOT EXISTS idx_oddset_result_stats_provider
+    ON oddset_result_stats (provider, league, date);
+"""
+
 PREDICTION_SCHEMA = """
 CREATE TABLE IF NOT EXISTS oddset_prediction_capture (
     match_id       TEXT NOT NULL,
@@ -95,6 +125,8 @@ ABSENCE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS oddset_absence_capture (
     match_id        TEXT NOT NULL,
     captured_at     TEXT NOT NULL,
+    provider        TEXT NOT NULL,
+    status          TEXT NOT NULL CHECK (status IN ('observed', 'unavailable')),
     source_event_id TEXT,
     match_start     TEXT,
     confirmed       INTEGER NOT NULL,
@@ -102,7 +134,7 @@ CREATE TABLE IF NOT EXISTS oddset_absence_capture (
     home_missing    INTEGER NOT NULL,
     away_missing    INTEGER NOT NULL,
     missing_count   INTEGER NOT NULL,
-    PRIMARY KEY (match_id, captured_at)
+    PRIMARY KEY (match_id, captured_at, provider)
 );
 CREATE INDEX IF NOT EXISTS idx_absence_capture_match
     ON oddset_absence_capture (match_id, captured_at);
@@ -110,9 +142,10 @@ CREATE INDEX IF NOT EXISTS idx_absence_capture_match
 CREATE TABLE IF NOT EXISTS oddset_absence_player (
     match_id        TEXT NOT NULL,
     captured_at     TEXT NOT NULL,
+    provider        TEXT NOT NULL,
     side            TEXT NOT NULL CHECK (side IN ('home', 'away')),
     player_key      TEXT NOT NULL,
-    player_id       INTEGER,
+    player_id       TEXT,
     name            TEXT NOT NULL,
     position        TEXT,
     reason_code     INTEGER,
@@ -121,7 +154,7 @@ CREATE TABLE IF NOT EXISTS oddset_absence_player (
     expected_end    TEXT,
     appearances     INTEGER,
     rating          REAL,
-    PRIMARY KEY (match_id, captured_at, side, player_key)
+    PRIMARY KEY (match_id, captured_at, provider, side, player_key)
 );
 CREATE INDEX IF NOT EXISTS idx_absence_player_identity
     ON oddset_absence_player (player_id, captured_at);
@@ -629,13 +662,13 @@ CREATE INDEX IF NOT EXISTS idx_oddset_live_flashscore_recent
 -- eller inte — eftersom kontrollgruppen för den villkorade basraten är just
 -- icke-signal-ögonblicken. Signalen räknas om deterministiskt ur radens råa
 -- fält med SAMMA funktion som API:t (live_radar.radar_signal); providrar
--- blandas aldrig (Sofascore-serier settlas mot Sofascore, FotMob mot FotMob).
+-- blandas aldrig (varje Sofascore/FotMob/Flashscore-serie settlas mot sig själv).
 -- Append-once: INSERT OR IGNORE på naturlig nyckel — en settlad rad skrivs
 -- ALDRIG om. NULL-utfall betyder censorerat (orsak i egen kolumn), aldrig 0.
 -- Shadow: läses bara av radar-facit, aldrig av tips/Kelly/notiser/CLV/modell.
 CREATE TABLE IF NOT EXISTS oddset_live_moment_settlement (
-    provider          TEXT NOT NULL,      -- 'sofascore' | 'fotmob' (= xg_source)
-    event_id          INTEGER NOT NULL,   -- sofa event_id resp. fotmob_id
+    provider          TEXT NOT NULL,      -- sofascore | fotmob | flashscore
+    event_id          TEXT NOT NULL,      -- ogenomskinligt id; FS är alfanumeriskt
     captured_at       TEXT NOT NULL,
     capture_version   TEXT NOT NULL,
     league            TEXT,
@@ -957,7 +990,7 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
     outcome_key  TEXT,
     PRIMARY KEY (match_id, market, sign, line_key, model_version)
 );
-""" + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + V22_SHADOW_SCHEMA + TEAM_EVENT_SCHEMA + POOL_SETTLEMENT_SCHEMA + POOL_PIT_SCHEMA + LIVE_RADAR_SCHEMA + MATCHBOOK_SCHEMA
+""" + RESULT_STATS_SCHEMA + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + V22_SHADOW_SCHEMA + TEAM_EVENT_SCHEMA + POOL_SETTLEMENT_SCHEMA + POOL_PIT_SCHEMA + LIVE_RADAR_SCHEMA + MATCHBOOK_SCHEMA
 
 
 class Storage:
@@ -974,6 +1007,10 @@ class Storage:
         # "database is locked" vid krock.
         self.conn = sqlite3.connect(self.db_path, timeout=10)
         self.conn.row_factory = sqlite3.Row
+        # Resultatlagret pekar på sin append-only-signal. Kontrollen måste vara
+        # aktiv på VARJE anslutning; SQLite har foreign_keys av som default och
+        # ett rent `foreign_key_check` skyddar inte framtida felskrivningar.
+        self.conn.execute("PRAGMA foreign_keys=ON")
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA busy_timeout=10000")
         self.conn.execute("PRAGMA synchronous=NORMAL")
@@ -1860,7 +1897,11 @@ class Storage:
         return [dict(row) for row in self.conn.execute(
             f"SELECT * FROM {table} WHERE {id_column}=? AND capture_version=? "
             "ORDER BY captured_at",
-            (int(event_id), capture_version))]
+            # Provider-id:n är ogenomskinliga även när en källa råkar använda
+            # bara siffror i dag. SQLite matchar strängen mot INTEGER-affinitet
+            # i de två äldre råtabellerna utan att applikationen behöver tolka
+            # eller begränsa id-formatet.
+            (str(event_id), capture_version))]
 
     def oddset_live_captures(
             self, since: Optional[str] = None,
@@ -1886,25 +1927,33 @@ class Storage:
     def live_settlement_save(self, row: dict) -> int:
         """Append-once per ögonblick — en settlad rad skrivs aldrig om."""
         cols = self.LIVE_SETTLEMENT_COLUMNS
+        if row.get("event_id") is None:
+            raise ValueError("moment-settlement saknar provider-event-id")
+        values = {**row, "event_id": str(row["event_id"])}
         cur = self.conn.execute(
             f"INSERT OR IGNORE INTO oddset_live_moment_settlement"
             f"({','.join(cols)}) VALUES({','.join('?' for _ in cols)})",
-            tuple(row.get(key) for key in cols))
+            tuple(values.get(key) for key in cols))
         self._commit()
         return cur.rowcount
 
     def live_settlement_keys(self) -> set[tuple]:
         """Naturliga nycklar för redan settlade ögonblick (aldrig omskrivning)."""
-        return {(r["provider"], int(r["event_id"]), r["captured_at"],
+        return {(r["provider"], str(r["event_id"]), r["captured_at"],
                  r["capture_version"])
                 for r in self.conn.execute(
                     "SELECT provider, event_id, captured_at, capture_version "
                     "FROM oddset_live_moment_settlement")}
 
     def live_settlement_rows(self) -> list[dict]:
-        return [dict(row) for row in self.conn.execute(
+        rows = [dict(row) for row in self.conn.execute(
             "SELECT * FROM oddset_live_moment_settlement "
             "ORDER BY provider, event_id, captured_at")]
+        # Samma kontrakt även under den korta övergången innan prodtabellen
+        # har migrerats från INTEGER-affinitet till TEXT.
+        for row in rows:
+            row["event_id"] = str(row["event_id"])
+        return rows
 
     LIVE_SIGNAL_COLUMNS = (
         "match_key", "match_id", "provider", "provider_event_id",
@@ -1961,10 +2010,13 @@ class Storage:
     def live_signal_save(self, row: dict) -> int:
         """Append-once per match × signaltyp × nivå × signalversion."""
         cols = self.LIVE_SIGNAL_COLUMNS
+        if row.get("provider_event_id") is None:
+            raise ValueError("live-signal saknar provider-event-id")
+        values = {**row, "provider_event_id": str(row["provider_event_id"])}
         cur = self.conn.execute(
             f"INSERT OR IGNORE INTO oddset_live_signal({','.join(cols)}) "
             f"VALUES({','.join('?' for _ in cols)})",
-            tuple(row.get(key) for key in cols))
+            tuple(values.get(key) for key in cols))
         self._commit()
         return cur.rowcount
 
@@ -2041,50 +2093,180 @@ class Storage:
                 a["pts"].append({"t": t, "o": o, "l": ln})
         return out
 
-    def oddset_fill_xg(self, r: dict, tag: str = "+fs") -> int:
-        """Fyll xG/hörnor BARA där de saknas — skriv aldrig över en källa.
+    RESULT_STATS_PRIORITY = (
+        "flashscore", "sofascore", "football_data", "legacy",
+    )
 
-        Villkoret `xg_h IS NULL` ligger i SQL:en med flit: en redan lagrad
-        siffra är modellindata i en pågående mätserie och får inte byta värde
-        i efterhand. `source` får ett suffix så proveniensen syns.
+    @staticmethod
+    def _result_source(source: Optional[str]) -> Optional[str]:
+        """Resultatproveniens utan gamla statistiktaggar.
+
+        `+fs` användes kort som xG-proveniens och gjorde därmed en football-
+        data-rad osynlig för identitetsmergens fd-kanon. Nya statistikfält har
+        en egen tabell; resultatkällan får aldrig överlastas igen.
         """
+        if source is None:
+            return None
+        cleaned = str(source).replace("+fs", "")
+        return cleaned or None
+
+    @staticmethod
+    def _inferred_stats_provider(row: dict) -> str:
+        explicit = row.get("stats_provider")
+        if explicit:
+            return str(explicit)
+        source = str(row.get("source") or "")
+        if "+fs" in source:
+            return "flashscore"
+        if source == "sofa":
+            return "sofascore"
+        if (source == "fd" and row.get("xg_h") is None
+                and row.get("xg_a") is None):
+            return "football_data"
+        return "legacy"
+
+    def oddset_save_result_stats(self, row: dict) -> int:
+        """Spara en providers statistikobservation, utan källblandning.
+
+        En provider får komplettera NULL-fält men aldrig skriva om en redan
+        observerad siffra. Olika providers får varsin rad och kan därför
+        jämföras i efterhand; valet till modellen sker först vid läsning.
+        """
+        if all(row.get(key) is None for key in
+               ("xg_h", "xg_a", "cor_h", "cor_a")):
+            return 0
+        provider = str(row["provider"])
+        has_xg = row.get("xg_h") is not None or row.get("xg_a") is not None
+        has_corners = (row.get("cor_h") is not None or
+                       row.get("cor_a") is not None)
+        # Äldre anrop skickar ett gemensamt `observed_at`. Det får bara
+        # appliceras på de familjer som faktiskt finns i just detta anrop.
+        xg_observed_at = (row.get("xg_observed_at") or row.get("observed_at")
+                          if has_xg else None)
+        corners_observed_at = (
+            row.get("corners_observed_at") or row.get("observed_at")
+            if has_corners else None)
         cur = self.conn.execute(
-            "UPDATE oddset_results SET xg_h=?, xg_a=?, "
-            "cor_h=COALESCE(cor_h, ?), cor_a=COALESCE(cor_a, ?), "
-            "source=COALESCE(source,'')||? "
-            "WHERE league=? AND date=? AND home=? AND away=? "
-            "AND xg_h IS NULL AND ?  IS NOT NULL",
-            (r.get("xg_h"), r.get("xg_a"), r.get("cor_h"), r.get("cor_a"),
-             tag, r["league"], r["date"], r["home"], r["away"],
-             r.get("xg_h")))
+            "INSERT INTO oddset_result_stats(league,date,home,away,provider,"
+            "provider_event_id,xg_observed_at,corners_observed_at,match_start_at,"
+            "final_home_score,final_away_score,xg_h,xg_a,cor_h,cor_a) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(league,date,home,away,provider) DO UPDATE SET "
+            "provider_event_id=COALESCE(oddset_result_stats.provider_event_id,"
+            "excluded.provider_event_id), "
+            # Om ett gammalt delpar kompletteras nu ska tiden beskriva när
+            # det kompletta paret faktiskt blev tillgängligt. Redan kompletta
+            # par och deras tider är write-once.
+            "xg_observed_at=CASE WHEN oddset_result_stats.xg_h IS NOT NULL "
+            "AND oddset_result_stats.xg_a IS NOT NULL THEN "
+            "oddset_result_stats.xg_observed_at WHEN "
+            "COALESCE(oddset_result_stats.xg_h,excluded.xg_h) IS NOT NULL "
+            "AND COALESCE(oddset_result_stats.xg_a,excluded.xg_a) IS NOT NULL "
+            "THEN excluded.xg_observed_at ELSE "
+            "COALESCE(oddset_result_stats.xg_observed_at,"
+            "excluded.xg_observed_at) END, "
+            "corners_observed_at=CASE WHEN oddset_result_stats.cor_h IS NOT NULL "
+            "AND oddset_result_stats.cor_a IS NOT NULL THEN "
+            "oddset_result_stats.corners_observed_at WHEN "
+            "COALESCE(oddset_result_stats.cor_h,excluded.cor_h) IS NOT NULL "
+            "AND COALESCE(oddset_result_stats.cor_a,excluded.cor_a) IS NOT NULL "
+            "THEN excluded.corners_observed_at ELSE "
+            "COALESCE(oddset_result_stats.corners_observed_at,"
+            "excluded.corners_observed_at) END, "
+            "match_start_at=COALESCE(oddset_result_stats.match_start_at,"
+            "excluded.match_start_at), "
+            "final_home_score=COALESCE(oddset_result_stats.final_home_score,"
+            "excluded.final_home_score), "
+            "final_away_score=COALESCE(oddset_result_stats.final_away_score,"
+            "excluded.final_away_score), "
+            "xg_h=COALESCE(oddset_result_stats.xg_h,excluded.xg_h), "
+            "xg_a=COALESCE(oddset_result_stats.xg_a,excluded.xg_a), "
+            "cor_h=COALESCE(oddset_result_stats.cor_h,excluded.cor_h), "
+            "cor_a=COALESCE(oddset_result_stats.cor_a,excluded.cor_a)",
+            (row["league"], row["date"], row["home"], row["away"], provider,
+             row.get("provider_event_id"), xg_observed_at,
+             corners_observed_at,
+             row.get("match_start_at"), row.get("final_home_score"),
+             row.get("final_away_score"), row.get("xg_h"), row.get("xg_a"),
+             row.get("cor_h"), row.get("cor_a")))
         self._commit()
         return cur.rowcount
 
-    def oddset_save_result(self, r: dict) -> None:
-        """COALESCE-upsert: statistik fyller på football-data-rader (samma PK
-        tack vare normaliserade namn) utan att skriva över mål.
+    def oddset_result_stats(self, league: Optional[str] = None,
+                            since: Optional[str] = None,
+                            provider: Optional[str] = None) -> list[dict]:
+        clauses, args = [], []
+        if league is not None:
+            clauses.append("league=?")
+            args.append(league)
+        if since is not None:
+            clauses.append("date>=?")
+            args.append(since)
+        if provider is not None:
+            clauses.append("provider=?")
+            args.append(provider)
+        query = "SELECT * FROM oddset_result_stats"
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY date, home, away, provider"
+        return [dict(row) for row in self.conn.execute(query, args)]
 
-        FÖRSTA OBSERVATIONEN VINNER (2026-08-01). Tidigare vann `excluded`
-        för xG/hörnor, vilket lät en senare källa skriva om ett redan lagrat
-        värde. Med Flashscore som primär källa och Sofascore som tredje
-        alternativ skulle den ordningen låta den SÄMRE källan skriva sist och
-        vinna. Ett lagrat värde är dessutom modellindata i en pågående
-        mätserie och får inte byta värde i efterhand — luckor fylls, inget
-        skrivs om.
+    def oddset_fill_xg(self, r: dict, tag: str = "+fs") -> int:
+        """Kompatibilitetsväg: lagra Flashscore som en separat observation.
+
+        `tag` ignoreras avsiktligt. Resultatets `source` ändras aldrig av en
+        statistikprovider; äldre anrop får ändå rätt nya semantik.
         """
+        return self.oddset_save_result_stats({
+            **r, "provider": r.get("provider") or "flashscore",
+        })
+
+    def oddset_save_result(self, r: dict) -> None:
+        """Upserta resultatskelettet och routa statistik till providerlagret.
+
+        Mål är write-once via COALESCE. xG/hörnor skrivs aldrig i matchraden;
+        även äldre anrop med sådana fält får en separat providerobservation.
+        """
+        source = self._result_source(r.get("source"))
         self.conn.execute(
             "INSERT INTO oddset_results(league, date, home, away, home_raw, away_raw, "
             "hg, ag, xg_h, xg_a, cor_h, cor_a, source) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) "
             "ON CONFLICT(league, date, home, away) DO UPDATE SET "
-            "hg=COALESCE(oddset_results.hg, excluded.hg), "
-            "ag=COALESCE(oddset_results.ag, excluded.ag), "
-            "xg_h=COALESCE(oddset_results.xg_h, excluded.xg_h), "
-            "xg_a=COALESCE(oddset_results.xg_a, excluded.xg_a), "
-            "cor_h=COALESCE(oddset_results.cor_h, excluded.cor_h), "
-            "cor_a=COALESCE(oddset_results.cor_a, excluded.cor_a)",
+            # En komplett FD-rad är facitets kanon och måste vinna som ETT
+            # paket. Att bara byta source/namn men behålla Sofa-mål gav falsk
+            # proveniens och kunde återinföra straffläggningsresultat.
+            "hg=CASE WHEN excluded.source='fd' AND excluded.hg IS NOT NULL "
+            "AND excluded.ag IS NOT NULL THEN excluded.hg "
+            "ELSE COALESCE(oddset_results.hg,excluded.hg) END, "
+            "ag=CASE WHEN excluded.source='fd' AND excluded.hg IS NOT NULL "
+            "AND excluded.ag IS NOT NULL THEN excluded.ag "
+            "ELSE COALESCE(oddset_results.ag,excluded.ag) END, "
+            "source=CASE WHEN excluded.source='fd' AND excluded.hg IS NOT NULL "
+            "AND excluded.ag IS NOT NULL THEN 'fd' "
+            "ELSE COALESCE(oddset_results.source,excluded.source) END, "
+            "home_raw=CASE WHEN excluded.source='fd' AND excluded.hg IS NOT NULL "
+            "AND excluded.ag IS NOT NULL THEN excluded.home_raw "
+            "ELSE COALESCE(oddset_results.home_raw,excluded.home_raw) END, "
+            "away_raw=CASE WHEN excluded.source='fd' AND excluded.hg IS NOT NULL "
+            "AND excluded.ag IS NOT NULL THEN excluded.away_raw "
+            "ELSE COALESCE(oddset_results.away_raw,excluded.away_raw) END",
             (r["league"], r["date"], r["home"], r["away"], r.get("home_raw"),
-             r.get("away_raw"), r.get("hg"), r.get("ag"), r.get("xg_h"),
-             r.get("xg_a"), r.get("cor_h"), r.get("cor_a"), r.get("source")))
+             r.get("away_raw"), r.get("hg"), r.get("ag"), None, None, None,
+             None, source))
+        if any(r.get(key) is not None for key in
+               ("xg_h", "xg_a", "cor_h", "cor_a")):
+            self.oddset_save_result_stats({
+                "league": r["league"], "date": r["date"],
+                "home": r["home"], "away": r["away"],
+                "provider": self._inferred_stats_provider(r),
+                "provider_event_id": r.get("provider_event_id"),
+                "observed_at": r.get("stats_observed_at"),
+                "match_start_at": r.get("match_start_at"),
+                "final_home_score": r.get("hg"),
+                "final_away_score": r.get("ag"),
+                "xg_h": r.get("xg_h"), "xg_a": r.get("xg_a"),
+                "cor_h": r.get("cor_h"), "cor_a": r.get("cor_a"),
+            })
         self._commit()
 
     def oddset_results(self, league: str, since: Optional[str] = None) -> list[dict]:
@@ -2093,7 +2275,61 @@ class Storage:
             q += " AND date >= ?"
             args.append(since)
         q += " ORDER BY date"
-        return [dict(r) for r in self.conn.execute(q, args).fetchall()]
+        rows = [dict(r) for r in self.conn.execute(q, args).fetchall()]
+        stats = self.oddset_result_stats(league, since)
+        grouped: dict[tuple[str, str, str, str], list[dict]] = {}
+        for stat in stats:
+            grouped.setdefault((stat["league"], stat["date"], stat["home"],
+                                stat["away"]), []).append(stat)
+        priority = {provider: index for index, provider in
+                    enumerate(self.RESULT_STATS_PRIORITY)}
+
+        def provider_rank(stat: dict) -> tuple:
+            return (priority.get(stat["provider"], len(priority)),
+                    stat["provider"])
+
+        for row in rows:
+            candidates = grouped.get((row["league"], row["date"], row["home"],
+                                      row["away"])) or []
+            xg_rows = [stat for stat in candidates
+                       if stat.get("xg_h") is not None and
+                       stat.get("xg_a") is not None]
+            corner_rows = [stat for stat in candidates
+                           if stat.get("cor_h") is not None and
+                           stat.get("cor_a") is not None]
+            if xg_rows:
+                selected = min(xg_rows, key=provider_rank)
+                row["xg_h"], row["xg_a"] = selected["xg_h"], selected["xg_a"]
+                row["xg_provider"] = selected["provider"]
+                row["xg_provider_event_id"] = selected.get("provider_event_id")
+                row["xg_observed_at"] = selected.get("xg_observed_at")
+            else:
+                row["xg_provider"] = None
+            if corner_rows:
+                selected = min(corner_rows, key=provider_rank)
+                row["cor_h"], row["cor_a"] = selected["cor_h"], selected["cor_a"]
+                row["corners_provider"] = selected["provider"]
+                row["corners_provider_event_id"] = selected.get("provider_event_id")
+                row["corners_observed_at"] = selected.get("corners_observed_at")
+            else:
+                row["corners_provider"] = None
+            if xg_rows or corner_rows:
+                # Äldre diagnostik läser detta fält; xG är dess primära mening.
+                row["stats_provider"] = (row.get("xg_provider") or
+                                         row.get("corners_provider"))
+            elif any(row.get(key) is not None for key in
+                     ("xg_h", "xg_a", "cor_h", "cor_a")):
+                # Övergångsskydd innan den explicita migreringen körts.
+                inferred = self._inferred_stats_provider(row)
+                row["xg_provider"] = inferred if row.get("xg_h") is not None else None
+                row["corners_provider"] = (
+                    inferred if row.get("cor_h") is not None else None)
+                row["stats_provider"] = inferred
+            else:
+                row["xg_provider"] = None
+                row["corners_provider"] = None
+                row["stats_provider"] = None
+        return rows
 
     def meta_like(self, prefix: str) -> list[tuple[str, str]]:
         return [(r["key"], r["value"]) for r in self.conn.execute(
@@ -2578,15 +2814,25 @@ class Storage:
         Samma match/tid är idempotent. Separata spelarrader med stabilt provider-
         ID gör att frånvaroförändringar senare kan kopplas till oddsrörelser.
         """
+        source_event_id = str(capture.get("source_event_id") or "")
+        provider = str(capture.get("provider") or (
+            "flashscore" if source_event_id.startswith("fs:") else "sofascore"))
+        status = str(capture.get("status") or "observed")
+        if status not in ("observed", "unavailable"):
+            raise ValueError(f"ogiltig frånvarostatus: {status!r}")
+        if status == "unavailable" and players:
+            raise ValueError("unavailable-capture får inte innehålla spelare")
         home_n = sum(p.get("side") == "home" for p in players)
         away_n = sum(p.get("side") == "away" for p in players)
         with self.bulk():
             cur = self.conn.execute(
                 "INSERT OR IGNORE INTO oddset_absence_capture(match_id, captured_at, "
-                "source_event_id, match_start, confirmed, payload_hash, home_missing, "
-                "away_missing, missing_count) VALUES(?,?,?,?,?,?,?,?,?)",
+                "provider, status, source_event_id, match_start, confirmed, "
+                "payload_hash, home_missing, away_missing, missing_count) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                 (capture["match_id"], capture["captured_at"],
-                 capture.get("source_event_id"), capture.get("match_start"),
+                 provider, status, capture.get("source_event_id"),
+                 capture.get("match_start"),
                  int(bool(capture.get("confirmed"))), capture["payload_hash"],
                  home_n, away_n, home_n + away_n))
             if cur.rowcount == 0:
@@ -2595,16 +2841,22 @@ class Storage:
                 side = p.get("side")
                 if side not in ("home", "away"):
                     raise ValueError(f"ogiltig frånvarosida: {side!r}")
-                player_id = p.get("player_id")
+                raw_player_id = p.get("player_id")
                 name = p.get("name") or f"okänd-{i + 1}"
-                player_key = (f"sofa:{player_id}" if player_id is not None
-                              else "name:" + name.casefold().strip())
+                if raw_player_id is not None:
+                    raw = str(raw_player_id)
+                    player_id = (raw if ":" in raw else
+                                 f"{'fs' if provider == 'flashscore' else 'sofa'}:{raw}")
+                    player_key = player_id
+                else:
+                    player_id = None
+                    player_key = f"{provider}:name:{name.casefold().strip()}"
                 self.conn.execute(
-                    "INSERT INTO oddset_absence_player(match_id, captured_at, side, "
-                    "player_key, player_id, name, position, reason_code, reason, "
+                    "INSERT INTO oddset_absence_player(match_id, captured_at, provider, "
+                    "side, player_key, player_id, name, position, reason_code, reason, "
                     "description, expected_end, appearances, rating) "
-                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (capture["match_id"], capture["captured_at"], side, player_key,
+                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (capture["match_id"], capture["captured_at"], provider, side, player_key,
                      player_id, name, p.get("position"), p.get("reason_code"),
                      p.get("reason"), p.get("description"), p.get("expected_end"),
                      p.get("apps"), p.get("rating")))
@@ -2612,45 +2864,46 @@ class Storage:
 
     def oddset_absence_sources(self, match_ids: list[str],
                                since: str) -> dict[str, set[str]]:
-        """Vilka källor som redan skrivit en frånvarocapture per match.
-
-        Används av den TREDJE källan (Sofascore) för att inte skriva över en
-        färsk capture från den primära (Flashscore, prefix `fs:`)."""
+        """Vilka källor som skrivit en frånvarocapture per match."""
         if not match_ids:
             return {}
         marks = ",".join("?" for _ in match_ids)
         out: dict[str, set[str]] = {}
         for row in self.conn.execute(
-                f"SELECT match_id, source_event_id FROM oddset_absence_capture "
+                f"SELECT match_id, provider FROM oddset_absence_capture "
                 f"WHERE match_id IN ({marks}) AND captured_at>=?",
                 [*match_ids, since]):
-            source = ("flashscore"
-                      if str(row["source_event_id"] or "").startswith("fs:")
-                      else "sofascore")
-            out.setdefault(row["match_id"], set()).add(source)
+            out.setdefault(row["match_id"], set()).add(row["provider"])
         return out
 
     def oddset_latest_absences(self, match_ids: list[str]) -> dict[str, dict]:
         if not match_ids:
             return {}
         marks = ",".join("?" for _ in match_ids)
-        captures = self.conn.execute(
-            "SELECT c.* FROM oddset_absence_capture c JOIN ("
-            " SELECT match_id, MAX(captured_at) AS captured_at "
-            f" FROM oddset_absence_capture WHERE match_id IN ({marks}) GROUP BY match_id"
-            ") latest ON latest.match_id=c.match_id "
-            "AND latest.captured_at=c.captured_at",
+        candidates = self.conn.execute(
+            "SELECT * FROM oddset_absence_capture "
+            f"WHERE match_id IN ({marks}) AND status='observed' "
+            "ORDER BY match_id, confirmed DESC, captured_at DESC, "
+            "CASE provider WHEN 'sofascore' THEN 0 WHEN 'flashscore' THEN 1 ELSE 2 END",
             match_ids).fetchall()
+        captures = []
+        seen = set()
+        for capture in candidates:
+            if capture["match_id"] not in seen:
+                captures.append(capture)
+                seen.add(capture["match_id"])
         out: dict[str, dict] = {}
         for c in captures:
             rec = {"at": c["captured_at"], "confirmed": bool(c["confirmed"]),
+                   "provider": c["provider"], "status": c["status"],
                    "source_event_id": c["source_event_id"], "home": [], "away": []}
             rows = self.conn.execute(
                 "SELECT side, player_id, name, position, reason_code, reason, "
                 "description, expected_end, appearances AS apps, rating "
                 "FROM oddset_absence_player WHERE match_id=? AND captured_at=? "
+                "AND provider=? "
                 "ORDER BY side, name",
-                (c["match_id"], c["captured_at"])).fetchall()
+                (c["match_id"], c["captured_at"], c["provider"])).fetchall()
             for row in rows:
                 player = {k: row[k] for k in row.keys() if k != "side" and row[k] is not None}
                 rec[row["side"]].append(player)

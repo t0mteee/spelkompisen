@@ -16,6 +16,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from close_drift_facit import (  # noqa: E402 — samma estimand, ingen kopia
     CHAIN, DEAD_PP, MOMENTUM_ACT, _ci, _established_missing, _rows)
+from app import oddset_ledger     # noqa: E402
 from app.storage import Storage   # noqa: E402
 
 FORWARD_START = "2026-07-26T21:00:00Z"     # (a): kohort efter förregistreringen
@@ -36,22 +37,62 @@ def _report(label: str, samples: list[tuple[str, float]], n_needed: int = 0,
           f"{hit * 100:.1f} % [{lo * 100:.1f}..{hi * 100:.1f}] {gate}")
 
 
+def _line_move_rows(store: Storage, market: str, sign: str,
+                    signal_version: str):
+    """h24→h3-par inom exakt samma sharp-version, aldrig mellan regimer."""
+    return store.conn.execute(
+        "SELECT t.match_id, s.line_key AS lk24, t.line_key AS lk3, "
+        "t.line AS line3, t.closing_line AS cl "
+        "FROM oddset_prediction_log t JOIN oddset_prediction_log s "
+        "ON s.match_id=t.match_id AND s.market=t.market "
+        "AND s.sign=t.sign AND s.horizon='h24' AND s.tier='sharp' "
+        "AND s.fair_source='pinnacle' "
+        "AND s.signal_version=t.signal_version "
+        "WHERE t.tier='sharp' AND t.fair_source='pinnacle' "
+        "AND t.signal_version=? AND t.market=? AND t.sign=? "
+        "AND t.horizon='h3' AND t.closing_line IS NOT NULL "
+        "AND t.line IS NOT NULL AND t.line_key IS NOT NULL "
+        "AND s.line_key IS NOT NULL AND s.line_key != t.line_key",
+        (signal_version, market, sign))
+
+
+def _wide_absence_base(store: Storage, match_id: str, match_start: str,
+                       captured_at: str):
+    """Första observerade capture i det breda PIT-fönstret.
+
+    Alla tre tider normaliseras med SQLite ``datetime``. Captures lagras som
+    ISO-8601 med ``T``/``Z``, medan ``datetime(...)`` returnerar blanksteg;
+    direkt TEXT-jämförelse tappade därför hela övre gränsens kalenderdag.
+    """
+    return store.conn.execute(
+        "SELECT captured_at FROM oddset_absence_capture "
+        "WHERE match_id=? "
+        "AND datetime(captured_at)>=datetime(?, '-72 hours') "
+        "AND datetime(captured_at)<=datetime(?, '-6 hours') "
+        "AND status='observed' "
+        "ORDER BY datetime(captured_at) ASC LIMIT 1",
+        (match_id, match_start, captured_at)).fetchone()
+
+
 def main() -> None:
     store = Storage()
-    rows = _rows(store)
+    version = oddset_ledger.prediction_versions(store)["sharp"]["signal_version"]
+    rows = _rows(store, version)
 
+    print(f"Sharp-version: {version}")
     print(f"(a) REVERSERING — forward-kohort (captured_at > {FORWARD_START})")
     for market in ("ah", "ou", "1x2"):
         tag = "" if market != "1x2" else " (utforskande)"
         samples = []
         for key, row in rows.items():
-            match_id, mkt, line_key, sign, horizon = key
+            row_version, match_id, mkt, line_key, sign, horizon = key
             if mkt != market or horizon != "h3":
                 continue
             if (row["captured_at"] <= FORWARD_START or not row["eligible"]
                     or row["closing_fair"] is None):
                 continue
-            src = rows.get((match_id, mkt, line_key, sign, "h24"))
+            src = rows.get((row_version, match_id, mkt, line_key, sign,
+                            "h24"))
             if src is None:
                 continue
             m = row["fair_prob"] - src["fair_prob"]
@@ -68,19 +109,7 @@ def main() -> None:
     for market in ("ah", "ou"):
         cont, flat = [], 0
         seen: set[str] = set()
-        for r in store.conn.execute(
-                "SELECT t.match_id, s.line_key AS lk24, t.line_key AS lk3, "
-                "t.line AS line3, t.closing_line AS cl "
-                "FROM oddset_prediction_log t JOIN oddset_prediction_log s "
-                "ON s.match_id=t.match_id AND s.market=t.market "
-                "AND s.sign=t.sign AND s.horizon='h24' AND s.tier='sharp' "
-                "AND s.fair_source='pinnacle' "
-                "WHERE t.tier='sharp' AND t.fair_source='pinnacle' "
-                "AND t.market=? AND t.sign=? AND t.horizon='h3' "
-                "AND t.closing_line IS NOT NULL AND t.line IS NOT NULL "
-                "AND t.line_key IS NOT NULL AND s.line_key IS NOT NULL "
-                "AND s.line_key != t.line_key",
-                (market, rep_sign[market])):
+        for r in _line_move_rows(store, market, rep_sign[market], version):
             if r["match_id"] in seen:
                 continue           # en flytt per match × marknad
             seen.add(r["match_id"])
@@ -99,17 +128,13 @@ def main() -> None:
     for target, source in CHAIN.items():
         samples = []
         for key, row in rows.items():
-            match_id, mkt, line_key, sign, horizon = key
+            _row_version, match_id, mkt, line_key, sign, horizon = key
             if mkt != "1x2" or horizon != target or sign not in ("1", "2"):
                 continue
             if not row["eligible"] or row["closing_fair"] is None:
                 continue
-            base = store.conn.execute(
-                "SELECT captured_at FROM oddset_absence_capture "
-                "WHERE match_id=? AND captured_at>=datetime(?, '-72 hours') "
-                "AND captured_at<=datetime(?, '-6 hours') "
-                "ORDER BY captured_at ASC LIMIT 1",
-                (match_id, row["match_start"], row["captured_at"])).fetchone()
+            base = _wide_absence_base(
+                store, match_id, row["match_start"], row["captured_at"])
             if not base:
                 continue
             before = _established_missing(store, match_id, base[0])

@@ -166,13 +166,44 @@ class AbsenceSnapshotTests(unittest.TestCase):
             {"player": {"name": "Other"}, "reason": 0,
              "description": "other"})["reason"])
 
+    def test_sofa_absence_link_requires_start_and_unique_candidate(self) -> None:
+        from app.oddset import _team_sim
+
+        match = {"home": "Inter", "away": "Milan",
+                 "start": "2026-07-17T02:30:00Z"}
+        exact = {
+            "id": 1, "startTimestamp": 1784255400,
+            "homeTeam": {"name": "Inter"}, "awayTeam": {"name": "Milan"},
+        }
+        wrong_time = {
+            "id": 2, "startTimestamp": 1784262600,
+            "homeTeam": {"name": "Inter"}, "awayTeam": {"name": "Milan"},
+        }
+        similar_squad = {
+            "id": 3, "startTimestamp": 1784255400,
+            "homeTeam": {"name": "Inter U23"},
+            "awayTeam": {"name": "Milan U23"},
+        }
+        self.assertEqual(1, oddset_data._sofa_absence_event(
+            [wrong_time, exact], match, _team_sim)["id"])
+        # Den historiska fuzzy-regeln ger 1,0 även för dessa U23-namn.
+        # Unikhetskravet ska därför stänga länken, inte välja första.
+        self.assertIsNone(oddset_data._sofa_absence_event(
+            [similar_squad, exact], match, _team_sim))
+        self.assertIsNone(oddset_data._sofa_absence_event(
+            [exact, {**exact, "id": 4}], match, _team_sim))
+        self.assertIsNone(oddset_data._sofa_absence_event(
+            [{key: value for key, value in exact.items()
+              if key != "startTimestamp"}], match, _team_sim))
+
     def test_refresh_writes_structured_capture_and_latest_payload(self) -> None:
         self.store.oddset_upsert_match({
             "id": "m1", "league": "mls", "home": "Chicago Fire",
             "away": "Vancouver Whitecaps", "start": "2026-07-17T02:30:00Z",
         })
         event_list = {"events": [{
-            "id": 15171583, "homeTeam": {"name": "Chicago Fire"},
+            "id": 15171583, "startTimestamp": 1784255400,
+            "homeTeam": {"name": "Chicago Fire"},
             "awayTeam": {"name": "Vancouver Whitecaps"},
         }]}
         lineup = {"confirmed": False, "home": {"missingPlayers": []}, "away": {
@@ -199,14 +230,56 @@ class AbsenceSnapshotTests(unittest.TestCase):
                 mock.patch.object(oddset_data.time, "sleep"):
             result = oddset_data.refresh_absences(self.store, force=True)
 
-        # Sofascore är tredje alternativet sedan 2026-08-01 och redovisar
-        # hur många matcher den primära källan redan täckt
         self.assertEqual({"checked": 1, "found": 1,
-                          "flashscore_hade_redan": 0}, result)
+                          "unavailable": 0}, result)
         latest = oddset_data.get_absences(self.store, ["m1"])["m1"]
-        self.assertEqual(794516, latest["away"][0]["player_id"])
+        self.assertEqual("sofa:794516", latest["away"][0]["player_id"])
         self.assertEqual("G", latest["away"][0]["position"])
+        self.assertEqual("sofascore", latest["provider"])
         self.assertEqual(1, len(self.store.oddset_absence_history("m1")))
+
+    def test_only_verified_404_is_recorded_as_unavailable(self) -> None:
+        self.store.oddset_upsert_match({
+            "id": "m1", "league": "mls", "home": "Chicago Fire",
+            "away": "Vancouver Whitecaps", "start": "2026-07-17T02:30:00Z",
+        })
+        event_list = {"events": [{
+            "id": 15171583, "startTimestamp": 1784255400,
+            "homeTeam": {"name": "Chicago Fire"},
+            "awayTeam": {"name": "Vancouver Whitecaps"},
+        }]}
+        fixed_now = oddset_data.dt.datetime(
+            2026, 7, 16, 10, 0, tzinfo=oddset_data.dt.timezone.utc)
+
+        def network_source(path: str):
+            if "/events/next/" in path:
+                return event_list
+            raise RuntimeError("network")
+
+        with mock.patch.object(oddset_data, "_now", return_value=fixed_now), \
+                mock.patch.object(oddset_data, "_sofa_season", return_value=86668), \
+                mock.patch.object(oddset_data, "_sofa_get", side_effect=network_source), \
+                mock.patch.object(oddset_data.time, "sleep"):
+            network = oddset_data.refresh_absences(self.store, force=True)
+        self.assertEqual(0, network["unavailable"])
+        self.assertEqual([], self.store.oddset_absence_history("m1"))
+
+        class MissingLineups(RuntimeError):
+            response = type("Response", (), {"status_code": 404})()
+
+        def missing_source(path: str):
+            if "/events/next/" in path:
+                return event_list
+            raise MissingLineups("not published")
+
+        with mock.patch.object(oddset_data, "_now", return_value=fixed_now), \
+                mock.patch.object(oddset_data, "_sofa_season", return_value=86668), \
+                mock.patch.object(oddset_data, "_sofa_get", side_effect=missing_source), \
+                mock.patch.object(oddset_data.time, "sleep"):
+            missing = oddset_data.refresh_absences(self.store, force=True)
+        self.assertEqual(1, missing["unavailable"])
+        self.assertEqual("unavailable",
+                         self.store.oddset_absence_history("m1")[0]["status"])
 
 
 class ClubEloTests(unittest.TestCase):

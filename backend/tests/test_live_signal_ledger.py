@@ -1,11 +1,12 @@
 """Framåtriktat facit för de signaler användaren faktiskt ser i live-radarn."""
 import datetime as dt
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from app import kambi, live_radar, live_signal_ledger
+from app import flashscore, kambi, live_radar, live_signal_ledger
 from app.oddset import norm_team
 from app.storage import Storage
 
@@ -64,6 +65,15 @@ class LiveSignalLedgerTests(unittest.TestCase):
     def tearDown(self):
         self.store.close()
         self._tmp.cleanup()
+
+    def test_storage_enforces_signal_result_foreign_key(self):
+        self.assertEqual(
+            1, self.store.conn.execute("PRAGMA foreign_keys").fetchone()[0])
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.store.live_signal_result_save({
+                "signal_id": 999_999, "settled_at": iso(NOW),
+                "final_home_score": 0, "final_away_score": 0,
+            })
 
     def test_first_level_is_append_once_and_live_ou_is_fetched_once(self):
         # 0.8 xG-gap ⇒ watch men inte strong.
@@ -175,6 +185,44 @@ class LiveSignalLedgerTests(unittest.TestCase):
         self.assertEqual(1, len(report["rows"]))
         self.assertEqual("watch", report["rows"][0]["signal_level"])
         self.assertEqual(-0.5, report["rows"][0]["over_profit"])
+
+    def test_facit_keeps_older_signal_versions_out_of_current_gate(self):
+        def save(version, match_key, event_id, minutes_ago):
+            at = iso(NOW - dt.timedelta(minutes=minutes_ago))
+            self.store.live_signal_save({
+                "match_key": match_key, "provider": "sofascore",
+                "provider_event_id": event_id, "captured_at": at,
+                "capture_version": live_radar.CAPTURE_VERSION,
+                "signal_version": version, "league": "allsvenskan",
+                "home": f"Hem {match_key}", "away": f"Borta {match_key}",
+                "signal_level": "watch", "signal_type": "xg",
+                "ou_line": 2.5, "over_odds": 2.0, "under_odds": 1.8,
+                "odds_status": "captured", "recorded_at": at,
+            })
+            signal_id = next(
+                row["id"] for row in self.store.live_signal_rows()
+                if row["match_key"] == match_key
+                and row["signal_version"] == version)
+            self.store.live_signal_result_save({
+                "signal_id": signal_id, "settled_at": iso(NOW),
+                "final_home_score": 2, "final_away_score": 1,
+                "goals_after_signal": 3, "outcome_more_before_ft": 1,
+                "over_result": "win", "over_profit": 1.0,
+            })
+
+        save(live_radar.RADAR_VERSION, "current", "101", 10)
+        save("chance-gap-shadow-v2", "legacy", "102", 20)
+
+        report = live_signal_ledger.facit(self.store)
+
+        self.assertEqual(1, report["blind_gate"]["n_priced_settled"])
+        self.assertEqual(1, len(report["rows"]))
+        self.assertEqual("current", report["rows"][0]["match_key"])
+        self.assertEqual(2, report["all_versions_n_signals"])
+        self.assertEqual(1, len(report["historical_versions"]))
+        legacy = report["historical_versions"][0]
+        self.assertEqual("chance-gap-shadow-v2", legacy["signal_version"])
+        self.assertEqual(1, legacy["blind_gate"]["n_priced_settled"])
 
 
 class KambiLiveTotalTests(unittest.TestCase):
@@ -431,9 +479,18 @@ class MatchKeyLockTests(unittest.TestCase):
 
     def test_ambiguous_team_match_never_locks(self):
         for key, event_id, home in (("a1", 101, "Hammarby IF"),
-                                    ("a2", 102, "Hammarby TFF")):
+                                    ("a2", 102, "Hammarby FF")):
             self._saved_row(match_key=key, provider_event_id=event_id,
                             home=home)
+        locked = live_signal_ledger._locked_key(self.store, {
+            "event_id": "fotmob:5", "fotmob_id": 5,
+            "league": "friendlies", "home": "Hammarby", "away": "AIK",
+        }, NOW)
+        self.assertIsNone(locked)
+
+    def test_affiliated_team_is_not_a_lock_candidate(self):
+        self._saved_row(match_key="tff", provider_event_id=103,
+                        home="Hammarby TFF")
         locked = live_signal_ledger._locked_key(self.store, {
             "event_id": "fotmob:5", "fotmob_id": 5,
             "league": "friendlies", "home": "Hammarby", "away": "AIK",
@@ -561,6 +618,51 @@ class SettlementGuardTests(unittest.TestCase):
         report = live_signal_ledger.settle_signals(self.store, now=NOW)
         self.assertEqual(0, report["settled"])
         self.assertEqual(1, report["waiting_result"])
+
+    def test_borrowed_journal_clock_and_score_are_the_settlement_moment(self):
+        event_id = "SKg88Q3T"
+        first_at = NOW - dt.timedelta(hours=5)
+        common = {
+            "flashscore_id": event_id,
+            "capture_version": flashscore.CAPTURE_VERSION,
+            "league": "allsvenskan", "tournament": "Allsvenskan",
+            "home": "Hammarby IF", "away": "AIK",
+            "start_at": iso(first_at - dt.timedelta(minutes=30)),
+            "xg_home": 0.8, "xg_away": 0.2,
+        }
+        # Råprovidern saknade både klocka och ställning när statistiken sågs.
+        self.store.live_flashscore_save({
+            **common, "captured_at": iso(first_at), "minute": None,
+            "home_score": None, "away_score": None,
+        })
+        self.store.live_flashscore_save({
+            **common, "captured_at": iso(first_at + dt.timedelta(minutes=10)),
+            "minute": 40, "home_score": 1, "away_score": 0,
+        })
+        self.store.live_signal_save({
+            "match_key": "pin:991", "match_id": "pin:991",
+            "provider": "flashscore", "provider_event_id": event_id,
+            "captured_at": iso(first_at),
+            "capture_version": flashscore.CAPTURE_VERSION,
+            "signal_version": live_radar.RADAR_VERSION,
+            "league": "allsvenskan", "home": "Hammarby IF", "away": "AIK",
+            "start_at": common["start_at"],
+            # Det här är signalbasen användaren faktiskt såg, lånad från Sofa.
+            "minute": 30, "home_score": 0, "away_score": 0,
+            "clock_source": "sofascore",
+            "clock_observed_at": iso(first_at + dt.timedelta(minutes=1)),
+            "signal_level": "watch", "signal_type": "xg",
+            "odds_status": "not_offered", "recorded_at": iso(first_at),
+        })
+        self._result(2, 0)
+
+        report = live_signal_ledger.settle_signals(self.store, now=NOW)
+
+        self.assertEqual(1, report["settled"])
+        result = self.store.live_signal_results()[0]
+        self.assertEqual(1, result["outcome_15min"])
+        self.assertIsNone(result["censored_15min"])
+        self.assertEqual(2, result["goals_after_signal"])
 
 
 class BlindGateTests(unittest.TestCase):

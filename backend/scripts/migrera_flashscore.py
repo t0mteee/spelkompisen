@@ -32,6 +32,8 @@ DB = ROOT / "data" / "stryktips.db"
 BACKUP = (ROOT / "data" / "backups" /
           "stryktips-2026-08-01-fore-flashscore.db")
 SIGNAL_COLUMNS = ("id",) + Storage.LIVE_SIGNAL_COLUMNS
+LEGACY_ADDITIVE_SIGNAL_COLUMNS = frozenset(
+    {"clock_source", "clock_observed_at"})
 
 
 def backup_database(source: Path | str, target: Path | str) -> bool:
@@ -64,6 +66,64 @@ def _ddl(name: str) -> str:
     return LIVE_RADAR_SCHEMA[start:end]
 
 
+def _execute_schema(conn: sqlite3.Connection) -> None:
+    """Kör schemat satsvis utan ``executescript``-implicit commit.
+
+    Python-SQLites ``executescript`` committar en pågående transaktion innan
+    skriptet körs. Den här migrationen bygger om tabeller och måste därför
+    hålla även CREATE-satserna i SAMMA transaktion som kopiering/validering.
+    """
+    statement = ""
+    for line in LIVE_RADAR_SCHEMA.splitlines(keepends=True):
+        statement += line
+        if sqlite3.complete_statement(statement):
+            if statement.strip():
+                conn.execute(statement)
+            statement = ""
+    if statement.strip():
+        raise RuntimeError("ofullständig SQL-sats i LIVE_RADAR_SCHEMA")
+
+
+def _has_unique_guard(conn: sqlite3.Connection) -> bool:
+    expected = ("match_key", "signal_version", "signal_type", "signal_level")
+    for index in conn.execute(
+            "PRAGMA index_list(oddset_live_signal)").fetchall():
+        if not index[2]:
+            continue
+        columns = tuple(row[2] for row in conn.execute(
+            f"PRAGMA index_info({index[1]})").fetchall())
+        if columns == expected:
+            return True
+    return False
+
+
+def _validate_before(conn: sqlite3.Connection) -> None:
+    """Tillåt bara den verkliga 07-31-varianten före någon mutation."""
+    signal = _columns(conn, "oddset_live_signal")
+    if signal:
+        expected = set(SIGNAL_COLUMNS)
+        actual = set(signal)
+        missing = expected - actual
+        extra = actual - expected
+        if extra or not missing <= LEGACY_ADDITIVE_SIGNAL_COLUMNS:
+            raise RuntimeError(
+                "oddset_live_signal avviker före migration: saknar "
+                f"{sorted(missing) or '–'} · extra {sorted(extra) or '–'}")
+        provider_type = signal.get("provider_event_id", "").upper()
+        if provider_type not in {"INTEGER", "TEXT"}:
+            raise RuntimeError(
+                f"oväntad provider_event_id-typ {provider_type!r}")
+        if not _has_unique_guard(conn):
+            raise RuntimeError("oddset_live_signal saknar UNIQUE-vakten")
+
+    flashscore = _columns(conn, "oddset_live_flashscore")
+    if flashscore and set(flashscore) != set(Storage.LIVE_FLASHSCORE_COLUMNS):
+        raise RuntimeError(
+            "oddset_live_flashscore avviker före migration: saknar "
+            f"{sorted(set(Storage.LIVE_FLASHSCORE_COLUMNS) - set(flashscore)) or '–'} "
+            f"· extra {sorted(set(flashscore) - set(Storage.LIVE_FLASHSCORE_COLUMNS)) or '–'}")
+
+
 def _rebuild_signal_table(conn: sqlite3.Connection) -> bool:
     """Byt provider_event_id till TEXT utan att förlora en enda rad.
 
@@ -76,31 +136,26 @@ def _rebuild_signal_table(conn: sqlite3.Connection) -> bool:
         return False
     before = conn.execute(
         "SELECT COUNT(*) FROM oddset_live_signal").fetchone()[0]
+    existing = set(columns)
     names = ",".join(SIGNAL_COLUMNS)
-    conn.execute("PRAGMA legacy_alter_table=ON")
-    conn.execute("BEGIN IMMEDIATE")
-    try:
-        conn.execute("DROP INDEX IF EXISTS idx_live_signal_recent")
-        conn.execute("ALTER TABLE oddset_live_signal "
-                     "RENAME TO oddset_live_signal_gammal")
-        conn.execute(_ddl("oddset_live_signal"))
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_live_signal_recent "
-                     "ON oddset_live_signal "
-                     "(captured_at DESC, signal_type, signal_level)")
-        conn.execute(f"INSERT INTO oddset_live_signal({names}) "
-                     f"SELECT {names} FROM oddset_live_signal_gammal")
-        after = conn.execute(
-            "SELECT COUNT(*) FROM oddset_live_signal").fetchone()[0]
-        if after != before:
-            raise RuntimeError(
-                f"radantal ändrades vid ombyggnad: {before} → {after}")
-        conn.execute("DROP TABLE oddset_live_signal_gammal")
-        conn.execute("COMMIT")
-    except Exception:
-        conn.execute("ROLLBACK")
-        raise
-    finally:
-        conn.execute("PRAGMA legacy_alter_table=OFF")
+    select = ",".join(
+        name if name in existing else f"NULL AS {name}"
+        for name in SIGNAL_COLUMNS)
+    conn.execute("DROP INDEX IF EXISTS idx_live_signal_recent")
+    conn.execute("ALTER TABLE oddset_live_signal "
+                 "RENAME TO oddset_live_signal_gammal")
+    conn.execute(_ddl("oddset_live_signal"))
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_live_signal_recent "
+                 "ON oddset_live_signal "
+                 "(captured_at DESC, signal_type, signal_level)")
+    conn.execute(f"INSERT INTO oddset_live_signal({names}) "
+                 f"SELECT {select} FROM oddset_live_signal_gammal")
+    after = conn.execute(
+        "SELECT COUNT(*) FROM oddset_live_signal").fetchone()[0]
+    if after != before:
+        raise RuntimeError(
+            f"radantal ändrades vid ombyggnad: {before} → {after}")
+    conn.execute("DROP TABLE oddset_live_signal_gammal")
     return True
 
 
@@ -122,26 +177,17 @@ def _repair_result_fk(conn: sqlite3.Connection) -> bool:
     cols = ",".join(Storage.LIVE_SIGNAL_RESULT_COLUMNS)
     before = conn.execute(
         "SELECT COUNT(*) FROM oddset_live_signal_result").fetchone()[0]
-    conn.execute("PRAGMA legacy_alter_table=ON")
-    conn.execute("BEGIN IMMEDIATE")
-    try:
-        conn.execute("ALTER TABLE oddset_live_signal_result "
-                     "RENAME TO oddset_live_signal_result_trasig")
-        conn.execute(_ddl("oddset_live_signal_result"))
-        conn.execute(f"INSERT INTO oddset_live_signal_result({cols}) "
-                     f"SELECT {cols} FROM oddset_live_signal_result_trasig")
-        after = conn.execute(
-            "SELECT COUNT(*) FROM oddset_live_signal_result").fetchone()[0]
-        if after != before:
-            raise RuntimeError(
-                f"radantal ändrades vid FK-reparation: {before} → {after}")
-        conn.execute("DROP TABLE oddset_live_signal_result_trasig")
-        conn.execute("COMMIT")
-    except Exception:
-        conn.execute("ROLLBACK")
-        raise
-    finally:
-        conn.execute("PRAGMA legacy_alter_table=OFF")
+    conn.execute("ALTER TABLE oddset_live_signal_result "
+                 "RENAME TO oddset_live_signal_result_trasig")
+    conn.execute(_ddl("oddset_live_signal_result"))
+    conn.execute(f"INSERT INTO oddset_live_signal_result({cols}) "
+                 f"SELECT {cols} FROM oddset_live_signal_result_trasig")
+    after = conn.execute(
+        "SELECT COUNT(*) FROM oddset_live_signal_result").fetchone()[0]
+    if after != before:
+        raise RuntimeError(
+            f"radantal ändrades vid FK-reparation: {before} → {after}")
+    conn.execute("DROP TABLE oddset_live_signal_result_trasig")
     return True
 
 
@@ -152,10 +198,12 @@ def migrate(db: Path | str) -> dict:
         had_flashscore = conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
             ("oddset_live_flashscore",)).fetchone() is not None
-        conn.executescript(LIVE_RADAR_SCHEMA)
+        _validate_before(conn)
+        conn.execute("PRAGMA legacy_alter_table=ON")
+        conn.execute("BEGIN IMMEDIATE")
+        _execute_schema(conn)
         rebuilt = _rebuild_signal_table(conn)
         repaired = _repair_result_fk(conn)
-        conn.commit()
 
         columns = _columns(conn, "oddset_live_flashscore")
         expected = set(Storage.LIVE_FLASHSCORE_COLUMNS)
@@ -174,20 +222,32 @@ def migrate(db: Path | str) -> dict:
             ("oddset_live_signal_result",)).fetchone()
         if result_sql and "oddset_live_signal_gammal" in (result_sql[0] or ""):
             raise RuntimeError("resultattabellens FK pekar fortfarande fel")
-        return {
+        if not _has_unique_guard(conn):
+            raise RuntimeError("oddset_live_signal saknar UNIQUE-vakten efter migration")
+        integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
+        if integrity != "ok":
+            raise RuntimeError(f"integrity_check: {integrity}")
+        fk_errors = conn.execute("PRAGMA foreign_key_check").fetchall()
+        if fk_errors:
+            raise RuntimeError(f"foreign_key_check: {fk_errors[:3]}")
+        result = {
             "flashscore_created": not had_flashscore,
             "flashscore_columns": len(columns),
             "signal_rebuilt": rebuilt,
             "result_fk_repaired": repaired,
             "signal_rows": conn.execute(
                 "SELECT COUNT(*) FROM oddset_live_signal").fetchone()[0],
-            "integrity": conn.execute(
-                "PRAGMA integrity_check").fetchone()[0],
+            "integrity": integrity,
+            "foreign_keys": "ok",
         }
+        conn.execute("COMMIT")
+        return result
     except Exception:
-        conn.rollback()
+        if conn.in_transaction:
+            conn.execute("ROLLBACK")
         raise
     finally:
+        conn.execute("PRAGMA legacy_alter_table=OFF")
         conn.close()
 
 

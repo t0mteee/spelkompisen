@@ -67,8 +67,13 @@ HEADERS = {
 TIMEOUT_S = 10.0
 MAX_MATCHES = 60          # samma tak som FotMob-varvet
 BUDGET_S = 45.0           # väggklocka; radarn får aldrig äta tickens budget
-CAPTURE_VERSION = "flashscore-live-v1"
+CAPTURE_VERSION = "flashscore-live-v2"
 PRESENCE_KEY = "live_radar_flashscore_presence"
+# Dagsfeeden bär klocka/ställning och statistikfeeden chansmåtten. Utan en
+# separat DB-kolumn för metadataobservationen sparas bara par som observerats
+# nära nog för att representera samma matchögonblick. Annars kan ett mål mellan
+# anropen fabricera ett positivt chansgap.
+MAX_SCORE_STATS_SKEW_S = 20
 
 # Flashscores ligarubriker ("LAND: Namn") → projektets liganycklar. Explicit
 # tabell, aldrig fuzzy (handbolls-läxan). Verifierade mot dagsfeeden
@@ -80,7 +85,13 @@ LEAGUE_NAMES = {
     "NORWAY: Eliteserien": "eliteserien",
     "NORWAY: OBOS-ligaen": "obosligaen",
     "ICELAND: Besta deild karla": "bestadeild",
+    "ICELAND: Besta deild": "bestadeild",
     "USA: MLS": "mls",
+    "ENGLAND: Premier League": "premier_league",
+    "ITALY: Serie A": "serie_a",
+    "SPAIN: LaLiga": "la_liga",
+    "SPAIN: La Liga": "la_liga",
+    "GERMANY: Bundesliga": "bundesliga",
     "WORLD: Club Friendly": "friendlies",
     "EUROPE: Champions League": "champions_league",
     "EUROPE: Champions League - Qualification": "champions_league",
@@ -271,6 +282,11 @@ class Flashscore:
     def matches(self) -> tuple[list[dict], dt.datetime]:
         """Pågående matcher i våra ligor + listans observationstid."""
         text, observed_at = self._get(DAY_FEED.format(day=DAY_VARIANT))
+        # En giltig tom roster innehåller fortfarande feedens globala SA-huvud.
+        # ZA är bara en ligarubrik och kan finnas i ett avhugget svar; den får
+        # därför aldrig ensam tolkas som "inga live" och tömma presence.
+        if "SA÷" not in text:
+            raise ValueError("Flashscores dagsfeed saknar strukturhuvud")
         return parse_day_feed(text), observed_at
 
     def day(self, offset: int, status: str) -> tuple[list[dict], dt.datetime]:
@@ -306,6 +322,22 @@ class Flashscore:
         return (parse_absences(payload),
                 _observed_at(response, requested_at))
 
+    def absence_observation(self, match_id: str) -> tuple[dict, dt.datetime]:
+        """Frånvaro med explicit tillgänglighetsstatus.
+
+        En tom, publicerad ``missingPlayers``-lista betyder observerat noll.
+        Saknad lineup betyder däremot ``unavailable`` och får aldrig skrivas
+        som om källan bekräftat att ingen spelare saknas.
+        """
+        requested_at = _now()
+        response = self._client.get(
+            GRAPHQL, params={"_hash": ABSENCE_HASH, "eventId": match_id,
+                             "projectId": PROJECT_ID},
+            headers=GRAPHQL_HEADERS)
+        response.raise_for_status()
+        return (parse_absence_observation(response.json()),
+                _observed_at(response, requested_at))
+
 
 def parse_absences(payload: dict) -> list[dict]:
     """[{side, name, reason}] ur GraphQL-svaret. Okänd form ⇒ tom lista."""
@@ -325,6 +357,21 @@ def parse_absences(payload: dict) -> list[dict]:
                         "reason": entry.get("reason"),
                         "player_id": player.get("participantId")})
     return out
+
+
+def parse_absence_observation(payload: dict) -> dict:
+    """Skilj ett giltigt tomt svar från ett ännu opublicerat svar."""
+    event = ((payload or {}).get("data") or {}).get("findEventById")
+    participants = ((event or {}).get("eventParticipants")
+                    if isinstance(event, dict) else None)
+    available = bool(participants) and any(
+        isinstance(participant.get("lineup"), dict)
+        for participant in participants
+        if isinstance(participant, dict))
+    return {
+        "status": "observed" if available else "unavailable",
+        "players": parse_absences(payload) if available else [],
+    }
 
 
 def _scope_friendlies(store, live: list[dict],
@@ -363,34 +410,77 @@ def collect(store, known_matches: Optional[list[dict]] = None) -> dict:
     ingen statistik = ingen rad, aldrig gissade nollor.
     """
     started_at = time.monotonic()
-    saved = skipped = 0
+    saved = skipped = stats_ok = 0
     errors: list[str] = []
     with Flashscore() as api:
         try:
             live, listed_at = api.matches()
         except Exception as exc:                      # noqa: BLE001
+            checked_at = _iso(_now())
+            error = f"{type(exc).__name__}: {str(exc)[:80]}"
+            store.oddset_record_source_health(
+                "flashscore", "-", "live", checked_at, False, 0, error)
             return {"saved": 0, "skipped": 0, "live": 0,
-                    "error": f"{type(exc).__name__}: {str(exc)[:80]}"}
+                    "health_ok": False, "error": error}
         live = _scope_friendlies(store, live, known_matches)
-        if live:
-            from .live_radar import record_presence
-            record_presence(store, PRESENCE_KEY,
-                            [m["flashscore_id"] for m in live],
-                            _iso(listed_at))
+        # Även en validerad TOM lista är ett positivt besked. Den måste få
+        # markera tidigare aktiva matcher som slutade, annars hänger sista
+        # Flashscore-kortet kvar hela TTL-fönstret.
+        from .live_radar import record_presence
+        record_presence(store, PRESENCE_KEY,
+                        [m["flashscore_id"] for m in live],
+                        _iso(listed_at))
         live.sort(key=lambda m: _rank(m, listed_at))
-        for match in live[:MAX_MATCHES]:
+        live_by_id = {str(m["flashscore_id"]): m for m in live}
+        for queued_match in live[:MAX_MATCHES]:
+            match_id = str(queued_match["flashscore_id"])
+            # En roster-refresh längre upp i samma varv ersätter metadata för
+            # ALLA ännu ej behandlade matcher. En match som lämnat den färska
+            # rostern ska inte sparas med sin gamla ställning.
+            match = live_by_id.get(match_id)
+            if match is None:
+                continue
             if time.monotonic() - started_at > BUDGET_S:
                 skipped += 1
                 continue
             try:
                 stats, observed_at = api.stats(match["flashscore_id"])
+                stats_ok += 1
             except Exception as exc:                  # noqa: BLE001
                 errors.append(f"{match['home']}: {type(exc).__name__}")
                 continue
             if not stats:
                 continue        # ingen statistik = ingen rad, aldrig nollor
-            # Klocka och ställning kommer ur SAMMA feed-läsning som gav
-            # matchen; observationstiden är statistikanropets egen.
+            skew_s = abs((observed_at - listed_at).total_seconds())
+            if skew_s > MAX_SCORE_STATS_SKEW_S:
+                # Ett långt 60-matchersvarv ska inte offra de sena matcherna.
+                # Förnya roster EN gång när vakten slår; den nyare ställningen
+                # är dessutom konservativ mot en något äldre statrad (ett mål
+                # kan minska gapet, aldrig fabricera ett positivt gap).
+                try:
+                    refreshed, refreshed_at = api.matches()
+                    refreshed = _scope_friendlies(
+                        store, refreshed, known_matches)
+                    live_by_id = {
+                        str(m["flashscore_id"]): m for m in refreshed}
+                    record_presence(
+                        store, PRESENCE_KEY,
+                        [m["flashscore_id"] for m in refreshed],
+                        _iso(refreshed_at))
+                    refreshed_match = live_by_id.get(match_id)
+                except Exception as exc:              # noqa: BLE001
+                    refreshed_match = None
+                    errors.append(
+                        f"{match['home']}: roster-refresh {type(exc).__name__}")
+                if refreshed_match is not None:
+                    match, listed_at = refreshed_match, refreshed_at
+                    skew_s = abs((observed_at - listed_at).total_seconds())
+                if refreshed_match is None or skew_s > MAX_SCORE_STATS_SKEW_S:
+                    errors.append(
+                        f"{match['home']}: metadata {int(skew_s)} s från stats")
+                    continue
+            # Klocka/ställning och statistik kommer från två feedanrop. Bara
+            # par inom konsistensvakten sparas och får då statistikens tid.
             store.live_flashscore_save({
                 "flashscore_id": match["flashscore_id"],
                 "captured_at": _iso(observed_at),
@@ -407,5 +497,20 @@ def collect(store, known_matches: Optional[list[dict]] = None) -> dict:
                 **stats})
             saved += 1
         skipped += max(0, len(live) - MAX_MATCHES)
+    checked_at = _iso(_now())
+    health_error = "; ".join(errors[:5]) or None
+    if live and stats_ok == 0:
+        health_error = health_error or "ingen live-match hade läsbar statistik"
+    if skipped:
+        note = f"{skipped} matcher hoppade över (tidsbudget/matchtak)"
+        health_error = f"{health_error}; {note}" if health_error else note
+    # Grönt betyder att hela det behandlade varvet var rent. Ett enda lyckat
+    # statsanrop får aldrig gömma att andra livematcher misslyckades.
+    health_ok = (not live or stats_ok > 0) and health_error is None
+    store.oddset_record_source_health(
+        "flashscore", "-", "live", checked_at, health_ok, len(live),
+        health_error)
+    store.meta_set("live_radar_flashscore_last_run", checked_at)
     return {"saved": saved, "skipped": skipped, "live": len(live),
+            "stats_ok": stats_ok, "health_ok": health_ok,
             "partial_errors": errors}

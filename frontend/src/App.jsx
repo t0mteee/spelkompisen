@@ -1,5 +1,6 @@
 import { Component, Fragment, useEffect, useState } from 'react'
 import './App.css'
+import { summarizeSourceHealth } from './sourceHealth.js'
 
 // Komponentbibliotek: appskalet bor i AppV3.jsx (laddas av main.jsx) och
 // importerar alla tunga byggstenar, konstanter och helpers härifrån —
@@ -1280,18 +1281,30 @@ function OddsetView({ focus = null } = {}) {
     ['svenskaspel', 'deep', 'SvS djup'], ['expekt', '1x2', 'E'],
     ['ninjacasino', '1x2', 'Ninja'], ['ninjacasino', 'deep', 'Ninja djup'],
     ['smarkets', '1x2', 'Smarkets'],
-    ['sofascore', 'live', 'Live'],
+    ['flashscore', 'live', 'Live Flashscore'],
+    ['fotmob', 'live', 'Live FotMob'],
+    ['sofascore', 'live', 'Live Sofascore'],
+  ]
+  // Live-radarn pollas varje minut medan den stora Oddset-payloaden bara
+  // laddas vid sidöppning. Använd därför live-endpointens färska hälsorader
+  // för de tre livekällorna, med den stora payloaden som bakåtkompatibel reserv.
+  const currentHealth = [
+    ...(data.source_health || []).filter((r) => r.scope !== 'live'),
+    ...((liveRadar?.source_health?.length
+      ? liveRadar.source_health
+      : (data.source_health || []).filter((r) => r.scope === 'live'))),
   ]
   const sourceHealth = healthDefs.flatMap(([source, scope, label]) => {
-    const rows = (data.source_health || []).filter((r) => r.source === source && r.scope === scope)
-    if (!rows.length) return []
-    const latest = rows.reduce((a, r) => !a || r.checked_at > a ? r.checked_at : a, null)
-    const failed = rows.filter((r) => !r.ok)
-    const stale = Date.now() - new Date(latest).getTime() > 45 * 60 * 1000
-    const details = failed.length
-      ? failed.map((r) => `${leagueName?.[r.league] || r.league}: ${r.error || 'källfel'}`).join('\n')
-      : `${rows.reduce((n, r) => n + (r.event_count || 0), 0)} events · kontrollerad ${timeAgo(latest)}`
-    return [{ source, scope, label, latest, ok: !failed.length && !stale, details }]
+    const rows = currentHealth.filter((r) => r.source === source && r.scope === scope)
+    if (!rows.length) return scope === 'live'
+      ? [{ source, scope, label, latest: null, ok: false, status: 'missing',
+          details: 'Ingen lyckad eller misslyckad kontroll registrerad ännu.' }]
+      : []
+    const summary = summarizeSourceHealth(rows)
+    const details = summary.issues.length
+      ? summary.issues.map((r) => `${leagueName?.[r.league] || r.league}: ${r.error || 'källfel'}`).join('\n')
+      : `${summary.eventCount} events · kontrollerad ${timeAgo(summary.latest)}`
+    return [{ source, scope, label, ...summary, details }]
   })
 
   const counts = {}
@@ -1359,20 +1372,47 @@ function OddsetView({ focus = null } = {}) {
     const signal = m.signal || {}
     const own = m[signal.stats_source]
     const stats = own || m
+    const basis = signal.basis || {}
+    const explicitBasis = signal.basis != null
+    const minute = explicitBasis ? basis.minute : (stats.minute ?? m.minute)
+    const homeScore = explicitBasis
+      ? basis.home_score : (stats.home_score ?? m.home_score)
+    const awayScore = explicitBasis
+      ? basis.away_score : (stats.away_score ?? m.away_score)
+    const minuteSource = explicitBasis
+      ? basis.minute_source : (signal.stats_source || 'sofascore')
+    const homeScoreSource = explicitBasis
+      ? basis.home_score_source : (signal.stats_source || 'sofascore')
+    const awayScoreSource = explicitBasis
+      ? basis.away_score_source : (signal.stats_source || 'sofascore')
     return {
       signal,
       stats,
       source: liveSourceName[signal.stats_source] || 'Sofascore',
+      minute,
+      homeScore,
+      awayScore,
+      minuteSource: liveSourceName[minuteSource] || minuteSource || 'saknas',
+      homeScoreSource: liveSourceName[homeScoreSource] || homeScoreSource || 'saknas',
+      awayScoreSource: liveSourceName[awayScoreSource] || awayScoreSource || 'saknas',
+      home: stats.home || m.home,
+      away: stats.away || m.away,
       hasXg: stats.xg_home != null && stats.xg_away != null,
     }
   }
   const liveLevel = (m) => ({ strong: 3, watch: 2, info: 1 }[m.signal?.level] || 0)
   const liveColumns = [
     { key: 'signal', label: 'Signal', value: (m) => liveLevel(m) * 1000 + Number(m.signal?.score || 0) },
-    { key: 'minute', label: 'Min', value: (m) => m.minute },
-    { key: 'score', label: 'Ställning', value: (m) => (m.home_score ?? 0) + (m.away_score ?? 0) },
+    { key: 'minute', label: 'Min', value: (m) => liveView(m).minute },
+    { key: 'score', label: 'Ställning', value: (m) => {
+      const { homeScore, awayScore } = liveView(m)
+      return (homeScore ?? 0) + (awayScore ?? 0)
+    } },
     { key: 'league', label: 'Liga', value: (m) => leagueName[m.league] || m.tournament || m.league },
-    { key: 'match', label: 'Match', value: (m) => `${m.home} ${m.away}` },
+    { key: 'match', label: 'Match', value: (m) => {
+      const { home, away } = liveView(m)
+      return `${home} ${away}`
+    } },
     { key: 'xg', label: 'xG h–b', value: (m) => {
       const { stats } = liveView(m)
       return stats.xg_home != null && stats.xg_away != null
@@ -1392,17 +1432,20 @@ function OddsetView({ focus = null } = {}) {
     { key: 'source', label: 'Källa', value: (m) => liveView(m).source },
   ]
   const renderLiveRow = (m) => {
-    const { signal, stats, source, hasXg } = liveView(m)
+    const { signal, stats, source, hasXg, minute, homeScore, awayScore,
+      minuteSource, homeScoreSource, awayScoreSource, home, away } = liveView(m)
     const levelLabel = signal.level === 'strong' ? 'STARKT'
       : signal.level === 'watch' ? 'GRANSKA' : 'FÖLJER'
     return (
       <tr key={m.event_id} className={signal.level || 'info'}>
         <td><span className={`radar-table-level ${signal.level || 'info'}`}
           title={signal.reason}>{levelLabel}</span></td>
-        <td className="live-minute">{m.minute != null ? `${m.minute}′` : 'LIVE'}</td>
-        <td><b>{m.home_score ?? '–'}–{m.away_score ?? '–'}</b></td>
+        <td className="live-minute" title={`Minut från ${minuteSource}`}>
+          {minute != null ? `${minute}′` : 'LIVE'}</td>
+        <td title={`Hemmamål från ${homeScoreSource} · bortamål från ${awayScoreSource}`}>
+          <b>{homeScore ?? '–'}–{awayScore ?? '–'}</b></td>
         <td>{leagueName[m.league] || m.tournament || m.league}</td>
-        <td className="match-name"><b>{m.home}</b> – {m.away}</td>
+        <td className="match-name"><b>{home}</b> – {away}</td>
         <td>{hasXg
           ? <b>{Number(stats.xg_home).toFixed(2)}–{Number(stats.xg_away).toFixed(2)}</b>
           : <span className="hint">saknas</span>}</td>
@@ -1416,15 +1459,23 @@ function OddsetView({ focus = null } = {}) {
     )
   }
   const renderLiveCard = (m) => {
-    const { signal, stats, source, hasXg } = liveView(m)
+    const { signal, stats, source, hasXg, minute, homeScore, awayScore,
+      minuteSource, homeScoreSource, awayScoreSource, home, away } = liveView(m)
+    const fallbackParts = []
+    if (minuteSource !== source) fallbackParts.push(`minut ${minuteSource}`)
+    if (homeScoreSource !== source || awayScoreSource !== source) {
+      fallbackParts.push(`resultat ${homeScoreSource === awayScoreSource ? homeScoreSource : `${homeScoreSource}/${awayScoreSource}`}`)
+    }
     return (
       <div key={m.event_id} className={`live-radar-card ${signal.level || 'info'}`}>
         <div className="live-radar-score">
-          <span className="live-minute">{m.minute != null ? `${m.minute}′` : 'LIVE'}</span>
-          <b>{m.home_score ?? '–'}–{m.away_score ?? '–'}</b>
+          <span className="live-minute" title={`Minut från ${minuteSource}`}>
+            {minute != null ? `${minute}′` : 'LIVE'}</span>
+          <b title={`Hemmamål från ${homeScoreSource} · bortamål från ${awayScoreSource}`}>
+            {homeScore ?? '–'}–{awayScore ?? '–'}</b>
           <span className="rchip">{leagueName[m.league] || m.tournament || m.league}</span>
         </div>
-        <div className="live-radar-teams"><b>{m.home}</b><span>–</span><b>{m.away}</b></div>
+        <div className="live-radar-teams"><b>{home}</b><span>–</span><b>{away}</b></div>
         <div className="live-radar-stats">
           {hasXg
             ? <span title={`Hela signalen räknas med ${source}s egen statistikserie; providrar blandas aldrig.`}>
@@ -1434,7 +1485,8 @@ function OddsetView({ focus = null } = {}) {
             : <span title={`${source} saknar xG; samma källas skott och stora chanser används.`}>xG saknas</span>}
           <span>stora chanser {stats.big_chances_home ?? '–'}–{stats.big_chances_away ?? '–'}</span>
           <span>skott på mål {stats.shots_on_home ?? '–'}–{stats.shots_on_away ?? '–'}</span>
-          <span className="rchip">{source}</span>
+          <span className="rchip" title={`Chansmått: ${source}${fallbackParts.length ? ` · fallback: ${fallbackParts.join(', ')}` : ''}`}>
+            {source}{fallbackParts.length ? ` · ${fallbackParts.join(' · ')}` : ''}</span>
         </div>
         {(signal.level === 'watch' || signal.level === 'strong') &&
           <div className="live-radar-reason">{signal.reason}</div>}
@@ -1755,12 +1807,27 @@ function OddsetView({ focus = null } = {}) {
       </div>
       {showSources && (
         <div className="source-health-list">
-          {sourceHealth.map((h) => (
-            <span key={`${h.source}:${h.scope}`} className={`sourcehealth ${h.ok ? 'ok' : 'bad'}`}
-              title={`${h.label}: ${h.ok ? `frisk · ${timeAgo(h.latest)}` : 'fel eller för gammal'}\n${h.details}`}>
-              {h.ok ? '●' : '▲'} {h.label} · {h.ok ? timeAgo(h.latest) : 'behöver tillsyn'}
-            </span>
-          ))}
+          {sourceHealth.map((h) => {
+            const stateText = h.ok
+              ? timeAgo(h.latest)
+              : h.status === 'partial'
+                ? 'delvis svar'
+                : h.status === 'stale'
+                  ? 'för gammal'
+                  : h.status === 'missing'
+                    ? 'ingen kontroll'
+                    : 'behöver tillsyn'
+            const titleState = h.ok
+              ? `frisk · ${timeAgo(h.latest)}`
+              : h.status === 'partial' ? 'ofullständig kontroll' : 'fel eller för gammal'
+            return (
+              <span key={`${h.source}:${h.scope}`}
+                className={`sourcehealth ${h.status || (h.ok ? 'ok' : 'bad')}`}
+                title={`${h.label}: ${titleState}\n${h.details}`}>
+                {h.ok ? '●' : h.status === 'partial' ? '◐' : '▲'} {h.label} · {stateText}
+              </span>
+            )
+          })}
         </div>
       )}
       {showNotices && notices && (
@@ -1795,7 +1862,11 @@ function OddsetView({ focus = null } = {}) {
                   {' '}· {liveRadar.hidden_no_stats} dolda utan chansdata
                 </span>
               )}
-              {liveRadar.last_run ? ` · kollad ${timeAgo(liveRadar.last_run)}` : ''}
+              {liveRadar.last_run
+                ? ` · kollad ${timeAgo(liveRadar.last_run)}`
+                : <span title="Gemensam tid visas först när Flashscore, FotMob och Sofascore alla har kontrollerats.">
+                    {' '}· inväntar alla tre livekällor
+                  </span>}
             </span>
           </div>
           {liveMatches.length > 0

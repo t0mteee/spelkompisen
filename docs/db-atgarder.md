@@ -752,3 +752,46 @@ DELETE FROM oddset_results
   `docs/bookmaker-kallplan-2026-07-25.md` innan någon användning ens föreslås.
 - **Efterkontroll:** 331 tester gröna (20 nya, inkl. ANKARE≠BOK-lås för
   matchbook och monotonisk seen_at).
+
+## 2026-08-01 — Modelldata v4 och radar-event-ID som TEXT
+
+- **Driftstopp:** backend samt launchd-jobben för snapshot och pool stoppades
+  innan migrering. De startades igen först efter kontroll av båda databaserna
+  och en idempotent omkörning av respektive skript.
+- **Skript:** `backend/scripts/migrera_modelldata_v4.py`.
+  **Backup:**
+  `backend/data/backups/stryktips-2026-08-01-fore-modelldata-v4.db`
+  (159 703 040 byte, `integrity_check=ok`, 0 foreign-key-fel).
+- **Modelldataresultat:** 11 665 resultatrader bevarades. 9 665
+  providerseparerade statistik­rader skapades, 1 714 frånvarocaptures och
+  8 058 frånvarospelare bevarades. Den andra körningen gav 0 inserts och
+  gjorde ingen schemaombyggnad. Slutkontroll: `integrity_check=ok`,
+  0 foreign-key-fel.
+- **Semantik:** `oddset_results.source` beskriver endast resultatidentitet.
+  xG och hörnor ligger providerseparerade i `oddset_result_stats` och har
+  egna observationstider. Tvetydiga gamla gemensamma observationstider sattes
+  till `NULL` i stället för att märkas med ett påhittat klockslag.
+- **Transparens:** före den första backupen hade den då körande backendkoden
+  redan auto-materialiserat en tom v1-version av `oddset_result_stats`
+  (0 rader). Inga historiska resultat- eller frånvarorader hade ändrats.
+  Migreringen förvaliderade och byggde om den tomma tabellen till v4.
+- **Skript:** `backend/scripts/migrera_radar_event_id_text.py`.
+  **Backup:**
+  `backend/data/backups/stryktips-2026-08-01-fore-radar-event-id-text.db`
+  (164 110 336 byte, `integrity_check=ok`, 0 foreign-key-fel).
+- **Radarresultat:** 17 774 befintliga settlementrader bevarades och
+  `event_id` ändrades till `TEXT` med PK
+  `(provider, event_id, captured_at, capture_version)`. Andra körningen var
+  en no-op. Slutkontroll: `integrity_check=ok`, 0 foreign-key-fel.
+- **Återhämtad settlement:** första körningen skapade 5 112 rader
+  (Flashscore 467, FotMob 451, Sofascore 4 194; censur A 799, censur B 1 820,
+  20 öppna serier). Andra körningen skapade 0. Totalen blev 22 886: v2
+  17 288, ogiltig pilot v3 5 598 och ren v4 0. Versionerna blandas inte.
+- **Efter återstart:** det ordinarie jobbet settlade ytterligare 179 gamla
+  v3-captures. Kontroll 2026-08-01T21:31Z: 23 065 totalt — v2 17 288,
+  ogiltig pilot v3 5 777, ren v4 0. Direkt omkörning skapade 0 nya rader och
+  16 serier var fortfarande öppna.
+- **Efterkontroll:** 501/501 backendtester, 3/3 källhälso-UI-tester och
+  frontendens produktionsbygge gröna. Backend, snapshot-jobbet och pool-jobbet återstartades. Den första
+  skarpa v4-körningen såg inga liveevent men registrerade frisk source-health
+  separat för Flashscore, FotMob och Sofascore.

@@ -33,13 +33,13 @@ FIT_POOLS = {
     "la_liga": ("la_liga", "segunda"),
     "bundesliga": ("bundesliga", "zweite_bundesliga"),
 }
-# v2 sedan 2026-07-26 (granskningsfix F5): wp9c-POLICY schema 3→4 ändrade
-# feature_version, och manifestets egen change_policy kräver då nytt manifest +
-# ny shadow-version. v1-raderna (2026-07-23→26) ligger kvar som historik under
-# sin gamla shadow-version och blandas aldrig in.
+# v4 sedan 2026-08-01 21:20Z: aliasfingeravtrycket omfattar även matarligorna
+# som faktiskt ingår i FIT_POOLS. v3 hann aldrig få en capture efter sin start,
+# men bevaras ändå oförändrad som historiskt manifest; versioner återanvänds
+# eller skrivs aldrig om.
 MANIFEST_PATH = (
     Path(__file__).resolve().parents[2] / "docs" /
-    "model-v2.2-multileague-forward-manifest-v2.json"
+    "model-v2.2-multileague-forward-manifest-v4.json"
 )
 REQUIRED_BASE_FEATURES = (
     "attack_log_ratio", "defence_log_ratio", "home_adv_log",
@@ -96,7 +96,7 @@ def model_source_version(store: Storage) -> str:
         except ValueError:
             calibration[league] = 1.0
     policy = {
-        "schema": 1,
+        "schema": 2,
         "model_params": oddset_model.MODEL_PARAMS,
         "calibration_t": calibration,
         "fit_pool": FIT_POOLS,
@@ -105,6 +105,9 @@ def model_source_version(store: Storage) -> str:
             "season_codes": oddset_data.FD_SEASON_CODES,
             "sofascore": {league: oddset_data.SOFA_UT[league]
                           for league in SCOPE_LEAGUES},
+            "flashscore_scope": sorted(oddset_data.MODEL_STATS_LEAGUES),
+            "stats_storage": "oddset_result_stats-v1-provider-per-family",
+            "stats_provider_priority": list(Storage.RESULT_STATS_PRIORITY),
             "model_data_version": oddset_data.MODEL_DATA_VERSION,
         },
         "elo_countries": sorted(oddset_data.ELO_COUNTRIES),
@@ -113,13 +116,18 @@ def model_source_version(store: Storage) -> str:
 
 
 def feature_version(store: Storage) -> str:
+    # FeatureBuilder formar fitten av både huvud- och matarligor. En runtime-
+    # aliasändring i t.ex. Championship kan därför ändra Premier League-
+    # features lika mycket som ett PL-alias och måste ge en ny version.
+    fit_alias_leagues = sorted({league for pool in FIT_POOLS.values()
+                                for league in pool})
     policy = {
         "schema": 2,
         "experiment": load_manifest()["experiment"],
         "base_feature_version": oddset_v2.feature_version(store),
-        "scope_aliases": {
+        "fit_pool_aliases": {
             league: oddset_data._alias_map(store, league)
-            for league in SCOPE_LEAGUES
+            for league in fit_alias_leagues
         },
         "model_source_version": model_source_version(store),
         "wp9c_policy_version": oddset_schedule.policy_version(),

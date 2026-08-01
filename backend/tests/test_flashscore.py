@@ -5,6 +5,7 @@ Fixturerna är avkortade men FORMATTROGNA utdrag ur skarpa svar hämtade
 etiketter, samma fältnamn.
 """
 import datetime as dt
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,6 +15,7 @@ from app import flashscore, live_radar
 from app.storage import Storage
 
 NOW = dt.datetime(2026, 8, 1, 11, 5, tzinfo=dt.timezone.utc)
+START_AT = (NOW - dt.timedelta(minutes=80)).strftime("%Y-%m-%dT%H:%M:%SZ")
 # Stadiets starttid: 2:a halvlek startade 42 min före NOW ⇒ minut 45+42 = 87.
 SECOND_HALF_START = int((NOW - dt.timedelta(minutes=42)).timestamp())
 MATCH_START = int((NOW - dt.timedelta(minutes=80)).timestamp())
@@ -95,6 +97,17 @@ class ParseTests(unittest.TestCase):
     def test_empty_stats_feed_yields_nothing_not_zeroes(self):
         self.assertEqual({}, flashscore.parse_stats("SE÷Match¬~SF÷Top stats¬"))
 
+    def test_toppligor_och_besta_har_explicit_live_mapping(self):
+        expected = {
+            "ENGLAND: Premier League": "premier_league",
+            "ITALY: Serie A": "serie_a",
+            "SPAIN: LaLiga": "la_liga",
+            "GERMANY: Bundesliga": "bundesliga",
+            "ICELAND: Besta deild karla": "bestadeild",
+        }
+        for provider_name, league in expected.items():
+            self.assertEqual(league, flashscore.LEAGUE_NAMES[provider_name])
+
 
 class TransportTests(unittest.TestCase):
     def test_unparsable_body_is_a_transport_error_not_a_format_change(self):
@@ -116,6 +129,33 @@ class TransportTests(unittest.TestCase):
                 patch.object(flashscore, "_now", return_value=NOW):
             _rows, observed_at = flashscore.Flashscore().matches()
         self.assertEqual(NOW - dt.timedelta(seconds=120), observed_at)
+
+    def test_unstructured_empty_body_is_not_a_valid_empty_live_list(self):
+        response = Mock()
+        response.headers = {}
+        response.text = ""
+        response.raise_for_status = Mock()
+        with patch.object(flashscore.httpx.Client, "get", return_value=response):
+            with self.assertRaisesRegex(ValueError, "strukturhuvud"):
+                flashscore.Flashscore().matches()
+
+    def test_truncated_za_header_is_not_a_valid_empty_live_list(self):
+        response = Mock()
+        response.headers = {}
+        response.text = "ZA÷SWEDEN: Allsvenskan¬ZEE÷def¬"
+        response.raise_for_status = Mock()
+        with patch.object(flashscore.httpx.Client, "get", return_value=response):
+            with self.assertRaisesRegex(ValueError, "strukturhuvud"):
+                flashscore.Flashscore().matches()
+
+    def test_sa_header_without_matches_is_a_valid_empty_live_list(self):
+        response = Mock()
+        response.headers = {}
+        response.text = "SA÷1¬"
+        response.raise_for_status = Mock()
+        with patch.object(flashscore.httpx.Client, "get", return_value=response):
+            rows, _observed_at = flashscore.Flashscore().matches()
+        self.assertEqual([], rows)
 
 
 class CollectTests(unittest.TestCase):
@@ -165,6 +205,174 @@ class CollectTests(unittest.TestCase):
         self._run()
         self.assertEqual(2, len(self.store.live_flashscore_captures()))
 
+    def test_score_and_stats_outside_consistency_guard_are_not_saved(self):
+        match = {
+            "flashscore_id": "SKEW1", "league": "allsvenskan",
+            "tournament": "SWEDEN: Allsvenskan", "home": "Hammarby",
+            "away": "AIK", "start_ts": MATCH_START, "stage": "12",
+            "stage_started_ts": MATCH_START, "home_score": 0,
+            "away_score": 0,
+        }
+
+        class FakeFlashscore:
+            def __enter__(self): return self
+            def __exit__(self, *_exc): return None
+            def matches(self): return [match], NOW
+            def stats(self, _match_id):
+                return flashscore.parse_stats(STATS_FEED), (
+                    NOW + dt.timedelta(seconds=flashscore.MAX_SCORE_STATS_SKEW_S + 1))
+
+        with patch.object(flashscore, "Flashscore", return_value=FakeFlashscore()):
+            report = flashscore.collect(self.store, known_matches=[])
+        self.assertEqual(0, report["saved"])
+        self.assertIn("metadata", report["partial_errors"][0])
+        self.assertEqual([], self.store.live_flashscore_captures())
+
+    def test_roster_refresh_updates_metadata_for_all_remaining_matches(self):
+        def row(match_id, score):
+            return {
+                "flashscore_id": match_id, "league": "allsvenskan",
+                "tournament": "SWEDEN: Allsvenskan", "home": f"Home {match_id}",
+                "away": f"Away {match_id}", "start_ts": MATCH_START,
+                "stage": "12", "stage_started_ts": MATCH_START,
+                "home_score": score, "away_score": 0,
+            }
+
+        class FakeFlashscore:
+            def __init__(self): self.match_calls = 0
+            def __enter__(self): return self
+            def __exit__(self, *_exc): return None
+            def matches(self):
+                self.match_calls += 1
+                if self.match_calls == 1:
+                    return [row("A", 0), row("B", 0)], NOW
+                return ([row("A", 0), row("B", 1)],
+                        NOW + dt.timedelta(seconds=22))
+            def stats(self, match_id):
+                seconds = 21 if match_id == "A" else 23
+                return (flashscore.parse_stats(STATS_FEED),
+                        NOW + dt.timedelta(seconds=seconds))
+
+        with patch.object(flashscore, "Flashscore", return_value=FakeFlashscore()):
+            report = flashscore.collect(self.store, known_matches=[])
+        self.assertEqual(2, report["saved"])
+        rows = {row["flashscore_id"]: row
+                for row in self.store.live_flashscore_captures()}
+        self.assertEqual(1, rows["B"]["home_score"],
+                         "andra matchen måste använda den förnyade rostern")
+
+    def test_valid_empty_list_marks_previous_flashscore_match_as_ended(self):
+        match = {
+            "flashscore_id": "END1", "league": "allsvenskan",
+            "tournament": "SWEDEN: Allsvenskan", "home": "Hammarby",
+            "away": "AIK", "start_ts": MATCH_START, "stage": "12",
+            "stage_started_ts": MATCH_START, "home_score": 0,
+            "away_score": 0,
+        }
+
+        class FakeFlashscore:
+            def __init__(self, rows, observed):
+                self.rows, self.observed = rows, observed
+            def __enter__(self): return self
+            def __exit__(self, *_exc): return None
+            def matches(self): return self.rows, self.observed
+            def stats(self, _match_id):
+                return flashscore.parse_stats(STATS_FEED), self.observed
+
+        with patch.object(flashscore, "Flashscore", return_value=FakeFlashscore(
+                [match], NOW)):
+            flashscore.collect(self.store, known_matches=[])
+        with patch.object(flashscore, "Flashscore", return_value=FakeFlashscore(
+                [], NOW + dt.timedelta(minutes=2))):
+            flashscore.collect(self.store, known_matches=[])
+        presence = json.loads(self.store.meta_get(flashscore.PRESENCE_KEY))
+        self.assertEqual([], presence["active_ids"])
+        self.assertIn("END1", presence["ended_at"])
+        health = next(row for row in self.store.oddset_source_health()
+                      if row["source"] == "flashscore" and
+                      row["scope"] == "live")
+        self.assertTrue(health["ok"])
+
+    def test_failed_listing_records_red_health_without_ending_matches(self):
+        from app.live_radar import record_presence
+        record_presence(self.store, flashscore.PRESENCE_KEY, ["KEEP1"],
+                        NOW.strftime("%Y-%m-%dT%H:%M:%SZ"))
+
+        class BrokenFlashscore:
+            def __enter__(self): return self
+            def __exit__(self, *_exc): return None
+            def matches(self): raise RuntimeError("feed unavailable")
+
+        with patch.object(flashscore, "Flashscore",
+                          return_value=BrokenFlashscore()):
+            report = flashscore.collect(self.store, known_matches=[])
+        self.assertIn("RuntimeError", report["error"])
+        presence = json.loads(self.store.meta_get(flashscore.PRESENCE_KEY))
+        self.assertEqual(["KEEP1"], presence["active_ids"])
+        health = next(row for row in self.store.oddset_source_health()
+                      if row["source"] == "flashscore")
+        self.assertFalse(health["ok"])
+
+    def test_truncated_za_roster_is_red_without_ending_matches(self):
+        live_radar.record_presence(
+            self.store, flashscore.PRESENCE_KEY, ["KEEP1"],
+            NOW.strftime("%Y-%m-%dT%H:%M:%SZ"))
+        response = Mock()
+        response.headers = {}
+        response.text = "ZA÷SWEDEN: Allsvenskan¬ZEE÷def¬"
+        response.raise_for_status = Mock()
+        with patch.object(flashscore.httpx.Client, "get",
+                          return_value=response), \
+                patch.object(flashscore, "_now", return_value=NOW):
+            report = flashscore.collect(self.store, known_matches=[])
+
+        self.assertFalse(report["health_ok"])
+        presence = json.loads(self.store.meta_get(flashscore.PRESENCE_KEY))
+        self.assertEqual(["KEEP1"], presence["active_ids"])
+        self.assertNotIn("KEEP1", presence["ended_at"])
+        health = next(row for row in self.store.oddset_source_health()
+                      if row["source"] == "flashscore")
+        self.assertFalse(health["ok"])
+
+    def test_partial_stats_failure_is_not_green_in_health_or_payload(self):
+        def row(match_id, home):
+            return {
+                "flashscore_id": match_id, "league": "allsvenskan",
+                "tournament": "SWEDEN: Allsvenskan", "home": home,
+                "away": "Away", "start_ts": MATCH_START, "stage": "12",
+                "stage_started_ts": MATCH_START, "home_score": 0,
+                "away_score": 0,
+            }
+
+        class PartialFlashscore:
+            def __enter__(self): return self
+            def __exit__(self, *_exc): return None
+            def matches(self):
+                return [row("OK", "OK"), row("FAIL", "FAIL")], NOW
+            def stats(self, match_id):
+                if match_id == "FAIL":
+                    raise RuntimeError("stats unavailable")
+                return flashscore.parse_stats(STATS_FEED), NOW
+
+        with patch.object(flashscore, "Flashscore",
+                          return_value=PartialFlashscore()), \
+                patch.object(flashscore, "_now", return_value=NOW):
+            report = flashscore.collect(self.store, known_matches=[])
+        self.assertEqual(1, report["saved"])
+        self.assertEqual(1, report["stats_ok"])
+        self.assertFalse(report["health_ok"])
+        health = next(row for row in self.store.oddset_source_health()
+                      if row["source"] == "flashscore")
+        self.assertFalse(health["ok"])
+        self.assertEqual(2, health["event_count"])
+        self.assertIn("FAIL: RuntimeError", health["error"])
+        payload_health = next(
+            row for row in live_radar.payload(self.store, now=NOW)[
+                "source_health"]
+            if row["source"] == "flashscore")
+        self.assertFalse(payload_health["ok"])
+        self.assertIn("RuntimeError", payload_health["error"])
+
 
 class SourceSelectionTests(unittest.TestCase):
     """Flashscore är primär — men DATAKVALITET rankas före källordning."""
@@ -182,6 +390,7 @@ class SourceSelectionTests(unittest.TestCase):
             "event_id": 5001, "captured_at": NOW.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "capture_version": live_radar.CAPTURE_VERSION,
             "league": "allsvenskan", "tournament": "Allsvenskan",
+            "start_at": START_AT,
             "home": "Hammarby", "away": "AIK", "status": "2nd half",
             "minute": 60, "home_score": 0, "away_score": 0, **stats})
 
@@ -191,6 +400,7 @@ class SourceSelectionTests(unittest.TestCase):
             "capture_version": __import__(
                 "app.fotmob", fromlist=["x"]).CAPTURE_VERSION,
             "league": "allsvenskan", "tournament": "Allsvenskan",
+            "start_at": START_AT,
             "home": "Hammarby", "away": "AIK", "minute": 60,
             "home_score": 0, "away_score": 0, **stats})
 
@@ -200,6 +410,7 @@ class SourceSelectionTests(unittest.TestCase):
             "captured_at": NOW.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "capture_version": flashscore.CAPTURE_VERSION,
             "league": "allsvenskan", "tournament": "Allsvenskan",
+            "start_at": START_AT,
             "home": "Hammarby", "away": "AIK", "minute": 60,
             "home_score": 0, "away_score": 0, **stats})
 
@@ -216,6 +427,16 @@ class SourceSelectionTests(unittest.TestCase):
         self._fotmob(xg_home=1.4, xg_away=0.3)
         self._flash(shots_on_home=6, shots_on_away=1, shots_inside_home=9,
                     shots_inside_away=1)
+        match = live_radar.payload(self.store, now=NOW)["matches"][0]
+        self.assertEqual("fotmob", match["signal"]["stats_source"])
+
+    def test_partial_flashscore_never_hides_complete_fotmob_proxy(self):
+        """Källvalet bedömer fälttäckning, inte hur dramatiska talen är."""
+        self._sofa()
+        self._fotmob(big_chances_home=0, big_chances_away=0,
+                     shots_on_home=0, shots_on_away=0,
+                     shots_inside_home=0, shots_inside_away=0)
+        self._flash(big_chances_home=99)  # högt men ensidigt/partiellt
         match = live_radar.payload(self.store, now=NOW)["matches"][0]
         self.assertEqual("fotmob", match["signal"]["stats_source"])
 

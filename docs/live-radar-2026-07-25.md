@@ -1,42 +1,92 @@
-# Live-radar v2 — observerat chansgap och signaljournal i shadow mode
+# Live-radar v4 — observerat chansgap och signaljournal i shadow mode
 
 Datum: 2026-07-25.
 
-## Uppdatering 2026-08-01 — Flashscore är primär statistikkälla
+## Uppdatering 2026-08-01 — tre-källorskontrakt och ren v4-kohort
 
-Saman upptäckte att Chelsea–Tottenham (träningsmatch, 1–1) inte syntes på
-radarn. Orsaken var inte vår filtrering: FotMobs `stats`-sektion var tom och
-dess shotmap innehöll noll skott, medan Sofascore bara rapporterade
-bollinnehav, hörnor, kort och blockerade skott. Flashscore hade samtidigt
-**full uppsättning**: xG 1,76–0,26, xGOT 2,51–0,79, 11–4 skott, 4–3 på mål,
-4–1 stora chanser, 9–1 skott i box.
+Flashscore täppte verkliga täckningsluckor: Chelsea–Tottenham hade full xG,
+xGOT, skott och stora chanser där FotMob/Sofascore saknade signalbara fält,
+och Östersund–Öster i Superettan blev synlig med skottdata. Den erfarenheten
+motiverade en tredje liveprovider, men **ingen provider är ovillkorligt
+primär**. Aktiv regel väljer i denna ordning:
 
-Mätning över alla samtidiga livematcher visade samma mönster: Flashscore hade
-xG där FotMob bara hade skott (Hillerød–Esbjerg, FC Tokyo–Dortmund) eller
-ingenting alls (Chelsea–Tottenham, kinesiska Jia League) — och var aldrig
-sämre. Flashscore är därför primär källa sedan 2026-08-01.
+1. komplett xG-par;
+2. komplett kärnproxy eller komplett signalgren;
+3. partiell proxy;
+4. inga chansmått.
 
-**Urvalsregeln rankar dock DATAKVALITET före källordning:** xG > skott/
-chansmått > ingen statistik, och Flashscore vinner bara vid LIKA. En match
-där FotMob har xG och Flashscore bara skott nedgraderas alltså aldrig.
-`signal.stats_source` säger vilken källa som bär signalen och
-`coverage.by_source` redovisar fördelningen öppet.
+Först vid samma strukturella täckning används fast prioritet
+Flashscore → FotMob → Sofascore. Urvalet tittar aldrig på gapets storlek eller
+vilken källa som råkar ge starkast signal. Hela xG-/skott-/chansberäkningen och
+15-minutersdeltat kommer ur den valda providerns egen serie.
 
-Flashscore är inte en universallösning: de mindre försäsongsmatcherna
-(Oxford–Ipswich, Barakaldo–Mirandés) saknade statistik även där. Men den
-täppte verkliga luckor i actionable ligor — Östersund–Öster i Superettan gick
-från helt dold till synlig med skottdata.
+| Provider | Råfält som kan lagras | Saknas i providerschemat |
+|---|---|---|
+| Flashscore | xG, xGOT, stora chanser, totalskott, skott på mål, skott i box, hörnor | boxberöringar, open-play-xG |
+| FotMob | xG, xGOT, open-play-xG, stora chanser, totalskott, skott på mål, skott i box | boxberöringar, hörnor |
+| Sofascore | xG, stora chanser, totalskott, skott på mål, skott i box, boxberöringar, hörnor | xGOT, open-play-xG |
 
-Tekniska villkor: publik pipe-feed med statisk publik headerkonstant (samma
-klass som Pinnacles gästnyckel — inom källgränsen; ingen utmaning löses),
-brotli krävs i venv:et, `Age` dras av, och matchminuten HÄRLEDS ur stadiets
-starttid (validerad mot FotMobs klocka på sju samtidiga matcher, avvikelse
-≤3 min). Okänt stadium ⇒ ingen minut, aldrig en gissad klocka.
+Tabellen beskriver schemat, inte ett löfte per match. v4 rankar de fält som
+faktiskt finns i den aktuella capturen.
 
-**Signalversionen bumpades till `chance-gap-shadow-v3`.** Trösklarna är
-oförändrade, men vilka matcher som kan ge signal ändras — kohortens
-datagenererande process är alltså en annan. v2:s två journalrader ligger kvar
-som historik och blandas aldrig med v3.
+**v3 är inte en giltig beslutsserie.** Captures från
+2026-08-01T08:00:00Z till men inte med 21:00:00Z stämplas fortsatt
+`chance-gap-shadow-v3` för audit, men perioden var en pilot före de samlade
+färskhets-, identitets-, presence- och koherensvakterna. Den får aldrig
+användas som stöd. Den rena kohorten är `chance-gap-shadow-v4` från exakt
+**2026-08-01T21:00:00Z**. v2 (<08:00Z), v3 och v4 redovisas och settlas var
+för sig; gränserna är frysta.
+
+### Färskhet, koherens och presence
+
+- Alla länkade och fristående serier måste vara högst **12 minuter** gamla.
+- Flashscore samlar som `flashscore-live-v2`. Listställning och detaljstats
+  får skilja högst 20 sekunder; annars omhämtas feed/ID-index och capturen
+  hoppas över om koherens fortfarande inte kan bevisas.
+- FotMob samlar som `fotmob-live-v2`. Ställningen läses i första hand ur
+  samma eventdetalj som statistiken. Om listställningen måste användas får
+  den vara högst 15 sekunder från detaljobservationen; annars omhämtas hela
+  live-listan och ID-indexet. Okänd/inkoherent ställning sparas aldrig som
+  0–0 och ger ingen capture.
+- Sofascore-listan måste vara ett välformat objekt med en faktisk
+  `events`-lista. Ett lyckat tomt roster är ett riktigt presence-besked och
+  avslutar tidigare kort; ett transport-/parsefel skriver röd source-health
+  men ändrar aldrig presence.
+- FotMob kräver på samma sätt en faktisk `leagues`-lista (`{}` och
+  `leagues:null` är fel), och Flashscore kräver det globala `SA÷`-huvudet
+  (`ZA÷` ensamt kan vara en avhuggen feed). Bara explicit tomma, validerade
+  roster får avsluta tidigare kort.
+- Alla tre providers har egen presence och egen source-health. API:ts
+  `source_runs` visar deras egna senaste kontroller. Gemensam `last_run` är
+  den **äldsta** av de tre och är tom tills alla tre faktiskt kontrollerats;
+  UI visar då “inväntar alla tre livekällor”.
+- Source-health är grön bara för ett komplett rent varv. Ett partiellt
+  detaljfel eller en match som hoppas över blir amber i UI; fullt fel,
+  saknad kontroll eller för gammal kontroll blir rött.
+
+### Identitet och exakt visningsproveniens
+
+En providerlänk kräver samma liga, samma två lag i samma hemma/bortaordning,
+en läsbar avspark inom 30 minuter och exakt **en** kandidat. Svensk genitiv
+och observerade livealias stöds, men enords-prefix som Inter↔Inter Miami/U23,
+ungdomslag, dubbelmöten och tvetydighet faller stängt. En färsk olänkad
+FotMob-/Flashscore-serie får i stället eget namespacat kort; stats får aldrig
+försvinna bara för att Sofascore saknar matchen.
+
+`signal.stats_source` och källchipet visar vem som bär alla chansmått. Bara
+saknad minut eller ställning får lånas fältvis från en redan verifierad
+Sofascore-länk. `signal.basis` innehåller exakt
+`minute`/`minute_source`, `home_score`/`home_score_source` och
+`away_score`/`away_score_source`. Desktop visar källorna i tooltips; mobilkort
+skriver ut exempelvis “Flashscore · minut Sofascore”. **Signaljournalens**
+facit använder samma effektiva minut/ställning. Det separata momentfacitet är
+medvetet diagnostiskt och räknas på råproviderns egen klocka/ställning; de två
+estimanden får inte beskrivas som samma sak.
+
+Provider-id behandlas som ogenomskinlig sträng i presence, journal och
+momentsettlement. `oddset_live_moment_settlement.event_id` migreras därför
+till TEXT med `backend/scripts/migrera_radar_event_id_text.py`; skriptet tar
+backup, bevarar append-only-rader och kontrollerar PK, FK och integritet.
 
 ## Produktbeslut
 
@@ -52,16 +102,18 @@ dess egna observationer samlas innan notiser eller modellstöd övervägs.
 
 ## Levererat
 
-- `app/live_radar.py` läser Sofascores publika livefeed och kumulativa
-  matchstats för projektets ligor.
+- `app/live_radar.py`, `app/flashscore.py` och `app/fotmob.py` läser tre
+  separata publika livefeeds och kumulativa matchstats för projektets ligor.
 - Observerade fält: xG, stora chanser, skott, skott på mål, skott i box,
   boxberöringar och hörnor. Coverage varierar per liga.
 - Träningsmatchernas globala Sofascore-turnering filtreras mot matcher som
   redan finns i Spelkompisens Oddset-vy; radarn fylls inte med godtyckliga
   träningsmatcher från hela världen.
-- `oddset_live_capture` och FotMobs separata capturetabell sparar råa
-  snapshots. De används både som kontrollgrupp och för att återskapa vad som
-  hände efter signalögonblicket; providrarnas chansmått blandas aldrig.
+- `oddset_live_capture`, `oddset_live_fotmob` och
+  `oddset_live_flashscore` sparar var sina råa snapshots. De används både som
+  kontrollgrupp och för att återskapa vad som hände efter signalögonblicket;
+  providrarnas chansmått blandas aldrig och capture-version ingår i
+  settlementseriens identitet.
 - `app/live_signal_ledger.py` sparar från 2026-07-31 den **första** synliga
   förekomsten per match × signaltyp × nivå. En signal som ligger kvar genom
   tio radarvarv blir alltså ett beslut, inte tio påhittade spel. Om Följer
@@ -97,12 +149,11 @@ dess egna observationer samlas innan notiser eller modellstöd övervägs.
   accepteras som i `_canonical_match`, starttider >3 h isär (dubbelmöten)
   låser aldrig, och tvetydighet låser aldrig. Utan låset kunde blindkohorten
   ("första aktiva signalen per match") tyst räkna samma match två gånger.
-- `clock_source`/`clock_observed_at` (2026-08-01): journalens minut/ställning
-  är EXAKT signalens beräkningsbas — samma per-fält-regel som
-  `_fotmob_signal` (FotMobs egna värden behålls, bara saknade fält lånas
-  från Sofascore-kortet; ett helparslån gav rader som motsade signal_score
-  och settlementets providerserie). Lånet bokförs med källa
-  ('fotmob+sofascore' = blandat) och de lånade fältens egen observationstid.
+- `clock_source`/`clock_observed_at` och v4:s `signal.basis` (2026-08-01):
+  journalens minut/ställning är EXAKT signalens beräkningsbas. Providerns egna
+  värden behålls och bara saknade fält lånas från en verifierad
+  Sofascore-länk. Lånet bokförs per fält i API/UI och som kombinerad
+  `clock_source` i journalen; settlement återanvänder samma värden.
 - `/api/oddset/live-radar` räknar signalen vid läsning och är märkt
   `mode=shadow`.
 - Oddset-vyn har en mobilanpassad Live-radar med minut, ställning, xG/proxy,
@@ -110,9 +161,11 @@ dess egna observationer samlas innan notiser eller modellstöd övervägs.
 - Samma fasta femminutersjobb som poolinsamlingen kör `live-tick`. Det är
   förskjutet två minuter från Oddset-jobbet.
 
-## Signalpolicy v2
+## Signaltrösklar (oförändrade i v4)
 
-`chance-gap-shadow-v2` använder i första hand:
+`chance-gap-shadow-v4` använder samma förregistrerade trösklar som v2/v3;
+versionsbytet gäller datagenereringen, inte en efterhandsoptimerad gräns.
+Regeln använder i första hand:
 
 - lagets `xG − mål`;
 - matchens `total xG − totala mål`;
@@ -143,7 +196,7 @@ Inget i v2 påverkar:
 - **Följer · skott**: minut 20–78, minst tolv minuter kvar och antingen
   `stora chanser − mål ≥ 1,5` eller `skott på mål − mål ≥ 5` samtidigt som
   laget har minst åtta skott i box.
-- Skottspåret har ingen Stark-nivå i `chance-gap-shadow-v2`. Det ska inte
+- Skottspåret har ingen Stark-nivå i `chance-gap-shadow-v4`. Det ska inte
   skapas en sådan nivå genom efterhandsgranskning av resultaten.
 
 Reglerna skrivs ut direkt på Labb-sidans **Radar-facit och signaljournal** så
@@ -167,6 +220,25 @@ Signaljournalens additiva migration:
 Tabellerna `oddset_live_signal` och `oddset_live_signal_result` var tomma när
 migrationen verifierades; inga historiska liveodds har bakfyllts.
 
+Ny v4-migration:
+`backend/scripts/migrera_radar_event_id_text.py`. Den gör
+`oddset_live_moment_settlement.event_id` till TEXT, bevarar naturlig PK
+`provider/event_id/captured_at/capture_version` och är atomär/idempotent.
+Produktionsbackup och exakta radantal dokumenteras i `docs/db-atgarder.md`;
+fylls även i den aktuella överlämningen när driftkörningen är verifierad.
+
+Settlement läser alla capture-versioner, grupperar dem var för sig och
+stämplar signalversion enligt råcapturens observationstid:
+
+- före 2026-08-01T08:00:00Z: v2;
+- 08:00:00Z–20:59:59Z: v3 (ogiltig pilot/historik);
+- från 2026-08-01T21:00:00Z: v4 (ren kohort).
+
+`scripts/close_drift_facit.py` och `close_drift_facit_v2.py` har samtidigt
+härdats så att varje körning väljer en exakt sharp-`signal_version`; både
+nycklar och linjeflyttsjoin innehåller versionen. Close-resultat över
+modellversioner får aldrig aggregeras eller korsparas.
+
 ## Två frågor, två facit
 
 1. **Ger signalregeln mer mål än jämförbara ögonblick?** Den äldre
@@ -186,7 +258,8 @@ rygga.
 ## Nästa konkreta actions
 
 1. Låt launchd-varvet samla utan manuell intervention och kontrollera
-   veckovis coverage för Kambi-livepris samt varför priser saknades.
+   veckovis coverage för Kambi-livepris, varje providers source-health,
+   `source_runs`/gemensam vattenstämpel och varför priser saknades.
 2. Vid mognad: redovisa först den frysta blindkohorten, därefter Följer/Stark,
    xG/skott, liga och minutband som diagnostik — aldrig välj bästa delgrupp
    som nytt huvudresultat i efterhand.
@@ -197,9 +270,12 @@ rygga.
 
 - minst 40 avslutade signalmatcher och minst 28 kalenderdagar;
 - ingen dataläcka från händelser efter capture;
-- resultat settlas från samma Sofascore-event-id;
+- momentfacit settlas från samma råprovider/event-id/capture-version, medan
+  signaljournalens facit använder samma effektiva minut/ställning som UI-
+  signalen använde;
 - separat facit för xG och proxy;
 - positiv undre 90-procentig KI-gräns mot konditionerad basrate;
+- bara `chance-gap-shadow-v4` från 21:00Z får bidra; v3 är ogiltig historik;
 - nytt uttryckligt beslut från Saman innan push aktiveras.
 
 Notisgaten ovan är separat från blind-ROI-gaten och kan inte i sig göra

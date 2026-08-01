@@ -17,12 +17,14 @@ Metodregler som styr implementationen:
 * **Alla ögonblick settlas, inte bara signaler.** Basraten villkoras
   liga × minutband × målställningsdiff, och kontrollgruppen är just
   icke-signal-ögonblicken — utan dem finns inget jämförelsetal.
-* **Signalen räknas om deterministiskt** ur radens råa fält med SAMMA funktion
-  som API-payloaden använder (`live_radar.radar_signal`, jämförelsepunkten via
-  `live_radar.previous_capture`). Ingen andra implementation får finnas.
-* **Providrar blandas aldrig** (WP9a-regeln i fotmob.py): Sofascore-serier
-  settlas mot Sofascore-captures och FotMob-serier mot FotMob — även utfallen,
-  inte bara xG. FotMob-radernas signal räknas på FotMobs egna fält.
+* **Rå-providerdiagnostik.** Signalen räknas om deterministiskt ur radens egna
+  fält med samma tröskelfunktion (`live_radar.radar_signal`). Momenttabellen
+  lånar aldrig Sofascores klocka/ställning till en annan provider, eftersom
+  den inte lagrar den verifierade korsproviderlänken. Den får därför inte
+  beskrivas som exakt UI-signal. Den framåtriktade signaljournalen lagrar
+  däremot UI:ts exakta basis och är facitet för faktiska signaler.
+* **Providrar blandas aldrig** (WP9a-regeln i fotmob.py): varje providerserie
+  settlas mot sina egna captures — även utfallen, inte bara xG.
 * **Censorering i stället för gissning.** Saknas captures som täcker
   15-minutersfönstret, eller slutstatus för utfall B, blir utfallet NULL med
   orsak — aldrig 0.
@@ -40,8 +42,6 @@ import datetime as dt
 from typing import Optional
 
 from . import live_radar
-from .fotmob import CAPTURE_VERSION as FOTMOB_CAPTURE_VERSION
-from .live_radar import CAPTURE_VERSION as SOFA_CAPTURE_VERSION
 
 WINDOW_MIN = 15             # utfall A: speltidsfönster efter ögonblicket
 MIN_AGE_MIN = 20            # settla först när fönstret hunnit passera i väggtid
@@ -50,6 +50,9 @@ SERIES_DONE_AFTER_MIN = 180  # 3 h utan ny capture ⇒ matchen kan inte pågå k
 # stängs inom timmar efter matchslut och settlas då — spärren finns för att
 # varvets DB-arbete inte ska växa med tabellens livstid.
 LOOKBACK_DAYS = 30
+RADAR_V2_VERSION = "chance-gap-shadow-v2"
+RADAR_V3_VERSION = "chance-gap-shadow-v3"
+RADAR_V4_VERSION = "chance-gap-shadow-v4"
 
 # Censureringsorsaker (korta tokens, aldrig fritext):
 #   no_clock           ögonblicket saknar matchminut — inget fönster kan definieras
@@ -152,14 +155,12 @@ def _outcome_more_before_ft(moment: dict, later: list[dict],
 
 
 def _signal_for(provider: str, captures: list[dict], index: int) -> dict:
-    """Radera signalfrågan till den DELADE funktionen — aldrig en kopia.
+    """Radera rå-providerfrågan till den DELADE funktionen — aldrig en kopia.
 
-    Jämförelsepunkten väljs som API-payloaden gör: FotMob via närmast
-    föregående punkt i den egna serien, Sofascore och Flashscore via
-    `previous_capture` (~15 min bakåt med tolerans) — exakt som
-    `_fotmob_signal` respektive `_flashscore_signal` gör. Punkten påverkar
-    bara score/reason, aldrig nivån, men settlementet ska vara payloadens
-    spegel, inte nästan.
+    Jämförelsepunkten väljs providerinternt på samma sätt som payloaden.
+    Saknad klocka/ställning fylls däremot inte från Sofascore här: den
+    verifierade länkens basis finns bara i signaljournalen. Detta är därför
+    diagnostik för råkällan, inte en rekonstruktion av synliga UI-signaler.
     """
     current = captures[index]
     if provider == "fotmob":
@@ -169,30 +170,57 @@ def _signal_for(provider: str, captures: list[dict], index: int) -> dict:
     return live_radar.radar_signal(current, previous)
 
 
-def _series(store, since: str) -> list[tuple[str, int, list[dict]]]:
-    """Alla capture-serier per provider — sorterade i tidsordning av lagret."""
-    from .flashscore import CAPTURE_VERSION as FS_CAPTURE_VERSION
-    out: list[tuple[str, int, list[dict]]] = []
-    grouped: dict[int, list[dict]] = {}
-    for row in store.oddset_live_captures(since, SOFA_CAPTURE_VERSION):
-        grouped.setdefault(int(row["event_id"]), []).append(row)
+def _series(store, since: str) -> list[tuple[str, str, list[dict]]]:
+    """Alla capture-serier per provider OCH capture-version.
+
+    Äldre osettlade captures får inte försvinna när insamlarens version bumpas.
+    Samtidigt får två capture-format aldrig blandas i samma tidsserie, därför
+    grupperas de separat även när provider-event-id:t är detsamma.
+    """
+    out: list[tuple[str, str, list[dict]]] = []
+    grouped: dict[tuple[str, str], list[dict]] = {}
+    for row in store.oddset_live_captures(since):
+        key = str(row["event_id"]), str(row["capture_version"])
+        grouped.setdefault(key, []).append(row)
     out.extend(("sofascore", event_id, captures)
-               for event_id, captures in grouped.items())
+               for (event_id, _version), captures in grouped.items())
     grouped = {}
-    for row in store.live_fotmob_captures(since, FOTMOB_CAPTURE_VERSION):
-        grouped.setdefault(int(row["fotmob_id"]), []).append(row)
+    for row in store.live_fotmob_captures(since):
+        key = str(row["fotmob_id"]), str(row["capture_version"])
+        grouped.setdefault(key, []).append(row)
     out.extend(("fotmob", event_id, captures)
-               for event_id, captures in grouped.items())
-    # Flashscore-serier settlas på samma villkor. Id:t är alfanumeriskt och
-    # skickas som sträng hela vägen — momenttabellens event_id har INTEGER-
-    # affinitet men SQLite lagrar strängen oförändrad, och nyckeln jämförs
-    # bara mot sig själv (provider ingår i den naturliga nyckeln).
-    grouped_text: dict[str, list[dict]] = {}
-    for row in store.live_flashscore_captures(since, FS_CAPTURE_VERSION):
-        grouped_text.setdefault(str(row["flashscore_id"]), []).append(row)
+               for (event_id, _version), captures in grouped.items())
+    # Provider-id:n är ogenomskinliga strängar hela vägen. Det är nödvändigt
+    # för Flashscores alfanumeriska id och hindrar att en framtida källa tyst
+    # begränsas av hur Sofascore/FotMob råkar formatera sina id:n i dag.
+    grouped_text: dict[tuple[str, str], list[dict]] = {}
+    for row in store.live_flashscore_captures(since):
+        key = str(row["flashscore_id"]), str(row["capture_version"])
+        grouped_text.setdefault(key, []).append(row)
     out.extend(("flashscore", event_id, captures)
-               for event_id, captures in grouped_text.items())
+               for (event_id, _version), captures in grouped_text.items())
     return out
+
+
+def _signal_version_at(moment: dict) -> str:
+    """Stämpla policyn som gällde när råcapturen faktiskt observerades.
+
+    Råtabellerna bär capture- men inte radarversion. En settlementkö får därför
+    aldrig märka äldre, osettlade captures med den version som råkar vara aktiv
+    när kön repareras. Gränserna är förregistrerade och frysta i live_radar.
+    Vid nästa radarversion måste tidslinjen utökas explicit — aldrig gissas.
+    """
+    if live_radar.RADAR_VERSION != RADAR_V4_VERSION:
+        raise RuntimeError(
+            "radarversionens capture-tidslinje måste utökas före settlement")
+    observed = _at(moment)
+    v4_start = dt.datetime.fromisoformat(
+        live_radar.RADAR_VERSION_STARTED_AT.replace("Z", "+00:00"))
+    if observed >= v4_start:
+        return RADAR_V4_VERSION
+    v3_start = dt.datetime.fromisoformat(
+        live_radar.RADAR_V3_STARTED_AT.replace("Z", "+00:00"))
+    return RADAR_V3_VERSION if observed >= v3_start else RADAR_V2_VERSION
 
 
 def settle_moments(store, *, now: Optional[dt.datetime] = None) -> dict:
@@ -234,7 +262,7 @@ def settle_moments(store, *, now: Optional[dt.datetime] = None) -> dict:
                 "signal": 1 if signal.get("level") in ("watch", "strong")
                           else 0,
                 "signal_type": signal.get("kind"),
-                "signal_version": live_radar.RADAR_VERSION,
+                "signal_version": _signal_version_at(moment),
                 "outcome_15min": outcome_a,
                 "outcome_more_before_ft": outcome_b,
                 "censored_15min": censor_a,
@@ -295,17 +323,9 @@ def _cell(row: dict) -> Optional[tuple]:
     return (row["league"], minute_band, diff_band)
 
 
-def facit(store) -> dict:
-    """Träffandel per signaltyp mot villkorad basrate ur kontrollögonblicken.
-
-    Ingen KI-beräkning ännu — volymen är för liten; talen redovisas ärligt
-    inklusive censur, och allt är märkt mode=shadow. Kontrollgruppen för en
-    signaltyp är icke-signal-ögonblick av SAMMA kind (samma mätbarhet: en
-    xG-signal jämförs med xG-täckta ögonblick, en proxysignal med proxytäckta).
-    """
-    rows = store.live_settlement_rows()
-    out = {"mode": "shadow", "signal_version": live_radar.RADAR_VERSION,
-           "n_moments": len(rows), "groups": {}}
+def _version_facit(rows: list[dict]) -> dict:
+    """Ett isolerat momentfacit för exakt en signalversion."""
+    out = {"n_moments": len(rows), "groups": {}}
     for signal_type in ("xg", "proxy"):
         of_type = [row for row in rows if row.get("signal_type") == signal_type]
         signals = [row for row in of_type if row["signal"]]
@@ -352,6 +372,40 @@ def facit(store) -> dict:
                                         if row[field] is None),
             }
         out["groups"][signal_type] = group
+    return out
+
+
+def facit(store) -> dict:
+    """Träffandel per signaltyp mot villkorad basrate ur kontrollögonblicken.
+
+    Ingen KI-beräkning ännu — volymen är för liten; talen redovisas ärligt
+    inklusive censur, och allt är märkt mode=shadow. Kontrollgruppen för en
+    signaltyp är icke-signal-ögonblick av SAMMA kind (samma mätbarhet: en
+    xG-signal jämförs med xG-täckta ögonblick, en proxysignal med proxytäckta).
+
+    En policyändring får aldrig retroaktivt låna volym från en äldre kohort.
+    Topnivån innehåller därför enbart aktuell ``RADAR_VERSION``. Äldre rader
+    finns kvar append-only och redovisas uttryckligen under
+    ``historical_versions`` med ett eget facit per version.
+    """
+    all_rows = store.live_settlement_rows()
+    current = live_radar.RADAR_VERSION
+    rows = [row for row in all_rows if row["signal_version"] == current]
+    out = {"mode": "shadow", "signal_version": current,
+           "moment_basis": "raw_provider",
+           "moment_basis_description": (
+               "Diagnostiska providerögonblick utan lånad klocka eller "
+               "ställning; signaljournalen är facit för synliga signaler."),
+           "all_versions_n_moments": len(all_rows),
+           **_version_facit(rows)}
+    old_versions = sorted({row["signal_version"] for row in all_rows
+                           if row["signal_version"] != current})
+    out["historical_versions"] = [
+        {"signal_version": version,
+         **_version_facit([row for row in all_rows
+                           if row["signal_version"] == version])}
+        for version in old_versions
+    ]
     # Framåtriktade signalrader med nivå, exakt ställning, live-Ö/U och
     # slutresultat. Hålls separat från kontrollögonblicken ovan: ledgern mäter
     # vad ett faktiskt beslut hade gett, medan momentfacitet mäter prediktiv
@@ -366,8 +420,8 @@ def _pct(value: Optional[float]) -> str:
 
 
 def format_facit(report: dict) -> str:
-    lines = [f"Radar-facit (mode=shadow · {report['signal_version']}) · "
-             f"{report['n_moments']} settlade ögonblick totalt"]
+    lines = [f"Radar-råfacit (mode=shadow · {report['signal_version']}) · "
+             f"{report['n_moments']} settlade ögonblick i aktuell version"]
     for signal_type in ("xg", "proxy"):
         group = report["groups"][signal_type]
         lines.append(
@@ -385,6 +439,10 @@ def format_facit(report: dict) -> str:
                 f"{data['control_censored']} kontroll"
                 + (f" · {data['without_cell']} signalögonblick utan basratecell"
                    if data["without_cell"] else ""))
+    for historical in report.get("historical_versions") or []:
+        lines.append(
+            f"historik {historical['signal_version']}: "
+            f"{historical['n_moments']} settlade ögonblick (separat kohort)")
     ledger = report.get("signal_ledger") or {}
     gate = ledger.get("blind_gate") or {}
     lines.append(

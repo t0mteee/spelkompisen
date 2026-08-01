@@ -852,8 +852,8 @@ const LABB_RESEARCH = [
     text: 'Forward samlar, gate ≥40 out-of-time-omgångar per produkt.',
     doc: 'docs/pool-ph4-forward-manifest-v3.json' },
   { icon: '🔬', title: 'V2.2 flerliga-shadow', status: 'samlar',
-    text: 'Shadow, manifest v2 2026-07-26 — inga tips, notiser eller CLV.',
-    doc: 'docs/model-v2.2-multileague-forward-manifest-v2.json' },
+    text: 'Ren shadow, manifest v4 från 2026-08-01 21:20Z — inga tips, notiser eller CLV.',
+    doc: 'docs/model-v2.2-multileague-forward-manifest-v4.json' },
   { icon: '🔓', title: 'startOdds', date: '2026-07-26', status: 'pass',
     text: 'Upplåst som omgångs-kovariat (final_only) — aldrig som PIT-observation.',
     doc: 'docs/startodds-semantik-2026-07-26.md' },
@@ -1213,7 +1213,8 @@ function LabbV3() {
                 || 'Stora chanser−mål ≥ 1,5, eller skott på mål−mål ≥ 5 och minst 8 skott i box'}</span></div>
           </div>
           <span className="v3hint">Det finns två aktiva nivåer: <b>Följer</b> och <b>Stark</b>.
-            Informationsläget före Följer är ingen signal. Skottmåttet har ingen Stark-nivå i v2.
+            Informationsläget före Följer är ingen signal. Skottmåttet har ingen Stark-nivå
+            i den aktuella {radar?.signal_version || 'radarversionen'}.
             Första gången en nivå nås sparas; samma nivå varannan minut räknas inte som nya spel.</span>
 
           <div className="v3radar-gate">
@@ -1245,7 +1246,10 @@ function LabbV3() {
           )}
 
           <details className="v3radar-old">
-            <summary>Tidigare momentfacit utan liveodds</summary>
+            <summary>Diagnostiskt rå-providerfacit utan liveodds</summary>
+            <span className="v3hint">Detta jämför varje källas egna ögonblick och
+              lånar inte klocka eller ställning från en annan källa. Signaljournalen
+              ovan är facitet för det som faktiskt visades.</span>
             {['xg', 'proxy'].map((k) => {
               const g = radar?.groups?.[k]
               const a = g?.outcomes?.outcome_15min

@@ -3,9 +3,9 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from app import fotmob
+from app import fotmob, live_radar
 from app.storage import Storage
 
 
@@ -64,6 +64,12 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(65, fotmob.parse_minute(DETAILS))
         self.assertIsNone(fotmob.parse_minute({}))
 
+    def test_stallning_lases_ur_samma_details_svar(self):
+        payload = {**DETAILS, "header": {"status": {
+            "liveTime": {"short": "65′"}, "scoreStr": "2 - 1"}}}
+        self.assertEqual((2, 1), fotmob.parse_score(payload))
+        self.assertEqual((None, None), fotmob.parse_score(DETAILS))
+
     def test_okant_resultatformat_gissar_aldrig_nollor(self):
         self.assertEqual((0, 1), fotmob._score_pair("0 - 1"))
         self.assertEqual((2, 0), fotmob._score_pair("2–0"))
@@ -86,6 +92,17 @@ class ParseTests(unittest.TestCase):
             self.assertEqual(key, fotmob.LEAGUE_NAMES[("INT", cup)])
             self.assertEqual(
                 key, fotmob.LEAGUE_NAMES[("INT", f"{cup} Qualification")])
+
+    def test_toppligor_och_besta_har_explicit_live_mapping(self):
+        expected = {
+            ("ENG", "Premier League"): "premier_league",
+            ("ITA", "Serie A"): "serie_a",
+            ("ESP", "LaLiga"): "la_liga",
+            ("GER", "Bundesliga"): "bundesliga",
+            ("ISL", "Besta deild karla"): "bestadeild",
+        }
+        for provider_name, league in expected.items():
+            self.assertEqual(league, fotmob.LEAGUE_NAMES[provider_name])
 
 
 class FriendlyScopeTests(unittest.TestCase):
@@ -147,6 +164,51 @@ class ObservationTimeTests(unittest.TestCase):
         for header in (None, "", "trasig", "-5"):
             self.assertEqual("2026-07-25T14:00:00Z",
                              fotmob._observed_at(self._Resp(header), at))
+
+
+class RosterValidationTests(unittest.TestCase):
+    def test_malformed_200_never_empties_presence(self):
+        """{} och leagues:null är transportfel, inte "inga matcher live"."""
+        checked = dt.datetime(2026, 8, 1, 21, 10, tzinfo=dt.timezone.utc)
+        for payload in ({}, {"leagues": None}):
+            with self.subTest(payload=payload), tempfile.TemporaryDirectory() as tmp:
+                store = Storage(Path(tmp) / "test.db")
+                try:
+                    live_radar.record_presence(
+                        store, live_radar.FOTMOB_PRESENCE_KEY, ["KEEP1"],
+                        "2026-08-01T21:08:00Z")
+                    response = Mock()
+                    response.headers = {}
+                    response.json.return_value = payload
+                    response.raise_for_status = Mock()
+                    with patch.object(fotmob.httpx.Client, "get",
+                                      return_value=response), \
+                            patch.object(fotmob, "_now", return_value=checked):
+                        report = fotmob.collect(store, known_matches=[])
+
+                    self.assertFalse(report["health_ok"])
+                    self.assertIn("leagues-lista", report["error"])
+                    presence = json.loads(store.meta_get(
+                        live_radar.FOTMOB_PRESENCE_KEY))
+                    self.assertEqual(["KEEP1"], presence["active_ids"])
+                    self.assertNotIn("KEEP1", presence["ended_at"])
+                    health = next(
+                        row for row in store.oddset_source_health()
+                        if row["source"] == "fotmob" and
+                        row["scope"] == "live")
+                    self.assertFalse(health["ok"])
+                finally:
+                    store.close()
+
+    def test_explicit_empty_leagues_list_is_valid(self):
+        response = Mock()
+        response.headers = {}
+        response.json.return_value = {"leagues": []}
+        response.raise_for_status = Mock()
+        with patch.object(fotmob.httpx.Client, "get", return_value=response):
+            with fotmob.FotMob() as api:
+                rows, _observed_at = api.matches()
+        self.assertEqual([], rows)
 
 
 class StorageTests(unittest.TestCase):
@@ -234,6 +296,131 @@ class StorageTests(unittest.TestCase):
                 self.assertEqual(
                     "2026-07-25T19:12:00Z",
                     second["ended_at"]["991001"])
+                health = next(row for row in store.oddset_source_health()
+                              if row["source"] == "fotmob" and
+                              row["scope"] == "live")
+                self.assertTrue(health["ok"])
+                self.assertEqual(0, health["event_count"])
+            finally:
+                store.close()
+
+    def test_collect_prefers_details_score_over_older_listing_score(self):
+        active = {
+            "fotmob_id": 991002, "league": "allsvenskan",
+            "tournament": "Allsvenskan", "home": "AIK", "away": "Häcken",
+            "start_at": "2026-07-25T18:00:00Z", "started": True,
+            "finished": False, "cancelled": False, "minute_label": "65′",
+            "score": "0 - 0",
+        }
+        details = {**DETAILS, "header": {"status": {
+            "liveTime": {"short": "65′"}, "scoreStr": "1 - 0"}}}
+
+        class FakeFotMob:
+            def __enter__(self): return self
+            def __exit__(self, *_exc): return None
+            def matches(self, _date=None):
+                return [active], "2026-07-25T19:10:00Z"
+            def details(self, _fotmob_id):
+                return details, "2026-07-25T19:10:01Z"
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                with patch.object(fotmob, "FotMob", return_value=FakeFotMob()):
+                    self.assertEqual(1, fotmob.collect(
+                        store, known_matches=[])["saved"])
+                row = store.live_fotmob_captures()[0]
+                self.assertEqual((1, 0),
+                                 (row["home_score"], row["away_score"]))
+            finally:
+                store.close()
+
+    def test_partial_stats_failure_is_not_green_in_health_or_payload(self):
+        now = dt.datetime(2026, 8, 1, 21, 10, tzinfo=dt.timezone.utc)
+        start = (now - dt.timedelta(minutes=65)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ")
+
+        def match(match_id, home):
+            return {
+                "fotmob_id": match_id, "league": "allsvenskan",
+                "tournament": "Allsvenskan", "home": home, "away": "Away",
+                "start_at": start, "started": True, "finished": False,
+                "cancelled": False, "minute_label": "65′", "score": "0 - 0",
+            }
+
+        details = {**DETAILS, "header": {"status": {
+            "liveTime": {"short": "65′"}, "scoreStr": "0 - 0"}}}
+
+        class PartialFotMob:
+            def __enter__(self): return self
+            def __exit__(self, *_exc): return None
+            def matches(self, _date=None):
+                return ([match(991010, "OK"), match(991011, "FAIL")],
+                        now.strftime("%Y-%m-%dT%H:%M:%SZ"))
+            def details(self, match_id):
+                if match_id == 991011:
+                    raise RuntimeError("stats unavailable")
+                return details, now.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                with patch.object(fotmob, "FotMob", return_value=PartialFotMob()), \
+                        patch.object(fotmob, "_now", return_value=now):
+                    report = fotmob.collect(store, known_matches=[])
+                self.assertEqual(1, report["saved"])
+                self.assertEqual(1, report["stats_ok"])
+                self.assertFalse(report["health_ok"])
+                health = next(
+                    row for row in store.oddset_source_health()
+                    if row["source"] == "fotmob" and row["scope"] == "live")
+                self.assertFalse(health["ok"])
+                self.assertEqual(2, health["event_count"])
+                self.assertIn("FAIL: RuntimeError", health["error"])
+                payload_health = next(
+                    row for row in live_radar.payload(store, now=now)[
+                        "source_health"]
+                    if row["source"] == "fotmob")
+                self.assertFalse(payload_health["ok"])
+                self.assertIn("RuntimeError", payload_health["error"])
+            finally:
+                store.close()
+
+    def test_collect_refreshes_listing_before_using_fallback_score(self):
+        initial = {
+            "fotmob_id": 991003, "league": "allsvenskan",
+            "tournament": "Allsvenskan", "home": "AIK", "away": "Häcken",
+            "start_at": "2026-07-25T18:00:00Z", "started": True,
+            "finished": False, "cancelled": False, "minute_label": "65′",
+            "score": "0 - 0",
+        }
+        refreshed = {**initial, "score": "1 - 0"}
+
+        class FakeFotMob:
+            def __init__(self): self.calls = 0
+            def __enter__(self): return self
+            def __exit__(self, *_exc): return None
+            def matches(self, _date=None):
+                self.calls += 1
+                if self.calls == 1:
+                    return [initial], "2026-07-25T19:10:00Z"
+                return [refreshed], "2026-07-25T19:10:29Z"
+            def details(self, _fotmob_id):
+                # Ingen scoreStr: fallback är tillåten först efter att
+                # rosterlistan förnyats till samma observationstid.
+                return DETAILS, "2026-07-25T19:10:30Z"
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                fake = FakeFotMob()
+                with patch.object(fotmob, "FotMob", return_value=fake):
+                    self.assertEqual(1, fotmob.collect(
+                        store, known_matches=[])["saved"])
+                self.assertEqual(2, fake.calls)
+                row = store.live_fotmob_captures()[0]
+                self.assertEqual((1, 0),
+                                 (row["home_score"], row["away_score"]))
             finally:
                 store.close()
 
