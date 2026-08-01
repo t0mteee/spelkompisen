@@ -5,7 +5,7 @@ Europatipset, Topptipset, Bomben) med en ny **Oddset-del**: enskilda matcher (Al
 norska Eliteserien, träningsmatcher till att börja med) med sharp-odds, oddsrörelser,
 egen modell och värdespels-tips (1X2, asian handicap, över/under, hörnor på sikt).
 
-**Läge (2026-07-25):** Etapp 0–5 KLARA + långt därutöver. Oddset-delen är i full drift:
+**Läge (2026-08-01):** Etapp 0–5 KLARA + långt därutöver. Oddset-delen är i full drift:
 10 ligor (Allsvenskan/Superettan/Eliteserien/OBOS/Besta deild/MLS/träningsmatcher + CL/EL/
 Conference INKL. kval — cuperna är två Pinnacle-ligor + två Kambi-vägar per nyckel,
 `pin_ids`/`kambi_paths` i oddset.py), 4 bokkällor +
@@ -31,8 +31,8 @@ i isolerad sharp-identitetskontroll; se
 `docs/model-v2.2-multileague-forward-manifest.json`. Det är inte en tränad
 modell och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
-`docs/overlamning-2026-07-31-live-signaljournal.md` (LÄS FÖRST).
-Föregående: `docs/overlamning-2026-07-25-kvall.md`.
+`docs/overlamning-2026-08-01-flashscore.md` (LÄS FÖRST).
+Föregående: `docs/overlamning-2026-07-31-live-signaljournal.md`.
 Beställning 1 är LEVERERAD 2026-07-24: de fyra Europaligorna syns i ordinarie
 Oddset-vyn (🔬 forskningsmärkta, `visible_in_ui`) men är fortsatt icke-
 actionable — `VISIBLE_LEAGUE_KEYS` ≠ `ACTIONABLE_LEAGUE_KEYS` i `oddset.py`.
