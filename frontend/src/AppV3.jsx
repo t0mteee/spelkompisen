@@ -2,13 +2,13 @@
 // De tunga komponenterna (analys/bygg/kupong/oddset) importeras från App.jsx,
 // som är komponentbiblioteket. Eget här: skalet med vyväxlingen samt
 // Idag-översikten, Historik-vyn (PH1-settlementlagret) och Labb.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import './AppV3.css'
 import {
   AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel,
   BombenView, OddsetView, Legend, Collection, LoadingState, EmptyState,
   ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS,
-  SYSTEM_BASE, SYSTEM_SVS, VARIANT, kr, fmtClose, timeAgo, PlayRec,
+  SYSTEM_BASE, SYSTEM_SVS, VARIANT, kr, fmtClose, PlayRec,
   PlayedPanel, oddsetBestValue,
 } from './App'
 
@@ -35,6 +35,14 @@ const HIST_PRODUCTS = [
 
 const get = (url) => fetch(`${url}${url.includes('?') ? '&' : '?'}_t=${Date.now()}`,
   { cache: 'no-store' }).then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.json() })
+
+// Som get(), men lyfter fram backendens detail-text. Bor på modulnivå:
+// cache-busterns Date.now() får inte ligga i en komponentkropp.
+const getDetail = (url, label) => fetch(`${url}${url.includes('?') ? '&' : '?'}_t=${Date.now()}`,
+  { cache: 'no-store' }).then(async (r) => {
+    if (!r.ok) throw new Error((await r.json()).detail || `${label} ${r.status}`)
+    return r.json()
+  })
 
 const readState = () => {
   try { return JSON.parse(localStorage.getItem('svs_state') || '{}') || {} } catch { return {} }
@@ -341,7 +349,9 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
 /* =============================== Poolspel ================================= */
 
 function PoolV3() {
-  const saved = useRef(readState()).current
+  // Läs localStorage exakt en gång vid mount. Lat useState-init i stället för
+  // useRef(...).current, som annars läses under render.
+  const [saved] = useState(readState)
   const [game, setGame] = useState(
     POOL_GAMES.some((g) => g.id === saved.group) ? saved.group : 'topptipset')
   const [draws, setDraws] = useState([])
@@ -464,9 +474,9 @@ function PoolV3() {
       if (q.endsWith('guarantee=')) q += Math.max(1, nMatches - 1)
       const vw = valueWeight / 100
       const jp = payouts?.jackpot != null ? `&jackpot=${encodeURIComponent(payouts.jackpot)}` : ''
-      const r = await fetch(`/api/system?product=${product}&draw=${draw}&strategy=${encodeURIComponent(strategy)}&budget=${budget}&value_weight=${vw}&${q}${jp}&_t=${Date.now()}`, { cache: 'no-store' })
-      if (!r.ok) throw new Error((await r.json()).detail || `System ${r.status}`)
-      setSys(await r.json())
+      setSys(await getDetail(
+        `/api/system?product=${product}&draw=${draw}&strategy=${encodeURIComponent(strategy)}&budget=${budget}&value_weight=${vw}&${q}${jp}`,
+        'System'))
     } catch (e) { setErr(String(e)) }
   }
 

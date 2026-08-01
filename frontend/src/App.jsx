@@ -6,6 +6,10 @@ import { summarizeSourceHealth } from './sourceHealth.js'
 // importerar alla tunga byggstenar, konstanter och helpers härifrån —
 // se exportblocket i slutet av filen.
 
+// Ren presentationskomponent — måste bo på modulnivå, annars skapas en ny
+// komponenttyp vid varje render av föräldern.
+const InfoDot = ({ text }) => <span className="idot" title={text}>i</span>
+
 const STRATEGIES = ['säker', 'medel', 'tuff']
 // strategin sätter en startpunkt på EV-/värdereglaget (samma axel), så de inte krockar
 const STRATEGY_EV = { säker: 20, medel: 50, tuff: 80 }
@@ -434,7 +438,6 @@ function SharpPanel({ product, draw, onLoaded }) {
   useEffect(() => { fetchSharp() }, [product, draw])  // hämta direkt (gratis) vid byte
 
   const matched = data?.matches?.filter((m) => m.external) || []
-  const uncovered = data?.matches?.filter((m) => !m.external) || []
   return (
     <div className="sharp">
       <div className="sharp-head">
@@ -992,8 +995,6 @@ function OddsetView({ focus = null } = {}) {
     const f = Math.max(0, (v.fair * v.odds - 1) / (v.odds - 1)) / 4
     return Math.round(bank * f)
   }
-  const InfoDot = ({ text }) => <span className="idot" title={text}>i</span>
-
   const quoteClass = (base, market) => `${base}${market && !market.fresh ? ' quote-stale' : ''}`
   const priceStamp = (market) => {
     if (!market) return null
@@ -1034,21 +1035,6 @@ function OddsetView({ focus = null } = {}) {
   }
 
   // mini-graf över sharp-seriens väg (röd = oddset ner = sannolikheten upp)
-  const Spark = ({ pts }) => {
-    if (!pts || pts.length < 2) return null
-    const os = pts.map((p) => p.o)
-    const min = Math.min(...os), max = Math.max(...os)
-    const W = 64, H = 16
-    const xy = os.map((o, i) =>
-      `${(i / (os.length - 1) * W).toFixed(1)},${(max === min ? H / 2 : H - 1 - (o - min) / (max - min) * (H - 2)).toFixed(1)}`)
-    const falling = os[os.length - 1] < os[0]
-    return (
-      <svg className="spark" width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
-        <polyline points={xy.join(' ')} fill="none"
-          stroke={falling ? '#e06b6b' : 'var(--green)'} strokeWidth="1.5" />
-      </svg>
-    )
-  }
 
   // grön edge-pill: devigad Pinnacle säger att bok-oddset är för högt.
   // Kräver även kvalitet (edge/(odds−1)) — högoddsar-edges under kvalitetsgolvet
@@ -3049,6 +3035,11 @@ function SortableTable({
 }
 
 
+// Den här filen ÄR komponentbiblioteket (se CLAUDE.md): AppV3.jsx hämtar både
+// komponenter, konstanter och helpers härifrån. Blandade exporter är alltså
+// arkitekturen, inte ett misstag — priset är att fast refresh laddar om hela
+// modulen i stället för att bevara state.
+/* eslint-disable react-refresh/only-export-components */
 export {
   AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel,
   BombenView, OddsetView, Legend, Collection, LoadingState, EmptyState,
