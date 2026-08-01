@@ -154,10 +154,12 @@ def _outcome_more_before_ft(moment: dict, later: list[dict],
 def _signal_for(provider: str, captures: list[dict], index: int) -> dict:
     """Radera signalfrågan till den DELADE funktionen — aldrig en kopia.
 
-    Jämförelsepunkten väljs som API-payloaden gör: Sofascore via
-    `previous_capture` (~15 min bakåt med tolerans), FotMob via närmast
-    föregående punkt i den egna serien. Punkten påverkar bara score/reason,
-    aldrig nivån — men settlementet ska vara payloadens spegel, inte nästan.
+    Jämförelsepunkten väljs som API-payloaden gör: FotMob via närmast
+    föregående punkt i den egna serien, Sofascore och Flashscore via
+    `previous_capture` (~15 min bakåt med tolerans) — exakt som
+    `_fotmob_signal` respektive `_flashscore_signal` gör. Punkten påverkar
+    bara score/reason, aldrig nivån, men settlementet ska vara payloadens
+    spegel, inte nästan.
     """
     current = captures[index]
     if provider == "fotmob":
@@ -169,6 +171,7 @@ def _signal_for(provider: str, captures: list[dict], index: int) -> dict:
 
 def _series(store, since: str) -> list[tuple[str, int, list[dict]]]:
     """Alla capture-serier per provider — sorterade i tidsordning av lagret."""
+    from .flashscore import CAPTURE_VERSION as FS_CAPTURE_VERSION
     out: list[tuple[str, int, list[dict]]] = []
     grouped: dict[int, list[dict]] = {}
     for row in store.oddset_live_captures(since, SOFA_CAPTURE_VERSION):
@@ -180,6 +183,15 @@ def _series(store, since: str) -> list[tuple[str, int, list[dict]]]:
         grouped.setdefault(int(row["fotmob_id"]), []).append(row)
     out.extend(("fotmob", event_id, captures)
                for event_id, captures in grouped.items())
+    # Flashscore-serier settlas på samma villkor. Id:t är alfanumeriskt och
+    # skickas som sträng hela vägen — momenttabellens event_id har INTEGER-
+    # affinitet men SQLite lagrar strängen oförändrad, och nyckeln jämförs
+    # bara mot sig själv (provider ingår i den naturliga nyckeln).
+    grouped_text: dict[str, list[dict]] = {}
+    for row in store.live_flashscore_captures(since, FS_CAPTURE_VERSION):
+        grouped_text.setdefault(str(row["flashscore_id"]), []).append(row)
+    out.extend(("flashscore", event_id, captures)
+               for event_id, captures in grouped_text.items())
     return out
 
 

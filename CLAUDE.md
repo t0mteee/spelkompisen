@@ -98,13 +98,23 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       synliga Följer/Stark-nivån per match × signaltyp:
                       minut/ställning/mått + observerad öppen Kambi-live-Ö/U,
                       normaltidsfacit och Asian-Över-ROI. Aldrig tipsinput
-  app/fotmob.py       PRIMÄRA live-ögat (Samans beslut 2026-07-28; inkopplad
-                      25/26): live-xG/xGOT/skott, täcker även Oddset-spärrade
-                      friendlies. Sofascore är reserv och bär signalen bara
-                      med strikt bättre statistik. EGEN tabell; providrar
-                      blandas ALDRIG. Källval xG > skott/chansmått > no_stats,
-                      vid lika vinner FotMob; HELA signalen/deltat kommer från
-                      vald serie. `signal.stats_source` säger vilken. Shadow.
+  app/flashscore.py   PRIMÄRA live-ögat (Samans beslut 2026-08-01, mätt samma
+                      dag: xG där FotMob bara hade skott eller ingenting,
+                      aldrig sämre). Publik pipe-feed, statisk publik
+                      headerkonstant (samma klass som Pinnacles gästnyckel);
+                      brotli KRÄVS. Minuten HÄRLEDS ur stadiets starttid
+                      (AC 12/13 + AO) — okänt stadium ⇒ None, aldrig gissad.
+  app/fotmob.py       ANDRA live-ögat (var primärt 2026-07-28→08-01):
+                      live-xG/xGOT/skott, täcker även Oddset-spärrade
+                      friendlies. Sofascore är tredje källa.
+                      ALLA TRE: EGEN tabell; providrar blandas ALDRIG.
+                      Källval rankar DATAKVALITET först (xG > skott/chansmått
+                      > no_stats) och vid lika vinner Flashscore, sedan
+                      FotMob — en match där FotMob har xG och Flashscore bara
+                      skott nedgraderas alltså aldrig. HELA signalen/deltat
+                      kommer från vald serie. `signal.stats_source` säger
+                      vilken; `coverage.by_source` redovisar fördelningen.
+                      Shadow.
   app/main.py         API-endpoints + PRIZE_PLANS (officiella vinstplaner)
   cli.py              show|spikar|snapshot|history|rad (snapshotvarvet settlar
                       även nyss avgjorda poolomgångar via settle_recent)
@@ -156,17 +166,27 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
   **Förtäta ALDRIG poolvarvet eller Oddset-varvet på samma sätt:** Pinnacles
   bulk är CDN-cachad `max-age=905`, så anrop oftare än ~15 min returnerar samma
   objekt — det kostar trafik utan en enda ny prispunkt. Radarns källor är
-  däremot färska (FotMob `max-age=10`, Sofascore live).
-  En färsk FotMob-match med chansdata ska visas även om Sofascore helt saknar
-  matchen; `fotmob:<id>` är då kortets namespacade event-id. Gör aldrig
-  livevisningen beroende av att reservkällan först kan länkas till en
-  Sofascore-rad.
+  däremot färska (FotMob `max-age=10`, Sofascore live, Flashscore `Age` ~3 s).
+  Flashscores dagsfeed är 173 kB på tråden (1,4 MB avkodad) — en begäran per
+  varv, så den hämtas färsk varje gång i stället för att cachas med en
+  inaktuell ställning som följd.
+  En färsk match med chansdata ska visas även om de andra källorna saknar
+  den; `fotmob:<id>` respektive `flashscore:<id>` är då kortets namespacade
+  event-id. Gör aldrig livevisningen beroende av att en källa först kan
+  länkas till en Sofascore-rad.
   Live-radarn är shadow/informationsstöd och får inte påverka tips, Kelly,
   CLV, pushnotiser eller systemförslag utan ett nytt explicit beslut.
   Signaljournalens blindkohort är FÖRSTA aktiva signalen per match (en
   Följer→Stark-eskalering får finnas i diagnostiken men får inte dubblera
   blindtestet). Minst 200 oddssatta+avgjorda signalmatcher, minst 60 dagar och
   undre KI90 > 0 krävs före stöd; inga historiska liveodds bakfylls.
+  **Signalversionen är `chance-gap-shadow-v3`** sedan 2026-08-01: trösklarna
+  är oförändrade, men Flashscore ändrar VILKA matcher som kan ge signal —
+  alltså kohortens datagenererande process. v2:s två rader ligger kvar som
+  historik och blandas aldrig med v3. En ny statistikkälla kräver alltid
+  samma versionsbump.
+  Provider-id hanteras som ogenomskinlig STRÄNG i presence, journal och
+  settlement (Flashscores är alfanumeriskt: `SKg88Q3T`).
   Notiser går i Oddset-varvet, bakom **notisvakten** (presence-set: larm kräver att
   priset observerades i det aktuella lyckade varvet).
 - **WP2-prisregel:** `fetched_at` = prisförändring, `last_seen_at` = senaste
@@ -394,10 +414,11 @@ egna gränser. Vidga den inte ytterligare; det som står under "stängt" flyttas
 inte av att någon ber om det.
 
 **Öppet:** publika JSON-API:er · statiska publika tokens i sidans kod (t.ex.
-Pinnacles gästnyckel) · läsa publik JavaScript · browserlik TLS-signatur
-(`curl_cffi impersonate`, används redan för Sofascore) · observera sidans egen
-publika nätverkstrafik för att lära sig endpoint-kontraktet · läsa publika sidor
-i browsern · artig rate limiting, timeouts och matchtak.
+Pinnacles gästnyckel, Flashscores `x-fsign`) · läsa publik JavaScript ·
+browserlik TLS-signatur (`curl_cffi impersonate`, används redan för Sofascore) ·
+observera sidans egen publika nätverkstrafik för att lära sig
+endpoint-kontraktet · läsa publika sidor i browsern · artig rate limiting,
+timeouts och matchtak.
 
 **Stängt (modellens gräns, inte repots):** lösa eller förfalska
 anti-bot-utmaningar — Cloudflare-interstitials, Impervas `reese84`, DataDome,

@@ -512,7 +512,7 @@ class LiveRadarTests(unittest.TestCase):
                 self.assertEqual(1, report["live"])
                 self.assertEqual(0, report["stats_ok"])
                 self.assertIn(
-                    '"active_ids":[123]',
+                    '"active_ids":["123"]',
                     store.meta_get(live_radar.SOFA_PRESENCE_KEY))
                 health = next(
                     row for row in store.oddset_source_health()

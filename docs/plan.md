@@ -5,6 +5,23 @@
 > **Aktiv backlog och prioritering: `docs/backlog.md`** (2026-07-26).
 > WP-listan längre ned är historik över avslutat arbete.
 
+**FLASHSCORE ÄR RADARNS PRIMÄRA STATISTIKKÄLLA (2026-08-01, Samans beslut).**
+Saman såg att Chelsea–Tottenham saknade chansdata hos oss. Utredningen visade
+att varken FotMob (tomt stats-block, tom shotmap) eller Sofascore (bara
+innehav/hörnor/kort) hade siffror — men Flashscore hade full xG, xGOT, skott
+och stora chanser. Mätning över alla samtidiga livematcher: Flashscore hade
+xG där FotMob bara hade skott eller ingenting, aldrig sämre. Ny `app/
+flashscore.py` + egen tabell `oddset_live_flashscore`; källvalet rankar
+DATAKVALITET först och låter Flashscore vinna vid lika, så en match där
+FotMob har xG aldrig nedgraderas. Signalversionen bumpad till
+`chance-gap-shadow-v3` (trösklarna oförändrade — men kohortens
+datagenererande process ändras av en ny källa). Provider-id är nu
+ogenomskinlig sträng överallt (Flashscores är alfanumeriskt); `provider_
+event_id` byggd om till TEXT med bevarade rader. 412 tester gröna, migration
+med backup + reparerad FK-incident (se `docs/db-atgarder.md`), verifierat i
+browser: Flashscore bär två av tre livekort och Östersund–Öster gick från
+dold till synlig. Metod: `docs/live-radar-2026-07-25.md`.
+
 **SIGNALJOURNALEN GRANSKAD OCH HÄRDAD (2026-08-01, Fable 5).**
 Multi-agent-granskning av 38a45ff gav 17 verifierade fynd — alla åtgärdade
 samma dag, innan serien hunnit växa (1 rad fanns, intakt). Kritiskt: Kambis

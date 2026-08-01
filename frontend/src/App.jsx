@@ -1350,13 +1350,19 @@ function OddsetView({ focus = null } = {}) {
   }
 
   const liveMatches = liveRadar?.matches || []
+  // Källan som BÄR signalen läser sina egna siffror — providrar blandas
+  // aldrig i visningen heller. Flashscore är primär sedan 2026-08-01.
+  const liveSourceName = {
+    flashscore: 'Flashscore', fotmob: 'FotMob', sofascore: 'Sofascore',
+  }
   const liveView = (m) => {
     const signal = m.signal || {}
-    const stats = signal.stats_source === 'fotmob' && m.fotmob ? m.fotmob : m
+    const own = m[signal.stats_source]
+    const stats = own || m
     return {
       signal,
       stats,
-      source: signal.stats_source === 'fotmob' ? 'FotMob' : 'Sofascore',
+      source: liveSourceName[signal.stats_source] || 'Sofascore',
       hasXg: stats.xg_home != null && stats.xg_away != null,
     }
   }

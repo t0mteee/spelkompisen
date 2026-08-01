@@ -2,6 +2,42 @@
 
 Datum: 2026-07-25.
 
+## Uppdatering 2026-08-01 — Flashscore är primär statistikkälla
+
+Saman upptäckte att Chelsea–Tottenham (träningsmatch, 1–1) inte syntes på
+radarn. Orsaken var inte vår filtrering: FotMobs `stats`-sektion var tom och
+dess shotmap innehöll noll skott, medan Sofascore bara rapporterade
+bollinnehav, hörnor, kort och blockerade skott. Flashscore hade samtidigt
+**full uppsättning**: xG 1,76–0,26, xGOT 2,51–0,79, 11–4 skott, 4–3 på mål,
+4–1 stora chanser, 9–1 skott i box.
+
+Mätning över alla samtidiga livematcher visade samma mönster: Flashscore hade
+xG där FotMob bara hade skott (Hillerød–Esbjerg, FC Tokyo–Dortmund) eller
+ingenting alls (Chelsea–Tottenham, kinesiska Jia League) — och var aldrig
+sämre. Flashscore är därför primär källa sedan 2026-08-01.
+
+**Urvalsregeln rankar dock DATAKVALITET före källordning:** xG > skott/
+chansmått > ingen statistik, och Flashscore vinner bara vid LIKA. En match
+där FotMob har xG och Flashscore bara skott nedgraderas alltså aldrig.
+`signal.stats_source` säger vilken källa som bär signalen och
+`coverage.by_source` redovisar fördelningen öppet.
+
+Flashscore är inte en universallösning: de mindre försäsongsmatcherna
+(Oxford–Ipswich, Barakaldo–Mirandés) saknade statistik även där. Men den
+täppte verkliga luckor i actionable ligor — Östersund–Öster i Superettan gick
+från helt dold till synlig med skottdata.
+
+Tekniska villkor: publik pipe-feed med statisk publik headerkonstant (samma
+klass som Pinnacles gästnyckel — inom källgränsen; ingen utmaning löses),
+brotli krävs i venv:et, `Age` dras av, och matchminuten HÄRLEDS ur stadiets
+starttid (validerad mot FotMobs klocka på sju samtidiga matcher, avvikelse
+≤3 min). Okänt stadium ⇒ ingen minut, aldrig en gissad klocka.
+
+**Signalversionen bumpades till `chance-gap-shadow-v3`.** Trösklarna är
+oförändrade, men vilka matcher som kan ge signal ändras — kohortens
+datagenererande process är alltså en annan. v2:s två journalrader ligger kvar
+som historik och blandas aldrig med v3.
+
 ## Produktbeslut
 
 Samans beställning är en observationsradar: hitta pågående matcher där

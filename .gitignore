@@ -29,3 +29,6 @@ frontend/dist/
 
 # Genererat ChatGPT-paket (byggs om med backend/scripts/chatgpt_paket.sh)
 docs/chatgpt-paket/
+
+# Käll-testets mätlogg (per maskin/IP — jämförs manuellt, committas aldrig)
+backend/scripts/kalltest-logg.jsonl

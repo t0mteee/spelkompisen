@@ -8,6 +8,45 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-08-01 (kväll) — Flashscore som primär livekälla + textbaserat signal-id
+
+- **Orsak:** Saman upptäckte att Chelsea–Tottenham saknade all chansdata hos
+  oss. Mätning samma dag visade att Flashscore hade full xG (1,76–0,26,
+  11–4 skott) där FotMob bara hade skott eller ingenting alls, och aldrig
+  sämre. Beslut: Flashscore blir radarns primära statistikkälla.
+- **Skript:** `backend/scripts/migrera_flashscore.py`.
+  **Backup:** `backend/data/backups/stryktips-2026-08-01-fore-flashscore.db`.
+- **Ny tabell `oddset_live_flashscore`** (25 kolumner, PK
+  flashscore_id × captured_at × capture_version) — egen tabell av samma skäl
+  som FotMob har en: providrar blandas ALDRIG inom en serie.
+- **`oddset_live_signal.provider_event_id` INTEGER → TEXT.** Flashscores
+  event-id är alfanumeriskt (`SKg88Q3T`). SQLite kan inte ändra kolumntyp med
+  ALTER, så tabellen byggdes om med samma kolumner, UNIQUE-vakt och index;
+  båda befintliga signalraderna bevarades oförändrade.
+- **INCIDENT (redovisad):** första körningen av ombyggnaden använde
+  `executescript`, som committar implicit. Skriptet föll på ett `COMMIT` utan
+  aktiv transaktion — men rename/create/copy/drop hade då redan committats
+  var för sig, så DB:n var i praktiken migrerad medan skriptet rapporterade
+  fel. Värre: eftersom `PRAGMA legacy_alter_table` inte var påslagen skrev
+  SQLite om resultattabellens främmande nyckel till den tillfälliga
+  `oddset_live_signal_gammal`, som sedan droppades — en hängande referens.
+  Ofarlig i drift (`foreign_keys` är av) men fel, och den hade fällt varje
+  insert den dagen kontrollen slås på. **Åtgärd:** ombyggnaden kör nu en
+  MANUELL transaktion med rollback och `legacy_alter_table=ON`, och skriptet
+  har ett idempotent reparationssteg (`_repair_result_fk`) som upptäcker och
+  bygger om en felpekande resultattabell. Reparationen provkördes först mot
+  en kopia av produktions-DB:n, sedan skarpt: FK pekar åter på
+  `oddset_live_signal(id)`, 0 resultatrader berördes, inga rester kvar.
+- **Ingen bakfyllning:** Flashscore-serien börjar samla framåt.
+  Signalversionen bumpas till `chance-gap-shadow-v3` i samma leverans —
+  v2:s två rader är historik och blandas aldrig med v3.
+- **Efterkontroll:** `PRAGMA integrity_check=ok`; 412 backendtester gröna
+  (22 nya, inkl. bevarad signalrad, UNIQUE/index efter ombyggnad,
+  FK-reparation och idempotens); frontend-build grön; radarn verifierad i
+  browser med Flashscore som bärande källa på två av tre kort.
+
+---
+
 ## 2026-08-01 — signaljournalen: klockproveniens-kolumner + skärpt migration
 
 - **Orsak:** granskningen av 38a45ff (17 verifierade fynd, se

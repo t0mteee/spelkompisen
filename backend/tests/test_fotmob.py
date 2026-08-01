@@ -216,7 +216,9 @@ class StorageTests(unittest.TestCase):
                         1, fotmob.collect(store, known_matches=[])["live"])
                 first = json.loads(store.meta_get(
                     "live_radar_fotmob_presence"))
-                self.assertEqual([991001], first["active_ids"])
+                # id:t lagras som ogenomskinlig sträng sedan 2026-08-01
+                # (Flashscores är alfanumeriskt)
+                self.assertEqual(["991001"], first["active_ids"])
                 self.assertEqual({}, first["ended_at"])
 
                 finished = dict(active, finished=True)

@@ -588,6 +588,42 @@ CREATE TABLE IF NOT EXISTS oddset_live_fotmob (
 CREATE INDEX IF NOT EXISTS idx_oddset_live_fotmob_recent
     ON oddset_live_fotmob (captured_at DESC, fotmob_id);
 
+-- Flashscore (2026-08-01): radarns PRIMÄRA statistikkälla efter mätning som
+-- visade xG där FotMob bara hade skott eller ingenting. EGEN tabell av samma
+-- skäl som FotMob har en: providrar blandas ALDRIG inom en serie — klocka,
+-- ställning och chansmått kommer alltid från samma källa. Id:t är Flashscores
+-- egen sträng (t.ex. 'SKg88Q3T'), inte ett heltal.
+CREATE TABLE IF NOT EXISTS oddset_live_flashscore (
+    flashscore_id     TEXT NOT NULL,
+    captured_at       TEXT NOT NULL,     -- hämtningstid − HTTP Age
+    capture_version   TEXT NOT NULL,
+    league            TEXT NOT NULL,
+    tournament        TEXT,
+    home              TEXT NOT NULL,
+    away              TEXT NOT NULL,
+    start_at          TEXT,
+    minute            INTEGER,           -- härledd ur stadiets starttid
+    home_score        INTEGER,
+    away_score        INTEGER,
+    xg_home           REAL,
+    xg_away           REAL,
+    xgot_home         REAL,
+    xgot_away         REAL,
+    big_chances_home  REAL,
+    big_chances_away  REAL,
+    shots_home        REAL,
+    shots_away        REAL,
+    shots_on_home     REAL,
+    shots_on_away     REAL,
+    shots_inside_home REAL,
+    shots_inside_away REAL,
+    corners_home      REAL,
+    corners_away      REAL,
+    PRIMARY KEY (flashscore_id, captured_at, capture_version)
+);
+CREATE INDEX IF NOT EXISTS idx_oddset_live_flashscore_recent
+    ON oddset_live_flashscore (captured_at DESC, flashscore_id);
+
 -- Settlement per capture-ÖGONBLICK (2026-07-26, steg 2–3 i den förregistrerade
 -- planen docs/live-radar-2026-07-25.md). VARJE capture-rad settlas — signal
 -- eller inte — eftersom kontrollgruppen för den villkorade basraten är just
@@ -628,7 +664,8 @@ CREATE TABLE IF NOT EXISTS oddset_live_signal (
     match_key           TEXT NOT NULL,
     match_id            TEXT,
     provider            TEXT NOT NULL,
-    provider_event_id   INTEGER NOT NULL,
+    provider_event_id   TEXT NOT NULL,   -- ogenomskinlig per provider:
+                                         -- Flashscores id är alfanumeriskt
     captured_at         TEXT NOT NULL,
     capture_version     TEXT NOT NULL,
     signal_version      TEXT NOT NULL,
@@ -1771,9 +1808,49 @@ class Storage:
         query += " ORDER BY fotmob_id, captured_at"
         return [dict(row) for row in self.conn.execute(query, args)]
 
-    def live_provider_series(self, provider: str, event_id: int,
+    LIVE_FLASHSCORE_COLUMNS = (
+        "flashscore_id", "captured_at", "capture_version", "league",
+        "tournament", "home", "away", "start_at", "minute", "home_score",
+        "away_score", "xg_home", "xg_away", "xgot_home", "xgot_away",
+        "big_chances_home", "big_chances_away", "shots_home", "shots_away",
+        "shots_on_home", "shots_on_away", "shots_inside_home",
+        "shots_inside_away", "corners_home", "corners_away",
+    )
+
+    def live_flashscore_save(self, capture: dict) -> int:
+        """Append-once per (match, observationstid, version) — egen tabell så
+        Flashscores xG aldrig kan blandas med FotMobs eller Sofascores."""
+        cols = self.LIVE_FLASHSCORE_COLUMNS
+        cur = self.conn.execute(
+            f"INSERT OR IGNORE INTO oddset_live_flashscore({','.join(cols)}) "
+            f"VALUES({','.join('?' for _ in cols)})",
+            tuple(capture.get(key) for key in cols))
+        self._commit()
+        return cur.rowcount
+
+    def live_flashscore_captures(
+            self, since: Optional[str] = None,
+            capture_version: Optional[str] = None) -> list[dict]:
+        query = "SELECT * FROM oddset_live_flashscore WHERE 1=1"
+        args: list = []
+        if since:
+            query += " AND captured_at>=?"
+            args.append(since)
+        if capture_version:
+            query += " AND capture_version=?"
+            args.append(capture_version)
+        query += " ORDER BY flashscore_id, captured_at"
+        return [dict(row) for row in self.conn.execute(query, args)]
+
+    def live_provider_series(self, provider: str, event_id,
                              capture_version: str) -> list[dict]:
         """En providers råserie för signal-settlement, aldrig en källblandning."""
+        if provider == "flashscore":
+            # Flashscores id är en sträng, inte ett heltal — konverteras aldrig.
+            return [dict(row) for row in self.conn.execute(
+                "SELECT * FROM oddset_live_flashscore WHERE flashscore_id=? "
+                "AND capture_version=? ORDER BY captured_at",
+                (str(event_id), capture_version))]
         if provider == "sofascore":
             table, id_column = "oddset_live_capture", "event_id"
         elif provider == "fotmob":
@@ -1844,7 +1921,7 @@ class Storage:
     )
 
     def live_signal_locked_key(self, signal_version: str,
-                               identities: list[tuple[str, int]]
+                               identities: list[tuple[str, str]]
                                ) -> Optional[str]:
         """Först bokförda match_key för någon av providertidentiteterna.
 
@@ -1856,7 +1933,7 @@ class Storage:
                 "SELECT match_key FROM oddset_live_signal "
                 "WHERE provider=? AND provider_event_id=? AND signal_version=? "
                 "ORDER BY id LIMIT 1",
-                (provider, int(event_id), signal_version)).fetchone()
+                (provider, str(event_id), signal_version)).fetchone()
             if row:
                 return row["match_key"]
         return None

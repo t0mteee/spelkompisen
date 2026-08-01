@@ -336,11 +336,24 @@ LIVE_DENSE_INTERVAL_S = 120
 
 
 def _live_pass(store) -> tuple[dict, dict]:
-    from app import fotmob, live_radar
-    # FotMob är radarns PRIMÄRA källa (Samans beslut 2026-07-28 — Sofascore
-    # saknar oftast chansmåtten) och körs därför först. Källorna är fortsatt
-    # helt separerade: egna klienter, egna tabeller, xG blandas aldrig — och
-    # ingen av dem får fälla den andras varv, därav var sitt skyddsnät.
+    from app import flashscore, fotmob, live_radar
+    # FLASHSCORE ÄR RADARNS PRIMÄRA KÄLLA (Samans beslut 2026-08-01, mätt
+    # samma dag: xG där FotMob bara hade skott eller ingenting). FotMob är
+    # andra ögat, Sofascore tredje. Källorna är helt separerade: egna
+    # klienter, egna tabeller, xG blandas aldrig — och ingen av dem får fälla
+    # de andras varv, därav var sitt skyddsnät.
+    try:
+        fs = flashscore.collect(store)
+    except Exception as e:  # noqa: BLE001
+        fs = {"error": f"{type(e).__name__}: {str(e)[:60]}"}
+    if fs.get("error"):
+        print(f"flashscore: hoppade över ({fs['error']})")
+    else:
+        print(f"flashscore: {fs['live']} matcher i våra ligor · "
+              f"{fs['saved']} captures med statistik"
+              + (f" · {fs['skipped']} över taket" if fs.get("skipped") else "")
+              + (f" · {len(fs['partial_errors'])} matchfel"
+                 if fs.get("partial_errors") else ""))
     try:
         fm = fotmob.collect(store)
     except Exception as e:  # noqa: BLE001

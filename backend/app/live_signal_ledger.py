@@ -71,11 +71,22 @@ def _canonical_match(store: Storage, row: dict) -> Optional[dict]:
     return matches[0][1]
 
 
-def _selected_source(match: dict) -> tuple[str, dict, int]:
-    if (match.get("signal") or {}).get("stats_source") == "fotmob":
+def _selected_source(match: dict) -> tuple[str, dict, str]:
+    """Providern som BÄR signalen + dess rad och event-id.
+
+    Id:t returneras som sträng: Flashscores är alfanumeriskt, de andra två
+    heltal. Lagret behandlar det som en ogenomskinlig nyckel per provider.
+    """
+    stats_source = (match.get("signal") or {}).get("stats_source")
+    if stats_source == "flashscore":
+        source = match.get("flashscore") or match
+        return ("flashscore", source,
+                str(source.get("flashscore_id") or match["flashscore_id"]))
+    if stats_source == "fotmob":
         source = match.get("fotmob") or match
-        return "fotmob", source, int(source.get("fotmob_id") or match["fotmob_id"])
-    return "sofascore", match, int(match["event_id"])
+        return ("fotmob", source,
+                str(source.get("fotmob_id") or match["fotmob_id"]))
+    return "sofascore", match, str(match["event_id"])
 
 
 def _live_total(match: Optional[dict]) -> dict:
@@ -132,14 +143,18 @@ def _locked_key(store: Storage, match: dict,
     `_canonical_match`; (3) starttider mer än tre timmar isär (dubbelmöten)
     låser aldrig; (4) fönstret är tre timmar — flippar sker mitt i matchen;
     (5) tvetydighet låser aldrig."""
-    identities: list[tuple[str, int]] = []
+    identities: list[tuple[str, str]] = []
     raw = match.get("event_id")
     if isinstance(raw, int) or (isinstance(raw, str) and raw.isdigit()):
-        identities.append(("sofascore", int(raw)))
+        identities.append(("sofascore", str(raw)))
     fm_id = (match.get("fotmob") or {}).get("fotmob_id") \
         or match.get("fotmob_id")
     if fm_id is not None:
-        identities.append(("fotmob", int(fm_id)))
+        identities.append(("fotmob", str(fm_id)))
+    fs_id = (match.get("flashscore") or {}).get("flashscore_id") \
+        or match.get("flashscore_id")
+    if fs_id is not None:
+        identities.append(("flashscore", str(fs_id)))
     locked = store.live_signal_locked_key(live_radar.RADAR_VERSION, identities)
     if locked:
         return locked
@@ -181,8 +196,11 @@ def _clock(provider: str, source: dict, match: dict) -> dict:
     fields = ("minute", "home_score", "away_score")
     values = {key: source.get(key) for key in fields}
     borrowed = False
-    if (provider == "fotmob"
-            and not str(match.get("event_id", "")).startswith("fotmob:")):
+    # Lån är bara möjligt när kortet BÄRS av Sofascore — ett fristående
+    # provider-kort (fotmob:/flashscore:) har ingen annan klocka att låna.
+    if (provider in {"fotmob", "flashscore"}
+            and not str(match.get("event_id", "")).startswith(
+                (f"{provider}:", "fotmob:", "flashscore:"))):
         for key in fields:
             if values[key] is None and match.get(key) is not None:
                 values[key] = match.get(key)
@@ -193,7 +211,7 @@ def _clock(provider: str, source: dict, match: dict) -> dict:
     all_borrowed = all(source.get(key) is None for key in fields)
     return {**values,
             "clock_source": ("sofascore" if all_borrowed
-                             else "fotmob+sofascore"),
+                             else f"{provider}+sofascore"),
             "clock_observed_at": match.get("captured_at")}
 
 

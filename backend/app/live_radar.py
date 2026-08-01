@@ -18,7 +18,12 @@ from .oddset_data import SOFA_UT
 from .storage import Storage
 
 CAPTURE_VERSION = "sofa-live-v2"
-RADAR_VERSION = "chance-gap-shadow-v2"
+# v3 (2026-08-01): Flashscore inkopplad som PRIMÄR statistikkälla. Trösklarna
+# är oförändrade, men vilka matcher som ÖVERHUVUDTAGET kan ge en signal ändras
+# — alltså kohortens datagenererande process. Signaljournalens blindtest
+# nollställs därför medvetet till v3 (den innehöll en enda rad, bokförd innan
+# bytet); v2-raden ligger kvar som historik och blandas aldrig med v3.
+RADAR_VERSION = "chance-gap-shadow-v3"
 RECENT_MINUTES = 15
 RECENT_TOLERANCE_MIN = 6
 MAX_DISPLAY_AGE_MIN = 12
@@ -143,18 +148,20 @@ def record_presence(store: Storage, key: str, active_ids, observed_at: str) -> N
     vid uppstart inte kan radera färska kort. Vid nätfel anropas funktionen
     inte alls och den vanliga 12-minuters-TTL:n fortsätter vara skyddsnät.
     """
-    active = {int(value) for value in active_ids if value is not None}
-    previous_active: set[int] = set()
-    ended_at: dict[int, str] = {}
+    # Id:t hanteras som en ogenomskinlig STRÄNG per provider — Flashscores är
+    # alfanumeriskt ('SKg88Q3T'), Sofascores och FotMobs heltal.
+    active = {str(value) for value in active_ids if value is not None}
+    previous_active: set[str] = set()
+    ended_at: dict[str, str] = {}
     previous_observed: Optional[dt.datetime] = None
     raw = store.meta_get(key)
     if raw:
         try:
             saved = json.loads(raw)
             previous_active = {
-                int(value) for value in saved.get("active_ids") or []}
+                str(value) for value in saved.get("active_ids") or []}
             ended_at = {
-                int(event_id): str(ended)
+                str(event_id): str(ended)
                 for event_id, ended in (saved.get("ended_at") or {}).items()}
             previous_observed = _parse_iso(saved["observed_at"])
         except (KeyError, TypeError, ValueError, json.JSONDecodeError):
@@ -185,8 +192,13 @@ def record_presence(store: Storage, key: str, active_ids, observed_at: str) -> N
 
 
 def _recently_ended(store: Storage, key: str,
-                    now: dt.datetime) -> dict[int, dt.datetime]:
-    """Läs endast färska, välformade slutövergångar; annars säkert tomt."""
+                    now: dt.datetime) -> dict[str, dt.datetime]:
+    """Läs endast färska, välformade slutövergångar; annars säkert tomt.
+
+    Nycklarna är STRÄNGAR: presence lagras redan så i JSON, och Flashscores
+    event-id är alfanumeriskt (2026-08-01). En heltalstolkning här sprängde
+    hela payloaden på första Flashscore-serien.
+    """
     raw = store.meta_get(key)
     if not raw:
         return {}
@@ -197,7 +209,7 @@ def _recently_ended(store: Storage, key: str,
                 observed - now > dt.timedelta(minutes=1)):
             return {}
         return {
-            int(event_id): _parse_iso(ended)
+            str(event_id): _parse_iso(ended)
             for event_id, ended in (saved.get("ended_at") or {}).items()
             if now - _parse_iso(ended) <= dt.timedelta(
                 minutes=MAX_DISPLAY_AGE_MIN)
@@ -207,8 +219,8 @@ def _recently_ended(store: Storage, key: str,
 
 
 def _ended_after_capture(current: dict, id_key: str,
-                         ended: dict[int, dt.datetime]) -> bool:
-    event_id = int(current[id_key])
+                         ended: dict[str, dt.datetime]) -> bool:
+    event_id = str(current[id_key])
     ended_at = ended.get(event_id)
     if ended_at is None:
         return False
@@ -623,6 +635,15 @@ def _fotmob_series(store: Storage, since: str) -> list[list[dict]]:
     return list(grouped.values())
 
 
+def _flashscore_series(store: Storage, since: str) -> list[list[dict]]:
+    """Flashscore-captures grupperade per match, i tidsordning."""
+    from .flashscore import CAPTURE_VERSION as FS_VERSION
+    grouped: dict[str, list[dict]] = {}
+    for row in store.live_flashscore_captures(since, FS_VERSION):
+        grouped.setdefault(str(row["flashscore_id"]), []).append(row)
+    return list(grouped.values())
+
+
 def _fotmob_for(match: dict, series: list[list[dict]],
                 claimed: Optional[set[int]] = None) -> Optional[list[dict]]:
     """Hitta FotMob-serien för en Sofascore-match: samma liga, samma två lag.
@@ -644,6 +665,24 @@ def _fotmob_for(match: dict, series: list[list[dict]],
     return None
 
 
+def _series_for(match: dict, series: list[list[dict]], id_key: str,
+                claimed: set) -> Optional[list[dict]]:
+    """Samma konservativa länkning som `_fotmob_for`, för valfri provider.
+
+    Spegelvänd hemma/borta accepteras inte här: en länk som byter sida skulle
+    göra lagens statistik omvänd. Ingen träff = matchen står på egna ben.
+    """
+    for captures in series:
+        head = captures[-1]
+        key = str(head[id_key])
+        if key in claimed or head.get("league") != match.get("league"):
+            continue
+        if (_same_team(head.get("home"), match.get("home")) and
+                _same_team(head.get("away"), match.get("away"))):
+            return captures
+    return None
+
+
 _FOTMOB_VIEW_KEYS = (
     "fotmob_id", "capture_version", "league", "tournament",
     "home", "away", "start_at", "home_score", "away_score",
@@ -652,6 +691,18 @@ _FOTMOB_VIEW_KEYS = (
     "shots_home", "shots_away",
     "shots_on_home", "shots_on_away",
     "shots_inside_home", "shots_inside_away",
+    "minute", "captured_at",
+)
+
+_FLASHSCORE_VIEW_KEYS = (
+    "flashscore_id", "capture_version", "league", "tournament",
+    "home", "away", "start_at", "home_score", "away_score",
+    "xg_home", "xg_away", "xgot_home", "xgot_away",
+    "big_chances_home", "big_chances_away",
+    "shots_home", "shots_away",
+    "shots_on_home", "shots_on_away",
+    "shots_inside_home", "shots_inside_away",
+    "corners_home", "corners_away",
     "minute", "captured_at",
 )
 
@@ -695,6 +746,36 @@ def _fotmob_signal(captures: list[dict],
     return signal, view
 
 
+def _flashscore_signal(captures: list[dict],
+                       match_fallback: Optional[dict] = None
+                       ) -> tuple[dict, dict]:
+    """Signal + visningsfält ur en enda, sammanhängande Flashscore-serie.
+
+    Samma kontrakt som FotMob-vägen: chansmåtten kommer UTESLUTANDE ur den
+    egna serien, medan klocka/ställning får lånas per fält från den redan
+    verifierade Sofascore-länken när Flashscores stadieklocka är okänd
+    (halvtid, förlängning). Lånet påverkar aldrig xG eller skott.
+    """
+    current = captures[-1]
+    current_at = dt.datetime.fromisoformat(
+        current["captured_at"].replace("Z", "+00:00"))
+    previous = previous_capture(captures[:-1], current_at)
+    signal_row = current
+    if match_fallback and (
+            current.get("minute") is None or
+            current.get("home_score") is None or
+            current.get("away_score") is None):
+        signal_row = dict(current)
+        for key in ("minute", "home_score", "away_score"):
+            if signal_row.get(key) is None:
+                signal_row[key] = match_fallback.get(key)
+    signal = radar_signal(signal_row, previous)
+    signal["stats_source"] = "flashscore"
+    signal["xg_source"] = "flashscore" if signal.get("kind") == "xg" else None
+    view = {key: current.get(key) for key in _FLASHSCORE_VIEW_KEYS}
+    return signal, view
+
+
 def payload(store: Storage, *,
             now: Optional[dt.datetime] = None) -> dict:
     now = now or dt.datetime.now(dt.timezone.utc)
@@ -707,17 +788,25 @@ def payload(store: Storage, *,
         "%Y-%m-%dT%H:%M:%SZ")
     rows = store.oddset_live_captures(since, CAPTURE_VERSION)
     fotmob_series = _fotmob_series(store, since)
+    flashscore_series = _flashscore_series(store, since)
     sofa_ended = _recently_ended(store, SOFA_PRESENCE_KEY, now)
     fotmob_ended = _recently_ended(store, FOTMOB_PRESENCE_KEY, now)
+    from .flashscore import PRESENCE_KEY as FS_PRESENCE_KEY
+    flashscore_ended = _recently_ended(store, FS_PRESENCE_KEY, now)
     fotmob_series = [
         captures for captures in fotmob_series
         if not _ended_after_capture(
             captures[-1], "fotmob_id", fotmob_ended)]
+    flashscore_series = [
+        captures for captures in flashscore_series
+        if not _ended_after_capture(
+            captures[-1], "flashscore_id", flashscore_ended)]
     grouped: dict[int, list[dict]] = {}
     for row in rows:
         grouped.setdefault(int(row["event_id"]), []).append(row)
     matches = []
     claimed_fotmob: set[int] = set()
+    claimed_flashscore: set[str] = set()
     for captures in grouped.values():
         current = captures[-1]
         if _ended_after_capture(current, "event_id", sofa_ended):
@@ -738,13 +827,28 @@ def payload(store: Storage, *,
         # vinner FotMob — Sofascore bär signalen bara när den har strikt
         # bättre statistik. Provider-rader blandas aldrig: både nuläge och
         # delta kommer från samma serie.
+        best_rank = _stats_rank(current)
         fm = _fotmob_for(current, fotmob_series, claimed_fotmob)
         if fm:
             fm_current = fm[-1]
             claimed_fotmob.add(int(fm_current["fotmob_id"]))
             fm_signal, extra["fotmob"] = _fotmob_signal(fm, current)
-            if _stats_rank(fm_current) >= _stats_rank(current):
+            if _stats_rank(fm_current) >= best_rank:
                 signal = fm_signal
+                best_rank = _stats_rank(fm_current)
+        # FLASHSCORE ÄR PRIMÄR KÄLLA (Samans beslut 2026-08-01, mätt samma
+        # dag: xG där FotMob bara hade skott eller ingenting, aldrig sämre).
+        # Den prövas SIST och vinner därför vid LIKA datakvalitet — men
+        # rankningen står över källordningen, så en match där FotMob har xG
+        # och Flashscore bara skott nedgraderas aldrig.
+        fs = _series_for(current, flashscore_series, "flashscore_id",
+                         claimed_flashscore)
+        if fs:
+            fs_current = fs[-1]
+            claimed_flashscore.add(str(fs_current["flashscore_id"]))
+            fs_signal, extra["flashscore"] = _flashscore_signal(fs, current)
+            if _stats_rank(fs_current) >= best_rank:
+                signal = fs_signal
         matches.append({**current, **extra, "signal": signal,
                         "is_signal": signal["level"] in {"watch", "strong"}})
 
@@ -763,10 +867,44 @@ def payload(store: Storage, *,
         if now - current_at > dt.timedelta(minutes=MAX_DISPLAY_AGE_MIN):
             continue
         signal, view = _fotmob_signal(fm)
+        extra = {"fotmob": view}
+        # Flashscore (primär) prövas även på FotMobs egna kort, med samma
+        # kvalitetsregel: vinner vid lika, nedgraderar aldrig.
+        fs = _series_for(current, flashscore_series, "flashscore_id",
+                         claimed_flashscore)
+        if fs:
+            fs_current = fs[-1]
+            claimed_flashscore.add(str(fs_current["flashscore_id"]))
+            fs_signal, extra["flashscore"] = _flashscore_signal(fs, current)
+            if _stats_rank(fs_current) >= _stats_rank(current):
+                signal = fs_signal
         matches.append({
             **current,
             "event_id": f"fotmob:{fotmob_id}",
-            "fotmob": view,
+            **extra,
+            "signal": signal,
+            "is_signal": signal["level"] in {"watch", "strong"},
+        })
+
+    # Flashscore står också på egna ben — och är sedan 2026-08-01 ofta den
+    # ENDA källan med chansdata (Chelsea–Tottenham 2026-08-01: full xG hos
+    # Flashscore, ingenting hos de andra två). En match som varken Sofascore
+    # eller FotMob bär ska därför synas på Flashscores egen serie. Prefixet
+    # gör id:t entydigt mot både Sofascores heltal och fotmob-nycklarna.
+    for fs in flashscore_series:
+        current = fs[-1]
+        flashscore_id = str(current["flashscore_id"])
+        if flashscore_id in claimed_flashscore:
+            continue
+        current_at = dt.datetime.fromisoformat(
+            current["captured_at"].replace("Z", "+00:00"))
+        if now - current_at > dt.timedelta(minutes=MAX_DISPLAY_AGE_MIN):
+            continue
+        signal, view = _flashscore_signal(fs)
+        matches.append({
+            **current,
+            "event_id": f"flashscore:{flashscore_id}",
+            "flashscore": view,
             "signal": signal,
             "is_signal": signal["level"] in {"watch", "strong"},
         })
@@ -810,6 +948,13 @@ def payload(store: Storage, *,
             "proxy": sum(row["signal"]["kind"] == "proxy" for row in matches),
             "fotmob_xg": sum(row["signal"].get("xg_source") == "fotmob"
                              for row in matches),
+            "flashscore_xg": sum(
+                row["signal"].get("xg_source") == "flashscore"
+                for row in matches),
+            # vilken källa som faktiskt BÄR signalen, per provider
+            "by_source": ", ".join(
+                f"{src} {sum(1 for row in matches if row['signal'].get('stats_source') == src)}"
+                for src in ("flashscore", "fotmob", "sofascore")),
         },
         # INGA TYSTA TAK: står här av samma skäl som i källhälsan — ett dolt
         # urval läser som "det här var allt som fanns live".
