@@ -666,6 +666,11 @@ CREATE TABLE IF NOT EXISTS oddset_live_signal (
     under_odds          REAL,
     odds_status         TEXT NOT NULL,
     recorded_at         TEXT NOT NULL,
+    clock_source        TEXT,  -- vems minut/ställning raden bär: providern,
+                               -- 'sofascore' (allt lånat) eller
+                               -- 'fotmob+sofascore' (bara saknade fält lånade)
+    clock_observed_at   TEXT,  -- de lånade fältens egen observationstid
+                               -- (Sofascore-kortets captured_at); NULL = inget lån
     UNIQUE (match_key, signal_version, signal_type, signal_level)
 );
 CREATE INDEX IF NOT EXISTS idx_live_signal_recent
@@ -954,7 +959,11 @@ class Storage:
                     # utfalls-facitet (P2, 2026-07-28) — additivt och nullbart:
                     # gamla flaggor settlas i efterhand när resultat finns
                     "ALTER TABLE oddset_value_log ADD COLUMN outcome INTEGER",
-                    "ALTER TABLE oddset_value_log ADD COLUMN outcome_key TEXT"):
+                    "ALTER TABLE oddset_value_log ADD COLUMN outcome_key TEXT",
+                    # signaljournalens klockproveniens (2026-08-01) — additiva
+                    # och nullbara; tabellen hade 1 rad när kolumnerna infördes
+                    "ALTER TABLE oddset_live_signal ADD COLUMN clock_source TEXT",
+                    "ALTER TABLE oddset_live_signal ADD COLUMN clock_observed_at TEXT"):
             try:   # migreringar för befintliga DB:er
                 self.conn.execute(mig)
             except sqlite3.OperationalError:
@@ -1830,8 +1839,39 @@ class Storage:
         "big_chances_home", "big_chances_away", "shots_on_home",
         "shots_on_away", "shots_inside_home", "shots_inside_away",
         "odds_source", "odds_observed_at", "ou_line", "over_odds",
-        "under_odds", "odds_status", "recorded_at",
+        "under_odds", "odds_status", "recorded_at", "clock_source",
+        "clock_observed_at",
     )
+
+    def live_signal_locked_key(self, signal_version: str,
+                               identities: list[tuple[str, int]]
+                               ) -> Optional[str]:
+        """Först bokförda match_key för någon av providertidentiteterna.
+
+        Nyckellåset (2026-08-01): match_key får ALDRIG byta identitet för
+        samma fysiska match — annars dubbleras blindkohorten när kanonisk
+        länkning dyker upp mitt i matchen eller kortet byter bärande källa."""
+        for provider, event_id in identities:
+            row = self.conn.execute(
+                "SELECT match_key FROM oddset_live_signal "
+                "WHERE provider=? AND provider_event_id=? AND signal_version=? "
+                "ORDER BY id LIMIT 1",
+                (provider, int(event_id), signal_version)).fetchone()
+            if row:
+                return row["match_key"]
+        return None
+
+    def live_signal_recent_keys(self, signal_version: str,
+                                since: str) -> list[dict]:
+        """Nyliga journalnycklar med provider/lag/starttid — för lagbaserat
+        nyckellås när providrarna inte delar event-id (fotmob↔sofascore-flip).
+        Provider och start_at behövs som spärrar: samma provider utan
+        id-träff är bevisat en ANNAN match, och starttiden skiljer
+        dubbelmöten åt."""
+        return [dict(row) for row in self.conn.execute(
+            "SELECT DISTINCT match_key, provider, league, home, away, start_at "
+            "FROM oddset_live_signal WHERE signal_version=? AND captured_at>=?",
+            (signal_version, since))]
 
     def live_signal_exists(self, match_key: str, signal_version: str,
                            signal_type: str, signal_level: str) -> bool:

@@ -35,13 +35,38 @@ dess egna observationer samlas innan notiser eller modellstöd övervägs.
   Över-/Under-odds från SvS/Kambi. Oddsets observationstid sparas separat
   från statistikkällans capturetid och korrigeras för Kambis eventuella
   CDN-`Age`.
-- Stängd eller suspenderad Kambi-marknad räknas inte som spelbar. Saknat
-  match-id, saknad marknad och källfel får egna statusvärden och bakfylls
-  aldrig. Livepriser skrivs aldrig till prematchtabellen `oddset_odds`.
+- Stängd eller suspenderad Kambi-marknad räknas inte som spelbar — sedan
+  2026-08-01 spärras även betOffer-nivåns `suspended`-flagga (Kambi kan
+  suspendera hela erbjudandet medan utfallen står kvar som `OPEN`;
+  verifierat i drift 2026-07-31) och en sedd-men-stängd marknad bokförs som
+  eget statusvärde `suspended`, skilt från `not_offered`. Saknat match-id,
+  saknad marknad och källfel får egna statusvärden och bakfylls aldrig.
+  Livepriser skrivs aldrig till prematchtabellen `oddset_odds`.
 - Efter matchen sparas normaltidsresultat, antal mål efter signalen, mål inom
   nästa 15 matchminuter, ytterligare mål före full tid och faktiskt
   enhetsresultat för Över-linan (inklusive push/halv vinst/halv förlust på
   kvartslinjer). Resultatet är append-only och skriver aldrig om signalen.
+  Sedan 2026-08-01 bevisar det officiella slutresultatet BÅDA utfallen för
+  "fler mål före FT" (== ⇒ 0, > ⇒ 1) — tidigare kunde bara nollan bevisas
+  utan täckande capture, vilket censurerade enbart sanna ettor och biasade
+  `more_before_ft_rate` nedåt. 15-minutersfönstret censureras fortsatt
+  ärligt när målens tidpunkt inte kan avgöras.
+- Journalnyckeln är LÅST sedan 2026-08-01 (`_locked_key`): samma fysiska
+  match får aldrig två `match_key` även om kanonisk oddslänkning dyker upp
+  mitt i matchen eller kortet byter bärande källa (fotmob↔sofascore).
+  Uppslag via providrarnas event-id och i sista hand lagjämförelse med fyra
+  spärrar (adversariellt verifierade samma dag): rader från en provider vars
+  id kortet självt bär utesluts (samma provider utan id-träff = bevisat annan
+  match — stoppar prefix-falskmergar som Inter↔Inter U23), spegling
+  accepteras som i `_canonical_match`, starttider >3 h isär (dubbelmöten)
+  låser aldrig, och tvetydighet låser aldrig. Utan låset kunde blindkohorten
+  ("första aktiva signalen per match") tyst räkna samma match två gånger.
+- `clock_source`/`clock_observed_at` (2026-08-01): journalens minut/ställning
+  är EXAKT signalens beräkningsbas — samma per-fält-regel som
+  `_fotmob_signal` (FotMobs egna värden behålls, bara saknade fält lånas
+  från Sofascore-kortet; ett helparslån gav rader som motsade signal_score
+  och settlementets providerserie). Lånet bokförs med källa
+  ('fotmob+sofascore' = blandat) och de lånade fältens egen observationstid.
 - `/api/oddset/live-radar` räknar signalen vid läsning och är märkt
   `mode=shadow`.
 - Oddset-vyn har en mobilanpassad Live-radar med minut, ställning, xG/proxy,

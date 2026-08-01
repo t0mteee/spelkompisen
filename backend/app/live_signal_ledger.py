@@ -79,7 +79,12 @@ def _selected_source(match: dict) -> tuple[str, dict, int]:
 
 
 def _live_total(match: Optional[dict]) -> dict:
-    """Observera SvS/Kambis huvudlina Ö/U vid signalen, med ärlig frånvaro."""
+    """Observera SvS/Kambis huvudlina Ö/U vid signalen, med ärlig frånvaro.
+
+    Statusvärdena skiljer på tre helt olika observationer (M20-lärdomen):
+    ``suspended`` = marknaden sågs men var stängd just då, ``not_offered`` =
+    live-Ö/U fanns inte alls i svaret, ``source_error`` = vi vet ingenting
+    (fel får aldrig bli en frånvaroobservation)."""
     if not match:
         return {"odds_status": "no_canonical_match"}
     event_id = match.get("kambi_id")
@@ -93,9 +98,11 @@ def _live_total(match: Optional[dict]) -> dict:
     observed_at = _now() - dt.timedelta(seconds=max(0, kambi.last_age_s))
     total = markets.get("ou") or {}
     if not all(total.get(key) is not None for key in ("line", "O", "U")):
+        status = ("suspended" if markets.get("reason") == "suspended"
+                  else "not_offered")
         return {"odds_source": "svenskaspel",
                 "odds_observed_at": _iso(observed_at),
-                "odds_status": "not_offered"}
+                "odds_status": status}
     return {
         "odds_source": "svenskaspel",
         "odds_observed_at": _iso(observed_at),
@@ -106,9 +113,94 @@ def _live_total(match: Optional[dict]) -> dict:
     }
 
 
+def _locked_key(store: Storage, match: dict,
+                now: dt.datetime) -> Optional[str]:
+    """Stabil journalnyckel: samma fysiska match får ALDRIG två nycklar.
+
+    Utan lås dubbleras blindkohorten tyst i två verifierade lägen: (a) den
+    kanoniska Oddset-länkningen dyker upp mitt i matchen (oddskollektorn
+    upsertar även startade matcher) och (b) ett FotMob-endast-kort byter till
+    Sofascores heltals-id när den serien blir färsk. Nyckeln låses därför till
+    den FÖRST bokförda radens match_key: i första hand via providrarnas
+    event-id (kortet kan bära båda), i sista hand via lagjämförelse.
+
+    Lagfallbacken är hårt spärrad (verifieringsrundan 2026-08-01 fällde en
+    lösare variant): (1) rader från en provider vars id kortet självt bär
+    utesluts — samma provider utan id-träff är BEVISAT en annan match, vilket
+    stoppar prefix-falskmergar som 'Inter'↔'Inter U23'; (2) spegling
+    accepteras (källorna är oense om hemmalag på neutral plan) precis som i
+    `_canonical_match`; (3) starttider mer än tre timmar isär (dubbelmöten)
+    låser aldrig; (4) fönstret är tre timmar — flippar sker mitt i matchen;
+    (5) tvetydighet låser aldrig."""
+    identities: list[tuple[str, int]] = []
+    raw = match.get("event_id")
+    if isinstance(raw, int) or (isinstance(raw, str) and raw.isdigit()):
+        identities.append(("sofascore", int(raw)))
+    fm_id = (match.get("fotmob") or {}).get("fotmob_id") \
+        or match.get("fotmob_id")
+    if fm_id is not None:
+        identities.append(("fotmob", int(fm_id)))
+    locked = store.live_signal_locked_key(live_radar.RADAR_VERSION, identities)
+    if locked:
+        return locked
+    providers_with_id = {provider for provider, _ in identities}
+    since = _iso(now - dt.timedelta(hours=3))
+    keys = set()
+    for row in store.live_signal_recent_keys(live_radar.RADAR_VERSION, since):
+        if (row["provider"] in providers_with_id
+                or row["league"] != match.get("league")):
+            continue
+        direct = (live_radar._same_team(row["home"], match.get("home"))
+                  and live_radar._same_team(row["away"], match.get("away")))
+        mirrored = (live_radar._same_team(row["home"], match.get("away"))
+                    and live_radar._same_team(row["away"], match.get("home")))
+        if not direct and not mirrored:
+            continue
+        if row.get("start_at") and match.get("start_at"):
+            try:
+                gap = abs((_at(row["start_at"]) -
+                           _at(match["start_at"])).total_seconds())
+            except (TypeError, ValueError):
+                gap = 0
+            if gap > 3 * 3600:
+                continue
+        keys.add(row["match_key"])
+    return keys.pop() if len(keys) == 1 else None
+
+
+def _clock(provider: str, source: dict, match: dict) -> dict:
+    """Minut/ställning = EXAKT signalens beräkningsbas, med proveniens.
+
+    Signalnivån räknas i `live_radar._fotmob_signal` på en per-fält-ifylld rad
+    (FotMobs egna värden behålls, bara saknade fält lånas från det verifierade
+    Sofascore-kortet). Journalen speglar SAMMA regel — ett "atomärt" helpar
+    (verifieringsrundan 2026-08-01) gav rader vars ställning motsade både
+    signal_score och settlementets providerserie. Lånet bokförs i
+    ``clock_source`` ('fotmob+sofascore' = blandat) och de lånade fältens egen
+    observationstid i ``clock_observed_at``."""
+    fields = ("minute", "home_score", "away_score")
+    values = {key: source.get(key) for key in fields}
+    borrowed = False
+    if (provider == "fotmob"
+            and not str(match.get("event_id", "")).startswith("fotmob:")):
+        for key in fields:
+            if values[key] is None and match.get(key) is not None:
+                values[key] = match.get(key)
+                borrowed = True
+    if not borrowed:
+        return {**values, "clock_source": provider,
+                "clock_observed_at": None}
+    all_borrowed = all(source.get(key) is None for key in fields)
+    return {**values,
+            "clock_source": ("sofascore" if all_borrowed
+                             else "fotmob+sofascore"),
+            "clock_observed_at": match.get("captured_at")}
+
+
 def capture_signals(store: Storage, *,
                     now: Optional[dt.datetime] = None) -> dict:
     """Spara nya synliga watch/strong-nivåer och deras livepris append-once."""
+    fixed = now
     now = now or _now()
     report = {"candidates": 0, "saved": 0, "priced": 0, "errors": []}
     for match in live_radar.payload(store, now=now).get("matches") or []:
@@ -117,14 +209,19 @@ def capture_signals(store: Storage, *,
         if level not in {"watch", "strong"} or kind not in {"xg", "proxy"}:
             continue
         report["candidates"] += 1
-        canonical = _canonical_match(store, match)
-        match_key = canonical["id"] if canonical else str(match["event_id"])
-        if store.live_signal_exists(
-                match_key, live_radar.RADAR_VERSION, kind, level):
-            continue
-        provider, source, provider_event_id = _selected_source(match)
-        odds = _live_total(canonical)
+        # Hela kandidaten i ett skydd: ett trasigt kort (saknat id, oväntad
+        # payloadform) får aldrig fälla resten av varvet — och felet SYNS i
+        # rapporten i stället för att kandidaten tyst försvinner.
         try:
+            canonical = _canonical_match(store, match)
+            match_key = (_locked_key(store, match, now)
+                         or (canonical["id"] if canonical
+                             else str(match["event_id"])))
+            if store.live_signal_exists(
+                    match_key, live_radar.RADAR_VERSION, kind, level):
+                continue
+            provider, source, provider_event_id = _selected_source(match)
+            odds = _live_total(canonical)
             saved = store.live_signal_save({
                 "match_key": match_key,
                 "match_id": canonical["id"] if canonical else None,
@@ -138,14 +235,7 @@ def capture_signals(store: Storage, *,
                 "tournament": match.get("tournament"),
                 "home": match["home"], "away": match["away"],
                 "start_at": match.get("start_at"),
-                "minute": source.get("minute")
-                if source.get("minute") is not None else match.get("minute"),
-                "home_score": source.get("home_score")
-                if source.get("home_score") is not None
-                else match.get("home_score"),
-                "away_score": source.get("away_score")
-                if source.get("away_score") is not None
-                else match.get("away_score"),
+                **_clock(provider, source, match),
                 "signal_level": level, "signal_type": kind,
                 "signal_team": signal.get("team"),
                 "signal_side": signal.get("side"),
@@ -165,11 +255,13 @@ def capture_signals(store: Storage, *,
                 "shots_inside_home": source.get("shots_inside_home"),
                 "shots_inside_away": source.get("shots_inside_away"),
                 **odds,
-                "recorded_at": _iso(now),
+                # per kandidat, EFTER oddsanropet — aldrig varvstartens klocka
+                # (observationstidsregeln p.3; Kambi-anrop kan ta 8 s styck)
+                "recorded_at": _iso(fixed or _now()),
             })
         except Exception as exc:  # noqa: BLE001 — logga nästa kandidat vidare
             report["errors"].append(
-                f"{match_key}:{kind}:{level}:{type(exc).__name__}")
+                f"{match.get('event_id')}:{kind}:{level}:{type(exc).__name__}")
             continue
         report["saved"] += saved
         report["priced"] += saved * (odds.get("odds_status") == "captured")
@@ -185,6 +277,10 @@ def _result_for(signal: dict, results: list[dict]) -> Optional[tuple[dict, bool]
         except (KeyError, TypeError, ValueError):
             continue
         if distance > 1:
+            continue
+        # Trasig resultatrad (t.ex. hg satt men ag NULL ur en skadad payload)
+        # får varken krascha settlingspasset eller matchas — hoppa över den.
+        if result.get("hg") is None or result.get("ag") is None:
             continue
         direct = (live_radar._same_team(result.get("home"), signal.get("home"))
                   and live_radar._same_team(
@@ -237,6 +333,7 @@ def _over_profit(total_goals: int, line: Optional[float],
 def settle_signals(store: Storage, *,
                    now: Optional[dt.datetime] = None) -> dict:
     """Settla öppna signaler mot observerat slutresultat, append-once."""
+    fixed = now
     now = now or _now()
     report = {"settled": 0, "waiting_result": 0,
               "ambiguous_or_invalid": 0}
@@ -281,7 +378,8 @@ def settle_signals(store: Storage, *,
         result_key = (f"{league}|{result['date']}|{result.get('home')}|"
                       f"{result.get('away')}")
         report["settled"] += store.live_signal_result_save({
-            "signal_id": signal["id"], "settled_at": _iso(now),
+            # settled_at per rad (observationstidsregeln p.3), inte varvstart
+            "signal_id": signal["id"], "settled_at": _iso(fixed or _now()),
             "final_home_score": home_final,
             "final_away_score": away_final,
             "goals_after_signal": goals_after,

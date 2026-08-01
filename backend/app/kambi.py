@@ -190,8 +190,15 @@ def live_total(event_id: str, timeout: float = 8.0,
 
     Kambi använder INTE prematchetiketten ``Asian totalt`` när matchen pågår.
     Liveflödet heter ``Antal mål`` / ``Total Goals`` och huvudlinan märks med
-    taggen ``MAIN_LINE``. Båda utfallen måste vara ``OPEN``; ett synligt men
-    suspenderat pris får aldrig bokföras som möjligt att rygga.
+    taggen ``MAIN_LINE``. Suspension finns på TVÅ nivåer och båda spärras:
+    betOffer-nivåns ``suspended``-flagga (verifierat i drift 2026-07-31 att
+    utfallen kan stå kvar som ``OPEN`` under den) och utfallens ``status``.
+    Ett synligt men suspenderat pris får aldrig bokföras som möjligt att rygga.
+
+    Retur: ``{"ou": {...}}`` vid öppet pris; ``{"reason": "suspended"}`` när
+    en stängning faktiskt OBSERVERADES (suspenderad offer eller icke-OPEN
+    utfall) utan något spelbart par; ``{}`` när marknaden saknas eller bara
+    är ofullständig — det är ingen observerad stängning.
     """
     base = BASE_TPL.format(op=operator)
     global last_age_s
@@ -207,6 +214,7 @@ def live_total(event_id: str, timeout: float = 8.0,
         return {}
 
     pairs: list[tuple[float, float, float, bool]] = []
+    saw_closed = False
     for offer in bos:
         criterion = offer.get("criterion") or {}
         label = (criterion.get("label") or "").strip()
@@ -216,14 +224,25 @@ def live_total(event_id: str, timeout: float = 8.0,
                 criterion.get("lifetime") != "FULL_TIME" or
                 "OFFERED_LIVE" not in tags):
             continue
+        # betOffer-nivåns suspension: utfallen kan ligga kvar som OPEN medan
+        # hela erbjudandet är suspenderat (observerat live 2026-07-31) — ett
+        # sådant pris går inte att rygga och får aldrig bli "captured".
+        if offer.get("suspended"):
+            saw_closed = True
+            continue
         by_line: dict[float, dict] = {}
         for outcome in offer.get("outcomes") or []:
             line = outcome.get("line")
+            if outcome.get("type") not in {"OT_OVER", "OT_UNDER"}:
+                continue
             if line is None or outcome.get("status") != "OPEN":
+                # ett Ö/U-utfall som SYNS men inte är OPEN är en observerad
+                # stängning; en marknad som bara saknar par är det inte
+                if outcome.get("status") not in (None, "OPEN"):
+                    saw_closed = True
                 continue
             side = outcome.get("type")
-            if side in {"OT_OVER", "OT_UNDER"}:
-                by_line.setdefault(float(line) / 1000, {})[side] = outcome
+            by_line.setdefault(float(line) / 1000, {})[side] = outcome
         for line, sides in by_line.items():
             over, under = sides.get("OT_OVER"), sides.get("OT_UNDER")
             if not over or not under:
@@ -234,7 +253,11 @@ def live_total(event_id: str, timeout: float = 8.0,
                 pairs.append((over_odds, under_odds, line,
                               "MAIN_LINE" in tags))
     if not pairs:
-        return {}
+        # Suspenderad = en OBSERVERAD stängning (suspenderad offer eller ett
+        # icke-OPEN Ö/U-utfall). En marknad som bara saknar ett komplett par
+        # är inte en observerad stängning — den bokförs som not_offered
+        # (M20-lärdomen: fabricera aldrig en observation).
+        return {"reason": "suspended"} if saw_closed else {}
     main = [pair for pair in pairs if pair[3]] or pairs
     over, under, line, _tag = min(
         main, key=lambda pair: abs(pair[0] - 2) + abs(pair[1] - 2))

@@ -370,9 +370,15 @@ def _live_pass(store) -> tuple[dict, dict]:
     try:
         from app.live_signal_ledger import capture_signals
         signals = capture_signals(store)
-        if signals["saved"]:
+        if signals["saved"] or signals["errors"]:
             print(f"radar-ledger: {signals['saved']} nya signalnivåer · "
-                  f"{signals['priced']} med live-Ö/U")
+                  f"{signals['priced']} med live-Ö/U"
+                  # per-rad-fel får ALDRIG vara tysta: en kandidat som felar
+                  # deterministiskt skulle annars tappas varv efter varv
+                  # utan ett enda spår i launchd-loggen
+                  + (f" · {len(signals['errors'])} fel: "
+                     + ", ".join(signals["errors"][:3])
+                     if signals["errors"] else ""))
     except Exception as e:  # noqa: BLE001 — ledgern får aldrig fälla radarn
         print(f"radar-ledger: hoppade över "
               f"({type(e).__name__}: {str(e)[:60]})")

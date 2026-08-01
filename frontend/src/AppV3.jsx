@@ -893,8 +893,13 @@ function LabbV3() {
     no_canonical_match: 'matchen saknade oddskoppling',
     no_svenskaspel_id: 'SvS-id saknades',
     not_offered: 'Ö/U erbjöds inte just då',
+    suspended: 'Ö/U var suspenderat vid signalen',
   }[row.odds_status] || (row.odds_status?.startsWith('source_error')
     ? 'oddsfel vid signalen' : 'liveodds saknas'))
+  const radarOverResult = (v) => ({
+    win: 'vinst', half_win: 'halvvinst', push: 'återbetald',
+    half_loss: 'halvförlust', loss: 'förlust',
+  }[v] || v)
 
   const primaryClv = (clv?.groups || []).filter((g) =>
     g.tier === 'sharp' && g.market === '1x2' && LABB_PRIMARY.includes(g.league))
@@ -1277,7 +1282,7 @@ function LabbV3() {
                         : radarOddsStatus(row)}</span></div>
                     <div><b>Facit</b>
                       <span>{row.settled_at
-                        ? `${row.final_home_score}–${row.final_away_score} · ${row.goals_after_signal} mål efter · Över ${row.over_result || 'ej prissatt'}${row.over_profit == null ? '' : ` (${row.over_profit >= 0 ? '+' : ''}${row.over_profit.toFixed(2)} u)`}`
+                        ? `${row.final_home_score}–${row.final_away_score} · ${row.goals_after_signal} mål efter · Över ${row.over_result ? radarOverResult(row.over_result) : 'ej prissatt'}${row.over_profit == null ? '' : ` (${row.over_profit >= 0 ? '+' : ''}${row.over_profit.toFixed(2)} u)`}`
                         : 'väntar på slutresultat'}</span></div>
                   </div>
                 ))}

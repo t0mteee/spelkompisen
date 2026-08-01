@@ -8,6 +8,41 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-08-01 — signaljournalen: klockproveniens-kolumner + skärpt migration
+
+- **Orsak:** granskningen av 38a45ff (17 verifierade fynd, se
+  `docs/granskning-codex-38a45ff-2026-08-01.md`) visade att en FotMob-rad
+  som lånar minut/ställning från Sofascore-kortet i halvtid inte bar något
+  spår av lånet. Journalen speglar nu EXAKT signalens beräkningsbas (samma
+  per-fält-regel som `_fotmob_signal`; en första "atomär helpar"-variant
+  fälldes av den adversariella verifieringsrundan eftersom den gav rader som
+  motsade signalens egen basis) och proveniensen bokförs i TVÅ nya nullbara
+  kolumner: `clock_source` (fotmob/sofascore/fotmob+sofascore) och
+  `clock_observed_at` (de lånade fältens egen observationstid).
+- **Skript:** `backend/scripts/migrera_live_signal_ledger.py` (uppdaterat:
+  additiva ALTER för båda kolumnerna + validering FÖRE mutation — en
+  avvikande befintlig tabell var tidigare en tyst `IF NOT EXISTS`-no-op och
+  den första fail-högt-varianten muterade DB:n innan den fällde; nu fälls
+  migrationen utan att röra något. Valideringen kräver även att
+  UNIQUE-vakten (match_key × version × typ × nivå) faktiskt finns — bara
+  kolumnnamn räcker inte, en constraint-lös kopia bryter append-once tyst).
+  Samma ALTER-lista ligger i `Storage.__init__`.
+- **Backup vid produktionskörningen:**
+  `backend/data/backups/stryktips-2026-08-01-fore-live-signal-clock-source.db`
+  (tagen före BÅDA kolumnerna).
+- **Tillstånd vid körningen:** `oddset_live_signal` hade **1 rad** (första
+  skarpa signalen, bokförd i natt 01:02Z av 38a45ff-koden: MLS, New York
+  City FC–Toronto FC, Följer·xG, prissatt Ö 3,5 @ 2,30, kanonisk nyckel) och
+  `oddset_live_signal_result` 0 rader. Raden lämnas orörd (append-only);
+  dess proveniens-kolumner är NULL = "före 2026-08-01" och dess pris
+  bokfördes FÖRE betOffer-suspension-vakten — förbehållet gäller bara denna
+  rad. `PRAGMA integrity_check=ok`, 44/13 kolumner efter migration.
+- **Ingen bakfyllning:** kolumnerna är nullbara; inga historiska värden gissas.
+- **Efterkontroll:** 390 backendtester gröna (27 nya), frontend-build grön,
+  API + Labb-UI verifierade mot produktions-DB.
+
+---
+
 ## 2026-07-31 — framåtriktad signal- och resultatjournal för live-radarn
 
 - **Orsak:** råa radarögonblick och kontrollgruppsfacit fanns, men inte den

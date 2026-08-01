@@ -9,7 +9,8 @@ efterhandsval:
   vid en matchminut inom fönstret).
 * **Utfall B** — minst ett ytterligare mål före full tid. Ett observerat
   senare mål räcker för 1 (captures finns bara medan matchen pågår, så målet
-  kom bevisligen före full tid); 0 kräver en capture med slutstatus.
+  kom bevisligen före full tid); utan senare mål avgör slutstatusens total
+  BÅDA utfallen (== ⇒ 0, > ⇒ 1). Saknas slutstatus helt censureras.
 
 Metodregler som styr implementationen:
 
@@ -135,9 +136,18 @@ def _outcome_more_before_ft(moment: dict, later: list[dict],
         if total is not None and total > total0:
             # Captures skrivs bara medan matchen pågår ⇒ målet kom före FT.
             return 1, None
-    if final is not None and _total(final) is not None \
-            and _total(final) == total0:
-        return 0, None
+    # `final` bevisar BÅDA utfallen: slutstalet är per definition ställningen
+    # vid full tid, så en högre total bevisar ett mål före FT lika säkert som
+    # en oförändrad bevisar noll. (I momentserien är final en capture i
+    # `later` och 1:an fångas redan ovan; grenen behövs för signaljournalen,
+    # som injicerar officiellt FT-resultat — utan den censurerades bara sanna
+    # 1:or och more_before_ft_rate biasades systematiskt nedåt.)
+    final_total = _total(final) if final is not None else None
+    if final_total is not None:
+        if final_total == total0:
+            return 0, None
+        if final_total > total0:
+            return 1, None
     return None, "no_final_capture"
 
 

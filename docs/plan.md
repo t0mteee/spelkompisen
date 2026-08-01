@@ -1,9 +1,28 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-07-31 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-08-01 — läs detta först i ny session)
 
 > **Aktiv backlog och prioritering: `docs/backlog.md`** (2026-07-26).
 > WP-listan längre ned är historik över avslutat arbete.
+
+**SIGNALJOURNALEN GRANSKAD OCH HÄRDAD (2026-08-01, Fable 5).**
+Multi-agent-granskning av 38a45ff gav 17 verifierade fynd — alla åtgärdade
+samma dag, innan serien hunnit växa (1 rad fanns, intakt). Kritiskt: Kambis
+betOffer-nivå-`suspended` spärras nu (utfallen kan stå OPEN under den —
+livereproducerat; suspenderat pris kunde bokföras som spelbart och förorena
+blindgatens ROI). Allvarligt: `match_key` är nu LÅST per fysisk match
+(`_locked_key` — sen kanonisk länkning/källflip kunde dubblera blindkohorten)
+och officiellt FT-resultat bevisar numera BÅDA utfallen för fler-mål-före-FT
+(bara sanna ettor censurerades → nedåtbias). Dessutom: `suspended` som eget
+statusvärde (kräver OBSERVERAD stängning, ≠ `not_offered`), per-rad-
+tidsstämplar, klockproveniens `clock_source`/`clock_observed_at` — journalen
+speglar exakt signalens per-fält-beräkningsbas (migration + backup + DB-
+logg), capture-fel syns i launchd-loggen, `ag=NULL`-krasch vaktad, svensk
+facit-enum i Labb, migration validerar FÖRE mutation inkl. UNIQUE-vakten.
+Fixarna verifierades adversariellt av tre oberoende skeptiker som fällde och
+skärpte tre av dem (lås-spärrar mot U23-falskmerge/dubbelmöten/spegling,
+per-fält-klocka, migrationsatomicitet). 390 tester gröna (27 nya), API + UI
+verifierade. Full rapport: `docs/granskning-codex-38a45ff-2026-08-01.md`.
 
 **LIVE-RADARNS SIGNALJOURNAL OCH BLINDFACIT BYGGT (2026-07-31, Codex).**
 Råcapture-/kontrollgruppsfacitet fanns redan; nu sparas dessutom exakt den
