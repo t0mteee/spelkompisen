@@ -5,6 +5,22 @@
 > **Aktiv backlog och prioritering: `docs/backlog.md`** (2026-07-26).
 > WP-listan längre ned är historik över avslutat arbete.
 
+**FLASHSCORE INKÖRD FULLT UT (2026-08-01 sent, Samans beslut "kör in
+Flashscore totalt").** Head-to-head över 8 dygn: **noll** bekräftade fall där
+Sofascore har statistik och Flashscore saknar den; de två skenbara undantagen
+var datumgränsfall. Flashscore är dessutom bättre där det räknas — xG för
+Allsvenskan (10 av 10) där Sofascore ger 0, och Sofascores Allsvenskan-serie
+har dessutom stannat (0 av de 19 senaste mot 63 % historiskt). Ny
+`app/flashscore_data.py` fyller saknad xG på nyss avgjorda matcher och hämtar
+frånvarande spelare med orsak via Flashscores publika persisted query
+(hash observerad i deras egen trafik — inom källgränsen). Två hårda regler:
+ingen bakfyllning (bara dagsfeeds ~5 dygn bakåt trots att säsongsfeeds finns)
+och befintlig xG skrivs aldrig över (`oddset_fill_xg` har `xg_h IS NULL` i
+SQL:en). Proveniens: `source='sofa+fs'`, `source_event_id='fs:<id>'`.
+Första körningen fyllde 7 xG-luckor och skrev 19 frånvarocaptures.
+425 tester gröna, backup + rapport i `docs/db-atgarder.md`.
+Sofascore är kvar som komplement — inget är avstängt.
+
 **FLASHSCORE ÄR RADARNS PRIMÄRA STATISTIKKÄLLA (2026-08-01, Samans beslut).**
 Saman såg att Chelsea–Tottenham saknade chansdata hos oss. Utredningen visade
 att varken FotMob (tomt stats-block, tom shotmap) eller Sofascore (bara

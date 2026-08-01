@@ -33,6 +33,21 @@ from typing import Optional
 import httpx
 
 BASE = "https://local-global.flashscore.ninja/2/x/feed"
+# Frånvarande spelare ligger INTE i pipe-feeden utan i sidans egen publika
+# GraphQL-väg med persisted query. Hashen är en statisk publik konstant,
+# observerad i Flashscores egen nätverkstrafik 2026-08-01 (samma klass som
+# `x-fsign` och Pinnacles gästnyckel — inom källgränsen, ingen utmaning löses).
+GRAPHQL = "https://23.ds.lsapp.eu/pq_graphql"
+ABSENCE_HASH = "dmpe2"
+PROJECT_ID = 23
+GRAPHQL_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                   "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 "
+                   "Safari/537.36"),
+    "Accept": "*/*",
+    "Origin": "https://www.flashscore.se",
+    "Referer": "https://www.flashscore.se/",
+}
 # Dagens matcher, fotboll (sport 1), dagoffset 0. Wire-storlek uppmätt
 # 2026-08-01: 173 kB brotli-komprimerat (1,4 MB avkodat) — en begäran per
 # varv, alltså ingen anledning att cachea och riskera en inaktuell ställning.
@@ -91,7 +106,9 @@ STAT_NAMES = {
 # matcher (Chelsea 87′ exakt, Laos 69′, avvikelse ≤3 min i övriga). Endast de
 # två kända stadierna härleds; halvtid och förlängning ger None, vilket är
 # ärlig censur i stället för en gissad klocka.
+STATUS_SCHEDULED = "1"
 STATUS_LIVE = "2"
+STATUS_FINISHED = "3"
 STAGE_OFFSET = {"12": 0, "13": 45}
 
 
@@ -140,8 +157,8 @@ def _records(text: str) -> list[dict]:
     return out
 
 
-def parse_day_feed(text: str) -> list[dict]:
-    """Pågående matcher i VÅRA ligor ur dagsfeeden.
+def parse_day_feed(text: str, status: str = STATUS_LIVE) -> list[dict]:
+    """Matcher i VÅRA ligor ur dagsfeeden, filtrerade på status.
 
     Ligarubriken (ZA) gäller tills nästa rubrik — matchposter ärver den. En
     okänd rubrik nollställer ligan så att matcher aldrig ärver fel nyckel.
@@ -156,7 +173,7 @@ def parse_day_feed(text: str) -> list[dict]:
             continue
         if "AA" not in fields or not league:
             continue
-        if fields.get("AB") != STATUS_LIVE:
+        if fields.get("AB") != status:
             continue
         out.append({
             "flashscore_id": fields["AA"],
@@ -256,10 +273,58 @@ class Flashscore:
         text, observed_at = self._get(DAY_FEED.format(day=DAY_VARIANT))
         return parse_day_feed(text), observed_at
 
+    def day(self, offset: int, status: str) -> tuple[list[dict], dt.datetime]:
+        """Matcher med given status för ett dygnsoffset (0 = i dag, −1 i går).
+
+        Dagsfeeds når ~7–8 dygn bakåt (uppmätt 2026-08-01); längre bak finns
+        säsongsfeeds, men de används medvetet INTE — historiska rader ska inte
+        bakfyllas, bara samlas framåt.
+        """
+        text, observed_at = self._get(DAY_FEED.format(day=DAY_VARIANT)
+                                      if offset == 0
+                                      else f"f_1_{offset}_{DAY_VARIANT}_se_1")
+        return parse_day_feed(text, status), observed_at
+
     def stats(self, match_id: str) -> tuple[dict, dt.datetime]:
         """Kumulativ helmatchsstatistik + dess EGNA observationstid."""
         text, observed_at = self._get(STATS_FEED.format(match_id=match_id))
         return parse_stats(text), observed_at
+
+    def absences(self, match_id: str) -> tuple[list[dict], dt.datetime]:
+        """Frånvarande spelare per sida + observationstid.
+
+        Publik persisted query; svaret bär spelarnamn och orsak på svenska
+        ("Ryggskada", "Gula kort"). Saknad lineup ⇒ tom lista, aldrig gissning.
+        """
+        requested_at = _now()
+        response = self._client.get(
+            GRAPHQL, params={"_hash": ABSENCE_HASH, "eventId": match_id,
+                             "projectId": PROJECT_ID},
+            headers=GRAPHQL_HEADERS)
+        response.raise_for_status()
+        payload = response.json()
+        return (parse_absences(payload),
+                _observed_at(response, requested_at))
+
+
+def parse_absences(payload: dict) -> list[dict]:
+    """[{side, name, reason}] ur GraphQL-svaret. Okänd form ⇒ tom lista."""
+    out: list[dict] = []
+    event = ((payload or {}).get("data") or {}).get("findEventById") or {}
+    for participant in event.get("eventParticipants") or []:
+        side = ((participant.get("type") or {}).get("side") or "").lower()
+        if side not in {"home", "away"}:
+            continue
+        for entry in ((participant.get("lineup") or {})
+                      .get("missingPlayers") or []):
+            player = entry.get("player") or {}
+            name = player.get("name") or player.get("listName")
+            if not name:
+                continue
+            out.append({"side": side, "name": name,
+                        "reason": entry.get("reason"),
+                        "player_id": player.get("participantId")})
+    return out
 
 
 def _scope_friendlies(store, live: list[dict],

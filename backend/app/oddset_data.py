@@ -609,6 +609,17 @@ def refresh_all(store: Storage, force: bool = False) -> dict:
            "xg": refresh_xg(store, force),
            "elo": refresh_elo(store, force),
            "absences": refresh_absences(store, force)}
+    # FLASHSCORE ÄR PRIMÄR STATISTIKKÄLLA (Samans beslut 2026-08-01). Den
+    # körs EFTER Sofascore-vägarna och fyller bara luckor: xG bara där den
+    # saknas, frånvaro bara där Sofascore inte redan skrivit en capture i
+    # samma varv. Ingen befintlig rad skrivs över — se flashscore_data.py.
+    from . import flashscore_data
+    for name, fn in (("fs_xg", flashscore_data.refresh_xg),
+                     ("fs_absences", flashscore_data.refresh_absences)):
+        try:
+            out[name] = fn(store, force)
+        except Exception as exc:  # noqa: BLE001 — får aldrig fälla varvet
+            out[name] = {"error": f"{type(exc).__name__}: {str(exc)[:80]}"}
     try:
         out["team_events"] = oddset_schedule.refresh(store, force=force)
     except Exception as exc:  # noqa: BLE001 — WP9c får inte fälla övrig insamling

@@ -2041,6 +2041,25 @@ class Storage:
                 a["pts"].append({"t": t, "o": o, "l": ln})
         return out
 
+    def oddset_fill_xg(self, r: dict, tag: str = "+fs") -> int:
+        """Fyll xG/hörnor BARA där de saknas — skriv aldrig över en källa.
+
+        Villkoret `xg_h IS NULL` ligger i SQL:en med flit: en redan lagrad
+        siffra är modellindata i en pågående mätserie och får inte byta värde
+        i efterhand. `source` får ett suffix så proveniensen syns.
+        """
+        cur = self.conn.execute(
+            "UPDATE oddset_results SET xg_h=?, xg_a=?, "
+            "cor_h=COALESCE(cor_h, ?), cor_a=COALESCE(cor_a, ?), "
+            "source=COALESCE(source,'')||? "
+            "WHERE league=? AND date=? AND home=? AND away=? "
+            "AND xg_h IS NULL AND ?  IS NOT NULL",
+            (r.get("xg_h"), r.get("xg_a"), r.get("cor_h"), r.get("cor_a"),
+             tag, r["league"], r["date"], r["home"], r["away"],
+             r.get("xg_h")))
+        self._commit()
+        return cur.rowcount
+
     def oddset_save_result(self, r: dict) -> None:
         """COALESCE-upsert: xG från Sofascore fyller på football-data-rader
         (samma PK tack vare normaliserade namn) utan att skriva över mål."""

@@ -8,6 +8,36 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-08-01 (sent) — Flashscore som modelldatakälla (xG + frånvaro)
+
+- **Orsak:** mätning samma dag visade att Flashscore har allt Sofascore ger
+  oss och mer: **noll** bekräftade fall där Sofascore hade statistik och
+  Flashscore saknade den, xG för Allsvenskan där Sofascore ger 0 (och där
+  Sofascores egen serie dessutom har stannat — 0 av de 19 senaste mot 63 %
+  historiskt), samt frånvarande spelare med orsak via deras publika
+  persisted query. Samans beslut: kör in Flashscore fullt ut.
+- **Ingen schemaändring.** Ny modul `app/flashscore_data.py` skriver till
+  BEFINTLIGA tabeller (`oddset_results`, `oddset_absence_capture/_player`).
+  Ny storage-metod `oddset_fill_xg` med `xg_h IS NULL` i SQL-villkoret.
+- **Backup före första skarpa körningen:**
+  `backend/data/backups/stryktips-2026-08-01-fore-flashscore-modelldata.db`.
+- **Två skyddsregler, båda testade:** (1) en befintlig xG skrivs ALDRIG över
+  — modellindata i en pågående mätserie får inte byta värde i efterhand;
+  (2) ingen bakfyllning — bara dagsfeeds ~5 dygn bakåt, aldrig säsongsfeeds,
+  trots att de senare finns och når hela säsongen.
+- **Proveniens:** ifylld xG märks `source` = `sofa+fs`; frånvarocaptures får
+  `source_event_id = 'fs:<flashscore-id>'`. Båda går att skilja i efterhand.
+- **Första körningen:** 406 rader saknade xG i fönstret, 103 kunde länkas
+  entydigt, **7 fylldes** (resten är träningsmatcher där Flashscore inte
+  heller har xG — konsistent med mätningen 9 av 230). Fyllda rader:
+  Allsvenskan Häcken–AIK (1,99–0,16), Champions/Conference League och två
+  träningsmatcher. **19 frånvarocaptures** skrevs; API:t visar dem
+  (Häcken–Kalmar: 4 hemma/1 borta, "Berisha E. — Ryggskada").
+- **Efterkontroll:** 425 backendtester gröna (13 nya), API verifierat mot
+  produktions-DB.
+
+---
+
 ## 2026-08-01 (kväll) — Flashscore som primär livekälla + textbaserat signal-id
 
 - **Orsak:** Saman upptäckte att Chelsea–Tottenham saknade all chansdata hos

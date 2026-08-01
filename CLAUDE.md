@@ -104,6 +104,17 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       headerkonstant (samma klass som Pinnacles gästnyckel);
                       brotli KRÄVS. Minuten HÄRLEDS ur stadiets starttid
                       (AC 12/13 + AO) — okänt stadium ⇒ None, aldrig gissad.
+  app/flashscore_data.py Flashscore som MODELLDATAKÄLLA (2026-08-01): fyller
+                      SAKNAD xG på nyss avgjorda matcher och hämtar
+                      frånvarande spelare (publik persisted query, hash i
+                      flashscore.py). Två hårda regler: (1) INGEN bakfyllning
+                      — bara dagsfeeds ~5 dygn bakåt, aldrig säsongsfeeds;
+                      (2) en befintlig xG skrivs ALDRIG över (`oddset_fill_xg`
+                      har `xg_h IS NULL` i SQL:en), källan märks `+fs` och
+                      frånvarocaptures får `source_event_id='fs:<id>'` så
+                      proveniensen syns i efterhand. Lagmatchning är strängare
+                      än live-radarns: norm_team + svensk genitiv + strippat
+                      landssuffix ('Chelsea (Eng)'), tvetydighet länkar aldrig.
   app/fotmob.py       ANDRA live-ögat (var primärt 2026-07-28→08-01):
                       live-xG/xGOT/skott, täcker även Oddset-spärrade
                       friendlies. Sofascore är tredje källa.
