@@ -1032,8 +1032,34 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 }
 
 /* Spelade kuponger: facit + livestatus för reducerade system (2026-07-25) */
-.playedbtn.on { border-color: var(--ok); color: var(--ok); }
+/* --ok har aldrig funnits i :root, så det aktiva läget var helt osynligt
+   (hittat 2026-08-02). Samma fel fanns i det nya live-kortet. */
+.playedbtn.on { border-color: var(--green); color: var(--green); }
 .playedbox .grid.compact td { vertical-align: top; }
+
+/* Pågående kuponger är det man följer — de får kort, avgjorda blir arkivrader
+   (2026-08-02). Kontrasten ska synas utan att läsa texten. */
+.playedlive { display: flex; flex-direction: column; gap: 10px; margin: 8px 0 4px; }
+.playedcard { background: var(--panel2); border: 1px solid var(--line);
+  border-left: 3px solid var(--green); border-radius: 8px; padding: 10px 12px; }
+.playedcard-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.playedcard-head b { font-size: 14px; }
+.playedcard-head .linkbtn { margin-left: auto; }
+.epill.live { background: var(--green); color: #eaf5ee; }
+.playedcard-sum { display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0 6px; }
+.playedcard-sum b { font-size: 15px; }
+.playedlevels { width: auto; min-width: 260px; }
+.playedlevels td, .playedlevels th { padding-right: 18px; }
+.playedlevels tr.dead { opacity: 0.4; }
+.playeddivider { margin: 14px 0 4px; font-size: 11px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted); }
+.playeddone { opacity: 0.75; }
+
+@media (max-width: 760px) {
+  .playedcard-sum { gap: 10px; }
+  .playedlevels { width: 100%; min-width: 0; }
+  .playedlevels td, .playedlevels th { padding-right: 8px; }
+}
 
 /* Sorterbar tabell (UI-passet 2026-07-29) — delas av Oddset-sidans listor */
 .sorttable th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }

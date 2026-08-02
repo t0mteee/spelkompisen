@@ -227,5 +227,74 @@ class SettleTests(unittest.TestCase):
         self.assertEqual(0, pool_played.summary(self.store)["n_settled"])
 
 
+class ChancePerLevelTests(unittest.TestCase):
+    """Raderna delar de kvarvarande matcherna, så utfallen är BEROENDE.
+    En produkt av per-rad-sannolikheter hade gett fel svar."""
+
+    def _states(self, *specs):
+        out = []
+        for i, spec in enumerate(specs, start=1):
+            sign, final, probs = spec
+            out.append({"event_number": i, "sign": sign, "final": final,
+                        "cancelled": False, "probs": probs})
+        return out
+
+    def test_dependent_rows_are_scored_over_the_whole_outcome_space(self):
+        states = self._states(
+            ("1", True, None), ("X", True, None),
+            (None, False, {"1": 0.6, "X": 0.25, "2": 0.15}),
+            (None, False, {"1": 0.5, "X": 0.3, "2": 0.2}))
+        coupon = {"rows_text": "1X11\n1X22", "events_order": "[1,2,3,4]"}
+
+        live = pool_played.live_status(coupon, states)
+
+        self.assertEqual("exakt", live["chance_basis"])
+        # 4 rätt = rad A tar båda ELLER rad B tar båda: .6*.5 + .15*.2
+        self.assertAlmostEqual(0.33, live["chance_per_level"][4], places=6)
+        # ≥3 = allt utom att BÅDA raderna missar båda: 1 − (.25*.3)
+        self.assertAlmostEqual(0.925, live["chance_per_level"][3], places=6)
+        self.assertEqual(1.0, live["chance_per_level"][2])
+
+    def test_missing_odds_gives_no_number_instead_of_a_guess(self):
+        states = self._states(
+            ("1", True, None), (None, False, None))
+        coupon = {"rows_text": "11\n12", "events_order": "[1,2]"}
+
+        live = pool_played.live_status(coupon, states)
+
+        self.assertNotIn("chance_per_level", live)
+        self.assertIn("saknar odds", live["chance_note"])
+
+    def test_finished_coupon_is_certainty_not_probability(self):
+        states = self._states(("1", True, None), ("X", True, None))
+        coupon = {"rows_text": "1X\n12", "events_order": "[1,2]"}
+
+        live = pool_played.live_status(coupon, states)
+
+        self.assertEqual("avgjord", live["chance_basis"])
+        self.assertEqual(1.0, live["chance_per_level"][2])
+
+    def test_odds_are_devigged_and_streck_is_the_fallback(self):
+        # Bok utan overround (1/odds summerar redan till 1) — då är k = 1 och
+        # power-metoden ska lämna sannolikheterna orörda.
+        fair = pool_played._event_probs(
+            {"odds": {"one": "2,00", "x": "4,00", "two": "4,00"}})
+        self.assertAlmostEqual(0.5, fair["1"], places=6)
+        self.assertAlmostEqual(0.25, fair["X"], places=6)
+
+        # Med overround ska den bort, och summan bli exakt 1.
+        probs = pool_played._event_probs(
+            {"odds": {"one": "1,80", "x": "3,60", "two": "3,60"}})
+        self.assertAlmostEqual(1.0, sum(probs.values()), places=6)
+        self.assertGreater(probs["1"], probs["X"])
+        self.assertLess(probs["1"], 1 / 1.80, "overrounden ska dras bort")
+
+        folk_event = {"svenskaFolket": {"one": "60", "x": "25", "two": "15"}}
+        folk = pool_played._event_probs(folk_event)
+        self.assertAlmostEqual(0.6, folk["1"], places=6)
+
+        self.assertIsNone(pool_played._event_probs({}))
+
+
 if __name__ == "__main__":
     unittest.main()

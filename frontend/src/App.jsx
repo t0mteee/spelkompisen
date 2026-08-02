@@ -2566,6 +2566,80 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
 /* Spelade kuponger: facit per kupong + LIVESTATUS för reducerade system.
    Facitet räknas mot PUBLICERAD utdelning (kupongen låg i potten, så beloppen
    inkluderar den) — inte mot PH3:s kontrafaktiska utspädning. */
+// "topptipsetstryk 974" säger ingenting. Produktnamn + variant + omgång gör.
+const PRODUCT_LABEL = {
+  stryktipset: 'Stryktipset', europatipset: 'Europatipset',
+  topptipset: 'Topptipset', topptipsetstryk: 'Topptipset',
+  topptipsetextra: 'Topptipset', bomben: 'Bomben',
+}
+function couponLabel(c) {
+  const base = PRODUCT_LABEL[c.product] || c.product
+  const variant = VARIANT[c.product]
+  return `${base}${variant ? ` ${variant}` : ''} · omgång ${c.draw_number}`
+}
+
+/* Ett pågående system i siffror: hur långt raderna kommit och vad oddsen på
+   de kvarvarande matcherna säger om chansen per vinstnivå. Sannolikheterna
+   räknas i backend över HELA utfallsrummet — raderna delar ju matcher, så en
+   produkt av per-rad-chanser hade varit fel. */
+function PlayedLiveCard({ c, onForget }) {
+  const live = c.live
+  const pct = (p) => p >= 0.1 ? `${(p * 100).toFixed(0)}%`
+    : p >= 0.001 ? `${(p * 100).toFixed(1)}%` : '<0,1%'
+  const levels = live ? Object.keys(live.alive_per_level)
+    .map(Number).sort((a, b) => b - a) : []
+  return (
+    <div className="playedcard">
+      <div className="playedcard-head">
+        <b>{couponLabel(c)}</b>
+        <span className="epill live">pågår</span>
+        <span className="hint">{c.n_rows} rader · {kr(c.cost_kr)}</span>
+        <button className="linkbtn" onClick={onForget}
+          title="Ta bort felaktigt bokförd kupong (går bara innan facit satts)">✕</button>
+      </div>
+      {!live && (
+        <p className="hint">{c.live_error
+          ? 'Livestatus otillgänglig just nu — omgången följs igen vid nästa varv.'
+          : 'Väntar på omgångens första resultat.'}</p>
+      )}
+      {live && (
+        <>
+          <div className="playedcard-sum">
+            <span><b>{live.n_decided}</b>/{live.n_events} avgjorda</span>
+            <span>bäst <b>{live.best_secure}</b> rätt</span>
+            {live.chance_open_matches != null && (
+              <span className="hint">{live.chance_open_matches} matcher kvar</span>
+            )}
+          </div>
+          <table className="grid compact playedlevels">
+            <thead><tr><th>nivå</th><th>rader kvar</th><th>chans</th></tr></thead>
+            <tbody>
+              {levels.map((lvl) => {
+                const alive = live.alive_per_level[lvl]
+                const p = live.chance_per_level?.[lvl]
+                return (
+                  <tr key={lvl} className={alive ? '' : 'dead'}>
+                    <td><b>{lvl} rätt</b></td>
+                    <td>{alive || '–'}</td>
+                    <td className={p >= 0.5 ? 'pos' : ''}>
+                      {p == null ? '–' : alive ? pct(p) : '0%'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          <p className="hint">
+            {live.chance_note ? live.chance_note
+              : live.chance_basis === 'simulerad'
+                ? 'Chans simulerad ur oddsen på kvarvarande matcher (för många kombinationer för exakt uppräkning).'
+                : 'Chans räknad exakt ur oddsen på kvarvarande matcher. En oavgjord match håller alla tecken öppna.'}
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
 function PlayedPanel() {
   const [data, setData] = useState(null)
   const load = () => fetch(`/api/pool/played?_t=${Date.now()}`, { cache: 'no-store' })
@@ -2581,6 +2655,10 @@ function PlayedPanel() {
   const forget = async (id) => {
     await fetch(`/api/pool/played/${id}`, { method: 'DELETE' }); load()
   }
+  // Pågående kuponger är det man faktiskt följer — de får egna kort överst.
+  // Avgjorda är arkiv och komprimeras till en rad var.
+  const open_ = data.coupons.filter((c) => !c.settled_at)
+  const done = data.coupons.filter((c) => c.settled_at)
   return (
     <div className="playedbox">
       <p className="hint" title={s.note}>
@@ -2589,43 +2667,33 @@ function PlayedPanel() {
           {s.roi != null && <> · ROI <b className={s.roi >= 0 ? 'pos' : 'neg'}>
             {(s.roi * 100).toFixed(1)}%</b></>}</>}
       </p>
-      <table className="grid compact">
-        <thead><tr><th>omgång</th><th>rader</th><th>kostnad</th>
-          <th>status</th><th>utdelning</th><th /></tr></thead>
-        <tbody>
-          {data.coupons.map((c) => {
-            const live = c.live
-            return (
-              <tr key={c.id}>
-                <td>{VARIANT[c.product] || c.product} {c.draw_number}</td>
-                <td>{c.n_rows}</td>
-                <td>{kr(c.cost_kr)}</td>
-                <td>
-                  {c.settled_at
-                    ? `klar · bäst ${c.correct_max} rätt`
-                    : live
-                      ? `${live.n_decided}/${live.n_events} avgjorda · bäst ${live.best_secure} rätt`
-                      : (c.live_error ? 'livestatus otillgänglig' : 'öppen')}
-                  {live && !live.all_decided && (
-                    <span className="hint" title="Rader som fortfarande kan nå nivån — en oavgjord match håller alla tecken öppna">
-                      {' '}· lever: {Object.entries(live.alive_per_level)
-                        .filter(([, n]) => n > 0)
-                        .map(([lvl, n]) => `${lvl} rätt: ${n}`).join(' · ')}
-                    </span>
-                  )}
-                </td>
-                <td>{c.settled_at
-                  ? (c.payout_complete ? kr(c.payout_kr) : 'ofullständig')
-                  : '–'}</td>
-                <td>{!c.settled_at && (
-                  <button className="linkbtn" onClick={() => forget(c.id)}
-                    title="Ta bort felaktigt bokförd kupong (går bara innan facit satts)">✕</button>
-                )}</td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+      {open_.length > 0 && (
+        <div className="playedlive">
+          {open_.map((c) => (
+            <PlayedLiveCard key={c.id} c={c} onForget={() => forget(c.id)} />
+          ))}
+        </div>
+      )}
+      {done.length > 0 && (
+        <>
+          {open_.length > 0 && <div className="playeddivider">avgjorda</div>}
+          <table className="grid compact playeddone">
+            <thead><tr><th>omgång</th><th>rader</th><th>kostnad</th>
+              <th>resultat</th><th>utdelning</th></tr></thead>
+            <tbody>
+              {done.map((c) => (
+                <tr key={c.id}>
+                  <td>{couponLabel(c)}</td>
+                  <td>{c.n_rows}</td>
+                  <td>{kr(c.cost_kr)}</td>
+                  <td>bäst {c.correct_max} rätt</td>
+                  <td>{c.payout_complete ? kr(c.payout_kr) : 'ofullständig'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
     </div>
   )
 }

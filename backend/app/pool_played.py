@@ -28,7 +28,9 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import itertools
 import json
+import random
 from typing import Optional
 
 from .storage import Storage
@@ -138,7 +140,52 @@ def event_state(draw_event: dict) -> dict:
              if current and current.get("home") is not None else None)
     return {"sign": sign, "final": final, "score": score,
             "event_number": draw_event.get("eventNumber"),
-            "cancelled": bool(draw_event.get("cancelled"))}
+            "cancelled": bool(draw_event.get("cancelled")),
+            "probs": _event_probs(draw_event),
+            "description": (draw_event.get("description")
+                            or (match.get("participants") and " - ".join(
+                                p.get("name", "") for p in match["participants"]))
+                            or None)}
+
+
+def _event_probs(draw_event: dict) -> Optional[dict]:
+    """Overroundfri 1X2-sannolikhet ur SvS-oddsen, annars streck.
+
+    Samma prioritetsordning och power-devig som analysvyn — chansen på
+    kupongen får aldrig räknas på en annan sannolikhet än den vi visar. Utan
+    både odds och streck returneras None; en gissad likafördelning hade sett ut
+    som information.
+    """
+    from .analysis import _power_probs
+    odds = draw_event.get("odds") or {}
+    keys = {"1": "one", "X": "x", "2": "two"}
+    inv = {}
+    for sign, key in keys.items():
+        value = _decimal(odds.get(key))
+        if value and value > 1.0:
+            inv[sign] = 1.0 / value
+    if len(inv) == 3:
+        return _power_probs(inv)
+    folk = draw_event.get("svenskaFolket") or {}
+    streck = {}
+    for sign, key in keys.items():
+        value = _decimal(folk.get(key))
+        if value is not None:
+            streck[sign] = max(0.001, value)
+    if len(streck) == 3 and sum(streck.values()) > 0:
+        total = sum(streck.values())
+        return {sign: value / total for sign, value in streck.items()}
+    return None
+
+
+def _decimal(value) -> Optional[float]:
+    """SvS skickar svenska decimaler som strängar ("5,50")."""
+    if value is None:
+        return None
+    try:
+        return float(str(value).replace(",", "."))
+    except (TypeError, ValueError):
+        return None
 
 
 def _coupon_events(coupon: dict, width: int) -> list[int]:
@@ -190,11 +237,91 @@ def live_status(coupon: dict, states: list[dict]) -> dict:
         possible_hist[possible] = possible_hist.get(possible, 0) + 1
     alive = {level: sum(n for p, n in possible_hist.items() if p >= level)
              for level in range(max(1, width - 3), width + 1)}
+    levels = sorted(alive, reverse=True)
     return {"n_events": width, "n_decided": decided,
             "all_decided": bool(width and decided == width),
             "best_secure": best_secure,
             "secure_dist": dict(sorted(secure_hist.items(), reverse=True)),
-            "alive_per_level": dict(sorted(alive.items(), reverse=True))}
+            "alive_per_level": dict(sorted(alive.items(), reverse=True)),
+            **_chance_per_level(rows, col_states, width, levels)}
+
+
+CHANCE_EXACT_MAX_COMBOS = 60000     # 3^10; över det blir uppräkningen dyr
+CHANCE_SAMPLES = 20000              # Monte Carlo när uppräkning är för dyr
+
+
+def _chance_per_level(rows: list[str], col_states: list[Optional[dict]],
+                      width: int, levels: list[int]) -> dict:
+    """P(minst EN rad når nivån) per nivå, givet oddsen på kvarvarande matcher.
+
+    Raderna delar de kvarvarande matcherna, så utfallen är BEROENDE — en
+    produkt av per-rad-sannolikheter vore fel. Vi räknar därför på hela
+    utfallsrummet: rader grupperas på sitt teckenmönster över de oavgjorda
+    kolumnerna, och per utfall räknas bästa totalen över grupperna.
+
+    Saknar någon oavgjord match sannolikhet returneras inget alls — en halv
+    beräkning är värre än ingen.
+    """
+    if not rows or not width or not levels:
+        return {}
+    open_cols = [i for i in range(width)
+                 if not (col_states[i] and col_states[i].get("final")
+                         and not col_states[i].get("cancelled"))]
+    probs = []
+    for i in open_cols:
+        state = col_states[i] or {}
+        p = state.get("probs")
+        if not p or abs(sum(p.values()) - 1.0) > 0.01:
+            return {"chance_note": "saknar odds på kvarvarande matcher"}
+        probs.append(p)
+
+    base: dict[tuple, int] = {}
+    for row in rows:
+        secure = 0
+        for i in range(width):
+            state = col_states[i]
+            if state and state.get("final") and not state.get("cancelled"):
+                secure += int(state.get("sign") == row[i])
+        pattern = tuple(row[i] for i in open_cols)
+        base[pattern] = max(base.get(pattern, 0), secure)
+    if not open_cols:
+        best = max(base.values())
+        return {"chance_per_level": {lvl: (1.0 if best >= lvl else 0.0)
+                                     for lvl in levels},
+                "chance_basis": "avgjord"}
+
+    groups = list(base.items())
+    signs = ("1", "X", "2")
+    hit = {lvl: 0.0 for lvl in levels}
+    combos = 3 ** len(open_cols)
+
+    def score(outcome: tuple) -> int:
+        return max(secure + sum(1 for i, s in enumerate(pattern) if s == outcome[i])
+                   for pattern, secure in groups)
+
+    if combos <= CHANCE_EXACT_MAX_COMBOS and combos * len(groups) <= 4_000_000:
+        for combo in itertools.product(signs, repeat=len(open_cols)):
+            weight = 1.0
+            for i, s in enumerate(combo):
+                weight *= probs[i][s]
+            best = score(combo)
+            for lvl in levels:
+                if best >= lvl:
+                    hit[lvl] += weight
+        basis = "exakt"
+    else:
+        rng = random.Random(20260802)     # fast frö: samma svar vid omladdning
+        for _ in range(CHANCE_SAMPLES):
+            combo = tuple(
+                rng.choices(signs, weights=[p["1"], p["X"], p["2"]])[0]
+                for p in probs)
+            best = score(combo)
+            for lvl in levels:
+                if best >= lvl:
+                    hit[lvl] += 1.0 / CHANCE_SAMPLES
+        basis = "simulerad"
+    return {"chance_per_level": {lvl: round(hit[lvl], 6) for lvl in levels},
+            "chance_basis": basis, "chance_open_matches": len(open_cols)}
 
 
 def _mark_incomplete(store: Storage, coupon: dict, note: str) -> dict:
