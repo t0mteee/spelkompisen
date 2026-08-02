@@ -228,6 +228,49 @@ class CollectTests(unittest.TestCase):
         self.assertIn("metadata", report["partial_errors"][0])
         self.assertEqual([], self.store.live_flashscore_captures())
 
+    def test_guard_is_directional(self):
+        """De två feedarna är CDN-cachade oberoende, så |skillnaden| blandade
+        ihop cachejitter med verklig inkoherens. Bara riktningen där
+        ställningen är GAMMAL kan fabricera 'hög xG men inget mål'."""
+        # Farlig riktning: statistiken observerad efter ställningen.
+        self.assertTrue(flashscore.skew_rejected(
+            flashscore.MAX_SCORE_STATS_SKEW_S + 1))
+        # Konservativ riktning: ställningen nyare än statistiken. Ett mål i den
+        # nyare ställningen kan bara krympa gapet, aldrig skapa ett.
+        self.assertFalse(flashscore.skew_rejected(-48))
+        self.assertFalse(flashscore.skew_rejected(
+            -flashscore.MAX_STALE_STATS_SKEW_S))
+        # Men en riktigt gammal statrad släpps inte igenom heller.
+        self.assertTrue(flashscore.skew_rejected(
+            -flashscore.MAX_STALE_STATS_SKEW_S - 1))
+        self.assertLess(flashscore.MAX_SCORE_STATS_SKEW_S,
+                        flashscore.MAX_STALE_STATS_SKEW_S,
+                        "den farliga riktningen måste ha den snävare gränsen")
+
+    def test_conservative_skew_is_saved(self):
+        """Nordic United 2026-08-02: skew −48 s kastades och FotMob tog kortet
+        trots att Flashscore hade statistik."""
+        match = {
+            "flashscore_id": "SKEW2", "league": "allsvenskan",
+            "tournament": "SWEDEN: Allsvenskan", "home": "Hammarby",
+            "away": "AIK", "start_ts": MATCH_START, "stage": "12",
+            "stage_started_ts": MATCH_START, "home_score": 0,
+            "away_score": 0,
+        }
+
+        class FakeFlashscore:
+            def __enter__(self): return self
+            def __exit__(self, *_exc): return None
+            def matches(self): return [match], NOW
+            def stats(self, _match_id):
+                return flashscore.parse_stats(STATS_FEED), (
+                    NOW - dt.timedelta(seconds=48))
+
+        with patch.object(flashscore, "Flashscore", return_value=FakeFlashscore()):
+            report = flashscore.collect(self.store, known_matches=[])
+        self.assertEqual(1, report["saved"])
+        self.assertEqual([], report["partial_errors"])
+
     def test_roster_refresh_updates_metadata_for_all_remaining_matches(self):
         def row(match_id, score):
             return {

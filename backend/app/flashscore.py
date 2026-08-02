@@ -71,9 +71,33 @@ CAPTURE_VERSION = "flashscore-live-v2"
 PRESENCE_KEY = "live_radar_flashscore_presence"
 # Dagsfeeden bär klocka/ställning och statistikfeeden chansmåtten. Utan en
 # separat DB-kolumn för metadataobservationen sparas bara par som observerats
-# nära nog för att representera samma matchögonblick. Annars kan ett mål mellan
-# anropen fabricera ett positivt chansgap.
-MAX_SCORE_STATS_SKEW_S = 20
+# nära nog för att representera samma matchögonblick.
+#
+# VAKTEN ÄR RIKTAD (2026-08-02). De två feedarna är CDN-cachade oberoende av
+# varandra — uppmätt låg dagsfeeden 51 s bak medan statobjekten låg 3–235 s
+# bak. Att mäta |skillnaden| gjorde då cachejitter till samma sak som verklig
+# inkoherens, och kastade 29 av 69 varv. Riktningen är inte symmetrisk:
+#
+#   stats NYARE än ställningen  → ställningen är gammal. Ett mål kan ha gjorts
+#                                 som ställningen inte visar, vilket FABRICERAR
+#                                 "hög xG men inget mål". Farligt: 20 s.
+#   ställningen NYARE än stats  → ett mål i den nyare ställningen kan bara
+#                                 krympa chansgapet, aldrig skapa ett. Redan
+#                                 kodens eget resonemang; konservativt: 180 s.
+#
+# Nedströms gäller ändå `live_radar.MAX_DISPLAY_AGE_MIN`, så en gammal men
+# konservativ rad kan inte visas som färsk.
+MAX_SCORE_STATS_SKEW_S = 20        # stats nyare än ställning (farlig riktning)
+MAX_STALE_STATS_SKEW_S = 180       # ställning nyare än stats (konservativ)
+
+
+def skew_rejected(skew_s: float) -> bool:
+    """Sant när stats/ställning ligger för långt isär åt sitt håll.
+
+    ``skew_s`` är TECKNAT: positivt = statistiken observerades efter
+    ställningen.
+    """
+    return skew_s > MAX_SCORE_STATS_SKEW_S or skew_s < -MAX_STALE_STATS_SKEW_S
 
 # Flashscores ligarubriker ("LAND: Namn") → projektets liganycklar. Explicit
 # tabell, aldrig fuzzy (handbolls-läxan). Verifierade mot dagsfeeden
@@ -451,8 +475,8 @@ def collect(store, known_matches: Optional[list[dict]] = None) -> dict:
                 continue
             if not stats:
                 continue        # ingen statistik = ingen rad, aldrig nollor
-            skew_s = abs((observed_at - listed_at).total_seconds())
-            if skew_s > MAX_SCORE_STATS_SKEW_S:
+            skew_s = (observed_at - listed_at).total_seconds()
+            if skew_rejected(skew_s):
                 # Ett långt 60-matchersvarv ska inte offra de sena matcherna.
                 # Förnya roster EN gång när vakten slår; den nyare ställningen
                 # är dessutom konservativ mot en något äldre statrad (ett mål
@@ -474,10 +498,13 @@ def collect(store, known_matches: Optional[list[dict]] = None) -> dict:
                         f"{match['home']}: roster-refresh {type(exc).__name__}")
                 if refreshed_match is not None:
                     match, listed_at = refreshed_match, refreshed_at
-                    skew_s = abs((observed_at - listed_at).total_seconds())
-                if refreshed_match is None or skew_s > MAX_SCORE_STATS_SKEW_S:
+                    skew_s = (observed_at - listed_at).total_seconds()
+                if refreshed_match is None or skew_rejected(skew_s):
+                    riktning = ("ställningen äldre än stats" if skew_s > 0
+                                else "stats äldre än ställningen")
                     errors.append(
-                        f"{match['home']}: metadata {int(skew_s)} s från stats")
+                        f"{match['home']}: metadata {int(skew_s):+d} s "
+                        f"({riktning})")
                     continue
             # Klocka/ställning och statistik kommer från två feedanrop. Bara
             # par inom konsistensvakten sparas och får då statistikens tid.

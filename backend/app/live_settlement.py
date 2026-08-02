@@ -53,6 +53,7 @@ LOOKBACK_DAYS = 30
 RADAR_V2_VERSION = "chance-gap-shadow-v2"
 RADAR_V3_VERSION = "chance-gap-shadow-v3"
 RADAR_V4_VERSION = "chance-gap-shadow-v4"
+RADAR_V5_VERSION = "chance-gap-shadow-v5"
 
 # Censureringsorsaker (korta tokens, aldrig fritext):
 #   no_clock           ögonblicket saknar matchminut — inget fönster kan definieras
@@ -210,12 +211,16 @@ def _signal_version_at(moment: dict) -> str:
     när kön repareras. Gränserna är förregistrerade och frysta i live_radar.
     Vid nästa radarversion måste tidslinjen utökas explicit — aldrig gissas.
     """
-    if live_radar.RADAR_VERSION != RADAR_V4_VERSION:
+    if live_radar.RADAR_VERSION != RADAR_V5_VERSION:
         raise RuntimeError(
             "radarversionens capture-tidslinje måste utökas före settlement")
     observed = _at(moment)
-    v4_start = dt.datetime.fromisoformat(
+    v5_start = dt.datetime.fromisoformat(
         live_radar.RADAR_VERSION_STARTED_AT.replace("Z", "+00:00"))
+    if observed >= v5_start:
+        return RADAR_V5_VERSION
+    v4_start = dt.datetime.fromisoformat(
+        live_radar.RADAR_V4_STARTED_AT.replace("Z", "+00:00"))
     if observed >= v4_start:
         return RADAR_V4_VERSION
     v3_start = dt.datetime.fromisoformat(

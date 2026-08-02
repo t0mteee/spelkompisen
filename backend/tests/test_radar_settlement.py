@@ -17,7 +17,9 @@ from app import flashscore, fotmob, live_radar, live_settlement
 from app.storage import Storage
 from scripts import migrera_radar_event_id_text, migrera_radar_settlement
 
-NOW = dt.datetime(2026, 8, 2, 12, 0, tzinfo=dt.timezone.utc)
+# Ligger efter v5-gränsen (2026-08-02T18:00Z) så att T0-captures hamnar i den
+# AKTUELLA kohorten — facit rapporterar bara aktuell RADAR_VERSION.
+NOW = dt.datetime(2026, 8, 3, 12, 0, tzinfo=dt.timezone.utc)
 T0 = NOW - dt.timedelta(hours=5)     # stängd serie: sista capture > 3 h gammal
 
 
@@ -200,6 +202,8 @@ class RadarSettlementTests(unittest.TestCase):
                                tzinfo=dt.timezone.utc)),
             ("v4", dt.datetime(2026, 8, 1, 21, 1,
                                tzinfo=dt.timezone.utc)),
+            ("v5", dt.datetime(2026, 8, 2, 18, 1,
+                               tzinfo=dt.timezone.utc)),
         )
         for event_id, captured_at in captures:
             self.store.oddset_save_live_capture(
@@ -210,9 +214,13 @@ class RadarSettlementTests(unittest.TestCase):
 
         versions = {row["event_id"]: row["signal_version"]
                     for row in self.rows()}
+        # Literaler, inte live_radar.RADAR_VERSION: en passerad kohort ska
+        # stämplas efter capturetiden även när koden gått vidare. Att testet
+        # tidigare läste den aktiva versionen dolde just den risken.
         self.assertEqual("chance-gap-shadow-v2", versions["v2"])
         self.assertEqual("chance-gap-shadow-v3", versions["v3"])
-        self.assertEqual(live_radar.RADAR_VERSION, versions["v4"])
+        self.assertEqual("chance-gap-shadow-v4", versions["v4"])
+        self.assertEqual("chance-gap-shadow-v5", versions["v5"])
 
     # (e) signalen räknas om med den DELADE funktionen — ingen egen kopia
     def test_signal_recomputation_uses_shared_radar_signal(self):

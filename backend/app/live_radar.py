@@ -18,16 +18,27 @@ from .oddset_data import SOFA_UT
 from .storage import Storage
 
 CAPTURE_VERSION = "sofa-live-v2"
-# v4 (2026-08-01): källvalet använder kompletthet, färskhet och verifierad
-# matchidentitet innan en signal räknas. Det ändrar kohortens datagenererande
-# process trots oförändrade trösklar, så blindtestet får en ny version. Äldre
-# rader ligger kvar som historik och ska aldrig blandas med v4.
-RADAR_VERSION = "chance-gap-shadow-v4"
-# Fryst före driftsstart. Råcaptures saknar radarversion, så settlement använder
-# dessa gränser för v2 (<08), v3 (08–21) och den rena v4-kohorten (>=21).
-# ÄNDRA ALDRIG efter att insamlingen startats igen.
+# v5 (2026-08-02): LAGIDENTITETEN ändrades tre gånger under v4:s första halvdygn
+# och resultathistoriken under modellen byttes ut. Trösklarna är orörda, men
+# vilka matcher som kan ge signal — och vilka som får odds och facit — är en
+# annan datagenererande process än den v4 startade med:
+#   1. `_same_team` slog ihop Los Angeles FC med Los Angeles Galaxy (falsk merge
+#      av två MLS-klubbar som spelar samtidigt); spärrad i LIVE_TEAM_REJECTED.
+#   2. MLS-alias (LA Galaxy, Atlanta Utd) och svenska IFK-klubbar länkade inte,
+#      vilket gav dubbla journalkort där odds hamnade på den ena raden och facit
+#      på den andra — matchen bidrog med noll trots att båda delarna fanns.
+#   3. 588 dubblerade resultatrader slogs ihop i `oddset_results`.
+# v4:s 16 rader (varav 4 kända dubbletter) behålls som historik och blandas
+# aldrig med v5. Koherensvakten är OFÖRÄNDRAD — den mättes 2026-08-02 och gör
+# rätt: skewen ligger mest åt hållet där ställningen är äldre än statistiken,
+# vilket skulle fabricera "hög xG men inget mål".
+RADAR_VERSION = "chance-gap-shadow-v5"
+# Frysta före driftsstart. Råcaptures saknar radarversion, så settlement använder
+# dessa gränser för v2 (<08), v3 (08–21), v4 (2026-08-01T21 → 2026-08-02T14:30)
+# och den rena v5-kohorten. ÄNDRA ALDRIG en gräns som passerats.
 RADAR_V3_STARTED_AT = "2026-08-01T08:00:00Z"
-RADAR_VERSION_STARTED_AT = "2026-08-01T21:00:00Z"
+RADAR_V4_STARTED_AT = "2026-08-01T21:00:00Z"
+RADAR_VERSION_STARTED_AT = "2026-08-02T18:00:00Z"
 RECENT_MINUTES = 15
 RECENT_TOLERANCE_MIN = 6
 MAX_DISPLAY_AGE_MIN = 12

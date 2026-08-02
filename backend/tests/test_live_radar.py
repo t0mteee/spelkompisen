@@ -100,11 +100,15 @@ class LiveRadarTests(unittest.TestCase):
             self.assertEqual(0, live_radar.LEAGUE_PRIORITY[key],
                              "cuperna får inte klippas som friendlies")
 
-    def test_v4_och_alla_synliga_ligor_har_liveprioritet(self):
-        self.assertEqual("chance-gap-shadow-v4", live_radar.RADAR_VERSION)
+    def test_v5_och_alla_synliga_ligor_har_liveprioritet(self):
+        self.assertEqual("chance-gap-shadow-v5", live_radar.RADAR_VERSION)
+        # Passerade gränser är frysta — en ändring skulle märka om historiska
+        # captures och tyst blanda ihop kohorterna.
         self.assertEqual("2026-08-01T08:00:00Z",
                          live_radar.RADAR_V3_STARTED_AT)
         self.assertEqual("2026-08-01T21:00:00Z",
+                         live_radar.RADAR_V4_STARTED_AT)
+        self.assertEqual("2026-08-02T18:00:00Z",
                          live_radar.RADAR_VERSION_STARTED_AT)
         for key in ("bestadeild", "premier_league", "serie_a", "la_liga",
                     "bundesliga"):
