@@ -153,6 +153,8 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
 - Starta allt: `./start.sh` (backend :8002, frontend :5175). Stoppa: `./stop.sh`.
 - Tester: `cd backend && .venv/bin/python -B -m unittest discover -s tests -v`.
 - V2.2-status: `cd backend && .venv/bin/python -B cli.py v22audit`.
+- Källhälsa/varvlucka: `cd backend && .venv/bin/python -B cli.py kallhalsa [timmar]`
+  (läser `oddset_source_health_log`; `—` i varvkolumnen = källan kördes inte).
 - Live-radar manuellt prov: `cd backend && .venv/bin/python -B cli.py live-tick`
   (shadowdata; påverkar inga tips/notiser). Varvet sparar även nya
   beslutssignaler och settlar avslutade signaler append-once.

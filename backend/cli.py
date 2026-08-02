@@ -469,6 +469,57 @@ def cmd_live_tick(dense_seconds: int = LIVE_DENSE_BUDGET_S,
         sleep(interval)
 
 
+LIVE_SOURCES = ("flashscore", "fotmob", "sofascore")
+LIVE_CAPTURE_TABLES = {"flashscore": "oddset_live_flashscore",
+                       "fotmob": "oddset_live_fotmob",
+                       "sofascore": "oddset_live_capture"}
+
+
+def format_source_health(store, hours: int = 6) -> str:
+    """Läs kontrollhistoriken: kördes källan, vad såg den, sparade den något?
+
+    Latest-state-tabellen kan inte svara på det (den skriver över sig själv),
+    därav `oddset_source_health_log`. Varvkolumnen gör en utebliven kontroll
+    synlig som ett hål i stället för som tystnad.
+    """
+    since = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours)) \
+        .strftime("%Y-%m-%dT%H:%M:%SZ")
+    rows = store.oddset_source_health_history(scope="live", since=since, limit=5000)
+    out = [f"KÄLLHÄLSA live — senaste {hours} h (append-only kontrollhistorik)", ""]
+    if not rows:
+        return "\n".join(out + ["  inga kontroller registrerade i fönstret."])
+
+    per_varv: dict[str, dict[str, dict]] = {}
+    for r in rows:
+        per_varv.setdefault(r["checked_at"][:16] + "Z", {})[r["source"]] = r
+    out.append(f"  {'varv (UTC)':18} " + " ".join(f"{s:>12}" for s in LIVE_SOURCES))
+    for varv in sorted(per_varv)[-24:]:
+        cells = []
+        for src in LIVE_SOURCES:
+            r = per_varv[varv].get(src)
+            cells.append("           —" if r is None
+                         else f"{r['event_count']:>10}{' ✓' if r['ok'] else ' ✗'}")
+        out.append(f"  {varv:18} " + " ".join(cells))
+    out.append("")
+    for src in LIVE_SOURCES:
+        mine = [r for r in rows if r["source"] == src]
+        if not mine:
+            out.append(f"  {src:11} INGA kontroller — kördes aldrig i fönstret")
+            continue
+        fel = [r for r in mine if not r["ok"]]
+        saved = store.conn.execute(
+            f"SELECT COUNT(*) FROM {LIVE_CAPTURE_TABLES[src]} "
+            "WHERE captured_at >= ?", (since,)).fetchone()[0]
+        out.append(f"  {src:11} {len(mine):3} kontroller · {len(fel)} med fel · "
+                   f"max {max(r['event_count'] for r in mine)} livematcher · "
+                   f"{saved} captures sparade")
+    fel_rader = [r for r in rows if not r["ok"]][:8]
+    if fel_rader:
+        out += ["", "  senaste fel:"]
+        out += [f"    {r['checked_at']} {r['source']}: {r['error']}" for r in fel_rader]
+    return "\n".join(out)
+
+
 def cmd_snapshot_smart(max_seconds: int = DENSE_BUDGET_S) -> None:
     """Snapshotta alla produkter; om någon öppen omgång stänger inom
     DENSE_WITHIN_H timmar: fortsätt var 5:e minut tills tidsbudgeten är slut."""
@@ -993,6 +1044,13 @@ def main() -> None:
                     print(oddset_v2_model.format_report(
                         oddset_v2_model.evaluation_report(
                             walk, "live_development")))
+        finally:
+            store.close()
+    elif cmd == "kallhalsa":
+        store = Storage()
+        try:
+            timmar = next((int(a) for a in rest if a.isdigit()), 6)
+            print(format_source_health(store, hours=timmar))
         finally:
             store.close()
     elif cmd == "v22audit":
