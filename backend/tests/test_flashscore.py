@@ -224,8 +224,40 @@ class CollectTests(unittest.TestCase):
 
         with patch.object(flashscore, "Flashscore", return_value=FakeFlashscore()):
             report = flashscore.collect(self.store, known_matches=[])
+        # Statistiken är FÄRSK — bara ställningen är gammal. Att kasta hela
+        # raden gav bort Flashscores chansmått till en sämre källa. Raden
+        # sparas därför utan klocka; ingen gammal ställning lagras.
+        self.assertEqual(1, report["saved"])
+        self.assertIn("klocka slopad", report["partial_errors"][0])
+        capture = self.store.live_flashscore_captures()[0]
+        self.assertIsNone(capture["minute"])
+        self.assertIsNone(capture["home_score"])
+        self.assertIsNone(capture["away_score"])
+        self.assertIsNotNone(capture["shots_home"], "statistiken ska finnas kvar")
+
+    def test_stale_stats_are_discarded_entirely(self):
+        """Motsatt riktning: när STATISTIKEN är för gammal finns inget att
+        rädda — då hjälper ingen lånad klocka."""
+        match = {
+            "flashscore_id": "OLD1", "league": "allsvenskan",
+            "tournament": "SWEDEN: Allsvenskan", "home": "Hammarby",
+            "away": "AIK", "start_ts": MATCH_START, "stage": "12",
+            "stage_started_ts": MATCH_START, "home_score": 0,
+            "away_score": 0,
+        }
+
+        class FakeFlashscore:
+            def __enter__(self): return self
+            def __exit__(self, *_exc): return None
+            def matches(self): return [match], NOW
+            def stats(self, _match_id):
+                return flashscore.parse_stats(STATS_FEED), (
+                    NOW - dt.timedelta(
+                        seconds=flashscore.MAX_STALE_STATS_SKEW_S + 1))
+
+        with patch.object(flashscore, "Flashscore", return_value=FakeFlashscore()):
+            report = flashscore.collect(self.store, known_matches=[])
         self.assertEqual(0, report["saved"])
-        self.assertIn("metadata", report["partial_errors"][0])
         self.assertEqual([], self.store.live_flashscore_captures())
 
     def test_guard_is_directional(self):

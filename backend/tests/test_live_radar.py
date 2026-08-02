@@ -564,6 +564,34 @@ class LiveRadarTests(unittest.TestCase):
         self.assertIsNone(live_radar._fotmob_for(anchor, [[first], [second]]),
                           "tvetydiga kandidater ska aldrig väljas efter ordning")
 
+    def test_clockless_flashscore_row_borrows_the_anchor_clock(self):
+        """Flashscores dagsfeed är CDN-fryst upp mot två minuter, så en färsk
+        statrad sparas utan klocka. Chansmåtten måste stanna hos Flashscore
+        medan minut/ställning lånas — med synlig proveniens."""
+        capture = {
+            "captured_at": "2026-08-02T14:00:00Z",
+            "home": "Nordic United", "away": "Ljungskile",
+            "minute": None, "home_score": None, "away_score": None,
+            "xg_home": 1.9, "xg_away": 0.3,
+            "shots_home": 10, "shots_away": 4,
+        }
+        anchor = {"minute": 63, "home_score": 0, "away_score": 0}
+
+        signal, _ = live_radar._flashscore_signal([capture], anchor)
+        basis = signal["basis"]
+        self.assertEqual(63, basis["minute"])
+        self.assertEqual("sofascore", basis["minute_source"])
+        self.assertEqual("sofascore", basis["home_score_source"])
+        self.assertEqual("flashscore", signal["stats_source"],
+                         "chansmåtten får aldrig byta källa med klockan")
+        self.assertEqual("strong", signal["level"])
+
+        # Utan ankare finns ingen klocka att låna — då blir det ingen signal
+        # alls, aldrig en gissad ställning.
+        utan, _ = live_radar._flashscore_signal([capture], None)
+        self.assertIsNone(utan["basis"]["minute_source"])
+        self.assertEqual("info", utan["level"])
+
     def test_observed_provider_aliases_link_the_same_club(self):
         """Utan dessa blev samma match två journalkort: odds på den ena raden,
         facit på den andra, och noll bidrag till blindkohorten."""

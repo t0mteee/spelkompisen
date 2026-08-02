@@ -64,6 +64,13 @@ LIVE_TEAM_ALIASES = {
     # inte bara en live-presentationsskillnad utan dubblerade även
     # resultathistoriken, alltså en modellidentitetsfråga. `norm_team` körs
     # före den här tabellen, så länken gäller fortfarande i radarn.
+    #
+    # KFUM hör däremot HIT: resultathistoriken har bara `kfum oslo` (74 rader,
+    # noll `kfum`), så modellidentiteten är hel. Det är FotMob som ensam skriver
+    # `KFUM`, och enordsspärren — den som stoppar `Inter`↔`Inter Miami` —
+    # blockerade länken. Bevisat par 2026-08-02: samma liga, samma motståndare
+    # (Kristiansund) och samma avspark 15:00Z.
+    "kfum": "kfum oslo",
 }
 
 # Bekräftat OLIKA klubbar som normaliseringen annars slår ihop. Samma princip

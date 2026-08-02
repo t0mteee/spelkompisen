@@ -67,7 +67,7 @@ HEADERS = {
 TIMEOUT_S = 10.0
 MAX_MATCHES = 60          # samma tak som FotMob-varvet
 BUDGET_S = 45.0           # väggklocka; radarn får aldrig äta tickens budget
-CAPTURE_VERSION = "flashscore-live-v2"
+CAPTURE_VERSION = "flashscore-live-v3"
 PRESENCE_KEY = "live_radar_flashscore_presence"
 # Dagsfeeden bär klocka/ställning och statistikfeeden chansmåtten. Utan en
 # separat DB-kolumn för metadataobservationen sparas bara par som observerats
@@ -475,6 +475,7 @@ def collect(store, known_matches: Optional[list[dict]] = None) -> dict:
                 continue
             if not stats:
                 continue        # ingen statistik = ingen rad, aldrig nollor
+            clock_ok = True
             skew_s = (observed_at - listed_at).total_seconds()
             if skew_rejected(skew_s):
                 # Ett långt 60-matchersvarv ska inte offra de sena matcherna.
@@ -500,14 +501,27 @@ def collect(store, known_matches: Optional[list[dict]] = None) -> dict:
                     match, listed_at = refreshed_match, refreshed_at
                     skew_s = (observed_at - listed_at).total_seconds()
                 if refreshed_match is None or skew_rejected(skew_s):
-                    riktning = ("ställningen äldre än stats" if skew_s > 0
-                                else "stats äldre än ställningen")
+                    if skew_s < 0:
+                        # Statistiken själv är för gammal — inget att rädda.
+                        errors.append(
+                            f"{match['home']}: stats {int(-skew_s)} s äldre "
+                            "än ställningen")
+                        continue
+                    # Ställningen är gammal men STATISTIKEN är färsk. Att kasta
+                    # hela raden gav bort Flashscores bättre chansmått till en
+                    # sämre källa (Nordic United 2026-08-02). Dagsfeeden är
+                    # CDN-fryst upp mot två minuter, så klockan slopas i stället
+                    # för hela capturen: minut/ställning blir NULL och
+                    # `_signal_with_basis` lånar dem från den verifierade
+                    # ankarraden med egen proveniens. Ingen gammal ställning
+                    # lagras — en gissad ställning kan fabricera "hög xG men
+                    # inget mål", en saknad kan bara utebli.
+                    clock_ok = False
                     errors.append(
-                        f"{match['home']}: metadata {int(skew_s):+d} s "
-                        f"({riktning})")
-                    continue
-            # Klocka/ställning och statistik kommer från två feedanrop. Bara
-            # par inom konsistensvakten sparas och får då statistikens tid.
+                        f"{match['home']}: klocka slopad "
+                        f"(ställningen {int(skew_s)} s äldre än stats)")
+            # Klocka/ställning och statistik kommer från två feedanrop. Statens
+            # tid gäller alltid; klockan följer bara med när den är koherent.
             store.live_flashscore_save({
                 "flashscore_id": match["flashscore_id"],
                 "captured_at": _iso(observed_at),
@@ -518,9 +532,9 @@ def collect(store, known_matches: Optional[list[dict]] = None) -> dict:
                 "start_at": _iso(dt.datetime.fromtimestamp(
                     match["start_ts"], dt.timezone.utc))
                 if match.get("start_ts") else None,
-                "minute": minute_at(match, observed_at),
-                "home_score": match.get("home_score"),
-                "away_score": match.get("away_score"),
+                "minute": minute_at(match, observed_at) if clock_ok else None,
+                "home_score": match.get("home_score") if clock_ok else None,
+                "away_score": match.get("away_score") if clock_ok else None,
                 **stats})
             saved += 1
         skipped += max(0, len(live) - MAX_MATCHES)
