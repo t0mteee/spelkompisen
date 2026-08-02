@@ -647,6 +647,14 @@ class LiveRadarTests(unittest.TestCase):
         # Aliaset får inte dra in andra göteborgsklubbar.
         self.assertFalse(live_radar._same_team("Goteborg", "GAIS"))
         self.assertFalse(live_radar._same_team("IFK Göteborg", "Häcken"))
+        # Kambi/Pinnacle skriver `PSV ` med blanksteg; normaliserat blir det
+        # tre tecken och enords-spärren kräver fyra innan prefix tillåts.
+        self.assertTrue(live_radar._same_team("PSV ", "PSV Eindhoven"))
+        self.assertTrue(live_radar._same_team("PSV Eindhoven", "PSV"))
+        # Spärren för korta namn måste stå kvar för alla ANDRA — historiken
+        # rymmer aik/odd/lyn/qpr där prefixmatchning vore farlig.
+        self.assertFalse(live_radar._same_team("AIK", "AIK Fotboll Ungdom"))
+        self.assertFalse(live_radar._same_team("Odd", "Odense"))
 
     def test_fotmob_ar_primar_och_vinner_vid_lika_bra_data(self):
         """Samans beslut 2026-07-28: Sofascore slutar vara primär källa.

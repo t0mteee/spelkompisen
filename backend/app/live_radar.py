@@ -77,6 +77,13 @@ LIVE_TEAM_ALIASES = {
     # stoppar suffixet. Båda entydiga i norsk fotboll på den här nivån.
     "alesund": "aalesund",
     "sarpsborg": "sarpsborg 08",
+    # SvS skriver `PSV Eindhoven`, Kambi/Pinnacle `PSV ` (med blanksteg).
+    # Normaliserat blir det `psv` mot `psv eindhoven`, och enords-spärren
+    # kräver minst fyra tecken innan prefix tillåts — `psv` är tre. Spärren ska
+    # INTE lättas: historiken rymmer `aik`, `odd`, `lyn`, `qpr` där en lösare
+    # regel vore farlig. PSV är entydigt. Utan aliaset saknade PSV–AZ livepris
+    # och hela Europatipsets chansberäkning uteblev (2026-08-02).
+    "psv": "psv eindhoven",
 }
 
 # Bekräftat OLIKA klubbar som normaliseringen annars slår ihop. Samma princip
