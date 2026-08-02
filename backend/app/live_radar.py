@@ -50,6 +50,15 @@ LIVE_TEAM_ALIASES = {
     # blindkohorten trots att båda delarna fanns i databasen.
     "la galaxy": "los angeles galaxy",
     "atlanta utd": "atlanta united",
+    # Allsvenskan/Superettan 2026-08-02: Flashscore skriver klubbarna utan
+    # `IFK` medan Sofascore/FotMob behåller det. `_NOISE` i oddset.py rymmer
+    # redan samma klass av föreningsform (`if`, `gif`, `bk`) men inte `ifk`.
+    # Det gav dubbelt livekort för IFK Göteborg – Degerfors. Alla tre paren är
+    # observerade i vår egen data och entydiga: ingen annan klubb i våra ligor
+    # heter Göteborg, Norrköping eller Värnamo.
+    "goteborg": "ifk goteborg",
+    "norrkoping": "ifk norrkoping",
+    "varnamo": "ifk varnamo",
 }
 
 # Bekräftat OLIKA klubbar som normaliseringen annars slår ihop. Samma princip

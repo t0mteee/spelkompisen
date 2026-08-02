@@ -568,6 +568,14 @@ class LiveRadarTests(unittest.TestCase):
         # Aliaset ska verka åt båda håll och tåla providerns egen stavning.
         self.assertTrue(live_radar._same_team("Los Angeles Galaxy", "LA Galaxy"))
         self.assertTrue(live_radar._same_team("CF Montreal", "CF Montréal"))
+        # Flashscore skriver svenska klubbar utan IFK; `_NOISE` rymmer redan
+        # `if`/`gif`/`bk` men inte `ifk`. Gav dubbelt kort för IFK Göteborg.
+        self.assertTrue(live_radar._same_team("Goteborg", "IFK Göteborg"))
+        self.assertTrue(live_radar._same_team("Norrkoping", "IFK Norrköping"))
+        self.assertTrue(live_radar._same_team("Varnamo", "IFK Värnamo"))
+        # Aliaset får inte dra in andra göteborgsklubbar.
+        self.assertFalse(live_radar._same_team("Goteborg", "GAIS"))
+        self.assertFalse(live_radar._same_team("IFK Göteborg", "Häcken"))
 
     def test_fotmob_ar_primar_och_vinner_vid_lika_bra_data(self):
         """Samans beslut 2026-07-28: Sofascore slutar vara primär källa.
