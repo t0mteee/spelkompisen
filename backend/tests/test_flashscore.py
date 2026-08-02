@@ -224,11 +224,11 @@ class CollectTests(unittest.TestCase):
 
         with patch.object(flashscore, "Flashscore", return_value=FakeFlashscore()):
             report = flashscore.collect(self.store, known_matches=[])
-        # Statistiken är FÄRSK — bara ställningen är gammal. Att kasta hela
-        # raden gav bort Flashscores chansmått till en sämre källa. Raden
-        # sparas därför utan klocka; ingen gammal ställning lagras.
+        # Statistiken är FÄRSK — bara dagsfeedens ställning är gammal. Utan
+        # summary-feed (faket saknar den) slopas ställningen men raden och
+        # minuten sparas; ingen gammal ställning lagras.
         self.assertEqual(1, report["saved"])
-        self.assertIn("klocka slopad", report["partial_errors"][0])
+        self.assertTrue(any("klocka slopad" in e for e in report["partial_errors"]))
         capture = self.store.live_flashscore_captures()[0]
         # MINUTEN överlever: den härleds ur stadiets statiska starttid och
         # ruttnar inte med feedens cacheålder. Bara ställningen gör det.
@@ -236,6 +236,75 @@ class CollectTests(unittest.TestCase):
         self.assertIsNone(capture["home_score"])
         self.assertIsNone(capture["away_score"])
         self.assertIsNotNone(capture["shots_home"], "statistiken ska finnas kvar")
+
+    def _stale_feed_fake(self, summary_result=None, summary_raises=False,
+                         summary_age_s=5):
+        """Dagsfeed med gammal ställning + valfri summary-feed."""
+        match = {
+            "flashscore_id": "SUR1", "league": "allsvenskan",
+            "tournament": "SWEDEN: Allsvenskan", "home": "Hammarby",
+            "away": "AIK", "start_ts": MATCH_START, "stage": "12",
+            "stage_started_ts": MATCH_START, "home_score": 0,
+            "away_score": 0,
+        }
+        stats_at = NOW + dt.timedelta(
+            seconds=flashscore.MAX_SCORE_STATS_SKEW_S + 100)
+
+        class FakeFlashscore:
+            def __enter__(self): return self
+            def __exit__(self, *_exc): return None
+            def matches(self): return [dict(match)], NOW
+            def stats(self, _match_id):
+                return flashscore.parse_stats(STATS_FEED), stats_at
+            def summary(self, _match_id):
+                if summary_raises:
+                    raise RuntimeError("nere")
+                return summary_result, stats_at - dt.timedelta(
+                    seconds=summary_age_s)
+
+        return FakeFlashscore()
+
+    def test_stale_day_feed_score_is_rescued_from_summary(self):
+        """Lyn 3–0 visades som 'resultat saknas' trots att Flashscore hade
+        målen — dagsfeeden var CDN-fryst. `df_sur` är sekundfärsk och räddar
+        ställningen; minuten behålls när stadiet är oförändrat."""
+        fake = self._stale_feed_fake(
+            summary_result={"home_score": 3, "away_score": 0, "stage": "12"})
+        with patch.object(flashscore, "Flashscore", return_value=fake):
+            report = flashscore.collect(self.store, known_matches=[])
+        self.assertEqual(1, report["saved"])
+        capture = self.store.live_flashscore_captures()[0]
+        self.assertEqual(3, capture["home_score"])
+        self.assertEqual(0, capture["away_score"])
+        self.assertIsNotNone(capture["minute"])
+
+    def test_stage_change_in_summary_censors_the_minute(self):
+        """Halvtid: dagsfeeden tror fortfarande '1:a halvlek' och minuten
+        tickade till 46–47' i UI:t. Summaryns stadium avslöjar bytet; utan ny
+        stadiestarttid censureras minuten hellre än gissas."""
+        fake = self._stale_feed_fake(
+            summary_result={"home_score": 2, "away_score": 1, "stage": "38"})
+        with patch.object(flashscore, "Flashscore", return_value=fake):
+            flashscore.collect(self.store, known_matches=[])
+        capture = self.store.live_flashscore_captures()[0]
+        self.assertEqual(2, capture["home_score"])
+        self.assertIsNone(capture["minute"])
+
+    def test_unusable_summary_falls_back_to_score_drop(self):
+        for fake in (self._stale_feed_fake(summary_raises=True),
+                     self._stale_feed_fake(summary_result=None),
+                     self._stale_feed_fake(
+                         summary_result={"home_score": 1, "away_score": 0,
+                                         "stage": "12"},
+                         summary_age_s=flashscore.MAX_SCORE_STATS_SKEW_S + 200)):
+            with patch.object(flashscore, "Flashscore", return_value=fake):
+                report = flashscore.collect(self.store, known_matches=[])
+            capture = self.store.live_flashscore_captures()[-1]
+            self.assertIsNone(capture["home_score"])
+            self.assertIsNotNone(capture["minute"])
+            self.assertTrue(
+                any("klocka slopad" in e or "summary" in e
+                    for e in report["partial_errors"]))
 
     def test_stale_stats_are_discarded_entirely(self):
         """Motsatt riktning: när STATISTIKEN är för gammal finns inget att

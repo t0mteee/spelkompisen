@@ -105,14 +105,20 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       synliga Följer/Stark-nivån per match × signaltyp:
                       minut/ställning/mått + observerad öppen Kambi-live-Ö/U,
                       normaltidsfacit och Asian-Över-ROI. Aldrig tipsinput
-  app/flashscore.py   liveprovider med `flashscore-live-v2`: publik pipe-feed,
+  app/flashscore.py   liveprovider med `flashscore-live-v4`: publik pipe-feed,
                       statisk publik
                       headerkonstant (samma klass som Pinnacles gästnyckel);
                       brotli KRÄVS. Minuten HÄRLEDS ur stadiets starttid
-                      (AC 12/13 + AO) — okänt stadium ⇒ None. Lista och
-                      eventdetalj får skilja högst 20 s; annars omhämtning
-                      eller ingen capture. Lyckad tom lista avslutar presence,
-                      transport-/parsefel gör det aldrig.
+                      (AC 12/13 + AO) — okänt stadium ⇒ None. Dagsfeeden är
+                      CDN-FRYST uppåt 2 min; ställningen räddas då ur
+                      per-match-feeden `df_sur` (`parse_summary`: BA/BB+BC/BD
+                      per halvlek, AT/AU-fallback, fältregel driftverifierad
+                      2026-08-02). Koherensvakten är RIKTAD åt båda hållen:
+                      ställning äldre än stats = farlig (20 s, fabricerar
+                      "hög xG men inget mål"), stats äldre än ställning =
+                      konservativ (180 s). Stadiebyte i `df_sur` censurerar
+                      minuten hellre än låter den ticka i fel stadium. Lyckad
+                      tom lista avslutar presence, transport-/parsefel aldrig.
   app/flashscore_data.py Flashscore samlar modelldata PARALLELLT med
                       Sofascore till `oddset_result_stats`; resultatkällan
                       överlastas aldrig och `+fs` är avskaffat. xG väljs som
@@ -197,13 +203,15 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
   Följer→Stark-eskalering får finnas i diagnostiken men får inte dubblera
   blindtestet). Minst 200 oddssatta+avgjorda signalmatcher, minst 60 dagar och
   undre KI90 > 0 krävs före stöd; inga historiska liveodds bakfylls.
-  **Aktiv signalversion är `chance-gap-shadow-v4` från exakt
-  2026-08-01T21:00:00Z.** v3-fönstret 08:00–21:00Z var en ogiltig pilot:
-  källval/färskhet/identitet/presence var inte tillräckligt låsta och serien
-  får aldrig användas som stöd. v2 (<08:00Z), v3 och v4 behålls som tre
-  separata historiska kohorter. Settlement stämplar efter capturetid, aldrig
-  efter versionen som råkar vara aktiv när kön körs. En ändrad datagenererande
-  process kräver alltid ny signalversion.
+  **Aktiv signalversion är `chance-gap-shadow-v5` från exakt
+  2026-08-03T06:00:00Z.** Bumpen samlar dagens processändringar: tre
+  identitetsfixar (falsk merge LAFC/Galaxy, MLS-/IFK-alias, 588 hopslagna
+  resultatrader), riktad koherensvakt, `df_sur`-ställning och spegellänk med
+  transponering (`_mirrored_capture` — en spegelvänd providerserie uttrycks i
+  ankarets orientering, aldrig rå). v4 (2026-08-01T21Z→) och ogiltiga piloten
+  v3 (08–21Z) är historik; v2 <08Z. Settlement stämplar efter capturetid,
+  aldrig efter versionen som råkar vara aktiv när kön körs. En ändrad
+  datagenererande process kräver alltid ny signalversion.
   Provider-id hanteras som ogenomskinlig STRÄNG i presence, journal och
   settlement (Flashscores är alfanumeriskt: `SKg88Q3T`). Tabellen
   `oddset_live_moment_settlement.event_id` är därför TEXT; ändringen görs

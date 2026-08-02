@@ -67,7 +67,10 @@ HEADERS = {
 TIMEOUT_S = 10.0
 MAX_MATCHES = 60          # samma tak som FotMob-varvet
 BUDGET_S = 45.0           # väggklocka; radarn får aldrig äta tickens budget
-CAPTURE_VERSION = "flashscore-live-v3"
+# v4 (2026-08-02): ställningen räddas ur per-match-feeden `df_sur` när
+# dagsfeeden är CDN-gammal; minuten censureras vid stadiebyte i stället för
+# att ticka vidare i fel stadium. v3 slopade hela klockan; v2 kastade raden.
+CAPTURE_VERSION = "flashscore-live-v4"
 PRESENCE_KEY = "live_radar_flashscore_presence"
 # Dagsfeeden bär klocka/ställning och statistikfeeden chansmåtten. Utan en
 # separat DB-kolumn för metadataobservationen sparas bara par som observerats
@@ -274,6 +277,58 @@ def parse_stats(text: str) -> dict:
     return out
 
 
+SUMMARY_FEED = "df_sur_1_{match_id}"
+
+
+def parse_summary(text: str) -> Optional[dict]:
+    """Färsk ställning + stadium ur per-match-sammanfattningen (`df_sur`).
+
+    Dagsfeeden är CDN-fryst uppåt två minuter medan `df_sur` är sekundfärsk.
+    Fältregeln verifierades i drift 2026-08-02 mot 19 samtidiga livematcher,
+    inklusive det diskriminerande andrahalvleksfallet Cappellen–Lierse 0–6
+    (`BA/BB`=(0,2) + `BC/BD`=(0,4)):
+
+    * ``BA/BB`` = första halvlekens mål, ``BC/BD`` = andra halvlekens;
+      löpande ställning är summan. I andra halvlek är BC/BD alltid med, även
+      vid 0–0 — så en saknad BC/BD betyder första halvlek, inte noll.
+    * ``AT/AU`` = löpande ställning i matcher utan halvleksuppdelning
+      (observerat i träningsmatch med stadiekod 2).
+    * ``AC`` = stadiekod, samma taxonomi som dagsfeedens ``stage``.
+
+    Okänd struktur ⇒ None — en gissad ställning kan fabricera en signal.
+    """
+    records = _records(text)
+    if not records:
+        return None
+    # `BC/BD` ligger i en EGEN post efter `~` (observerat: `...BA÷2¬BB÷0¬~BC÷0
+    # ¬BD÷0¬~...`), så huvudfälten samlas över alla poster med första
+    # förekomsten som vinnare — samma regel som `_records` använder inom en post.
+    head: dict[str, str] = {}
+    for fields in records:
+        for key, value in fields.items():
+            head.setdefault(key, value)
+    stage = head.get("AC")
+    p1 = (_i(head.get("BA")), _i(head.get("BB")))
+    p2 = (_i(head.get("BC")), _i(head.get("BD")))
+    total = (_i(head.get("AT")), _i(head.get("AU")))
+    if None not in p1 and None not in p2:
+        score = (p1[0] + p2[0], p1[1] + p2[1])
+    elif None not in p1:
+        score = p1
+    elif None not in total:
+        score = total
+    else:
+        return None
+    return {"home_score": score[0], "away_score": score[1], "stage": stage}
+
+
+def _i(value) -> Optional[int]:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 class Flashscore:
     """Egen HTTP-väg — delas medvetet inte med någon spelbar pipeline."""
 
@@ -329,6 +384,11 @@ class Flashscore:
         """Kumulativ helmatchsstatistik + dess EGNA observationstid."""
         text, observed_at = self._get(STATS_FEED.format(match_id=match_id))
         return parse_stats(text), observed_at
+
+    def summary(self, match_id: str) -> tuple[Optional[dict], dt.datetime]:
+        """Färsk ställning/stadium ur `df_sur` + dess egen observationstid."""
+        text, observed_at = self._get(SUMMARY_FEED.format(match_id=match_id))
+        return parse_summary(text), observed_at
 
     def absences(self, match_id: str) -> tuple[list[dict], dt.datetime]:
         """Frånvarande spelare per sida + observationstid.
@@ -507,19 +567,43 @@ def collect(store, known_matches: Optional[list[dict]] = None) -> dict:
                             f"{match['home']}: stats {int(-skew_s)} s äldre "
                             "än ställningen")
                         continue
-                    # Ställningen är gammal men STATISTIKEN är färsk. Att kasta
-                    # hela raden gav bort Flashscores bättre chansmått till en
-                    # sämre källa (Nordic United 2026-08-02). Dagsfeeden är
-                    # CDN-fryst upp mot två minuter, så klockan slopas i stället
-                    # för hela capturen: minut/ställning blir NULL och
-                    # `_signal_with_basis` lånar dem från den verifierade
-                    # ankarraden med egen proveniens. Ingen gammal ställning
-                    # lagras — en gissad ställning kan fabricera "hög xG men
-                    # inget mål", en saknad kan bara utebli.
+                    # Ställningen i dagsfeeden är gammal men STATISTIKEN är
+                    # färsk. Rädda ställningen ur per-match-feeden `df_sur`
+                    # (sekundfärsk, verifierad fältregel 2026-08-02) i stället
+                    # för att slopa den — olänkade kort visade annars
+                    # "resultat saknas" på matcher Flashscore bevisligen har.
                     clock_ok = False
-                    errors.append(
-                        f"{match['home']}: klocka slopad "
-                        f"(ställningen {int(skew_s)} s äldre än stats)")
+                    try:
+                        fresh, fresh_at = api.summary(match["flashscore_id"])
+                    except Exception as exc:              # noqa: BLE001
+                        fresh, fresh_at = None, None
+                        errors.append(
+                            f"{match['home']}: summary {type(exc).__name__}")
+                    # SAMMA riktade vakt som mot dagsfeeden: positiv skew =
+                    # statistiken nyare än summary-ställningen = ett osett mål
+                    # kan fabricera gapet (20 s). Negativ = summaryn nyare än
+                    # statistiken = ett mål kan bara krympa gapet (180 s). En
+                    # symmetrisk vakt här föll på CDN-jitter åt det ofarliga
+                    # hållet (Egersund/Kongsvinger 2026-08-02).
+                    sur_skew = ((observed_at - fresh_at).total_seconds()
+                                if fresh_at is not None else None)
+                    if fresh is not None and sur_skew is not None \
+                            and not skew_rejected(sur_skew):
+                        match = {**match,
+                                 "home_score": fresh["home_score"],
+                                 "away_score": fresh["away_score"]}
+                        if fresh.get("stage") != str(match.get("stage")):
+                            # Stadiet har bytt sedan dagsfeeden frös (t.ex.
+                            # halvtid). Ny starttid saknas ⇒ minuten censureras
+                            # hellre än tickar vidare i fel stadium.
+                            match = {**match, "stage": fresh.get("stage"),
+                                     "stage_started_ts": None}
+                        clock_ok = True
+                    else:
+                        errors.append(
+                            f"{match['home']}: klocka slopad (ställningen "
+                            f"{int(skew_s)} s äldre än stats, summary "
+                            f"{'saknas' if fresh is None else 'för gammal'})")
             # Klocka/ställning och statistik kommer från två feedanrop. Statens
             # tid gäller alltid; klockan följer bara med när den är koherent.
             store.live_flashscore_save({

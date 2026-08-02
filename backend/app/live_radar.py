@@ -38,7 +38,7 @@ RADAR_VERSION = "chance-gap-shadow-v5"
 # och den rena v5-kohorten. ÄNDRA ALDRIG en gräns som passerats.
 RADAR_V3_STARTED_AT = "2026-08-01T08:00:00Z"
 RADAR_V4_STARTED_AT = "2026-08-01T21:00:00Z"
-RADAR_VERSION_STARTED_AT = "2026-08-02T18:00:00Z"
+RADAR_VERSION_STARTED_AT = "2026-08-03T06:00:00Z"
 RECENT_MINUTES = 15
 RECENT_TOLERANCE_MIN = 6
 MAX_DISPLAY_AGE_MIN = 12
@@ -781,48 +781,85 @@ def _fotmob_for(match: dict, series: list[list[dict]],
     dubbletter blir den kvarvarande FotMob-serien i stället ett eget kort,
     aldrig statistik på två olika matcher.
     """
-    candidates = []
+    candidates: list[tuple[list[dict], bool]] = []
     for captures in series:
         head = captures[-1]
-        fotmob_id = int(head["fotmob_id"])
         if head.get("league") != match.get("league"):
             continue
-        if (_same_start(head, match) and
-                _same_team(head.get("home"), match.get("home")) and
-                _same_team(head.get("away"), match.get("away"))):
-            candidates.append(captures)
+        if not _same_start(head, match):
+            continue
+        direct = (_same_team(head.get("home"), match.get("home")) and
+                  _same_team(head.get("away"), match.get("away")))
+        mirrored = (_same_team(head.get("home"), match.get("away")) and
+                    _same_team(head.get("away"), match.get("home")))
+        if direct or mirrored:
+            candidates.append((captures, mirrored and not direct))
     # En unik kandidat krävs FÖRE claimed-filtret. Om två provider-events har
     # samma identitet får det första kortet aldrig godtyckligt "ta" den ena
     # och därmed göra den andra skenbart unik för nästa kort.
     if len(candidates) != 1:
         return None
-    candidate = candidates[0]
+    candidate, is_mirrored = candidates[0]
     if claimed is not None and int(candidate[-1]["fotmob_id"]) in claimed:
         return None
+    if is_mirrored:
+        # Spegelvänd träff: serien uttrycks i ankarets orientering så att
+        # statistiken aldrig hamnar på fel lag. Se `_mirrored_capture`.
+        return [_mirrored_capture(row) for row in candidate]
     return candidate
+
+
+def _mirrored_capture(row: dict) -> dict:
+    """Uttryck en providerrad i motsatt hemma/borta-orientering.
+
+    Providrar är oense om hemmalaget på neutral plan (Sofascore `Udinese –
+    Trabzonspor`, Flashscore/FotMob tvärtom, 2026-08-02). En länk som bara
+    byter sida hade gjort lagens statistik omvänd — därför speglas VARJE
+    sidoberoende fält, så serien blir exakt vad providern hade rapporterat om
+    den delat ankarets orientering. Två namnkonventioner täcks: prefix
+    (`home_score`) och suffix (`xg_home`).
+    """
+    out = dict(row)
+    out["home"], out["away"] = row.get("away"), row.get("home")
+    out["home_score"], out["away_score"] = (row.get("away_score"),
+                                            row.get("home_score"))
+    for key in row:
+        if key.endswith("_home"):
+            partner = f"{key[:-5]}_away"
+            out[key], out[partner] = row.get(partner), row.get(key)
+    return out
 
 
 def _series_for(match: dict, series: list[list[dict]], id_key: str,
                 claimed: set) -> Optional[list[dict]]:
     """Samma konservativa länkning som `_fotmob_for`, för valfri provider.
 
-    Spegelvänd hemma/borta accepteras inte här: en länk som byter sida skulle
-    göra lagens statistik omvänd. Ingen träff = matchen står på egna ben.
+    Spegelvänd hemma/borta accepteras — källorna är bevisat oense om
+    hemmalaget (Udinese–Trabzonspor låg som två kort 2026-08-02) — men då
+    returneras serien TRANSPONERAD till ankarets orientering via
+    `_mirrored_capture`, aldrig rå. Tvetydighet länkar aldrig.
     """
-    candidates = []
+    candidates: list[tuple[list[dict], bool]] = []
     for captures in series:
         head = captures[-1]
-        key = str(head[id_key])
         if head.get("league") != match.get("league"):
             continue
-        if (_same_start(head, match) and
-                _same_team(head.get("home"), match.get("home")) and
-                _same_team(head.get("away"), match.get("away"))):
-            candidates.append(captures)
+        if not _same_start(head, match):
+            continue
+        direct = (_same_team(head.get("home"), match.get("home")) and
+                  _same_team(head.get("away"), match.get("away")))
+        mirrored = (_same_team(head.get("home"), match.get("away")) and
+                    _same_team(head.get("away"), match.get("home")))
+        if direct or mirrored:
+            candidates.append((captures, mirrored and not direct))
     if len(candidates) != 1:
         return None
-    candidate = candidates[0]
-    return None if str(candidate[-1][id_key]) in claimed else candidate
+    candidate, is_mirrored = candidates[0]
+    if str(candidate[-1][id_key]) in claimed:
+        return None
+    if is_mirrored:
+        return [_mirrored_capture(row) for row in candidate]
+    return candidate
 
 
 _FOTMOB_VIEW_KEYS = (

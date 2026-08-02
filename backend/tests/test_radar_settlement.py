@@ -17,7 +17,7 @@ from app import flashscore, fotmob, live_radar, live_settlement
 from app.storage import Storage
 from scripts import migrera_radar_event_id_text, migrera_radar_settlement
 
-# Ligger efter v5-gränsen (2026-08-02T18:00Z) så att T0-captures hamnar i den
+# Ligger efter v5-gränsen (2026-08-03T06:00Z) så att T0-captures hamnar i den
 # AKTUELLA kohorten — facit rapporterar bara aktuell RADAR_VERSION.
 NOW = dt.datetime(2026, 8, 3, 12, 0, tzinfo=dt.timezone.utc)
 T0 = NOW - dt.timedelta(hours=5)     # stängd serie: sista capture > 3 h gammal
@@ -202,7 +202,7 @@ class RadarSettlementTests(unittest.TestCase):
                                tzinfo=dt.timezone.utc)),
             ("v4", dt.datetime(2026, 8, 1, 21, 1,
                                tzinfo=dt.timezone.utc)),
-            ("v5", dt.datetime(2026, 8, 2, 18, 1,
+            ("v5", dt.datetime(2026, 8, 3, 6, 1,
                                tzinfo=dt.timezone.utc)),
         )
         for event_id, captured_at in captures:

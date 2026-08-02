@@ -108,7 +108,7 @@ class LiveRadarTests(unittest.TestCase):
                          live_radar.RADAR_V3_STARTED_AT)
         self.assertEqual("2026-08-01T21:00:00Z",
                          live_radar.RADAR_V4_STARTED_AT)
-        self.assertEqual("2026-08-02T18:00:00Z",
+        self.assertEqual("2026-08-03T06:00:00Z",
                          live_radar.RADAR_VERSION_STARTED_AT)
         for key in ("bestadeild", "premier_league", "serie_a", "la_liga",
                     "bundesliga"):
@@ -563,6 +563,45 @@ class LiveRadarTests(unittest.TestCase):
         second = dict(u23, fotmob_id=4, home="Inter")
         self.assertIsNone(live_radar._fotmob_for(anchor, [[first], [second]]),
                           "tvetydiga kandidater ska aldrig väljas efter ordning")
+
+    def test_mirrored_provider_series_is_transposed_never_raw(self):
+        """Udinese–Trabzonspor 2026-08-02: Sofascore hade Udinese hemma,
+        Flashscore/FotMob tvärtom — matchen låg som två kort. Spegelvänd länk
+        accepteras nu, men serien MÅSTE uttryckas i ankarets orientering:
+        rå länkning hade satt Trabzonspors xG på Udinese."""
+        anchor = {"league": "friendlies", "home": "Udinese",
+                  "away": "Trabzonspor", "start_at": START_AT}
+        fs_row = {"flashscore_id": "AbC123", "league": "friendlies",
+                  "home": "Trabzonspor", "away": "Udinese",
+                  "start_at": START_AT, "minute": 60,
+                  "home_score": 1, "away_score": 0,
+                  "xg_home": 2.0, "xg_away": 0.5,
+                  "shots_home": 12, "shots_away": 3}
+
+        linked = live_radar._series_for(anchor, [[fs_row]], "flashscore_id",
+                                        claimed=set())
+        self.assertIsNotNone(linked)
+        row = linked[-1]
+        # Ankarets orientering: Udinese är hemma, så Trabzonspors 2.0 xG och
+        # 1–0-ledning ska ligga på BORTA-sidan.
+        self.assertEqual("Udinese", row["home"])
+        self.assertEqual(0.5, row["xg_home"])
+        self.assertEqual(2.0, row["xg_away"])
+        self.assertEqual(0, row["home_score"])
+        self.assertEqual(1, row["away_score"])
+        self.assertEqual(3, row["shots_home"])
+        self.assertEqual("AbC123", row["flashscore_id"], "id är osidat")
+
+        # Direkt träff transponeras INTE.
+        rak = dict(fs_row, home="Udinese", away="Trabzonspor")
+        direkt = live_radar._series_for(anchor, [[rak]], "flashscore_id",
+                                        claimed=set())
+        self.assertEqual(2.0, direkt[-1]["xg_home"])
+
+        # Spegling får inte öppna för fel avspark (returmöte i dubbelmatch).
+        fel_start = dict(fs_row, start_at="2026-07-25T08:00:00Z")
+        self.assertIsNone(live_radar._series_for(
+            anchor, [[fel_start]], "flashscore_id", claimed=set()))
 
     def test_clockless_flashscore_row_borrows_the_anchor_clock(self):
         """Flashscores dagsfeed är CDN-fryst upp mot två minuter, så en färsk
