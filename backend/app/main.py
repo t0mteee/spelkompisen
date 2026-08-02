@@ -537,6 +537,9 @@ def pool_played_list():
                                               coupon["draw_number"])
                         states = [pool_played.event_state(e)
                                   for e in (raw.get("drawEvents") or [])]
+                        # Pågående matcher måste prissättas live — SvS odds i
+                        # payloaden är statiska prematch-odds hela omgången.
+                        pool_played.attach_live_odds(store, states)
                         item["live"] = pool_played.live_status(coupon, states)
                     except Exception as exc:      # noqa: BLE001
                         item["live_error"] = f"{type(exc).__name__}"

@@ -2629,10 +2629,15 @@ function PlayedLiveCard({ c, onForget }) {
             </tbody>
           </table>
           <p className="hint">
-            {live.chance_note ? live.chance_note
-              : live.chance_basis === 'simulerad'
-                ? 'Chans simulerad ur oddsen på kvarvarande matcher (för många kombinationer för exakt uppräkning).'
-                : 'Chans räknad exakt ur oddsen på kvarvarande matcher. En oavgjord match håller alla tecken öppna.'}
+            {live.chance_note ? `Ingen chans visas: ${live.chance_note}.`
+              : <>
+                {live.chance_basis === 'simulerad'
+                  ? 'Chans simulerad ur oddsen på kvarvarande matcher (för många kombinationer för exakt uppräkning).'
+                  : 'Chans räknad exakt ur oddsen på kvarvarande matcher.'}
+                {live.chance_live_matches > 0 && <> <b>{live.chance_live_matches} pågående
+                  {live.chance_live_matches === 1 ? ' match' : ' matcher'} prissatta live</b> —
+                  ställningen är alltså inräknad.</>}
+              </>}
           </p>
         </>
       )}

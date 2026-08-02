@@ -142,10 +142,24 @@ def event_state(draw_event: dict) -> dict:
             "event_number": draw_event.get("eventNumber"),
             "cancelled": bool(draw_event.get("cancelled")),
             "probs": _event_probs(draw_event),
+            "home": _participant(match, "home"),
+            "away": _participant(match, "away"),
+            "start": match.get("matchStart"),
+            # Startad men inte klar ⇒ SvS statiska prematch-odds beskriver inte
+            # längre matchen. Flaggan styr om livepris måste hämtas.
+            "in_progress": bool(score) and not final,
             "description": (draw_event.get("description")
-                            or (match.get("participants") and " - ".join(
-                                p.get("name", "") for p in match["participants"]))
+                            or " - ".join(
+                                p for p in (_participant(match, "home"),
+                                            _participant(match, "away")) if p)
                             or None)}
+
+
+def _participant(match: dict, side: str) -> Optional[str]:
+    for p in (match.get("participants") or []):
+        if p.get("type") == side:
+            return p.get("name")
+    return None
 
 
 def _event_probs(draw_event: dict) -> Optional[dict]:
@@ -176,6 +190,58 @@ def _event_probs(draw_event: dict) -> Optional[dict]:
         total = sum(streck.values())
         return {sign: value / total for sign, value in streck.items()}
     return None
+
+
+def attach_live_odds(store: Storage, states: list[dict]) -> None:
+    """Byt prematch-sannolikheten mot LIVEpris för matcher som redan rullar.
+
+    SvS pooldata bär statiska prematch-odds hela omgången. AIK–Örgryte låg
+    0–2 i halvtid med 1,55 på AIK (≈60 %) medan Kambis livepris stod i 9,00
+    (≈8 %) — en kupongchans räknad på det förra är inte ungefär rätt, den är
+    fel. Matcher som INTE startat rör vi inte; där är prematch rätt pris.
+
+    Hittas inget öppet livepris nollas sannolikheten i stället för att falla
+    tillbaka på prematch. Chansberäkningen visar då ingen siffra alls, vilket
+    är sanningen: vi vet inte.
+    """
+    from . import kambi
+    from .analysis import _power_probs
+    running = [s for s in states if s.get("in_progress")]
+    if not running:
+        return
+    catalogue = kambi.live_events()      # ETT anrop för hela omgången
+    for state in running:
+        state["probs_basis"] = "live"
+        event_id = _kambi_id_for(catalogue, state)
+        prices = kambi.live_1x2(event_id) if event_id else {}
+        if len(prices) == 3:
+            state["probs"] = _power_probs({s: 1 / o for s, o in prices.items()})
+        else:
+            state["probs"] = None
+            state["probs_basis"] = "live_saknas"
+
+
+def _kambi_id_for(catalogue: list[dict], state: dict) -> Optional[str]:
+    """Poolmatch → Kambis live-event via normaliserade lagnamn.
+
+    Listan slås upp direkt i stället för via `oddset_matches`: poolerna
+    innehåller Ettan, Elitettan och utländska serier som ligger helt utanför
+    Oddsets tio ligor, så en Oddset-slagning tappade de flesta.
+
+    Hemma/borta måste stämma på SAMMA sida — en spegelvänd träff kan vara ett
+    returmöte, och ett pris på fel lag är värre än inget pris. Entydighet krävs.
+    """
+    from .live_radar import _same_team
+    home, away = state.get("home"), state.get("away")
+    if not (home and away):
+        return None
+    # `_same_team` och inte strikt `norm_team`-likhet: SvS och Kambi skiljer sig
+    # på föreningssuffix (`Kristiansund` mot `Kristiansund BK`), svensk genitiv
+    # och de observerade aliasen. Spärrarna mot U23/B-lag och prefixkrockar
+    # följer med på köpet.
+    hits = {row["id"] for row in catalogue
+            if _same_team(row["home"], home) and _same_team(row["away"], away)}
+    return hits.pop() if len(hits) == 1 else None
 
 
 def _decimal(value) -> Optional[float]:
@@ -268,11 +334,20 @@ def _chance_per_level(rows: list[str], col_states: list[Optional[dict]],
                  if not (col_states[i] and col_states[i].get("final")
                          and not col_states[i].get("cancelled"))]
     probs = []
+    live_used = 0
     for i in open_cols:
         state = col_states[i] or {}
         p = state.get("probs")
         if not p or abs(sum(p.values()) - 1.0) > 0.01:
-            return {"chance_note": "saknar odds på kvarvarande matcher"}
+            # Namnge matchen: live-Ö/U suspenderas i sekunder vid farliga
+            # lägen, så det här är oftast övergående och inte en systemlucka.
+            namn = state.get("description") or "en kvarvarande match"
+            note = (f"{namn} saknar öppet livepris just nu"
+                    if state.get("in_progress")
+                    else f"{namn} saknar odds")
+            return {"chance_note": note}
+        if state.get("probs_basis") == "live":
+            live_used += 1
         probs.append(p)
 
     base: dict[tuple, int] = {}
@@ -321,7 +396,8 @@ def _chance_per_level(rows: list[str], col_states: list[Optional[dict]],
                     hit[lvl] += 1.0 / CHANCE_SAMPLES
         basis = "simulerad"
     return {"chance_per_level": {lvl: round(hit[lvl], 6) for lvl in levels},
-            "chance_basis": basis, "chance_open_matches": len(open_cols)}
+            "chance_basis": basis, "chance_open_matches": len(open_cols),
+            "chance_live_matches": live_used}
 
 
 def _mark_incomplete(store: Storage, coupon: dict, note: str) -> dict:

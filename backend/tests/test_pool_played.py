@@ -2,8 +2,9 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from app import pool_played
+from app import kambi, pool_played
 from app.storage import Storage
 
 
@@ -294,6 +295,92 @@ class ChancePerLevelTests(unittest.TestCase):
         self.assertAlmostEqual(0.6, folk["1"], places=6)
 
         self.assertIsNone(pool_played._event_probs({}))
+
+
+CATALOGUE = {"id": "1026062550", "home": "AIK", "away": "Örgryte IS"}
+
+
+class LiveOddsForRunningMatchTests(unittest.TestCase):
+    """SvS pooldata bär statiska prematch-odds hela omgången. AIK–Örgryte låg
+    0–2 i halvtid med 1,55 på AIK (≈60 %) medan livepriset stod i 9,00 (≈8 %)."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+        self.store.conn.execute(
+            "INSERT INTO oddset_matches(id, league, home, away, start, kambi_id)"
+            " VALUES('svs:1','allsvenskan','AIK','Örgryte IS',"
+            "'2026-08-02T14:30:00Z','1026062550')")
+        self.store._commit()
+
+    def tearDown(self) -> None:
+        self.store.close()
+        self.tmp.cleanup()
+
+    def _state(self, **over):
+        state = {"event_number": 1, "sign": "2", "final": False,
+                 "cancelled": False, "in_progress": True,
+                 "home": "AIK", "away": "Örgryte",
+                 "start": "2026-08-02T16:30:00+02:00",
+                 "probs": {"1": 0.60, "X": 0.25, "2": 0.15}}
+        state.update(over)
+        return state
+
+    def test_running_match_is_repriced_from_the_live_market(self):
+        state = self._state()
+        with patch.object(kambi, "live_events", return_value=[CATALOGUE]), \
+             patch.object(kambi, "live_1x2",
+                          return_value={"1": 9.0, "X": 4.5, "2": 1.3}):
+            pool_played.attach_live_odds(self.store, [state])
+        self.assertEqual("live", state["probs_basis"])
+        self.assertLess(state["probs"]["1"], 0.15, "prematch-favoriten ska falla")
+        self.assertGreater(state["probs"]["2"], 0.65)
+        self.assertAlmostEqual(1.0, sum(state["probs"].values()), places=6)
+
+    def test_missing_live_price_clears_instead_of_falling_back(self):
+        state = self._state()
+        with patch.object(kambi, "live_events", return_value=[CATALOGUE]), \
+             patch.object(kambi, "live_1x2", return_value={}):
+            pool_played.attach_live_odds(self.store, [state])
+        self.assertIsNone(state["probs"], "prematch får aldrig återanvändas")
+        self.assertEqual("live_saknas", state["probs_basis"])
+
+    def test_not_started_match_keeps_its_prematch_price(self):
+        state = self._state(in_progress=False)
+        with patch.object(kambi, "live_events",
+                          side_effect=AssertionError("får inte anropas")), \
+             patch.object(kambi, "live_1x2",
+                          side_effect=AssertionError("får inte anropas")):
+            pool_played.attach_live_odds(self.store, [state])
+        self.assertEqual(0.60, state["probs"]["1"])
+
+    def test_lookup_matches_on_normalised_names(self):
+        catalogue = [{"id": "1026062550", "home": "AIK", "away": "Örgryte IS"},
+                     {"id": "9", "home": "Sirius", "away": "Häcken"}]
+        self.assertEqual("1026062550",
+                         pool_played._kambi_id_for(catalogue, self._state()))
+
+    def test_mirrored_fixture_is_never_matched(self):
+        """Spegelvänd träff kan vara returmötet. Ett pris på fel lag är värre
+        än inget pris."""
+        catalogue = [{"id": "9", "home": "Örgryte IS", "away": "AIK"}]
+        self.assertIsNone(pool_played._kambi_id_for(catalogue, self._state()))
+
+    def test_ambiguous_link_gives_no_id(self):
+        catalogue = [{"id": "1", "home": "AIK", "away": "Örgryte IS"},
+                     {"id": "2", "home": "AIK", "away": "Örgryte"}]
+        self.assertIsNone(pool_played._kambi_id_for(catalogue, self._state()))
+
+    def test_chance_is_withheld_when_a_running_match_has_no_live_price(self):
+        states = [{"event_number": 1, "sign": "1", "final": True,
+                   "cancelled": False, "probs": None},
+                  {"event_number": 2, "sign": "2", "final": False,
+                   "cancelled": False, "in_progress": True, "probs": None,
+                   "probs_basis": "live_saknas"}]
+        live = pool_played.live_status(
+            {"rows_text": "11\n12", "events_order": "[1,2]"}, states)
+        self.assertNotIn("chance_per_level", live)
+        self.assertIn("livepris", live["chance_note"])
 
 
 if __name__ == "__main__":

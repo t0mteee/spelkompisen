@@ -71,6 +71,12 @@ LIVE_TEAM_ALIASES = {
     # blockerade länken. Bevisat par 2026-08-02: samma liga, samma motståndare
     # (Kristiansund) och samma avspark 15:00Z.
     "kfum": "kfum oslo",
+    # Poolkupongernas livepris (2026-08-02): SvS skriver `Ålesund` och
+    # `Sarpsborg`, Kambi `Aalesund` och `Sarpsborg 08`. Å→Aa är norsk/dansk
+    # translitteration som `norm_team` inte kan känna till, och enordsspärren
+    # stoppar suffixet. Båda entydiga i norsk fotboll på den här nivån.
+    "alesund": "aalesund",
+    "sarpsborg": "sarpsborg 08",
 }
 
 # Bekräftat OLIKA klubbar som normaliseringen annars slår ihop. Samma princip

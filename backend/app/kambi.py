@@ -262,3 +262,77 @@ def live_total(event_id: str, timeout: float = 8.0,
     over, under, line, _tag = min(
         main, key=lambda pair: abs(pair[0] - 2) + abs(pair[1] - 2))
     return {"ou": {"O": over, "U": under, "line": line}}
+
+
+def live_1x2(event_id: str, timeout: float = 8.0,
+             operator: str = "svenskaspel") -> dict:
+    """Öppet 1X2 på FULLTID — under matchen är det ett LIVEpris.
+
+    Poolkupongens chansberäkning använder annars SvS statiska prematch-odds.
+    De blir grovt fel så snart en match rullar: AIK–Örgryte låg 0–2 i halvtid
+    med prematch 1,55 på AIK (≈60 %) medan Kambis livepris stod i 9,00 (≈10 %).
+
+    Kriteriet är `Fulltid`/`Full Time` med `lifetime == FULL_TIME` — aldrig
+    "Andra halvlek", "Nästa mål" eller 3-vägshandicap, som alla också har
+    utfallen 1/X/2. Suspension spärras på båda nivåerna precis som i
+    `live_total`: ett synligt men stängt pris är inget pris.
+
+    Retur: ``{"1": odds, "X": odds, "2": odds}`` eller ``{}``.
+    """
+    base = BASE_TPL.format(op=operator)
+    global last_age_s
+    try:
+        r = httpx.get(f"{base}/betoffer/event/{event_id}.json", params=PARAMS,
+                      headers=HEADERS, timeout=timeout)
+        r.raise_for_status()
+        last_age_s = _age_s(r)
+        offers = (r.json() or {}).get("betOffers") or []
+    except Exception:  # noqa: BLE001 — best-effort, som övriga klienter
+        return {}
+
+    want = {"OT_ONE": "1", "OT_CROSS": "X", "OT_TWO": "2"}
+    for offer in offers:
+        criterion = offer.get("criterion") or {}
+        label = (criterion.get("label") or "").strip()
+        english = (criterion.get("englishLabel") or "").strip()
+        if ((label != "Fulltid" and english != "Full Time")
+                or criterion.get("lifetime") != "FULL_TIME"
+                or (offer.get("betOfferType") or {}).get("name") != "Match"):
+            continue
+        if offer.get("suspended"):
+            continue
+        prices: dict[str, float] = {}
+        for outcome in offer.get("outcomes") or []:
+            sign = want.get(outcome.get("type"))
+            odds = outcome.get("odds")
+            if sign and odds and outcome.get("status") == "OPEN":
+                prices[sign] = odds / 1000
+        if len(prices) == 3:
+            return prices
+    return {}
+
+
+def live_events(timeout: float = 15.0, operator: str = "svenskaspel") -> list[dict]:
+    """Alla pågående matcher hos operatören: ``[{id, home, away, group}]``.
+
+    Poolkupongernas matcher ligger till stor del UTANFÖR Oddsets tio ligor, så
+    en slagning via `oddset_matches` täcker bara en bråkdel. Live-listan är ett
+    enda anrop och når alla — Ettan, Elitettan, utländska serier.
+    """
+    base = BASE_TPL.format(op=operator)
+    global last_age_s
+    try:
+        r = httpx.get(f"{base}/event/live/open.json", params=PARAMS,
+                      headers=HEADERS, timeout=timeout)
+        r.raise_for_status()
+        last_age_s = _age_s(r)
+        rows = (r.json() or {}).get("liveEvents") or []
+    except Exception:  # noqa: BLE001
+        return []
+    out = []
+    for row in rows:
+        event = row.get("event") or {}
+        if event.get("id") and event.get("homeName") and event.get("awayName"):
+            out.append({"id": str(event["id"]), "home": event["homeName"],
+                        "away": event["awayName"], "group": event.get("group")})
+    return out
