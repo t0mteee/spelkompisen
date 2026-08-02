@@ -541,6 +541,17 @@ class LiveRadarTests(unittest.TestCase):
         self.assertFalse(live_radar._same_team("Inter", "Inter Miami"))
         self.assertIsNone(live_radar._fotmob_for(anchor, [[u23]]))
 
+        # MLS-natten 2026-08-01/02: `Los Angeles FC` normaliseras till
+        # `los angeles` och flerords-prefixregeln gjorde det till samma lag som
+        # `Los Angeles Galaxy`. Två MLS-klubbar som spelar samtidigt — en falsk
+        # merge blandar ställning, statistik och odds från skilda matcher.
+        self.assertFalse(live_radar._same_team(
+            "Los Angeles FC", "Los Angeles Galaxy"))
+        self.assertFalse(live_radar._same_team("Los Angeles FC", "LA Galaxy"))
+        # Spärren får inte äta det legitima flerords-prefixet.
+        self.assertTrue(live_radar._same_team(
+            "New England", "New England Revolution"))
+
         no_start = dict(u23, fotmob_id=2, home="Inter", start_at=None)
         self.assertIsNone(live_radar._fotmob_for(anchor, [[no_start]]))
 
@@ -548,6 +559,15 @@ class LiveRadarTests(unittest.TestCase):
         second = dict(u23, fotmob_id=4, home="Inter")
         self.assertIsNone(live_radar._fotmob_for(anchor, [[first], [second]]),
                           "tvetydiga kandidater ska aldrig väljas efter ordning")
+
+    def test_observed_provider_aliases_link_the_same_club(self):
+        """Utan dessa blev samma match två journalkort: odds på den ena raden,
+        facit på den andra, och noll bidrag till blindkohorten."""
+        self.assertTrue(live_radar._same_team("LA Galaxy", "Los Angeles Galaxy"))
+        self.assertTrue(live_radar._same_team("Atlanta Utd", "Atlanta United"))
+        # Aliaset ska verka åt båda håll och tåla providerns egen stavning.
+        self.assertTrue(live_radar._same_team("Los Angeles Galaxy", "LA Galaxy"))
+        self.assertTrue(live_radar._same_team("CF Montreal", "CF Montréal"))
 
     def test_fotmob_ar_primar_och_vinner_vid_lika_bra_data(self):
         """Samans beslut 2026-07-28: Sofascore slutar vara primär källa.

@@ -208,6 +208,17 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
   settlement (Flashscores är alfanumeriskt: `SKg88Q3T`). Tabellen
   `oddset_live_moment_settlement.event_id` är därför TEXT; ändringen görs
   endast med `scripts/migrera_radar_event_id_text.py` + backup.
+  **Livelagnamn (2026-08-02):** `live_radar._same_team` styr TRE länkar —
+  provider↔provider (dubbletter), livekort↔Oddset (`no_canonical_match` = inget
+  live-odds) och signal↔resultat (facit). Ett namn som inte matchar ger därför
+  två journalkort där odds hamnar på den ena raden och facit på den andra;
+  matchen bidrar med NOLL till blindkohorten trots att båda delarna finns.
+  Observerade par går i `LIVE_TEAM_ALIASES`, aldrig i Oddsets `TEAM_ALIASES`
+  (som styr modellidentitet). Flerords-prefixregeln är farlig: `Los Angeles FC`
+  normaliseras till `los angeles` och blev därmed samma lag som
+  `Los Angeles Galaxy`. Kända falska par skrivs explicit i
+  `LIVE_TEAM_REJECTED` — samma princip som `TEAM_REJECTED_LINKS`, aldrig en
+  generell regel.
   Notiser går i Oddset-varvet, bakom **notisvakten** (presence-set: larm kräver att
   priset observerades i det aktuella lyckade varvet).
 - **WP2-prisregel:** `fetched_at` = prisförändring, `last_seen_at` = senaste

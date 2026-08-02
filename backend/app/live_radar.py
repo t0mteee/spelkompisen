@@ -43,6 +43,25 @@ LIVE_TEAM_ALIASES = {
     "gyori eto": "eto gyor",
     # Samma driftverifiering fann `RSC Anderlecht` ↔ `Anderlecht`.
     "rsc anderlecht": "anderlecht",
+    # MLS-natten 2026-08-01/02: Sofascore `LA Galaxy` ↔ Flashscore
+    # `Los Angeles Galaxy`, och Flashscore `Atlanta Utd` ↔ Sofascore
+    # `Atlanta United`. Båda gav dubbelt journalkort där odds hamnade på den
+    # ena raden och facit på den andra — matchen bidrog alltså med NOLL till
+    # blindkohorten trots att båda delarna fanns i databasen.
+    "la galaxy": "los angeles galaxy",
+    "atlanta utd": "atlanta united",
+}
+
+# Bekräftat OLIKA klubbar som normaliseringen annars slår ihop. Samma princip
+# som `oddset_data.TEAM_REJECTED_LINKS` (Egersund ≠ Haugesund): kända falska
+# par skrivs ut explicit, aldrig via en generell regel.
+#
+# `Los Angeles FC` normaliseras till `los angeles` (FC är föreningssuffix), och
+# flerords-prefixregeln nedan gjorde då `los angeles` ≡ `los angeles galaxy`.
+# LAFC och LA Galaxy är två MLS-klubbar som spelar samtidigt — en falsk merge
+# hade blandat ställning, statistik och odds från skilda matcher.
+LIVE_TEAM_REJECTED = {
+    frozenset({"los angeles", "los angeles galaxy"}),
 }
 
 # EGEN HTTP-VÄG (2026-07-25). Radarn använde `oddset_data._sofa_get` — samma
@@ -663,6 +682,10 @@ def _same_team(a: str, b: str) -> bool:
 
     x, y = live_norm(a), live_norm(b)
     x, y = LIVE_TEAM_ALIASES.get(x, x), LIVE_TEAM_ALIASES.get(y, y)
+    # Bekräftat olika klubbar stoppas FÖRE all likhetslogik. Hellre två kort
+    # än att två verkliga matcher smälter ihop.
+    if frozenset({x, y}) in LIVE_TEAM_REJECTED:
+        return False
     # Truppmarkörer är IDENTITET, inte föreningsform. Den gamla prefixregeln
     # gjorde t.ex. `Inter` och `Inter U23` till samma lag. Hellre två kort än
     # att statistik och ställning från skilda matcher blandas.
