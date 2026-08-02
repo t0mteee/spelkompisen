@@ -197,6 +197,30 @@ MIN_MATCH_SCORE = 0.75
 TEAM_ALIASES = {
     "ibv": "vestmannaeyjar",
     "vestmennaeyjar": "vestmannaeyjar",
+    # 2026-08-02: football-data och Sofascore stavar samma klubb olika, vilket
+    # lade IN VARJE match TVÅ gånger i resultathistoriken — 588 dubblettpar.
+    # Alla tolv paren är BEVISADE: samma liga, samma datum, samma motståndare
+    # och identiskt resultat i båda raderna (noll oense). Kanonisk form är den
+    # entydiga: `Göteborg` ensamt är en stad, `IFK Göteborg` en klubb.
+    # Fem 1×-par från samma sökning avvisades som olika klubb (Málaga ≠
+    # Mallorca, Barnsley ≠ Doncaster) — träningsmatchdagar med två motstånd.
+    # Svensk/norsk genitiv:
+    "halmstads": "halmstad",
+    "djurgardens": "djurgarden",
+    "osters": "oster",
+    "aalesunds": "aalesund",
+    "odds": "odd",
+    # Föreningsprefix/-suffix som inte ryms i _NOISE (`ifk` är identitetsbärande
+    # i vardagligt tal men samma juridiska klass som `if`/`gif`):
+    "goteborg": "ifk goteborg",
+    "norrkoping": "ifk norrkoping",
+    "varnamo": "ifk varnamo",
+    "tromso il": "tromso",
+    "sandefjord fotball": "sandefjord",
+    "landskrona": "landskrona bois",
+    # Förkortningar:
+    "la galaxy": "los angeles galaxy",
+    "atlanta utd": "atlanta united",
 }
 
 

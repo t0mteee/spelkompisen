@@ -48,17 +48,11 @@ LIVE_TEAM_ALIASES = {
     # `Atlanta United`. Båda gav dubbelt journalkort där odds hamnade på den
     # ena raden och facit på den andra — matchen bidrog alltså med NOLL till
     # blindkohorten trots att båda delarna fanns i databasen.
-    "la galaxy": "los angeles galaxy",
-    "atlanta utd": "atlanta united",
-    # Allsvenskan/Superettan 2026-08-02: Flashscore skriver klubbarna utan
-    # `IFK` medan Sofascore/FotMob behåller det. `_NOISE` i oddset.py rymmer
-    # redan samma klass av föreningsform (`if`, `gif`, `bk`) men inte `ifk`.
-    # Det gav dubbelt livekort för IFK Göteborg – Degerfors. Alla tre paren är
-    # observerade i vår egen data och entydiga: ingen annan klubb i våra ligor
-    # heter Göteborg, Norrköping eller Värnamo.
-    "goteborg": "ifk goteborg",
-    "norrkoping": "ifk norrkoping",
-    "varnamo": "ifk varnamo",
+    # MLS- och Allsvenskan-paren (LA Galaxy, Atlanta Utd, IFK-klubbarna) låg
+    # först här men flyttades 2026-08-02 till Oddsets `TEAM_ALIASES`: de var
+    # inte bara en live-presentationsskillnad utan dubblerade även
+    # resultathistoriken, alltså en modellidentitetsfråga. `norm_team` körs
+    # före den här tabellen, så länken gäller fortfarande i radarn.
 }
 
 # Bekräftat OLIKA klubbar som normaliseringen annars slår ihop. Samma princip

@@ -213,8 +213,11 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
   live-odds) och signal↔resultat (facit). Ett namn som inte matchar ger därför
   två journalkort där odds hamnar på den ena raden och facit på den andra;
   matchen bidrar med NOLL till blindkohorten trots att båda delarna finns.
-  Observerade par går i `LIVE_TEAM_ALIASES`, aldrig i Oddsets `TEAM_ALIASES`
-  (som styr modellidentitet). Flerords-prefixregeln är farlig: `Los Angeles FC`
+  Ett par som bara skiljer sig i providerns PRESENTATION går i
+  `LIVE_TEAM_ALIASES`; ett par som är samma klubb även i resultathistoriken hör
+  hemma i Oddsets `TEAM_ALIASES` (modellidentitet) — se DB-åtgärden 2026-08-02,
+  där 588 dubblerade resultatrader slogs ihop.
+  Flerords-prefixregeln är farlig: `Los Angeles FC`
   normaliseras till `los angeles` och blev därmed samma lag som
   `Los Angeles Galaxy`. Kända falska par skrivs explicit i
   `LIVE_TEAM_REJECTED` — samma princip som `TEAM_REJECTED_LINKS`, aldrig en

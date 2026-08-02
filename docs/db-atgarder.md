@@ -829,3 +829,41 @@ DELETE FROM oddset_results
   "N matcher hoppade över (tidsbudget/matchtak)" i `error`. Nästa gång matcher
   är live skiljer loggen därför själv mellan icke-anropad, tomt svar,
   budgettak och per-match-fel.
+
+## 2026-08-02 — Slå ihop klubbar som lagrats under två stavningar
+
+- **Bakgrund:** `oddset_results` har lagnamnet i primärnyckeln
+  `(league, date, home, away)` och lagrar det normaliserat via
+  `oddset.norm_team`. football-data och Sofascore stavar samma klubb olika
+  (`norrkoping`/`ifk norrkoping`, `halmstads`/`halmstad`,
+  `atlanta utd`/`atlanta united`), så varje sådan match låg som TVÅ rader.
+  Historiken var alltså inte halverad utan **dubblerad**, vilket dubbelviktar
+  de klubbarna i modellanpassningen. Upptäckt via dubbla livekort för
+  IFK Göteborg – Degerfors.
+- **Bevisstandard:** paren identifierades som rader med samma liga, samma
+  datum och samma motståndare men olika stavning. **588 grupper, alla exakt två
+  rader, noll oense om resultatet.** Fem 1×-träffar avvisades som olika klubbar
+  (Málaga ≠ Mallorca, Barnsley ≠ Doncaster m.fl.) — träningsmatchdagar där ett
+  lag mötte två motstånd. Ingen fuzzy-matchning användes.
+- **Ändring:** 13 par in i `oddset.TEAM_ALIASES` (svensk/norsk genitiv,
+  föreningsprefix `IFK`, suffix `IL`/`Fotball`/`BoIS`, förkortningar
+  `LA Galaxy`/`Atlanta Utd`). De fem MLS-/IFK-paren flyttades samtidigt UT ur
+  `live_radar.LIVE_TEAM_ALIASES`: de var inte bara en live-presentations-
+  skillnad utan en modellidentitetsfråga. `norm_team` körs före livetabellen,
+  så radarlänken gäller fortfarande.
+- **Skript:** `backend/scripts/migrera_lagnamn_alias.py`.
+  **Backup:** `backend/data/backups/stryktips-2026-08-02-fore-lagnamn-alias.db`.
+- **Sammanslagningsregel:** football-data vinner som resultatfacit enligt
+  v4-kontraktet; vid lika källa vinner raden med flest ifyllda fält. En hel rad
+  behålls — aldrig ett hopplock av fält från två rader.
+- **Resultat:** `oddset_results` 11 796 → 11 206 rader (885 namn omskrivna,
+  590 hopslagna). `oddset_result_stats` 591 namn omskrivna, 0 hopslagna
+  (provider ingår i nyckeln, så inga krockar). `oddset_elo_rating` 2 namn
+  omskrivna. `integrity_check=ok`, 0 foreign-key-fel. Omkörning: 0/0/0.
+- **Drift:** endast snapshot-jobbet stoppades (enda skrivaren av de berörda
+  tabellerna) så live-insamlingen kunde fortsätta under pågående matcher.
+  Backend omstartad, snapshot-jobbet återstartat.
+- **Efterkontroll:** 515/515 tester gröna (5 nya migrationstester). Kvarvarande
+  namndubbletter: 5, samtliga de verifierade falska paren i `friendlies`.
+  V2.2-fingeravtrycket är OFÖRÄNDRAT (`v22-be50c514`) — `TEAM_ALIASES` ingår
+  inte i manifestets fingeravtryck. Live-vyn visar ett kort per match.
