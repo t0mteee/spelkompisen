@@ -532,7 +532,14 @@ def collect(store, known_matches: Optional[list[dict]] = None) -> dict:
                 "start_at": _iso(dt.datetime.fromtimestamp(
                     match["start_ts"], dt.timezone.utc))
                 if match.get("start_ts") else None,
-                "minute": minute_at(match, observed_at) if clock_ok else None,
+                # MINUTEN överlever alltid. Den härleds ur stadiets STARTTID,
+                # ett statiskt värde som inte ruttnar med feedens cacheålder —
+                # bara ställningen gör det. Att slopa båda var en överkorrigering
+                # som dolde matchminuten i onödan (Samans iakttagelse
+                # 2026-08-02). Enda felkällan är ett stadiebyte inom
+                # cachefönstret, vilket ger några minuters fel i visningen — inte
+                # en fabricerad signal.
+                "minute": minute_at(match, observed_at),
                 "home_score": match.get("home_score") if clock_ok else None,
                 "away_score": match.get("away_score") if clock_ok else None,
                 **stats})

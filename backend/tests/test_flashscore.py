@@ -230,7 +230,9 @@ class CollectTests(unittest.TestCase):
         self.assertEqual(1, report["saved"])
         self.assertIn("klocka slopad", report["partial_errors"][0])
         capture = self.store.live_flashscore_captures()[0]
-        self.assertIsNone(capture["minute"])
+        # MINUTEN överlever: den härleds ur stadiets statiska starttid och
+        # ruttnar inte med feedens cacheålder. Bara ställningen gör det.
+        self.assertIsNotNone(capture["minute"])
         self.assertIsNone(capture["home_score"])
         self.assertIsNone(capture["away_score"])
         self.assertIsNotNone(capture["shots_home"], "statistiken ska finnas kvar")
