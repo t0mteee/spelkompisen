@@ -965,6 +965,13 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
             smarkets_client.close()
         matchbook_client.close()
     store.meta_set("oddset_last_run", at)
+    if deep:
+        # Kontrollhistoriken beskärs på djupvarvet (var 30:e min), inte i
+        # skrivvägen: en DELETE per hälsorad hade kostat mer än den sparar.
+        try:
+            store.oddset_prune_source_health_log()
+        except Exception as e:  # noqa: BLE001
+            report["errors"].append(f"source_health_prune: {e}")
     # Etapp 3: resultat/xG/Elo till modellen (throttlat i modulen — oftast no-op)
     if deep:
         try:

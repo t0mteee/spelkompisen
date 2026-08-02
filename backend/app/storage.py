@@ -916,6 +916,25 @@ CREATE TABLE IF NOT EXISTS oddset_source_health (
     PRIMARY KEY (source, league, scope)
 );
 
+-- Append-only historik bredvid latest-state-tabellen ovan. Den senare skriver
+-- över sig själv vid varje kontroll och kan därför bara svara "vad sa källan
+-- sist", aldrig "kördes källan alls i varv N". Det är samma lucka som
+-- observationstidsregeln handlar om: utan en rad per kontroll går det inte att
+-- i efterhand skilja "vi frågade och fick tomt" från "vi frågade aldrig".
+-- Append-once per observationstid, så en omkörning aldrig dubblerar.
+CREATE TABLE IF NOT EXISTS oddset_source_health_log (
+    source       TEXT NOT NULL,
+    league       TEXT NOT NULL,
+    scope        TEXT NOT NULL,
+    checked_at   TEXT NOT NULL,          -- observationstid, aldrig loopstart
+    ok           INTEGER NOT NULL,
+    event_count  INTEGER NOT NULL DEFAULT 0,
+    error        TEXT,
+    PRIMARY KEY (source, league, scope, checked_at)
+);
+CREATE INDEX IF NOT EXISTS idx_oddset_source_health_log_at
+    ON oddset_source_health_log (checked_at);
+
 CREATE TABLE IF NOT EXISTS oddset_results (
     league    TEXT NOT NULL,
     date      TEXT NOT NULL,            -- YYYY-MM-DD
@@ -1783,7 +1802,43 @@ class Storage:
             "event_count=excluded.event_count, error=excluded.error",
             (source, league, scope, checked_at, int(ok), event_count,
              (error or "")[:240] or None))
+        # Samma observation även i den append-only historiken. OR IGNORE: två
+        # kontroller med identisk tidsstämpel är samma observation, inte två.
+        self.conn.execute(
+            "INSERT OR IGNORE INTO oddset_source_health_log(source, league, scope, "
+            "checked_at, ok, event_count, error) VALUES(?,?,?,?,?,?,?)",
+            (source, league, scope, checked_at, int(ok), event_count,
+             (error or "")[:240] or None))
         self._commit()
+
+    def oddset_source_health_history(self, source: Optional[str] = None,
+                                     scope: Optional[str] = None,
+                                     since: Optional[str] = None,
+                                     limit: int = 500) -> list[dict]:
+        """Kontrollhistorik, nyast först. Bevisar ATT en källa lästes."""
+        where, args = [], []
+        if source:
+            where.append("source = ?"); args.append(source)
+        if scope:
+            where.append("scope = ?"); args.append(scope)
+        if since:
+            where.append("checked_at >= ?"); args.append(since)
+        sql = ("SELECT source, league, scope, checked_at, ok, event_count, error "
+               "FROM oddset_source_health_log")
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        sql += " ORDER BY checked_at DESC, source, league, scope LIMIT ?"
+        args.append(int(limit))
+        return [dict(r) | {"ok": bool(r["ok"])}
+                for r in self.conn.execute(sql, args).fetchall()]
+
+    def oddset_prune_source_health_log(self, keep_days: int = 30) -> int:
+        """Beskär historiken. 84 kombinationer × varje varv växer annars fort."""
+        cur = self.conn.execute(
+            "DELETE FROM oddset_source_health_log WHERE checked_at < "
+            "strftime('%Y-%m-%dT%H:%M:%SZ', 'now', ?)", (f"-{int(keep_days)} days",))
+        self._commit()
+        return cur.rowcount or 0
 
     def oddset_source_health(self) -> list[dict]:
         return [dict(r) | {"ok": bool(r["ok"])} for r in self.conn.execute(

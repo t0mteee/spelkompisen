@@ -795,3 +795,37 @@ DELETE FROM oddset_results
   frontendens produktionsbygge gröna. Backend, snapshot-jobbet och pool-jobbet återstartades. Den första
   skarpa v4-körningen såg inga liveevent men registrerade frisk source-health
   separat för Flashscore, FotMob och Sofascore.
+
+## 2026-08-02 — Append-only kontrollhistorik för källhälsa
+
+- **Bakgrund:** `oddset_source_health` har PK `(source, league, scope)` och
+  skriver över sig själv vid varje kontroll. Den kan därför bara svara "vad sa
+  källan sist", aldrig "kördes källan alls i varv N". Luckan upptäcktes när
+  Flashscore visade sig sakna captures i det förtätade andra live-varvet
+  (283 mot Sofascores 650 på samma 14 MLS-matcher natten 08-01/08-02) och
+  orsaken inte gick att avgöra i efterhand: hälsoraden var överskriven och
+  båda launchd-loggarna tomma. Det är samma klass av lucka som
+  observationstidsregeln handlar om — utan en rad per kontroll går "vi frågade
+  och fick tomt" inte att skilja från "vi frågade aldrig".
+- **Ändring:** ADDITIV. Ny tabell `oddset_source_health_log` med PK
+  `(source, league, scope, checked_at)` + index på `checked_at`. Skrivs med
+  `INSERT OR IGNORE` i samma anrop som latest-state-tabellen, som lämnas helt
+  orörd (UI:t och dess tester läser den). Ingen befintlig rad ändrades.
+- **Volym och retention:** 84 kombinationer × varje varv ≈ 40 000 rader/dygn.
+  `oddset_prune_source_health_log(keep_days=30)` beskär och anropas på
+  djupvarvet (var 30:e min), inte i skrivvägen.
+- **Backup:**
+  `backend/data/backups/stryktips-2026-08-02-fore-source-health-log.db`
+  (168 MB, `integrity_check=ok`, 0 foreign-key-fel, 84 hälsorader).
+- **Utförande:** tabellen skapas av det ordinarie `CREATE TABLE IF NOT EXISTS`-
+  schemat vid anslutning; inget migrationsskript behövdes. Backend startades om
+  enligt driftkommandot.
+- **Efterkontroll:** tabell och index på plats, `integrity_check=ok`,
+  0 foreign-key-fel, latest-state fortsatt 84 rader. Ett verkligt `live-tick`
+  skrev tre rader (flashscore/fotmob/sofascore, `ok=1`, `event_count=0` —
+  korrekt, inga matcher var live). 505/505 backendtester gröna (4 nya).
+- **Diagnosvärde:** Flashscores hälsorad bär `event_count = len(live)` och
+  lägger matchfel, "ingen live-match hade läsbar statistik" samt
+  "N matcher hoppade över (tidsbudget/matchtak)" i `error`. Nästa gång matcher
+  är live skiljer loggen därför själv mellan icke-anropad, tomt svar,
+  budgettak och per-match-fel.

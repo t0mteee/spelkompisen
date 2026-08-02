@@ -240,6 +240,14 @@ observationsögonblicket används som observationstid.**
    före). Spärren får förbigås bara i ett öppet horisontfönster
    (`pool_dataset.horizon_window_open`), eftersom en horisont observeras en enda
    gång och aldrig får bakfyllas. Se `docs/m20-och-falsk-franvaro-2026-07-25.md`.
+7. **En latest-state-tabell är inget facit på att en källa kördes.**
+   `oddset_source_health` har PK `(source, league, scope)` och skriver över sig
+   själv — den svarar bara "vad sa källan sist". `oddset_source_health_log`
+   (2026-08-02) är append-only med `checked_at` i nyckeln och är den enda som
+   får bevisa att en källa kontrollerades i ett visst varv. Beskärs 30 dygn på
+   djupvarvet. Samma princip som presence-ledgern: skriv en rad per kontroll,
+   annars går "vi frågade och fick tomt" inte att skilja från "vi frågade
+   aldrig".
 
 ### 📦 TRANSPORTREGELN — status 200 betyder inte läsbar kropp
 

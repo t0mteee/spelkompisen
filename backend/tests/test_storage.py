@@ -293,5 +293,71 @@ class OddsetEloHistoryTests(unittest.TestCase):
             "SELECT COUNT(*) FROM oddset_elo_capture").fetchone()[0])
 
 
+class OddsetSourceHealthHistoryTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+
+    def tearDown(self) -> None:
+        self.store.close()
+        self.tmp.cleanup()
+
+    def test_every_check_is_kept_while_latest_state_is_overwritten(self) -> None:
+        """Kärnan: latest-state svarar bara 'vad sa källan sist'."""
+        for at, ok, n in (("2026-08-02T12:00:00Z", True, 5),
+                          ("2026-08-02T12:02:00Z", False, 0),
+                          ("2026-08-02T12:04:00Z", True, 6)):
+            self.store.oddset_record_source_health(
+                "flashscore", "-", "live", at, ok, n,
+                None if ok else "TimeoutException")
+        latest = [r for r in self.store.oddset_source_health()
+                  if r["source"] == "flashscore"]
+        self.assertEqual(1, len(latest))
+        self.assertEqual("2026-08-02T12:04:00Z", latest[0]["checked_at"])
+
+        hist = self.store.oddset_source_health_history(source="flashscore")
+        self.assertEqual(3, len(hist))
+        self.assertEqual(["2026-08-02T12:04:00Z", "2026-08-02T12:02:00Z",
+                          "2026-08-02T12:00:00Z"], [r["checked_at"] for r in hist])
+        # Felvarvet mitt i får inte försvinna — det är hela poängen.
+        failed = next(r for r in hist if not r["ok"])
+        self.assertEqual("2026-08-02T12:02:00Z", failed["checked_at"])
+        self.assertEqual("TimeoutException", failed["error"])
+
+    def test_a_missing_round_is_visible_as_a_gap(self) -> None:
+        """Flashscore-frågan: syns det att en källa INTE kördes i ett varv?"""
+        for at in ("2026-08-02T12:00:00Z", "2026-08-02T12:02:00Z",
+                   "2026-08-02T12:05:00Z", "2026-08-02T12:07:00Z"):
+            self.store.oddset_record_source_health("sofascore", "-", "live", at, True, 6)
+        for at in ("2026-08-02T12:00:00Z", "2026-08-02T12:05:00Z"):
+            self.store.oddset_record_source_health("flashscore", "-", "live", at, True, 6)
+        fs = self.store.oddset_source_health_history(source="flashscore", scope="live")
+        sofa = self.store.oddset_source_health_history(source="sofascore", scope="live")
+        self.assertEqual(2, len(fs))
+        self.assertEqual(4, len(sofa))
+
+    def test_same_observation_time_is_appended_once(self) -> None:
+        for _ in range(3):
+            self.store.oddset_record_source_health(
+                "fotmob", "-", "live", "2026-08-02T12:00:00Z", True, 4)
+        self.assertEqual(
+            1, len(self.store.oddset_source_health_history(source="fotmob")))
+
+    def test_since_filter_and_prune_keep_the_recent_window(self) -> None:
+        self.store.oddset_record_source_health(
+            "pinnacle", "allsvenskan", "1x2", "2026-05-01T12:00:00Z", True, 9)
+        self.store.oddset_record_source_health(
+            "pinnacle", "allsvenskan", "1x2", "2026-08-02T12:00:00Z", True, 9)
+        self.assertEqual(1, len(self.store.oddset_source_health_history(
+            since="2026-07-01T00:00:00Z")))
+        # Gammal rad beskärs, färsk lämnas kvar.
+        self.assertEqual(1, self.store.oddset_prune_source_health_log(keep_days=30))
+        kvar = self.store.oddset_source_health_history(source="pinnacle")
+        self.assertEqual(["2026-08-02T12:00:00Z"], [r["checked_at"] for r in kvar])
+        # Latest-state rörs aldrig av beskärningen.
+        self.assertTrue(any(r["source"] == "pinnacle"
+                            for r in self.store.oddset_source_health()))
+
+
 if __name__ == "__main__":
     unittest.main()
