@@ -84,6 +84,31 @@ LIVE_TEAM_ALIASES = {
     # regel vore farlig. PSV är entydigt. Utan aliaset saknade PSV–AZ livepris
     # och hela Europatipsets chansberäkning uteblev (2026-08-02).
     "psv": "psv eindhoven",
+    # Systematisk genomgång 2026-08-02 av ALLA olänkade par med samma liga och
+    # samma avspark (13 av 24 kontrollerade). Kanonisk form är den som redan
+    # finns i `oddset_results`, så signal↔facit-joinen träffar. Nycklarna är
+    # LIVE-normaliserade, alltså efter att landssuffixet `(Cze)` strippats.
+    #
+    # Norska föreningsformer som `_NOISE` inte rymmer (`il` = idrettslag) och
+    # klubbnamn som Flashscore kortar:
+    "hodd": "hodd il",
+    "ranheim": "ranheim il",
+    "sogndal": "sogndal il",
+    "sandnes": "sandnes ulf",
+    # æ→a i CHARMAP men Flashscore skriver `ae`; aliaset pekar på HELA den
+    # kanoniska formen eftersom `stabak` är enordigt och enords-spärren då
+    # bara tillåter genitiv.
+    "stabaek": "stabak fotball",
+    # Europacupernas kvalomgång — källorna använder engelskt, inhemskt och
+    # förkortat namn om vartannat:
+    "sparta prague": "sparta praha",
+    "lyon": "olympique lyonnais",
+    "din zagreb": "dinamo zagreb",
+    "olympiacos piraeus": "olympiacos",
+    "nijmegen": "nec nijmegen",
+    "h beer sheva": "hapoel beer sheva",
+    "royale union sg": "royale union saint gilloise",
+    "union st gilloise": "royale union saint gilloise",
 }
 
 # Bekräftat OLIKA klubbar som normaliseringen annars slår ihop. Samma princip

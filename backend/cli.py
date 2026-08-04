@@ -475,6 +475,79 @@ LIVE_CAPTURE_TABLES = {"flashscore": "oddset_live_flashscore",
                        "sofascore": "oddset_live_capture"}
 
 
+def format_link_gaps(store, hours: int = 24, limit: int = 30) -> str:
+    """Providerpar som SANNOLIKT är samma match men inte länkar.
+
+    Fem namnfall upptäcktes på ett dygn genom att Saman såg dubbletter i UI:t
+    (LAFC/Galaxy, IFK, KFUM, PSV, Lyon m.fl.). Det är fel ordning: en dubblett
+    kostar inte bara ett extra kort, den delar odds och facit mellan två rader
+    så matchen bidrar med NOLL till blindkohorten.
+
+    Regeln är avsiktligt trång — samma liga, samma avspark och HÖG namnlikhet
+    på båda sidor — så listan blir en åtgärdslista, inte brus. Två olika
+    matcher med samma avsparkstid ser helt olika ut i namnen och faller bort.
+    """
+    import difflib
+    from app import live_radar
+    from app.oddset import norm_team
+
+    since = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours)) \
+        .strftime("%Y-%m-%dT%H:%M:%SZ")
+    tables = (("flashscore", "oddset_live_flashscore", "flashscore_id"),
+              ("fotmob", "oddset_live_fotmob", "fotmob_id"),
+              ("sofascore", "oddset_live_capture", "event_id"))
+    series: dict[str, list[dict]] = {}
+    for label, table, id_key in tables:
+        rows = store.conn.execute(
+            f"SELECT {id_key} id, home, away, league, start_at, "
+            f"MAX(captured_at) last FROM {table} WHERE captured_at >= ? "
+            "GROUP BY 1", (since,)).fetchall()
+        series[label] = [dict(r) for r in rows]
+
+    def kickoff(row: dict) -> str:
+        return (row.get("start_at") or "").replace("Z", "")[:16]
+
+    def near(a: str, b: str) -> float:
+        return difflib.SequenceMatcher(None, norm_team(a), norm_team(b)).ratio()
+
+    gaps = []
+    labels = list(series)
+    for i, left in enumerate(labels):
+        for right in labels[i + 1:]:
+            for a in series[left]:
+                for b in series[right]:
+                    if a["league"] != b["league"] or not kickoff(a):
+                        continue
+                    if kickoff(a) != kickoff(b):
+                        continue
+                    if (live_radar._same_team(a["home"], b["home"])
+                            and live_radar._same_team(a["away"], b["away"])):
+                        continue
+                    if (live_radar._same_team(a["home"], b["away"])
+                            and live_radar._same_team(a["away"], b["home"])):
+                        continue
+                    score = min(near(a["home"], b["home"]),
+                                near(a["away"], b["away"]))
+                    mirror = min(near(a["home"], b["away"]),
+                                 near(a["away"], b["home"]))
+                    best = max(score, mirror)
+                    if best >= 0.72:      # bara par som LIKNAR varandra
+                        gaps.append((best, left, right, a, b))
+    gaps.sort(reverse=True, key=lambda item: item[0])
+    out = [f"OLÄNKADE PROVIDERPAR — senaste {hours} h "
+           "(samma liga, samma avspark, hög namnlikhet)", ""]
+    if not gaps:
+        return "\n".join(out + ["  inga — alla samtidiga matcher länkar."])
+    for score, left, right, a, b in gaps[:limit]:
+        out.append(f"  {score:.2f}  [{a['league']} {kickoff(a)}]")
+        out.append(f"        {left:11} {a['home']!r} – {a['away']!r}")
+        out.append(f"        {right:11} {b['home']!r} – {b['away']!r}")
+    out += ["", f"  {len(gaps)} par. Lägg bekräftade i LIVE_TEAM_ALIASES "
+                "(kanonisk form = den i oddset_results),",
+            "  bekräftat OLIKA klubbar i LIVE_TEAM_REJECTED."]
+    return "\n".join(out)
+
+
 def format_source_health(store, hours: int = 6) -> str:
     """Läs kontrollhistoriken: kördes källan, vad såg den, sparade den något?
 
@@ -1051,6 +1124,13 @@ def main() -> None:
         try:
             timmar = next((int(a) for a in rest if a.isdigit()), 6)
             print(format_source_health(store, hours=timmar))
+        finally:
+            store.close()
+    elif cmd == "lanklucka":
+        store = Storage()
+        try:
+            timmar = next((int(a) for a in rest if a.isdigit()), 24)
+            print(format_link_gaps(store, hours=timmar))
         finally:
             store.close()
     elif cmd == "v22audit":

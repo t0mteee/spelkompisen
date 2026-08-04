@@ -161,6 +161,12 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
 - V2.2-status: `cd backend && .venv/bin/python -B cli.py v22audit`.
 - Källhälsa/varvlucka: `cd backend && .venv/bin/python -B cli.py kallhalsa [timmar]`
   (läser `oddset_source_health_log`; `—` i varvkolumnen = källan kördes inte).
+- **Dubblettjakt: `cd backend && .venv/bin/python -B cli.py lanklucka [timmar]`**
+  — providerpar med samma liga, samma avspark och hög namnlikhet som ändå INTE
+  länkar. Kör den efter varje ny liga/kvalomgång: fem namnfall upptäcktes på
+  ett dygn genom att Saman såg dubbletter i UI:t, vilket är fel ordning.
+  Bekräftade par går i `LIVE_TEAM_ALIASES` (kanonisk form = den i
+  `oddset_results`), bekräftat olika klubbar i `LIVE_TEAM_REJECTED`.
 - Live-radar manuellt prov: `cd backend && .venv/bin/python -B cli.py live-tick`
   (shadowdata; påverkar inga tips/notiser). Varvet sparar även nya
   beslutssignaler och settlar avslutade signaler append-once.
