@@ -152,7 +152,22 @@
 /* ---------- Labb (bevisytan — mätningar och skuggspår) ---------- */
 /* Korten återanvänder .v3grid/.v3card: auto-fit ≥300px på bred skärm och
    1 kolumn ≤760px via mobilblocket längst ned — ingen sidscroll. */
-.v3labbtitle { margin: 2px 0 12px; font-size: 14px; letter-spacing: 0.2px; }
+.v3labbtitle { margin: 2px 0 4px; font-size: 14px; letter-spacing: 0.2px; }
+/* synlig statuslegend — tooltips räcker inte när pillarna är själva språket */
+.v3labblegend { display: block; margin: 0 0 12px; max-width: 900px; }
+.v3labblegend b { color: var(--text); font-size: 10px; letter-spacing: .4px; }
+.v3checkline {
+  display: flex; align-items: center; gap: 7px; font-size: 11.5px;
+  color: var(--muted); cursor: pointer; user-select: none;
+}
+.v3logfilter {
+  display: flex; align-items: baseline; gap: 8px 16px; flex-wrap: wrap;
+  font-size: 11.5px; color: var(--muted);
+}
+.v3logfilter select {
+  background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 7px; padding: 3px 7px; font-size: 11.5px;
+}
 .v3labbpill {
   margin-left: auto; align-self: center; white-space: nowrap;
   font-size: 10px; font-weight: 800; letter-spacing: 0.5px;
@@ -179,24 +194,41 @@
 .v3evidence-table {
   width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: 8px;
 }
-.v3evidence .logtable {
-  width: 100%; min-width: 820px; border-collapse: collapse;
+/* logtable används nu i flera Labb-kort (Sharp-facit-historiken, äldre
+   modellversioner, ledgern, signalloggen) — basen scopas till .v3labb och
+   bara den breda signalloggen behåller min-width. */
+.v3labb .logtable {
+  width: 100%; border-collapse: collapse;
   background: var(--panel2); font-size: 11.5px;
 }
-.v3evidence .logtable th {
+.v3evidence .logtable { min-width: 820px; }
+.v3labb .logtable th {
   text-align: left; color: var(--muted); font-size: 10px; text-transform: uppercase;
   letter-spacing: .35px; padding: 6px 8px; border-bottom: 1px solid var(--line);
 }
-.v3evidence .logtable td {
+.v3labb .logtable td {
   padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top;
   white-space: nowrap;
 }
-.v3evidence .logtable tr:last-child td { border-bottom: 0; }
-.v3evidence .historical-version { opacity: .58; }
-.v3evidence .ledgerstatus { font-weight: 700; }
-.v3evidence .ledgerstatus.amber { color: #dca85e; }
-.v3evidence .ledgerstatus.candidate { color: #7db9e8; }
-.v3evidence .ledgerstatus.green { color: var(--green); }
+.v3labb .logtable tr:last-child td { border-bottom: 0; }
+.v3labb .historical-version { opacity: .58; }
+.v3labb .ledgerstatus { font-weight: 700; }
+.v3labb .ledgerstatus.amber { color: #dca85e; }
+.v3labb .ledgerstatus.candidate { color: #7db9e8; }
+.v3labb .ledgerstatus.green { color: var(--green); }
+
+/* Poolens forskningsspår i Historik (flyttade från Labb 2026-08-05 —
+   ytgränsen). Kompakta rader i stället för egna kort. */
+.v3histresearch { display: flex; flex-direction: column; gap: 8px; }
+.v3histresearchrow {
+  display: flex; flex-direction: column; gap: 3px; padding: 9px 11px;
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 9px;
+  font-size: 11.5px; color: var(--muted);
+}
+.v3histresearchrow > .v3histresearchhead {
+  display: flex; align-items: center; gap: 8px;
+}
+.v3histresearchhead b { color: var(--text); font-size: 12px; }
 
 /* Live-radarns framåtriktade signaljournal. Ett brett kort gör regler,
    beslutspunkt, livepris och facit läsbara tillsammans utan tabellscroll. */

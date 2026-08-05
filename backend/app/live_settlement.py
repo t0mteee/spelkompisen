@@ -393,6 +393,9 @@ def facit(store) -> dict:
     current = live_radar.RADAR_VERSION
     rows = [row for row in all_rows if row["signal_version"] == current]
     out = {"mode": "shadow", "signal_version": current,
+           # display-only: UI:t ska kunna säga NÄR räknaren nollställdes i
+           # stället för att låta "2 av 200" se ut som ett stillastående facit
+           "signal_version_started_at": live_radar.RADAR_VERSION_STARTED_AT,
            "moment_basis": "raw_provider",
            "moment_basis_description": (
                "Diagnostiska providerögonblick utan lånad klocka eller "

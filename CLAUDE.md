@@ -172,6 +172,13 @@ frontend/ React + Vite, mörkt tema. src/AppV3.jsx + AppV3.css är APPEN
   nyckelsträng: budget, strategi och värdevikt är egna kolumner. Horisonter
   visas i minuter (180/20), aldrig som `h3`/`m20`. Se
   `docs/historik-ui-2026-08-05.md` för före/efter-mätningarna.
+  **Labb ombyggt 2026-08-05 med samma metod** (`docs/labb-ui-nulage-2026-08-05.md`):
+  öppet läge visar bara AKTIVA versioner (aktiv-markeringen kommer från
+  respektive systems eget fingeravtryck — value-loggens och ledgerns
+  `s-`-namnrymder är OLIKA och får aldrig korsjämföras); versionshistorik
+  ligger bakom togglar med datumintervall, ROI/KI visas aldrig under
+  `ROI_MIN_N` (=10) observationer, och poolens forskningskort (pit-v4, PH5,
+  startOdds) renderas i Historik via `HISTORIK_RESEARCH`.
 start.sh / stop.sh    kör/stoppa båda lokalt (8002 + 5175)
 docs/plan.md          FÄRDPLANEN: status, datakällor, beslut — projektets sanning
 docs/backlog.md       AKTIV BACKLOG (2026-07-26): prioritering, pågående mätningar,

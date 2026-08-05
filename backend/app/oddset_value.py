@@ -752,14 +752,28 @@ def clv_report(store: Storage) -> dict:
     for tier in ("sharp", "model"):
         trows = [r for r in rows if (r.get("tier") or "sharp") == tier]
         out[tier] = {**_tier_stats(trows), **_outcome_stats(trows)}
+    # Aktiva versioner per tier: UI:t måste kunna skilja "gäller nu" från
+    # historik — Labb visade 26 rader gamla hashar utan markering innan
+    # (docs/labb-ui-nulage-2026-08-05.md). Markeringen är display; grupperingen
+    # och grönt-kriteriet är oförändrade.
+    vers = signal_versions(store)
+    out["active_versions"] = vers
     # nedbrutet facit: liga × marknad × version inom tier (bara grupper med data)
     groups: dict[tuple, list[dict]] = {}
     for r in rows:
         key = ((r.get("tier") or "sharp"), r.get("league") or "?",
                r.get("market") or "?", r.get("model_version") or "-")
         groups.setdefault(key, []).append(r)
+
+    def _span(v: list[dict]) -> dict:
+        # first_at är ISO-strängar — lexikal min/max är kronologisk
+        ts = [r["first_at"] for r in v if r.get("first_at")]
+        return {"first_at_min": min(ts) if ts else None,
+                "first_at_max": max(ts) if ts else None}
+
     out["groups"] = [
         {"tier": k[0], "league": k[1], "market": k[2], "version": k[3],
+         "active": k[3] == vers.get(k[0]), **_span(v),
          **_tier_stats(v), **_outcome_stats(v)}
         for k, v in sorted(groups.items()) if any(r["close_ev"] is not None for r in v)]
     # bakåtkompatibelt (UI:t före tier-uppdelningen)

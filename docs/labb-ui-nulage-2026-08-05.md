@@ -30,22 +30,24 @@ ensamt blir 12 379 px med båda togglarna öppna (184-gruppstabellen + 200 av
 1 617 loggrader) — samma klass som Historikens omsättningstabell före
 ombyggnaden (12 480 px).
 
-### Huvudproblemet, verifierat: allt synligt CLV-facit är historiskt
+### Huvudproblemet, verifierat: versioner utan aktualitetsmarkering
 
-Aktiv sharp-signalversion är **`s-cc671efd`** (ledgerns `active_version`).
-CLV-API:ts grupper innehåller versionerna `legacy`, `s-0f1355fb`,
-`s-327b148a`, `s-776ca0e0`, `s-95e14fca`, `s-c32b7065` + sju m-versioner —
-**inte en enda rad från den aktiva versionen** (den har inga stängda flaggor
-ännu; versionsbytena 2026-08-01→05 följde av alias-/koherensfixarna, precis
-som kohortregeln kräver).
+Signal-facit-kortet visar 26 liga × version-rader — Allsvenskan ensamt har
+sex (legacy + fem hashar) — utan någon markering av vilken som gäller nu.
+Läsaren kan inte se:
 
-Signal-facit-kortet visar därför 26 liga × version-rader där ALLA är
-inaktuella, utan någon markering av det. Allsvenskan ensamt har sex rader
-(legacy + fem hashar). Läsaren kan inte se:
-
-- vilken rad som gäller NU (ingen — men det syns inte),
+- vilken rad som är aktuell (uppmätt efterhand: **5 av 26** hör till aktiva
+  `s-95e14fca`; resten är historik),
 - när en version var aktiv (inga datum i CLV-grupperna),
 - vad `s-0f1355fb` betyder (fingeravtryck förklaras ingenstans i UI:t).
+
+**Rättelse under arbetet (2026-08-06):** första analysen hävdade att INGEN
+synlig rad var aktuell, baserat på ledgerns `active_version = s-cc671efd`.
+Det var fel — ledgerns fingeravtryck (captureprocessen) och value-loggens
+(`oddset_value.signal_versions`) är olika namnrymder som båda råkar börja på
+`s-`. Att ens en fokuserad genomläsning gjorde den korsjämförelsen är i sig
+ett symtom: UI:t redovisar hashar utan att säga vilket system de tillhör.
+Ombyggnaden markerar aktiv per respektive systems egen definition.
 
 Samma mönster i Modell mot close-griden: 15 kort över fyra modellversioner
 där 11 hör till äldre versioner (`m-3c7789ac`, `m-4c84fdf4`, `m-d82792f7`),
@@ -106,9 +108,7 @@ en pensionerad version läses som dagens läge. Märkningen finns
 
 ## Del 2 — BESLUTEN
 
-(Fylls i efter Samans genomgång av Del 1.)
-
-Föreslagna beslutspunkter:
+Fattade av Saman 2026-08-05 efter genomgång av Del 1. Alla sex punkter kör:
 
 1. **Aktiv version först.** Öppet läge visar bara aktiva versionens rader per
    primärgrupp (+ ärlig "inga stängda ännu"-rad). Historiska versioner bakom
@@ -117,14 +117,83 @@ Föreslagna beslutspunkter:
 2. **Slå ihop 💰 Signal-facit + 🎯 Utfalls-facit** till ett kort — samma API,
    samma spår (sharp-facit); utfalls-ROI är redan bara display.
 3. **Tabellhygien som Historik:** filter (liga/status/endast aktiv) +
-   `SortableTable` + 20 rader med "visa alla" där det går.
-4. **Poolforskningskorten** (pit-v4, PH5, startOdds): flytta till Historik
-   enligt ytgränsen, alternativt behåll som uttryckligt "arkiv"-avsnitt.
-5. **Lågt-n-spärr i display:** ROI/KI visas som "för tidigt (n=2)" under en
-   liten gräns i stället för −100 %.
-6. **Ordlista/klartext:** synlig en-radsförklaring per kort i stället för
-   enbart tooltip; pluralfel och `t=`-kalibrering får läsbar form.
+   `SortableTable` där sortering tillför något.
+4. **Poolforskningskorten** (pit-v4, PH5, startOdds) flyttar till Historik
+   enligt ytgränsen — pit-v4 är dessutom ett AKTIVT poolspår.
+5. **Lågt-n-spärr i display:** ROI/KI visas som "för tidigt (n=2)" under
+   `ROI_MIN_N = 10` i stället för −100 %.
+6. **Ordlista/klartext:** synlig statuslegend under rubriken, M/P-förklaring i
+   modellgriden, `🌡 Modelltemperatur` i stället för `t=`-raden, pluralfel
+   rättat, kohortrad med versionens startdatum i radarkortet.
+
+Dessutom (samma beslut): dagsarbetet 2026-08-05 committades som två commits
+(radar-kohortmigreringen respektive Historik-ombyggnaden + PH3 gen 2) och
+pushades till PR #1 innan Labb-arbetet började.
 
 ## Del 3 — EFTERLÄGET
 
-(Fylls i efter ombyggnaden: samma mätningar som Del 1.)
+Mätt likadant som Del 1 (1280×720, `document.body.scrollHeight`, riktiga
+data) 2026-08-06.
+
+### Sidhöjd
+
+| Läge | Före | Efter |
+|---|---|---|
+| Hopfälld | 4 571 px | **3 058 px** (−33 %) |
+| Allt expanderat | 16 075 px | **11 925 px** (−26 %)* |
+
+\* Expanderat efterläge inkluderar ALLA fyra togglar öppna samtidigt
+(21 CLV-historikrader + 11 äldre modellversioner + 58 aktiva ledgergrupper +
+200 loggrader). Ledgertabellen visar aktiva versioner som standard; kryssrutan
+"visa även 126 grupper från äldre versioner" ger hela 184-listan uttryckligen.
+
+### Punkt för punkt
+
+1. **Sharp-facit-kortet: 1 801 → 658 px.** Öppet läge visar aktiv version
+   (`s-95e14fca`, fem ligor med riktig data, t.ex. MLS 16/16 stängda +4,8 %
+   KI [3,0..7,1]), raden "Alla versioner sedan start" och utfallsraden. De
+   21 historiska versionsgrupperna ligger i en sorterbar tabell bakom toggle,
+   med **period som datumintervall** (t.ex. `s-327b148a · 25 juli – 26 juli`)
+   — sorteringen driftverifierad mot API:ts `first_at_max`.
+2. **Utfalls-facit-kortet är borta som eget kort** — en rad i Sharp-facit.
+   Tomrummet på 1 800 px försvann med det.
+3. **Modell mot close visar bara nuvarande version öppet** (4 kort,
+   `m-0e901a67`); de 11 äldre mätningarna är en kompakt tabell bakom toggle.
+   "1 dagar" → "1 dag". M/P förklaras synligt i rubriken.
+4. **Ledgertabellen öppnar med 58 aktiva grupper** i stället för 184 blandade;
+   äldre kräver aktivt kryss. Signalloggen fick liga- och statusfilter som
+   filtrerar FÖRE 200-raderskapningen (driftverifierat: MLS × stängda =
+   289 av 1 617, sidan visar de 200 senaste inom filtret).
+5. **Blindtestet visar "Över-ROI: för tidigt att mäta (n=2)"** i stället för
+   −100 % i rött; samma spärr i gruppfacitet. Radarkortet fick kohortraden
+   "`chance-gap-shadow-v5` sedan 3 aug — räknarna nollställdes vid
+   versionsbytet".
+6. **Ytgränsen är hel åt båda hållen:** Labb har 7 kort, alla odds; Historik
+   fick sektionen `🔬 Forskningsspår (pool)` med pit-v4 (SAMLAR), PH5
+   (FALSIFIERAD) och startOdds (GATE-PASS).
+7. **Statuslegenden är synlig text** under rubriken; versionsbegreppet
+   förklaras där i en mening.
+
+### API-tillägg (display-only, inga grindar rörda)
+
+- `clv_report`: `active_versions` per tier samt `active`/`first_at_min`/
+  `first_at_max` per grupp (`oddset_value.py`).
+- `live_settlement.facit`: `signal_version_started_at` (radarns kohortstart).
+
+### Verifiering
+
+- 552 backend-tester gröna; `vite build` exitkod 0; eslint har kvar exakt de
+  3 kända anmärkningarna från 2026-08-04 (rad 140/662/761), inga nya.
+- Driftverifierat i preview: togglar, checkbox (58 ↔ 184 rader), loggfilter,
+  periodsortering, mobilvy utan horisontell scroll och med sortbar.
+- Skärmbildsverktyget i browserpanelen gav svart bild under sessionen
+  (panelen dold); verifieringen gjordes via DOM-mätningar och
+  accessibility-trädet, som visar hela strukturen renderad.
+
+### Kvar att göra
+
+- Kalibreringsraden visas bara när `oddsetcalibrate` körts (oförändrat).
+- `s-`-prefixet används av TVÅ fingeravtrycksfamiljer (value-loggens urval
+  respektive ledgerns captureprocess) — se rättelsen i Del 1. UI:t blandar
+  dem inte längre, men en namnrymdsmarkering i själva versionssträngen vore
+  robustare på sikt.
