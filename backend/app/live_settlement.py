@@ -204,28 +204,24 @@ def _series(store, since: str) -> list[tuple[str, str, list[dict]]]:
 
 
 def _signal_version_at(moment: dict) -> str:
-    """Stämpla policyn som gällde när råcapturen faktiskt observerades.
+    """Kohorten råcapturen tillhör — eller ``transitional``.
 
-    Råtabellerna bär capture- men inte radarversion. En settlementkö får därför
-    aldrig märka äldre, osettlade captures med den version som råkar vara aktiv
-    när kön repareras. Gränserna är förregistrerade och frysta i live_radar.
-    Vid nästa radarversion måste tidslinjen utökas explicit — aldrig gissas.
+    Två villkor måste hålla samtidigt: rätt KOD ska ha producerat raden och
+    observationen ska ligga i den kodens DEKLARERADE fönster. Den gamla
+    versionen prövade bara det andra, vilket lät 2 168 v5-producerade ögonblick
+    (57 % av hela v4-kohorten) ligga kvar under v4 — se `live_radar.cohort_for`
+    och docs/db-atgarder.md 2026-08-05.
+
+    Nya rader bär sin `radar_version` själva; historiska härleds ur journalens
+    observerade växlingar. Vid nästa radarversion måste tidslinjen utökas
+    explicit — aldrig gissas.
     """
     if live_radar.RADAR_VERSION != RADAR_V5_VERSION:
         raise RuntimeError(
             "radarversionens capture-tidslinje måste utökas före settlement")
-    observed = _at(moment)
-    v5_start = dt.datetime.fromisoformat(
-        live_radar.RADAR_VERSION_STARTED_AT.replace("Z", "+00:00"))
-    if observed >= v5_start:
-        return RADAR_V5_VERSION
-    v4_start = dt.datetime.fromisoformat(
-        live_radar.RADAR_V4_STARTED_AT.replace("Z", "+00:00"))
-    if observed >= v4_start:
-        return RADAR_V4_VERSION
-    v3_start = dt.datetime.fromisoformat(
-        live_radar.RADAR_V3_STARTED_AT.replace("Z", "+00:00"))
-    return RADAR_V3_VERSION if observed >= v3_start else RADAR_V2_VERSION
+    return live_radar.cohort_for(
+        moment.get("captured_at") or "",
+        produced_by=moment.get("radar_version"))
 
 
 def settle_moments(store, *, now: Optional[dt.datetime] = None) -> dict:

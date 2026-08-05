@@ -483,13 +483,24 @@ def format_link_gaps(store, hours: int = 24, limit: int = 30) -> str:
     kostar inte bara ett extra kort, den delar odds och facit mellan två rader
     så matchen bidrar med NOLL till blindkohorten.
 
-    Regeln är avsiktligt trång — samma liga, samma avspark och HÖG namnlikhet
-    på båda sidor — så listan blir en åtgärdslista, inte brus. Två olika
-    matcher med samma avsparkstid ser helt olika ut i namnen och faller bort.
+    TVÅ regler sedan 2026-08-05, båda med samma hink (liga + avspark):
+
+    1. NAMNLIKHET på båda sidor. Likheten mäts nu på `live_norm_team`, alltså
+       samma normaliserade namn som länken använder. Tidigare mättes den på rå
+       `norm_team`, så Flashscores landsetikett sänkte likheten under tröskeln
+       och plockade bort just de par regeln fanns för: `Mjällby (Swe)` ↔
+       `Mjällby AIF` fick 0,70 mot tröskeln 0,72 fast namnen är identiska.
+    2. FÖRÄLDRALÖSA rader. En rad som inte länkar till NÅGON rad hos den andra
+       providern i samma hink är misstänkt oavsett hur namnen ser ut. Det är
+       den enda regel som fångar `Lyon` ↔ `Olympique Lyonnais` (likhet 0,36) —
+       namnlikhet kan aldrig hitta ett par som inte liknar varandra.
+       Hinken måste vara SMÅ på båda sidor: en träningsmatchtimme där
+       Flashscore har en match och Sofascore 48 säger ingenting.
     """
+    import collections
     import difflib
     from app import live_radar
-    from app.oddset import norm_team
+    from app.live_radar import live_norm_team
 
     since = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours)) \
         .strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -508,38 +519,63 @@ def format_link_gaps(store, hours: int = 24, limit: int = 30) -> str:
         return (row.get("start_at") or "").replace("Z", "")[:16]
 
     def near(a: str, b: str) -> float:
-        return difflib.SequenceMatcher(None, norm_team(a), norm_team(b)).ratio()
+        return difflib.SequenceMatcher(
+            None, live_norm_team(a), live_norm_team(b)).ratio()
+
+    def linked(a: dict, b: dict) -> bool:
+        return ((live_radar._same_team(a["home"], b["home"])
+                 and live_radar._same_team(a["away"], b["away"]))
+                or (live_radar._same_team(a["home"], b["away"])
+                    and live_radar._same_team(a["away"], b["home"])))
+
+    def similarity(a: dict, b: dict) -> float:
+        return max(min(near(a["home"], b["home"]), near(a["away"], b["away"])),
+                   min(near(a["home"], b["away"]), near(a["away"], b["home"])))
 
     gaps = []
     labels = list(series)
     for i, left in enumerate(labels):
         for right in labels[i + 1:]:
-            for a in series[left]:
-                for b in series[right]:
-                    if a["league"] != b["league"] or not kickoff(a):
-                        continue
-                    if kickoff(a) != kickoff(b):
-                        continue
-                    if (live_radar._same_team(a["home"], b["home"])
-                            and live_radar._same_team(a["away"], b["away"])):
-                        continue
-                    if (live_radar._same_team(a["home"], b["away"])
-                            and live_radar._same_team(a["away"], b["home"])):
-                        continue
-                    score = min(near(a["home"], b["home"]),
-                                near(a["away"], b["away"]))
-                    mirror = min(near(a["home"], b["away"]),
-                                 near(a["away"], b["home"]))
-                    best = max(score, mirror)
-                    if best >= 0.72:      # bara par som LIKNAR varandra
-                        gaps.append((best, left, right, a, b))
+            buckets = collections.defaultdict(lambda: ([], []))
+            for row in series[left]:
+                if kickoff(row):
+                    buckets[(row["league"], kickoff(row))][0].append(row)
+            for row in series[right]:
+                if kickoff(row):
+                    buckets[(row["league"], kickoff(row))][1].append(row)
+            for lefts, rights in buckets.values():
+                if not lefts or not rights:
+                    continue
+                # Bara rader UTAN motpart är dubblettkandidater. En rad som
+                # redan länkar syns som ett kort, inte som två.
+                orphan_l = [a for a in lefts
+                            if not any(linked(a, b) for b in rights)]
+                orphan_r = [b for b in rights
+                            if not any(linked(a, b) for a in lefts)]
+                # Ensamhet är bevis bara i en hink som ANNARS länkar. Att båda
+                # providrarna täcker samma slate vid samma avspark är det som
+                # gör "en kvar på varje sida" till samma match. Utan en enda
+                # bekräftad länk är hinken lika gärna två skilda matcher som
+                # råkar starta samtidigt (Lyn–Sogndal vs Egersund–Sandnes Ulf).
+                corroborated = len(lefts) > len(orphan_l)
+                small = (corroborated
+                         and len(orphan_l) <= 2 and len(orphan_r) <= 2)
+                for a in orphan_l:
+                    for b in orphan_r:
+                        score = similarity(a, b)
+                        if score >= 0.72:
+                            gaps.append((score, "likhet", left, right, a, b))
+                        elif small:
+                            gaps.append(
+                                (score, "ensam", left, right, a, b))
     gaps.sort(reverse=True, key=lambda item: item[0])
     out = [f"OLÄNKADE PROVIDERPAR — senaste {hours} h "
-           "(samma liga, samma avspark, hög namnlikhet)", ""]
+           "(samma liga + avspark: hög namnlikhet ELLER ensam utan motpart)",
+           ""]
     if not gaps:
         return "\n".join(out + ["  inga — alla samtidiga matcher länkar."])
-    for score, left, right, a, b in gaps[:limit]:
-        out.append(f"  {score:.2f}  [{a['league']} {kickoff(a)}]")
+    for score, reason, left, right, a, b in gaps[:limit]:
+        out.append(f"  {score:.2f} {reason:7} [{a['league']} {kickoff(a)}]")
         out.append(f"        {left:11} {a['home']!r} – {a['away']!r}")
         out.append(f"        {right:11} {b['home']!r} – {b['away']!r}")
     out += ["", f"  {len(gaps)} par. Lägg bekräftade i LIVE_TEAM_ALIASES "

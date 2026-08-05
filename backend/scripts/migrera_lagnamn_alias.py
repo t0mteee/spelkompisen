@@ -2,6 +2,13 @@
 
 Körning i produktion (backup tas av skriptet före första mutation):
     cd backend && .venv/bin/python -B scripts/migrera_lagnamn_alias.py
+    cd backend && .venv/bin/python -B scripts/migrera_lagnamn_alias.py \
+        --backup stryktips-2026-08-05-fore-leicester.db
+
+Skriptet är GENERISKT över `TEAM_ALIASES` och körs om varje gång ett nytt par
+läggs till. Backupnamnet är därför ett argument: standardvärdet bevarar
+2026-08-02-körningen reproducerbar, och en ny körning måste ange sitt eget
+namn så att den inte tyst återanvänder en gammal säkerhetskopia.
 
 Bakgrund: `oddset_results` lagrar normaliserade namn (oddset.norm_team).
 football-data och Sofascore stavar samma klubb olika — `norrkoping` mot
@@ -31,8 +38,8 @@ sys.path.insert(0, str(ROOT))
 from app.oddset import TEAM_ALIASES  # noqa: E402
 
 DB = ROOT / "data" / "stryktips.db"
-BACKUP = (ROOT / "data" / "backups" /
-          "stryktips-2026-08-02-fore-lagnamn-alias.db")
+BACKUP_DIR = ROOT / "data" / "backups"
+DEFAULT_BACKUP = "stryktips-2026-08-02-fore-lagnamn-alias.db"
 
 # Tabeller med normaliserade lagnamn i primärnyckeln.
 NAME_TABLES = (("oddset_results", ("home", "away")),
@@ -112,12 +119,17 @@ def migrate(conn: sqlite3.Connection) -> dict:
     return report
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    name = DEFAULT_BACKUP
+    if "--backup" in argv:
+        name = argv[argv.index("--backup") + 1]
+    backup = BACKUP_DIR / name
     if not DB.exists():
         print(f"saknar databas: {DB}")
         return 1
-    fresh = backup_database(DB, BACKUP)
-    print(f"backup: {BACKUP.name} ({'skapad' if fresh else 'fanns redan'})")
+    fresh = backup_database(DB, backup)
+    print(f"backup: {backup.name} ({'skapad' if fresh else 'fanns redan'})")
     conn = sqlite3.connect(DB, timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA busy_timeout=30000")

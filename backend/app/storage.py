@@ -579,6 +579,7 @@ CREATE TABLE IF NOT EXISTS oddset_live_capture (
     touches_box_away  INTEGER,
     corners_home      INTEGER,
     corners_away      INTEGER,
+    radar_version     TEXT,              -- koden som producerade raden
     PRIMARY KEY (event_id, captured_at, capture_version)
 );
 CREATE INDEX IF NOT EXISTS idx_oddset_live_capture_recent
@@ -616,6 +617,7 @@ CREATE TABLE IF NOT EXISTS oddset_live_fotmob (
     shots_on_away     REAL,
     shots_inside_home REAL,
     shots_inside_away REAL,
+    radar_version     TEXT,              -- koden som producerade raden
     PRIMARY KEY (fotmob_id, captured_at, capture_version)
 );
 CREATE INDEX IF NOT EXISTS idx_oddset_live_fotmob_recent
@@ -652,6 +654,7 @@ CREATE TABLE IF NOT EXISTS oddset_live_flashscore (
     shots_inside_away REAL,
     corners_home      REAL,
     corners_away      REAL,
+    radar_version     TEXT,              -- koden som producerade raden
     PRIMARY KEY (flashscore_id, captured_at, capture_version)
 );
 CREATE INDEX IF NOT EXISTS idx_oddset_live_flashscore_recent
@@ -1056,7 +1059,16 @@ class Storage:
                     # signaljournalens klockproveniens (2026-08-01) — additiva
                     # och nullbara; tabellen hade 1 rad när kolumnerna infördes
                     "ALTER TABLE oddset_live_signal ADD COLUMN clock_source TEXT",
-                    "ALTER TABLE oddset_live_signal ADD COLUMN clock_observed_at TEXT"):
+                    "ALTER TABLE oddset_live_signal ADD COLUMN clock_observed_at TEXT",
+                    # radarversionen PÅ RADEN (2026-08-05). Rekonstruktion ur
+                    # `RADAR_*_STARTED_AT` var roten till kohortglidningen:
+                    # konstanten är handskriven och har inget orsakssamband med
+                    # när koden faktiskt började köra. Nya rader bär versionen
+                    # själva; NULL = historik som får härledas ur journalens
+                    # observerade växlingar (live_radar.cohort_for).
+                    "ALTER TABLE oddset_live_capture ADD COLUMN radar_version TEXT",
+                    "ALTER TABLE oddset_live_fotmob ADD COLUMN radar_version TEXT",
+                    "ALTER TABLE oddset_live_flashscore ADD COLUMN radar_version TEXT"):
             try:   # migreringar för befintliga DB:er
                 self.conn.execute(mig)
             except sqlite3.OperationalError:
@@ -1859,11 +1871,13 @@ class Storage:
             "shots_away", "shots_on_home", "shots_on_away",
             "shots_inside_home", "shots_inside_away", "touches_box_home",
             "touches_box_away", "corners_home", "corners_away",
+            "radar_version",
         )
         cur = self.conn.execute(
             f"INSERT OR IGNORE INTO oddset_live_capture({','.join(columns)}) "
             f"VALUES({','.join('?' for _ in columns)})",
-            tuple(capture.get(key) for key in columns))
+            tuple(self._with_radar_version(capture).get(key)
+                  for key in columns))
         self._commit()
         return cur.rowcount
 
@@ -1873,8 +1887,22 @@ class Storage:
         "xg_home", "xg_away", "xgot_home", "xgot_away", "xg_open_home",
         "xg_open_away", "big_chances_home", "big_chances_away", "shots_home",
         "shots_away", "shots_on_home", "shots_on_away", "shots_inside_home",
-        "shots_inside_away",
+        "shots_inside_away", "radar_version",
     )
+
+    @staticmethod
+    def _with_radar_version(capture: dict) -> dict:
+        """Stämpla koden som producerar raden, om anroparen inte gjort det.
+
+        Rekonstruktion ur `RADAR_*_STARTED_AT` var roten till att journalen och
+        settlementet hamnade i olika kohorter: konstanten är en handskriven
+        avsikt, inte en observation av vad som kördes. Versionen ska följa med
+        raden — samma princip som presence-ledgern och source-health-loggen.
+        """
+        if capture.get("radar_version"):
+            return capture
+        from .live_radar import RADAR_VERSION
+        return {**capture, "radar_version": RADAR_VERSION}
 
     def live_fotmob_save(self, capture: dict) -> int:
         """Append-once per (match, observationstid, version) — egen tabell så
@@ -1883,7 +1911,7 @@ class Storage:
         cur = self.conn.execute(
             f"INSERT OR IGNORE INTO oddset_live_fotmob({','.join(cols)}) "
             f"VALUES({','.join('?' for _ in cols)})",
-            tuple(capture.get(key) for key in cols))
+            tuple(self._with_radar_version(capture).get(key) for key in cols))
         self._commit()
         return cur.rowcount
 
@@ -1906,7 +1934,7 @@ class Storage:
         "away_score", "xg_home", "xg_away", "xgot_home", "xgot_away",
         "big_chances_home", "big_chances_away", "shots_home", "shots_away",
         "shots_on_home", "shots_on_away", "shots_inside_home",
-        "shots_inside_away", "corners_home", "corners_away",
+        "shots_inside_away", "corners_home", "corners_away", "radar_version",
     )
 
     def live_flashscore_save(self, capture: dict) -> int:
@@ -1916,7 +1944,7 @@ class Storage:
         cur = self.conn.execute(
             f"INSERT OR IGNORE INTO oddset_live_flashscore({','.join(cols)}) "
             f"VALUES({','.join('?' for _ in cols)})",
-            tuple(capture.get(key) for key in cols))
+            tuple(self._with_radar_version(capture).get(key) for key in cols))
         self._commit()
         return cur.rowcount
 

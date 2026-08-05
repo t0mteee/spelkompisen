@@ -32,13 +32,50 @@ CAPTURE_VERSION = "sofa-live-v2"
 # aldrig med v5. Koherensvakten är OFÖRÄNDRAD — den mättes 2026-08-02 och gör
 # rätt: skewen ligger mest åt hållet där ställningen är äldre än statistiken,
 # vilket skulle fabricera "hög xG men inget mål".
-RADAR_VERSION = "chance-gap-shadow-v5"
-# Frysta före driftsstart. Råcaptures saknar radarversion, så settlement använder
-# dessa gränser för v2 (<08), v3 (08–21), v4 (2026-08-01T21 → 2026-08-02T14:30)
-# och den rena v5-kohorten. ÄNDRA ALDRIG en gräns som passerats.
+RADAR_V1_VERSION = "chance-gap-shadow-v1"
+RADAR_V2_VERSION = "chance-gap-shadow-v2"
+RADAR_V3_VERSION = "chance-gap-shadow-v3"
+RADAR_V4_VERSION = "chance-gap-shadow-v4"
+RADAR_V5_VERSION = "chance-gap-shadow-v5"
+RADAR_VERSION = RADAR_V5_VERSION
+
+# En observation som inte bevisligen hör till någon kohort. Se `cohort_for`.
+RADAR_TRANSITIONAL = "transitional"
+
+# DEKLARERADE kohortstarter — avsikt, frysta före driftsstart.
+# ÄNDRA ALDRIG en gräns som passerats.
 RADAR_V3_STARTED_AT = "2026-08-01T08:00:00Z"
 RADAR_V4_STARTED_AT = "2026-08-01T21:00:00Z"
 RADAR_VERSION_STARTED_AT = "2026-08-03T06:00:00Z"
+
+# OBSERVERADE växlingar — när koden faktiskt bytte.
+#
+# Konstanterna ovan är handskrivna och har INGET orsakssamband med deployen:
+# insamlingsjobben startar en ny Python-process varje tick och kör ur
+# arbetskopian, så en versionsbump gäller i samma sekund filen sparas — inte
+# när den committas och inte vid `*_STARTED_AT`. Uppmätt 2026-08-05 hade de
+# glidit isär åt båda hållen: v3 bakåtdaterad ~3,5 h (447 v2-producerade
+# ögonblick låg i v3) och v5 framåtdaterad ~16 h (2 168 v5-producerade
+# ögonblick låg i v4 — 57 % av hela v4-kohorten).
+#
+# Journalen daterar den verkliga växlingen: den stämplar `RADAR_VERSION` vid
+# skrivning och `recorded_at` ligger 1–9 s efter `captured_at`. Paret nedan är
+# (sista observation av föregående kod, första av den nya). DÄREMELLAN vet vi
+# inte vilken kod som körde — det fönstret är transitional, aldrig gissat.
+#
+# BEVISHORISONT: journalens första rad är 2026-08-01T01:02:15Z. Allt före den
+# (17 272 v2-märkta ögonblick, inklusive en v1→v2-växling) går INTE att
+# validera. De behåller sin deklarerade etikett med förbehåll i
+# docs/db-atgarder.md — en påhittad transitional-etikett vore inte ärligare.
+RADAR_EVIDENCE_FROM = "2026-08-01T01:02:15Z"
+RADAR_OBSERVED_SWITCHES = (
+    (RADAR_V2_VERSION, RADAR_V3_VERSION,
+     "2026-08-01T11:32:20Z", "2026-08-01T11:47:15Z"),
+    (RADAR_V3_VERSION, RADAR_V4_VERSION,
+     "2026-08-01T18:57:06Z", "2026-08-02T00:22:05Z"),
+    (RADAR_V4_VERSION, RADAR_V5_VERSION,
+     "2026-08-02T13:32:04Z", "2026-08-02T14:07:05Z"),
+)
 RECENT_MINUTES = 15
 RECENT_TOLERANCE_MIN = 6
 MAX_DISPLAY_AGE_MIN = 12
@@ -109,6 +146,14 @@ LIVE_TEAM_ALIASES = {
     "h beer sheva": "hapoel beer sheva",
     "royale union sg": "royale union saint gilloise",
     "union st gilloise": "royale union saint gilloise",
+    # 2026-08-05, funnen av `cli.py lanklucka` efter att detektorn lagats.
+    # Flashscore ensam skriver `Varberg`; Sofascore `Varbergs BoIS`, FotMob
+    # `Varbergs BoIS FC`. Genitiv-plus-suffix faller mellan reglerna nedan:
+    # `varberg` är enordigt, så bara genitivregeln gäller, och `varbergs`
+    # räcker inte mot `varbergs bois`. Resulthistoriken är HEL (77 rader
+    # `varbergs bois`, noll `varberg`, `oddset_result_stats` likaså), alltså
+    # ren providerpresentation och inte en modellidentitetsfråga.
+    "varberg": "varbergs bois",
 }
 
 # Bekräftat OLIKA klubbar som normaliseringen annars slår ihop. Samma princip
@@ -721,6 +766,90 @@ def previous_capture(earlier: list[dict],
     return candidate
 
 
+def declared_version_at(observed_at: str) -> str:
+    """Vilken kohort som DEKLARERAT äger observationsögonblicket."""
+    observed = _parse_iso(observed_at)
+    for version, start in ((RADAR_V5_VERSION, RADAR_VERSION_STARTED_AT),
+                           (RADAR_V4_VERSION, RADAR_V4_STARTED_AT),
+                           (RADAR_V3_VERSION, RADAR_V3_STARTED_AT)):
+        if observed >= _parse_iso(start):
+            return version
+    return RADAR_V2_VERSION
+
+
+def produced_by_at(observed_at: str) -> Optional[str]:
+    """Vilken KOD som producerade en historisk observation.
+
+    None inne i ett observerat växlingsfönster (vi vet inte) och None före
+    bevishorisonten (journalen fanns inte). Används bara för rader som saknar
+    `radar_version`; nya rader bär den själva.
+    """
+    observed = _parse_iso(observed_at)
+    if observed < _parse_iso(RADAR_EVIDENCE_FROM):
+        return None
+    for previous, following, last_old, first_new in RADAR_OBSERVED_SWITCHES:
+        if observed <= _parse_iso(last_old):
+            return previous
+        if observed < _parse_iso(first_new):
+            return None                      # inne i växlingen — obestämbart
+    return RADAR_OBSERVED_SWITCHES[-1][1]
+
+
+def cohort_for(observed_at: str,
+               produced_by: Optional[str] = None) -> str:
+    """Kohorten en observation tillhör — annars ``transitional``.
+
+    En rad hör till vN bara om vN-KODEN producerade den OCH den observerades
+    inom vN:s deklarerade fönster. Uppfylls inte båda är den transitional och
+    ingår i INGEN kohort.
+
+    Regeln implementerar det framåtfrysningen alltid siktade på: att få
+    deploya mitt på dagen och ändå starta en ren kohort på en rund tid. Den
+    var bara aldrig kodad — journalen struntade i konstanten och stämplade
+    write-time-versionen, medan settlement läste konstanten och märkte samma
+    fönster som föregående version. Att flytta sådana rader till FÖREGÅENDE
+    kohort vore värre än att lämna dem: det är precis den kontaminering
+    versionering finns för att förhindra.
+
+    `produced_by` är radens egen `radar_version` när den finns. Saknas den
+    (historik) härleds den ur journalens observerade växlingar; är den
+    obestämbar där blir raden transitional.
+    """
+    declared = declared_version_at(observed_at)
+    produced = produced_by or produced_by_at(observed_at)
+    if produced is None:
+        # Före bevishorisonten finns ingen journal att jämföra mot. Behåll den
+        # deklarerade etiketten med förbehåll hellre än att hitta på.
+        if _parse_iso(observed_at) < _parse_iso(RADAR_EVIDENCE_FROM):
+            return declared
+        return RADAR_TRANSITIONAL
+    return declared if declared == produced else RADAR_TRANSITIONAL
+
+
+def live_norm_team(value: str) -> str:
+    """`norm_team` plus Flashscores landsetikett.
+
+    Flashscore märker klubbar med landkod i internationella sammanhang, t.ex.
+    `Chelsea (Eng)` och `Sparta Prague (Cze)`. Det är providerpresentation,
+    inte lagidentitet, och gäller ALLA lag — regeln är generell, aldrig en
+    lista över enskilda klubbar.
+
+    MODULNIVÅ sedan 2026-08-05 därför att diagnostiken (`cli.py lanklucka`)
+    mätte namnlikhet på rå `norm_team` medan länken kördes på den strippade
+    formen. Suffixet drog då ner likheten under åtgärdströskeln, så exakt de
+    par regeln var till för föll ur listan: `Mjällby (Swe)` ↔ `Mjällby AIF`
+    fick 0,70 mot tröskeln 0,72 trots att namnen är identiska. Detektorn och
+    länken MÅSTE se samma normaliserade namn — annars letar vakten efter en
+    annan sorts fel än det som uppstår.
+    """
+    normalized = norm_team(value or "")
+    tokens = [token for token in normalized.split()
+              if not (token.startswith("(") and token.endswith(")") and
+                      2 <= len(token[1:-1]) <= 3 and
+                      token[1:-1].isalpha())]
+    return " ".join(tokens)
+
+
 def _same_team(a: str, b: str) -> bool:
     """Konservativ namnlänkning mellan livekällorna.
 
@@ -729,17 +858,7 @@ def _same_team(a: str, b: str) -> bool:
     med minst fyra tecken täcker det utan att öppna för allmän likhetsmatchning.
     Ingen träff = matchen visas utan FotMob-data; vi gissar aldrig.
     """
-    def live_norm(value: str) -> str:
-        normalized = norm_team(value or "")
-        # Flashscore märker klubbar i globala träningsmatcher med landkod,
-        # t.ex. `Chelsea (Eng)`. Det är providerpresentation, inte lagidentitet.
-        tokens = [token for token in normalized.split()
-                  if not (token.startswith("(") and token.endswith(")") and
-                          2 <= len(token[1:-1]) <= 3 and
-                          token[1:-1].isalpha())]
-        return " ".join(tokens)
-
-    x, y = live_norm(a), live_norm(b)
+    x, y = live_norm_team(a), live_norm_team(b)
     x, y = LIVE_TEAM_ALIASES.get(x, x), LIVE_TEAM_ALIASES.get(y, y)
     # Bekräftat olika klubbar stoppas FÖRE all likhetslogik. Hellre två kort
     # än att två verkliga matcher smälter ihop.

@@ -26,8 +26,11 @@ class LiveRadarMigrationTests(unittest.TestCase):
             try:
                 self.assertEqual(
                     1, conn.execute("SELECT COUNT(*) FROM legacy").fetchone()[0])
+                # 26 datafält + `radar_version` (2026-08-05): koden som
+                # producerade raden bärs av raden själv i stället för att
+                # rekonstrueras ur en handskriven gränskonstant.
                 self.assertEqual(
-                    26, len(conn.execute(
+                    27, len(conn.execute(
                         "PRAGMA table_info(oddset_live_capture)").fetchall()))
             finally:
                 conn.close()

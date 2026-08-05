@@ -867,3 +867,103 @@ DELETE FROM oddset_results
   namndubbletter: 5, samtliga de verifierade falska paren i `friendlies`.
   V2.2-fingeravtrycket är OFÖRÄNDRAT (`v22-be50c514`) — `TEAM_ALIASES` ingår
   inte i manifestets fingeravtryck. Live-vyn visar ett kort per match.
+
+## 2026-08-05 — `Leicester City` → `Leicester` i resultathistoriken
+
+- **Bakgrund:** funnen av `cli.py lanklucka` sedan detektorn lagats (den mätte
+  namnlikhet på rå `norm_team`, alltså med Flashscores landsetikett kvar, och
+  missade därför just de par landkodsstrippningen finns för). Flashscore/FotMob
+  skriver `Leicester`, Sofascore `Leicester City`, vilket delade klubben i
+  `oddset_results`: 84 rader `leicester` mot 2 `leicester city`.
+- **Bevisstandard:** de två avvikande raderna är båda `friendlies` med
+  `source='sofa'` — 2026-07-25 Málaga–Leicester City 3–3 och 2026-08-01
+  Leicester City–Genoa 0–1. Ingen `leicester`-rad fanns för samma liga+datum,
+  så det var en ren OMSKRIVNING, inte en sammanslagning: inget resultat behövde
+  vägas mot ett annat. `oddset_result_stats` och `oddset_elo_rating` var redan
+  rena (noll `leicester city`).
+- **Ändring:** ett par in i `oddset.TEAM_ALIASES` (`leicester city` →
+  `leicester`; kanonisk form = den entydigt dominerande i `oddset_results`).
+  Samtidigt `varberg` → `varbergs bois` in i `live_radar.LIVE_TEAM_ALIASES` —
+  det paret krävde INGEN DB-ändring eftersom resulthistoriken redan var hel
+  (77 rader `varbergs bois`, noll `varberg`); det är enbart Flashscores
+  presentation. Genitiv-plus-suffix faller mellan `_same_team`s regler:
+  `varberg` är enordigt, så bara genitivregeln gäller, och `varbergs` räcker
+  inte mot `varbergs bois`.
+- **Skript:** `backend/scripts/migrera_lagnamn_alias.py` (oförändrad logik —
+  den är generisk över `TEAM_ALIASES`; backupnamnet är nu ett `--backup`-
+  argument så en omkörning inte tyst återanvänder 2026-08-02:s säkerhetskopia).
+  **Backup:** `backend/data/backups/stryktips-2026-08-05-fore-leicester.db`.
+- **Resultat:** `oddset_results` 11 298 rader oförändrat, 2 namn omskrivna,
+  0 hopslagna; `leicester` 84 → 86. `home_raw`/`away_raw` bevarar källans egen
+  stavning. `integrity_check=ok`, 0 foreign-key-fel. Omkörning: 0/0/0.
+- **Drift:** snapshot-jobbet kunde INTE lastas ur (behörighetsspärr på
+  `launchctl` i sessionen). Bedömd säkert ändå: inget insamlingsvarv kördes,
+  13 min till nästa fullvarv, transaktionen är atomär med
+  `busy_timeout=30000` och omfattar två rader — till skillnad från
+  2026-08-02:s 885 omskrivningar över 11 796 rader. Backend omstartad.
+- **Ingen signalversion bumpad.** Verifierat före ändringen: noll captures för
+  Varberg/Falkenberg/Leicester i alla tre livetabellerna sedan v5-start, och
+  klubbarnas enda journalrader ligger under den döda v3-kohorten
+  (Leicester City–Genoa, 2 rader). v5-kohorten är alltså oförändrad.
+  `V2.2-fingeravtrycket` oförändrat (`v22-be50c514`) — `TEAM_ALIASES` ingår
+  inte i manifestets fingeravtryck.
+- **Efterkontroll:** 540/540 tester gröna (2 nya detektortester).
+  `lanklucka 96` rapporterar noll olänkade par. Falsk-merge-kontroll:
+  `Varberg` ≠ `Varbergs GIF`, `Leicester` ≠ `Leicester City U21`.
+
+## 2026-08-05 — Radarkohorter efter observerad kod, inte efter gränskonstanten
+
+- **Bakgrund:** `RADAR_*_STARTED_AT` är handskrivna konstanter utan
+  orsakssamband med när koden började köra. Insamlingsjobben startar en ny
+  process varje tick ur ARBETSKOPIAN, så en versionsbump gäller i samma sekund
+  filen sparas — inte när den committas och inte vid `*_STARTED_AT`. Journalen
+  stämplade write-time-versionen (verkligheten) medan settlementet läste
+  konstanten (avsikten). De gled isär åt BÅDA hållen:
+  v5-gränsen sattes 16 h EFTER den verkliga växlingen (~2026-08-02T14:07Z) och
+  v3-gränsen 3,5 h FÖRE (~2026-08-01T11:32–11:47Z).
+- **Upptäckt:** 6 journalrader stämplade v5 låg i ett fönster settlementet
+  kallade v4. Symtomet var litet; orsaken var det inte — **57 % av
+  v4-kohorten (2 168 av 3 823 ögonblick) var v5-producerad.**
+- **Bevisstandard:** journalen daterar den verkliga växlingen. Den stämplar
+  `RADAR_VERSION` vid skrivning och `recorded_at` ligger 1–9 s efter
+  `captured_at`, alltså realtid — inte efterkörning. Växlingsparenteserna är
+  frysta i `live_radar.RADAR_OBSERVED_SWITCHES`. Commit-tid duger INTE som
+  bevis: den första v5-raden skrevs 8 minuter före sin egen commit.
+- **Regel (`live_radar.cohort_for`):** en rad hör till vN bara om vN-KODEN
+  producerade den OCH den observerades i vN:s DEKLARERADE fönster. Annars
+  `transitional` — ingen kohort. Rader flyttas ALDRIG till föregående kohort;
+  det vore precis den kontaminering versionering finns för att förhindra.
+  Inne i en observerad växling vet vi inte vilken kod som körde ⇒ transitional,
+  aldrig gissat.
+- **Rotfix:** kolumnen `radar_version` på `oddset_live_capture`,
+  `oddset_live_fotmob` och `oddset_live_flashscore`. Nya rader bär versionen
+  själva och behöver ingen rekonstruktion. Samma lärdom som presence-ledgern
+  och `oddset_source_health_log`: **rekonstruera inte det du kan registrera.**
+  Historiken bakfylls INTE — NULL betyder "härledd", och den skillnaden ska
+  synas i efterhand.
+- **Gränserna är ORÖRDA.** Det som ändrades är att koden slutade vara oense
+  med dem.
+- **Skript:** `backend/scripts/migrera_radar_kohorter.py`.
+  **Backup:** `backend/data/backups/stryktips-2026-08-05-fore-radarkohorter.db`.
+- **Resultat:** `oddset_live_moment_settlement` 3 273 ögonblick omstämplade
+  till transitional (737 ur v3, 2 536 ur v4); `oddset_live_signal` 7 rader
+  (6 ur v5, 1 ur v2). Kohorterna efteråt: v2 17 288 · v3 5 755 · v4 1 287 ·
+  v5 2 529 · transitional 3 273. Journalen: v5 9 signaler (var 15), v4 24,
+  v3 9, v2 1, transitional 7. `integrity_check=ok`, 0 foreign-key-fel.
+  Omkörning: 0/0. Krockkontroll på journalens naturliga nyckel
+  `(match_key, signal_version, typ, nivå)` görs FÖRE skrivning och avbryter.
+- **KÄND BEGRÄNSNING:** journalens första rad är 2026-08-01T01:02:15Z.
+  17 272 v2-märkta ögonblick före den — inklusive en v1→v2-växling omkring
+  2026-07-25T10:41Z — går inte att validera och behåller sin deklarerade
+  etikett. En påhittad transitional-etikett vore inte ärligare. v2 får därför
+  inte användas som ren baslinje.
+- **Konsekvens för mätningen:** v5:s blindkohort går från 15 till 9 signaler
+  och v4 är oanvändbar som jämförelsebaslinje. Det är inte en förlust — de
+  gamla siffrorna var uppblåsta av felmärkning.
+- **Drift:** ingen launchd-ändring behövdes (inget varv pågick; migrationen är
+  atomär). Backend omstartad, `cli.py live-tick` verifierad, `radar-facit`
+  svarar med `transitional_n_signals` separerat från `historical_versions` —
+  transitional är ingen äldre version och får inte läsas som en fjärde kohort.
+- **Efterkontroll:** 546/546 tester gröna (6 nya kohorttester som låser båda
+  glidningsriktningarna, växlingsfönstret, bevishorisonten och
+  kontamineringsspärren).

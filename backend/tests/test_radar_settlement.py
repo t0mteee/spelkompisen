@@ -182,6 +182,11 @@ class RadarSettlementTests(unittest.TestCase):
             event_id, first_at + dt.timedelta(minutes=10), 40, home_score=1)
         first["capture_version"] = "flashscore-live-v1"
         later["capture_version"] = "flashscore-live-v1"
+        # Historisk capture producerad av v3-koden. Versionen bärs av raden;
+        # utan den skulle dagens skrivare stämpla v5, och en v5-rad i v3:s
+        # deklarerade fönster är per definition `transitional`.
+        first["radar_version"] = live_radar.RADAR_V3_VERSION
+        later["radar_version"] = live_radar.RADAR_V3_VERSION
         self.store.live_flashscore_save(first)
         self.store.live_flashscore_save(later)
 
@@ -194,33 +199,61 @@ class RadarSettlementTests(unittest.TestCase):
         self.assertEqual({"chance-gap-shadow-v3"},
                          {row["signal_version"] for row in rows})
 
-    def test_delayed_settlement_uses_capture_time_version_boundaries(self):
-        captures = (
-            ("v2", dt.datetime(2026, 8, 1, 7, 59,
-                               tzinfo=dt.timezone.utc)),
-            ("v3", dt.datetime(2026, 8, 1, 8, 1,
-                               tzinfo=dt.timezone.utc)),
-            ("v4", dt.datetime(2026, 8, 1, 21, 1,
-                               tzinfo=dt.timezone.utc)),
-            ("v5", dt.datetime(2026, 8, 3, 6, 1,
-                               tzinfo=dt.timezone.utc)),
+    def test_cohort_needs_both_the_right_code_and_the_declared_window(self):
+        """Två villkor, inte ett — annars glider kohorterna isär.
+
+        Den gamla regeln prövade bara det deklarerade fönstret. Då hamnade
+        2 168 v5-producerade ögonblick (57 % av v4-kohorten) under v4, eftersom
+        v5-gränsen råkade sättas 16 h efter att koden faktiskt bytte.
+        """
+        cases = (
+            # (event, capturetid, kod som producerade, förväntad kohort)
+            ("match", dt.datetime(2026, 8, 1, 12, 0, tzinfo=dt.timezone.utc),
+             live_radar.RADAR_V3_VERSION, "chance-gap-shadow-v3"),
+            ("nyare-kod", dt.datetime(2026, 8, 2, 15, 0,
+                                      tzinfo=dt.timezone.utc),
+             live_radar.RADAR_V5_VERSION, live_radar.RADAR_TRANSITIONAL),
+            ("aldre-kod", dt.datetime(2026, 8, 1, 9, 0,
+                                      tzinfo=dt.timezone.utc),
+             live_radar.RADAR_V2_VERSION, live_radar.RADAR_TRANSITIONAL),
+            ("ren-v5", dt.datetime(2026, 8, 3, 6, 1, tzinfo=dt.timezone.utc),
+             live_radar.RADAR_V5_VERSION, "chance-gap-shadow-v5"),
         )
-        for event_id, captured_at in captures:
+        for event_id, captured_at, produced_by, _ in cases:
             self.store.oddset_save_live_capture(
                 sofa_capture(event_id, captured_at, 30, xg_home=0.3,
-                             xg_away=0.2))
+                             xg_away=0.2, radar_version=produced_by))
 
         live_settlement.settle_moments(self.store, now=NOW)
 
         versions = {row["event_id"]: row["signal_version"]
                     for row in self.rows()}
-        # Literaler, inte live_radar.RADAR_VERSION: en passerad kohort ska
-        # stämplas efter capturetiden även när koden gått vidare. Att testet
-        # tidigare läste den aktiva versionen dolde just den risken.
-        self.assertEqual("chance-gap-shadow-v2", versions["v2"])
-        self.assertEqual("chance-gap-shadow-v3", versions["v3"])
-        self.assertEqual("chance-gap-shadow-v4", versions["v4"])
-        self.assertEqual("chance-gap-shadow-v5", versions["v5"])
+        for event_id, _, _, expected in cases:
+            self.assertEqual(expected, versions[event_id], event_id)
+
+    def test_historical_row_without_version_uses_observed_switches(self):
+        """Rader från före kolumnen infördes har NULL och måste härledas.
+
+        Journalens observerade växlingar är beviset. Inne i en växling vet vi
+        inte vilken kod som körde — då är raden transitional, aldrig gissad.
+        """
+        inside_switch = dt.datetime(2026, 8, 1, 11, 40, tzinfo=dt.timezone.utc)
+        clearly_v3 = dt.datetime(2026, 8, 1, 12, 0, tzinfo=dt.timezone.utc)
+        for event_id, at in (("i-vaxling", inside_switch),
+                             ("efter-vaxling", clearly_v3)):
+            self.store.oddset_save_live_capture(
+                sofa_capture(event_id, at, 30, xg_home=0.3, xg_away=0.2))
+        # Historik: kolumnen fanns inte när raderna skrevs.
+        self.store.conn.execute(
+            "UPDATE oddset_live_capture SET radar_version=NULL")
+        self.store.conn.commit()
+
+        live_settlement.settle_moments(self.store, now=NOW)
+
+        versions = {row["event_id"]: row["signal_version"]
+                    for row in self.rows()}
+        self.assertEqual(live_radar.RADAR_TRANSITIONAL, versions["i-vaxling"])
+        self.assertEqual("chance-gap-shadow-v3", versions["efter-vaxling"])
 
     # (e) signalen räknas om med den DELADE funktionen — ingen egen kopia
     def test_signal_recomputation_uses_shared_radar_signal(self):
@@ -433,3 +466,56 @@ class RadarSettlementMigrationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CohortBoundaryTests(unittest.TestCase):
+    """Kohortregeln mot det verkliga glappet 2026-08-02/03.
+
+    `RADAR_*_STARTED_AT` är handskrivna avsikter; journalen daterar när koden
+    verkligen bytte. Glider de isär ska rader bli `transitional` — aldrig
+    tyst hamna i föregående kohort.
+    """
+
+    def test_declared_start_after_the_real_switch_yields_transitional(self):
+        # v5-koden körde från ~2026-08-02T14:07Z men v5 deklarerades först
+        # 2026-08-03T06:00Z. 16 timmar däremellan ägs av ingen kohort.
+        self.assertEqual(
+            live_radar.RADAR_TRANSITIONAL,
+            live_radar.cohort_for("2026-08-02T15:14:08Z",
+                                  produced_by=live_radar.RADAR_V5_VERSION))
+        self.assertEqual(
+            "chance-gap-shadow-v5",
+            live_radar.cohort_for("2026-08-03T15:12:16Z",
+                                  produced_by=live_radar.RADAR_V5_VERSION))
+
+    def test_declared_start_before_the_real_switch_yields_transitional(self):
+        # v3 deklarerades 08:00Z men koden bytte först ~11:32–11:47Z.
+        self.assertEqual(
+            live_radar.RADAR_TRANSITIONAL,
+            live_radar.cohort_for("2026-08-01T09:00:00Z"))
+        self.assertEqual(
+            "chance-gap-shadow-v3",
+            live_radar.cohort_for("2026-08-01T12:00:00Z"))
+
+    def test_inside_an_observed_switch_is_never_guessed(self):
+        self.assertIsNone(live_radar.produced_by_at("2026-08-01T11:40:00Z"))
+        self.assertEqual(
+            live_radar.RADAR_TRANSITIONAL,
+            live_radar.cohort_for("2026-08-01T11:40:00Z"))
+
+    def test_before_the_evidence_horizon_keeps_its_declared_label(self):
+        """Journalen fanns inte — en påhittad transitional vore inte ärligare.
+
+        Känd, dokumenterad begränsning: v1→v2-växlingen går inte att validera.
+        """
+        self.assertIsNone(live_radar.produced_by_at("2026-07-25T08:03:38Z"))
+        self.assertEqual("chance-gap-shadow-v2",
+                         live_radar.cohort_for("2026-07-25T08:03:38Z"))
+
+    def test_a_row_never_falls_into_the_previous_cohort(self):
+        """Kontamineringsspärren: fel kohort ⇒ transitional, aldrig vN−1."""
+        for at in ("2026-08-01T09:00:00Z", "2026-08-02T15:14:08Z",
+                   "2026-08-02T23:00:00Z"):
+            cohort = live_radar.cohort_for(
+                at, produced_by=live_radar.declared_version_at(at) + "-fel")
+            self.assertEqual(live_radar.RADAR_TRANSITIONAL, cohort, at)

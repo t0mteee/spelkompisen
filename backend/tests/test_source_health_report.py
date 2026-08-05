@@ -114,6 +114,36 @@ class LinkGapReportTests(unittest.TestCase):
         rapport = format_link_gaps(self.store, hours=6)
         self.assertIn("inga", rapport)
 
+    def test_country_label_does_not_sink_similarity(self):
+        """Flashscores landsetikett fick inte gömma ett identiskt namn.
+
+        `Sparta Prague (Cze)` ↔ `Sparta Praha` mätt på rå `norm_team` gav 0,65
+        mot tröskeln 0,72 och föll ur åtgärdslistan; strippat är det 0,80.
+        Detektorn ska mäta på samma normalisering som länken.
+        """
+        self._fs("Sparta Prague (Cze)", "Kairat Almaty (Kaz)")
+        self._sofa("Sparta Praha", "Kairat Almaty")
+        with patch.object(live_radar, "LIVE_TEAM_ALIASES", {}):
+            rapport = format_link_gaps(self.store, hours=6)
+        self.assertIn("Sparta Prague (Cze)", rapport)
+        self.assertIn("likhet", rapport)
+
+    def test_orphan_in_an_otherwise_linked_bucket_is_reported(self):
+        """`Lyon` ↔ `Olympique Lyonnais` liknar inte varandra (0,36).
+
+        Namnlikhet kan aldrig hitta det paret. Att båda providrarna har exakt
+        en rad kvar utan motpart i en hink som ANNARS länkar är beviset.
+        """
+        self._fs("Levski Sofia", "Kairat Almaty")
+        self._sofa("Levski Sofia", "Kairat Almaty")
+        self._fs("Lyon", "Sparta Praha")
+        self._sofa("Olympique Lyonnais", "Sparta Praha")
+        with patch.object(live_radar, "LIVE_TEAM_ALIASES", {}):
+            rapport = format_link_gaps(self.store, hours=6)
+        self.assertIn("ensam", rapport)
+        self.assertIn("Olympique Lyonnais", rapport)
+        self.assertNotIn("Kairat", rapport)
+
     def test_different_kickoff_is_never_paired(self):
         self._fs("Hodd", "Moss", start="2026-08-02T15:00:00Z")
         self._sofa("Hødd IL", "Moss FK", start="2026-08-02T19:00:00Z")

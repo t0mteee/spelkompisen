@@ -221,6 +221,11 @@ TEAM_ALIASES = {
     # Förkortningar:
     "la galaxy": "los angeles galaxy",
     "atlanta utd": "atlanta united",
+    # 2026-08-05, samma klass som 588-radersfyndet ovan: football-data skriver
+    # `Leicester` (84 rader), Sofascore `Leicester City` (2 rader,
+    # träningsmatcher). Kanonisk form är den entydigt dominerande i
+    # `oddset_results`. `oddset_result_stats` var redan ren — bara `leicester`.
+    "leicester city": "leicester",
 }
 
 

@@ -125,7 +125,7 @@ def _live_total(match: Optional[dict]) -> dict:
 
 
 def _locked_key(store: Storage, match: dict,
-                now: dt.datetime) -> Optional[str]:
+                now: dt.datetime, cohort: str) -> Optional[str]:
     """Stabil journalnyckel: samma fysiska match får ALDRIG två nycklar.
 
     Utan lås dubbleras blindkohorten tyst i två verifierade lägen: (a) den
@@ -142,7 +142,12 @@ def _locked_key(store: Storage, match: dict,
     accepteras (källorna är oense om hemmalag på neutral plan) precis som i
     `_canonical_match`; (3) starttider mer än tre timmar isär (dubbelmöten)
     låser aldrig; (4) fönstret är tre timmar — flippar sker mitt i matchen;
-    (5) tvetydighet låser aldrig."""
+    (5) tvetydighet låser aldrig.
+
+    `cohort` MÅSTE vara den kohort raden kommer att stämplas med, inte
+    `RADAR_VERSION`: låset söker bland redan bokförda rader, och en sökning i
+    fel kohort hittar dem inte — då skapas exakt den andra nyckeln låset finns
+    för att förhindra."""
     identities: list[tuple[str, str]] = []
     raw = match.get("event_id")
     if isinstance(raw, int) or (isinstance(raw, str) and raw.isdigit()):
@@ -155,13 +160,13 @@ def _locked_key(store: Storage, match: dict,
         or match.get("flashscore_id")
     if fs_id is not None:
         identities.append(("flashscore", str(fs_id)))
-    locked = store.live_signal_locked_key(live_radar.RADAR_VERSION, identities)
+    locked = store.live_signal_locked_key(cohort, identities)
     if locked:
         return locked
     providers_with_id = {provider for provider, _ in identities}
     since = _iso(now - dt.timedelta(hours=3))
     keys = set()
-    for row in store.live_signal_recent_keys(live_radar.RADAR_VERSION, since):
+    for row in store.live_signal_recent_keys(cohort, since):
         if (row["provider"] in providers_with_id
                 or row["league"] != match.get("league")):
             continue
@@ -232,23 +237,30 @@ def capture_signals(store: Storage, *,
         # rapporten i stället för att kandidaten tyst försvinner.
         try:
             canonical = _canonical_match(store, match)
-            match_key = (_locked_key(store, match, now)
+            provider, source, provider_event_id = _selected_source(match)
+            captured_at = source.get("captured_at") or match["captured_at"]
+            # Kohorten avgörs av observationstiden, inte av vilken version som
+            # råkar vara laddad. Journalen stämplade förr `RADAR_VERSION` rakt
+            # av, så 6 rader hamnade i v5 medan settlementet läste samma
+            # ögonblick som v4. En rad producerad av vN-kod före vN:s
+            # deklarerade start är `transitional` och ingår i INGEN kohort.
+            cohort = live_radar.cohort_for(
+                captured_at, produced_by=source.get("radar_version"))
+            match_key = (_locked_key(store, match, now, cohort)
                          or (canonical["id"] if canonical
                              else str(match["event_id"])))
-            if store.live_signal_exists(
-                    match_key, live_radar.RADAR_VERSION, kind, level):
+            if store.live_signal_exists(match_key, cohort, kind, level):
                 continue
-            provider, source, provider_event_id = _selected_source(match)
             odds = _live_total(canonical)
             saved = store.live_signal_save({
                 "match_key": match_key,
                 "match_id": canonical["id"] if canonical else None,
                 "provider": provider,
                 "provider_event_id": provider_event_id,
-                "captured_at": source.get("captured_at") or match["captured_at"],
+                "captured_at": captured_at,
                 "capture_version": source.get("capture_version")
                 or match["capture_version"],
-                "signal_version": live_radar.RADAR_VERSION,
+                "signal_version": cohort,
                 "league": match["league"],
                 "tournament": match.get("tournament"),
                 "home": match["home"], "away": match["away"],
@@ -523,8 +535,14 @@ def facit(store: Storage, limit: int = 200) -> dict:
     all_rows = store.live_signal_facit_rows()
     current = live_radar.RADAR_VERSION
     rows = [row for row in all_rows if row["signal_version"] == current]
+    # `transitional` är INGEN äldre version — det är rader som ingen kohort
+    # äger (vN-kod före vN:s deklarerade start, eller inne i en observerad
+    # växling). Att lista dem bland versionerna hade läst som en fjärde kohort.
+    transitional = [row for row in all_rows
+                    if row["signal_version"] == live_radar.RADAR_TRANSITIONAL]
     old_versions = sorted({row["signal_version"] for row in all_rows
-                           if row["signal_version"] != current})
+                           if row["signal_version"] not in
+                           (current, live_radar.RADAR_TRANSITIONAL)})
     historical = [
         {"signal_version": version,
          **_version_facit([row for row in all_rows
@@ -536,6 +554,7 @@ def facit(store: Storage, limit: int = 200) -> dict:
         "all_versions_n_signals": len(all_rows),
         **_version_facit(rows),
         "historical_versions": historical,
+        "transitional_n_signals": len(transitional),
         "rows": list(reversed(rows[-max(1, int(limit)):])),
         "thresholds": {
             "xg_watch": {

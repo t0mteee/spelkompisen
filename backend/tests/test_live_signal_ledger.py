@@ -11,7 +11,11 @@ from app.oddset import norm_team
 from app.storage import Storage
 
 
-NOW = dt.datetime(2026, 7, 31, 18, 30, tzinfo=dt.timezone.utc)
+# Inne i v5:s DEKLARERADE fönster (>= RADAR_VERSION_STARTED_AT). Fixturerna
+# skrivs av dagens kod, som stämplar raden `radar_version=v5`; en fixtur daterad
+# före fönstret blir därför korrekt `transitional` och faller ur blindkohorten.
+# Datumet ska följa med vid nästa kohortstart.
+NOW = dt.datetime(2026, 8, 4, 18, 30, tzinfo=dt.timezone.utc)
 
 
 def iso(when: dt.datetime) -> str:
@@ -154,7 +158,7 @@ class LiveSignalLedgerTests(unittest.TestCase):
             "recorded_at": first["captured_at"],
         })
         self.store.oddset_save_result({
-            "league": "allsvenskan", "date": "2026-07-31",
+            "league": "allsvenskan", "date": NOW.date().isoformat(),
             "home": norm_team("Hammarby IF"), "away": norm_team("AIK"),
             "home_raw": "Hammarby", "away_raw": "AIK",
             "hg": 2, "ag": 0, "source": "sofa",
@@ -439,7 +443,7 @@ class MatchKeyLockTests(unittest.TestCase):
         locked = live_signal_ledger._locked_key(self.store, {
             "event_id": "fotmob:4621334", "fotmob_id": 4621334,
             "league": "friendlies", "home": "Hammarby", "away": "AIK",
-        }, NOW)
+        }, NOW, live_radar.RADAR_VERSION)
         self.assertEqual("10852411", locked)
 
     def test_mirrored_orientation_still_locks(self):
@@ -449,7 +453,7 @@ class MatchKeyLockTests(unittest.TestCase):
         locked = live_signal_ledger._locked_key(self.store, {
             "event_id": "fotmob:4621334", "fotmob_id": 4621334,
             "league": "friendlies", "home": "Hammarby", "away": "AIK",
-        }, NOW)
+        }, NOW, live_radar.RADAR_VERSION)
         self.assertEqual("10852411", locked)
 
     def test_same_provider_with_other_id_is_proof_of_another_match(self):
@@ -462,7 +466,7 @@ class MatchKeyLockTests(unittest.TestCase):
             "event_id": 200,
             "league": "friendlies", "home": "Inter U23",
             "away": "Milan Futuro",
-        }, NOW)
+        }, NOW, live_radar.RADAR_VERSION)
         self.assertIsNone(locked)
 
     def test_double_header_start_gap_never_locks(self):
@@ -474,7 +478,7 @@ class MatchKeyLockTests(unittest.TestCase):
             "event_id": "fotmob:222", "fotmob_id": 222,
             "league": "friendlies", "home": "Hammarby", "away": "AIK",
             "start_at": iso(NOW),
-        }, NOW)
+        }, NOW, live_radar.RADAR_VERSION)
         self.assertIsNone(locked)
 
     def test_ambiguous_team_match_never_locks(self):
@@ -485,7 +489,7 @@ class MatchKeyLockTests(unittest.TestCase):
         locked = live_signal_ledger._locked_key(self.store, {
             "event_id": "fotmob:5", "fotmob_id": 5,
             "league": "friendlies", "home": "Hammarby", "away": "AIK",
-        }, NOW)
+        }, NOW, live_radar.RADAR_VERSION)
         self.assertIsNone(locked)
 
     def test_affiliated_team_is_not_a_lock_candidate(self):
@@ -494,7 +498,7 @@ class MatchKeyLockTests(unittest.TestCase):
         locked = live_signal_ledger._locked_key(self.store, {
             "event_id": "fotmob:5", "fotmob_id": 5,
             "league": "friendlies", "home": "Hammarby", "away": "AIK",
-        }, NOW)
+        }, NOW, live_radar.RADAR_VERSION)
         self.assertIsNone(locked)
 
 
@@ -575,7 +579,7 @@ class SettlementGuardTests(unittest.TestCase):
     def _result(self, hg, ag):
         from app.oddset import norm_team
         self.store.oddset_save_result({
-            "league": "allsvenskan", "date": "2026-07-31",
+            "league": "allsvenskan", "date": NOW.date().isoformat(),
             "home": norm_team("Hammarby IF"), "away": norm_team("AIK"),
             "home_raw": "Hammarby", "away_raw": "AIK",
             "hg": hg, "ag": ag, "source": "sofa",
