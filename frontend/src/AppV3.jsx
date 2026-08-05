@@ -9,7 +9,7 @@ import {
   BombenView, OddsetView, Legend, Collection, LoadingState, EmptyState,
   ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS,
   SYSTEM_BASE, SYSTEM_SVS, VARIANT, kr, fmtClose, PlayRec,
-  PlayedPanel, oddsetBestValue,
+  PlayedPanel, oddsetBestValue, SortableTable,
 } from './App'
 
 const VIEWS = [
@@ -362,7 +362,11 @@ function PoolV3() {
   const [payouts, setPayouts] = useState(null)
   const [sys, setSys] = useState(null)
   const [strategy, setStrategy] = useState(saved.strategy || 'medel')
-  const [budget, setBudget] = useState(saved.budget || 128)
+  // 256 = PH3:s champion (`b256-medel`). Standarden MÅSTE spegla championen,
+  // annars mäter systemfacit en byggare som inte är den du faktiskt kör: fram
+  // till 2026-08-05 stod reglaget på 128 medan championen var registrerad som
+  // 50 kr, så etiketten "champion = dagens byggare" var osann.
+  const [budget, setBudget] = useState(saved.budget || 256)
   const [sysType, setSysType] = useState(saved.sysType || 'ev')
   const [valueWeight, setValueWeight] = useState(saved.valueWeight ?? 50)
   const [picks, setPicks] = useState(saved.picks || {})
@@ -577,8 +581,14 @@ function PoolV3() {
 
             <section id="kupong">
               <h2>Din kupong — granska &amp; lämna in</h2>
+              {/* Byggarens inställningar följer med till bokföringen. Utan dem
+                  gick det inte att i efterhand se VILKET slags förslag en
+                  spelad kupong byggde på — alla rader före 2026-08-05 har
+                  därför okänd förslagstyp, och de bakfylls aldrig. */}
               <CouponPanel matches={analysis.matches} picks={picks} pickRows={pickRows}
-                payouts={payouts} product={product} draw={draw} onClear={clearCoupon} />
+                payouts={payouts} product={product} draw={draw} onClear={clearCoupon}
+                buildConfig={{ strategy, budget, value_weight: valueWeight / 100,
+                  source: sys ? 'byggare' : 'manuell' }} />
             </section>
           </div>
 
@@ -603,22 +613,164 @@ function PoolV3() {
 }
 
 /* =============================== Historik ================================= */
+// Historik är 100 % POOL (Labb är 100 % odds — se CLAUDE.md). Ombyggd
+// 2026-08-05: se docs/historik-ui-2026-08-05.md för före/efter-mätningarna.
+//
+// Bärande principer efter ombyggnaden:
+//  * EN produktväljare överst styr HELA sidan. Tidigare styrde knapparna bara
+//    omsättningstabellen 1 400 px längre ner, vilket läste som att de var
+//    trasiga.
+//  * Ingen parameter göms i en nyckelsträng. `ev50-tuff-vw80` blir tre
+//    kolumner: budget, strategi, värdevikt.
+//  * Insats och ackumulerat satsat är olika saker och står aldrig i samma
+//    kolumn.
+
+const PRODUCT_LABEL = Object.fromEntries(
+  HIST_PRODUCTS.map((p) => [p.id, p.label]))
+const STRATEGY_LABEL = { säker: 'Säker', medel: 'Medel', tuff: 'Tuff' }
+
+// Horisonten är minuter före spelstopp. Nyckeln (`h3`/`m20`) är ett internt
+// id som aldrig ska nå användaren — brödtexten sa T−3 h medan tabellen sa h3.
+const horizonLabel = (row) => (row?.horizon_minutes != null
+  ? `${row.horizon_minutes} min` : row?.horizon || '–')
+
+const pctSigned = (v) => (v == null ? '–'
+  : `${v >= 0 ? '+' : ''}${Math.round(v * 100)} %`)
+const roiCls = (v) => (v == null ? '' : v >= 0 ? 'v3pos' : 'v3neg')
+
+/* Förslagstypen bakom en bokförd kupong. Kuponger före 2026-08-05 saknar den
+   — de var aldrig observerade och bakfylls aldrig. */
+function BuildBadge({ row }) {
+  if (!row?.strategy && row?.budget == null) {
+    return <span className="v3hint" title="Bokförd innan förslagstyp började
+      sparas (2026-08-05). Uppgiften fanns aldrig och bakfylls inte.">okänd</span>
+  }
+  const parts = [
+    row.budget != null ? `${Math.round(row.budget)} kr` : null,
+    STRATEGY_LABEL[row.strategy] || row.strategy,
+    row.value_weight != null ? `värde ${Math.round(row.value_weight * 100)} %` : null,
+  ].filter(Boolean)
+  return <span className="v3buildbadge">{parts.join(' · ')}</span>
+}
+
+/* Ett fryst system match för match: täckte vi tecknet som gick in, och hur
+   stod folkets streck vid frysningen mot vid spelstopp? */
+function SystemDetail({ product, draw, horizon, config, onClose }) {
+  const [d, setD] = useState(null)
+  const [err, setErr] = useState(null)
+  useEffect(() => {
+    setD(null); setErr(null)
+    get(`/api/pool/systems/detail?product=${product}&draw=${draw}`
+      + `&horizon=${horizon}&config=${encodeURIComponent(config)}`)
+      .then(setD).catch((e) => setErr(String(e)))
+  }, [product, draw, horizon, config])
+  const move = (e, sign) => {
+    const a = e.streck_at_freeze?.[sign], b = e.streck_at_close?.[sign]
+    if (a == null || b == null || a === b) return null
+    const diff = b - a
+    return <span className={diff > 0 ? 'v3neg' : 'v3pos'}> ({diff > 0 ? '+' : ''}{diff})</span>
+  }
+  return (
+    <div className="v3sysdetail">
+      <div className="v3sysdetailhead">
+        <b>{PRODUCT_LABEL[product] || product} · omgång {draw} · {config}</b>
+        <button className="v3more" onClick={onClose}>stäng ✕</button>
+      </div>
+      {err && <ErrorState message={err} />}
+      {!d && !err && <LoadingState label="Hämtar systemet…" />}
+      {d && !d.available && <EmptyState title="Systemet finns inte i ledgern" />}
+      {d?.available && (
+        <>
+          <div className="v3sysdetailmeta">
+            <span>{d.n_rows} rader · {kr(d.cost_kr)}</span>
+            <span>fryst {horizonLabel(d)} före stopp{d.timely ? '' : ' (sen)'}</span>
+            <span>bäst <b>{d.correct_max ?? '–'}</b> rätt</span>
+            {d.n_missed > 0 && (
+              <span className="v3neg" title="Matcher där inget av systemets tecken
+                gick in. Varje sådan match sänker takresultatet med ett rätt.">
+                missade {d.n_missed} {d.n_missed === 1 ? 'match' : 'matcher'}</span>
+            )}
+            <span className={roiCls(d.roi)}>{d.payout_complete === false
+              ? 'utdelning okänd' : `${kr(d.payout_kr)} · ${pctSigned(d.roi)}`}</span>
+          </div>
+          <div className="v3histtablewrap">
+            <table className="v3histtable v3sysfacit">
+              <thead><tr>
+                <th>#</th><th>Match</th><th>Facit</th><th>Vi spelade</th>
+                <th title="Folkets procent när systemet frystes, och förändringen
+                  fram till spelstopp.">Streck vid frysning → stopp</th>
+              </tr></thead>
+              <tbody>
+                {d.events.map((e) => (
+                  <tr key={e.event_number}
+                    className={e.hit === false ? 'v3sysmiss' : ''}>
+                    <td>{e.event_number}</td>
+                    <td>{e.home && e.away ? `${e.home} – ${e.away}` : e.description}</td>
+                    <td className="v3outcome">
+                      {e.cancelled ? '⚠' : e.outcome || '–'}</td>
+                    <td>{e.covered.join('')}{e.hit === false
+                      ? <span className="v3neg" title="Systemet spelade inte det
+                        tecken som gick in — inget av raderna kunde bli rätt här."> ✗</span>
+                      : e.hit ? ' ✓' : ''}</td>
+                    <td className="v3hint">
+                      {['1', 'X', '2'].map((s) => (
+                        <span key={s} className={e.outcome === s ? 'v3streckhit' : ''}>
+                          {s} {e.streck_at_freeze?.[s] ?? '–'}{move(e, s)}{' '}
+                        </span>
+                      ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <span className="v3hint">"Vi spelade" är alla tecken systemet täcker på
+            matchen — en enskild rad har förstås bara ett. Ett ✗ betyder att ingen
+            rad kunde bli rätt där, vilket kapar hela systemets takresultat.
+            Strecksiffran är folkets procent vid frysningen; talet inom parentes är
+            rörelsen fram till spelstopp.</span>
+        </>
+      )}
+    </div>
+  )
+}
 
 function HistorikV3({ initialProduct, focus }) {
-  const [product, setProduct] = useState(initialProduct || 'stryktipset')
+  const [product, setProduct] = useState(initialProduct || 'alla')
   const [data, setData] = useState(null)
   const [err, setErr] = useState(null)
   const [expanded, setExpanded] = useState(null)
   const [detail, setDetail] = useState({})
   const [systems, setSystems] = useState(null)
+  const [halsa, setHalsa] = useState(null)
+  const [overview, setOverview] = useState(null)
+  const [openSystem, setOpenSystem] = useState(null)
+  const [showAllDraws, setShowAllDraws] = useState(false)
+  const [showAllFreezes, setShowAllFreezes] = useState(false)
+  const [showAllGroups, setShowAllGroups] = useState(false)
+  // Pensionerade konfigurationer visas som standard. Att dölja dem gjorde
+  // sidan tom trots 33 frysta omgångar i databasen — historik som finns ska
+  // synas, tydligt märkt, och kunna döljas aktivt i stället för tvärtom.
+  const [showRetired, setShowRetired] = useState(true)
+
+  // ETT filter styr hela sidan. `alla` visar tvärsnittet; en produkt filtrerar
+  // kuponger, systemfacit OCH omsättning samtidigt.
+  const single = product !== 'alla'
 
   useEffect(() => {
+    if (!single) { setData(null); setErr(null); return }
     setData(null); setErr(null); setExpanded(null)
     get(`/api/pool/history?product=${product}&limit=400`)
       .then(setData).catch((e) => setErr(String(e)))
-  }, [product])
+  }, [product, single])
   useEffect(() => {
     get('/api/pool/systems').then(setSystems).catch(() => setSystems(null))
+    get('/api/pool/turnover-prognos').then(setHalsa).catch(() => setHalsa(null))
+  }, [])
+  useEffect(() => {
+    Promise.all(HIST_PRODUCTS.map((p) => get(`/api/pool/history?product=${p.id}&limit=1`)
+      .then((j) => [p.id, j]).catch(() => [p.id, null])))
+      .then((pairs) => setOverview(Object.fromEntries(pairs)))
   }, [])
   // djuplänk från Idag-kortet: landa på Systemfacit-panelen
   useEffect(() => {
@@ -641,181 +793,406 @@ function HistorikV3({ initialProduct, focus }) {
   }
 
   const draws = data?.draws || []
-  const medianTop = data?.stats?.median_top_amount
-  const rolloverRate = data?.stats?.rollover_rate
-  const meanTurnover = data?.stats?.mean_turnover
+  const shownDraws = showAllDraws ? draws : draws.slice(0, 20)
   const sparkVals = [...draws].reverse().map((d) => d.turnover)
+  const inScope = (row) => !single || row.product === product
+
+  const groups = (systems?.groups || [])
+    .filter(inScope).filter((g) => showRetired || !g.retired)
+  const champRows = (systems?.champion_report?.rows || []).filter(inScope)
+  const recent = (systems?.recent || [])
+    .filter(inScope).filter((r) => showRetired || !r.retired)
 
   return (
     <div className="v3hist">
       <div className="v3histbar">
-        <nav className="v3subnav" aria-label="Produkt">
+        <nav className="v3subnav" aria-label="Spel">
+          <button className={product === 'alla' ? 'on' : ''}
+            onClick={() => setProduct('alla')}>Alla spel</button>
           {HIST_PRODUCTS.map((p) => (
             <button key={p.id} className={product === p.id ? 'on' : ''}
               onClick={() => setProduct(p.id)}>{p.label}</button>
           ))}
         </nav>
-      </div>
-      <div className="v3note">
-        Historiskt <b>facit</b> ur settlementlagret (PH1): utfall, slutstreck, slutomsättning
-        och utdelning per nivå. Kohorten är <code>final_only</code> — odds- och streckrörelser
-        finns bara för lokalt observerade omgångar och kan aldrig bakfyllas.
+        <span className="v3hint">Filtret styr hela sidan — kuponger, systemfacit
+          och omsättning.</span>
       </div>
 
+      {/* ---------------------------- kuponger ---------------------------- */}
+      <div className="v3card">
+        <div className="v3cardhead"><h3>🎟 Dina spelade kuponger</h3></div>
+        <PlayedPanel product={single ? product : null} />
+      </div>
+
+      {/* --------------------------- systemfacit -------------------------- */}
       <div className="v3card v3systembox" id="hist-system">
-        <div className="v3cardhead"><h3>📋 Systemfacit — frysta förslag mot observerat facit</h3></div>
+        <div className="v3cardhead"><h3>📋 Systemfacit</h3>
+          {systems?.champion_key && (
+            <span className="v3hint">champion: {systems.champion_key}</span>)}
+        </div>
         <span className="v3hint">
-          Vid T−3 h och T−20 min före varje spelstopp fryser snapshotvarvet vad
-          radbyggaren faktiskt föreslår (förregistrerad matris: {(systems?.benchmarks || [])
-            .map((b) => b.key + (b.primary ? ' ★' : '')).join(' · ') || '…'}) och
-          rättar sedan raderna mot riktigt utfall. Utdelningen är en
+          Före varje spelstopp fryser varvet vad radbyggaren föreslår — vid
+          180 min och vid 20 min — och rättar sedan raderna mot riktigt utfall.
+          <b> Championen är appens egen standardinställning</b>; övriga är
+          utmanare. Ingen inställning byts förrän en utmanare slår championen på
+          data som samlats EFTER att den registrerades, med minst{' '}
+          {systems?.champion_report?.gate_min_draws ?? 40} omgångar och
+          FDR-korrigering över hela utmanarfamiljen. Utdelningen är en
           kontrafaktisk uppskattning: den publicerade nivån späds med våra egna
-          vinnande rader. Rullpott med noll officiella vinnare lämnas okänd,
-          aldrig som nollvinst.
-          Champion = dagens byggare — inga inställningar ändras utan att slå den
-          out-of-time. Sena frysningar flaggas och räknas separat.
+          vinnande rader.
         </span>
-        {!systems?.groups?.length && (
-          <EmptyState title="Inga frysta system ännu"
-            detail="Första frysningen sker automatiskt när nästa omgång går in i sitt T−3h-fönster." />
-        )}
-        {systems?.groups?.length > 0 && (
-          <div className="v3histtablewrap">
-            <table className="v3histtable">
-              <thead><tr><th>Produkt</th><th>Konfig</th><th>Horisont</th><th>Frysta</th>
-                <th>Jämförbara</th><th>Insats</th><th>Utdelningsest.</th><th>ROI</th><th>Bäst</th></tr></thead>
-              <tbody>
-                {systems.groups.map((g) => (
-                  <tr key={`${g.product}-${g.config_key}-${g.horizon}`}>
-                    <td>{g.product}</td>
-                    <td>{g.primary ? '★ ' : ''}{g.config_key}</td>
-                    <td>{g.horizon}</td>
-                    <td>{g.n_frozen}{g.n_timely < g.n_frozen ? ` (${g.n_frozen - g.n_timely} sena)` : ''}</td>
-                    <td>{g.n_evaluable}{g.n_payout_incomplete ? ` (${g.n_payout_incomplete} okänd utd.)` : ''}</td>
-                    <td>{g.n_evaluable ? kr(g.cost_kr) : '–'}</td>
-                    <td>{g.n_evaluable ? kr(g.payout_kr) : '–'}</td>
-                    <td className={g.roi == null ? '' : g.roi >= 0 ? 'v3pos' : 'v3neg'}>
-                      {g.roi == null ? '–' : `${g.roi >= 0 ? '+' : ''}${Math.round(g.roi * 100)}%`}</td>
-                    <td>{g.best_correct ?? '–'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+        {!champRows.length && (
+          <div className="v3note">
+            <b>Champion mot utmanare startar om.</b> Matrisen byttes 2026-08-05
+            till fyra insatser (144/256/512/1024 kr) × tre riskprofiler, med
+            256 kr medel som champion — samma inställning som appens byggare
+            använder. Jämförelsen fylls på från nästa frysning. Historiken
+            nedan tillhör den gamla matrisen och är jämförbar bara med sig
+            själv.
           </div>
         )}
-        {systems?.recent?.length > 0 && (
-          <details className="v3recent">
-            <summary className="v3hint">Senaste frysningarna ({systems.recent.length})</summary>
+        {champRows.length > 0 && (
+          <>
+            <h4 className="v3subhead">Champion mot bästa utmanare</h4>
             <div className="v3histtablewrap">
               <table className="v3histtable">
-                <thead><tr><th>Omgång</th><th>Horisont</th><th>Konfig</th>
-                  <th>Rader</th><th>Facit</th></tr></thead>
+                <thead><tr>
+                  <th>Spel</th><th title="Minuter före spelstopp">Fryst</th>
+                  <th>Champion</th><th>Bästa utmanare</th><th>Skillnad</th>
+                  <th title="Antal omgångar där BÅDA har facit — jämförelsen är
+                    parad, annars jämförs olika omgångar.">Parade omgångar</th>
+                  <th>Läge</th>
+                </tr></thead>
                 <tbody>
-                  {systems.recent.map((r, i) => (
-                    <tr key={i}>
-                      <td>{r.product} #{r.draw_number}</td>
-                      <td>{r.horizon}{r.timely ? '' : ' (sen)'}</td>
-                      <td>{r.config_key}</td>
+                  {champRows.map((r) => {
+                    const b = r.best_challenger
+                    return (
+                      <tr key={`${r.product}-${r.horizon}`}>
+                        <td>{PRODUCT_LABEL[r.product] || r.product}</td>
+                        <td>{horizonLabel(r)}</td>
+                        <td className={roiCls(r.champion_roi)}>
+                          {pctSigned(r.champion_roi)}
+                          <span className="v3hint"> ({r.champion_n} omg)</span></td>
+                        <td>{b ? <>{b.config_key}{' '}
+                          <span className={roiCls(b.roi)}>{pctSigned(b.roi)}</span></>
+                          : '–'}</td>
+                        <td className={b ? roiCls(b.delta_roi) : ''}>
+                          {b ? pctSigned(b.delta_roi) : '–'}</td>
+                        <td>{b ? b.n_paired : '–'}</td>
+                        <td>{r.promotable
+                          ? <b className="v3pos">utmanare slår championen</b>
+                          : <span className="v3hint">samlar underlag</span>}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <span className="v3hint">Skillnaden räknas parat över omgångar där
+              båda har facit. "Samlar underlag" betyder att skillnaden ännu inte
+              går att skilja från slump — inte att championen är bäst.</span>
+          </>
+        )}
+
+        {!groups.length && (
+          <EmptyState title={showRetired ? 'Inga frysta system ännu'
+            : 'Inga frysta system i nuvarande matris'}
+            detail={showRetired
+              ? 'Första frysningen sker automatiskt när nästa omgång går in i sitt 180-minutersfönster.'
+              : 'Historiken nedan tillhör den pensionerade matrisen — kryssa i rutan för att visa den.'} />
+        )}
+        {groups.length > 0 && (
+          <>
+            <h4 className="v3subhead">Alla konfigurationer</h4>
+            {/* Nya matrisen ger 12 konfigurationer × 2 horisonter per spel —
+                120 rader över alla spel. Kapad som omsättningstabellen, annars
+                äger den sidan igen. Sorteringen gäller HELA urvalet, så
+                topplistan är de faktiskt bästa och inte de 20 första. */}
+            <SortableTable id="hist-systemgroups" className="v3histtable"
+              wrapperClassName="v3histtablewrap"
+              defaultSort={{ key: 'roi', dir: 'desc' }}
+              rows={groups} limit={showAllGroups ? null : 20}
+              columns={[
+                { key: 'product', label: 'Spel', defaultDir: 'asc',
+                  value: (g) => PRODUCT_LABEL[g.product] || g.product },
+                { key: 'budget', label: 'Insats/omgång',
+                  title: 'Budgeten per omgång. Radpriset är 1 kr, så beloppet är också antalet rader.' },
+                { key: 'strategy', label: 'Strategi', defaultDir: 'asc',
+                  value: (g) => STRATEGY_LABEL[g.strategy] || g.strategy || '' },
+                { key: 'value_weight', label: 'Värdevikt' },
+                { key: 'horizon_minutes', label: 'Fryst',
+                  title: 'Minuter före spelstopp' },
+                { key: 'n_frozen', label: 'Bokförda',
+                  title: 'Antal frysta förslag för gruppen.' },
+                { key: 'n_evaluable', label: 'Med facit',
+                  title: 'Frysta i tid, med känt resultat OCH känd utdelning — de enda ROI räknas på.' },
+                { key: 'cost_kr', label: 'Totalt satsat',
+                  title: 'Ackumulerat över omgångarna med facit — inte insatsen.' },
+                { key: 'payout_kr', label: 'Utdelning est.' },
+                { key: 'roi', label: 'ROI' },
+                { key: 'best_correct', label: 'Bäst' },
+              ]}
+              renderRow={(g) => (
+                <tr key={`${g.product}-${g.config_key}-${g.horizon}`}
+                  className={g.retired ? 'v3retired' : ''}>
+                  <td>{PRODUCT_LABEL[g.product] || g.product}</td>
+                  <td>{g.primary ? '★ ' : ''}{g.budget != null ? kr(g.budget) : '–'}
+                    {g.retired && <span className="v3hint" title="Pensionerad
+                      konfiguration — ingår inte i nuvarande matris."> (gammal)</span>}</td>
+                  <td>{STRATEGY_LABEL[g.strategy] || g.strategy || '–'}</td>
+                  <td>{g.value_weight != null ? `${Math.round(g.value_weight * 100)} %` : '–'}</td>
+                  <td>{horizonLabel(g)}</td>
+                  <td>{g.n_frozen}{g.n_timely < g.n_frozen
+                    ? <span className="v3hint"> ({g.n_frozen - g.n_timely} sena)</span> : ''}</td>
+                  <td>{g.n_evaluable}{g.n_payout_incomplete
+                    ? <span className="v3hint"> ({g.n_payout_incomplete} okänd utd.)</span> : ''}</td>
+                  <td>{g.n_evaluable ? kr(g.cost_kr) : '–'}</td>
+                  <td>{g.n_evaluable ? kr(g.payout_kr) : '–'}</td>
+                  <td className={roiCls(g.roi)}>{pctSigned(g.roi)}</td>
+                  <td>{g.best_correct ?? '–'}</td>
+                </tr>
+              )} />
+            {groups.length > 20 && (
+              <button className="v3more"
+                onClick={() => setShowAllGroups(!showAllGroups)}>
+                {showAllGroups ? 'visa topp 20 ▲'
+                  : `visa alla ${groups.length} konfigurationer ▼`}</button>
+            )}
+          </>
+        )}
+
+        {(systems?.retired_keys || []).length > 0 && (
+          <label className="v3toggle">
+            <input type="checkbox" checked={showRetired}
+              onChange={(e) => setShowRetired(e.target.checked)} />
+            Visa den pensionerade matrisen ({systems.retired_keys.join(', ')}) —
+            mätt före 2026-08-05 och jämförbar bara med sig själv
+          </label>
+        )}
+
+        {recent.length > 0 && (
+          <details className="v3recent">
+            <summary className="v3hint">Enskilda frysningar ({recent.length}) —
+              klicka en rad för att se systemet mot facit</summary>
+            <div className="v3histtablewrap">
+              <table className="v3histtable">
+                <thead><tr><th>Spel</th><th>Omgång</th><th>Spelstopp</th>
+                  <th>Fryst</th><th>Insats</th><th>Rader</th><th>Facit</th></tr></thead>
+                <tbody>
+                  {recent.slice(0, showAllFreezes ? recent.length : 20).map((r, i) => (
+                    <tr key={i} className="v3histrowline" role="button" tabIndex={0}
+                      onClick={() => setOpenSystem(r)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault(); setOpenSystem(r)
+                        }
+                      }}>
+                      <td>{PRODUCT_LABEL[r.product] || r.product}</td>
+                      <td>#{r.draw_number}</td>
+                      <td>{r.close ? fmtDay(r.close) : '–'}</td>
+                      <td>{horizonLabel(r)}{r.timely ? '' : ' (sen)'}</td>
+                      <td><BuildBadge row={r} /></td>
                       <td>{r.n_rows} ({kr(r.cost_kr)})</td>
                       <td>{r.correct_max == null ? (r.settle_note || 'väntar')
                         : r.payout_complete === false
                           ? `${r.correct_max} rätt · utdelning okänd`
-                          : `${r.correct_max} rätt · est. ${kr(r.payout_kr)} (${r.roi >= 0 ? '+' : ''}${Math.round((r.roi || 0) * 100)}%)`}</td>
+                          : `${r.correct_max} rätt · ${kr(r.payout_kr)} (${pctSigned(r.roi)})`}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            {recent.length > 20 && (
+              <button className="v3more"
+                onClick={() => setShowAllFreezes(!showAllFreezes)}>
+                {showAllFreezes ? 'visa färre ▲' : `visa alla ${recent.length} ▼`}</button>
+            )}
           </details>
         )}
+        {openSystem && (
+          <SystemDetail product={openSystem.product} draw={openSystem.draw_number}
+            horizon={openSystem.horizon} config={openSystem.config_key}
+            onClose={() => setOpenSystem(null)} />
+        )}
       </div>
-      {err && <ErrorState message={err} />}
-      {!data && !err && <LoadingState label="Hämtar historik…" />}
-      {data && !data.available && (
-        <EmptyState title="Inga settlade omgångar ännu för denna produkt"
-          detail="Backfillen fyller på bakåt och snapshot-varvet settlar nya omgångar löpande." />
-      )}
-      {data?.available && (
-        <>
-          <div className="v3histkpis">
-            <div className="v3kpi"><b>{data.total}</b><span>omgångar</span></div>
-            <div className="v3kpi"><b>{String(data.first_close || '').slice(0, 4)}–{String(data.last_close || '').slice(0, 4)}</b><span>tidsspann</span></div>
-            <div className="v3kpi"><b>{medianTop ? kr(medianTop) : '–'}</b><span>median toppvinst<br />(hela historiken)</span></div>
-            <div className="v3kpi"><b>{rolloverRate != null ? Math.round(100 * rolloverRate) : 0}%</b><span>utan toppvinnare<br />(hela historiken)</span></div>
-            <div className="v3kpi"><b>{meanTurnover ? kr(meanTurnover) : '–'}</b><span>medelomsättning<br />(hela historiken)</span></div>
-          </div>
-          {sparkVals.filter(Boolean).length > 2 && (
-            <div className="v3sparkbox">
-              <span className="v3hint">Omsättning, äldst → nyast (senaste {draws.length} omgångarna)</span>
-              <MiniSpark values={sparkVals} width={640} height={60} />
-            </div>
-          )}
+
+      {/* -------------------------- prognosträff -------------------------- */}
+      {halsa && (
+        <div className="v3card">
+          <div className="v3cardhead"><h3>🧬 Prognosträff och κ-fönster</h3></div>
+          <span className="v3hint">Slutomsättningen driver hela EV-räkningen, så
+            prognosfelet hör hemma i poolens facit — det låg tidigare i Labb bland
+            oddsmätningarna. Rullande backtest: medianabsolutfel, räknat enbart på
+            data som fanns FÖRE respektive omgång. Veckodagsmetoden ska ligga under
+            den gamla blandade medianen.</span>
           <div className="v3histtablewrap">
             <table className="v3histtable">
-              <thead><tr>
-                <th>Omg</th><th>Stängde</th><th>Omsättning</th>
-                <th>Toppnivå</th><th>Utdelning</th><th></th>
-              </tr></thead>
+              <thead><tr><th>Spel</th><th>Prognosfel (veckodag)</th>
+                <th>Gammal metod</th>
+                <th title="Avgjorda omgångar efter 2026-07-24. Krävs innan nya
+                  κ-varianter får föreslås.">PH4-fönster</th></tr></thead>
               <tbody>
-                {draws.map((d) => {
-                  const top = d.tiers?.[0]
-                  return [
-                    <tr key={d.draw_number} className="v3histrowline"
-                      role="button" tabIndex={0}
-                      onClick={() => toggle(d.draw_number)}
+                {Object.entries(halsa)
+                  .filter(([p]) => !single || p === product)
+                  .map(([p, h]) => (
+                    <tr key={p}>
+                      <td>{PRODUCT_LABEL[p] || p}</td>
+                      <td>{h.medianfel_veckodag == null ? '–'
+                        : `${(h.medianfel_veckodag * 100).toFixed(0)} %`}</td>
+                      <td className="v3hint">{h.medianfel_blandad == null ? '–'
+                        : `${(h.medianfel_blandad * 100).toFixed(0)} %`}</td>
+                      <td>{h.ph4_oot}/{h.ph4_oot_krav}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* --------------------- omsättning och utdelning -------------------- */}
+      {!single && overview && (
+        <div className="v3card">
+          <div className="v3cardhead"><h3>💰 Omsättning och utdelning</h3></div>
+          <span className="v3hint">Välj ett spel ovan för hela historiken.</span>
+          <div className="v3histtablewrap">
+            <table className="v3histtable">
+              <thead><tr><th>Spel</th><th>Omgångar</th><th>Median toppvinst</th>
+                <th>Utan toppvinnare</th><th>Medelomsättning</th></tr></thead>
+              <tbody>
+                {HIST_PRODUCTS.map((p) => {
+                  const o = overview[p.id]
+                  return (
+                    <tr key={p.id} className="v3histrowline" role="button" tabIndex={0}
+                      onClick={() => setProduct(p.id)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault(); toggle(d.draw_number)
+                          e.preventDefault(); setProduct(p.id)
                         }
                       }}>
-                      <td>{d.draw_number}</td>
-                      <td>{fmtDay(d.close)}</td>
-                      <td>{d.turnover ? kr(d.turnover) : '–'}</td>
-                      <td>{top ? `${top.name}: ${top.winners ?? '–'} st` : '–'}
-                        {d.top_winners === 0 && <span className="v3roll" title="Ingen vinnare på toppnivån — potten rullar">🎰</span>}
-                        {d.n_cancelled > 0 && <span className="v3cancel" title={`${d.n_cancelled} struken/strukna matcher`}>⚠</span>}</td>
-                      <td>{top?.amount ? kr(top.amount) : '–'}</td>
-                      <td className="v3expand">{expanded === d.draw_number ? '▲' : '▼'}</td>
-                    </tr>,
-                    expanded === d.draw_number && (
-                      <tr key={`${d.draw_number}-x`} className="v3histdetail"><td colSpan="6">
-                        <div className="v3tiers">
-                          {(d.tiers || []).map((t) => (
-                            <span key={t.name} className="v3tier">
-                              {t.name}: <b>{t.winners ?? '–'}</b> à <b>{t.amount ? kr(t.amount) : '–'}</b>
-                            </span>
-                          ))}
-                        </div>
-                        {!detail[d.draw_number] && <LoadingState label="Hämtar matchfacit…" />}
-                        {detail[d.draw_number]?.available && (
-                          <table className="v3facit">
-                            <tbody>
-                              {detail[d.draw_number].draw.events.map((e) => (
-                                <tr key={e.event_number} className={e.cancelled ? 'cancelled' : ''}>
-                                  <td>{e.event_number}</td>
-                                  <td>{e.home && e.away ? `${e.home} – ${e.away}` : e.description}</td>
-                                  <td className="v3outcome">{e.cancelled ? '⚠ struken' : e.outcome || '–'}</td>
-                                  <td className="v3hint">
-                                    {e.streck?.['1'] != null
-                                      ? `folket ${e.streck['1']}/${e.streck['X']}/${e.streck['2']} %` : ''}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
-                      </td></tr>
-                    ),
-                  ]
+                      <td>{p.label}</td>
+                      <td>{o?.total ?? '–'}</td>
+                      <td>{o?.stats?.median_top_amount ? kr(o.stats.median_top_amount) : '–'}</td>
+                      <td>{o?.stats?.rollover_rate != null
+                        ? `${Math.round(100 * o.stats.rollover_rate)} %` : '–'}</td>
+                      <td>{o?.stats?.mean_turnover ? kr(o.stats.mean_turnover) : '–'}</td>
+                    </tr>
+                  )
                 })}
               </tbody>
             </table>
           </div>
-        </>
+        </div>
       )}
+
+      {single && (
+        <div className="v3card">
+          <div className="v3cardhead"><h3>💰 Omsättning och utdelning ·{' '}
+            {PRODUCT_LABEL[product] || product}</h3></div>
+          {err && <ErrorState message={err} />}
+          {!data && !err && <LoadingState label="Hämtar historik…" />}
+          {data && !data.available && (
+            <EmptyState title="Inga settlade omgångar ännu för detta spel"
+              detail="Backfillen fyller på bakåt och snapshot-varvet settlar nya omgångar löpande." />
+          )}
+          {data?.available && (
+            <>
+              <div className="v3histkpis">
+                <div className="v3kpi"><b>{data.total}</b><span>omgångar</span></div>
+                <div className="v3kpi"><b>{String(data.first_close || '').slice(0, 4)}–{String(data.last_close || '').slice(0, 4)}</b><span>tidsspann</span></div>
+                <div className="v3kpi"><b>{data.stats?.median_top_amount ? kr(data.stats.median_top_amount) : '–'}</b><span>median toppvinst</span></div>
+                <div className="v3kpi"><b>{data.stats?.rollover_rate != null ? Math.round(100 * data.stats.rollover_rate) : 0} %</b><span>utan toppvinnare</span></div>
+                <div className="v3kpi"><b>{data.stats?.mean_turnover ? kr(data.stats.mean_turnover) : '–'}</b><span>medelomsättning</span></div>
+              </div>
+              {sparkVals.filter(Boolean).length > 2 && (
+                <div className="v3sparkbox">
+                  <span className="v3hint">Omsättning, äldst → nyast ({draws.length} omgångar)</span>
+                  <MiniSpark values={sparkVals} width={640} height={60} />
+                </div>
+              )}
+              <div className="v3histtablewrap">
+                <table className="v3histtable">
+                  <thead><tr>
+                    <th>Omg</th><th>Stängde</th><th>Omsättning</th>
+                    <th>Toppnivå</th><th>Utdelning</th><th></th>
+                  </tr></thead>
+                  <tbody>
+                    {shownDraws.map((d) => {
+                      const top = d.tiers?.[0]
+                      return [
+                        <tr key={d.draw_number} className="v3histrowline"
+                          role="button" tabIndex={0}
+                          onClick={() => toggle(d.draw_number)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault(); toggle(d.draw_number)
+                            }
+                          }}>
+                          <td>{d.draw_number}</td>
+                          <td>{fmtDay(d.close)}</td>
+                          <td>{d.turnover ? kr(d.turnover) : '–'}</td>
+                          <td>{top ? `${top.name}: ${top.winners ?? '–'} st` : '–'}
+                            {d.top_winners === 0 && <span className="v3roll" title="Ingen vinnare på toppnivån — potten rullar">🎰</span>}
+                            {d.n_cancelled > 0 && <span className="v3cancel" title={`${d.n_cancelled} struken/strukna matcher`}>⚠</span>}</td>
+                          <td>{top?.amount ? kr(top.amount) : '–'}</td>
+                          <td className="v3expand">{expanded === d.draw_number ? '▲' : '▼'}</td>
+                        </tr>,
+                        expanded === d.draw_number && (
+                          <tr key={`${d.draw_number}-x`} className="v3histdetail"><td colSpan="6">
+                            <div className="v3tiers">
+                              {(d.tiers || []).map((t) => (
+                                <span key={t.name} className="v3tier">
+                                  {t.name}: <b>{t.winners ?? '–'}</b> à <b>{t.amount ? kr(t.amount) : '–'}</b>
+                                </span>
+                              ))}
+                            </div>
+                            {!detail[d.draw_number] && <LoadingState label="Hämtar matchfacit…" />}
+                            {detail[d.draw_number]?.available && (
+                              <table className="v3facit">
+                                <tbody>
+                                  {detail[d.draw_number].draw.events.map((e) => (
+                                    <tr key={e.event_number} className={e.cancelled ? 'cancelled' : ''}>
+                                      <td>{e.event_number}</td>
+                                      <td>{e.home && e.away ? `${e.home} – ${e.away}` : e.description}</td>
+                                      <td className="v3outcome">{e.cancelled ? '⚠ struken' : e.outcome || '–'}</td>
+                                      <td className="v3hint">
+                                        {e.streck?.['1'] != null
+                                          ? `folket ${e.streck['1']}/${e.streck['X']}/${e.streck['2']} %` : ''}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </td></tr>
+                        ),
+                      ]
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {draws.length > 20 && (
+                <button className="v3more"
+                  onClick={() => setShowAllDraws(!showAllDraws)}>
+                  {showAllDraws ? 'visa senaste 20 ▲'
+                    : `visa alla ${draws.length} omgångar ▼`}</button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      <div className="v3note">
+        Historiskt <b>facit</b> ur settlementlagret (PH1): utfall, slutstreck,
+        slutomsättning och utdelning per nivå. Kohorten är <code>final_only</code>
+        {' '}— odds- och streckrörelser finns bara för lokalt observerade omgångar
+        och kan aldrig bakfyllas.
+      </div>
     </div>
   )
 }
+
 
 /* ================================= Labb =================================== */
 // Bevisytan (konsolideringen "ett UI, två ytor", backlog punkt 7): ETT
@@ -873,20 +1250,16 @@ function LabbV3() {
   const [clv, setClv] = useState(null)
   const [ledger, setLedger] = useState(null)
   const [radar, setRadar] = useState(null)
-  const [systems, setSystems] = useState(null)
   const [err, setErr] = useState(null)
   const [showLedger, setShowLedger] = useState(false)
   const [showLog, setShowLog] = useState(false)
   const [logLimit, setLogLimit] = useState(200)
 
-  const [halsa, setHalsa] = useState(null)
   useEffect(() => {
     // engångsläsning — mätserierna rör sig på varv-/veckoskala, ingen poll
     get('/api/oddset/clv').then(setClv).catch((e) => { setClv(null); setErr(String(e)) })
     get('/api/oddset/predictions').then(setLedger).catch(() => setLedger(null))
     get('/api/oddset/radar-facit').then(setRadar).catch(() => setRadar(null))
-    get('/api/pool/systems').then(setSystems).catch(() => setSystems(null))
-    get('/api/pool/turnover-prognos').then(setHalsa).catch(() => setHalsa(null))
   }, [])
 
   const evPct = (v) => v == null ? '–' : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)} %`
@@ -948,14 +1321,6 @@ function LabbV3() {
   const closeEv = (r) => r.closing_fair == null
     ? null : r.closing_fair * r.first_odds - 1
 
-  const perProduct = {}
-  for (const g of systems?.groups || []) {
-    const p = perProduct[g.product] || (perProduct[g.product] = { frozen: 0, settled: 0 })
-    p.frozen += g.n_frozen || 0
-    p.settled += g.n_settled || 0
-  }
-  const products = Object.entries(perProduct)
-
   return (
     <div className="v3labb">
       <h2 className="v3labbtitle">Mätningar och skuggspår — INGET här är tips.</h2>
@@ -991,27 +1356,24 @@ function LabbV3() {
             Grönt beslutas per liga × marknad × version på veckokadens — aggregatet ändrar aldrig gruppstatus.</span>
         </div>
 
+        {/* Poolens prognosfel och PH4-κ-fönster flyttades till Historik
+            2026-08-05. Gränsen är: Historik = pool, Labb = odds. Kortet hette
+            "Modellhälsa" och blandade de två, vilket spred sammanhörande
+            pooldata över två vyer. */}
         <div className="v3card">
-          <div className="v3cardhead"><h3>🧬 Modellhälsa</h3>
+          <div className="v3cardhead"><h3>🎯 Utfalls-facit (sharp)</h3>
             <LabbPill s="samlar" /></div>
-          {clv?.sharp?.n_outcomes > 0 && (
+          {clv?.sharp?.n_outcomes > 0 ? (
             <div className="v3row" title="Resultatbaserad ROI till first-odds på settlade 1X2-flaggor. Display — grönt beslutas fortfarande av close-EV-grinden.">
-              <b>🎯 Utfalls-facit (sharp)</b>
+              <b>1X2-flaggor</b>
               <span>{clv.sharp.n_outcomes} settlade</span>
               <span className={evCls(clv.sharp.result_roi)}>{evPct(clv.sharp.result_roi)} ROI</span>
               <span className="v3hint">träff {rate(clv.sharp.hit_rate)}</span>
             </div>
-          )}
-          {halsa && Object.entries(halsa).map(([p, h]) => (
-            <div key={p} className="v3row" title="Rullande backtest: medianabsolutfel för slutomsättningsprognosen, räknad enbart på data som fanns före respektive omgång. Veckodagsmetoden ska ligga under den gamla blandade medianen.">
-              <b>{p}</b>
-              <span>prognosfel {h.medianfel_veckodag == null ? '–' : `${(h.medianfel_veckodag * 100).toFixed(0)} %`}
-                {h.medianfel_blandad != null && <span className="v3hint"> (blandad {(h.medianfel_blandad * 100).toFixed(0)} %)</span>}</span>
-              <span className="v3hint">PH4-OOT {h.ph4_oot}/{h.ph4_oot_krav}</span>
-            </div>
-          ))}
-          <span className="v3hint">Utfalls-ROI är brusig vid låga n och ändrar inga grindar.
-            PH4-räknaren visar out-of-time-fönstret som krävs innan nya κ-varianter får föreslås.</span>
+          ) : <span className="v3hint">inga settlade utfall ännu</span>}
+          <span className="v3hint">Utfalls-ROI är brusig vid låga n och ändrar inga
+            grindar — close-EV äger beslutet. Poolens prognosträff och κ-fönster
+            finns i Historik.</span>
         </div>
 
         <div className="v3card v3wide v3evidence">
@@ -1307,24 +1669,10 @@ function LabbV3() {
             systemförslag. Metod: <code>docs/live-radar-2026-07-25.md</code>.</span>
         </div>
 
-        <div className="v3card">
-          <div className="v3cardhead"><h3>📋 PH3-systemledger</h3>
-            <LabbPill s="samlar" /></div>
-          {!systems && <span className="v3hint">väntar på ledgerdata</span>}
-          {products.map(([product, p]) => (
-            <div key={product} className="v3row">
-              <b>{product}</b>
-              <span>{p.frozen} frysta</span>
-              <span>{p.settled} rättade</span>
-            </div>
-          ))}
-          {systems && !products.length && (
-            <span className="v3hint">Inga frysta system ännu — första frysningen sker
-              automatiskt i nästa T−3h-fönster.</span>
-          )}
-          <span className="v3hint">Kontrafaktiskt facit för förregistrerade benchmarksystem.
-            Gate: ≥40 omgångar, ≥60 dagar, KI&gt;0 — <code>docs/ph3-gate-2026-07-26.md</code>.</span>
-        </div>
+        {/* PH3-systemledgern togs bort härifrån 2026-08-05. Den visade samma
+            siffror som Historikens Systemfacit, fast grundare — och PH3 är
+            pool, inte odds. Historik äger den nu, med champion-jämförelse och
+            klick-in mot facit. */}
 
         {LABB_RESEARCH.map((c) => (
           <div key={c.title} className="v3card">
@@ -1391,8 +1739,10 @@ export default function AppV3() {
         </ErrBoundary>}
         {view === 'pool' && <ErrBoundary><PoolV3 /></ErrBoundary>}
         {view === 'oddset' && <ErrBoundary><OddsetView focus={oddsetFocus} /></ErrBoundary>}
+        {/* PlayedPanel monteras numera INNE i HistorikV3 så produktfiltret
+            styr även kupongerna — den låg tidigare utanför och kunde därför
+            inte filtreras. */}
         {view === 'historik' && <ErrBoundary>
-          <PlayedPanel />
           <HistorikV3 initialProduct={histProduct} focus={histFocus} />
         </ErrBoundary>}
         {view === 'labb' && <ErrBoundary><LabbV3 /></ErrBoundary>}

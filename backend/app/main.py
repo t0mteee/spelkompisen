@@ -486,6 +486,24 @@ def pool_systems():
         store.close()
 
 
+@app.get("/api/pool/systems/detail")
+def pool_system_detail(product: str, draw: int, horizon: str, config: str):
+    """Ett fryst system mot facit, match för match — för mänsklig granskning.
+
+    Visar vilka tecken systemet täckte, vad som gick in, och folkets streck
+    både vid frysningen och vid spelstopp. Rent läsande; ingen ny insamling
+    (raderna finns i ledgern, utfallet i settlementlagret, strecken i
+    `snapshots`).
+    """
+    from . import pool_system_ledger
+    store = Storage()
+    try:
+        return pool_system_ledger.system_detail(
+            store, product, int(draw), horizon, config)
+    finally:
+        store.close()
+
+
 @app.post("/api/pool/played")
 async def pool_played_record(request: Request):
     """Bokför att användaren SJÄLV har lämnat in kupongen. Lägger inga spel."""

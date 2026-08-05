@@ -293,6 +293,46 @@
 .v3facit tr.cancelled td { opacity: 0.55; }
 .v3outcome { font-weight: 800; color: var(--v3acc); }
 
+/* ---------- Historik: ombyggnad 2026-08-05 ---------- */
+/* Produktfiltret styr hela sidan, så det ska läsa som en rubrik — inte som en
+   knapprad som råkar höra till närmaste tabell. */
+.v3histbar { display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; }
+
+.v3subhead {
+  margin: 12px 0 4px; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
+}
+
+/* Pensionerad matris: läsbar men tydligt nedtonad, aldrig dold utan besked. */
+.v3histtable tr.v3retired td { opacity: 0.6; }
+
+.v3toggle {
+  display: flex; align-items: center; gap: 6px; margin-top: 8px;
+  font-size: 11px; color: var(--muted); cursor: pointer;
+}
+
+.v3buildbadge, .buildbadge {
+  font-size: 11px; padding: 1px 6px; border-radius: 999px;
+  background: var(--panel2); border: 1px solid var(--line); white-space: nowrap;
+}
+
+/* Systemet mot facit */
+.v3sysdetail {
+  margin-top: 10px; padding: 10px; border-radius: 8px;
+  background: var(--panel2); border: 1px solid var(--v3acc);
+}
+.v3sysdetailhead {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-bottom: 6px;
+}
+.v3sysdetailmeta {
+  display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px;
+  margin-bottom: 8px;
+}
+/* En missad match kapar takresultatet — den ska hittas på en halv sekund. */
+.v3histtable tr.v3sysmiss td { background: color-mix(in srgb, #e06b6b 14%, transparent); }
+.v3streckhit { font-weight: 800; color: var(--v3acc); }
+
 /* ---------- mobil ---------- */
 @media (max-width: 760px) {
   .v3top { flex-wrap: wrap; gap: 8px; padding: 8px 10px; }

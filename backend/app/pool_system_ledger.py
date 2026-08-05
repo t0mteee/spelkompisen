@@ -17,6 +17,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import random
 from typing import Optional
 
 from .analysis import DrawAnalysis, analyze_draw
@@ -28,15 +29,52 @@ from .svenskaspel import Draw
 FREEZE_HORIZONS = {"h3": (180, 30), "m20": (20, 10)}
 SETTLEMENT_VERSION = "counterfactual-v2"
 
-# Förregistrerad matris 2026-07-24 (överlämningen: 50 kr primär + få
-# sekundära lägen). Värderader (EV × träffchans) — samma motor som UI:t.
-BENCHMARKS = (
-    {"key": "ev50-medel-vw50", "budget": 50.0, "strategy": "medel",
-     "value_weight": 0.5, "primary": True},
-    {"key": "ev50-tuff-vw80", "budget": 50.0, "strategy": "tuff",
-     "value_weight": 0.8, "primary": False},
-    {"key": "ev256-medel-vw50", "budget": 256.0, "strategy": "medel",
-     "value_weight": 0.5, "primary": False},
+# Förregistrerad gate (docs/ph3-gate-2026-07-26.md): en utmanare får inte
+# promoveras till champion på mindre underlag än så här, oavsett hur bra deltat
+# ser ut. FDR_Q matchar Oddset-sidans utforskande familj.
+GATE_MIN_DRAWS = 40
+FDR_Q = 0.10
+BOOTSTRAP_ITERS = 2000
+
+# GENERATION 2, förregistrerad 2026-08-05 (Samans beslut, se
+# docs/historik-ui-2026-08-05.md). Full grid: fyra budgetar × tre riskprofiler.
+#
+# Budgetarna är radantal: radpriset är 1,00 kr för SAMTLIGA produkter, så
+# budget i kronor = antal rader. 144 är en exakt Hamming-täckning (R 4-4-144),
+# resten är tvåpotenser. Generation 1:s 50/256 valdes utan den kopplingen.
+#
+# Riskprofilen är EN axel: strategin sätter bara värdeviktens startpunkt
+# 20/50/80 (samma regel som UI-reglaget), så `value_weight` är härledd ur
+# `strategy` och inte en fri parameter. Därför bär nyckeln inte längre `vw`.
+#
+# Matrisstorleken kostar inget i tid — byggaren mättes till 0,12 s oberoende
+# av budget, alltså ~15 s för hela matrisen per varv. Priset är statistiskt:
+# 12 konfigurationer × 5 produkter = 60 utmanarjämförelser, där ~3 ser
+# signifikanta ut av ren slump. Grinden använder därför BH-FDR över
+# utmanarfamiljen (`challenger_fdr`), aldrig per grupp isolerat.
+#
+# GENERATION 1 (`ev50-medel-vw50` ★, `ev50-tuff-vw80`, `ev256-medel-vw50`) är
+# PENSIONERAD. Dess rader ligger kvar under sina egna config_key:er och blandas
+# aldrig in — en config_key ändras ALDRIG i efterhand. Championen där var
+# dessutom felaktigt etiketterad: den registrerades som 50 kr medan appens
+# byggare stod på 128 kr, så "champion = dagens byggare" var inte sant.
+#
+# (nyckelslug, byggarens strateginamn, värdevikt). Sluggen är ASCII så
+# config_key förblir URL- och filnamnssäker; strategivärdet MÅSTE vara exakt
+# `builder.STRATEGIES`-nyckeln ("säker" med ä), annars KeyError vid frysning.
+RISK_PROFILES = (("saker", "säker", 0.2),
+                 ("medel", "medel", 0.5),
+                 ("tuff", "tuff", 0.8))
+BUDGETS = (144.0, 256.0, 512.0, 1024.0)
+CHAMPION_KEY = "b256-medel"
+RETIRED_KEYS = ("ev50-medel-vw50", "ev50-tuff-vw80", "ev256-medel-vw50")
+
+BENCHMARKS = tuple(
+    {"key": f"b{int(budget)}-{slug}", "budget": budget,
+     "strategy": strategy, "value_weight": weight,
+     "primary": f"b{int(budget)}-{slug}" == CHAMPION_KEY}
+    for budget in BUDGETS
+    for slug, strategy, weight in RISK_PROFILES
 )
 
 
@@ -246,6 +284,242 @@ def settle_pending(store: Storage, now: Optional[dt.datetime] = None) -> dict:
     return report
 
 
+def _bench(key: str, stored: Optional[dict] = None) -> dict:
+    """Konfigurationens parametrar — även för pensionerade nycklar.
+
+    Gamla rader måste kunna visas med samma kolumner som nya. Parametrarna
+    läses i första hand ur matrisen, annars ur den frysta raden själv
+    (`budget`/`strategy`/`value_weight` lagras per frysning) — ALDRIG tolkade
+    ur nyckelsträngen. Det var just den tolkningen som gjorde `ev50-tuff-vw80`
+    oläsbar.
+    """
+    for bench in BENCHMARKS:
+        if bench["key"] == key:
+            return {**bench, "retired": False}
+    stored = stored or {}
+    return {"key": key, "budget": stored.get("budget"),
+            "strategy": stored.get("strategy"),
+            "value_weight": stored.get("value_weight"),
+            "primary": False, "retired": True}
+
+
+def _paired_draw_roi(store: Storage, product: str, horizon: str,
+                     keys: tuple[str, ...]) -> dict[str, dict[int, float]]:
+    """ROI per omgång för givna konfigurationer — bara utvärderbara rader.
+
+    Parvis jämförelse kräver SAMMA omgångar: en utmanare som råkar sakna de
+    dyra omgångarna ska inte kunna se bättre ut än championen av den orsaken.
+    """
+    out: dict[str, dict[int, float]] = {key: {} for key in keys}
+    placeholders = ",".join("?" for _ in keys)
+    for key, draw_number, cost, payout in store.conn.execute(
+            f"SELECT config_key, draw_number, cost_kr, COALESCE(payout_kr, 0) "
+            f"FROM pool_system_ledger WHERE product=? AND horizon=? "
+            f"AND config_key IN ({placeholders}) AND timely=1 "
+            f"AND correct_max IS NOT NULL AND payout_complete=1",
+            (product, horizon, *keys)):
+        if cost:
+            out[key][int(draw_number)] = payout / cost - 1
+    return out
+
+
+def _signflip_p(diffs: list[float], key: tuple,
+                iters: int = BOOTSTRAP_ITERS) -> Optional[float]:
+    """Ensidigt p-värde för "utmanaren slår championen".
+
+    Samma konvention som `oddset_ledger._bootstrap`: nollhypotesen centreras
+    med teckenflip, inte med svansen i en fördelning som redan ligger runt det
+    observerade medelvärdet. Under tre parade omgångar finns inget att testa.
+    """
+    if len(diffs) < 3:
+        return None
+    observed = sum(diffs) / len(diffs)
+    if observed <= 0:
+        return 1.0
+    rng = random.Random(
+        int(hashlib.sha1("|".join(map(str, key)).encode()).hexdigest()[:8], 16))
+    null_means = []
+    for _ in range(iters):
+        flipped = [value * rng.choice((-1, 1)) for value in diffs]
+        null_means.append(sum(flipped) / len(flipped))
+    return round((1 + sum(m >= observed for m in null_means)) / (iters + 1), 4)
+
+
+def _bh_pass(tests: list[dict]) -> set[tuple]:
+    """Benjamini–Hochberg över HELA utmanarfamiljen.
+
+    12 konfigurationer × 5 produkter ger 60 jämförelser; utan FDR ser ~3 av
+    dem signifikanta ut av ren slump. Familjen är alla testbara utmanare, inte
+    en produkt i taget — det är över hela matrisen selektionen sker.
+    """
+    ranked = sorted(((t["p_value"], t["key"]) for t in tests
+                     if t["p_value"] is not None), key=lambda item: item[0])
+    accepted = 0
+    for rank, (p_value, _) in enumerate(ranked, 1):
+        if p_value <= rank / len(ranked) * FDR_Q:
+            accepted = rank
+    return {key for _, key in ranked[:accepted]}
+
+
+def champion_report(store: Storage) -> dict:
+    """Per produkt × horisont: championen mot sin bästa utmanare.
+
+    Svarar på de två frågor systemfacitet finns för — "vad ska jag spela?" och
+    "ska jag ändra inställningar?" — i en rad. Jämförelsen är PARAD över samma
+    omgångar och FDR-korrigerad över hela utmanarfamiljen.
+    """
+    challengers = tuple(b["key"] for b in BENCHMARKS if not b["primary"])
+    all_keys = (CHAMPION_KEY, *challengers)
+    rows, tests = [], []
+    products = [r[0] for r in store.conn.execute(
+        "SELECT DISTINCT product FROM pool_system_ledger ORDER BY product")]
+    for product in products:
+        for horizon in FREEZE_HORIZONS:
+            roi = _paired_draw_roi(store, product, horizon, all_keys)
+            champion = roi[CHAMPION_KEY]
+            if not champion:
+                continue
+            entry = {
+                "product": product, "horizon": horizon,
+                "horizon_minutes": FREEZE_HORIZONS[horizon][0],
+                "champion_key": CHAMPION_KEY,
+                "champion_n": len(champion),
+                "champion_roi": round(sum(champion.values()) / len(champion), 4),
+                "challengers": [],
+            }
+            for key in challengers:
+                shared = sorted(set(champion) & set(roi[key]))
+                if not shared:
+                    continue
+                diffs = [roi[key][d] - champion[d] for d in shared]
+                test_key = (product, horizon, key)
+                p_value = _signflip_p(diffs, test_key)
+                entry["challengers"].append({
+                    "config_key": key, "n_paired": len(shared),
+                    "roi": round(sum(roi[key][d] for d in shared) / len(shared), 4),
+                    "delta_roi": round(sum(diffs) / len(diffs), 4),
+                    "p_value": p_value, "key": test_key,
+                })
+                tests.append({"p_value": p_value, "key": test_key})
+            rows.append(entry)
+    passed = _bh_pass(tests)
+    for entry in rows:
+        for challenger in entry["challengers"]:
+            challenger["fdr_pass"] = challenger.pop("key") in passed
+        entry["challengers"].sort(key=lambda c: -c["delta_roi"])
+        best = entry["challengers"][0] if entry["challengers"] else None
+        entry["best_challenger"] = best
+        # Promotion kräver BÅDE FDR och det förregistrerade underlaget. Ett
+        # positivt delta på tre omgångar är brus, inte ett skäl att byta.
+        entry["promotable"] = bool(
+            best and best["fdr_pass"] and best["delta_roi"] > 0
+            and best["n_paired"] >= GATE_MIN_DRAWS)
+    return {"champion_key": CHAMPION_KEY, "gate_min_draws": GATE_MIN_DRAWS,
+            "fdr_q": FDR_Q, "rows": rows}
+
+
+def _streck_at(store: Storage, product: str, draw_number: int,
+               at: Optional[str]) -> dict[int, dict[str, dict]]:
+    """Folkets procent och odds som de såg ut vid `at`.
+
+    `snapshots` är en FÖRÄNDRINGSSERIE — den skriver bara när något ändras.
+    Värdet vid en tidpunkt är alltså sista raden med `fetched_at <= at`, inte
+    en rad som råkar ha den tidsstämpeln. Utan `at` returneras sista kända.
+    """
+    query = ("SELECT event_number, sign, streck, odds, fetched_at "
+             "FROM snapshots WHERE product=? AND draw_number=?")
+    args: list = [product, draw_number]
+    if at:
+        query += " AND fetched_at<=?"
+        args.append(at)
+    query += " ORDER BY fetched_at"
+    out: dict[int, dict[str, dict]] = {}
+    for event_number, sign, streck, odds, fetched_at in store.conn.execute(
+            query, args):
+        out.setdefault(int(event_number), {})[sign] = {
+            "streck": streck, "odds": odds, "observed_at": fetched_at}
+    return out
+
+
+def system_detail(store: Storage, product: str, draw_number: int,
+                  horizon: str, config_key: str) -> dict:
+    """Ett fryst system mot facit, match för match.
+
+    Syftet är mänsklig granskning: VAR missade förslaget, och hur såg folkets
+    streck ut just då? Därför visas både strecket vid frysningen och vid
+    spelstopp — rörelsen däremellan är ofta hela förklaringen.
+
+    Ingen ny insamling behövs: raderna ligger i ledgern, utfallet i
+    settlementlagret och strecken i `snapshots`.
+    """
+    row = store.conn.execute(
+        "SELECT frozen_at, timely, lag_min, budget, strategy, value_weight, "
+        "n_rows, cost_kr, events_order, rows_text, correct_max, correct_dist, "
+        "payout_kr, payout_complete, roi, settle_note, turnover_used, "
+        "turnover_basis FROM pool_system_ledger WHERE product=? AND "
+        "draw_number=? AND horizon=? AND config_key=?",
+        (product, draw_number, horizon, config_key)).fetchone()
+    if row is None:
+        return {"available": False}
+    (frozen_at, timely, lag_min, budget, strategy, value_weight, n_rows,
+     cost_kr, events_order, rows_text, correct_max, correct_dist, payout_kr,
+     payout_complete, roi, settle_note, turnover_used, turnover_basis) = row
+
+    order = [int(n) for n in (events_order or "").split(",") if n]
+    rows = [line.split(",") for line in (rows_text or "").splitlines() if line]
+    facit = {int(r[0]): {"description": r[1], "home": r[2], "away": r[3],
+                         "outcome": r[4], "cancelled": bool(r[5]),
+                         "streck_close": {"1": r[6], "X": r[7], "2": r[8]}}
+             for r in store.conn.execute(
+                 "SELECT event_number, description, home, away, outcome, "
+                 "cancelled, streck_one, streck_x, streck_two "
+                 "FROM pool_event_settlement WHERE product=? AND draw_number=?",
+                 (product, draw_number))}
+    at_freeze = _streck_at(store, product, draw_number, frozen_at)
+
+    events = []
+    for index, event_number in enumerate(order):
+        covered = sorted({r[index] for r in rows if index < len(r)})
+        info = facit.get(event_number, {})
+        outcome = info.get("outcome")
+        frozen_signs = at_freeze.get(event_number, {})
+        events.append({
+            "event_number": event_number,
+            "description": info.get("description"),
+            "home": info.get("home"), "away": info.get("away"),
+            "outcome": outcome, "cancelled": info.get("cancelled"),
+            "covered": covered,
+            # Den enda frågan som spelar roll för facitet: täckte vi tecknet
+            # som gick in? En enda missad match kapar hela systemets tak.
+            "hit": None if not outcome else outcome in covered,
+            "streck_at_freeze": {s: frozen_signs.get(s, {}).get("streck")
+                                 for s in ("1", "X", "2")},
+            "odds_at_freeze": {s: frozen_signs.get(s, {}).get("odds")
+                               for s in ("1", "X", "2")},
+            "streck_at_close": info.get("streck_close"),
+        })
+    missed = [e for e in events if e["hit"] is False]
+    return {
+        "available": True, "product": product, "draw_number": draw_number,
+        "horizon": horizon, "horizon_minutes": FREEZE_HORIZONS.get(
+            horizon, (None, None))[0],
+        "config_key": config_key, "budget": budget, "strategy": strategy,
+        "value_weight": value_weight, "retired": config_key in RETIRED_KEYS,
+        "frozen_at": frozen_at, "timely": bool(timely), "lag_min": lag_min,
+        "n_rows": n_rows, "cost_kr": cost_kr,
+        "correct_max": correct_max,
+        "correct_dist": json.loads(correct_dist) if correct_dist else None,
+        "payout_kr": payout_kr,
+        "payout_complete": (bool(payout_complete)
+                            if payout_complete is not None else None),
+        "roi": roi, "settle_note": settle_note,
+        "turnover_used": turnover_used, "turnover_basis": turnover_basis,
+        "events": events,
+        "n_missed": len(missed),
+        "missed_events": [e["event_number"] for e in missed],
+    }
+
+
 def summary(store: Storage) -> dict:
     """Champion-baseline per produkt × config × horisont.
 
@@ -268,37 +542,68 @@ def summary(store: Storage) -> dict:
             "AND payout_complete=1 THEN cost_kr ELSE 0 END) cost, "
             "SUM(CASE WHEN timely=1 AND correct_max IS NOT NULL "
             "AND payout_complete=1 THEN COALESCE(payout_kr,0) ELSE 0 END) payout, "
-            "MAX(CASE WHEN timely=1 THEN correct_max END) best "
+            "MAX(CASE WHEN timely=1 THEN correct_max END) best, "
+            "MAX(budget) budget, MAX(strategy) strategy, "
+            "MAX(value_weight) value_weight "
             "FROM pool_system_ledger GROUP BY product, config_key, horizon "
             "ORDER BY product, config_key, horizon"):
         (product, key, horizon, n, n_settled, n_timely, n_evaluable,
-         n_unresolvable, n_payout_incomplete, cost, payout, best) = row
+         n_unresolvable, n_payout_incomplete, cost, payout, best,
+         budget, strategy, value_weight) = row
+        bench = _bench(key, {"budget": budget, "strategy": strategy,
+                             "value_weight": value_weight})
         out.append({
             "product": product, "config_key": key, "horizon": horizon,
+            "horizon_minutes": FREEZE_HORIZONS.get(horizon, (None, None))[0],
+            # Parametrarna var förr inbakade i nyckelsträngen (`ev50-tuff-vw80`),
+            # vilket läste som procent och veckonummer. De är egna fält nu.
+            "budget": bench["budget"], "strategy": bench["strategy"],
+            "value_weight": bench["value_weight"], "retired": bench["retired"],
             "n_frozen": n,
             "n_settled": n_settled, "n_timely": n_timely,
             "n_evaluable": n_evaluable, "n_unresolvable": n_unresolvable,
             "n_payout_incomplete": n_payout_incomplete,
+            # cost_kr är ACKUMULERAT över utvärderbara omgångar. Insatsen per
+            # omgång är budgeten — att visa summan under rubriken "Insats" fick
+            # Topptipsets 50 kr × 22 omgångar att se ut som ett 1 100-kronorsspel.
             "cost_kr": round(cost or 0, 2), "payout_kr": round(payout or 0, 2),
+            "cost_per_draw_kr": (round(cost / n_evaluable, 2)
+                                 if n_evaluable and cost else bench["budget"]),
             "roi": (round((payout or 0) / cost - 1, 4)
                     if n_evaluable and cost else None),
             "best_correct": best,
-            "primary": any(b["key"] == key and b["primary"] for b in BENCHMARKS),
+            "primary": bench["primary"],
         })
-    recent = [{
-        "product": r[0], "draw_number": r[1], "horizon": r[2],
-        "config_key": r[3], "frozen_at": r[4], "timely": bool(r[5]),
-        "n_rows": r[6], "cost_kr": r[7], "correct_max": r[8],
-        "payout_kr": r[9], "published_payout_kr": r[10],
-        "payout_complete": bool(r[11]) if r[11] is not None else None,
-        "settlement_version": r[12], "roi": r[13], "settle_note": r[14],
-    } for r in store.conn.execute(
-        "SELECT product, draw_number, horizon, config_key, frozen_at, timely, "
-        "n_rows, cost_kr, correct_max, payout_kr, published_payout_kr, "
-        "payout_complete, settlement_version, roi, settle_note "
-        "FROM pool_system_ledger "
-        "ORDER BY frozen_at DESC LIMIT 40")]
+    recent = []
+    for r in store.conn.execute(
+            "SELECT l.product, l.draw_number, l.horizon, l.config_key, "
+            "l.frozen_at, l.timely, l.n_rows, l.cost_kr, l.correct_max, "
+            "l.payout_kr, l.published_payout_kr, l.payout_complete, "
+            "l.settlement_version, l.roi, l.settle_note, s.reg_close_time, "
+            "l.budget, l.strategy, l.value_weight "
+            "FROM pool_system_ledger l LEFT JOIN pool_draw_settlement s "
+            "ON s.product=l.product AND s.draw_number=l.draw_number "
+            "ORDER BY l.frozen_at DESC LIMIT 200"):
+        bench = _bench(r[3], {"budget": r[16], "strategy": r[17],
+                              "value_weight": r[18]})
+        recent.append({
+            "product": r[0], "draw_number": r[1], "horizon": r[2],
+            "horizon_minutes": FREEZE_HORIZONS.get(r[2], (None, None))[0],
+            "config_key": r[3], "frozen_at": r[4], "timely": bool(r[5]),
+            "n_rows": r[6], "cost_kr": r[7], "correct_max": r[8],
+            "payout_kr": r[9], "published_payout_kr": r[10],
+            "payout_complete": bool(r[11]) if r[11] is not None else None,
+            "settlement_version": r[12], "roi": r[13], "settle_note": r[14],
+            # Vilken omgång raden gäller går inte att läsa ur nyckeln — datumet
+            # kommer ur settlementlagrets spelstopp, inte ur frysningstiden.
+            "close": r[15],
+            "budget": bench["budget"], "strategy": bench["strategy"],
+            "value_weight": bench["value_weight"], "retired": bench["retired"],
+        })
     return {"benchmarks": [dict(b) for b in BENCHMARKS],
+            "champion_key": CHAMPION_KEY,
+            "retired_keys": list(RETIRED_KEYS),
             "horizons": {k: {"minutes": v[0], "tolerance_min": v[1]}
                          for k, v in FREEZE_HORIZONS.items()},
-            "groups": out, "recent": recent}
+            "groups": out, "recent": recent,
+            "champion_report": champion_report(store)}

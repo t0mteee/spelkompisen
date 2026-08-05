@@ -93,7 +93,21 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/pool_system_ledger.py PH3: förregistrerade benchmarksystem fryses
                       T−3h/T−20m i varvet, settlas kontrafaktiskt med egen
                       vinnarutspädning; rollover utan vinnare = okänd ROI
-                      (/api/pool/systems; champion = dagens byggare)
+                      (/api/pool/systems; champion = dagens byggare).
+                      **GENERATION 2 sedan 2026-08-05:** budget
+                      144/256/512/1024 kr × risk säker/medel/tuff (vw 20/50/80)
+                      = 12 konfigurationer, champion `b256-medel`. Radpriset är
+                      1 kr för alla produkter, så budget = antal rader.
+                      Generation 1 (`ev50-*`, `ev256-*`) är PENSIONERAD och
+                      blandas aldrig in — en config_key ändras aldrig i
+                      efterhand, så nya nycklar räcker (ingen migrering).
+                      Championen MÅSTE spegla appens budgetreglage: den stod
+                      på 50 kr medan reglaget stod på 128, så etiketten var
+                      osann. Promotion kräver BH-FDR över hela
+                      utmanarfamiljen (60 jämförelser) OCH ≥40 parade
+                      omgångar — `champion_report()`. `system_detail()` ger
+                      ett fryst system match för match mot facit med streck
+                      vid frysning och vid stopp; ingen ny insamling behövs
   app/live_radar.py  shadow-radar för pågående matcher: tre separata
                       provider-serier, högst 12 min gamla. Källan väljs på
                       strukturell fälttäckning (aldrig på signalvärdet),
@@ -145,8 +159,19 @@ frontend/ React + Vite, mörkt tema. src/AppV3.jsx + AppV3.css är APPEN
   komponenter definieras där och monteras i AppV3. Tillstånd (kupong/omgång/
   inställningar) ligger i localStorage `svs_state`. Oddset är uppdelat i
   Matcher/Live/Värdespel/Rörelser; desktop använder delade `SortableTable`,
-  mobil samma sortering över kort. Signalgruppsfacit och signallogg hör
-  hemma i Labb, aldrig som en femte Oddset-sektion.
+  mobil samma sortering över kort. `SortableTable` kapar med `limit` EFTER
+  sorteringen — slicea aldrig `rows` före anropet, det ger en falsk topplista.
+  Signalgruppsfacit och signallogg hör hemma i Labb, aldrig som en femte
+  Oddset-sektion.
+  **YTGRÄNSEN (2026-08-05): Historik = 100 % POOL, Labb = 100 % ODDS.**
+  Sammanhörande data får inte spridas över två vyer. Poolens prognosfel och
+  PH4-κ-fönster flyttades därför till Historik, och PH3-kortet togs bort ur
+  Labb (det dubblerade Historikens Systemfacit). Historik har EN produktväljare
+  överst som styr hela sidan — kuponger, systemfacit, prognos och omsättning.
+  Långa tabeller visar 20 rader med "visa alla". Ingen parameter göms i en
+  nyckelsträng: budget, strategi och värdevikt är egna kolumner. Horisonter
+  visas i minuter (180/20), aldrig som `h3`/`m20`. Se
+  `docs/historik-ui-2026-08-05.md` för före/efter-mätningarna.
 start.sh / stop.sh    kör/stoppa båda lokalt (8002 + 5175)
 docs/plan.md          FÄRDPLANEN: status, datakällor, beslut — projektets sanning
 docs/backlog.md       AKTIV BACKLOG (2026-07-26): prioritering, pågående mätningar,
@@ -218,6 +243,17 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
   v3 (08–21Z) är historik; v2 <08Z. Settlement stämplar efter capturetid,
   aldrig efter versionen som råkar vara aktiv när kön körs. En ändrad
   datagenererande process kräver alltid ny signalversion.
+  **KOHORTREGELN (2026-08-05):** en rad hör till vN bara om vN-KODEN
+  producerade den OCH den observerades i vN:s DEKLARERADE fönster — annars
+  `transitional`, som ingår i INGEN kohort. Rader flyttas ALDRIG till
+  föregående kohort. `RADAR_*_STARTED_AT` är handskriven AVSIKT; koden byter
+  i samma sekund filen sparas (jobben kör ur arbetskopian), och de två gled
+  isär åt båda hållen tills 57 % av v4 var v5-producerad. Nya captures bär
+  `radar_version` PÅ RADEN; historik (NULL) härleds ur journalens frysta
+  `RADAR_OBSERVED_SWITCHES`, och inne i en växling blir raden transitional i
+  stället för gissad. Före bevishorisonten 2026-08-01T01:02:15Z finns ingen
+  journal — v2 är ovaliderad och duger inte som baslinje. Se
+  `docs/db-atgarder.md` 2026-08-05 och `scripts/migrera_radar_kohorter.py`.
   Provider-id hanteras som ogenomskinlig STRÄNG i presence, journal och
   settlement (Flashscores är alfanumeriskt: `SKg88Q3T`). Tabellen
   `oddset_live_moment_settlement.event_id` är därför TEXT; ändringen görs

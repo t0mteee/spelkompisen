@@ -13,8 +13,10 @@ const InfoDot = ({ text }) => <span className="idot" title={text}>i</span>
 const STRATEGIES = ['säker', 'medel', 'tuff']
 // strategin sätter en startpunkt på EV-/värdereglaget (samma axel), så de inte krockar
 const STRATEGY_EV = { säker: 20, medel: 50, tuff: 80 }
-// budgetsteg (tak för insatsen) – slider istället för sifferfält
-const BUDGET_STOPS = [16, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048]
+// budgetsteg (tak för insatsen) – slider istället för sifferfält.
+// 144 är en exakt Hamming-täckning (R 4-4-144) och ingår i PH3:s
+// benchmarkmatris sedan 2026-08-05, så reglaget måste kunna nå den.
+const BUDGET_STOPS = [16, 32, 48, 64, 96, 128, 144, 192, 256, 384, 512, 768, 1024, 1536, 2048]
 const fmt = (o) => (o === null || o === undefined ? '–' : o.toFixed(2))
 
 function timeAgo(iso) {
@@ -2387,7 +2389,8 @@ function RowExplorer({ rows, matches, payouts, turnover, jackpot }) {
   )
 }
 
-function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear }) {
+function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear,
+  buildConfig = null }) {
   const [redOn, setRedOn] = useState(false)
   const [minDiv, setMinDiv] = useState(50)
   const [turnover, setTurnover] = useState(null)   // null = använd live-omsättning
@@ -2424,7 +2427,14 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
           rows: pickRows.map((r) => r.join('')),
           row_price: payouts?.row_price || 1,
           events_order: matches.map((m) => m.event_number),
-          build_kind: 'kupong', label: `${product} ${draw}`,
+          // build_kind var förr hårdkodat 'kupong' och strategy/budget/vikt
+          // skickades aldrig, trots att kolumnerna fanns — bokförda kuponger
+          // gick därför inte att koppla till förslaget de byggde på.
+          build_kind: buildConfig?.source || 'kupong',
+          strategy: buildConfig?.strategy ?? null,
+          budget: buildConfig?.budget ?? null,
+          value_weight: buildConfig?.value_weight ?? null,
+          label: `${product} ${draw}`,
         }),
       })
       setPlayed(res.ok ? true : false)
@@ -2645,25 +2655,39 @@ function PlayedLiveCard({ c, onForget }) {
   )
 }
 
-function PlayedPanel() {
+// `product` = null visar alla spel; annars filtreras allt till ett. Summeringen
+// räknas om på det filtrerade urvalet — en ROI som gäller alla spel får inte
+// stå kvar som rubrik när tabellen bara visar ett.
+function PlayedPanel({ product = null }) {
   const [data, setData] = useState(null)
   const load = () => fetch(`/api/pool/played?_t=${Date.now()}`, { cache: 'no-store' })
     .then((r) => r.json()).then(setData).catch(() => setData({ coupons: [] }))
   useEffect(() => { load() }, [])   // eslint-disable-line
   if (!data) return <LoadingState label="Hämtar spelade kuponger…" />
-  const s = data.summary || {}
-  if (!data.coupons?.length) {
-    return <p className="hint">Inga bokförda kuponger än. Bygg ett förslag, lämna in det
-      hos Svenska Spel och tryck <b>🎟 Markera som spelad</b> i kupongen — då följs
-      reducerade system live och får riktigt facit när omgången är klar.</p>
+  const all = data.coupons || []
+  const coupons = product ? all.filter((c) => c.product === product) : all
+  const settled = coupons.filter((c) => c.settled_at)
+  const spent = settled.reduce((a, c) => a + (c.cost_kr || 0), 0)
+  const won = settled.reduce((a, c) => a + (c.payout_kr || 0), 0)
+  const s = product
+    ? { n_coupons: coupons.length, n_settled: settled.length,
+        n_open: coupons.length - settled.length, spent_kr: spent, won_kr: won,
+        roi: spent > 0 ? won / spent - 1 : null }
+    : (data.summary || {})
+  if (!coupons.length) {
+    return <p className="hint">{all.length
+      ? 'Inga bokförda kuponger för det här spelet.'
+      : <>Inga bokförda kuponger än. Bygg ett förslag, lämna in det
+        hos Svenska Spel och tryck <b>🎟 Markera som spelad</b> i kupongen — då följs
+        reducerade system live och får riktigt facit när omgången är klar.</>}</p>
   }
   const forget = async (id) => {
     await fetch(`/api/pool/played/${id}`, { method: 'DELETE' }); load()
   }
   // Pågående kuponger är det man faktiskt följer — de får egna kort överst.
   // Avgjorda är arkiv och komprimeras till en rad var.
-  const open_ = data.coupons.filter((c) => !c.settled_at)
-  const done = data.coupons.filter((c) => c.settled_at)
+  const open_ = coupons.filter((c) => !c.settled_at)
+  const done = settled
   return (
     <div className="playedbox">
       <p className="hint" title={s.note}>
@@ -2682,21 +2706,49 @@ function PlayedPanel() {
       {done.length > 0 && (
         <>
           {open_.length > 0 && <div className="playeddivider">avgjorda</div>}
-          <table className="grid compact playeddone">
-            <thead><tr><th>omgång</th><th>rader</th><th>kostnad</th>
-              <th>resultat</th><th>utdelning</th></tr></thead>
-            <tbody>
-              {done.map((c) => (
-                <tr key={c.id}>
-                  <td>{couponLabel(c)}</td>
-                  <td>{c.n_rows}</td>
-                  <td>{kr(c.cost_kr)}</td>
-                  <td>bäst {c.correct_max} rätt</td>
-                  <td>{c.payout_complete ? kr(c.payout_kr) : 'ofullständig'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <SortableTable id="played-done" className="grid compact playeddone"
+            wrapperClassName="tablewrap"
+            defaultSort={{ key: 'played_at', dir: 'desc' }}
+            rows={done}
+            columns={[
+              { key: 'product', label: 'Spel', defaultDir: 'asc',
+                value: (c) => `${PRODUCT_LABEL[c.product] || c.product}`
+                  + `${VARIANT[c.product] ? ` ${VARIANT[c.product]}` : ''}` },
+              { key: 'played_at', label: 'Omgång' },
+              { key: 'build', label: 'Förslagstyp', defaultDir: 'asc',
+                title: 'Byggarens inställningar när kupongen bokfördes. Kuponger före 2026-08-05 saknar uppgiften.',
+                value: (c) => (c.budget != null
+                  ? `${c.strategy || ''} ${c.budget}` : '') },
+              { key: 'n_rows', label: 'Rader' },
+              { key: 'cost_kr', label: 'Kostnad' },
+              { key: 'correct_max', label: 'Bäst rätt' },
+              { key: 'payout_kr', label: 'Utdelning' },
+              { key: 'roi', label: 'ROI' },
+            ]}
+            renderRow={(c) => (
+              <tr key={c.id}>
+                <td>{PRODUCT_LABEL[c.product] || c.product}
+                  {VARIANT[c.product] ? ` ${VARIANT[c.product]}` : ''}</td>
+                <td>{couponLabel(c)}</td>
+                <td>{c.budget != null
+                  ? <span className="buildbadge">{[
+                    `${Math.round(c.budget)} kr`,
+                    c.strategy,
+                    c.value_weight != null
+                      ? `värde ${Math.round(c.value_weight * 100)} %` : null,
+                  ].filter(Boolean).join(' · ')}</span>
+                  : <span className="hint" title="Bokförd innan förslagstyp
+                    började sparas (2026-08-05). Uppgiften fanns aldrig och
+                    bakfylls inte.">okänd</span>}</td>
+                <td>{c.n_rows}</td>
+                <td>{kr(c.cost_kr)}</td>
+                <td>bäst {c.correct_max} rätt</td>
+                <td>{c.payout_complete ? kr(c.payout_kr) : 'ofullständig'}</td>
+                <td className={c.roi == null ? '' : c.roi >= 0 ? 'pos' : 'neg'}>
+                  {c.roi == null ? '–'
+                    : `${c.roi >= 0 ? '+' : ''}${Math.round(c.roi * 100)} %`}</td>
+              </tr>
+            )} />
         </>
       )}
     </div>
@@ -3068,12 +3120,16 @@ function useSortedRows(id, rows, columns, defaultSort) {
   return { sorted, sort: activeSort, toggle, choose }
 }
 
+// `limit` kapar EFTER sorteringen — annars visas godtyckliga rader som råkar
+// ligga först i indata, prydligt sorterade, vilket ser ut som en topplista utan
+// att vara det. null = ingen kapning.
 function SortableTable({
   id, columns, rows, renderRow, renderCard, defaultSort, className,
-  wrapperClassName = 'tablewrap',
+  wrapperClassName = 'tablewrap', limit = null,
 }) {
-  const { sorted, sort, toggle, choose } = useSortedRows(
+  const { sorted: allSorted, sort, toggle, choose } = useSortedRows(
     id, rows, columns, defaultSort)
+  const sorted = limit == null ? allSorted : allSorted.slice(0, limit)
   const sortableColumns = columns.filter((c) => c.sortable !== false)
   return (
     <>

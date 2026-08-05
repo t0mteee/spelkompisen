@@ -275,9 +275,10 @@ class SystemLedgerTests(unittest.TestCase):
             "strategy, value_weight, row_price, n_rows, cost_kr, events_order, "
             "rows_text, rows_hash, n_events_covered, turnover_used, "
             "turnover_basis, jackpot_used) VALUES "
-            "(?, 100, 'm20', 'ev50-medel-vw50', '2026-07-24T10:00:00Z', 5, 1, "
-            "'test', 50, 'medel', 0.5, 1.0, 2, 2.0, ?, ?, 'h', 8, 100000, "
-            "'live', 0)", (product, events, rows))
+            "(?, 100, 'm20', ?, '2026-07-24T10:00:00Z', 5, 1, "
+            "'test', 256, 'medel', 0.5, 1.0, 2, 2.0, ?, ?, 'h', 8, 100000, "
+            "'live', 0)",
+            (product, pool_system_ledger.CHAMPION_KEY, events, rows))
         self.store.conn.commit()
 
     def _settlement_fixture(self, outcomes, tiers, product="topptipset"):
@@ -358,7 +359,8 @@ class SystemLedgerTests(unittest.TestCase):
             "FROM pool_system_ledger ORDER BY config_key").fetchall()
         self.assertTrue(all(r[0] == "h3" for r in rows))    # m20 inte öppet än
         self.assertTrue(all(r[1] == 1 for r in rows))       # lag 2 min ≤ 30
-        self.assertTrue(all(r[2] >= 1 and r[3] <= 256 for r in rows))
+        widest = max(b["budget"] for b in pool_system_ledger.BENCHMARKS)
+        self.assertTrue(all(r[2] >= 1 and r[3] <= widest for r in rows))
         self.assertEqual("1,2,3,4,5,6,7,8", rows[0][4])
         rep2 = pool_system_ledger.freeze_due(
             self.store, "topptipset", draw, now=NOW, code_version="test")
@@ -377,7 +379,19 @@ class SystemLedgerTests(unittest.TestCase):
         keys = [b["key"] for b in pool_system_ledger.BENCHMARKS]
         self.assertEqual(len(keys), len(set(keys)))
         self.assertEqual(1, sum(b["primary"] for b in pool_system_ledger.BENCHMARKS))
-        self.assertIn("ev50-medel-vw50", keys)
+        # Generation 2 (2026-08-05): 4 budgetar × 3 riskprofiler.
+        self.assertEqual(12, len(keys))
+        self.assertIn(pool_system_ledger.CHAMPION_KEY, keys)
+        champion = next(b for b in pool_system_ledger.BENCHMARKS if b["primary"])
+        self.assertEqual(pool_system_ledger.CHAMPION_KEY, champion["key"])
+        # Strateginamnen måste vara byggarens egna, annars KeyError vid frysning.
+        from app.builder import STRATEGIES
+        for bench in pool_system_ledger.BENCHMARKS:
+            self.assertIn(bench["strategy"], STRATEGIES, bench["key"])
+        # Pensionerade nycklar får aldrig återuppstå i matrisen — en config_key
+        # ändras aldrig i efterhand, och gamla kohorter blandas aldrig in.
+        for retired in pool_system_ledger.RETIRED_KEYS:
+            self.assertNotIn(retired, keys)
         self.assertEqual({"h3", "m20"}, set(pool_system_ledger.FREEZE_HORIZONS))
 
     def test_summary_grupperar_per_config(self):
@@ -386,7 +400,7 @@ class SystemLedgerTests(unittest.TestCase):
         pool_system_ledger.settle_pending(self.store, now=NOW)
         s = pool_system_ledger.summary(self.store)
         group = next(g for g in s["groups"]
-                     if g["config_key"] == "ev50-medel-vw50")
+                     if g["config_key"] == pool_system_ledger.CHAMPION_KEY)
         self.assertEqual(1, group["n_settled"])
         self.assertEqual("topptipset", group["product"])
         self.assertEqual(1, group["n_evaluable"])
@@ -396,3 +410,155 @@ class SystemLedgerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ChampionReportTests(unittest.TestCase):
+    """Champion mot utmanare: parad jämförelse och FDR över hela familjen."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self._tmp.name) / "test.db")
+
+    def tearDown(self):
+        self.store.close()
+        self._tmp.cleanup()
+
+    def _row(self, key, draw, cost, payout, horizon="m20",
+             product="topptipset", timely=1):
+        self.store.conn.execute(
+            "INSERT INTO pool_system_ledger (product, draw_number, horizon, "
+            "config_key, frozen_at, lag_min, timely, code_version, budget, "
+            "strategy, value_weight, row_price, n_rows, cost_kr, events_order, "
+            "rows_text, rows_hash, n_events_covered, turnover_used, "
+            "turnover_basis, jackpot_used, correct_max, payout_kr, "
+            "payout_complete) VALUES (?,?,?,?,'2026-08-01T10:00:00Z',1,?,"
+            "'test',256,'medel',0.5,1.0,?,?,'1,2','1,1','h',2,1000,'live',0,"
+            "2,?,1)",
+            (product, draw, horizon, key, timely, int(cost), cost, payout))
+        self.store.conn.commit()
+
+    def test_challenger_is_compared_on_the_same_draws_only(self):
+        """En utmanare som saknar de dåliga omgångarna får inte se bättre ut."""
+        champion = pool_system_ledger.CHAMPION_KEY
+        challenger = next(b["key"] for b in pool_system_ledger.BENCHMARKS
+                          if not b["primary"])
+        for draw, payout in ((1, 0.0), (2, 0.0), (3, 600.0)):
+            self._row(champion, draw, 256.0, payout)
+        # utmanaren finns BARA i den lönsamma omgången
+        self._row(challenger, 3, 256.0, 900.0)
+
+        report = pool_system_ledger.champion_report(self.store)
+        entry = next(r for r in report["rows"] if r["horizon"] == "m20")
+        best = entry["best_challenger"]
+        self.assertEqual(1, best["n_paired"], "bara omgång 3 är gemensam")
+        # championens ROI i rapporten är över ALLA sina omgångar, men deltat
+        # räknas parat — annars jämförs olika omgångar med varandra.
+        self.assertAlmostEqual((900 - 600) / 256, best["delta_roi"], places=3)
+
+    def test_tiny_samples_get_no_p_value_and_are_never_promotable(self):
+        champion = pool_system_ledger.CHAMPION_KEY
+        challenger = next(b["key"] for b in pool_system_ledger.BENCHMARKS
+                          if not b["primary"])
+        for draw in (1, 2):
+            self._row(champion, draw, 256.0, 0.0)
+            self._row(challenger, draw, 256.0, 5000.0)
+
+        report = pool_system_ledger.champion_report(self.store)
+        entry = next(r for r in report["rows"] if r["horizon"] == "m20")
+        best = entry["best_challenger"]
+        self.assertGreater(best["delta_roi"], 0, "utmanaren ser överlägsen ut")
+        self.assertIsNone(best["p_value"], "två omgångar är inget test")
+        self.assertFalse(entry["promotable"],
+                         "brus får aldrig promoveras oavsett hur bra det ser ut")
+        self.assertEqual(40, report["gate_min_draws"])
+
+    def test_retired_config_keeps_its_stored_parameters(self):
+        """Pensionerade rader måste kunna visas med samma kolumner som nya."""
+        self.store.conn.execute(
+            "INSERT INTO pool_system_ledger (product, draw_number, horizon, "
+            "config_key, frozen_at, lag_min, timely, code_version, budget, "
+            "strategy, value_weight, row_price, n_rows, cost_kr, events_order, "
+            "rows_text, rows_hash, n_events_covered, turnover_used, "
+            "turnover_basis, jackpot_used) VALUES ('topptipset',9,'m20',"
+            "'ev50-tuff-vw80','2026-07-30T10:00:00Z',1,1,'test',50,'tuff',0.8,"
+            "1.0,50,50.0,'1,2','1,1','h',2,1000,'live',0)")
+        self.store.conn.commit()
+
+        group = next(g for g in pool_system_ledger.summary(self.store)["groups"]
+                     if g["config_key"] == "ev50-tuff-vw80")
+        self.assertTrue(group["retired"])
+        self.assertEqual(50.0, group["budget"])
+        self.assertEqual("tuff", group["strategy"])
+        self.assertEqual(0.8, group["value_weight"])
+        self.assertFalse(group["primary"])
+
+
+class SystemDetailTests(unittest.TestCase):
+    """Klick-in på ett fryst system: var missade vi, och hur stod strecken?"""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self._tmp.name) / "test.db")
+        self.store.conn.execute(
+            "INSERT INTO pool_system_ledger (product, draw_number, horizon, "
+            "config_key, frozen_at, lag_min, timely, code_version, budget, "
+            "strategy, value_weight, row_price, n_rows, cost_kr, events_order, "
+            "rows_text, rows_hash, n_events_covered, turnover_used, "
+            "turnover_basis, jackpot_used, correct_max, payout_kr, "
+            "payout_complete) VALUES ('topptipset',77,'m20',?,"
+            "'2026-08-01T12:00:00Z',1,1,'test',256,'medel',0.5,1.0,2,2.0,"
+            "'1,2','1,1\n1,X','h',2,1000,'live',0,1,0.0,1)",
+            (pool_system_ledger.CHAMPION_KEY,))
+        for number, outcome, streck in ((1, "1", (70, 20, 10)),
+                                        (2, "2", (30, 30, 40))):
+            self.store.conn.execute(
+                "INSERT INTO pool_event_settlement (product, draw_number, "
+                "event_number, description, home, away, outcome, cancelled, "
+                "streck_one, streck_x, streck_two) VALUES "
+                "('topptipset',77,?,?,?,?,?,0,?,?,?)",
+                (number, f"lag{number} - motst{number}", f"lag{number}",
+                 f"motst{number}", outcome, *streck))
+        self.store.conn.commit()
+
+    def tearDown(self):
+        self.store.close()
+        self._tmp.cleanup()
+
+    def test_missed_event_is_named(self):
+        """Systemet spelar 1 och X på match 2, men 2:an gick in."""
+        d = pool_system_ledger.system_detail(
+            self.store, "topptipset", 77, "m20",
+            pool_system_ledger.CHAMPION_KEY)
+        self.assertTrue(d["available"])
+        self.assertEqual([2], d["missed_events"])
+        first, second = d["events"]
+        self.assertTrue(first["hit"])
+        self.assertEqual(["1"], first["covered"])
+        self.assertFalse(second["hit"])
+        self.assertEqual(["1", "X"], second["covered"])
+        self.assertEqual({"1": 30, "X": 30, "2": 40}, second["streck_at_close"])
+
+    def test_streck_at_freeze_uses_last_change_before_the_freeze(self):
+        """`snapshots` är en förändringsserie — inte en tidsstämpelträff.
+
+        En senare rörelse får aldrig läcka in i frysningsögonblicket.
+        """
+        for at, streck in (("2026-08-01T09:00:00Z", 55),
+                           ("2026-08-01T11:00:00Z", 70),
+                           ("2026-08-01T13:00:00Z", 88)):   # EFTER frysningen
+            self.store.conn.execute(
+                "INSERT INTO snapshots (product, draw_number, event_number, "
+                "sign, odds, streck, fetched_at) VALUES "
+                "('topptipset',77,1,'1',1.5,?,?)", (streck, at))
+        self.store.conn.commit()
+
+        d = pool_system_ledger.system_detail(
+            self.store, "topptipset", 77, "m20",
+            pool_system_ledger.CHAMPION_KEY)
+        self.assertEqual(70, d["events"][0]["streck_at_freeze"]["1"],
+                         "11:00-värdet gällde vid frysningen 12:00")
+
+    def test_unknown_system_is_reported_not_crashed(self):
+        d = pool_system_ledger.system_detail(
+            self.store, "topptipset", 77, "h3", "finns-inte")
+        self.assertFalse(d["available"])
