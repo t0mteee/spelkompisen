@@ -404,7 +404,7 @@ class ResearchLeagueIsolationTests(unittest.TestCase):
             store = Storage(Path(tmp) / "test.db")
             try:
                 store.oddset_record_source_health(
-                    "sofascore", "-", "live", "2026-07-25T08:00:00Z",
+                    "flashscore", "-", "live", "2026-07-25T08:00:00Z",
                     True, 2)
                 store.oddset_record_source_health(
                     "pinnacle", "hidden-test", "markets",
@@ -415,8 +415,33 @@ class ResearchLeagueIsolationTests(unittest.TestCase):
 
         health = {(row["source"], row["scope"])
                   for row in payload["source_health"]}
-        self.assertIn(("sofascore", "live"), health)
+        self.assertIn(("flashscore", "live"), health)
         self.assertNotIn(("pinnacle", "markets"), health)
+
+    def test_disconnected_sources_are_filtered_out_of_health(self) -> None:
+        """`oddset_source_health` städas aldrig, så en urkopplad källa ligger
+        kvar och åldras tyst till "fel" i UI:t. Sofascore stod som livekälla
+        timmar efter bortkopplingen (2026-08-06) och Betinia sedan
+        2026-07-24. Filtret härleds ur källistorna, så nästa bortkoppling
+        städar sig själv."""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                for dead in ("sofascore", "betinia"):
+                    store.oddset_record_source_health(
+                        dead, "-", "live", "2026-07-25T08:00:00Z", True, 2)
+                store.oddset_record_source_health(
+                    "flashscore", "-", "live", "2026-07-25T08:00:00Z", True, 2)
+                payload = oddset.matches_payload(store, light=True)
+            finally:
+                store.close()
+
+        sources = {row["source"] for row in payload["source_health"]}
+        self.assertNotIn("sofascore", sources)
+        self.assertNotIn("betinia", sources)
+        self.assertIn("flashscore", sources)
+        # spärren mot Smarkets som BOK är en annan sak och står kvar
+        self.assertIn("smarkets", oddset.active_sources())
 
     def test_fast_research_poll_uses_known_moneyline_single_endpoint(self) -> None:
         class Pin:

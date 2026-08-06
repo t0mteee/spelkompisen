@@ -9,6 +9,7 @@ Liga-id:n och Kambi-vägar verifierade 2026-07-12 (docs/plan.md, "Prober").
 from __future__ import annotations
 
 import datetime as dt
+import functools
 import time
 import unicodedata
 from difflib import SequenceMatcher
@@ -126,6 +127,26 @@ BOOKS = [
     # ligor. Byt aldrig skin utan att mäta overrounden först.
     {"key": "ninjacasino", "name": "Ninja Casino", "altenar": "ninjacasinose"},
 ]
+
+
+@functools.lru_cache(maxsize=1)
+def active_sources() -> frozenset[str]:
+    """Källor som FAKTISKT samlas i dag — härlett, aldrig uppräknat.
+
+    `oddset_source_health` städas aldrig (PK skriver över sig själv), så en
+    urkopplad källa ligger kvar och åldras tyst till "fel" i UI:t. Att räkna
+    upp de aktiva för hand hade bara flyttat problemet: listan glöms nästa
+    gång en källa kopplas bort. Härledningen ur de listor som redan styr
+    insamling och värdering håller sig själv aktuell.
+    """
+    from .oddset_value import ANCHOR_SOURCES, SHADOW_SOURCES
+    from .live_radar import LIVE_SOURCES
+    return frozenset(
+        {"pinnacle", "svenskaspel"}                    # sharp + huvudbok
+        | {book["key"] for book in BOOKS}              # mjuka böcker
+        | set(ANCHOR_SOURCES) | set(SHADOW_SOURCES)    # ankare/skugga
+        | set(LIVE_SOURCES))                           # live-radarn
+
 
 DEEP_MARKETS_DAYS = 7      # Kambi AH/ÖU per event bara för matcher inom N dygn
 LIST_WINDOW_H_BACK = 2     # visa matcher som startat för < 2 h sedan
@@ -1190,7 +1211,15 @@ def matches_payload(store: Storage, light: bool = False,
         league for league in LEAGUES
         if include_research or league["key"] in VISIBLE_LEAGUE_KEYS
     ]
-    health = store.oddset_source_health()
+    # `oddset_source_health` har PK (source, league, scope) och skriver över
+    # sig själv — den städas ALDRIG. En urkopplad källa ligger därför kvar för
+    # evigt och åldras tyst till "fel" i UI:t: Sofascore stod som livekälla
+    # med sin sista kontroll 16:34Z timmar efter att den kopplats bort
+    # (2026-08-06), och Betinia låg kvar sedan 2026-07-24 då den ersattes av
+    # ninjacasino. Filtret härleds ur källistorna i stället för att räknas upp,
+    # så nästa bortkoppling städar sig själv.
+    health = [row for row in store.oddset_source_health()
+              if row.get("source") in active_sources()]
     if not include_research:
         health = [
             row for row in health

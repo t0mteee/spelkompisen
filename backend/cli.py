@@ -1212,7 +1212,14 @@ def main() -> None:
         from app import oddset_backtest
         store = Storage()
         try:
-            for lg, extra in (("allsvenskan", ("superettan",)), ("eliteserien", ())):
+            # MLS tillagd 2026-08-07: den är vår MEST lönsamma marknad
+            # (+5,13 % close-EV på 117 flaggor) men ärvde Allsvenskans
+            # temperatur. Superettan och OBOS kan INTE kalibreras — `FD_URLS`
+            # har inga stängningsodds för dem, så de ärver poolens huvudliga
+            # (`FIT_POOLS`) med flit. Det är designen, inte en lucka.
+            for lg, extra in (("allsvenskan", ("superettan",)),
+                              ("eliteserien", ()),
+                              ("mls", ())):
                 preds = oddset_backtest.run_league(lg, use_store_xg=True,
                                                    pool_extra=extra)
                 t, ll, ll1 = oddset_backtest.fit_temperature(preds)
