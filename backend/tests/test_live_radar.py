@@ -30,6 +30,41 @@ def event(description="2nd half"):
     }
 
 
+def fs_capture(store, *, flashscore_id="ANK00001", league="eliteserien",
+               home="Home", away="Away", captured_at=AT, minute=70,
+               home_score=1, away_score=0, xg=(3.0, 0.4), big=(4, 1),
+               shots=(18, 5), on=(9, 2), inside=(14, 3), **extra):
+    """Spara en Flashscore-rad — radarns ANKARE sedan 2026-08-06.
+
+    Testerna byggde tidigare sina ankare på `oddset_save_live_capture`
+    (Sofascore). Den källan är urkopplad ur radarn, så ett ankare måste nu
+    komma från Flashscore. `None` i ett måttpar betyder att providern inte
+    rapporterar fältet — skilt från mätt 0.
+    """
+    from app.flashscore import CAPTURE_VERSION as FS_VERSION
+    row = {
+        "flashscore_id": flashscore_id,
+        "captured_at": captured_at,
+        "capture_version": FS_VERSION,
+        "league": league,
+        "tournament": league,
+        "start_at": START_AT,
+        "home": home,
+        "away": away,
+        "minute": minute,
+        "home_score": home_score,
+        "away_score": away_score,
+        "xg_home": xg[0], "xg_away": xg[1],
+        "big_chances_home": big[0], "big_chances_away": big[1],
+        "shots_home": shots[0], "shots_away": shots[1],
+        "shots_on_home": on[0], "shots_on_away": on[1],
+        "shots_inside_home": inside[0], "shots_inside_away": inside[1],
+    }
+    row.update(extra)
+    store.live_flashscore_save(row)
+    return row
+
+
 def stats(xg=(3.0, 0.4), big=(4, 1), shots=(18, 5),
           on=(9, 2), inside=(14, 3), touches=(37, 8)):
     values = {
@@ -100,8 +135,8 @@ class LiveRadarTests(unittest.TestCase):
             self.assertEqual(0, live_radar.LEAGUE_PRIORITY[key],
                              "cuperna får inte klippas som friendlies")
 
-    def test_v5_och_alla_synliga_ligor_har_liveprioritet(self):
-        self.assertEqual("chance-gap-shadow-v5", live_radar.RADAR_VERSION)
+    def test_v6_och_alla_synliga_ligor_har_liveprioritet(self):
+        self.assertEqual("chance-gap-shadow-v6", live_radar.RADAR_VERSION)
         # Passerade gränser är frysta — en ändring skulle märka om historiska
         # captures och tyst blanda ihop kohorterna.
         self.assertEqual("2026-08-01T08:00:00Z",
@@ -109,6 +144,8 @@ class LiveRadarTests(unittest.TestCase):
         self.assertEqual("2026-08-01T21:00:00Z",
                          live_radar.RADAR_V4_STARTED_AT)
         self.assertEqual("2026-08-03T06:00:00Z",
+                         live_radar.RADAR_V5_STARTED_AT)
+        self.assertEqual("2026-08-06T16:45:00Z",
                          live_radar.RADAR_VERSION_STARTED_AT)
         for key in ("bestadeild", "premier_league", "serie_a", "la_liga",
                     "bundesliga"):
@@ -233,7 +270,13 @@ class LiveRadarTests(unittest.TestCase):
                     event(), stats(), captured_at=AT, now=NOW)
                 self.assertEqual(1, store.oddset_save_live_capture(capture))
                 self.assertEqual(0, store.oddset_save_live_capture(capture))
+                # Sofascore-lagret är fortfarande idempotent, men det NÅR inte
+                # radarn längre: kortet nedan kommer från Flashscore-ankaret.
+                self.assertEqual(
+                    [], live_radar.payload(store, now=NOW)["matches"],
+                    "sofascore-captures får inte längre bli livekort")
 
+                fs_capture(store)
                 payload = live_radar.payload(store, now=NOW)
                 self.assertEqual("shadow", payload["mode"])
                 self.assertEqual(1, payload["signal_count"])
@@ -252,22 +295,20 @@ class LiveRadarTests(unittest.TestCase):
             store = Storage(Path(tmp) / "test.db")
             try:
                 # 1. helt utan chansfält (försäsongsmatchen) → döljs
-                tom = event()
-                tom["id"] = 901
-                store.oddset_save_live_capture(live_radar.parse_capture(
-                    tom, None, captured_at=AT, now=NOW))
+                fs_capture(store, flashscore_id="TOM00901", home="Tom",
+                           xg=(None, None), big=(None, None),
+                           shots=(None, None), on=(None, None),
+                           inside=(None, None))
                 # 2. tidig match med MÄTTA nollor → stannar
-                noll = event()
-                noll["id"] = 902
-                store.oddset_save_live_capture(live_radar.parse_capture(
-                    noll, stats(xg=(None, None), big=(0, 0), shots=(0, 0),
-                                on=(0, 0), inside=(0, 0), touches=(0, 0)),
-                    captured_at=AT, now=NOW))
+                fs_capture(store, flashscore_id="NOLL0902", home="Noll",
+                           xg=(None, None), big=(0, 0), shots=(0, 0),
+                           on=(0, 0), inside=(0, 0))
 
                 payload = live_radar.payload(store, now=NOW)
                 visade = {row["event_id"] for row in payload["matches"]}
-                self.assertIn(902, visade, "mätt noll är ett värde, inte saknad data")
-                self.assertNotIn(901, visade)
+                self.assertIn("flashscore:NOLL0902", visade,
+                              "mätt noll är ett värde, inte saknad data")
+                self.assertNotIn("flashscore:TOM00901", visade)
                 self.assertEqual(1, payload["hidden_no_stats"])
                 self.assertIn("eliteserien", payload["hidden_by_league"])
             finally:
@@ -319,23 +360,17 @@ class LiveRadarTests(unittest.TestCase):
 
     def test_gyori_provider_alias_merges_to_one_live_card(self):
         """Samma Győr-match hade olika ordföljd hos providrarna och visades
-        därför dubbelt: Sofascore `ETO FC Győr`, FotMob `Györi ETO`."""
+        därför dubbelt: `ETO FC Győr` mot FotMobs `Györi ETO`."""
         self.assertTrue(live_radar._same_team(
             "RSC Anderlecht", "Anderlecht"))
         with tempfile.TemporaryDirectory() as tmp:
             store = Storage(Path(tmp) / "test.db")
             try:
-                sofa_event = event()
-                sofa_event["id"] = 15337001
-                sofa_event["tournament"]["uniqueTournament"] = {
-                    "id": 17015, "name": "Conference League"}
-                sofa_event["homeTeam"]["name"] = "ETO FC Győr"
-                sofa_event["awayTeam"]["name"] = "Atert Bissen"
-                store.oddset_save_live_capture(live_radar.parse_capture(
-                    sofa_event,
-                    stats(xg=(None, None), big=(0, 1), shots=(1, 3),
-                          on=(0, 1), inside=(1, 2), touches=(3, 7)),
-                    captured_at=AT, now=NOW))
+                fs_capture(store, flashscore_id="GYOR0001",
+                           league="conference_league",
+                           home="ETO FC Győr", away="Atert Bissen",
+                           xg=(None, None), big=(0, 1), shots=(1, 3),
+                           on=(0, 1), inside=(1, 2))
                 store.live_fotmob_save({
                     "fotmob_id": 7772026,
                     "captured_at": AT,
@@ -357,7 +392,7 @@ class LiveRadarTests(unittest.TestCase):
                 result = live_radar.payload(store, now=NOW)
                 self.assertEqual(1, len(result["matches"]))
                 match = result["matches"][0]
-                self.assertEqual(15337001, match["event_id"])
+                self.assertEqual("flashscore:GYOR0001", match["event_id"])
                 self.assertEqual("fotmob", match["signal"]["stats_source"])
                 self.assertEqual(0.15, match["fotmob"]["xg_away"])
             finally:
@@ -409,16 +444,16 @@ class LiveRadarTests(unittest.TestCase):
     def test_provider_roster_older_than_capture_cannot_hide_live_match(self):
         """Ordningen skyddar mot cache/tidsförskjutning: en roster måste vara
         minst lika ny som capturen innan frånvaro får tolkas som slutsignal."""
+        from app.flashscore import PRESENCE_KEY as FS_PRESENCE_KEY
         with tempfile.TemporaryDirectory() as tmp:
             store = Storage(Path(tmp) / "test.db")
             try:
-                store.oddset_save_live_capture(live_radar.parse_capture(
-                    event(), stats(), captured_at=AT, now=NOW))
+                fs_capture(store, flashscore_id="ROSTER01")
                 live_radar.record_presence(
-                    store, live_radar.SOFA_PRESENCE_KEY, [123],
+                    store, FS_PRESENCE_KEY, ["ROSTER01"],
                     "2026-07-25T19:08:00Z")
                 live_radar.record_presence(
-                    store, live_radar.SOFA_PRESENCE_KEY, [],
+                    store, FS_PRESENCE_KEY, [],
                     "2026-07-25T19:09:00Z")
 
                 result = live_radar.payload(store, now=NOW)
@@ -469,19 +504,12 @@ class LiveRadarTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             store = Storage(Path(tmp) / "test.db")
             try:
-                sofa_event = event("Halftime")
-                sofa_event["id"] = 15272470
-                sofa_event["tournament"]["uniqueTournament"] = {
-                    "id": 40, "name": "Allsvenskan"}
-                sofa_event["homeTeam"]["name"] = "IF Brommapojkarna"
-                sofa_event["awayTeam"]["name"] = "Hammarby IF"
-                sofa_capture = live_radar.parse_capture(
-                    sofa_event,
-                    stats(xg=(None, None), big=(0, 0), shots=(4, 10),
-                          on=(0, 2), inside=(4, 9), touches=(12, 27)),
-                    captured_at=AT, now=NOW)
-                self.assertEqual(45, sofa_capture["minute"])
-                store.oddset_save_live_capture(sofa_capture)
+                fs_capture(store, flashscore_id="BPHAM001",
+                           league="allsvenskan", home="IF Brommapojkarna",
+                           away="Hammarby IF", minute=45,
+                           home_score=0, away_score=0,
+                           xg=(None, None), big=(0, 0), shots=(4, 10),
+                           on=(0, 2), inside=(4, 9))
                 store.live_fotmob_save({
                     "fotmob_id": 999001,
                     "captured_at": AT,
@@ -508,7 +536,8 @@ class LiveRadarTests(unittest.TestCase):
                 self.assertEqual(45, match["signal"]["remaining_min"])
                 self.assertEqual(45, match["signal"]["basis"]["minute"])
                 self.assertEqual(
-                    "sofascore", match["signal"]["basis"]["minute_source"])
+                    "flashscore", match["signal"]["basis"]["minute_source"],
+                    "klockan lånas från ankaret, som numera är Flashscore")
                 self.assertEqual(
                     "fotmob", match["signal"]["basis"]["home_score_source"])
             finally:
@@ -518,8 +547,7 @@ class LiveRadarTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             store = Storage(Path(tmp) / "test.db")
             try:
-                store.oddset_save_live_capture(live_radar.parse_capture(
-                    event(), stats(xg=(None, None)), captured_at=AT, now=NOW))
+                fs_capture(store, flashscore_id="STALE001", xg=(None, None))
                 store.live_fotmob_save({
                     "fotmob_id": 8001,
                     "captured_at": "2026-07-25T18:57:00Z",  # 13 min gammal
@@ -532,7 +560,8 @@ class LiveRadarTests(unittest.TestCase):
                 payload = live_radar.payload(store, now=NOW)
                 self.assertEqual(1, len(payload["matches"]))
                 self.assertEqual(
-                    "sofascore", payload["matches"][0]["signal"]["stats_source"])
+                    "flashscore",
+                    payload["matches"][0]["signal"]["stats_source"])
             finally:
                 store.close()
 
@@ -619,8 +648,11 @@ class LiveRadarTests(unittest.TestCase):
         signal, _ = live_radar._flashscore_signal([capture], anchor)
         basis = signal["basis"]
         self.assertEqual(63, basis["minute"])
-        self.assertEqual("sofascore", basis["minute_source"])
-        self.assertEqual("sofascore", basis["home_score_source"])
+        # Långivaren är FotMob sedan Sofascore kopplades ur radarn. Källan
+        # måste följa med raden — hårdkodad proveniens blir en ren lögn så
+        # snart ankaret byts.
+        self.assertEqual("fotmob", basis["minute_source"])
+        self.assertEqual("fotmob", basis["home_score_source"])
         self.assertEqual("flashscore", signal["stats_source"],
                          "chansmåtten får aldrig byta källa med klockan")
         self.assertEqual("strong", signal["level"])
@@ -655,6 +687,85 @@ class LiveRadarTests(unittest.TestCase):
         # rymmer aik/odd/lyn/qpr där prefixmatchning vore farlig.
         self.assertFalse(live_radar._same_team("AIK", "AIK Fotboll Ungdom"))
         self.assertFalse(live_radar._same_team("Odd", "Odense"))
+
+    def test_international_short_names_link_with_match_context(self):
+        """Europacupkvällen 2026-08-06: fyra matcher låg som dubbletter.
+
+        Flashscore skriver kortnamn + landskod i internationellt spel medan
+        de andra skriver fullnamn. Landskoden strippades redan, men det som
+        blev kvar var ett ENORDSNAMN — och enords-prefix är spärrat för att
+        `Inter` inte ska bli `Inter Miami`. Alias per klubb är en förlorad
+        kapplöpning; varje kvalomgång drar in nya lag.
+        """
+        ctx = live_radar._same_team_in_context
+        for short, full in (("Paide (Est)", "Paide Linnameeskond"),
+                            ("SK Rapid (Aut)", "SK Rapid Wien"),
+                            ("Jagiellonia (Pol)", "Jagiellonia Białystok"),
+                            ("Univ. Craiova (Rou)", "Universitatea Craiova")):
+            self.assertFalse(live_radar._same_team(short, full),
+                             "strikta regeln ska INTE luckras upp")
+            self.assertTrue(ctx(short, full), f"{short} ↔ {full}")
+
+        # Spärrarna gäller oförändrat även i den lösare regeln.
+        self.assertFalse(ctx("Los Angeles FC", "Los Angeles Galaxy"))
+        self.assertFalse(ctx("Inter", "Inter U23"))
+        self.assertFalse(ctx("Manchester United", "Manchester City"))
+        self.assertFalse(ctx("Arsenal", "Arsenal Women"))
+        # `Inter` ↔ `Inter Miami` passerar namnregeln men kan aldrig länkas:
+        # skyddet är kontexten på anropsstället (samma liga, exakt avspark,
+        # en enda kandidat) — därför får regeln aldrig användas fristående.
+        self.assertTrue(ctx("Inter", "Inter Miami"))
+
+    def test_context_rule_only_fills_the_gap_the_strict_rule_leaves(self):
+        """Två steg: strikt först, kontextregeln bara när strikt gav noll.
+        Tvetydighet länkar aldrig — varken i steg ett eller steg två."""
+        anchor = {"league": "europa_league", "start_at": START_AT,
+                  "home": "KuPS (Fin)", "away": "Univ. Craiova (Rou)"}
+
+        def series(home, away, fid):
+            return [{"league": "europa_league", "start_at": START_AT,
+                     "home": home, "away": away, "fotmob_id": fid,
+                     "captured_at": AT}]
+
+        exact = series("KuPS", "Universitatea Craiova", 1)
+        self.assertIsNotNone(live_radar._linked_series(anchor, [exact]))
+        # En strikt träff får aldrig konkurrera med en lös: strikt vinner.
+        strict = series("KuPS (Fin)", "Univ. Craiova (Rou)", 2)
+        hit = live_radar._linked_series(anchor, [exact, strict])
+        self.assertEqual(2, hit[0][-1]["fotmob_id"])
+        # Två kandidater på den LÖSA regeln är tvetydighet → ingen länk.
+        loose_twin = series("KuPS Kuopio", "Universitatea Craiova", 3)
+        self.assertIsNone(
+            live_radar._linked_series(anchor, [exact, loose_twin]))
+
+    def test_alias_survives_the_country_label(self):
+        """Aliaset slogs upp på hela strängen, alltså på `goteborg (swe)` —
+        en nyckel som aldrig finns. Varje alias slutade därmed tyst gälla så
+        snart providern satte dit en landskod, och `Goteborg (Swe)` ↔
+        `IFK Göteborg` låg som två kort medan testet för samma par UTAN kod
+        var grönt."""
+        self.assertEqual("ifk goteborg",
+                         live_radar.live_norm_team("Goteborg (Swe)"))
+        self.assertTrue(
+            live_radar._same_team("Goteborg (Swe)", "IFK Göteborg"))
+        self.assertTrue(
+            live_radar._same_team("Norrkoping (Swe)", "IFK Norrköping"))
+        # Spärren mot andra göteborgsklubbar gäller oförändrat.
+        self.assertFalse(live_radar._same_team("Goteborg (Swe)", "GAIS"))
+
+    def test_provider_view_carries_the_row_version_for_the_ledger(self):
+        """Journalen läser `radar_version` UR vyn. Utan den härleds kohorten
+        ur observerade växlingar, och varje rad efter den sista kända
+        växlingen blir felaktigt transitional — alltså ur blindkohorten."""
+        self.assertIn("radar_version", live_radar._FLASHSCORE_VIEW_KEYS)
+        self.assertIn("radar_version", live_radar._FOTMOB_VIEW_KEYS)
+
+    def test_sofascore_is_no_longer_a_live_source(self):
+        """Urkopplad 2026-08-06: den rapporterade xG som 0.0 i stället för att
+        utelämna det, vilket läser som en mätning. Resultat, modellstatistik
+        och frånvaro rör den inte."""
+        self.assertEqual(("flashscore", "fotmob"), live_radar.LIVE_SOURCES)
+        self.assertNotIn("sofascore", live_radar._SOURCE_PRIORITY)
 
     def test_fotmob_ar_primar_och_vinner_vid_lika_bra_data(self):
         """Samans beslut 2026-07-28: Sofascore slutar vara primär källa.
@@ -696,14 +807,10 @@ class LiveRadarTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             store = Storage(Path(tmp) / "test.db")
             try:
-                previous = live_radar.parse_capture(
-                    event(), stats(xg=(1.5, 0.3)),
-                    captured_at="2026-07-25T18:55:00Z", now=NOW)
-                current = live_radar.parse_capture(
-                    event(), stats(xg=(3.0, 0.4)),
-                    captured_at=AT, now=NOW)
-                store.oddset_save_live_capture(previous)
-                store.oddset_save_live_capture(current)
+                fs_capture(store, flashscore_id="DELTA001", xg=(1.5, 0.3),
+                           captured_at="2026-07-25T18:55:00Z")
+                fs_capture(store, flashscore_id="DELTA001", xg=(3.0, 0.4),
+                           captured_at=AT)
 
                 signal = live_radar.payload(
                     store, now=NOW)["matches"][0]["signal"]
@@ -765,31 +872,33 @@ class LiveRadarTests(unittest.TestCase):
                 self.assertFalse(health["ok"])
                 self.assertEqual(2, health["event_count"])
                 self.assertIn("124: RuntimeError", health["error"])
-                payload_health = next(
-                    row for row in live_radar.payload(store, now=NOW)[
-                        "source_health"]
-                    if row["source"] == "sofascore")
-                self.assertFalse(payload_health["ok"])
-                self.assertIn("RuntimeError", payload_health["error"])
+                # Radarns payload rapporterar bara sina EGNA livekällor;
+                # Sofascores hälsa finns kvar i lagret för resultatspåret.
+                self.assertNotIn(
+                    "sofascore",
+                    {row["source"] for row
+                     in live_radar.payload(store, now=NOW)["source_health"]})
             finally:
                 store.close()
 
-    def test_payload_last_run_is_common_watermark_for_three_live_sources(self):
+    def test_payload_last_run_is_common_watermark_for_live_sources(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = Storage(Path(tmp) / "test.db")
             try:
                 for source, checked in (
                         ("flashscore", "2026-07-25T19:10:00Z"),
                         ("fotmob", "2026-07-25T19:09:00Z"),
-                        ("sofascore", "2026-07-25T19:08:00Z")):
+                        # Sofascore kontrolleras fortfarande för resultat och
+                        # frånvaro, men får INTE hålla tillbaka radarns
+                        # vattenstämpel — den är inte längre en livekälla.
+                        ("sofascore", "2026-07-25T18:00:00Z")):
                     store.oddset_record_source_health(
                         source, "-", "live", checked, True, 0)
                 payload = live_radar.payload(store, now=NOW)
-                self.assertEqual("2026-07-25T19:08:00Z", payload["last_run"])
-                self.assertEqual(3, len(payload["source_health"]))
+                self.assertEqual("2026-07-25T19:09:00Z", payload["last_run"])
                 self.assertEqual(
-                    {"flashscore", "fotmob", "sofascore"},
-                    set(payload["source_runs"]))
+                    {"flashscore", "fotmob"}, set(payload["source_runs"]))
+                self.assertEqual(2, len(payload["source_health"]))
             finally:
                 store.close()
 
@@ -797,14 +906,12 @@ class LiveRadarTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             store = Storage(Path(tmp) / "test.db")
             try:
-                for source in ("flashscore", "sofascore"):
-                    store.oddset_record_source_health(
-                        source, "-", "live", AT, True, 0)
+                store.oddset_record_source_health(
+                    "flashscore", "-", "live", AT, True, 0)
                 store.meta_set("live_radar_last_run", AT)
                 payload = live_radar.payload(store, now=NOW)
                 self.assertIsNone(payload["last_run"])
-                self.assertEqual({"flashscore", "sofascore"},
-                                 set(payload["source_runs"]))
+                self.assertEqual({"flashscore"}, set(payload["source_runs"]))
             finally:
                 store.close()
 

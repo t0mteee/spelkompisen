@@ -654,6 +654,18 @@ CREATE TABLE IF NOT EXISTS oddset_live_flashscore (
     shots_inside_away REAL,
     corners_home      REAL,
     corners_away      REAL,
+    -- 2026-08-06: fält feeden alltid burit men parsern inte läste
+    shots_off_home     REAL,
+    shots_off_away     REAL,
+    shots_blocked_home REAL,
+    shots_blocked_away REAL,
+    touches_box_home   REAL,
+    touches_box_away   REAL,
+    saves_home         REAL,
+    saves_away         REAL,
+    possession_home    REAL,
+    possession_away    REAL,
+    stage_label        TEXT,              -- "Paus" m.m.; None = okänt stadium
     radar_version     TEXT,              -- koden som producerade raden
     PRIMARY KEY (flashscore_id, captured_at, capture_version)
 );
@@ -1068,7 +1080,23 @@ class Storage:
                     # observerade växlingar (live_radar.cohort_for).
                     "ALTER TABLE oddset_live_capture ADD COLUMN radar_version TEXT",
                     "ALTER TABLE oddset_live_fotmob ADD COLUMN radar_version TEXT",
-                    "ALTER TABLE oddset_live_flashscore ADD COLUMN radar_version TEXT"):
+                    "ALTER TABLE oddset_live_flashscore ADD COLUMN radar_version TEXT",
+                    # Mått som Flashscore ALLTID skickat men vi aldrig läste
+                    # (mätt över 12 livematcher 2026-08-06). `touches_box`
+                    # ingick redan i radarns täckningsrankning utan att någon
+                    # källa kunde fylla det. Additiva och nullbara — NULL
+                    # betyder oobserverad, aldrig mätt noll.
+                    "ALTER TABLE oddset_live_flashscore ADD COLUMN shots_off_home REAL",
+                    "ALTER TABLE oddset_live_flashscore ADD COLUMN shots_off_away REAL",
+                    "ALTER TABLE oddset_live_flashscore ADD COLUMN shots_blocked_home REAL",
+                    "ALTER TABLE oddset_live_flashscore ADD COLUMN shots_blocked_away REAL",
+                    "ALTER TABLE oddset_live_flashscore ADD COLUMN touches_box_home REAL",
+                    "ALTER TABLE oddset_live_flashscore ADD COLUMN touches_box_away REAL",
+                    "ALTER TABLE oddset_live_flashscore ADD COLUMN saves_home REAL",
+                    "ALTER TABLE oddset_live_flashscore ADD COLUMN saves_away REAL",
+                    "ALTER TABLE oddset_live_flashscore ADD COLUMN possession_home REAL",
+                    "ALTER TABLE oddset_live_flashscore ADD COLUMN possession_away REAL",
+                    "ALTER TABLE oddset_live_flashscore ADD COLUMN stage_label TEXT"):
             try:   # migreringar för befintliga DB:er
                 self.conn.execute(mig)
             except sqlite3.OperationalError:
@@ -1934,7 +1962,12 @@ class Storage:
         "away_score", "xg_home", "xg_away", "xgot_home", "xgot_away",
         "big_chances_home", "big_chances_away", "shots_home", "shots_away",
         "shots_on_home", "shots_on_away", "shots_inside_home",
-        "shots_inside_away", "corners_home", "corners_away", "radar_version",
+        "shots_inside_away", "corners_home", "corners_away",
+        "shots_off_home", "shots_off_away",
+        "shots_blocked_home", "shots_blocked_away",
+        "touches_box_home", "touches_box_away",
+        "saves_home", "saves_away",
+        "possession_home", "possession_away", "stage_label", "radar_version",
     )
 
     def live_flashscore_save(self, capture: dict) -> int:

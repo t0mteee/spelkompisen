@@ -54,6 +54,7 @@ RADAR_V2_VERSION = "chance-gap-shadow-v2"
 RADAR_V3_VERSION = "chance-gap-shadow-v3"
 RADAR_V4_VERSION = "chance-gap-shadow-v4"
 RADAR_V5_VERSION = "chance-gap-shadow-v5"
+RADAR_V6_VERSION = "chance-gap-shadow-v6"
 
 # Censureringsorsaker (korta tokens, aldrig fritext):
 #   no_clock           ögonblicket saknar matchminut — inget fönster kan definieras
@@ -216,7 +217,7 @@ def _signal_version_at(moment: dict) -> str:
     observerade växlingar. Vid nästa radarversion måste tidslinjen utökas
     explicit — aldrig gissas.
     """
-    if live_radar.RADAR_VERSION != RADAR_V5_VERSION:
+    if live_radar.RADAR_VERSION != RADAR_V6_VERSION:
         raise RuntimeError(
             "radarversionens capture-tidslinje måste utökas före settlement")
     return live_radar.cohort_for(

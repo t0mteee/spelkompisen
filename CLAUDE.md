@@ -108,13 +108,31 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       omgångar — `champion_report()`. `system_detail()` ger
                       ett fryst system match för match mot facit med streck
                       vid frysning och vid stopp; ingen ny insamling behövs
-  app/live_radar.py  shadow-radar för pågående matcher: tre separata
-                      provider-serier, högst 12 min gamla. Källan väljs på
+  app/live_radar.py  shadow-radar för pågående matcher: TVÅ separata
+                      provider-serier (`LIVE_SOURCES`), högst 12 min gamla.
+                      **Flashscore är ANKARE sedan 2026-08-06; Sofascore är
+                      URKOPPLAD ur radarn** — den rapporterade xG som 0.0 i
+                      stället för att utelämna det, och en nolla ser ut som
+                      en mätning (Paide–SK Rapid: 0.0/0.0 mot Flashscores
+                      0.09/0.81). Sofascore samlar OFÖRÄNDRAT resultat,
+                      modellstatistik och frånvaro. Källan väljs på
                       strukturell fälttäckning (aldrig på signalvärdet),
-                      därefter fast prioritet Flashscore→FotMob→Sofascore.
+                      därefter fast prioritet Flashscore→FotMob.
                       Länk kräver unik liga/lag/avsparksträff; en olänkad
                       färsk providerserie får eget kort. Aldrig automatiska
-                      spel eller runtime-modellinput
+                      spel eller runtime-modellinput.
+                      **NAMNLÄNKNING I TVÅ STEG:** strikt `_same_team` först;
+                      ger den NOLL kandidater prövas `_same_team_in_context`
+                      (kortnamn, förkortning, grundningsår i mitten). Den
+                      lösare regeln är säker ENBART tack vare anropsstället —
+                      samma liga, exakt avspark, en enda kandidat — och får
+                      aldrig användas fristående (`Inter` ↔ `Inter Miami`
+                      passerar namnregeln men delar aldrig avspark).
+                      `live_norm_team` prövar aliaset IGEN efter att
+                      landskoden strippats: `norm_team` slår upp på hela
+                      strängen, så `goteborg (swe)` missade varje alias och
+                      internationella matcher tappade tyst sina alias.
+                      `cli.py lanklucka` MÅSTE köra samma regler som länken
   app/live_signal_ledger.py framåtriktad append-only-journal över den första
                       synliga Följer/Stark-nivån per match × signaltyp:
                       minut/ställning/mått + observerad öppen Kambi-live-Ö/U,
@@ -141,6 +159,20 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       Ingen historisk Flashscore-bakfyllning; bara dagsfeeds.
                       Frånvaro lagras separat per provider/status och tomt
                       lyckat svar är en riktig observation.
+                      **Feeden har TVÅ paket** (mätt 2026-08-06 på 12 matcher):
+                      8/12 bar bara bas (possession/skott/på mål/utanför/
+                      blockerade/hörnor), 2/12 hela paketet med xG, xGOT,
+                      stora chanser och skott i box. xG SAKNAS alltså genuint
+                      för de flesta europacupkval — providerns gräns, inte
+                      parserns. `STAT_NAMES` läser nu även shots_off,
+                      shots_blocked, touches_box, saves och possession;
+                      `touches_box` ingick i `_stats_rank` utan att någon
+                      källa kunde fylla det. Possession läses med `_share`
+                      (`54%`), aldrig med `_f` — feedens övriga procenttal är
+                      härledda kvoter (`85% (271/319)`) där andelen inte är
+                      måttet. `STAGE_LABEL` ger läsbart stadium för OBSERVERADE
+                      koder (38 = Paus); minuten förblir censurerad, men
+                      kortet säger varför i stället för att stå tomt
   app/fotmob.py       liveprovider med `fotmob-live-v2`: live-xG/xGOT/skott,
                       även Oddset-spärrade friendlies. Ställningen tas ur samma
                       eventdetalj som statistiken; äldre listställning får
@@ -229,27 +261,35 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
   varv, så den hämtas färsk varje gång i stället för att cachas med en
   inaktuell ställning som följd. Varje liveprovider har egen presence och
   source-health. Ett **lyckat** tomt roster avslutar tidigare kort direkt;
-  nät-/parsefel får aldrig göra det. `last_run` i API/UI är den äldsta av de
-  tre källornas senaste kontroller och är tom tills alla tre har kontrollerats.
-  En färsk match med chansdata ska visas även om de andra källorna saknar
+  nät-/parsefel får aldrig göra det. `last_run` i API/UI är den äldsta av
+  `LIVE_SOURCES`-kontrollerna och är tom tills alla har kontrollerats —
+  Sofascore ingår inte längre och får inte hålla tillbaka stämpeln.
+  En färsk match med chansdata ska visas även om den andra källan saknar
   den; `fotmob:<id>` respektive `flashscore:<id>` är då kortets namespacade
   event-id. Gör aldrig livevisningen beroende av att en källa först kan
-  länkas till en Sofascore-rad.
+  länkas till en annan providers rad.
   Live-radarn är shadow/informationsstöd och får inte påverka tips, Kelly,
   CLV, pushnotiser eller systemförslag utan ett nytt explicit beslut.
   Signaljournalens blindkohort är FÖRSTA aktiva signalen per match (en
   Följer→Stark-eskalering får finnas i diagnostiken men får inte dubblera
   blindtestet). Minst 200 oddssatta+avgjorda signalmatcher, minst 60 dagar och
   undre KI90 > 0 krävs före stöd; inga historiska liveodds bakfylls.
-  **Aktiv signalversion är `chance-gap-shadow-v5` från exakt
-  2026-08-03T06:00:00Z.** Bumpen samlar dagens processändringar: tre
-  identitetsfixar (falsk merge LAFC/Galaxy, MLS-/IFK-alias, 588 hopslagna
-  resultatrader), riktad koherensvakt, `df_sur`-ställning och spegellänk med
+  **Aktiv signalversion är `chance-gap-shadow-v6` från exakt
+  2026-08-06T16:45:00Z** (`docs/live-radar-v6-2026-08-06.md`). Bumpen samlar
+  fyra ändringar i samma process: Sofascore urkopplad som livekälla,
+  Flashscore som ankare, tvåstegs namnlänkning och fem nya måttpar (som även
+  ändrar källrankningen). v5 (2026-08-03T06Z→) samlade i sin tur tre
+  identitetsfixar, riktad koherensvakt, `df_sur`-ställning och spegellänk med
   transponering (`_mirrored_capture` — en spegelvänd providerserie uttrycks i
   ankarets orientering, aldrig rå). v4 (2026-08-01T21Z→) och ogiltiga piloten
   v3 (08–21Z) är historik; v2 <08Z. Settlement stämplar efter capturetid,
   aldrig efter versionen som råkar vara aktiv när kön körs. En ändrad
   datagenererande process kräver alltid ny signalversion.
+  **`radar_version` MÅSTE ligga i `_FLASHSCORE_VIEW_KEYS`/`_FOTMOB_VIEW_KEYS`**
+  — journalen läser radens egen version DÄR. Saknas den härleds kohorten ur
+  observerade växlingar, och varje rad efter den sista kända växlingen blir
+  felaktigt `transitional`, alltså raderad ur blindkohorten. Journalens
+  `_clock` läser signalens `basis` i stället för att härleda lånet på nytt.
   **KOHORTREGELN (2026-08-05):** en rad hör till vN bara om vN-KODEN
   producerade den OCH den observerades i vN:s DEKLARERADE fönster — annars
   `transitional`, som ingår i INGEN kohort. Rader flyttas ALDRIG till

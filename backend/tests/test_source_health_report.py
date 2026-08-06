@@ -94,18 +94,35 @@ class LinkGapReportTests(unittest.TestCase):
             "home_score": 0, "away_score": 0})
 
     def test_similar_unlinked_pair_is_reported(self):
-        self._fs("Hodd", "Moss")
-        self._sofa("Hødd IL", "Moss FK")
+        """Det som återstår efter kontextregeln är ÖVERSÄTTNINGAR — namn utan
+        gemensam teckenstruktur, som bara ett observerat alias kan lösa.
+        `FC Copenhagen` ↔ `FC København` är exakt det fallet (2026-08-06),
+        och så här upptäcktes det: i en hink där alla ANDRA matcher länkade.
+        """
+        self._fs("Paide (Est)", "SK Rapid (Aut)")       # länkar via kontext
+        self._sofa("Paide Linnameeskond", "SK Rapid Wien")
+        self._fs("FC Copenhagen (Den)", "Debrecen (Hun)")
+        self._sofa("FC København", "Debrecen")
         with patch.object(live_radar, "LIVE_TEAM_ALIASES", {}):
             rapport = format_link_gaps(self.store, hours=6)
-        self.assertIn("Hodd", rapport)
-        self.assertIn("Hødd IL", rapport)
+        self.assertIn("Copenhagen", rapport)
+        self.assertIn("København", rapport)
+        self.assertNotIn("Paide", rapport, "länkade par är inte luckor")
 
     def test_linked_pair_is_not_reported(self):
-        self._fs("Hodd", "Moss")
-        self._sofa("Hødd IL", "Moss FK")
+        self._fs("FC Copenhagen (Den)", "Debrecen (Hun)")
+        self._sofa("FC København", "Debrecen")
         rapport = format_link_gaps(self.store, hours=6)   # aliasen aktiva
         self.assertIn("inga", rapport)
+
+    def test_context_linked_short_names_are_not_reported_as_gaps(self):
+        """Detektorn måste köra SAMMA regler som länken. Kortnamnen nedan
+        länkar sedan 2026-08-06; att lista dem vore brus som skickar Saman
+        på aliasjakt efter par som redan fungerar."""
+        self._fs("Paide (Est)", "SK Rapid (Aut)")
+        self._sofa("Paide Linnameeskond", "SK Rapid Wien")
+        with patch.object(live_radar, "LIVE_TEAM_ALIASES", {}):
+            self.assertIn("inga", format_link_gaps(self.store, hours=6))
 
     def test_different_matches_at_the_same_kickoff_are_not_reported(self):
         """Två skilda matcher med samma avspark får inte bli brus."""

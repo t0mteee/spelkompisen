@@ -336,12 +336,16 @@ LIVE_DENSE_INTERVAL_S = 120
 
 
 def _live_pass(store) -> tuple[dict, dict]:
-    from app import flashscore, fotmob, live_radar
-    # FLASHSCORE ÄR RADARNS PRIMÄRA KÄLLA (Samans beslut 2026-08-01, mätt
-    # samma dag: xG där FotMob bara hade skott eller ingenting). FotMob är
-    # andra ögat, Sofascore tredje. Källorna är helt separerade: egna
-    # klienter, egna tabeller, xG blandas aldrig — och ingen av dem får fälla
-    # de andras varv, därav var sitt skyddsnät.
+    from app import flashscore, fotmob
+    # FLASHSCORE ÄR RADARNS ANKARE (Samans beslut 2026-08-01, mätt samma dag:
+    # xG där FotMob bara hade skott eller ingenting). FotMob är andra ögat.
+    # SOFASCORE ÄR URKOPPLAD UR RADARN sedan 2026-08-06 — den rapporterade
+    # xG som 0.0 i stället för att utelämna det, vilket är värre än att sakna
+    # data: nollan ser ut som en mätning. Uppmätt Paide–SK Rapid samma kväll:
+    # Sofascore 0.0/0.0 mot Flashscores 0.09/0.81. Sofascore samlar
+    # OFÖRÄNDRAT resultat, modellstatistik och frånvaro på sina egna vägar.
+    # Källorna är helt separerade: egna klienter, egna tabeller, xG blandas
+    # aldrig — och ingen får fälla den andras varv, därav var sitt skyddsnät.
     try:
         fs = flashscore.collect(store)
     except Exception as e:  # noqa: BLE001
@@ -358,25 +362,12 @@ def _live_pass(store) -> tuple[dict, dict]:
         fm = fotmob.collect(store)
     except Exception as e:  # noqa: BLE001
         fm = {"error": f"{type(e).__name__}: {str(e)[:60]}"}
-    try:
-        report = live_radar.collect(store)
-    except Exception as e:  # noqa: BLE001
-        report = {"live": 0, "stats_ok": 0, "saved": 0, "partial_errors": [],
-                  "error": f"{type(e).__name__}: {str(e)[:60]}"}
     if fm.get("error"):
         print(f"fotmob: hoppade över ({fm['error']})")
     else:
         print(f"fotmob: {fm['live']} matcher i våra ligor · "
               f"{fm['saved']} captures med statistik"
               + (f" · {fm['skipped']} över taket" if fm.get("skipped") else ""))
-    if report.get("error"):
-        print(f"live-radar (sofascore): hoppade över ({report['error']})")
-    else:
-        partial = (f" · {len(report['partial_errors'])} event utan full "
-                   "statistik" if report["partial_errors"] else "")
-        print(f"live-radar (sofascore): {report['live']} matcher · "
-              f"{report['stats_ok']} med statistik · "
-              f"{report['saved']} captures{partial}")
     # Spara bara FÖRSTA förekomsten per match × signaltyp × nivå. Eventuellt
     # live-Ö/U hämtas här, medan matchen fortfarande är öppen, och ligger i ett
     # eget shadowlager — aldrig i prematch-tabellen oddset_odds.
@@ -417,7 +408,7 @@ def _live_pass(store) -> tuple[dict, dict]:
     except Exception as e:  # noqa: BLE001 — shadow fäller inget spelbart
         print(f"radar-ledger-settle: hoppade över "
               f"({type(e).__name__}: {str(e)[:60]})")
-    return report, fm
+    return fs, fm
 
 
 def cmd_live_tick(dense_seconds: int = LIVE_DENSE_BUDGET_S,
@@ -469,6 +460,9 @@ def cmd_live_tick(dense_seconds: int = LIVE_DENSE_BUDGET_S,
         sleep(interval)
 
 
+# Sofascore står kvar i dubblettjakten trots att den kopplats ur radarn:
+# `oddset_live_capture` bär historiken, och rapporten är retrospektiv. Den
+# skriver inga nya rader och kan alltså inte återinföra källan i visningen.
 LIVE_SOURCES = ("flashscore", "fotmob", "sofascore")
 LIVE_CAPTURE_TABLES = {"flashscore": "oddset_live_flashscore",
                        "fotmob": "oddset_live_fotmob",
@@ -523,10 +517,20 @@ def format_link_gaps(store, hours: int = 24, limit: int = 30) -> str:
             None, live_norm_team(a), live_norm_team(b)).ratio()
 
     def linked(a: dict, b: dict) -> bool:
-        return ((live_radar._same_team(a["home"], b["home"])
-                 and live_radar._same_team(a["away"], b["away"]))
-                or (live_radar._same_team(a["home"], b["away"])
-                    and live_radar._same_team(a["away"], b["home"])))
+        """Samma namnregler som radarns länkning FAKTISKT använder.
+
+        Detektorn körde bara den strikta `_same_team` och listade därför par
+        som sedan 2026-08-06 länkar alldeles utmärkt via kontextregeln — den
+        letade efter en annan sorts fel än det som uppstår. Exakt samma
+        lärdom som `live_norm_team` bär sedan 2026-08-05: rapporten och
+        länken måste se samma sak, annars är rapporten brus.
+
+        Kontexten är uppfylld här per konstruktion: buckets grupperar redan
+        på liga + avspark.
+        """
+        same = live_radar._same_team_in_context
+        return ((same(a["home"], b["home"]) and same(a["away"], b["away"]))
+                or (same(a["home"], b["away"]) and same(a["away"], b["home"])))
 
     def similarity(a: dict, b: dict) -> float:
         return max(min(near(a["home"], b["home"]), near(a["away"], b["away"])),

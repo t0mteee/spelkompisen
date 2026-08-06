@@ -88,8 +88,14 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(4, stats["shots_on_home"])
         self.assertEqual(4, stats["big_chances_home"])
         self.assertEqual(9, stats["shots_inside_home"])
-        # procent och "85% (271/319)" är inga rena mått
-        self.assertNotIn("possession_home", stats)
+        # Bollinnehav ÄR måttet och läses som andel (2026-08-06).
+        self.assertEqual(42.0, stats["possession_home"])
+        self.assertEqual(58.0, stats["possession_away"])
+        # Passningar rapporteras som "85% (271/319)" — där är procenten en
+        # härledd kvot, inte observationen. Den läses fortfarande inte.
+        self.assertNotIn("passes_home", stats)
+        self.assertIsNone(flashscore._share("85% (271/319)"))
+        self.assertIsNone(flashscore._f("42%"))
 
     def test_half_section_never_overwrites_the_full_match_value(self):
         self.assertEqual(1.76, flashscore.parse_stats(STATS_FEED)["xg_home"])

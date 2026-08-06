@@ -17,9 +17,12 @@ from app import flashscore, fotmob, live_radar, live_settlement
 from app.storage import Storage
 from scripts import migrera_radar_event_id_text, migrera_radar_settlement
 
-# Ligger efter v5-gränsen (2026-08-03T06:00Z) så att T0-captures hamnar i den
-# AKTUELLA kohorten — facit rapporterar bara aktuell RADAR_VERSION.
-NOW = dt.datetime(2026, 8, 3, 12, 0, tzinfo=dt.timezone.utc)
+# Ligger efter v6-gränsen (2026-08-06T16:45Z) så att T0-captures hamnar i den
+# AKTUELLA kohorten — facit rapporterar bara aktuell RADAR_VERSION. Fixturerna
+# skrivs av dagens kod, som stämplar raden med dagens version; en fixtur
+# daterad före fönstret blir därför korrekt `transitional`. Datumet ska följa
+# med vid VARJE ny kohortstart — T0 ligger 5 h före NOW och måste också rymmas.
+NOW = dt.datetime(2026, 8, 7, 12, 0, tzinfo=dt.timezone.utc)
 T0 = NOW - dt.timedelta(hours=5)     # stängd serie: sista capture > 3 h gammal
 
 

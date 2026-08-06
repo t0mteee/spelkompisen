@@ -15,7 +15,7 @@ from app.storage import Storage
 # skrivs av dagens kod, som stämplar raden `radar_version=v5`; en fixtur daterad
 # före fönstret blir därför korrekt `transitional` och faller ur blindkohorten.
 # Datumet ska följa med vid nästa kohortstart.
-NOW = dt.datetime(2026, 8, 4, 18, 30, tzinfo=dt.timezone.utc)
+NOW = dt.datetime(2026, 8, 7, 18, 30, tzinfo=dt.timezone.utc)
 
 
 def iso(when: dt.datetime) -> str:
@@ -24,16 +24,21 @@ def iso(when: dt.datetime) -> str:
 
 def capture(at: dt.datetime, minute: int, *, xg_home: float,
             home_score: int = 0, away_score: int = 0) -> dict:
+    """En Flashscore-rad — radarns ankare sedan 2026-08-06.
+
+    Journalen bokför signaler som payload faktiskt visar, så hjälparen måste
+    följa med när ankarkällan byts. Sofascore-rader når inte längre radarn.
+    """
+    from app.flashscore import CAPTURE_VERSION as FS_VERSION
     return {
-        "event_id": 88001,
+        "flashscore_id": "HAMAIK01",
         "captured_at": iso(at),
-        "capture_version": live_radar.CAPTURE_VERSION,
+        "capture_version": FS_VERSION,
         "league": "allsvenskan",
         "tournament": "Allsvenskan",
         "home": "Hammarby IF",
         "away": "AIK",
         "start_at": iso(NOW - dt.timedelta(minutes=minute)),
-        "status": "2nd half" if minute > 45 else "1st half",
         "minute": minute,
         "home_score": home_score,
         "away_score": away_score,
@@ -47,8 +52,6 @@ def capture(at: dt.datetime, minute: int, *, xg_home: float,
         "shots_on_away": 1,
         "shots_inside_home": 8,
         "shots_inside_away": 2,
-        "touches_box_home": 20,
-        "touches_box_away": 5,
     }
 
 
@@ -81,7 +84,7 @@ class LiveSignalLedgerTests(unittest.TestCase):
 
     def test_first_level_is_append_once_and_live_ou_is_fetched_once(self):
         # 0.8 xG-gap ⇒ watch men inte strong.
-        self.store.oddset_save_live_capture(capture(
+        self.store.live_flashscore_save(capture(
             NOW, 30, xg_home=0.8))
         market = {"ou": {"line": 2.5, "O": 2.08, "U": 1.74}}
         with patch.object(live_signal_ledger.kambi, "live_total",
@@ -105,7 +108,7 @@ class LiveSignalLedgerTests(unittest.TestCase):
         self.assertEqual("pin:991", row["match_id"])
 
     def test_level_escalation_is_a_new_decision_but_repeated_level_is_not(self):
-        self.store.oddset_save_live_capture(capture(
+        self.store.live_flashscore_save(capture(
             NOW - dt.timedelta(minutes=4), 30, xg_home=0.8))
         with patch.object(live_signal_ledger.kambi, "live_total",
                           return_value={}):
@@ -113,7 +116,7 @@ class LiveSignalLedgerTests(unittest.TestCase):
                 self.store, now=NOW - dt.timedelta(minutes=4))
 
         # 1.3 xG-gap ⇒ strong. Samma match får nu exakt en ny nivåpost.
-        self.store.oddset_save_live_capture(capture(
+        self.store.live_flashscore_save(capture(
             NOW, 34, xg_home=1.3))
         with patch.object(live_signal_ledger.kambi, "live_total",
                           return_value={}):
@@ -125,7 +128,7 @@ class LiveSignalLedgerTests(unittest.TestCase):
             [row["signal_level"] for row in self.store.live_signal_rows()])
 
     def test_info_moment_is_not_a_signal_bet(self):
-        self.store.oddset_save_live_capture(capture(
+        self.store.live_flashscore_save(capture(
             NOW, 30, xg_home=0.3))
         with patch.object(live_signal_ledger.kambi, "live_total") as fetch:
             report = live_signal_ledger.capture_signals(self.store, now=NOW)
@@ -138,11 +141,11 @@ class LiveSignalLedgerTests(unittest.TestCase):
         first = capture(t0, 30, xg_home=0.8)
         later = capture(t0 + dt.timedelta(minutes=10), 40,
                         xg_home=1.0, home_score=1)
-        self.store.oddset_save_live_capture(first)
-        self.store.oddset_save_live_capture(later)
+        self.store.live_flashscore_save(first)
+        self.store.live_flashscore_save(later)
         self.store.live_signal_save({
             "match_key": "pin:991", "match_id": "pin:991",
-            "provider": "sofascore", "provider_event_id": 88001,
+            "provider": "flashscore", "provider_event_id": "HAMAIK01",
             "captured_at": first["captured_at"],
             "capture_version": first["capture_version"],
             "signal_version": live_radar.RADAR_VERSION,
@@ -329,7 +332,7 @@ class LiveSignalOddsStatusTests(unittest.TestCase):
             "start": iso(NOW - dt.timedelta(minutes=30)),
             "pinnacle_id": "991", "kambi_id": "7722",
         })
-        self.store.oddset_save_live_capture(capture(NOW, 30, xg_home=0.8))
+        self.store.live_flashscore_save(capture(NOW, 30, xg_home=0.8))
 
     def tearDown(self):
         self.store.close()
@@ -370,7 +373,7 @@ class LiveSignalOddsStatusTests(unittest.TestCase):
         row = self.store.live_signal_rows()[0]
         self.assertEqual(iso(NOW - dt.timedelta(seconds=300)),
                          row["odds_observed_at"])
-        self.assertEqual("sofascore", row["clock_source"])
+        self.assertEqual("flashscore", row["clock_source"])
 
 
 class MatchKeyLockTests(unittest.TestCase):
@@ -386,14 +389,15 @@ class MatchKeyLockTests(unittest.TestCase):
 
     def test_late_canonical_link_reuses_the_first_key(self):
         # Följer syns INNAN matchen finns i oddset_matches → rå nyckel.
-        self.store.oddset_save_live_capture(capture(
+        self.store.live_flashscore_save(capture(
             NOW - dt.timedelta(minutes=4), 30, xg_home=0.8))
         with patch.object(live_signal_ledger.kambi, "live_total",
                           return_value={}):
             live_signal_ledger.capture_signals(
                 self.store, now=NOW - dt.timedelta(minutes=4))
         self.assertEqual(
-            "88001", self.store.live_signal_rows()[0]["match_key"])
+            "flashscore:HAMAIK01",
+            self.store.live_signal_rows()[0]["match_key"])
 
         # Kanoniska raden dyker upp mitt i matchen; Stark eskalerar.
         self.store.oddset_upsert_match({
@@ -402,7 +406,7 @@ class MatchKeyLockTests(unittest.TestCase):
             "start": iso(NOW - dt.timedelta(minutes=34)),
             "pinnacle_id": "991", "kambi_id": "7722",
         })
-        self.store.oddset_save_live_capture(capture(NOW, 34, xg_home=1.3))
+        self.store.live_flashscore_save(capture(NOW, 34, xg_home=1.3))
         market = {"ou": {"line": 2.5, "O": 2.08, "U": 1.74}}
         with patch.object(live_signal_ledger.kambi, "live_total",
                           return_value=market):
@@ -413,7 +417,8 @@ class MatchKeyLockTests(unittest.TestCase):
         rows = self.store.live_signal_rows()
         self.assertEqual(["watch", "strong"],
                          [row["signal_level"] for row in rows])
-        self.assertEqual({"88001"}, {row["match_key"] for row in rows})
+        self.assertEqual({"flashscore:HAMAIK01"},
+                         {row["match_key"] for row in rows})
         # kanoniska id:t bokförs ändå informativt på eskaleringsraden
         self.assertEqual("pin:991", rows[1]["match_id"])
         facit = live_signal_ledger.facit(self.store)
@@ -503,46 +508,62 @@ class MatchKeyLockTests(unittest.TestCase):
 
 
 class ClockPairTests(unittest.TestCase):
-    """Journalen speglar EXAKT signalens beräkningsbas (`_fotmob_signal`
-    behåller FotMobs egna värden och lånar bara saknade fält) — och
-    proveniensen bokförs, inklusive de lånade fältens observationstid."""
+    """Journalen LÄSER signalens `basis` i stället för att härleda lånet igen.
+
+    Två oberoende härledningar av samma sak gick isär i verifieringsrundan
+    2026-08-01. Basis fylls i när nivån räknas och bär `<fält>_source` per
+    fält, så journalen kan inte längre säga något annat än signalen — och
+    lånets riktning följer automatiskt med när ankarkällan byts.
+    """
+
+    @staticmethod
+    def _match(basis, **extra):
+        return {"event_id": "flashscore:AB12", "captured_at": iso(NOW),
+                "signal": {"basis": basis}, **extra}
 
     def test_fotmob_halftime_keeps_own_goals_and_borrows_only_the_clock(self):
         source = {"minute": None, "home_score": 1, "away_score": 0}
-        match = {"event_id": 10852411, "minute": 46,
-                 "home_score": 1, "away_score": 1,
-                 "captured_at": iso(NOW)}
+        match = self._match({
+            "minute": 46, "minute_source": "flashscore",
+            "home_score": 1, "home_score_source": "fotmob",
+            "away_score": 0, "away_score_source": "fotmob"})
         clock = live_signal_ledger._clock("fotmob", source, match)
         # FotMobs mål (signalens basis) behålls; bara klockan lånas — ett
         # helparslån hade gett en rad som motsäger signal_score/chance_gap.
         self.assertEqual({"minute": 46, "home_score": 1, "away_score": 0,
-                          "clock_source": "fotmob+sofascore",
+                          "clock_source": "fotmob+flashscore",
                           "clock_observed_at": iso(NOW)}, clock)
 
-    def test_fully_missing_clock_pair_is_marked_as_sofascore(self):
+    def test_fully_borrowed_pair_is_marked_as_the_lender_alone(self):
         source = {"minute": None, "home_score": None, "away_score": None}
-        match = {"event_id": 10852411, "minute": 46,
-                 "home_score": 1, "away_score": 1,
-                 "captured_at": iso(NOW)}
+        match = self._match({
+            "minute": 46, "minute_source": "flashscore",
+            "home_score": 1, "home_score_source": "flashscore",
+            "away_score": 1, "away_score_source": "flashscore"})
         clock = live_signal_ledger._clock("fotmob", source, match)
         self.assertEqual({"minute": 46, "home_score": 1, "away_score": 1,
-                          "clock_source": "sofascore",
+                          "clock_source": "flashscore",
                           "clock_observed_at": iso(NOW)}, clock)
 
-    def test_fotmob_only_card_never_borrows(self):
+    def test_unborrowed_card_never_names_a_lender(self):
         source = {"minute": None, "home_score": 0, "away_score": 0}
-        match = {"event_id": "fotmob:5", "minute": None,
-                 "home_score": 0, "away_score": 0}
+        match = self._match({
+            "minute": None, "minute_source": None,
+            "home_score": 0, "home_score_source": "fotmob",
+            "away_score": 0, "away_score_source": "fotmob"})
         clock = live_signal_ledger._clock("fotmob", source, match)
         self.assertEqual("fotmob", clock["clock_source"])
         self.assertIsNone(clock["minute"])
         self.assertIsNone(clock["clock_observed_at"])
 
-    def test_sofascore_keeps_its_own_clock(self):
+    def test_card_without_basis_makes_no_guess(self):
+        """Historiska rader saknar basis — då gäller providerns egna värden,
+        aldrig en rekonstruktion i efterhand."""
         source = {"minute": 30, "home_score": 0, "away_score": 0}
-        clock = live_signal_ledger._clock("sofascore", source, source)
+        clock = live_signal_ledger._clock(
+            "flashscore", source, {"event_id": "flashscore:X", **source})
         self.assertEqual({"minute": 30, "home_score": 0, "away_score": 0,
-                          "clock_source": "sofascore",
+                          "clock_source": "flashscore",
                           "clock_observed_at": None}, clock)
 
 
@@ -557,10 +578,10 @@ class SettlementGuardTests(unittest.TestCase):
 
     def _signal(self, **overrides):
         first = capture(NOW - dt.timedelta(hours=5), 30, xg_home=0.8)
-        self.store.oddset_save_live_capture(first)
+        self.store.live_flashscore_save(first)
         row = {
             "match_key": "pin:991", "match_id": "pin:991",
-            "provider": "sofascore", "provider_event_id": 88001,
+            "provider": "flashscore", "provider_event_id": "HAMAIK01",
             "captured_at": first["captured_at"],
             "capture_version": first["capture_version"],
             "signal_version": live_radar.RADAR_VERSION,

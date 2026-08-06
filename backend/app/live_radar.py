@@ -37,7 +37,8 @@ RADAR_V2_VERSION = "chance-gap-shadow-v2"
 RADAR_V3_VERSION = "chance-gap-shadow-v3"
 RADAR_V4_VERSION = "chance-gap-shadow-v4"
 RADAR_V5_VERSION = "chance-gap-shadow-v5"
-RADAR_VERSION = RADAR_V5_VERSION
+RADAR_V6_VERSION = "chance-gap-shadow-v6"
+RADAR_VERSION = RADAR_V6_VERSION
 
 # En observation som inte bevisligen hör till någon kohort. Se `cohort_for`.
 RADAR_TRANSITIONAL = "transitional"
@@ -46,7 +47,13 @@ RADAR_TRANSITIONAL = "transitional"
 # ÄNDRA ALDRIG en gräns som passerats.
 RADAR_V3_STARTED_AT = "2026-08-01T08:00:00Z"
 RADAR_V4_STARTED_AT = "2026-08-01T21:00:00Z"
-RADAR_VERSION_STARTED_AT = "2026-08-03T06:00:00Z"
+RADAR_V5_STARTED_AT = "2026-08-03T06:00:00Z"
+# v6 (2026-08-06): Sofascore urkopplad som livekälla, Flashscore blir ankare,
+# kontextlänkning av internationella kortnamn, och fem nya måttpar ur
+# Flashscore-feeden (däribland `touches_box`, som ingick i täckningsrankningen
+# utan att någon källa kunde fylla det). Fyra ändringar i samma
+# datagenererande process — kohorten börjar om, v5 blandas aldrig in.
+RADAR_VERSION_STARTED_AT = "2026-08-06T16:45:00Z"
 
 # OBSERVERADE växlingar — när koden faktiskt bytte.
 #
@@ -146,6 +153,22 @@ LIVE_TEAM_ALIASES = {
     "h beer sheva": "hapoel beer sheva",
     "royale union sg": "royale union saint gilloise",
     "union st gilloise": "royale union saint gilloise",
+    # 2026-08-06, sedd som dubblett i Live-vyn direkt efter v6-omläggningen:
+    # Flashscore skriver klubben på ENGELSKA (`FC Copenhagen`) där FotMob
+    # skriver den på danska (`FC København`). Normaliserat blir det
+    # `copenhagen` mot `kobenhavn` — två strängar utan gemensam delsträng.
+    # En översättning kan aldrig härledas ur tecknen, så det MÅSTE vara ett
+    # observerat alias; kontextregeln löser bara kortnamn och förkortningar.
+    # Kanonisk form är `kobenhavn` (den enda i `oddset_results`).
+    "copenhagen": "kobenhavn",
+    # Samma kväll: Flashscore kortar `Győri ETO` till bara `Gyor` (staden).
+    # Aliaset `gyori eto` fanns sedan 2026-07-30 men fångar inte stadsformen.
+    "gyor": "eto gyor",
+    # `Inter Escaldes` ↔ `Inter Club d'Escaldes`: ett insatt ord OCH
+    # apostrofen som blir `descaldes`. Varken kortnamns- eller
+    # förkortningsregeln når det, och `atletic club escaldes` finns i samma
+    # liga — alltså ska ingen generell regel gissa här.
+    "inter escaldes": "inter club descaldes",
     # 2026-08-05, funnen av `cli.py lanklucka` efter att detektorn lagats.
     # Flashscore ensam skriver `Varberg`; Sofascore `Varbergs BoIS`, FotMob
     # `Varbergs BoIS FC`. Genitiv-plus-suffix faller mellan reglerna nedan:
@@ -769,7 +792,8 @@ def previous_capture(earlier: list[dict],
 def declared_version_at(observed_at: str) -> str:
     """Vilken kohort som DEKLARERAT äger observationsögonblicket."""
     observed = _parse_iso(observed_at)
-    for version, start in ((RADAR_V5_VERSION, RADAR_VERSION_STARTED_AT),
+    for version, start in ((RADAR_V6_VERSION, RADAR_VERSION_STARTED_AT),
+                           (RADAR_V5_VERSION, RADAR_V5_STARTED_AT),
                            (RADAR_V4_VERSION, RADAR_V4_STARTED_AT),
                            (RADAR_V3_VERSION, RADAR_V3_STARTED_AT)):
         if observed >= _parse_iso(start):
@@ -847,7 +871,18 @@ def live_norm_team(value: str) -> str:
               if not (token.startswith("(") and token.endswith(")") and
                       2 <= len(token[1:-1]) <= 3 and
                       token[1:-1].isalpha())]
-    return " ".join(tokens)
+    stripped = " ".join(tokens)
+    if stripped == normalized:
+        return stripped
+    # ALIASET MÅSTE PRÖVAS IGEN EFTER STRIPPNINGEN (2026-08-06).
+    # `norm_team` slår upp aliaset på HELA strängen, alltså på
+    # `goteborg (swe)` — en nyckel som aldrig finns. Följden var att varje
+    # alias tyst slutade gälla så snart providern satte dit en landskod:
+    # `Goteborg (Swe)` ↔ `IFK Göteborg` låg som två kort i Conference League
+    # samtidigt som testet för samma par var grönt, eftersom det testade
+    # namnet UTAN kod. Ett alias får inte bero på om matchen råkar vara
+    # internationell.
+    return norm_team(stripped)
 
 
 def _same_team(a: str, b: str) -> bool:
@@ -888,6 +923,73 @@ def _same_team(a: str, b: str) -> bool:
     return x.startswith(y + " ") or y.startswith(x + " ")
 
 
+def _is_year(token: str) -> bool:
+    """Ett rent fyrsiffrigt årtal — grundningsår i klubbnamn (`CFR 1907 Cluj`,
+    `Sturm 1909 Graz`). Snävt med flit: `Schalke 04` och `Sarpsborg 08` har
+    tvåsiffriga former som ÄR en del av namnet och rörs inte."""
+    return len(token) == 4 and token.isdigit() and 1800 <= int(token) <= 2099
+
+
+def _same_team_in_context(a: str, b: str) -> bool:
+    """Svagare namnregel som BARA får användas med oberoende matchbevis.
+
+    Internationellt spel har en egen namnkonvention: Flashscore skriver
+    kortnamn + landskod (`Paide (Est)`, `Jagiellonia (Pol)`,
+    `Univ. Craiova (Rou)`) där de andra skriver fullnamn (`Paide
+    Linnameeskond`, `Jagiellonia Białystok`, `Universitatea Craiova`).
+    Landskoden strippas redan av `live_norm_team`, men det som blir kvar är
+    då ett ENORDSNAMN som är prefix av det andra — och enords-prefix är
+    spärrat av goda skäl (`Inter` ≠ `Inter Miami`).
+
+    Att i stället alias-lista klubbarna är en förlorad kapplöpning: varje ny
+    kvalomgång drar in nya lag, och 2026-08-06 låg fyra matcher som dubbletter
+    samtidigt. Regeln här löser klassen i stället för fallen.
+
+    Den är säker endast tillsammans med kraven på anropsstället: samma liga,
+    exakt samma avspark, en enda kandidat, och att MOTSTÅNDAREN redan matchat
+    på den strikta regeln. Ett lag spelar en match i taget, så när allt det är
+    uppfyllt finns ingen annan match kandidaten kan vara. `LIVE_TEAM_REJECTED`
+    gäller fortfarande och prövas först.
+    """
+    x, y = live_norm_team(a), live_norm_team(b)
+    x, y = LIVE_TEAM_ALIASES.get(x, x), LIVE_TEAM_ALIASES.get(y, y)
+    if frozenset({x, y}) in LIVE_TEAM_REJECTED:
+        return False
+    if not x or not y:
+        return False
+    if _same_team(a, b):
+        return True
+    xs, ys = x.split(), y.split()
+    # Truppmarkörer är identitet även här (`Inter` ≠ `Inter U23`).
+    squad = {"b", "ii", "reserve", "reserves", "academy", "youth",
+             "women", "damer"}
+
+    def qualifiers(tokens: list[str]) -> set[str]:
+        return {t for t in tokens
+                if t in squad or (t.startswith("u") and t[1:].isdigit())}
+
+    if qualifiers(xs) != qualifiers(ys):
+        return False
+    # Grundningsår är inte identitet. `CFR Cluj` ↔ `CFR 1907 Cluj` är samma
+    # klass som kortnamnen ovan, bara med det extra ordet i mitten — och två
+    # klubbar i SAMMA liga med samma avspark skiljs aldrig åt av ett årtal.
+    # Strippas bara här, aldrig i den strikta regeln.
+    xs = [t for t in xs if not _is_year(t)] or xs
+    ys = [t for t in ys if not _is_year(t)] or ys
+    if xs == ys:
+        return True
+    # Kortnamn: hela namnet är de första orden i det längre (`paide` ⊂
+    # `paide linnameeskond`, `rapid` ⊂ `rapid wien`).
+    short, long = (xs, ys) if len(xs) <= len(ys) else (ys, xs)
+    if short == long[:len(short)]:
+        return True
+    # Förkortning: lika många ord, där varje ord är prefix av motsvarande
+    # (`univ craiova` ⊂ `universitatea craiova`).
+    return (len(xs) == len(ys)
+            and all(p.startswith(q) or q.startswith(p)
+                    for p, q in zip(xs, ys)))
+
+
 def _start_at(row: dict) -> Optional[dt.datetime]:
     """Provideroberoende avspark; en live-länk kräver ett läsbart värde."""
     raw = row.get("start_at")
@@ -924,33 +1026,64 @@ def _flashscore_series(store: Storage, since: str) -> list[list[dict]]:
     return list(grouped.values())
 
 
-def _fotmob_for(match: dict, series: list[list[dict]],
-                claimed: Optional[set[int]] = None) -> Optional[list[dict]]:
-    """Hitta FotMob-serien för en Sofascore-match: samma liga, samma två lag.
+def _candidates_for(match: dict, series: list[list[dict]],
+                    same) -> list[tuple[list[dict], bool]]:
+    """Serier som kan vara samma match, enligt den inskickade namnregeln.
 
-    En provider-match får bara kopplas en gång. Om Sofascore råkar innehålla
-    dubbletter blir den kvarvarande FotMob-serien i stället ett eget kort,
-    aldrig statistik på två olika matcher.
+    Liga och exakt avspark är ALLTID krav — `same` avgör bara namnfrågan.
     """
-    candidates: list[tuple[list[dict], bool]] = []
+    out: list[tuple[list[dict], bool]] = []
     for captures in series:
         head = captures[-1]
         if head.get("league") != match.get("league"):
             continue
         if not _same_start(head, match):
             continue
-        direct = (_same_team(head.get("home"), match.get("home")) and
-                  _same_team(head.get("away"), match.get("away")))
-        mirrored = (_same_team(head.get("home"), match.get("away")) and
-                    _same_team(head.get("away"), match.get("home")))
+        direct = (same(head.get("home"), match.get("home")) and
+                  same(head.get("away"), match.get("away")))
+        mirrored = (same(head.get("home"), match.get("away")) and
+                    same(head.get("away"), match.get("home")))
         if direct or mirrored:
-            candidates.append((captures, mirrored and not direct))
-    # En unik kandidat krävs FÖRE claimed-filtret. Om två provider-events har
-    # samma identitet får det första kortet aldrig godtyckligt "ta" den ena
-    # och därmed göra den andra skenbart unik för nästa kort.
-    if len(candidates) != 1:
+            out.append((captures, mirrored and not direct))
+    return out
+
+
+def _linked_series(match: dict, series: list[list[dict]]
+                   ) -> Optional[tuple[list[dict], bool]]:
+    """Tvåstegslänkning: strikta namn först, kontextregeln bara i tomrummet.
+
+    Steg 1 är den vanliga `_same_team`. Ger den träff är svaret klart — en
+    strikt träff får aldrig konkurrera med en lösare, och två strikta träffar
+    är tvetydighet som aldrig gissas.
+
+    Steg 2 körs BARA när steg 1 gav noll kandidater, och använder
+    `_same_team_in_context`. Där är liga, exakt avspark och kravet på en enda
+    kandidat det som bär säkerheten: hittar den lösa regeln två möjliga
+    matcher länkas ingen. Det är samma disciplin som resultatidentitetens
+    auto-merge — entydigt eller ingenting.
+    """
+    strict = _candidates_for(match, series, _same_team)
+    if strict:
+        return strict[0] if len(strict) == 1 else None
+    loose = _candidates_for(match, series, _same_team_in_context)
+    return loose[0] if len(loose) == 1 else None
+
+
+def _fotmob_for(match: dict, series: list[list[dict]],
+                claimed: Optional[set[int]] = None) -> Optional[list[dict]]:
+    """Hitta FotMob-serien för en ankarmatch: samma liga, samma två lag.
+
+    En provider-match får bara kopplas en gång. Om ankaret råkar innehålla
+    dubbletter blir den kvarvarande FotMob-serien i stället ett eget kort,
+    aldrig statistik på två olika matcher.
+    """
+    # Unikheten avgörs FÖRE claimed-filtret. Om två provider-events har samma
+    # identitet får det första kortet aldrig godtyckligt "ta" den ena och
+    # därmed göra den andra skenbart unik för nästa kort.
+    hit = _linked_series(match, series)
+    if hit is None:
         return None
-    candidate, is_mirrored = candidates[0]
+    candidate, is_mirrored = hit
     if claimed is not None and int(candidate[-1]["fotmob_id"]) in claimed:
         return None
     if is_mirrored:
@@ -990,22 +1123,10 @@ def _series_for(match: dict, series: list[list[dict]], id_key: str,
     returneras serien TRANSPONERAD till ankarets orientering via
     `_mirrored_capture`, aldrig rå. Tvetydighet länkar aldrig.
     """
-    candidates: list[tuple[list[dict], bool]] = []
-    for captures in series:
-        head = captures[-1]
-        if head.get("league") != match.get("league"):
-            continue
-        if not _same_start(head, match):
-            continue
-        direct = (_same_team(head.get("home"), match.get("home")) and
-                  _same_team(head.get("away"), match.get("away")))
-        mirrored = (_same_team(head.get("home"), match.get("away")) and
-                    _same_team(head.get("away"), match.get("home")))
-        if direct or mirrored:
-            candidates.append((captures, mirrored and not direct))
-    if len(candidates) != 1:
+    hit = _linked_series(match, series)
+    if hit is None:
         return None
-    candidate, is_mirrored = candidates[0]
+    candidate, is_mirrored = hit
     if str(candidate[-1][id_key]) in claimed:
         return None
     if is_mirrored:
@@ -1013,6 +1134,11 @@ def _series_for(match: dict, series: list[list[dict]], id_key: str,
     return candidate
 
 
+# `radar_version` MÅSTE ingå: journalen läser den ur den här vyn för att veta
+# vilken KOD som producerade raden. Saknas den faller kohortbestämningen
+# tillbaka på härledning ur observerade växlingar, och varje rad efter den
+# sista kända växlingen blir felaktigt `transitional` — alltså raderad ur
+# blindkohorten. Exakt det fel kohortregeln infördes för att stoppa.
 _FOTMOB_VIEW_KEYS = (
     "fotmob_id", "capture_version", "league", "tournament",
     "home", "away", "start_at", "home_score", "away_score",
@@ -1021,7 +1147,7 @@ _FOTMOB_VIEW_KEYS = (
     "shots_home", "shots_away",
     "shots_on_home", "shots_on_away",
     "shots_inside_home", "shots_inside_away",
-    "minute", "captured_at",
+    "minute", "captured_at", "radar_version",
 )
 
 _FLASHSCORE_VIEW_KEYS = (
@@ -1033,7 +1159,12 @@ _FLASHSCORE_VIEW_KEYS = (
     "shots_on_home", "shots_on_away",
     "shots_inside_home", "shots_inside_away",
     "corners_home", "corners_away",
-    "minute", "captured_at",
+    "shots_off_home", "shots_off_away",
+    "shots_blocked_home", "shots_blocked_away",
+    "touches_box_home", "touches_box_away",
+    "saves_home", "saves_away",
+    "possession_home", "possession_away",
+    "minute", "stage_label", "captured_at", "radar_version",
 )
 
 
@@ -1069,7 +1200,12 @@ def _stats_rank(row: dict) -> tuple[int, int]:
     return (1, reported) if reported else (0, 0)
 
 
-_SOURCE_PRIORITY = {"sofascore": 0, "fotmob": 1, "flashscore": 2}
+# Livekällorna i radarn, i stigande prioritet vid LIKA fälttäckning.
+# Sofascore togs bort 2026-08-06 (falska xG-nollor, se ankarloopen i payload).
+# Den samlar oförändrat resultat, modellstatistik och frånvaro på andra håll —
+# konstanten gäller enbart radarns livevisning och dess källhälsorad.
+LIVE_SOURCES = ("flashscore", "fotmob")
+_SOURCE_PRIORITY = {"fotmob": 1, "flashscore": 2}
 
 
 def _best_source(candidates: list[tuple[str, list[dict]]]
@@ -1080,13 +1216,19 @@ def _best_source(candidates: list[tuple[str, list[dict]]]
 
 
 def _signal_with_basis(provider: str, captures: list[dict], view_keys,
-                       match_fallback: Optional[dict] = None
+                       match_fallback: Optional[dict] = None,
+                       fallback_source: Optional[str] = None
                        ) -> tuple[dict, dict]:
     """Signal och exakt per-fält-proveniens ur en providerserie.
 
     Chansmåtten kommer alltid från `provider`. Bara saknad minut/ställning får
-    lånas från den verifierade ankarraden, och UI:t får både det effektiva
+    lånas från den verifierade motpartsraden, och UI:t får både det effektiva
     värdet och dess källa så att en fallback aldrig ser providerspecifik ut.
+
+    `fallback_source` MÅSTE följa med raden. Den var hårdkodad till
+    "sofascore" så länge Sofascore var enda tänkbara ankare; när Flashscore
+    tog över den rollen (2026-08-06) hade en hårdkodning gjort proveniensen
+    till en ren lögn — basis hade pekat ut en källa som inte ens lästes.
     """
     current = captures[-1]
     current_at = _parse_iso(current["captured_at"])
@@ -1099,7 +1241,7 @@ def _signal_with_basis(provider: str, captures: list[dict], view_keys,
         if value is None and match_fallback is not None:
             value = match_fallback.get(key)
             if value is not None:
-                source = "sofascore"
+                source = fallback_source
         signal_row[key] = value
         basis[key] = value
         basis[f"{key}_source"] = source if value is not None else None
@@ -1113,9 +1255,12 @@ def _signal_with_basis(provider: str, captures: list[dict], view_keys,
 
 def _fotmob_signal(captures: list[dict],
                    match_fallback: Optional[dict] = None) -> tuple[dict, dict]:
-    """Signal + visningsfält ur en enda, sammanhängande FotMob-serie."""
+    """Signal + visningsfält ur en enda, sammanhängande FotMob-serie.
+
+    Fallbacken är Flashscore-ankaret: bara minut/ställning, aldrig statistik.
+    """
     return _signal_with_basis(
-        "fotmob", captures, _FOTMOB_VIEW_KEYS, match_fallback)
+        "fotmob", captures, _FOTMOB_VIEW_KEYS, match_fallback, "flashscore")
 
 
 def _flashscore_signal(captures: list[dict],
@@ -1125,18 +1270,15 @@ def _flashscore_signal(captures: list[dict],
 
     Samma kontrakt som FotMob-vägen: chansmåtten kommer UTESLUTANDE ur den
     egna serien, medan klocka/ställning får lånas per fält från den redan
-    verifierade Sofascore-länken när Flashscores stadieklocka är okänd
-    (halvtid, förlängning). Lånet påverkar aldrig xG eller skott.
+    verifierade FotMob-länken när Flashscores stadieklocka är okänd. Det är
+    inte en kantfall-detalj: minuten HÄRLEDS ur stadiets starttid, så halvtid
+    och förlängning ger `None` by design — och då är motpartens klocka
+    skillnaden mellan ett läsbart kort och ett tomt. Lånet påverkar aldrig xG
+    eller skott.
     """
     return _signal_with_basis(
-        "flashscore", captures, _FLASHSCORE_VIEW_KEYS, match_fallback)
-
-
-def _sofascore_signal(captures: list[dict]) -> dict:
-    """Sofascore-signal med samma explicita bas/proveniens som övriga."""
-    signal, _view = _signal_with_basis(
-        "sofascore", captures, tuple(captures[-1].keys()))
-    return signal
+        "flashscore", captures, _FLASHSCORE_VIEW_KEYS,
+        match_fallback, "fotmob")
 
 
 def _fresh_series(captures: list[dict], now: dt.datetime) -> bool:
@@ -1162,10 +1304,8 @@ def payload(store: Storage, *,
         minutes=MAX_DISPLAY_AGE_MIN + RECENT_MINUTES +
         RECENT_TOLERANCE_MIN)).strftime(
         "%Y-%m-%dT%H:%M:%SZ")
-    rows = store.oddset_live_captures(since, CAPTURE_VERSION)
     fotmob_series = _fotmob_series(store, since)
     flashscore_series = _flashscore_series(store, since)
-    sofa_ended = _recently_ended(store, SOFA_PRESENCE_KEY, now)
     fotmob_ended = _recently_ended(store, FOTMOB_PRESENCE_KEY, now)
     from .flashscore import PRESENCE_KEY as FS_PRESENCE_KEY
     flashscore_ended = _recently_ended(store, FS_PRESENCE_KEY, now)
@@ -1178,28 +1318,32 @@ def payload(store: Storage, *,
         if not _ended_after_capture(
             captures[-1], "flashscore_id", flashscore_ended)]
     # Samma färskhetsgrind gäller INNAN providerlänkning. Förr kunde en
-    # 30-minutersserie länkas till ett färskt Sofascore-kort och bära signalen,
+    # 30-minutersserie länkas till ett färskt ankarkort och bära signalen,
     # trots att samma serie hade dolts som fristående kort.
     fotmob_series = [captures for captures in fotmob_series
                      if _fresh_series(captures, now)]
     flashscore_series = [captures for captures in flashscore_series
                          if _fresh_series(captures, now)]
-    grouped: dict[int, list[dict]] = {}
-    for row in rows:
-        grouped.setdefault(int(row["event_id"]), []).append(row)
     matches = []
     claimed_fotmob: set[int] = set()
-    claimed_flashscore: set[str] = set()
-    for captures in grouped.values():
-        current = captures[-1]
-        if _ended_after_capture(current, "event_id", sofa_ended):
-            continue
+
+    # FLASHSCORE ÄR ANKARET sedan 2026-08-06. Sofascore var det tidigare, men
+    # den kopplades ur radarn helt: uppmätt på europacupkvällen 2026-08-06
+    # rapporterade den `xg_home=0.0, xg_away=0.0` för Paide–SK Rapid där
+    # Flashscore hade 0.09 respektive 0.81. En nolla är inte saknad data — den
+    # ser ut som en mätning, och kortet läste därför som "inga chanser skapade"
+    # mitt i en match där bortalaget hade 0,81 xG. Sofascore lever kvar
+    # oförändrad i resultat, modellstatistik och frånvaro; det här gäller
+    # ENBART livevisningen.
+    for fs in flashscore_series:
+        current = fs[-1]
         current_at = dt.datetime.fromisoformat(
             current["captured_at"].replace("Z", "+00:00"))
         if now - current_at > dt.timedelta(minutes=MAX_DISPLAY_AGE_MIN):
             continue
-        extra: dict = {}
-        candidates = [("sofascore", captures)]
+        extra: dict = {"flashscore": {
+            key: current.get(key) for key in _FLASHSCORE_VIEW_KEYS}}
+        candidates = [("flashscore", fs)]
         fm = _fotmob_for(current, fotmob_series, claimed_fotmob)
         if fm:
             fm_current = fm[-1]
@@ -1207,33 +1351,31 @@ def payload(store: Storage, *,
             extra["fotmob"] = {
                 key: fm_current.get(key) for key in _FOTMOB_VIEW_KEYS}
             candidates.append(("fotmob", fm))
-        fs = _series_for(current, flashscore_series, "flashscore_id",
-                         claimed_flashscore)
-        if fs:
-            fs_current = fs[-1]
-            claimed_flashscore.add(str(fs_current["flashscore_id"]))
-            extra["flashscore"] = {
-                key: fs_current.get(key) for key in _FLASHSCORE_VIEW_KEYS}
-            candidates.append(("flashscore", fs))
-
         # Valet görs enbart på rapporterad fälttäckning och fast källprioritet.
         # Signalen räknas FÖRST EFTER valet, så ett dramatiskt värde kan aldrig
         # få en sämre provider att vinna.
         source, chosen = _best_source(candidates)
-        if source == "flashscore":
-            signal, _ = _flashscore_signal(chosen, current)
-        elif source == "fotmob":
+        if source == "fotmob":
             signal, _ = _fotmob_signal(chosen, current)
         else:
-            signal = _sofascore_signal(chosen)
-        matches.append({**current, **extra, "signal": signal,
-                        "is_signal": signal["level"] in {"watch", "strong"}})
+            # Flashscores klocka är None vid halvtid/förlängning (härledd ur
+            # stadiets starttid). Är FotMob länkad lånas minut/ställning
+            # därifrån — annars vore kortet minutlöst just i paus.
+            signal, _ = _flashscore_signal(chosen, fm[-1] if fm else None)
+        matches.append({
+            **current,
+            "event_id": f"flashscore:{current['flashscore_id']}",
+            **extra,
+            "signal": signal,
+            "is_signal": signal["level"] in {"watch", "strong"},
+        })
 
-    # FotMob står på egna ben (och är sedan 2026-07-28 primär källa). Om
-    # Sofascore helt saknar en match men FotMob har en färsk serie ska
-    # matchen ändå synas.
-    # Detta stänger den sista luckan i löftet "stats finns → kort visas".
-    # Det namespacade event-id:t kan aldrig krocka med Sofascores heltals-id.
+    # FotMob står på egna ben. Om Flashscore helt saknar en match men FotMob
+    # har en färsk serie ska matchen ändå synas — det stänger den sista luckan
+    # i löftet "stats finns → kort visas". Flashscore prövas INTE igen här:
+    # varje Flashscore-serie fick redan sitt kort i ankarloopen ovan, och en
+    # andra prövning skulle bara kunna skapa den dubblett den ska förhindra.
+    # Det namespacade event-id:t kan aldrig krocka med ankarets nycklar.
     for fm in fotmob_series:
         current = fm[-1]
         fotmob_id = int(current["fotmob_id"])
@@ -1244,47 +1386,10 @@ def payload(store: Storage, *,
         if now - current_at > dt.timedelta(minutes=MAX_DISPLAY_AGE_MIN):
             continue
         signal, view = _fotmob_signal(fm)
-        extra = {"fotmob": view}
-        # Flashscore (primär) prövas även på FotMobs egna kort, med samma
-        # kvalitetsregel: vinner vid lika, nedgraderar aldrig.
-        fs = _series_for(current, flashscore_series, "flashscore_id",
-                         claimed_flashscore)
-        if fs:
-            fs_current = fs[-1]
-            claimed_flashscore.add(str(fs_current["flashscore_id"]))
-            extra["flashscore"] = {
-                key: fs_current.get(key) for key in _FLASHSCORE_VIEW_KEYS}
-            source, chosen = _best_source(
-                [("fotmob", fm), ("flashscore", fs)])
-            if source == "flashscore":
-                signal, _ = _flashscore_signal(chosen, current)
         matches.append({
             **current,
             "event_id": f"fotmob:{fotmob_id}",
-            **extra,
-            "signal": signal,
-            "is_signal": signal["level"] in {"watch", "strong"},
-        })
-
-    # Flashscore står också på egna ben — och är sedan 2026-08-01 ofta den
-    # ENDA källan med chansdata (Chelsea–Tottenham 2026-08-01: full xG hos
-    # Flashscore, ingenting hos de andra två). En match som varken Sofascore
-    # eller FotMob bär ska därför synas på Flashscores egen serie. Prefixet
-    # gör id:t entydigt mot både Sofascores heltal och fotmob-nycklarna.
-    for fs in flashscore_series:
-        current = fs[-1]
-        flashscore_id = str(current["flashscore_id"])
-        if flashscore_id in claimed_flashscore:
-            continue
-        current_at = dt.datetime.fromisoformat(
-            current["captured_at"].replace("Z", "+00:00"))
-        if now - current_at > dt.timedelta(minutes=MAX_DISPLAY_AGE_MIN):
-            continue
-        signal, view = _flashscore_signal(fs)
-        matches.append({
-            **current,
-            "event_id": f"flashscore:{flashscore_id}",
-            "flashscore": view,
+            "fotmob": view,
             "signal": signal,
             "is_signal": signal["level"] in {"watch", "strong"},
         })
@@ -1315,17 +1420,17 @@ def payload(store: Storage, *,
         hidden_leagues[league] = hidden_leagues.get(league, 0) + 1
     live_health = [row for row in store.oddset_source_health()
                    if row.get("scope") == "live" and
-                   row.get("source") in {"flashscore", "fotmob", "sofascore"}]
+                   row.get("source") in LIVE_SOURCES]
     source_runs = {}
-    for source in ("flashscore", "fotmob", "sofascore"):
+    for source in LIVE_SOURCES:
         checked = [row.get("checked_at") for row in live_health
                    if row.get("source") == source and row.get("checked_at")]
         if checked:
             source_runs[source] = max(checked)
     # `last_run` betyder att hela källgruppen har kontrollerats, inte bara att
-    # den sist körda Sofascore-loopen är färsk. Minsta av varje källas senaste
-    # kontroll är den konservativa gemensamma vattenstämpeln.
-    if len(source_runs) == 3:
+    # den sist körda loopen är färsk. Minsta av varje källas senaste kontroll
+    # är den konservativa gemensamma vattenstämpeln.
+    if len(source_runs) == len(LIVE_SOURCES):
         combined_last_run = min(source_runs.values())
     else:
         # En delkällas färska tid får inte se ut som att HELA radarn körts.
@@ -1355,7 +1460,7 @@ def payload(store: Storage, *,
             # vilken källa som faktiskt BÄR signalen, per provider
             "by_source": ", ".join(
                 f"{src} {sum(1 for row in matches if row['signal'].get('stats_source') == src)}"
-                for src in ("flashscore", "fotmob", "sofascore")),
+                for src in LIVE_SOURCES),
         },
         # INGA TYSTA TAK: står här av samma skäl som i källhälsan — ett dolt
         # urval läser som "det här var allt som fanns live".

@@ -129,6 +129,16 @@ LEAGUE_NAMES = {
 }
 
 # Flashscores statistiketiketter → våra kolumner. Bara kumulativa helmatchsmått.
+# Uppmätt 2026-08-06 över 12 samtidiga livematcher: feeden levererar två
+# helt olika paket. 8 av 12 (europacupkval) bar bara baspaketet — possession,
+# skott, skott på mål/utanför, blockerade, hörnor, offside, fouls — medan 2 av
+# 12 bar det fulla paketet med xG, xGOT, stora chanser och skott i boxen.
+# Skillnaden ligger hos providern, inte hos oss; parsern läser det som finns.
+#
+# Raderna nedanför `Corner kicks` fanns i VARJE matchs feed men lästes aldrig.
+# `touches_box` är den dyraste av dem: den ingick redan i radarns
+# täckningsrankning (`_stats_rank`), så rankningen räknade på ett fält ingen
+# källa kunde fylla.
 STAT_NAMES = {
     "Expected goals (xG)": ("xg_home", "xg_away"),
     "xG on target (xGOT)": ("xgot_home", "xgot_away"),
@@ -137,7 +147,14 @@ STAT_NAMES = {
     "Shots on target": ("shots_on_home", "shots_on_away"),
     "Shots inside the box": ("shots_inside_home", "shots_inside_away"),
     "Corner kicks": ("corners_home", "corners_away"),
+    "Shots off target": ("shots_off_home", "shots_off_away"),
+    "Blocked shots": ("shots_blocked_home", "shots_blocked_away"),
+    "Touches in opposition box": ("touches_box_home", "touches_box_away"),
+    "Goalkeeper saves": ("saves_home", "saves_away"),
+    "Ball possession": ("possession_home", "possession_away"),
 }
+# Etiketter vars värde är en andel i procent ('54%'), inte ett antal.
+PERCENT_STATS = frozenset({"Ball possession"})
 
 # Matchstatus (AB) och spelstadium (AC) i feeden. Minuten HÄRLEDS ur stadiets
 # starttid (AO) — validerat 2026-08-01 mot FotMobs klocka på sju samtidiga
@@ -148,6 +165,13 @@ STATUS_SCHEDULED = "1"
 STATUS_LIVE = "2"
 STATUS_FINISHED = "3"
 STAGE_OFFSET = {"12": 0, "13": 45}
+# Läsbart stadium för de koder vi FAKTISKT observerat. `38` mättes
+# 2026-08-06 på sex samtidiga matcher: stadiet började 45–50 min efter
+# avspark, båda källorna slutade rapportera minut, och matcherna gick vidare
+# till `13`. Klockan står stilla i paus, så minuten förblir None — men UI:t
+# ska kunna säga PAUS i stället för att visa ett tomt fält, vilket läser som
+# att vi tappat matchen. Okänd kod ⇒ None, aldrig en gissad etikett.
+STAGE_LABEL = {"12": "1:a halvlek", "13": "2:a halvlek", "38": "Paus"}
 
 
 def _now() -> dt.datetime:
@@ -177,6 +201,26 @@ def _f(value) -> Optional[float]:
         return None
     try:
         return float(text.replace(",", "."))
+    except ValueError:
+        return None
+
+
+def _share(value) -> Optional[float]:
+    """'54%' → 54.0, för de mått som ÄR en andel.
+
+    Skild från `_f` med flit: den avvisar procent därför att de flesta
+    procenttal i feeden är härledda kvoter med råa tal i parentes
+    ('85% (271/319)'), där andelen inte är måttet. Bollinnehav har ingen
+    parentes och är en direkt observation — men bara etiketter i
+    `PERCENT_STATS` läses så här, aldrig procent i allmänhet.
+    """
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text.endswith("%") or "(" in text:
+        return None
+    try:
+        return float(text[:-1].strip().replace(",", "."))
     except ValueError:
         return None
 
@@ -266,10 +310,12 @@ def parse_stats(text: str) -> dict:
             if seen_first_section:
                 break            # nästa period (halvlek) — sluta läsa
             seen_first_section = True
-        mapping = STAT_NAMES.get((fields.get("SG") or "").strip())
+        label = (fields.get("SG") or "").strip()
+        mapping = STAT_NAMES.get(label)
         if not mapping:
             continue
-        home, away = _f(fields.get("SH")), _f(fields.get("SI"))
+        read = _share if label in PERCENT_STATS else _f
+        home, away = read(fields.get("SH")), read(fields.get("SI"))
         if home is None or away is None:
             continue
         for column, value in zip(mapping, (home, away)):
@@ -624,6 +670,9 @@ def collect(store, known_matches: Optional[list[dict]] = None) -> dict:
                 # cachefönstret, vilket ger några minuters fel i visningen — inte
                 # en fabricerad signal.
                 "minute": minute_at(match, observed_at),
+                # Stadiet är en OBSERVATION, inte en härledning: det säger
+                # varför minuten kan saknas (paus) utan att fabricera en.
+                "stage_label": STAGE_LABEL.get(str(match.get("stage"))),
                 "home_score": match.get("home_score") if clock_ok else None,
                 "away_score": match.get("away_score") if clock_ok else None,
                 **stats})

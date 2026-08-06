@@ -1381,6 +1381,10 @@ function OddsetView({ focus = null } = {}) {
       stats,
       source: liveSourceName[signal.stats_source] || 'Sofascore',
       minute,
+      // Klockan står stilla i paus, så minuten är None — men ett tomt fält
+      // läser som att vi tappat matchen. Stadiet är en observation ur
+      // Flashscores dagsfeed och visas i minutens ställe när det finns.
+      stage: stats.stage_label || m.stage_label || null,
       homeScore,
       awayScore,
       minuteSource: liveSourceName[minuteSource] || minuteSource || 'saknas',
@@ -1423,7 +1427,7 @@ function OddsetView({ focus = null } = {}) {
     { key: 'source', label: 'Källa', value: (m) => liveView(m).source },
   ]
   const renderLiveRow = (m) => {
-    const { signal, stats, source, hasXg, minute, homeScore, awayScore,
+    const { signal, stats, source, hasXg, minute, stage, homeScore, awayScore,
       minuteSource, homeScoreSource, awayScoreSource, home, away } = liveView(m)
     const levelLabel = signal.level === 'strong' ? 'STARKT'
       : signal.level === 'watch' ? 'GRANSKA' : 'FÖLJER'
@@ -1431,8 +1435,10 @@ function OddsetView({ focus = null } = {}) {
       <tr key={m.event_id} className={signal.level || 'info'}>
         <td><span className={`radar-table-level ${signal.level || 'info'}`}
           title={signal.reason}>{levelLabel}</span></td>
-        <td className="live-minute" title={`Minut från ${minuteSource}`}>
-          {minute != null ? `${minute}′` : 'LIVE'}</td>
+        <td className="live-minute" title={minute != null
+          ? `Minut från ${minuteSource}`
+          : 'Klockan står stilla — minuten härleds ur stadiets starttid och censureras hellre än gissas'}>
+          {minute != null ? `${minute}′` : stage || 'LIVE'}</td>
         <td title={`Hemmamål från ${homeScoreSource} · bortamål från ${awayScoreSource}`}>
           <b>{homeScore ?? '–'}–{awayScore ?? '–'}</b></td>
         <td>{leagueName[m.league] || m.tournament || m.league}</td>
@@ -1450,7 +1456,7 @@ function OddsetView({ focus = null } = {}) {
     )
   }
   const renderLiveCard = (m) => {
-    const { signal, stats, source, hasXg, minute, homeScore, awayScore,
+    const { signal, stats, source, hasXg, minute, stage, homeScore, awayScore,
       minuteSource, homeScoreSource, awayScoreSource, home, away } = liveView(m)
     const fallbackParts = []
     if (minuteSource !== source) fallbackParts.push(`minut ${minuteSource}`)
@@ -1460,8 +1466,10 @@ function OddsetView({ focus = null } = {}) {
     return (
       <div key={m.event_id} className={`live-radar-card ${signal.level || 'info'}`}>
         <div className="live-radar-score">
-          <span className="live-minute" title={`Minut från ${minuteSource}`}>
-            {minute != null ? `${minute}′` : 'LIVE'}</span>
+          <span className="live-minute" title={minute != null
+            ? `Minut från ${minuteSource}`
+            : 'Klockan står stilla — minuten härleds ur stadiets starttid och censureras hellre än gissas'}>
+            {minute != null ? `${minute}′` : stage || 'LIVE'}</span>
           <b title={`Hemmamål från ${homeScoreSource} · bortamål från ${awayScoreSource}`}>
             {homeScore ?? '–'}–{awayScore ?? '–'}</b>
           <span className="rchip">{leagueName[m.league] || m.tournament || m.league}</span>

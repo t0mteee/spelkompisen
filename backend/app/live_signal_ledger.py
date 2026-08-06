@@ -191,32 +191,36 @@ def _locked_key(store: Storage, match: dict,
 def _clock(provider: str, source: dict, match: dict) -> dict:
     """Minut/ställning = EXAKT signalens beräkningsbas, med proveniens.
 
-    Signalnivån räknas i `live_radar._fotmob_signal` på en per-fält-ifylld rad
-    (FotMobs egna värden behålls, bara saknade fält lånas från det verifierade
-    Sofascore-kortet). Journalen speglar SAMMA regel — ett "atomärt" helpar
-    (verifieringsrundan 2026-08-01) gav rader vars ställning motsade både
-    signal_score och settlementets providerserie. Lånet bokförs i
-    ``clock_source`` ('fotmob+sofascore' = blandat) och de lånade fältens egen
-    observationstid i ``clock_observed_at``."""
+    Journalen HÄRLEDER inte längre lånet på egen hand utan läser signalens
+    ``basis``, som `live_radar._signal_with_basis` fyllde i när nivån räknades
+    — inklusive `<fält>_source` per fält. Två oberoende härledningar av samma
+    sak är just den konstruktion som gick isär i verifieringsrundan
+    2026-08-01: journalen bokförde en ställning som motsade både signal_score
+    och settlementets providerserie. Med basis som enda sanning kan de inte
+    skilja sig åt, och lånets riktning följer automatiskt med när ankarkällan
+    byts (Sofascore → Flashscore, 2026-08-06).
+
+    ``clock_source`` är providern när inget lånats, annars 'låntagare+långivare'
+    (eller enbart långivaren när ALLA tre fälten lånats). ``clock_observed_at``
+    bär långivarens egen observationstid.
+    """
     fields = ("minute", "home_score", "away_score")
-    values = {key: source.get(key) for key in fields}
-    borrowed = False
-    # Lån är bara möjligt när kortet BÄRS av Sofascore — ett fristående
-    # provider-kort (fotmob:/flashscore:) har ingen annan klocka att låna.
-    if (provider in {"fotmob", "flashscore"}
-            and not str(match.get("event_id", "")).startswith(
-                (f"{provider}:", "fotmob:", "flashscore:"))):
-        for key in fields:
-            if values[key] is None and match.get(key) is not None:
-                values[key] = match.get(key)
-                borrowed = True
-    if not borrowed:
+    basis = (match.get("signal") or {}).get("basis") or {}
+    if basis:
+        values = {key: basis.get(key) for key in fields}
+        lenders = {basis.get(f"{key}_source") for key in fields
+                   if basis.get(key) is not None} - {provider, None}
+    else:
+        # Äldre kort utan basis: ingen härledning, ingen gissning.
+        values = {key: source.get(key) for key in fields}
+        lenders = set()
+    if not lenders:
         return {**values, "clock_source": provider,
                 "clock_observed_at": None}
+    lender = "+".join(sorted(lenders))
     all_borrowed = all(source.get(key) is None for key in fields)
     return {**values,
-            "clock_source": ("sofascore" if all_borrowed
-                             else f"{provider}+sofascore"),
+            "clock_source": lender if all_borrowed else f"{provider}+{lender}",
             "clock_observed_at": match.get("captured_at")}
 
 
