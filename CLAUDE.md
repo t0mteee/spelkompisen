@@ -121,13 +121,20 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       Länk kräver unik liga/lag/avsparksträff; en olänkad
                       färsk providerserie får eget kort. Aldrig automatiska
                       spel eller runtime-modellinput.
-                      **NAMNLÄNKNING I TVÅ STEG:** strikt `_same_team` först;
-                      ger den NOLL kandidater prövas `_same_team_in_context`
-                      (kortnamn, förkortning, grundningsår i mitten). Den
-                      lösare regeln är säker ENBART tack vare anropsstället —
-                      samma liga, exakt avspark, en enda kandidat — och får
-                      aldrig användas fristående (`Inter` ↔ `Inter Miami`
-                      passerar namnregeln men delar aldrig avspark).
+                      **NAMNLÄNKNING I TRE STEG** (`_linked_series`), där
+                      varje steg kräver EXAKT en kandidat: (1) strikt
+                      `_same_team` på båda lagen; (2) `_same_team_in_context`
+                      på båda (kortnamn, förkortning, grundningsår i mitten);
+                      (3) `_one_side_candidates` — ETT lag räcker, eftersom
+                      ett lag spelar en match i taget: delar två rader liga
+                      och exakt avspark och är ett lag samma, kan de omöjligen
+                      vara olika matcher. Steg 2–3 är säkra ENBART tack vare
+                      anropsstället och får aldrig användas fristående
+                      (`Inter` ↔ `Inter Miami` passerar namnregeln men delar
+                      aldrig avspark). Truppmarkörer (U23/B/women) spärrar i
+                      ALLA steg — `Inter` mot `Como` och `Inter U23` mot
+                      `Como` är två matcher. Steg 3 avskaffar aliasjakten för
+                      översättningar (`Austria Vienna` ↔ `Austria Wien`).
                       `live_norm_team` prövar aliaset IGEN efter att
                       landskoden strippats: `norm_team` slår upp på hela
                       strängen, så `goteborg (swe)` missade varje alias och
@@ -170,9 +177,17 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       källa kunde fylla det. Possession läses med `_share`
                       (`54%`), aldrig med `_f` — feedens övriga procenttal är
                       härledda kvoter (`85% (271/319)`) där andelen inte är
-                      måttet. `STAGE_LABEL` ger läsbart stadium för OBSERVERADE
-                      koder (38 = Paus); minuten förblir censurerad, men
-                      kortet säger varför i stället för att stå tomt
+                      måttet.
+                      **KLOCKAN SAKNAS ALDRIG** (Samans krav 2026-08-06).
+                      `STAGE_FROZEN` bär etikett OCH spelad minut för stadier
+                      där klockan står stilla (38 = Paus, 45 spelade min) —
+                      minuten TICKAR inte där, men den finns, för annars
+                      returnerar `radar_signal` `no_clock` och matchen faller
+                      ur "starkt chansgap" i samma sekund domaren blåser av.
+                      `STAGE_LABEL` (bara frysta stadier) visas I KLOCKANS
+                      STÄLLE; `STAGE_NAME` (alla kända stadier) används BARA
+                      som reserv när minuten saknas helt, t.ex. när
+                      koherensvakten nollställt stadieklockan
   app/fotmob.py       liveprovider med `fotmob-live-v2`: live-xG/xGOT/skott,
                       även Oddset-spärrade friendlies. Ställningen tas ur samma
                       eventdetalj som statistiken; äldre listställning får

@@ -885,6 +885,24 @@ def live_norm_team(value: str) -> str:
     return norm_team(stripped)
 
 
+_SQUAD_MARKERS = frozenset({"b", "ii", "reserve", "reserves", "academy",
+                            "youth", "women", "damer"})
+
+
+def _squad(normalized: str) -> frozenset[str]:
+    """Truppmarkörer i ett NORMALISERAT namn (`inter u23` → {'u23'}).
+
+    Markörerna är IDENTITET, inte föreningsform: `Inter` och `Inter U23` är
+    skilda lag som kan spela samtidigt. Delad av alla tre länkstegen — även
+    det som bara kräver ETT matchande lag, där A-laget annars hade kunnat
+    länkas till U23-truppens match mot samma motståndare.
+    """
+    return frozenset(
+        token for token in normalized.split()
+        if token in _SQUAD_MARKERS
+        or (token.startswith("u") and token[1:].isdigit()))
+
+
 def _same_team(a: str, b: str) -> bool:
     """Konservativ namnlänkning mellan livekällorna.
 
@@ -899,18 +917,7 @@ def _same_team(a: str, b: str) -> bool:
     # än att två verkliga matcher smälter ihop.
     if frozenset({x, y}) in LIVE_TEAM_REJECTED:
         return False
-    # Truppmarkörer är IDENTITET, inte föreningsform. Den gamla prefixregeln
-    # gjorde t.ex. `Inter` och `Inter U23` till samma lag. Hellre två kort än
-    # att statistik och ställning från skilda matcher blandas.
-    squad_markers = {"b", "ii", "reserve", "reserves", "academy",
-                     "youth", "women", "damer"}
-
-    def qualifiers(value: str) -> set[str]:
-        return {token for token in value.split()
-                if token in squad_markers
-                or (token.startswith("u") and token[1:].isdigit())}
-
-    if qualifiers(x) != qualifiers(y):
+    if _squad(x) != _squad(y):
         return False
     if len(x) < 4 or len(y) < 4:
         return x == y and bool(x)
@@ -961,14 +968,7 @@ def _same_team_in_context(a: str, b: str) -> bool:
         return True
     xs, ys = x.split(), y.split()
     # Truppmarkörer är identitet även här (`Inter` ≠ `Inter U23`).
-    squad = {"b", "ii", "reserve", "reserves", "academy", "youth",
-             "women", "damer"}
-
-    def qualifiers(tokens: list[str]) -> set[str]:
-        return {t for t in tokens
-                if t in squad or (t.startswith("u") and t[1:].isdigit())}
-
-    if qualifiers(xs) != qualifiers(ys):
+    if _squad(x) != _squad(y):
         return False
     # Grundningsår är inte identitet. `CFR Cluj` ↔ `CFR 1907 Cluj` är samma
     # klass som kortnamnen ovan, bara med det extra ordet i mitten — och två
@@ -1048,25 +1048,80 @@ def _candidates_for(match: dict, series: list[list[dict]],
     return out
 
 
+def _one_side_candidates(match: dict, series: list[list[dict]]
+                         ) -> list[tuple[list[dict], bool]]:
+    """Kandidater där ETT lag matchar och ligan/avsparken är identiska.
+
+    Sista steget, och det starkaste beviset som inte är ett namn: **ett lag
+    spelar en match i taget.** Delar två providerrader liga och exakt
+    avsparkstid, och är ett av lagen samma, kan de omöjligen vara olika
+    matcher — vad motståndaren råkar heta hos den andra providern spelar
+    ingen roll.
+
+    Det som gör steget nödvändigt är att namnklasserna aldrig tar slut:
+    `Austria Vienna` ↔ `Austria Wien` är en översättning, och nästa kväll är
+    det en translitteration eller en förkortning vi inte sett. Att jaga dem
+    en och en med alias var precis det Saman tröttnade på.
+    """
+    out: list[tuple[list[dict], bool]] = []
+    same = _same_team_in_context
+
+    def squads_agree(left: str, right: str) -> bool:
+        """Truppmarkörer får ALDRIG överbryggas av kontext.
+
+        `Inter` mot `Como` och `Inter U23` mot `Como` är två skilda matcher
+        som kan spelas samtidigt i samma liga. Att `Como` matchar räcker
+        alltså inte — det lag som INTE matchar måste vara samma sorts trupp.
+        """
+        return _squad(live_norm_team(left or "")) == _squad(
+            live_norm_team(right or ""))
+
+    for captures in series:
+        head = captures[-1]
+        if head.get("league") != match.get("league"):
+            continue
+        if not _same_start(head, match):
+            continue
+        h_head, a_head = head.get("home"), head.get("away")
+        h_match, a_match = match.get("home"), match.get("away")
+        direct = ((same(h_head, h_match) or same(a_head, a_match))
+                  and squads_agree(h_head, h_match)
+                  and squads_agree(a_head, a_match))
+        mirrored = ((same(h_head, a_match) or same(a_head, h_match))
+                    and squads_agree(h_head, a_match)
+                    and squads_agree(a_head, h_match))
+        if direct:
+            out.append((captures, False))
+        elif mirrored:
+            out.append((captures, True))
+    return out
+
+
 def _linked_series(match: dict, series: list[list[dict]]
                    ) -> Optional[tuple[list[dict], bool]]:
-    """Tvåstegslänkning: strikta namn först, kontextregeln bara i tomrummet.
+    """Trestegslänkning — strikt, kontext, ett lag. Entydigt eller ingenting.
 
-    Steg 1 är den vanliga `_same_team`. Ger den träff är svaret klart — en
-    strikt träff får aldrig konkurrera med en lösare, och två strikta träffar
-    är tvetydighet som aldrig gissas.
+    Steg 1 är den vanliga `_same_team` på BÅDA lagen. Ger den träff är svaret
+    klart — en strikt träff får aldrig konkurrera med en lösare, och två
+    strikta träffar är tvetydighet som aldrig gissas.
 
-    Steg 2 körs BARA när steg 1 gav noll kandidater, och använder
-    `_same_team_in_context`. Där är liga, exakt avspark och kravet på en enda
-    kandidat det som bär säkerheten: hittar den lösa regeln två möjliga
-    matcher länkas ingen. Det är samma disciplin som resultatidentitetens
-    auto-merge — entydigt eller ingenting.
+    Steg 2 körs BARA när steg 1 gav noll kandidater och använder
+    `_same_team_in_context` på båda lagen (kortnamn, förkortning, årtal).
+
+    Steg 3 körs BARA när steg 2 också gav noll, och kräver att bara ETT lag
+    matchar. Se `_one_side_candidates`: liga + exakt avspark + ett gemensamt
+    lag utesluter att det är två olika matcher.
+
+    Varje steg kräver EXAKT en kandidat. Två möjliga matcher i något steg
+    betyder att vi inte vet, och då länkas ingen — samma disciplin som
+    resultatidentitetens auto-merge.
     """
-    strict = _candidates_for(match, series, _same_team)
-    if strict:
-        return strict[0] if len(strict) == 1 else None
-    loose = _candidates_for(match, series, _same_team_in_context)
-    return loose[0] if len(loose) == 1 else None
+    for candidates in (_candidates_for(match, series, _same_team),
+                       _candidates_for(match, series, _same_team_in_context),
+                       _one_side_candidates(match, series)):
+        if candidates:
+            return candidates[0] if len(candidates) == 1 else None
+    return None
 
 
 def _fotmob_for(match: dict, series: list[list[dict]],
@@ -1164,7 +1219,7 @@ _FLASHSCORE_VIEW_KEYS = (
     "touches_box_home", "touches_box_away",
     "saves_home", "saves_away",
     "possession_home", "possession_away",
-    "minute", "stage_label", "captured_at", "radar_version",
+    "minute", "stage_label", "stage_name", "captured_at", "radar_version",
 )
 
 
@@ -1281,6 +1336,18 @@ def _flashscore_signal(captures: list[dict],
         match_fallback, "fotmob")
 
 
+def _frozen_stage(label: Optional[str]) -> Optional[str]:
+    """Släpp bara igenom etiketter för stadier där klockan STÅR STILLA.
+
+    UI:t visar etiketten i klockans ställe, så en etikett för ett stadium där
+    klockan går ("2:a halvlek") skulle ersätta en minut som är sannare.
+    Kolumnen bär historiska värden från när tabellen var bredare — de får
+    inte läcka ut i vyn bara för att de ligger kvar i databasen.
+    """
+    from .flashscore import STAGE_LABEL
+    return label if label in set(STAGE_LABEL.values()) else None
+
+
 def _fresh_series(captures: list[dict], now: dt.datetime) -> bool:
     """En länkbar serie måste vara lika färsk som ett fristående livekort."""
     if not captures:
@@ -1365,6 +1432,7 @@ def payload(store: Storage, *,
         matches.append({
             **current,
             "event_id": f"flashscore:{current['flashscore_id']}",
+            "stage_label": _frozen_stage(current.get("stage_label")),
             **extra,
             "signal": signal,
             "is_signal": signal["level"] in {"watch", "strong"},

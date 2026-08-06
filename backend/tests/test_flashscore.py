@@ -79,6 +79,32 @@ class ParseTests(unittest.TestCase):
         no_clock = {"stage": "13", "stage_started_ts": None}
         self.assertIsNone(flashscore.minute_at(no_clock, NOW))
 
+    def test_halftime_freezes_the_clock_at_45_instead_of_dropping_it(self):
+        """Paus är inte okänd tid — den inträffar per definition efter 45
+        spelade minuter. Att censurera där dödade signalen: `radar_signal`
+        returnerar `no_clock` utan minut, så en match med stort chansgap föll
+        ur "starkt chansgap" i samma sekund domaren blåste av."""
+        paus = {"stage": "38", "stage_started_ts": SECOND_HALF_START}
+        self.assertEqual(45, flashscore.minute_at(paus, NOW))
+        # Pausens längd får ALDRIG läggas på spelad tid.
+        senare = NOW + dt.timedelta(minutes=14)
+        self.assertEqual(45, flashscore.minute_at(paus, senare))
+        # Även utan stadieklocka: paus betyder 45 spelade minuter.
+        self.assertEqual(
+            45, flashscore.minute_at(
+                {"stage": "38", "stage_started_ts": None}, NOW))
+
+    def test_stage_label_marks_only_a_standing_clock(self):
+        """Etiketten visas i klockans STÄLLE, så den får bara finnas när
+        klockan står stilla — annars hade kortet sagt "1:a halvlek" om en
+        match där minuten är sannare. Tabellerna delar källa så de inte kan
+        glida isär."""
+        self.assertEqual({"38"}, set(flashscore.STAGE_LABEL))
+        self.assertEqual(set(flashscore.STAGE_FROZEN_MINUTE),
+                         set(flashscore.STAGE_LABEL))
+        self.assertNotIn("12", flashscore.STAGE_LABEL)
+        self.assertNotIn("13", flashscore.STAGE_LABEL)
+
     def test_stats_read_full_match_only_and_skip_non_numeric(self):
         stats = flashscore.parse_stats(STATS_FEED)
         self.assertEqual(1.76, stats["xg_home"])
@@ -284,17 +310,23 @@ class CollectTests(unittest.TestCase):
         self.assertEqual(0, capture["away_score"])
         self.assertIsNotNone(capture["minute"])
 
-    def test_stage_change_in_summary_censors_the_minute(self):
+    def test_stage_change_in_summary_freezes_the_minute_at_halftime(self):
         """Halvtid: dagsfeeden tror fortfarande '1:a halvlek' och minuten
-        tickade till 46–47' i UI:t. Summaryns stadium avslöjar bytet; utan ny
-        stadiestarttid censureras minuten hellre än gissas."""
+        tickade till 46–47' i UI:t. Summaryns stadium avslöjar bytet.
+
+        Klockan får inte ticka vidare i fel stadium — men svaret är att FRYSA
+        den vid pausens kända spelade tid, inte att kasta den. Att censurera
+        gjorde `radar_signal` till `no_clock`, och matchen föll ur "starkt
+        chansgap" just när gapet var mest intressant (2026-08-06).
+        """
         fake = self._stale_feed_fake(
             summary_result={"home_score": 2, "away_score": 1, "stage": "38"})
         with patch.object(flashscore, "Flashscore", return_value=fake):
             flashscore.collect(self.store, known_matches=[])
         capture = self.store.live_flashscore_captures()[0]
         self.assertEqual(2, capture["home_score"])
-        self.assertIsNone(capture["minute"])
+        self.assertEqual(45, capture["minute"], "paus = 45 spelade minuter")
+        self.assertEqual("Paus", capture["stage_label"])
 
     def test_unusable_summary_falls_back_to_score_drop(self):
         for fake in (self._stale_feed_fake(summary_raises=True),

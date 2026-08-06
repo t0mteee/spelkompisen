@@ -665,7 +665,8 @@ CREATE TABLE IF NOT EXISTS oddset_live_flashscore (
     saves_away         REAL,
     possession_home    REAL,
     possession_away    REAL,
-    stage_label        TEXT,              -- "Paus" m.m.; None = okänt stadium
+    stage_label        TEXT,              -- "Paus"; visas I KLOCKANS STÄLLE
+    stage_name         TEXT,              -- alla kända stadier; RESERV utan minut
     radar_version     TEXT,              -- koden som producerade raden
     PRIMARY KEY (flashscore_id, captured_at, capture_version)
 );
@@ -1096,7 +1097,8 @@ class Storage:
                     "ALTER TABLE oddset_live_flashscore ADD COLUMN saves_away REAL",
                     "ALTER TABLE oddset_live_flashscore ADD COLUMN possession_home REAL",
                     "ALTER TABLE oddset_live_flashscore ADD COLUMN possession_away REAL",
-                    "ALTER TABLE oddset_live_flashscore ADD COLUMN stage_label TEXT"):
+                    "ALTER TABLE oddset_live_flashscore ADD COLUMN stage_label TEXT",
+                    "ALTER TABLE oddset_live_flashscore ADD COLUMN stage_name TEXT"):
             try:   # migreringar för befintliga DB:er
                 self.conn.execute(mig)
             except sqlite3.OperationalError:
@@ -1967,7 +1969,8 @@ class Storage:
         "shots_blocked_home", "shots_blocked_away",
         "touches_box_home", "touches_box_away",
         "saves_home", "saves_away",
-        "possession_home", "possession_away", "stage_label", "radar_version",
+        "possession_home", "possession_away", "stage_label", "stage_name",
+        "radar_version",
     )
 
     def live_flashscore_save(self, capture: dict) -> int:

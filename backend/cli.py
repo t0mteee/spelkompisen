@@ -517,20 +517,19 @@ def format_link_gaps(store, hours: int = 24, limit: int = 30) -> str:
             None, live_norm_team(a), live_norm_team(b)).ratio()
 
     def linked(a: dict, b: dict) -> bool:
-        """Samma namnregler som radarns länkning FAKTISKT använder.
+        """Anropar radarns EGEN länkning i stället för att härma den.
 
-        Detektorn körde bara den strikta `_same_team` och listade därför par
-        som sedan 2026-08-06 länkar alldeles utmärkt via kontextregeln — den
-        letade efter en annan sorts fel än det som uppstår. Exakt samma
-        lärdom som `live_norm_team` bär sedan 2026-08-05: rapporten och
-        länken måste se samma sak, annars är rapporten brus.
+        Detektorn speglade tidigare reglerna för hand och hamnade efter varje
+        gång länkningen fick ett steg till: först körde den bara strikta
+        `_same_team`, sedan bara kontextregeln — och listade båda gångerna par
+        som i verkligheten länkade utmärkt. Rapporten blev brus som skickade
+        Saman på aliasjakt efter par som redan fungerade.
 
-        Kontexten är uppfylld här per konstruktion: buckets grupperar redan
-        på liga + avspark.
+        Med `_linked_series` kan de inte glida isär. `b` skickas som enda
+        kandidat, vilket är precis frågan rapporten ställer: skulle de här två
+        raderna länkas? Liga och avspark är redan lika inom hinken.
         """
-        same = live_radar._same_team_in_context
-        return ((same(a["home"], b["home"]) and same(a["away"], b["away"]))
-                or (same(a["home"], b["away"]) and same(a["away"], b["home"])))
+        return live_radar._linked_series(a, [[b]]) is not None
 
     def similarity(a: dict, b: dict) -> float:
         return max(min(near(a["home"], b["home"]), near(a["away"], b["away"])),

@@ -165,13 +165,36 @@ STATUS_SCHEDULED = "1"
 STATUS_LIVE = "2"
 STATUS_FINISHED = "3"
 STAGE_OFFSET = {"12": 0, "13": 45}
-# Läsbart stadium för de koder vi FAKTISKT observerat. `38` mättes
-# 2026-08-06 på sex samtidiga matcher: stadiet började 45–50 min efter
-# avspark, båda källorna slutade rapportera minut, och matcherna gick vidare
-# till `13`. Klockan står stilla i paus, så minuten förblir None — men UI:t
-# ska kunna säga PAUS i stället för att visa ett tomt fält, vilket läser som
-# att vi tappat matchen. Okänd kod ⇒ None, aldrig en gissad etikett.
-STAGE_LABEL = {"12": "1:a halvlek", "13": "2:a halvlek", "38": "Paus"}
+# Stadier där klockan STÅR STILLA men den spelade tiden är känd exakt.
+# Halvtidspaus inträffar per definition efter 45 spelade minuter — det är
+# inte en gissning, och att censurera minuten där kostade signalen: en match
+# med 1,4 xG och 0 mål föll ur "starkt chansgap" i det ögonblick domaren blåste
+# av, för att `radar_signal` returnerar `no_clock` utan minut. Gapet finns
+# kvar i pausen; det är just då det är intressant.
+# Minuten TICKAR INTE här — pausens längd får aldrig läggas på spelad tid.
+#
+# Etikett och minut bor i SAMMA tabell med flit. UI:t visar etiketten i
+# klockans ställe just när klockan står stilla, så två skilda tabeller hade
+# kunnat glida isär till ett kort som säger "45′" om en match i paus (eller
+# "Paus" om en match där klockan går). `38` är driftmätt 2026-08-06 på sex
+# samtidiga matcher: stadiet började 45–50 min efter avspark, båda källorna
+# slutade rapportera minut, och matcherna gick vidare till `13`.
+STAGE_FROZEN = {"38": ("Paus", 45)}
+STAGE_FROZEN_MINUTE = {code: minute for code, (_, minute) in STAGE_FROZEN.items()}
+# Etikett att visa I KLOCKANS STÄLLE — alltså bara för stadier där klockan
+# står stilla. Under `12`/`13` går klockan och minuten är sannare än ordet
+# "1:a halvlek", så de har med flit ingen etikett här.
+STAGE_LABEL = {code: label for code, (label, _) in STAGE_FROZEN.items()}
+
+# Beskrivande namn för ALLA kända stadier. Används bara som RESERV när
+# minuten saknas — aldrig i stället för en minut som finns.
+#
+# Behovet: koherensvakten nollställer `stage_started_ts` när `df_sur` visar
+# ett annat stadium än dagsfeeden, och då kan minuten inte härledas. Vi vet
+# ändå VAR matchen är, och "2:a halvlek" är oändligt mycket mer användbart än
+# ett tomt fält — Samans krav 2026-08-06: matchminuten ska aldrig bara saknas.
+STAGE_NAME = {"12": "1:a halvlek", "13": "2:a halvlek",
+              **{code: label for code, (label, _) in STAGE_FROZEN.items()}}
 
 
 def _now() -> dt.datetime:
@@ -280,12 +303,25 @@ def _int(value) -> Optional[int]:
 
 
 def minute_at(match: dict, observed_at: dt.datetime) -> Optional[int]:
-    """Matchminut vid observationsögonblicket, härledd ur stadiets starttid.
+    """SPELAD tid vid observationsögonblicket, härledd ur stadiet.
 
-    None när stadiet är okänt (halvtid, förlängning, avbrott) eller när
-    stadieklockan saknas — radarn censurerar hellre än gissar.
+    Två fall, och skillnaden mellan dem är hela poängen:
+
+    * Stadier där klockan går (`STAGE_OFFSET`) — minuten räknas ur stadiets
+      starttid.
+    * Stadier där klockan står stilla men spelad tid ÄNDÅ är känd
+      (`STAGE_FROZEN_MINUTE`, i dag halvtidspaus = 45). Pausens längd läggs
+      aldrig på: minuten fryses.
+
+    None bara när stadiet är genuint okänt eller stadieklockan saknas —
+    radarn censurerar hellre än gissar. Att censurera i PAUS var däremot fel:
+    signalen dog just när chansgapet var som mest intressant.
     """
-    offset = STAGE_OFFSET.get(str(match.get("stage")))
+    stage = str(match.get("stage"))
+    frozen = STAGE_FROZEN_MINUTE.get(stage)
+    if frozen is not None:
+        return frozen
+    offset = STAGE_OFFSET.get(stage)
     started = match.get("stage_started_ts")
     if offset is None or not started:
         return None
@@ -672,7 +708,10 @@ def collect(store, known_matches: Optional[list[dict]] = None) -> dict:
                 "minute": minute_at(match, observed_at),
                 # Stadiet är en OBSERVATION, inte en härledning: det säger
                 # varför minuten kan saknas (paus) utan att fabricera en.
+                # `stage_label` visas i klockans ställe (fryst klocka),
+                # `stage_name` bara som reserv när minuten saknas helt.
                 "stage_label": STAGE_LABEL.get(str(match.get("stage"))),
+                "stage_name": STAGE_NAME.get(str(match.get("stage"))),
                 "home_score": match.get("home_score") if clock_ok else None,
                 "away_score": match.get("away_score") if clock_ok else None,
                 **stats})

@@ -1,4 +1,5 @@
 import datetime as dt
+import difflib
 import tempfile
 import unittest
 from pathlib import Path
@@ -94,15 +95,17 @@ class LinkGapReportTests(unittest.TestCase):
             "home_score": 0, "away_score": 0})
 
     def test_similar_unlinked_pair_is_reported(self):
-        """Det som återstår efter kontextregeln är ÖVERSÄTTNINGAR — namn utan
-        gemensam teckenstruktur, som bara ett observerat alias kan lösa.
-        `FC Copenhagen` ↔ `FC København` är exakt det fallet (2026-08-06),
-        och så här upptäcktes det: i en hink där alla ANDRA matcher länkade.
+        """Det som återstår för detektorn är matcher där INGET lag matchar.
+
+        Räcker ett lag länkar radarn själv (steg 3), så en verklig lucka
+        kräver att BÅDA sidorna har olika namn hos providrarna — här två
+        översättningar i samma match. Så här upptäcktes den ursprungliga
+        Köpenhamnsdubbletten också: i en hink där alla andra matcher länkade.
         """
         self._fs("Paide (Est)", "SK Rapid (Aut)")       # länkar via kontext
         self._sofa("Paide Linnameeskond", "SK Rapid Wien")
-        self._fs("FC Copenhagen (Den)", "Debrecen (Hun)")
-        self._sofa("FC København", "Debrecen")
+        self._fs("FC Copenhagen (Den)", "Lyon (Fra)")
+        self._sofa("FC København", "Olympique Lyonnais")
         with patch.object(live_radar, "LIVE_TEAM_ALIASES", {}):
             rapport = format_link_gaps(self.store, hours=6)
         self.assertIn("Copenhagen", rapport)
@@ -110,8 +113,8 @@ class LinkGapReportTests(unittest.TestCase):
         self.assertNotIn("Paide", rapport, "länkade par är inte luckor")
 
     def test_linked_pair_is_not_reported(self):
-        self._fs("FC Copenhagen (Den)", "Debrecen (Hun)")
-        self._sofa("FC København", "Debrecen")
+        self._fs("FC Copenhagen (Den)", "Lyon (Fra)")
+        self._sofa("FC København", "Olympique Lyonnais")
         rapport = format_link_gaps(self.store, hours=6)   # aliasen aktiva
         self.assertIn("inga", rapport)
 
@@ -137,13 +140,20 @@ class LinkGapReportTests(unittest.TestCase):
         `Sparta Prague (Cze)` ↔ `Sparta Praha` mätt på rå `norm_team` gav 0,65
         mot tröskeln 0,72 och föll ur åtgärdslistan; strippat är det 0,80.
         Detektorn ska mäta på samma normalisering som länken.
+
+        Likheten prövas direkt: matchen nedan LÄNKAR numera (Kairat matchar,
+        vilket räcker), så den kan inte längre nå rapporten.
         """
+        self.assertGreater(
+            difflib.SequenceMatcher(
+                None,
+                live_radar.live_norm_team("Sparta Prague (Cze)"),
+                live_radar.live_norm_team("Sparta Praha")).ratio(),
+            0.72)
         self._fs("Sparta Prague (Cze)", "Kairat Almaty (Kaz)")
         self._sofa("Sparta Praha", "Kairat Almaty")
         with patch.object(live_radar, "LIVE_TEAM_ALIASES", {}):
-            rapport = format_link_gaps(self.store, hours=6)
-        self.assertIn("Sparta Prague (Cze)", rapport)
-        self.assertIn("likhet", rapport)
+            self.assertIn("inga", format_link_gaps(self.store, hours=6))
 
     def test_orphan_in_an_otherwise_linked_bucket_is_reported(self):
         """`Lyon` ↔ `Olympique Lyonnais` liknar inte varandra (0,36).
@@ -153,8 +163,8 @@ class LinkGapReportTests(unittest.TestCase):
         """
         self._fs("Levski Sofia", "Kairat Almaty")
         self._sofa("Levski Sofia", "Kairat Almaty")
-        self._fs("Lyon", "Sparta Praha")
-        self._sofa("Olympique Lyonnais", "Sparta Praha")
+        self._fs("Lyon", "Kobenhavn")
+        self._sofa("Olympique Lyonnais", "FC Copenhagen")
         with patch.object(live_radar, "LIVE_TEAM_ALIASES", {}):
             rapport = format_link_gaps(self.store, hours=6)
         self.assertIn("ensam", rapport)
