@@ -190,6 +190,82 @@ testfilen.
 
 ---
 
+## Del 4 — ANDRA OMGÅNGEN samma kväll
+
+Saman såg **en dubblett till** och två fel som första omgången inte fångade.
+
+### Steg 3: ett lag räcker
+
+`Austria Vienna` ↔ `Austria Wien` är en översättning, och nästa kväll är det
+en translitteration vi inte sett. Namnklasserna tar aldrig slut, så
+`_linked_series` fick ett tredje steg som inte handlar om namn alls:
+
+> Delar två providerrader liga och **exakt** avspark, och är ett av lagen
+> samma, kan de omöjligen vara olika matcher — ett lag spelar en match i taget.
+
+Steget körs bara när båda namnstegen gett noll kandidater och kräver som de
+en enda kandidat. **Truppmarkörer spärrar i alla tre stegen** — ett test
+fångade att `Inter` mot `Como` och `Inter U23` mot `Como` annars hade slagits
+ihop. `_squad()` är nu delad av alla steg.
+
+Detektorn anropar `_linked_series` direkt i stället för att härma reglerna;
+den hade hamnat efter två gånger i rad.
+
+### Pausen dödade signalen
+
+Minuten censurerades i halvtid, och utan minut returnerar `radar_signal`
+`no_clock` → nivån faller till `info`. En match med stort chansgap föll alltså
+ur "starkt chansgap" i samma sekund domaren blåste av — precis när gapet är
+intressant.
+
+Paus är inte okänd tid: den inträffar per definition efter 45 spelade
+minuter. `STAGE_FROZEN` bär etikett och minut tillsammans så de inte kan
+glida isär; klockan fryses vid 45 och pausens längd läggs aldrig på.
+
+### Klockan saknas aldrig
+
+Tre lägen: `STAGE_LABEL` (frysta stadier) visas **i klockans ställe** eftersom
+`45′` antyder att spelet pågår; annars minuten; annars `STAGE_NAME` som reserv
+när koherensvakten nollställt stadieklockan. Ordet "saknas" är borta ur
+klockan, och payload sanerar historiska etiketter så en gammal rad inte
+ersätter en minut som är sannare.
+
+**Efterläge:** 16 kort, 0 dubbletter, **0 kort utan klockinfo**, och
+paus-matcher behåller sina xg/proxy-signaler. 560 tester gröna.
+
+---
+
+## ÖPPEN FRÅGA: proxysignalen är död efter Sofascore-borttaget
+
+Mätt på 37 matcher (24 h, Flashscore), senaste capture per match:
+
+| Fält | Täckning |
+|---|---|
+| skott på mål | **37/37 (100 %)** |
+| bollinnehav | **37/37 (100 %)** |
+| xG | 15/37 (41 %) |
+| stora chanser | 15/37 (41 %) |
+| skott i box | 15/37 (41 %) |
+| touches i box | 15/37 (41 %) |
+
+Proxyn kräver *stora chanser* ELLER *(skott på mål OCH skott i box)* — alltså
+exakt de fält som bara finns när xG också finns. Konsekvensen, uppmätt:
+
+- matcher där proxyn tillför något utöver xG-signalen: **0 av 37**
+- matcher som aldrig kan få NÅGON signal: **22 av 37 (59 %)**
+
+Proxyn fungerade tidigare eftersom Sofascore bar `big_chances` och
+`touches_box` bredare. Att koppla bort Sofascore var ändå rätt — den
+rapporterade falska xG-nollor — men konsekvensen för proxyn förutsågs inte.
+
+**Förslaget** är att bygga om proxyn på de fält som faktiskt finns i
+baspaketet (skott på mål, totala skott, hörnor, bollinnehav — alla 100 %
+täckta). Det är en **metodändring**: den byter signalversion, nollställer
+blindkohorten igen och kräver förregistrering enligt samma disciplin som
+resten. Därför är den INTE gjord — den är Samans beslut.
+
+---
+
 ## Fotnot: JSON-felet i poolvyn samma kväll
 
 Saman såg `SyntaxError: The string did not match the expected pattern` i
