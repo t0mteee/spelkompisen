@@ -623,23 +623,26 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse }) {
             <div className="kpi" title="ROI = EV netto ÷ insats.">
               <span className={st.roi >= 0 ? 'pos' : 'neg'}>{st.roi == null ? '–' : (st.roi * 100).toFixed(0) + ' %'}</span>ROI</div>
           </div>
-          {payouts?.projected_turnover > payouts?.turnover && (() => {
-            const stP = systemStats(sys, matches, { ...payouts, turnover: payouts.projected_turnover })
-            if (!stP || stP.tooBig) return null
-            return (
-              <div className="rule" title={`Potterna växer mot spelstopp men det gör medvinnarna också — detta är EV räknat mot prognostiserad slutomsättning.${payouts.projection_basis ? `\nPrognosgrund: ${payouts.projection_basis.mode === 'weekday' ? `median av ${payouts.projection_basis.n} senaste omgångarna med samma spelstoppsveckodag (${['mån', 'tis', 'ons', 'tors', 'fre', 'lör', 'sön'][payouts.projection_basis.weekday] ?? '?'})` : `median av senaste ${payouts.projection_basis.n} omgångarna oavsett veckodag (backtestet visar att den träffar bättre för produkten, eller för få jämförbara)`}.` : ''}`}>
-                Vid förväntad slutomsättning ({kr(payouts.projected_turnover)}): förv. utdelning {kr(stP.evPayout)}
-                {' '}· EV <b className={stP.ev >= 0 ? 'pos' : 'neg'}>{stP.ev >= 0 ? '+' : ''}{kr(stP.ev)}</b>
-                {' '}· ROI {stP.roi == null ? '–' : (stP.roi * 100).toFixed(0) + ' %'} — den ärliga siffran tidigt i veckan.
-              </div>
-            )
-          })()}
+          {/* Var tidigare en andra beräkning "vid förväntad slutomsättning", men
+              systemStats läser projected_turnover FÖRST och ignorerade därför den
+              överskrivna omsättningen — raden kunde aldrig visa annat än KPI:erna
+              ovanför. Byggaren värderar alltid mot prognosen (glädjesiffror annars,
+              särskilt vid jackpot); raden säger nu det, och förklarar varför
+              kupongen till höger kan visa andra tal. */}
+          {payouts?.projected_turnover > payouts?.turnover && (
+            <div className="rule" title={`Potterna växer mot spelstopp men det gör medvinnarna också.${payouts.projection_basis ? `\nPrognosgrund: ${payouts.projection_basis.mode === 'weekday' ? `median av ${payouts.projection_basis.n} senaste omgångarna med samma spelstoppsveckodag (${['mån', 'tis', 'ons', 'tors', 'fre', 'lör', 'sön'][payouts.projection_basis.weekday] ?? '?'})` : `median av senaste ${payouts.projection_basis.n} omgångarna oavsett veckodag (backtestet visar att den träffar bättre för produkten, eller för få jämförbara)`}.` : ''}`}>
+              Talen ovan är räknade mot <b>förväntad slutomsättning {kr(payouts.projected_turnover)}</b>
+              {' '}— den ärliga horisonten tidigt i veckan. Kupongen till höger står som
+              standard på dagens omsättning ({kr(payouts.turnover)}) och visar därför
+              mindre potter; tryck <b>→ prognos</b> där för att jämföra samma sak.
+            </div>
+          )}
           {payouts?.available && (
             <>
               {mc && <p className="hint">Detaljtabellen nedan är den snabba radvisa approximationen.
                 Portföljkortet ovan är huvudvärderingen för det genererade systemet.</p>}
-              <PayoutTable s={st} tiers={payTiers} effTurnover={payouts.turnover || 0}
-                turnoverOverridden={false} jackpot={sys.jackpot ?? payouts.jackpot ?? 0} />
+              <PayoutTable s={st} tiers={payTiers} payouts={payouts}
+                jackpot={sys.jackpot ?? payouts.jackpot ?? 0} />
             </>
           )}
         </>
@@ -2277,7 +2280,16 @@ function systemStats(sys, matches, payouts) {
 }
 
 /* Liten tabell: lägsta/medel/högsta förväntad utdelning per vinstnivå. */
-function PayoutTable({ s, tiers, effTurnover, turnoverOverridden, jackpot }) {
+/* Omsättningen läses ur `s.turnover` — den som potterna FAKTISKT byggdes med.
+   Tidigare skickades den in separat, och byggaren skickade live-omsättningen
+   till en tabell vars potter kom ur prognosen: fottexten beskrev alltså ett
+   annat underlag än raderna ovanför den. Basen härleds nu i stället genom att
+   jämföra mot de två kända ankarna, så texten och talen inte kan gå isär. */
+function PayoutTable({ s, tiers, payouts, jackpot }) {
+  const effTurnover = s.turnover || 0
+  const basis = effTurnover === payouts?.turnover ? 'live'
+    : effTurnover === payouts?.projected_turnover ? 'prognostiserad slutomsättning'
+      : 'justerad'
   return (
     <>
       <table className="grid compact paytable">
@@ -2305,7 +2317,7 @@ function PayoutTable({ s, tiers, effTurnover, turnoverOverridden, jackpot }) {
           })}
         </tbody>
       </table>
-      <p className="hint">*Prispott = omsättning ({kr(effTurnover)}{turnoverOverridden ? ', justerad' : ', live'})
+      <p className="hint">*Prispott = omsättning ({kr(effTurnover)}, {basis})
         × Svenska Spels vinstplan{jackpot ? ` + jackpot ${kr(jackpot)}` : ''}. Lägsta/högsta = utdelningens
         spann beroende på om en favorit-tung eller skräll-rad vinner; medel är sannolikhetsviktat.
         Toppnivån bygger på radens exakta streckprodukt. Lägre nivåers medvinnare är en
@@ -2539,8 +2551,7 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
             )
           })()}
           {payouts?.available && s.modelOk && (
-            <PayoutTable s={s} tiers={payTiers} effTurnover={effTurnover}
-              turnoverOverridden={turnover != null} jackpot={jackpot} />
+            <PayoutTable s={s} tiers={payTiers} payouts={payouts} jackpot={jackpot} />
           )}
           {s.rowMode && (
             <RowExplorer rows={pickRows} matches={matches} payouts={payouts}

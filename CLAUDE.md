@@ -444,6 +444,13 @@ enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
   senaste-6 redovisad i `projection_basis`. EV-/färgsystem räknar mot
   prognosen; EV mot dagens omsättning är glädjesiffror. Jackpotläge saknas
   medvetet (ingen jackpotkolumn i settlementlagret).
+  **Byggaren (`systemStats`) värderar alltid mot prognosen, kupongen
+  (`couponStats`) mot LIVE tills användaren trycker `→ prognos`** — därför
+  visar de två panelerna olika tal på samma system, och skillnaden är exakt
+  omsättningskvoten. Det är avsiktligt, men måste sägas ut i UI:t.
+  `PayoutTable` härleder omsättning OCH etikett ur `s.turnover`, dvs. den
+  potterna faktiskt byggdes med; skicka aldrig in omsättningen separat
+  (2026-08-06 beskrev byggarens fottext prognospotter som `live`).
 
 ### Export till Svenska Spel ("Egna rader")
 
