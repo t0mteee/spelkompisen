@@ -409,7 +409,23 @@ Lägger du till en sharp-referens (börs, andra sharp-böcker) MÅSTE den in i
 `ANCHOR_SOURCES`, annars förorenar den CLV-facitet. Spärren är låst av
 `tests/test_oddset_value.py::AnchorSourceTests` sedan 2026-07-25.
 
-Andra ankaret (`ANCHOR2_SOURCE`, i dag Smarkets) MÄTS i skugga på varje flagga
+**CLOSING-DRIFT (v8, 2026-08-07):** `fair` är inte Pinnacles pris NU utan en
+skattning av var det STÄNGER. Mätt på 10 908 parade observationer driftar
+Pinnacle systematiskt per band: favoriter −0,61 pp, outsiders +0,32 pp,
+mitten inte alls — konstant mellan T−24h och T−3h, ~5× mindre vid T−20m.
+Följden i facitet var att favoritflaggor gav +0,29 % close-EV (KI rymmer
+noll) mot outsiders +5,96 %. `drift_adjust` korrigerar per band i två
+tidsregimer; bandet sätts på den OJUSTERADE sannolikheten (annars cirkulärt)
+och summan normaliseras INTE om (det är en nivåkorrigering, ingen devigering).
+Detta är INTE momentum — korrelationen tidig/sen rörelse är +0,020, R²=0,000.
+Se `docs/closing-drift-v8-forregistrering-2026-08-07.md`.
+
+Andra ankaret är BORTKOPPLAT 2026-08-07: Smarkets har 56 030 priser på 1X2
+och NOLL på AH/Ö/U/hörnor, så den kunde bara mäta 24 % av flaggorna och 271
+frånvaronoteringar var brus om ett känt hål. **Spärren i `ANCHOR_SOURCES`
+står kvar** — den är en SÄKERHETSSPÄRR, inte en användning: utan den blir
+Smarkets en spelbar bok igen (184 av 476 felaktiga flaggor 2026-07-25).
+Historiska rader: andra ankaret (`ANCHOR2_SOURCE`) MÄTTES i skugga på varje flagga
 (`anchor2_*` i `oddset_value_log`, ⚓-raden i Signal-loggen) men får ALDRIG
 påverka urval, edge, q eller notiser: en selektionsändring byter
 `signal_version` och nollställer facitgruppen. Promotion till gate sker bara

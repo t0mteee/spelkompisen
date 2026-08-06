@@ -258,6 +258,61 @@ class ClosingFreshnessTests(unittest.TestCase):
         self.assertEqual(0.25, row["line_move_score"])
 
 
+class ClosingDriftTests(unittest.TestCase):
+    """v8, förregistrerad i docs/closing-drift-v8-forregistrering-2026-08-07.
+
+    Vi jämförde bokens pris mot Pinnacles NUVARANDE pris, alltså som om
+    dagens pris vore stängningen. Mätt på 10 908 parade observationer driftar
+    Pinnacle systematiskt per band: favoriter −0,61 pp, outsiders +0,32 pp.
+    Följden i facitet var att favoritflaggorna gav +0,29 % close-EV med ett
+    KI som rymmer noll, medan outsiders gav +5,96 %.
+    """
+
+    def test_favoriter_dras_ned_och_outsiders_upp_tidigt(self) -> None:
+        fair = {"1": 0.60, "X": 0.25, "2": 0.15}
+        ut = oddset_value.drift_adjust(fair, hours_to_start=24.0)
+        self.assertAlmostEqual(0.60 - 0.0060, ut["1"], places=6)
+        self.assertAlmostEqual(0.25, ut["X"], places=6, msg="mittbandet orört")
+        self.assertAlmostEqual(0.15 + 0.0030, ut["2"], places=6)
+
+    def test_driften_krymper_nara_avspark(self) -> None:
+        """Mätt: driften är ~5× mindre vid T−20m än vid T−3h."""
+        fair = {"1": 0.60, "X": 0.25, "2": 0.15}
+        sent = oddset_value.drift_adjust(fair, hours_to_start=0.3)
+        self.assertAlmostEqual(0.60 - 0.0012, sent["1"], places=6)
+        self.assertAlmostEqual(0.15 + 0.0007, sent["2"], places=6)
+        tidigt = oddset_value.drift_adjust(fair, hours_to_start=24.0)
+        self.assertLess(abs(sent["1"] - 0.60), abs(tidigt["1"] - 0.60))
+
+    def test_bandet_sätts_på_ojusterad_sannolikhet(self) -> None:
+        """Annars blir gränsen cirkulär: en justering skulle kunna flytta ett
+        tecken mellan band och därmed ändra sin egen justering."""
+        fair = {"1": 0.5005, "X": 0.3, "2": 0.1995}
+        ut = oddset_value.drift_adjust(fair, hours_to_start=24.0)
+        # 0,5005 är favorit FÖRE justering och ska dras ned med favorittalet
+        self.assertAlmostEqual(0.5005 - 0.0060, ut["1"], places=6)
+        # 0,1995 är outsider före justering
+        self.assertAlmostEqual(0.1995 + 0.0030, ut["2"], places=6)
+
+    def test_utan_starttid_justeras_ingenting(self) -> None:
+        """Hellre oförändrad än gissad regim."""
+        fair = {"1": 0.60, "X": 0.25, "2": 0.15}
+        self.assertEqual(fair, oddset_value.drift_adjust(fair, None))
+
+    def test_justeringen_ingar_i_signalversionen(self) -> None:
+        """Selektionen ändras ⇒ facitet MÅSTE börja om."""
+        self.assertIn("closing_drift", oddset_value.SHARP_PARAMS)
+        self.assertEqual("band-v8",
+                         oddset_value.SHARP_PARAMS["closing_drift"])
+
+    def test_sannolikheter_haller_sig_inom_intervallet(self) -> None:
+        extrem = {"1": 0.9995, "X": 0.0004, "2": 0.0001}
+        ut = oddset_value.drift_adjust(extrem, hours_to_start=24.0)
+        for p in ut.values():
+            self.assertGreater(p, 0.0)
+            self.assertLess(p, 1.0)
+
+
 class AnchorSourceTests(unittest.TestCase):
     """🎯 ANKARE ≠ BOK + andra ankaret som REN mätning.
 
@@ -304,22 +359,22 @@ class AnchorSourceTests(unittest.TestCase):
             self.assertEqual((v["edge"], v["q"], v["odds"], v["book"]),
                              (m["edge"], m["q"], m["odds"], m["book"]))
 
-    def test_andra_ankaret_loggas_med_egen_edge_och_oenighet(self) -> None:
+    def test_andra_ankaret_ar_bortkopplat_men_sparren_star_kvar(self) -> None:
+        """Smarkets kopplades bort som ankare 2026-08-07: den har 56 030
+        priser på 1X2 och NOLL på AH/Ö/U/hörnor, så den kunde bara mäta 24 %
+        av flaggorna och 271 frånvaronoteringar var brus om ett känt hål.
+
+        SPÄRREN i ANCHOR_SOURCES är en annan sak och MÅSTE stå kvar — utan
+        den blir Smarkets en spelbar bok igen (184 av 476 felaktiga flaggor
+        2026-07-25)."""
         match = self._match()
         oddset_value.attach_value([match])
-        a2 = match["value"]["1x2"]["1"]["anchor2"]
-        self.assertEqual(oddset_value.ANCHOR2_SOURCE, a2["source"])
-        # Pinnacle 2.00 vs Smarkets 2.05 på "1" ⇒ ankare 2 ger LÄGRE fair,
-        # alltså lägre edge mot samma bokpris. Oenigheten ska vara mätbar.
-        self.assertLess(a2["edge"], match["value"]["1x2"]["1"]["edge"])
-        self.assertGreater(a2["disagree_pp"], 0)
-
-    def test_saknat_andra_ankare_ger_skal_inte_tyst_enighet(self) -> None:
-        match = self._match(with_anchor=False)
-        oddset_value.attach_value([match])
-        a2 = match["value"]["1x2"]["1"]["anchor2"]
-        self.assertIsNone(a2.get("fair"))
-        self.assertTrue(a2.get("note"))
+        self.assertNotIn("anchor2", match["value"]["1x2"]["1"],
+                         "ankare 2 ska inte längre skrivas på posten")
+        self.assertIn("smarkets", oddset_value.ANCHOR_SOURCES,
+                      "säkerhetsspärren får aldrig tas bort med mätningen")
+        # och Smarkets får fortfarande aldrig bli den bok vi hittar värde hos
+        self.assertNotEqual("smarkets", match["value"]["1x2"]["1"]["book"])
 
     def test_stangningen_mater_bada_ankarna(self) -> None:
         """Stängningen ska spara ankare 2:s fair — och lämna den NULL när

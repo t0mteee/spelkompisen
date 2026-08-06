@@ -111,11 +111,61 @@ MARKET_LABEL = {"1x2": "1X2", "ah": "AH", "ou": "Ö/U", "cor": "Hörnor"}
 # Signal-relevanta parametrar för SHARP-tiern (devig + trösklar + linjeregel) —
 # grunden för sharp-sidans signal_version. Notisvakten ingår INTE: den styr
 # larm, inte vilka flaggor som väljs/värderas.
+# CLOSING-DRIFT (v8, 2026-08-07 — docs/closing-drift-v8-forregistrering-...).
+# Vi jämförde bokens pris mot Pinnacles NUVARANDE pris, alltså som om dagens
+# pris vore stängningspriset. Det är det inte: mätt på 10 908 parade
+# observationer driftar Pinnacles egen devigade sannolikhet systematiskt per
+# BAND fram till stängning — favoriter ned, outsiders upp, mitten inte alls.
+#
+# Följden syntes rakt i facitet: våra favoritflaggor gav +0,29 % close-EV med
+# ett KI som rymmer noll (124 st), medan outsiders gav +5,96 %. Vi flaggade
+# alltså mot en falsk marginal som marknaden åt upp till stängning.
+#
+# Driften är i praktiken KONSTANT mellan T−24h och T−3h och krymper ~5× till
+# T−20m, därav två regimer i stället för en glidande skala. Detta är INTE
+# momentum: korrelationen mellan tidig och sen rörelse är +0,020 (R²=0,000),
+# så trenden går inte att rida. Det här är en nivåkorrigering per band.
+DRIFT_EARLY_H = 3.0          # gränsen mellan de två regimerna, i timmar
+DRIFT_FAV_P = 0.50           # band sätts på Pinnacles OJUSTERADE fair
+DRIFT_OUT_P = 0.25
+DRIFT_EARLY = {"fav": -0.0060, "mid": 0.0, "out": +0.0030}
+DRIFT_LATE = {"fav": -0.0012, "mid": 0.0, "out": +0.0007}
+
 SHARP_PARAMS = {"devig": "power", "edge_log": EDGE_LOG,
                 "same_line": True, "best_book": True,
                 "price_max_age_min": PRICE_MAX_AGE_MIN,
                 "price_presence": PRICE_PRESENCE_VERSION,
-                "alt_lines": True}   # samma-linje via sharpens alt-linjer (2026-07-20)
+                "alt_lines": True,   # samma-linje via sharpens alt-linjer (2026-07-20)
+                # ingår i fingeravtrycket: selektionen ändras, alltså MÅSTE
+                # signalversionen byta och facitet börja om
+                "closing_drift": "band-v8",
+                "drift_early": sorted(DRIFT_EARLY.items()),
+                "drift_late": sorted(DRIFT_LATE.items()),
+                "drift_split_h": DRIFT_EARLY_H}
+
+
+def drift_adjust(fair: dict[str, float], hours_to_start: Optional[float]
+                 ) -> dict[str, float]:
+    """Korrigera devigad sharp-fair mot FÖRVÄNTAD stängning.
+
+    Bandet bestäms på den OJUSTERADE sannolikheten — annars blir gränsen
+    cirkulär (en justering skulle kunna flytta ett tecken mellan band och
+    därmed ändra sin egen justering).
+
+    Sannolikheterna normaliseras medvetet INTE om efteråt. Det här korrigerar
+    ett skattningsfel i nivå, det är ingen ny devigering; att tvinga tillbaka
+    summan till 1 hade ätit upp precis den asymmetri mätningen visar.
+    """
+    if hours_to_start is None:
+        return fair
+    table = DRIFT_EARLY if hours_to_start >= DRIFT_EARLY_H else DRIFT_LATE
+    out = {}
+    for sign, p in fair.items():
+        band = ("fav" if p >= DRIFT_FAV_P
+                else "out" if p < DRIFT_OUT_P else "mid")
+        # golv/tak: en justering får aldrig skapa en omöjlig sannolikhet
+        out[sign] = min(0.999, max(0.001, p + table[band]))
+    return out
 
 
 def _devig(odds: dict, signs: tuple) -> Optional[dict[str, float]]:
@@ -239,6 +289,16 @@ def attach_value(matches: list[dict]) -> None:
                  if src != "pinnacle" and src not in ANCHOR_SOURCES
                  and src not in SHADOW_SOURCES}
         alt = m.get("sharp_alt") or {}
+        # Timmar kvar till avspark styr vilken driftregim som gäller. Saknas
+        # starttid görs ingen justering alls — hellre oförändrad än gissad.
+        hours_left = None
+        if m.get("start"):
+            try:
+                start_dt = dt.datetime.fromisoformat(
+                    m["start"].replace("Z", "+00:00"))
+                hours_left = (start_dt - now_dt).total_seconds() / 3600.0
+            except ValueError:
+                hours_left = None
         for market, signs in _MARKET_SIGNS.items():
             p = pin.get(market)
             if not p or not p.get("fresh"):
@@ -246,9 +306,7 @@ def attach_value(matches: list[dict]) -> None:
             fair_main = _devig(p, signs)
             if not fair_main:
                 continue
-            # ankare 2 räknas EN gång per marknad och används bara som mätvärde
-            # på den färdiga posten — aldrig i `best`-jämförelsen nedan.
-            a2_fair, a2_note = anchor2_fair(odds, market, signs)
+            fair_main = drift_adjust(fair_main, hours_left)
             for sign in signs:
                 # bästa EDGE över böckerna: samma-linje-regeln uppfylls antingen
                 # via huvudlinan eller via sharpens alt-linje på BOKENS lina —
@@ -263,8 +321,13 @@ def attach_value(matches: list[dict]) -> None:
                     if market == "1x2" or p.get("line") == s.get("line"):
                         fair_here = fair_main
                     else:
+                        # Alt-linjen är samma sorts sharp-pris och driftar
+                        # likadant — den måste justeras med, annars vore
+                        # huvudlinan och alt-linan olika estimand.
                         fair_here = _alt_fair(alt.get(market) or {},
                                               s.get("line"), signs, now_dt)
+                        if fair_here:
+                            fair_here = drift_adjust(fair_here, hours_left)
                         via_alt = fair_here is not None
                     if not fair_here:
                         continue
@@ -287,16 +350,14 @@ def attach_value(matches: list[dict]) -> None:
                     # Det påverkar inte edge, urval, notiser eller signalversion.
                     entry["held_after_sharp"] = True
                     entry["sharp_changed_at"] = p.get("fetched_at")
-                # skuggmätning: samma pris, andra ankarets fair. Endast för
-                # loggen/UI-informationen — `edge` ovan är oberörd.
-                a2: dict = {"source": ANCHOR2_SOURCE}
-                if a2_fair and not (via_alt or market != "1x2"):
-                    a2["fair"] = round(a2_fair[sign], 4)
-                    a2["edge"] = round(a2_fair[sign] * o - 1.0, 4)
-                    a2["disagree_pp"] = round((fp - a2_fair[sign]) * 100, 2)
-                else:
-                    a2["note"] = a2_note or "ankare 2 saknar flaggans lina"
-                entry["anchor2"] = a2
+                # ANDRA ANKARET BORTKOPPLAT 2026-08-07. Smarkets har 56 030
+                # priser på 1X2 och NOLL på AH/Ö/U/hörnor, så den kunde bara
+                # mäta 225 av 931 sharp-flaggor (24 %) — och 271 av
+                # frånvaronoteringarna var "saknar AH"/"saknar Ö/U", alltså
+                # brus om ett känt strukturellt hål. Spärren i
+                # ANCHOR_SOURCES står kvar: den är en SÄKERHETSSPÄRR, inte en
+                # användning. Utan den blir Smarkets en spelbar bok igen, och
+                # det gav 184 av 476 felaktiga sharp-flaggor 2026-07-25.
                 val.setdefault(market, {})[sign] = entry
 
 
@@ -398,7 +459,6 @@ def log_and_notify(store: Storage, matches: list[dict],
             for sign, v in per_sign.items():
                 if v["edge"] < EDGE_LOG or v.get("derived"):
                     continue
-                a2 = v.get("anchor2") or {}
                 store.oddset_log_flag({
                     "match_id": m["id"], "market": market, "sign": sign,
                     "line": v.get("line"), "league": m.get("league"),
@@ -407,10 +467,10 @@ def log_and_notify(store: Storage, matches: list[dict],
                     "edge": v["edge"], "book": v.get("book"),
                     "model_version": vers["sharp"], "git_hash": git,
                     # skuggmätning — ingår INTE i signalversionen
-                    "anchor2_source": a2.get("source"),
-                    "anchor2_fair": a2.get("fair"),
-                    "anchor2_edge": a2.get("edge"),
-                    "anchor2_note": a2.get("note")})
+                    # ankare 2 bortkopplat 2026-08-07; kolumnerna behålls i
+                    # tabellen för historikens skull men fylls inte längre
+                    "anchor2_source": None, "anchor2_fair": None,
+                    "anchor2_edge": None, "anchor2_note": None})
                 n_logged += 1
                 if v.get("q", 0) >= Q_NOTIFY:
                     if not _fresh(m["id"], v.get("book"), market):
