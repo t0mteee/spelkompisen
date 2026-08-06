@@ -135,8 +135,8 @@ class LiveRadarTests(unittest.TestCase):
             self.assertEqual(0, live_radar.LEAGUE_PRIORITY[key],
                              "cuperna får inte klippas som friendlies")
 
-    def test_v6_och_alla_synliga_ligor_har_liveprioritet(self):
-        self.assertEqual("chance-gap-shadow-v6", live_radar.RADAR_VERSION)
+    def test_v7_och_alla_synliga_ligor_har_liveprioritet(self):
+        self.assertEqual("chance-gap-shadow-v7", live_radar.RADAR_VERSION)
         # Passerade gränser är frysta — en ändring skulle märka om historiska
         # captures och tyst blanda ihop kohorterna.
         self.assertEqual("2026-08-01T08:00:00Z",
@@ -146,6 +146,8 @@ class LiveRadarTests(unittest.TestCase):
         self.assertEqual("2026-08-03T06:00:00Z",
                          live_radar.RADAR_V5_STARTED_AT)
         self.assertEqual("2026-08-06T16:45:00Z",
+                         live_radar.RADAR_V6_STARTED_AT)
+        self.assertEqual("2026-08-06T21:40:00Z",
                          live_radar.RADAR_VERSION_STARTED_AT)
         for key in ("bestadeild", "premier_league", "serie_a", "la_liga",
                     "bundesliga"):
@@ -737,6 +739,60 @@ class LiveRadarTests(unittest.TestCase):
         loose_twin = series("KuPS Kuopio", "Universitatea Craiova", 3)
         self.assertIsNone(
             live_radar._linked_series(anchor, [exact, loose_twin]))
+
+    def test_proxy_fires_on_the_fields_the_provider_actually_sends(self):
+        """v7, förregistrerad i docs/radar-proxy-v7-forregistrering-2026-08-07.
+
+        Villkoret krävde `skott i box`, som bara finns i 43 % av matcherna —
+        exakt de som ändå har xG. Proxyn tillförde därför NOLL matcher utöver
+        xG-signalen medan 59 % aldrig kunde få någon signal alls.
+        `farliga skott` = på mål + blockerade har 100 % täckning.
+        """
+        bas = {"home": "Hem", "away": "Borta", "minute": 60,
+               "home_score": 0, "away_score": 0,
+               "shots_on_home": 6, "shots_on_away": 1,
+               "shots_blocked_home": 3, "shots_blocked_away": 0,
+               "shots_home": 14, "shots_away": 3,
+               "corners_home": 7, "corners_away": 1}
+        signal = live_radar.radar_signal(bas)
+        self.assertEqual("proxy", signal["kind"])
+        self.assertEqual("watch", signal["level"],
+                         "6 på mål + 3 blockerade = 9 farliga, 0 mål")
+        self.assertIn("farliga", signal["reason"])
+
+        # Tröskelvärdena är OFÖRÄNDRADE: 5 på mål minus mål, 8 farliga.
+        under = live_radar.radar_signal({**bas, "shots_on_home": 4})
+        self.assertEqual("info", under["level"], "4 − 0 < 5 på mål")
+        fa_farliga = live_radar.radar_signal(
+            {**bas, "shots_on_home": 5, "shots_blocked_home": 2})
+        self.assertEqual("info", fa_farliga["level"], "5 + 2 = 7 < 8 farliga")
+
+        # Mål äter gapet, precis som förut.
+        med_mal = live_radar.radar_signal({**bas, "home_score": 2})
+        self.assertEqual("info", med_mal["level"], "6 − 2 < 5")
+
+    def test_proxy_still_prefers_big_chances_when_they_exist(self):
+        """Den rikare grenen är oförändrad — v7 lägger till, tar inte bort."""
+        signal = live_radar.radar_signal({
+            "home": "Hem", "away": "Borta", "minute": 55,
+            "home_score": 0, "away_score": 0,
+            "big_chances_home": 2, "big_chances_away": 0,
+            "shots_on_home": 2, "shots_on_away": 1,
+            "shots_inside_home": 5, "shots_inside_away": 2})
+        self.assertEqual("proxy", signal["kind"])
+        self.assertEqual("watch", signal["level"], "2 stora chanser, 0 mål")
+        self.assertIn("stora chanser", signal["reason"])
+
+    def test_base_package_row_is_not_ranked_as_partial(self):
+        """Rankningen måste spegla proxyns AKTIVERING. Med `inside` kvar där
+        hade en rad som visst kan signalera rankats som partiell och kunnat
+        döljas av en sämre källa."""
+        bas = {"shots_on_home": 6, "shots_on_away": 2,
+               "shots_blocked_home": 3, "shots_blocked_away": 1}
+        self.assertEqual(2, live_radar._stats_rank(bas)[0])
+        # xG slår fortfarande allt.
+        self.assertEqual(
+            4, live_radar._stats_rank({**bas, "xg_home": 1.2, "xg_away": 0.3})[0])
 
     def test_alias_survives_the_country_label(self):
         """Aliaset slogs upp på hela strängen, alltså på `goteborg (swe)` —

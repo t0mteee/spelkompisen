@@ -289,11 +289,22 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
   Följer→Stark-eskalering får finnas i diagnostiken men får inte dubblera
   blindtestet). Minst 200 oddssatta+avgjorda signalmatcher, minst 60 dagar och
   undre KI90 > 0 krävs före stöd; inga historiska liveodds bakfylls.
-  **Aktiv signalversion är `chance-gap-shadow-v6` från exakt
-  2026-08-06T16:45:00Z** (`docs/live-radar-v6-2026-08-06.md`). Bumpen samlar
-  fyra ändringar i samma process: Sofascore urkopplad som livekälla,
-  Flashscore som ankare, tvåstegs namnlänkning och fem nya måttpar (som även
-  ändrar källrankningen). v5 (2026-08-03T06Z→) samlade i sin tur tre
+  **Aktiv signalversion är `chance-gap-shadow-v7` från exakt
+  2026-08-06T21:40:00Z**
+  (`docs/radar-proxy-v7-forregistrering-2026-08-07.md`). Proxysignalens
+  aktivering krävde `skott i box` — ett fält som bara finns i 43 % av
+  matcherna, nämligen exakt de som ändå har xG. Proxyn tillförde därför NOLL
+  matcher utöver xG-signalen medan 59 % aldrig kunde få någon signal alls.
+  Villkoret använder nu `farliga skott` = på mål + blockerade (100 %
+  täckning); TRÖSKELVÄRDENA ÄR OFÖRÄNDRADE — ett fält byts, ingen ny
+  frihetsgrad. Validerat: korrelation 0,890 mot skott i box och samma svar
+  vid tröskel ≥8 i 91 % av 1 342 observationer. Räckvidden gick 43 % → 100 %,
+  utlösningsfrekvensen 29 % av matcherna. Proxyn är ETT ENHETSLÖST INDEX
+  (`proxy_index`) och får aldrig uttryckas i mål — en regression av xG på
+  skottmåtten gav negativ hörnkoefficient och ett fel lika stort som
+  signalen. v6 (2026-08-06T16:45Z→) samlade fyra ändringar i samma process:
+  Sofascore urkopplad som livekälla, Flashscore som ankare, flerstegs
+  namnlänkning och fem nya måttpar (som även ändrar källrankningen). v5 (2026-08-03T06Z→) samlade i sin tur tre
   identitetsfixar, riktad koherensvakt, `df_sur`-ställning och spegellänk med
   transponering (`_mirrored_capture` — en spegelvänd providerserie uttrycks i
   ankarets orientering, aldrig rå). v4 (2026-08-01T21Z→) och ogiltiga piloten

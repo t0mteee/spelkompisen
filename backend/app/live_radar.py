@@ -38,7 +38,8 @@ RADAR_V3_VERSION = "chance-gap-shadow-v3"
 RADAR_V4_VERSION = "chance-gap-shadow-v4"
 RADAR_V5_VERSION = "chance-gap-shadow-v5"
 RADAR_V6_VERSION = "chance-gap-shadow-v6"
-RADAR_VERSION = RADAR_V6_VERSION
+RADAR_V7_VERSION = "chance-gap-shadow-v7"
+RADAR_VERSION = RADAR_V7_VERSION
 
 # En observation som inte bevisligen hör till någon kohort. Se `cohort_for`.
 RADAR_TRANSITIONAL = "transitional"
@@ -48,12 +49,14 @@ RADAR_TRANSITIONAL = "transitional"
 RADAR_V3_STARTED_AT = "2026-08-01T08:00:00Z"
 RADAR_V4_STARTED_AT = "2026-08-01T21:00:00Z"
 RADAR_V5_STARTED_AT = "2026-08-03T06:00:00Z"
-# v6 (2026-08-06): Sofascore urkopplad som livekälla, Flashscore blir ankare,
-# kontextlänkning av internationella kortnamn, och fem nya måttpar ur
-# Flashscore-feeden (däribland `touches_box`, som ingick i täckningsrankningen
-# utan att någon källa kunde fylla det). Fyra ändringar i samma
-# datagenererande process — kohorten börjar om, v5 blandas aldrig in.
-RADAR_VERSION_STARTED_AT = "2026-08-06T16:45:00Z"
+RADAR_V6_STARTED_AT = "2026-08-06T16:45:00Z"
+# v7 (2026-08-07): proxysignalens aktivering bytte `skott i box` (43 %
+# täckning) mot `farliga skott` = på mål + blockerade (100 %). Tröskelvärdena
+# är oförändrade — det är ett fält som byts, inte en ny frihetsgrad. Före
+# bytet tillförde proxyn NOLL matcher utöver xG-signalen och 59 % av
+# matcherna kunde aldrig få en signal. Förregistrering med mätningar:
+# docs/radar-proxy-v7-forregistrering-2026-08-07.md
+RADAR_VERSION_STARTED_AT = "2026-08-06T21:40:00Z"
 
 # OBSERVERADE växlingar — när koden faktiskt bytte.
 #
@@ -581,6 +584,7 @@ def radar_signal(current: dict, previous: Optional[dict] = None) -> dict:
     proxy_keys = (
         "big_chances_home", "big_chances_away",
         "shots_on_home", "shots_on_away",
+        "shots_blocked_home", "shots_blocked_away",
         "shots_inside_home", "shots_inside_away",
         "touches_box_home", "touches_box_away",
     )
@@ -598,11 +602,23 @@ def radar_signal(current: dict, previous: Optional[dict] = None) -> dict:
     # Allsvenskan saknar ofta xG. Proxyflaggan är medvetet strikt och märks
     # som observationssignal; Claudes 220-matcherstest gav inget stöd för att
     # rena skott förutsäger mål i nästa 15 minuter.
+    #
+    # v7 (2026-08-07, docs/radar-proxy-v7-forregistrering-2026-08-07.md):
+    # villkoret krävde `skott i box`, som bara finns i 43 % av matcherna —
+    # exakt de matcher som ändå har xG. Proxyn tillförde därför NOLL matcher
+    # utöver xG-signalen, och 59 % av matcherna kunde aldrig få någon signal
+    # alls. `farliga skott` = på mål + blockerade har 100 % täckning och är
+    # nära utbytbart: korrelation 0,890 mot skott i box, och samma svar vid
+    # tröskel ≥8 i 91 % av 1 342 observationer. Tröskelvärdena är OFÖRÄNDRADE
+    # — det är ett fält som byts, inte en ny frihetsgrad.
     proxy = []
     for side in sides:
         proxy.append(
             _num(current, f"big_chances_{side}") * 0.40
             + _num(current, f"shots_on_{side}") * 0.12
+            # blockerat skott var på väg mot mål: vikt mellan `på mål` och
+            # `i box`, inte en egen kalibrering
+            + _num(current, f"shots_blocked_{side}") * 0.05
             + _num(current, f"shots_inside_{side}") * 0.025
             + _num(current, f"touches_box_{side}") * 0.008)
     gaps = [proxy[i] - goals[i] for i in range(2)]
@@ -610,10 +626,11 @@ def radar_signal(current: dict, previous: Optional[dict] = None) -> dict:
     side = sides[index]
     big = int(_num(current, f"big_chances_{side}"))
     on_target = int(_num(current, f"shots_on_{side}"))
-    inside = int(_num(current, f"shots_inside_{side}"))
+    dangerous = int(_num(current, f"shots_on_{side}")
+                    + _num(current, f"shots_blocked_{side}"))
     active = (20 <= minute <= 78 and remaining >= 12 and
               (big - goals[index] >= 1.5 or
-               (on_target - goals[index] >= 5 and inside >= 8)))
+               (on_target - goals[index] >= 5 and dangerous >= 8)))
     team = current["home"] if index == 0 else current["away"]
     return {
         "level": "watch" if active else "info",
@@ -632,8 +649,13 @@ def radar_signal(current: dict, previous: Optional[dict] = None) -> dict:
         # internord, och att xG saknas står redan ovanför. Förbehållet om att
         # skottmåttet är oprövat hör i radarns fotnot, en gång.
         "reason": (
-            f"{team}: {big} stora chanser, {on_target} skott på mål "
-            f"men {int(goals[index])} mål"
+            (f"{team}: {big} stora chanser, {on_target} skott på mål "
+             f"men {int(goals[index])} mål"
+             if big else
+             # Utan stora chanser är `farliga skott` det som bär villkoret —
+             # då ska texten säga just det, inte ett nollvärde.
+             f"{team}: {on_target} skott på mål och {dangerous} farliga "
+             f"skott men {int(goals[index])} mål")
             if active else
             f"{team} leder chansräkningen — inget utstick ännu"),
     }
@@ -792,7 +814,8 @@ def previous_capture(earlier: list[dict],
 def declared_version_at(observed_at: str) -> str:
     """Vilken kohort som DEKLARERAT äger observationsögonblicket."""
     observed = _parse_iso(observed_at)
-    for version, start in ((RADAR_V6_VERSION, RADAR_VERSION_STARTED_AT),
+    for version, start in ((RADAR_V7_VERSION, RADAR_VERSION_STARTED_AT),
+                           (RADAR_V6_VERSION, RADAR_V6_STARTED_AT),
                            (RADAR_V5_VERSION, RADAR_V5_STARTED_AT),
                            (RADAR_V4_VERSION, RADAR_V4_STARTED_AT),
                            (RADAR_V3_VERSION, RADAR_V3_STARTED_AT)):
@@ -1240,15 +1263,21 @@ def _stats_rank(row: dict) -> tuple[int, int]:
 
     big = pair("big_chances")
     on_target = pair("shots_on")
+    blocked = pair("shots_blocked")
     inside = pair("shots_inside")
     touches = pair("touches_box")
-    complete_pairs = sum((big, on_target, inside, touches))
-    if big and on_target and inside:
+    complete_pairs = sum((big, on_target, blocked, inside, touches))
+    # Nivå 2 är "raden kan bära en proxysignal", så villkoret MÅSTE vara
+    # detsamma som proxyns aktivering. Sedan v7 är den grenen `på mål +
+    # blockerade`; med `inside` kvar här hade en rad som visst kan signalera
+    # rankats som partiell och kunnat döljas av en sämre källa.
+    if big and on_target and (blocked or inside):
         return (3, complete_pairs)
-    if big or (on_target and inside):
+    if big or (on_target and (blocked or inside)):
         return (2, complete_pairs)
     proxy_keys = ("big_chances_home", "big_chances_away",
                   "shots_on_home", "shots_on_away",
+                  "shots_blocked_home", "shots_blocked_away",
                   "shots_inside_home", "shots_inside_away",
                   "touches_box_home", "touches_box_away")
     reported = sum(row.get(key) is not None for key in proxy_keys)
