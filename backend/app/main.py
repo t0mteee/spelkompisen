@@ -819,6 +819,53 @@ def oddset_clv():
         store.close()
 
 
+@app.get("/api/oddset/powerrank")
+def oddset_powerrank(league: str = "allsvenskan"):
+    """Lagstyrka (att/def ur modellens EGEN fit) + xPts-avvikelse per lag.
+
+    AMBER: en visning av modellens syn, aldrig ett beslutsunderlag. Uppmätt
+    förutsäger modellen inte Pinnacles drift till stängning
+    (r = −0,120, 90 % KI [−0,252, +0,034]), så ranken får inte ge stödchip
+    eller påverka edge, urval eller notiser.
+    """
+    from . import oddset_data, oddset_model
+    store = Storage()
+    try:
+        if league == "all":
+            # Hela uppsättningen i ETT anrop — uppmätt 0,5 s för fem ligor,
+            # så matchlistan slipper ett anrop per liga. Bara MODEL_LEAGUES:
+            # utan resultatdata finns ingen styrka att skatta.
+            out = {}
+            for lg in sorted(oddset_data.MODEL_LEAGUES):
+                pool = oddset_model.FIT_POOLS.get(lg, (lg,))
+                rows = []
+                for plg in pool:
+                    rows.extend(oddset_data.merged_results(store, plg))
+                out[lg] = oddset_model.powerrank(rows, league=lg)
+            return {"league": "all", "tier": "amber",
+                    "version": oddset_model.POWERRANK_VERSION,
+                    "by_league": out}
+        pool = oddset_model.FIT_POOLS.get(league, (league,))
+        rows: list[dict] = []
+        for plg in pool:
+            rows.extend(oddset_data.merged_results(store, plg))
+        rank = oddset_model.powerrank(rows, league=league)
+        return {
+            "league": league,
+            "version": oddset_model.POWERRANK_VERSION,
+            "tier": "amber",
+            "pool": list(pool),
+            "n_results": len(rows),
+            "teams": rank,
+            "disclaimer": (
+                "Modellens egen styrkeskattning. Den förutsäger inte "
+                "marknadens rörelse och påverkar inga tips, notiser eller "
+                "CLV."),
+        }
+    finally:
+        store.close()
+
+
 @app.get("/api/oddset/predictions")
 def oddset_predictions():
     """WP5-ledger: alla fasta horisontprediktioner och v3-status per grupp."""

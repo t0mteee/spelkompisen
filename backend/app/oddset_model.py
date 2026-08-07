@@ -621,3 +621,116 @@ def attach_model(store: Storage, matches: list[dict],
                     # först nu så den bär exakt samma modellobjekt som ledgern.
                     m["model"]["comparison"] = market_comparisons(
                         m, m["model"])
+
+
+# ---------------------------------------------------------------- powerrank
+# Lagstyrkorna har funnits sedan Etapp 5 men bara som en intern biprodukt av
+# `fit_league`. Saman 2026-08-07: syndikat rankar lag och justerar ranken mot
+# stats under säsongen, så överpresterande lag dippar och underpresterande
+# vänder. Mekanismen FANNS redan (`XG_WEIGHT` viktar xG över mål), men den
+# gick aldrig att se — och det som inte syns går inte att ifrågasätta.
+#
+# METODSPÄRR: allt här är AMBER. Det är en visning av modellens syn, inte ett
+# beslutsunderlag. Uppmätt förutsäger modellen inte Pinnacles drift till
+# stängning (r = −0,120, 90 % KI [−0,252, +0,034]), så ranken får inte ge
+# stödchip, lyfta ett spelkort eller påverka edge, urval eller notiser. Ska
+# den bli actionable krävs egen förregistrering och grind — samma väg som
+# amber-modellen fälldes på 2026-07-24.
+POWERRANK_VERSION = "powerrank-v1"
+
+
+def expected_points(xg_h: float, xg_a: float,
+                    rho: float = DC_RHO_CLUB) -> tuple[float, float]:
+    """Förväntade poäng ur en matchs xG — inte ur dess mål.
+
+    Poängen ett lag "borde" ha fått givet chanserna det skapade och släppte
+    till. Skillnaden mot faktiska poäng är över-/underprestationen: ett lag
+    som tar fler poäng än sitt xG motiverar har haft tur eller
+    övereffektivitet, och båda regredierar.
+    """
+    matrix = dc_matrix(max(xg_h, 0.01), max(xg_a, 0.01), rho)
+    probs = matrix_1x2(matrix)
+    return (3 * probs["1"] + probs["X"], 3 * probs["2"] + probs["X"])
+
+
+def powerrank(results: list[dict], fit: Optional[dict] = None,
+              league: Optional[str] = None) -> list[dict]:
+    """Lagstyrka + xPts-avvikelse per lag, starkast först.
+
+    `att`/`def` kommer ur den fit modellen FAKTISKT använder — ingen egen
+    parallell skattning som kan glida isär från prognoserna.
+
+    xPts räknas bara på matcher som HAR xG. Ett lag utan xG-täckta matcher
+    får `xpts=None`, aldrig 0: saknad mätning och nollprestation är olika
+    saker, och den skillnaden är hela poängen med måttet.
+    """
+    fit = fit or fit_league(results)
+    if not fit:
+        return []
+    teams = fit.get("teams") or {}
+    agg: dict[str, dict] = {}
+    for row in results:
+        if league and row.get("league") != league:
+            continue
+        hg, ag = row.get("hg"), row.get("ag")
+        if hg is None or ag is None:
+            continue
+        for side, team in (("h", row.get("home")), ("a", row.get("away"))):
+            if not team:
+                continue
+            entry = agg.setdefault(team, {
+                "matches": 0, "pts": 0.0, "xpts": 0.0, "n_xg": 0,
+                "gf": 0, "ga": 0})
+            own, opp = (hg, ag) if side == "h" else (ag, hg)
+            entry["matches"] += 1
+            entry["gf"] += own
+            entry["ga"] += opp
+            entry["pts"] += 3 if own > opp else 1 if own == opp else 0
+        xg_h, xg_a = row.get("xg_h"), row.get("xg_a")
+        if xg_h is None or xg_a is None:
+            continue
+        xp_h, xp_a = expected_points(float(xg_h), float(xg_a))
+        for team, xp in ((row.get("home"), xp_h), (row.get("away"), xp_a)):
+            if team and team in agg:
+                agg[team]["xpts"] += xp
+                agg[team]["n_xg"] += 1
+
+    # Råa namn per normaliserad nyckel: UI:t har matchens namn som providern
+    # skrev det ("GIF Sundsvall"), inte den normaliserade formen. Utan dessa
+    # blev uppslaget en grov substrängsjämförelse som ibland missade.
+    raw: dict[str, set[str]] = {}
+    for row in results:
+        for key, rawkey in (("home", "home_raw"), ("away", "away_raw")):
+            name, rawname = row.get(key), row.get(rawkey)
+            if name and rawname:
+                raw.setdefault(name, set()).add(rawname)
+
+    out = []
+    for team, v in agg.items():
+        strength = teams.get(team)
+        if not strength or v["matches"] < MIN_MATCHES:
+            continue
+        has_xg = v["n_xg"] > 0
+        # Poängen jämförs bara över de matcher xPts kunde räknas på, annars
+        # vore差 en artefakt av täckningen i stället för av prestationen.
+        pts_on_xg = v["pts"] * (v["n_xg"] / v["matches"]) if has_xg else None
+        out.append({
+            "team": team,
+            "aliases": sorted(raw.get(team, set())),
+            "att": round(strength["att"], 3),
+            "def": round(strength["def"], 3),
+            "ratio": round(strength["att"] / max(strength["def"], 1e-6), 3),
+            "matches": v["matches"],
+            "goal_diff": v["gf"] - v["ga"],
+            "points": round(v["pts"], 1),
+            "xpts": round(v["xpts"], 1) if has_xg else None,
+            "n_xg": v["n_xg"],
+            # positivt = laget har tagit FLER poäng än chanserna motiverar,
+            # alltså kandidat för nedgång
+            "overperformance": (round(pts_on_xg - v["xpts"], 1)
+                                if has_xg else None),
+        })
+    out.sort(key=lambda r: -r["ratio"])
+    for i, row in enumerate(out, 1):
+        row["rank"] = i
+    return out

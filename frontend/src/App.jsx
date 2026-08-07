@@ -812,6 +812,112 @@ function oddsetValueTier(v) {
   return { cls: 't1', label: 'SVAG EDGE', short: 'SVAG', disputed }
 }
 
+
+/* ---------- Lagstyrka (powerrank + xPts) — AMBER, aldrig beslutsunderlag ----
+   Styrkorna har alltid funnits som en intern biprodukt av modellens fit; det
+   som saknades var att kunna SE dem. Saman 2026-08-07: syndikat rankar lag
+   och justerar mot stats under säsongen, så överpresterande lag dippar.
+   Mekanismen fanns redan (xG väger 0,65 mot måls 0,35) — men det som inte
+   syns går inte att ifrågasätta.
+
+   Uppmätt förutsäger modellen INTE marknadens rörelse mot stängning
+   (r = −0,120, 90 % KI [−0,252, +0,034]), därför är panelen märkt amber och
+   får inte påverka edge, urval eller notiser. */
+function PowerRankPanel({ leagues }) {
+  const [league, setLeague] = useState('allsvenskan')
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState(null)
+  useEffect(() => {
+    setData(null); setErr(null)
+    fetch(`/api/oddset/powerrank?league=${league}&_t=${Date.now()}`,
+      { cache: 'no-store' })
+      .then((r) => r.json()).then(setData).catch((e) => setErr(String(e)))
+  }, [league])
+
+  const cols = [
+    { key: 'rank', label: '#', defaultDir: 'asc' },
+    { key: 'team', label: 'Lag', defaultDir: 'asc' },
+    { key: 'ratio', label: 'Styrka', title: 'Anfall ÷ försvar ur modellens egen fit' },
+    { key: 'att', label: 'Anfall' },
+    { key: 'def', label: 'Försvar', defaultDir: 'asc' },
+    { key: 'points', label: 'Poäng' },
+    { key: 'xpts', label: 'xPoäng', title: 'Förväntade poäng ur matchernas xG' },
+    { key: 'overperformance', label: 'Över/under',
+      title: 'Poäng minus xPoäng. Positivt = laget har tagit fler poäng än chanserna motiverar och är kandidat för nedgång.' },
+  ]
+  const num = (v, d = 2) => (v == null ? '–' : Number(v).toFixed(d))
+  return (
+    <div className="tab-panel powerrank">
+      <div className="valhead">
+        <b>🏋 Lagstyrka och xPoäng</b>
+        <span className="rchip amber">amber · påverkar inga tips</span>
+        <select value={league} onChange={(e) => setLeague(e.target.value)}>
+          {(leagues || []).map((l) => (
+            <option key={l.key} value={l.key}>{l.name}</option>
+          ))}
+        </select>
+      </div>
+      {err && <ErrorState message={err} />}
+      {!data && !err && <LoadingState label="Räknar styrkor…" />}
+      {data && !data.teams?.length && (
+        <EmptyState title="Ingen styrkeskattning för den här ligan"
+          detail="Modellen kräver resultat med tillräckligt många matcher per lag." />
+      )}
+      {data?.teams?.length > 0 && (
+        <>
+          <p className="hint">
+            Styrka = anfall ÷ försvar ur samma fit som modellens prognoser
+            använder. <b>Över/under</b> är poäng minus förväntade poäng: ett
+            positivt tal betyder att laget tagit mer än chanserna motiverar,
+            alltså en kandidat för nedgång — och tvärtom.
+            {data.pool?.length > 1 && (
+              <> Fitten poolar {data.pool.join(' + ')} så upp- och
+                nedflyttare länkar populationerna.</>
+            )}
+          </p>
+          <SortableTable id="oddset-powerrank" columns={cols} rows={data.teams}
+            defaultSort={{ key: 'rank', dir: 'asc' }}
+            className="grid compact"
+            renderRow={(t) => (
+              <tr key={t.team}>
+                <td>{t.rank}</td>
+                <td className="match-name"><b>{t.team}</b>
+                  <span className="hint"> {t.matches} m</span></td>
+                <td><b>{num(t.ratio)}</b></td>
+                <td>{num(t.att)}</td>
+                <td>{num(t.def)}</td>
+                <td>{t.points}</td>
+                <td>{t.xpts ?? '–'}</td>
+                <td className={t.overperformance == null ? ''
+                  : t.overperformance > 0 ? 'neg' : 'pos'}>
+                  {t.overperformance == null ? '–'
+                    : `${t.overperformance > 0 ? '+' : ''}${t.overperformance}`}
+                </td>
+              </tr>
+            )}
+            renderCard={(t) => (
+              <div key={t.team} className="live-radar-card">
+                <div className="live-radar-teams">
+                  <b>{t.rank}. {t.team}</b>
+                </div>
+                <div className="live-radar-stats">
+                  <span>styrka <b>{num(t.ratio)}</b></span>
+                  <span>poäng <b>{t.points}</b> · xP <b>{t.xpts ?? '–'}</b></span>
+                  <span className={t.overperformance == null ? ''
+                    : t.overperformance > 0 ? 'neg' : 'pos'}>
+                    {t.overperformance == null ? 'xP saknas'
+                      : `${t.overperformance > 0 ? '+' : ''}${t.overperformance} mot xP`}
+                  </span>
+                </div>
+              </div>
+            )} />
+          <p className="hint">{data.disclaimer}</p>
+        </>
+      )}
+    </div>
+  )
+}
+
 function OddsetView({ focus = null } = {}) {
   const [data, setData] = useState(null)
   const [notices, setNotices] = useState(null)
@@ -843,10 +949,17 @@ function OddsetView({ focus = null } = {}) {
   // Sub-tabbar (UI-passet 2026-07-29): sidan delas i Matcher/Live/Värdespel/
   // Rörelser — räknarraden på tabbraden är alltid synlig så tabbarna aldrig
   // döljer brådskande info. Valet persisteras som övriga Oddset-inställningar.
+  // AMBER-kontext, hämtas en gång per sidöppning. Fel här får aldrig fälla
+  // oddsvyn — utan rank visas matchraden precis som förut.
+  const [powerRank, setPowerRank] = useState(null)
+  useEffect(() => {
+    fetch(`/api/oddset/powerrank?league=all&_t=${Date.now()}`, { cache: 'no-store' })
+      .then((r) => r.json()).then(setPowerRank).catch(() => setPowerRank(null))
+  }, [])
   const [oddsetTab, setOddsetTab] = useState(() => {
     try {
       const saved = localStorage.getItem('svs_oddset_tab')
-      return ['matcher', 'live', 'varde', 'rorelser'].includes(saved) ? saved : 'matcher'
+      return ['matcher', 'live', 'varde', 'rorelser', 'styrka'].includes(saved) ? saved : 'matcher'
     } catch { return 'matcher' }
   })
   const pickTab = (t) => {
@@ -1684,6 +1797,38 @@ function OddsetView({ focus = null } = {}) {
       title: 'Totala hörnor · odds över/under.',
     }] : []),
   ]
+  // Powerrank per match (AMBER). Hämtas i ETT anrop för alla ligor — uppmätt
+  // 0,5 s i backend — och slås upp på normaliserat lagnamn. Visas som ren
+  // kontext bredvid lagnamnen; den påverkar inte edge, urval eller notiser,
+  // och får därför aldrig färgsättas som en signal.
+  const rankFor = (league, team) => {
+    const table = powerRank?.by_league?.[league]
+    if (!table || !team) return null
+    // Exakt aliasträff först — powerrank bär de RÅA namnen providern skrev.
+    // Substrängsfallbacken finns kvar för lag vars alias vi inte sett ännu,
+    // men den får aldrig gå före en exakt träff.
+    const key = String(team).trim().toLowerCase()
+    const exact = table.find((t) =>
+      (t.aliases || []).some((a) => a.trim().toLowerCase() === key))
+    if (exact) return exact
+    return table.find((t) => key.includes(t.team) || t.team.includes(key)) || null
+  }
+  const rankPair = (m) => {
+    const h = rankFor(m.league, m.home), a = rankFor(m.league, m.away)
+    if (!h && !a) return null
+    const label = (r) => (r ? `#${r.rank}` : '–')
+    const over = (r) => (r?.overperformance == null ? ''
+      : ` (${r.overperformance > 0 ? '+' : ''}${r.overperformance} mot xP)`)
+    return {
+      text: `${label(h)}/${label(a)}`,
+      title: [
+        h && `${m.home}: rank ${h.rank}, styrka ${h.ratio}${over(h)}`,
+        a && `${m.away}: rank ${a.rank}, styrka ${a.ratio}${over(a)}`,
+        'Modellens egen styrkeskattning (amber) — påverkar inga signaler.',
+      ].filter(Boolean).join('\n'),
+    }
+  }
+
   const renderMatchRow = (m) => (
     <Fragment key={m.id}>
       <tr id={`oddsrow-${m.id}`} className={[
@@ -1699,6 +1844,10 @@ function OddsetView({ focus = null } = {}) {
             m.model && `Modell-μ: ${m.model.mu[0]}–${m.model.mu[1]}${m.model.anchored ? ' (ankrad mot sharp)' : ''}`]
             .filter(Boolean).join('\n')}>
           {m.home} – {m.away}{steamBadge(m)}{absBadge(m)}
+          {(() => {
+            const r = rankPair(m)
+            return r ? <span className="rchip rankchip" title={r.title}>🏋 {r.text}</span> : null
+          })()}
           {m.research && <span className="rchip" title="Forskningsliga — odds och rörelser visas, men inga spelbara signaler.">🔬</span>}
           {m.data_conflict && (
             <span className="conflictchip"
@@ -1818,7 +1967,8 @@ function OddsetView({ focus = null } = {}) {
       </div>
       <div className="oddset-tabs" role="tablist" aria-label="Oddset-vy">
         {[['matcher', '📋 Matcher'], ['live', '⚡ Live'],
-          ['varde', '💰 Värdespel'], ['rorelser', '📈 Rörelser']].map(([t, label]) => (
+          ['varde', '💰 Värdespel'], ['rorelser', '📈 Rörelser'],
+          ['styrka', '🏋 Lagstyrka']].map(([t, label]) => (
           <button key={t} className={`oddset-tab ${oddsetTab === t ? 'active' : ''}`}
             role="tab" aria-selected={oddsetTab === t}
             onClick={() => pickTab(t)}>{label}</button>
@@ -1928,6 +2078,8 @@ function OddsetView({ focus = null } = {}) {
                 detail="Inga synliga matcher når spelgrinden: sharp-ankrad edge ≥2 % och kvalitetsgolvet." />}
         </div>
       )}
+      {oddsetTab === 'styrka' && <PowerRankPanel leagues={data.leagues} />}
+
       {oddsetTab === 'rorelser' && (
         <div className="tab-panel valuelist moverlist" id="oddset-radar">
           <div className="valhead"><b>📈 Marknadsradar</b>

@@ -1065,3 +1065,12 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 .sorttable th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
 .sorttable th.sortable:hover { color: var(--text); text-decoration: underline; }
 .sorttable td { white-space: nowrap; }
+
+/* Powerrank-chip i matchraden — AMBER-kontext, aldrig en signal. Därför
+   dämpad och neutral: den får inte konkurrera visuellt med värdeflaggor. */
+.rankchip { opacity: .72; font-variant-numeric: tabular-nums; }
+.powerrank .valhead select {
+  background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 7px; padding: 3px 8px; font-size: 12px; margin-left: auto;
+}
+.powerrank .rchip.amber { color: #dca85e; border-color: #dca85e55; }
