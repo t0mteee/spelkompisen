@@ -27,13 +27,15 @@ det oförändrade bokpriset återobserverats efter Pinnacles senaste prisändrin
 vanlig färskhet eller ett gammalt cachepris räcker inte.
 Den underkända V2.1 är fortsatt vilande. Ett separat V2.2-experiment samlar
 Allsvenskan + Premier League/Serie A/La Liga/Bundesliga med WP9c
-i isolerad sharp-identitetskontroll. **Aktuellt fryst kontrakt är manifest v5**
-från 2026-08-07T11:05Z:
-`docs/model-v2.2-multileague-forward-manifest-v5.json`. V1/v2 är historik;
+i isolerad sharp-identitetskontroll. **Aktuellt fryst kontrakt är manifest v6**
+från 2026-08-07T14:20Z:
+`docs/model-v2.2-multileague-forward-manifest-v6.json`. V1/v2 är historik;
 v3 hann få 0 captures innan ett ofullständigt aliasfingeravtryck upptäcktes
 och ersattes; v4 bar 12 rader/2 avgjorda när de fyra Europaligornas
-lagnamnsalias utökades inför xG-bakfyllningen och `feature_version` gick
-`f22-86969e71` → `f22-3f30a839`. Manifestets EGEN `change_policy` kräver då
+lagnamnsalias utökades inför xG-bakfyllningen; v5 bar 1 rad/0 avgjorda när
+ClubElo-identiteten rättades och kalibreringen utökades. En ny kalibrering
+räknas som ändrad datagenererande process — `model_source_version` bär
+T per liga. Manifestets EGEN `change_policy` kräver då
 ett nytt manifest — en aliasändring i en liga som ingår i V2.2:s FIT_POOLS
 (inkl. matarligorna Championship/Serie B/Segunda/2. Bundesliga) är en ändrad
 datagenererande process. Äldre manifest blandas aldrig in. Det är inte en
@@ -52,28 +54,46 @@ historiken, aldrig mot det säsongsfiltrerade urvalet.
 MLS 73 % → 82 %. Matchantalen är oförändrade, alltså inga dubbletter.
 Bakfyllning är tillåten för RESULTATSTATISTIK (ett avgjort resultat och dess
 xG är settlade fakta) men aldrig för priser, live-signaler eller presence, där
-observationstiden är en del av mätningen. Ligorna ligger fortfarande UTANFÖR
-`MODEL_LEAGUES`/`FIT_POOLS` — att flytta in dem ändrar
-`MODEL_PARAMS["pools"]` och delar facitgruppen, vilket är Samans beslut och
-en förregistreringsfråga. Powerranken fungerar ändå för dem (endpointen
-läser `merged_results` direkt).
+observationstiden är en del av mätningen.
+**De fyra ligorna är MODELLIGOR sedan 2026-08-07** (Samans beslut efter
+bakfyllningen). Mätt mot Pinnacles stängning är de i linje med ligorna vi
+redan accepterat — PL ligger NÄRMAST marknaden av alla sju (logloss-gap
++0,0035 mot Allsvenskans +0,0123). Modellen är sämre än marknaden i ALLA
+ligor; det är väntat och är själva skälet till att den är amber.
+De poolas MEDVETET INTE med sina matarligor: uppmätt försämrar poolning
+modellen i alla fyra (+0,0036 till +0,0125 logloss), eftersom matarligorna
+saknar xG. T kalibrerat per liga (PL 0,8, Serie A 0,7, La Liga 0,9,
+Bundesliga 0,95) — `_fetch_texts` läser nu även de klassiska säsongsfilerna,
+som bär samma stängningsodds. Modellversionen gick `m-67d028e9` →
+`m-e900ed90`; **sharp är oförändrad**, så sharp-CLV-facitet rörs inte.
 **`_xg_is_measured()`** förkastar xG-par där båda är exakt 0,00 eller där ett
 lag som GJORDE MÅL har 0,00 — Sofascore rapporterar saknad mätning som noll
 (samma fel som fällde den som livekälla). Ett mållöst lag med 0,00 lämnas
 orört: radera på omöjlighet, aldrig på osannolikhet.
 **`_fd_result_rows(..., div=)`** kontrollerar filens EGEN divisionskod:
 football-data serverade skotsk Championship på La Ligas säsongs-URL.
+**`oddset_model.elo_for()`** slår upp ClubElo på EXAKT nyckel eller VERIFIERAT
+alias — aldrig fuzzy. `_find_team`s delsträngsregel (utan likhetströskel) gav
+37 felaktiga länkar över modelligorna: `stuttgart`→`start` (IK Start, NOR,
+1295), `minnesota united`→`man united` (1915), `leicester`→`lillestrom`.
+Ingen tröskel kan separera dem från de KORREKTA delsträngsparen
+(`werder bremen`→`werder` 0,63), så fuzzy ska inte försöka. `ELO_TEAM_ALIAS`
+nådde tidigare bara V2-spåret och delas nu; bekräftat olika klubbar står i
+`ELO_REJECTED_LINKS`. Ett lag utan verifierad länk får INGEN Elo — för ett
+tunt lag betyder det ingen modell alls i stället för fel modell. ClubElo
+saknar just nu Bayern och Stuttgart helt (källan svarade inte vid kontroll;
+aliaset finns och börjar gälla när de dyker upp).
 Föregående Flashscore-överlämning är ersatt och gäller bara som historik.
 De fyra Europaligorna (PL, Serie A, La Liga, Bundesliga) är **FULLT FÖLJDA
 sedan 2026-08-07** inför säsongsstarten: sidoböcker, deep-marknader,
 värdesignaler, CLV och notiser precis som Allsvenskan. `research_only` är
 borta för dem och `RESEARCH_LEAGUE_KEYS` är tom. Spärren behövdes aldrig för
 SHARP-tiern — den är ren oddsjämförelse och har inget med V2.2:s modell-
-hypotes att göra; V2.2 kör vidare på sin EGEN `SCOPE_LEAGUES`. De ligger
-med flit UTANFÖR `MODEL_LEAGUES`: 0 av 2 897 matcher har xG, och en
-xG-viktad modell utan xG vore sämre än ingen. xG samlas framåt, aldrig
-bakåt. Mekanismen synlig≠actionable finns kvar även när ingen liga använder
-den. `_next_round_for_empty_leagues` (f.d. `_research_next_round`) gäller nu
+hypotes att göra; V2.2 kör vidare på sin EGEN `SCOPE_LEAGUES`. De var
+utanför `MODEL_LEAGUES` så länge de saknade xG — en xG-viktad modell utan xG
+vore sämre än ingen — och kom in 2026-08-07 när bakfyllningen gav 100 %.
+Mekanismen synlig≠actionable finns kvar även när ingen liga använder
+den (cuper och träningsmatcher visas och bär sharp-signaler utan modell). `_next_round_for_empty_leagues` (f.d. `_research_next_round`) gäller nu
 ALLA synliga ligor: under säsongsuppehåll visas nästa omgång i stället för
 en tom liga.
 Poolspår PH1–PH4 finns nu: historiskt settlement, framåtriktad presence-ledger

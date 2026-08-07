@@ -51,7 +51,33 @@ SOFA_UT = {"allsvenskan": 40, "eliteserien": 20, "superettan": 46,
 # Divisjon") visade sig vara HANDBOLL och 28937 volleyboll; fotbollens norska
 # andraliga är ut 22 ("Norwegian 1st Division", verifierad med lagnamn + xG).
 # Superettan/OBOS saknar football-data — Sofascore är enda resultatkällan.
-MODEL_LEAGUES = set(FD_URLS) | {"superettan", "obosligaen"}
+# Europaligorna INNE sedan 2026-08-07, efter att xG bakfyllts till 100 %
+# täckning. Spärren var aldrig principiell utan empirisk: en xG-viktad modell
+# utan xG vore sämre än ingen. Mätt mot Pinnacles stängning (logloss, lägre
+# bättre) är de fyra i linje med ligorna vi redan accepterat — Premier League
+# ligger till och med NÄRMAST marknaden av alla sju:
+#
+#   liga             modell   marknad   gap
+#   premier_league   0.9854   0.9819   +0.0035   ← minst av alla
+#   allsvenskan      1.0224   1.0101   +0.0123
+#   mls              1.0297   1.0195   +0.0102
+#   eliteserien      0.9796   0.9581   +0.0215
+#   la_liga          0.9736   0.9490   +0.0246
+#   serie_a          0.9818   0.9563   +0.0255
+#   bundesliga       0.9916   0.9664   +0.0252
+#
+# Modellen är sämre än marknaden i ALLA ligor. Det är väntat och är själva
+# skälet till att den är amber: den är en andra åsikt, inte ett edge-påstående.
+#
+# De poolas MEDVETET INTE med sina matarligor (Championship/Serie B/Segunda/
+# 2. Bundesliga), trots att V2.2:s manifest gör det. Uppmätt försämrar
+# poolningen modellen i alla fyra (+0,0036 till +0,0125 logloss): matarligorna
+# saknar xG, så de bidrar med brusigare måldata samtidigt som den gemensamma
+# att/def-normaliseringen tvingas spänna över två kvalitetsnivåer. För
+# Allsvenskan–Superettan fungerar poolningen därför att båda HAR xG och ligger
+# närmare varandra i styrka.
+MODEL_LEAGUES = (set(FD_URLS) | {"superettan", "obosligaen"}
+                 | {"premier_league", "serie_a", "la_liga", "bundesliga"})
 RESEARCH_MODEL_LEAGUES = set(RESEARCH_LEAGUE_KEYS)
 RESULT_LEAGUES = MODEL_LEAGUES | set(FD_SEASON_CODES)
 # Avsiktligt xG-scope: ordinarie fitpooler + V2.2:s huvud-/matarligor. Cuper,

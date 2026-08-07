@@ -52,19 +52,69 @@ def _odds_from_sets(row: dict, column_sets: tuple[tuple[str, tuple[str, ...]], .
     return None, None
 
 
+def _fetch_texts(league: str) -> list[tuple[str, Optional[str]]]:
+    """(CSV-text, förväntad divisionskod) för en ligas football-data-filer.
+
+    Landsfilerna (`FD_URLS`) är en fil per liga; höst/vår-ligorna publiceras
+    som en fil per säsong (`FD_SEASON_CODES`). Backtestet kunde bara läsa de
+    förra, vilket i praktiken gjorde Europaligorna okalibrerbara — inte för att
+    stängningsodds saknades (PSCH/MaxCH/AvgCH finns i båda formaten) utan för
+    att hämtningen inte kände formatet.
+    """
+    from .oddset_data import FD_SEASON_CODES, _fd_season_urls
+    if league in FD_URLS:
+        r = httpx.get(FD_URLS[league], timeout=30, follow_redirects=True)
+        r.raise_for_status()
+        return [(r.text, None)]
+    code = FD_SEASON_CODES.get(league)
+    if not code:
+        raise KeyError(league)
+    out = []
+    for url in _fd_season_urls(code):
+        r = httpx.get(url, timeout=30, follow_redirects=True)
+        if r.status_code == 404:
+            continue          # säsongsfil ej publicerad ännu — väntat
+        r.raise_for_status()
+        out.append((r.text, code))
+    return out
+
+
 def fetch_rows(league: str, min_season: int = 2023) -> list[dict]:
-    r = httpx.get(FD_URLS[league], timeout=30, follow_redirects=True)
-    r.raise_for_status()
     rows = []
-    for row in csv.DictReader(io.StringIO(r.text.lstrip("﻿"))):
+    for text, div in _fetch_texts(league):
+        rows.extend(_rows_from_text(text, min_season, div))
+    rows.sort(key=lambda x: x["date"])
+    return rows
+
+
+def _rows_from_text(text: str, min_season: int,
+                    div: Optional[str] = None) -> list[dict]:
+    rows = []
+    for row in csv.DictReader(io.StringIO(text.lstrip("﻿"))):
+        # Samma divisionsvakt som insamlingen: football-data serverade skotsk
+        # Championship på La Ligas säsongs-URL 2026-08-07.
+        if div and (row.get("Div") or "").strip() not in ("", div):
+            continue
         try:
-            if int((row.get("Season") or "0")[:4]) < min_season:
+            season = row.get("Season")
+            date = dt.datetime.strptime(
+                row["Date"], "%d/%m/%Y" if len(row["Date"]) == 10
+                else "%d/%m/%y")
+            if season is not None:
+                if int((season or "0")[:4]) < min_season:
+                    continue
+            elif date.year < min_season:
+                # Säsongsfilerna saknar Season-kolumn; datumet duger, och
+                # EVAL_FROM styr ändå vad som utvärderas.
                 continue
-            d = dt.datetime.strptime(row["Date"], "%d/%m/%Y").strftime("%Y-%m-%d")
-            rec = {"date": d, "home": norm_team(row["Home"]),
-                   "away": norm_team(row["Away"]),
-                   "hg": int(row["HG"]), "ag": int(row["AG"])}
-        except (ValueError, KeyError):
+            d = date.strftime("%Y-%m-%d")
+            home = row.get("Home") or row.get("HomeTeam")
+            away = row.get("Away") or row.get("AwayTeam")
+            hg = row.get("HG") if row.get("HG") not in (None, "") else row.get("FTHG")
+            ag = row.get("AG") if row.get("AG") not in (None, "") else row.get("FTAG")
+            rec = {"date": d, "home": norm_team(home), "away": norm_team(away),
+                   "hg": int(hg), "ag": int(ag)}
+        except (ValueError, KeyError, TypeError):
             continue
         sources = {
             "ps": (("close", ("PSCH", "PSCD", "PSCA")),
@@ -84,7 +134,6 @@ def fetch_rows(league: str, min_season: int = 2023) -> list[dict]:
             rec[f"{src}_open"], _ = _odds_from_sets(row, (column_sets[1],))
             rec[src], rec[f"{src}_timing"] = _odds_from_sets(row, column_sets)
         rows.append(rec)
-    rows.sort(key=lambda x: x["date"])
     return rows
 
 

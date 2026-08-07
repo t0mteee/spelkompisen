@@ -57,6 +57,42 @@ ELO_TEAM_ALIAS = {
     "eintracht frankfurt": "frankfurt", "mainz 05": "mainz",
     "paderborn 07": "paderborn", "werder bremen": "werder",
     "schalke 04": "schalke", "hamburger sv": "hamburg",
+    # 2026-08-07: tabellen nådde tidigare BARA V2-spåret. När den kopplades in
+    # i den ordinarie modellen (`oddset_model.elo_for`) saknades de
+    # RESULTATSIDANS kanonnamn — aliasen ovan är oddssidans. Varje par nedan är
+    # verifierat mot ClubElos faktiska nyckellista per land.
+    "hacken": "haecken", "ifk goteborg": "goeteborg", "malmo": "malmoe",
+    "orgryte": "oergryte",
+    "ein frankfurt": "frankfurt", "koln": "koeln", "mgladbach": "gladbach",
+    "holstein kiel": "holstein", "bayern munich": "bayern",
+    "nottm forest": "forest",
+    "ath bilbao": "bilbao", "ath madrid": "atletico", "espanol": "espanyol",
+    "hamkam": "ham kam",
+}
+# BEKRÄFTAT OLIKA KLUBBAR — dokumenteras för att de en gång LÄNKADES av
+# `_find_team`s delsträngs-/fuzzyregel och gav en helt främmande klubbs Elo.
+# Listan används inte i kod (uppslaget är exakt-eller-alias och kan inte nå
+# dem); den finns för att en framtida audit inte ska föreslå dem igen.
+ELO_REJECTED_LINKS = {
+    ("stuttgart", "start"),            # VfB Stuttgart ≠ IK Start (NOR), 1295
+    ("leicester", "lillestrom"),       # ENG ≠ NOR
+    ("minnesota united", "man united"),
+    ("orlando city", "man city"),
+    ("dc united", "man united"),
+    ("nordic united", "man united"),
+    ("inter miami", "inter"),
+    ("stockholm internazionale", "inter"),
+    ("skovde aik", "aik"),
+    ("hammarby talang", "hammarby"),   # reservlag ≠ a-lag
+    ("girona", "gijon"),               # Girona ≠ Sporting Gijón
+    ("toronto", "torino"), ("montreal", "monza"), ("dallas", "alaves"),
+    ("nashville", "sevilla"), ("austin", "lautern"), ("charlotte", "charlton"),
+    ("san diego", "sandefjord"), ("st louis city", "bristol city"),
+    ("egersund", "aalesund"), ("haugesund", "aalesund"), ("lunds", "aalesund"),
+    ("oster", "holstein"), ("strommen", "stoke"), ("asane", "swansea"),
+    ("mjondalen", "modena"), ("stromsgodset", "tromso"), ("gefle", "getafe"),
+    ("leganes", "levante"), ("trelleborgs", "elfsborg"),
+    ("helsingborgs", "elfsborg"),
 }
 FEATURE_POLICY = {
     "schema": 5,

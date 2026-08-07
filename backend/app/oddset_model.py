@@ -196,16 +196,51 @@ def predict(fit: dict, home_norm: str, away_norm: str,
     return mu_h, mu_a
 
 
-def _ensure_priors(fit: dict, elo: dict, names: tuple[str, ...]) -> bool:
+def elo_for(elo: dict, name: str,
+            aliases: Optional[dict[str, str]] = None) -> Optional[float]:
+    """ClubElo-uppslag: EXAKT nyckel eller VERIFIERAT alias. Aldrig fuzzy.
+
+    Fram till 2026-08-07 gick uppslaget via `_find_team`, som först provar
+    delsträng utan likhetströskel och därefter SequenceMatcher > 0,6. Uppmätt
+    på alla modelligor gav det 37 felaktiga länkar:
+
+        stuttgart          → start        (IK Start, NOR)     elo 1295
+        minnesota united   → man united                       elo 1915
+        orlando city       → man city                         elo 1971
+        dc united          → man united                       elo 1915
+        inter miami        → inter                            elo 1889
+        leicester          → lillestrom                       elo 1363
+        hammarby talang    → hammarby     (a-laget)           elo 1508
+
+    Ingen likhetströskel kan separera dem från de KORREKTA delsträngsparen
+    (`werder bremen` → `werder` 0,63, `nottm forest` → `forest` 0,67) — de
+    ligger om varandra. Fuzzy kan alltså inte lösa uppgiften, och då ska den
+    inte försöka: identiteten blir explicit, precis som `LIVE_TEAM_ALIASES`
+    och `TEAM_ALIAS`. Ett lag utan verifierad länk får INGEN Elo, vilket för
+    ett tunt lag betyder ingen modell alls i stället för fel modell.
+
+    Aliasen bodde tidigare bara i `oddset_v2.ELO_TEAM_ALIAS` och nådde aldrig
+    den ordinarie modellen — därför fanns bara exakt-eller-fuzzy här.
+    """
+    if name in elo:
+        return elo[name]
+    target = (aliases or {}).get(name)
+    if target and target in elo:
+        return elo[target]
+    return None
+
+
+def _ensure_priors(fit: dict, elo: dict, names: tuple[str, ...],
+                   aliases: Optional[dict[str, str]] = None) -> bool:
     """M2: lag som saknas i fitten eller har < MIN_MATCHES viktade matcher får
     styrkor ur ClubElo relativt ligans medel (tunna lag blandas proportionellt).
     Muterar fitten (n sätts till MIN_MATCHES så priorn inte dubbelappliceras)."""
     if "_mean_elo" not in fit:
-        vals = []
-        for t in fit["teams"]:
-            ev = elo.get(t) or elo.get(_find_team({"teams": elo}, t) or "")
-            if ev:
-                vals.append(ev)
+        # Ligamedlet räknas på VERIFIERADE länkar. En felmatchad klubb flyttar
+        # inte bara sitt eget lag utan referensnivån för alla tunna lag i
+        # ligan, så en fuzzy-träff här förorenar bredare än den syns.
+        vals = [ev for t in fit["teams"]
+                if (ev := elo_for(elo, t, aliases)) is not None]
         fit["_mean_elo"] = sum(vals) / len(vals) if vals else None
     if not fit["_mean_elo"]:
         return False
@@ -215,7 +250,7 @@ def _ensure_priors(fit: dict, elo: dict, names: tuple[str, ...]) -> bool:
         cur = fit["teams"].get(t) if t else None
         if cur and cur["n"] >= MIN_MATCHES:
             continue
-        ev = elo.get(nm) or elo.get(_find_team({"teams": elo}, nm) or "")
+        ev = elo_for(elo, nm, aliases)
         if not ev:
             continue
         q = 10 ** ((ev - fit["_mean_elo"]) / 400)
@@ -517,6 +552,10 @@ def attach_model(store: Storage, matches: list[dict],
     from .oddset import norm_team
     fits: dict[str, Optional[dict]] = {}
     elo = oddset_data.get_elo(store)
+    # ELO_TEAM_ALIAS bodde tidigare bara i V2-spåret och nådde aldrig hit, så
+    # den ordinarie modellen hade bara exakt-eller-fuzzy. Nu delas tabellen.
+    from .oddset_v2 import _elo_alias_map
+    elo_aliases = _elo_alias_map(store)
     now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     corner_ms: dict[str, Optional[dict]] = {}
     cals: dict[str, dict] = {}
@@ -555,10 +594,10 @@ def attach_model(store: Storage, matches: list[dict],
         if lg not in corner_ms:
             corner_ms[lg] = corner_model(oddset_data.merged_results(store, lg))
         hn, an = norm_team(m["home"]), norm_team(m["away"])
-        prior_used = _ensure_priors(fit, elo, (hn, an))
+        prior_used = _ensure_priors(fit, elo, (hn, an), elo_aliases)
         mus = predict(fit, hn, an, league=lg)
-        eh, ea = elo.get(hn) or elo.get(_find_team({"teams": elo}, hn) or ""), \
-            elo.get(an) or elo.get(_find_team({"teams": elo}, an) or "")
+        eh = elo_for(elo, hn, elo_aliases)
+        ea = elo_for(elo, an, elo_aliases)
         if eh or ea:
             m["elo"] = {"h": eh, "a": ea}
         if not mus:

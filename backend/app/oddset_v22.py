@@ -33,16 +33,18 @@ FIT_POOLS = {
     "la_liga": ("la_liga", "segunda"),
     "bundesliga": ("bundesliga", "zweite_bundesliga"),
 }
-# v5 sedan 2026-08-07 11:05Z: lagnamnsaliasen för de fyra Europaligorna
-# utökades inför xG-bakfyllningen (Wolverhampton kopplade inte alls och
-# närmaste kandidat var SOUTHAMPTON), vilket flyttade feature_version
-# f22-86969e71 → f22-3f30a839. Manifestets egen change_policy kräver då ett
-# nytt manifest. v4 (2026-08-01 21:20Z) bar 12 rader/2 avgjorda och lämnas
-# oförändrat som historik; v3 hann aldrig få en capture. Versioner återanvänds
-# eller skrivs aldrig om, och manifest blandas aldrig ihop.
+# v6 sedan 2026-08-07 14:20Z: ClubElo-identiteten rättades. Uppslaget gick via
+# `_find_team`, som provar DELSTRÄNG utan likhetströskel — `stuttgart` blev
+# `start` (IK Start, NOR, elo 1295) och `minnesota united` blev `man united`
+# (1915). Aliastabellen ingår i `oddset_v2.feature_version` och därmed i
+# V2.2:s, som gick f22-97335e3c → f22-3082df01. v5 (11:05Z, aliasen för
+# Europaligorna) bar 1 rad/0 avgjorda; v4 (2026-08-01) bar 12 rader/2 avgjorda;
+# v3 hann aldrig få en capture. Alla lämnas oförändrade som historik.
+# Versioner återanvänds eller skrivs aldrig om, och manifest blandas aldrig
+# ihop — inte ens ett manifest med noll observationer skrivs över.
 MANIFEST_PATH = (
     Path(__file__).resolve().parents[2] / "docs" /
-    "model-v2.2-multileague-forward-manifest-v5.json"
+    "model-v2.2-multileague-forward-manifest-v6.json"
 )
 REQUIRED_BASE_FEATURES = (
     "attack_log_ratio", "defence_log_ratio", "home_adv_log",

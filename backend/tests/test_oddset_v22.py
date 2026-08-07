@@ -116,6 +116,19 @@ class V22ShadowTests(unittest.TestCase):
         }, [
             _event(13, self._t(days=-3), 2, 7),
         ])
+        # T-kalibreringen ingår i `model_source_version` och därmed i det
+        # frysta kontraktet. Den bor i DB-meta, inte i koden, så den måste
+        # seedas här — annars jämför testet ett okalibrerat temp-store mot ett
+        # manifest fryst mot produktionens kalibrering. Ändras någon av dessa
+        # i drift SKA det här testet falla: en omkalibrering är en ändrad
+        # datagenererande process och kräver ett nytt manifest.
+        for league, temperature in (("allsvenskan", 1.0),
+                                    ("premier_league", 0.8),
+                                    ("serie_a", 0.7),
+                                    ("la_liga", 0.9),
+                                    ("bundesliga", 0.95)):
+            self.store.meta_set(f"oddset_cal:{league}",
+                                json.dumps({"t": temperature}))
         frozen = oddset_v22.load_manifest()["source_versions_at_freeze"]
         self.versions = {
             "sharp": {
@@ -207,8 +220,9 @@ class V22ShadowTests(unittest.TestCase):
     def test_active_manifest_is_frozen_to_current_provider_policy(self) -> None:
         manifest = oddset_v22.load_manifest()
         frozen = manifest["source_versions_at_freeze"]
-        self.assertEqual("v2.2-wp9c-multileague-v5", manifest["experiment"])
-        self.assertEqual("m22-5d7d5120", oddset_v22.model_source_version(self.store))
+        self.assertEqual("v2.2-wp9c-multileague-v6", manifest["experiment"])
+        self.assertEqual(frozen["model_signal_version"],
+                         oddset_v22.model_source_version(self.store))
         self.assertEqual(frozen["model_signal_version"],
                          oddset_v22.model_source_version(self.store))
         self.assertEqual(frozen["feature_version"],
@@ -244,7 +258,15 @@ class V22ShadowTests(unittest.TestCase):
         self.assertEqual(6, result["rows"])
         self.assertEqual(1, len(self.store.oddset_v22_shadows()))
 
-    def test_research_league_gets_shadow_but_no_regular_model_capture(self) -> None:
+    def test_v22_scope_league_now_also_gets_a_regular_model_capture(self) -> None:
+        """Premier League är modelliga sedan 2026-08-07 (xG bakfyllt).
+
+        Testet hette tidigare `..._research_league_gets_shadow_but_no_regular_
+        model_capture` och låste motsatsen. Premissen är borta: ligan är inte
+        längre research_only, och `RESEARCH_LEAGUE_KEYS` är tom. Det som SKA
+        gälla nu är att V2.2-skuggan är oberoende av den ordinarie capturen —
+        två spår, samma match, ingen delad tabell.
+        """
         self.match["id"] = "m-eu"
         self.match["league"] = "premier_league"
         self.store.oddset_upsert_match(self.match)
@@ -277,13 +299,33 @@ class V22ShadowTests(unittest.TestCase):
             result = oddset_ledger.capture_predictions(
                 self.store, [self.match], now=self.now)
 
+        self.assertEqual(2, result["captures"])
+        self.assertEqual(["model", "sharp"], sorted(
+            row["tier"] for row in self.store.oddset_prediction_captures()
+            if row["match_id"] == "m-eu"))
+        self.assertEqual("premier_league",
+                         self.store.oddset_v22_shadows()[0]["league"])
+
+    def test_model_capture_is_still_skipped_outside_model_leagues(self) -> None:
+        """Mekanismen synlig ≠ modellerad finns kvar även utan research-ligor.
+
+        En liga kan visas i UI:t och bära sharp-signaler utan att ha
+        resultathistorik nog för en modell — cuperna och träningsmatcherna gör
+        exakt det. Grinden är MODEL_LEAGUES-medlemskap, inget annat.
+        """
+        self.match["id"] = "m-cup"
+        self.match["league"] = "champions_league"
+        self.store.oddset_upsert_match(self.match)
+        with patch.object(oddset_ledger, "prediction_versions",
+                          return_value=self.versions):
+            result = oddset_ledger.capture_predictions(
+                self.store, [self.match], now=self.now)
+
         self.assertEqual(1, result["captures"])
         self.assertEqual(["sharp"], [
             row["tier"] for row in self.store.oddset_prediction_captures()
-            if row["match_id"] == "m-eu"
+            if row["match_id"] == "m-cup"
         ])
-        self.assertEqual("premier_league",
-                         self.store.oddset_v22_shadows()[0]["league"])
 
 
 if __name__ == "__main__":

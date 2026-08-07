@@ -1217,9 +1217,19 @@ def main() -> None:
             # temperatur. Superettan och OBOS kan INTE kalibreras — `FD_URLS`
             # har inga stängningsodds för dem, så de ärver poolens huvudliga
             # (`FIT_POOLS`) med flit. Det är designen, inte en lucka.
+            #
+            # Europaligorna tillagda 2026-08-07 när de kom in i MODEL_LEAGUES.
+            # De kan kalibreras: de klassiska säsongsfilerna bär samma
+            # stängningsodds (PSCH/MaxCH/AvgCH) som landsfilerna — backtestet
+            # kunde bara inte läsa formatet förrän `_fetch_texts` fanns. De
+            # körs UTAN matarliga: poolning försämrade logloss i alla fyra.
             for lg, extra in (("allsvenskan", ("superettan",)),
                               ("eliteserien", ()),
-                              ("mls", ())):
+                              ("mls", ()),
+                              ("premier_league", ()),
+                              ("serie_a", ()),
+                              ("la_liga", ()),
+                              ("bundesliga", ())):
                 preds = oddset_backtest.run_league(lg, use_store_xg=True,
                                                    pool_extra=extra)
                 t, ll, ll1 = oddset_backtest.fit_temperature(preds)
