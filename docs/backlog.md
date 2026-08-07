@@ -26,8 +26,10 @@ inte per rad.
 - **Modelldata v4:** resultatskelett och providerstatistik är separata;
   football-data vinner atomiskt som normaltidsfacit, xG/hörnor väljs som två
   separata hela providerpar och frånvaro lagras per provider/status med
-  namespacade spelar-id:n. V2.2 samlar under manifest v4 från 21:20Z; v3 fick
-  0 captures och ersattes när matarligornas alias saknades i fingeravtrycket.
+  namespacade spelar-id:n. V2.2 samlar under manifest **v5** från 2026-08-07T11:05Z; v3 fick
+  0 captures och ersattes när matarligornas alias saknades i fingeravtrycket,
+  och v4 (12 rader/2 avgjorda) ersattes när Europaligornas lagnamnsalias
+  utökades inför xG-bakfyllningen.
 - **Drift:** säkra migrationsskript tog egna backuper och validerade radantal,
   schema, FK och integritet. Exakta produktionsantal finns i
   `docs/db-atgarder.md` och den aktuella överlämningen.
@@ -45,7 +47,7 @@ testning.
 | **Hörnbaslinje** (aktuell modell + `corner-poisson-total-v1`) | börjar om under modelldata v4; hörnprovider redovisas separat från xG | samma close-grind, sist i ordningen (Samans ordning 2026-07-25) |
 | **pit-v4 forward** (`pool-streckmove-v3`) | 4 omgångar | ≥ 40 out-of-time-omgångar per produkt med hela KI90 < 0 |
 | **Sharp-CLV-facitet** | historiskt aggregat +2,3 % [1,1..3,4], 272 stängda efter sanering; ny aktiv `s-95e14fca` börjar från nästa capture | veckokadens (`EVAL_INTERVAL_H`), aldrig per varv; grönt beslutas per liga × marknad × version |
-| **V2.2 flerliga-shadow v4** | ren samling från 2026-08-01T21:20Z under manifest v4; v1/v2 historik och v3 0 captures | träningsgate 300 kompletta avgjorda/horisont, ≥ 50/liga, ≥ 42 dagar |
+| **V2.2 flerliga-shadow v5** | ren samling från 2026-08-07T11:05Z under manifest v5; v1/v2 historik, v3 0 captures, v4 12 rader/2 avgjorda (aliasomfrysning) | träningsgate 300 kompletta avgjorda/horisont, ≥ 50/liga, ≥ 42 dagar |
 | **Live-radar tre källor v4** (shadow) | ren kohort från 2026-08-01T21:00Z; v3 är ogiltig pilot, v2/v3 endast historik | prediktiv lyft: separat momentgate; blind Över-ROI: första aktiva signal/match, ≥200 oddssatta+avgjorda, ≥60 dagar och undre KI90 > 0 — `docs/live-radar-2026-07-25.md` |
 
 ## B. Fixar ur granskningen 2026-07-26 — ✅ GENOMFÖRDA samma dag (godkända)
@@ -342,7 +344,7 @@ beslut. Uppskattade beslutsdatum:
 
 - **NTFY-återaktivering** (Samans D-punkt): utan pushar tävlar close-drift-
   och steamfynden aldrig i latens. Rekommenderas ihop med Spår 1.2-beslutet.
-- **Nästa V2.2-omfrysning efter manifest v4**: låt först v4 samla orört.
+- **Nästa V2.2-omfrysning efter manifest v5**: låt först v5 samla orört.
   Ta senare in Island OCH ev. cuperna i SOFA_UT/xG/frånvaro i EN framtida
   omfrysning (inte tre); det kräver ett nytt manifest och ny shadow-version.
 - **Rotationsrisk/frånvaro som flaggfilter**: wp9c-serien flödar sedan

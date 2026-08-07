@@ -8,6 +8,85 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-08-07 — xG-bakfyllning för Europaligorna + skotska rader ur La Liga
+
+**Backup:** `data/backups/stryktips-2026-08-07-fore-xg-backfill-europa.db`
+(206 MB, `sqlite3.backup()` — konsistent ögonblicksbild, inte filkopia).
+
+### Bakgrund
+
+Saman upptäckte att Allsvenskan har xG tillbaka till 2024 trots att projektet
+bara körts en säsong, och frågade varför Premier League saknar det. Svaret:
+xG ÄR bakfyllt, via Sofascore (`oddset_data.xg_backfill`), och Europaligornas
+tournament-id:n har hela tiden funnits i `SOFA_UT` (17/23/8/35). Nollan berodde
+på att ligorna var `research_only` när insamlingen kördes.
+
+Bakfyllning är tillåten här men inte för priser och signaler: **ett avgjort
+resultat och dess xG är settlade fakta som inte ändrar sig.**
+Observationstidsregeln gäller mätningar där tidpunkten är en del av mätningen.
+
+### 1. Skotska matcher låg i La Liga (upptäckt under förberedelsen)
+
+Namnkartläggningen visade att La Ligas kanoniska lagnamn innehöll `arbroath`,
+`ayr`, `morton`, `partick`, `raith rvs`, `stenhousemuir` m.fl.
+
+**Orsak — football-datas eget fel:** `mmz4281/2627/SP1.csv` serverar just nu
+skotsk Championship. Filens EGEN `Div`-kolumn säger `SC1`. Fem matcher spelade
+2026-08-01 (Ayr–Arbroath m.fl.) hade lagts in som `la_liga` med 5 tillhörande
+statistikrader.
+
+* **Kodfix:** `_fd_result_rows(..., div=...)` hoppar över rader vars `Div` inte
+  matchar den förväntade koden. Källan avslöjar sig själv — vi ska lita på
+  innehållet, inte på URL:en. Landsfilerna (`Country`/`League`) saknar `Div`
+  och påverkas inte. Låst av två tester i `test_oddset_data.py`.
+* **Städning:** `scripts/stada_fel_division_laliga.py --skarpt` tog bort
+  5 + 5 rader. `la_liga` gick 765 → 760 resultatrader, vilket är exakt två
+  fulla säsonger.
+* Klubblistan är HÅRDKODAD i skriptet, inte härledd ur dagens data: ett
+  engångsskript ska beskriva ett historiskt tillstånd (samma lärdom som
+  `migrera_v22_research_identitet.py`, som tystnade när listan den läste
+  blev tom).
+
+### 2. Lagnamn kartlagda mot football-datas kanon
+
+Torrkörning på en sida avslöjade att `Wolverhampton` inte kopplade alls, och
+att närmaste kandidat var **`southampton` (0,67)** — under auto-tröskeln 0,75,
+men marginalen till en felmerge var tunnare än den borde vara.
+
+Sofascores `standings/total` per säsong användes som facit på vilka namn som
+faktiskt förekommer. Två saknades helt (`wolverhampton` → `wolves`,
+`athletic club` → `ath bilbao`) och 19 mergade redan på fuzzy ≥0,75. Samtliga
+skrevs in explicit i `TEAM_ALIAS` — CLAUDE.md kräver att en godkänd fuzzy-länk
+flyttas till alias-tabellen i stället för att ligga kvar som overifierad
+automatik i varje audit.
+
+Efter det: **0 fuzzy-länkar och 0 okopplade namn** i alla fyra ligorna.
+
+### 3. Bakfyllningen
+
+`scripts/backfill_xg_ligor.py --ligor <nycklar> --sasonger 3`, 3 säsonger,
+14 sidor/säsong, 1,1 s mellan event (artighet mot delad gratiskälla).
+
+Säkerhet: `oddset_save_result` är FÖRST-VINNER för xG/hörnor (se
+2026-08-01-posten), så körningen kan bara FYLLA luckor — aldrig skriva över ett
+värde som redan är modellindata. `_ingest_event` hoppar över event med
+`oddset_sofa_seen`-markör, så skriptet är idempotent och kan avbrytas.
+
+RESULTAT: se nedan (fylls i när körningen är klar).
+
+### Vad som INTE gjordes
+
+Ingen liga lades till i `MODEL_LEAGUES`/`FIT_POOLS`. Det ändrar
+`MODEL_PARAMS["pools"]` och därmed modellens `signal_version`, vilket delar
+facitgruppen — en förregistreringsfråga, inte en sidoeffekt av en insamling.
+
+Championship, Segunda, Serie B och 2. Bundesliga står kvar på 0 % xG: de finns
+i `FD_SEASON_CODES` men saknar verifierat tournament-id i `SOFA_UT`. Ett id får
+aldrig sökas fram utan att sporten verifieras — 1420 ("1. Divisjon") visade sig
+vara HANDBOLL.
+
+---
+
 ## 2026-08-01 (natt) — källordning: Flashscore primär, Sofascore alternativ 3
 
 - **Ingen schema- eller dataändring** — men SKRIVSEMANTIKEN i

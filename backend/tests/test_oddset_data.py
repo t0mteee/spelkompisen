@@ -47,6 +47,35 @@ class FootballDataParserTests(unittest.TestCase):
         self.assertEqual(1, len(rows))
         self.assertEqual("malmo", rows[0]["away"])
 
+    def test_wrong_division_in_the_file_is_rejected(self) -> None:
+        """football-data serverade skotsk Championship på La Ligas URL.
+
+        `mmz4281/2627/SP1.csv` gav 2026-08-07 Ayr–Arbroath med `Div=SC1`, och
+        fem sådana matcher hamnade i oddset_results som la_liga. Filen
+        avslöjar sig själv — vi ska lita på innehållet, inte på URL:en.
+        """
+        text = (
+            "Div,Date,HomeTeam,AwayTeam,FTHG,FTAG\n"
+            "SC1,01/08/2026,Ayr,Arbroath,2,0\n"
+            "SP1,15/08/2026,Girona,Vallecano,1,3\n"
+        )
+
+        rows = oddset_data._fd_result_rows(text, "la_liga", div="SP1")
+
+        self.assertEqual(1, len(rows))
+        self.assertEqual("girona", rows[0]["home"])
+
+    def test_country_files_without_div_are_untouched_by_the_guard(self) -> None:
+        # Landsfilerna har Country/League i stället för Div och är enligiga.
+        text = (
+            "Season,Date,Home,Away,HG,AG\n"
+            "2026,01/04/2026,Hammarby,Malmo FF,2,1\n"
+        )
+
+        rows = oddset_data._fd_result_rows(text, "allsvenskan", div="SWE")
+
+        self.assertEqual(1, len(rows))
+
     def test_season_urls_roll_forward_without_guessing_future_years(self) -> None:
         urls = oddset_data._fd_season_urls(
             "E0", oddset_data.dt.date(2026, 7, 23))

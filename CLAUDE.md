@@ -26,13 +26,18 @@ spelbar mjuk bok i sharp-värdemotorn. UI får bara säga `bekräftat kvar` när
 det oförändrade bokpriset återobserverats efter Pinnacles senaste prisändring;
 vanlig färskhet eller ett gammalt cachepris räcker inte.
 Den underkända V2.1 är fortsatt vilande. Ett separat V2.2-experiment samlar
-Allsvenskan + research-only Premier League/Serie A/La Liga/Bundesliga med WP9c
-i isolerad sharp-identitetskontroll. **Aktuellt fryst kontrakt är manifest v4**
-från 2026-08-01T21:20Z:
-`docs/model-v2.2-multileague-forward-manifest-v4.json`. V1/v2 är historik;
+Allsvenskan + Premier League/Serie A/La Liga/Bundesliga med WP9c
+i isolerad sharp-identitetskontroll. **Aktuellt fryst kontrakt är manifest v5**
+från 2026-08-07T11:05Z:
+`docs/model-v2.2-multileague-forward-manifest-v5.json`. V1/v2 är historik;
 v3 hann få 0 captures innan ett ofullständigt aliasfingeravtryck upptäcktes
-och ersattes. Äldre manifest blandas aldrig in. Det är inte en tränad modell
-och får inte påverka tips, notiser eller CLV.
+och ersattes; v4 bar 12 rader/2 avgjorda när de fyra Europaligornas
+lagnamnsalias utökades inför xG-bakfyllningen och `feature_version` gick
+`f22-86969e71` → `f22-3f30a839`. Manifestets EGEN `change_policy` kräver då
+ett nytt manifest — en aliasändring i en liga som ingår i V2.2:s FIT_POOLS
+(inkl. matarligorna Championship/Serie B/Segunda/2. Bundesliga) är en ändrad
+datagenererande process. Äldre manifest blandas aldrig in. Det är inte en
+tränad modell och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
 `docs/overlamning-2026-08-07-powerrank.md` (LÄS FÖRST) — dagens arbete
 (radar v6/v7, sharp v8 closing-drift, Europaligorna fullt följda, MLS

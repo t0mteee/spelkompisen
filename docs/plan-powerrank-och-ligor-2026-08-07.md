@@ -130,6 +130,15 @@ tabeller. Men flaggan manifestet refererar till ändras, så ändringen
 dokumenteras vid experimentet och `oddset_v22`-capturen verifieras vara
 oförändrad efteråt. Alias-/identitetsfingeravtrycken rörs inte.
 
+> **EFTERSKRIFT 2026-08-07 (senare samma dag):** alias-fingeravtrycken rördes
+> ändå — inte av synlighetsändringen ovan, utan av xG-bakfyllningen. Den
+> krävde att Europaligornas lagnamn kartlades mot football-datas kanon
+> (`Wolverhampton` kopplade inte alls och närmaste kandidat var
+> `southampton`, 0,67), och ligorna ingår i V2.2:s EGNA `FIT_POOLS`.
+> `feature_version` gick `f22-86969e71` → `f22-3f30a839`, och manifestets
+> egen `change_policy` krävde då **manifest v5** (2026-08-07T11:05Z).
+> Kostnaden var 12 rader/2 avgjorda. Se `docs/db-atgarder.md` samma datum.
+
 ## Vad som INTE görs
 
 * **Ingen bakfyllning av xG** för Europaligorna. De 2 897 historiska

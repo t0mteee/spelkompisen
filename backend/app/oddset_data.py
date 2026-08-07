@@ -124,10 +124,22 @@ def _fd_season_urls(code: str, today: Optional[dt.date] = None) -> list[str]:
     ]
 
 
-def _fd_result_rows(text: str, league: str) -> list[dict]:
-    """Normalisera både football-datas nya landsfiler och klassiska ligafiler."""
+def _fd_result_rows(text: str, league: str,
+                    div: Optional[str] = None) -> list[dict]:
+    """Normalisera både football-datas nya landsfiler och klassiska ligafiler.
+
+    `div` = förväntad divisionskod för de klassiska säsongsfilerna. Kontrollen
+    finns för att football-data serverar FEL LIGA på en säsongs-URL innan
+    säsongen börjat: 2026-08-07 gav `mmz4281/2627/SP1.csv` skotsk Championship
+    (Ayr–Arbroath), och fem sådana rader hade lagts in som La Liga. Filen
+    avslöjar sig själv i sin egen `Div`-kolumn, så vi litar på innehållet i
+    stället för på URL:en. Landsfilerna (`Country`/`League`) saknar `Div` och
+    är enligiga — där gör kontrollen ingenting.
+    """
     rows = []
     for row in csv.DictReader(io.StringIO(text.lstrip("﻿"))):
+        if div and (row.get("Div") or "").strip() not in ("", div):
+            continue
         raw_date = row.get("Date")
         try:
             parsed_date = None
@@ -183,7 +195,8 @@ def refresh_results(store: Storage, force: bool = False) -> dict:
                 if r.status_code == 404 and lg in FD_SEASON_CODES:
                     continue
                 r.raise_for_status()
-                parsed.extend(_fd_result_rows(r.text, lg))
+                parsed.extend(_fd_result_rows(
+                    r.text, lg, div=FD_SEASON_CODES.get(lg)))
             except Exception as exc:  # noqa: BLE001
                 errors.append(f"{url.rsplit('/', 2)[-2]}: {exc}")
         if not parsed:
@@ -714,12 +727,32 @@ TEAM_ALIAS = {
     "mls": {
         "la galaxy": "los angeles galaxy", "atlanta united": "atlanta utd",
     },
+    # Europaligorna: kartlagda mot football-datas kanon 2026-08-07 inför
+    # xG-bakfyllningen, med Sofascores standings som facit på vilka namn som
+    # faktiskt förekommer. Raderna som slutar på "# fuzzy" mergade redan
+    # automatiskt (likhet ≥0,75) men skrivs ut explicit — CLAUDE.md kräver att
+    # en godkänd fuzzy-länk flyttas till alias-tabellen i stället för att
+    # ligga kvar som en overifierad automatik i varje audit.
     "premier_league": {
         "coventry city": "coventry", "manchester united": "man united",
         "ipswich town": "ipswich", "nottingham": "nottm forest",
         "manchester city": "man city", "newcastle united": "newcastle",
+        # Wolverhampton saknade koppling helt och närmaste kandidat var
+        # SOUTHAMPTON (0,67) — under auto-tröskeln, men marginalen till en
+        # felmerge var tunn nog att skriva ut länken för hand.
+        "wolverhampton": "wolves",
+        "brighton & hove albion": "brighton",        # fuzzy
+        "leeds united": "leeds",                     # fuzzy
+        "nottingham forest": "nottm forest",         # fuzzy
+        "tottenham hotspur": "tottenham",            # fuzzy
+        "west ham united": "west ham",               # fuzzy
     },
-    "serie_a": {"internazionale": "inter"},
+    "serie_a": {
+        "internazionale": "inter",
+        "as roma": "roma",                           # fuzzy
+        "hellas verona": "verona",                   # fuzzy
+        "ssc napoli": "napoli",                      # fuzzy
+    },
     "la_liga": {
         "racing santander": "santander", "espanyol": "espanol",
         "dep la coruna": "la coruna",
@@ -727,6 +760,12 @@ TEAM_ALIAS = {
         "real sociedad": "sociedad", "athletic bilbao": "ath bilbao",
         "rayo vallecano": "vallecano", "atletico madrid": "ath madrid",
         "real betis": "betis",
+        "athletic club": "ath bilbao",   # Sofascores form; närmast var 0,43
+        "deportivo alaves": "alaves",                # fuzzy
+        "levante ud": "levante",                     # fuzzy
+        "real oviedo": "oviedo",                     # fuzzy
+        "real valladolid": "valladolid",             # fuzzy
+        "ud las palmas": "las palmas",               # fuzzy
     },
     "bundesliga": {
         "bayern munchen": "bayern munich",
@@ -738,6 +777,13 @@ TEAM_ALIAS = {
         "eintracht frankfurt": "ein frankfurt",
         "mainz 05": "mainz", "paderborn 07": "paderborn",
         "hamburger sv": "hamburg",
+        "1 heidenheim": "heidenheim",                # fuzzy
+        "1 fsv mainz 05": "mainz",                   # fuzzy
+        "bayer 04 leverkusen": "leverkusen",         # fuzzy
+        "sv werder bremen": "werder bremen",         # fuzzy
+        "vfb stuttgart": "stuttgart",                # fuzzy
+        "vfl bochum 1848": "bochum",                 # fuzzy
+        "vfl wolfsburg": "wolfsburg",                # fuzzy
     },
 }
 TEAM_REJECTED_LINKS = {
