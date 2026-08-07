@@ -12,6 +12,7 @@ GET /api/history?draw=...&event=...&sign=1   -> oddshistorik för ett utfall
 from __future__ import annotations
 
 import datetime as dt
+import math
 import statistics
 import subprocess
 from dataclasses import asdict
@@ -820,7 +821,7 @@ def oddset_clv():
 
 
 @app.get("/api/oddset/powerrank")
-def oddset_powerrank(league: str = "allsvenskan"):
+def oddset_powerrank(league: str = "allsvenskan", season: str | None = None):
     """Lagstyrka (att/def ur modellens EGEN fit) + xPts-avvikelse per lag.
 
     AMBER: en visning av modellens syn, aldrig ett beslutsunderlag. Uppmätt
@@ -838,24 +839,51 @@ def oddset_powerrank(league: str = "allsvenskan"):
             out = {}
             for lg in sorted(oddset_data.MODEL_LEAGUES):
                 pool = oddset_model.FIT_POOLS.get(lg, (lg,))
-                rows = []
+                rows, names = [], []
                 for plg in pool:
                     rows.extend(oddset_data.merged_results(store, plg))
-                out[lg] = oddset_model.powerrank(rows, league=lg)
+                    names.extend(store.oddset_team_names(plg))
+                out[lg] = oddset_model.powerrank(rows, league=lg,
+                                                 odds_names=names)
             return {"league": "all", "tier": "amber",
                     "version": oddset_model.POWERRANK_VERSION,
                     "by_league": out}
         pool = oddset_model.FIT_POOLS.get(league, (league,))
         rows: list[dict] = []
+        names: list[str] = []
         for plg in pool:
             rows.extend(oddset_data.merged_results(store, plg))
-        rank = oddset_model.powerrank(rows, league=league)
+            names.extend(store.oddset_team_names(plg))
+        # Bara säsonger som HAR xG kan väljas: tabellen räknar uteslutande på
+        # xG-täckta matcher, så en säsong utan xG skulle ge en tom vy och se
+        # ut som ett fel i stället för som frånvaro av mätning.
+        seasons = sorted({
+            s for r in rows
+            if r.get("league") == league
+            and r.get("xg_h") is not None and r.get("xg_a") is not None
+            and (s := oddset_model.season_of(r.get("date") or "", league))
+        }, reverse=True)
+        if season and season not in seasons:
+            season = None
+        rank = oddset_model.powerrank(rows, league=league, season=season,
+                                      odds_names=names)
         return {
             "league": league,
             "version": oddset_model.POWERRANK_VERSION,
             "tier": "amber",
             "pool": list(pool),
             "n_results": len(rows),
+            "seasons": seasons,
+            "season": season,
+            # UI:t förklarar formeln för Saman. Talen skickas med i stället
+            # för att skrivas in i texten, så förklaringen inte kan glida
+            # ifrån koden när en parameter ändras.
+            "params": {
+                "iters": oddset_model.FIT_ITER,
+                "xg_weight": oddset_model.XG_WEIGHT,
+                "half_life_d": round(oddset_model.DECAY_DAYS * math.log(2)),
+                "ridge": 0.98,
+            },
             "teams": rank,
             "disclaimer": (
                 "Modellens egen styrkeskattning. Den förutsäger inte "

@@ -36,9 +36,18 @@ och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
 `docs/overlamning-2026-08-07-powerrank.md` (LÄS FÖRST) — dagens arbete
 (radar v6/v7, sharp v8 closing-drift, Europaligorna fullt följda, MLS
-kalibrerad, powerrank-fliken) OCH fyra kvarstående beställningar på
-powerranken, däribland ett metodfel: poäng räknas i dag på alla matcher
-medan xPts bara räknas på xG-täckta.
+kalibrerad, powerrank-fliken). Powerranken är nu **`powerrank-v2`**: v1:s
+metodfel (poäng på ALLA matcher men xPts bara på xG-täckta, hopjämkat med
+skalningen `pts × n_xg / matches`) är rättat — poäng, mål och xPts mäts på
+EXAKT samma matcher, nämligen de med xG, och lag utan xG-matcher faller ur
+tabellen i stället för att visas med `–`. `MIN_MATCHES` prövas mot hela
+historiken, aldrig mot det säsongsfiltrerade urvalet.
+Överlämningen förklarar också att **xG faktiskt ÄR bakfyllt** för de fem
+modelligorna via Sofascore (`xg_backfill`, ~600 matcher/liga sedan
+2024-03); Europaligornas nolla beror på att de var `research_only` när
+insamlingen kördes, inte på att providern saknar data. En backfill dit är
+möjlig men ändrar `MODEL_PARAMS["pools"]` och delar facitgruppen — Samans
+beslut, inte en sidoeffekt.
 Föregående Flashscore-överlämning är ersatt och gäller bara som historik.
 De fyra Europaligorna (PL, Serie A, La Liga, Bundesliga) är **FULLT FÖLJDA
 sedan 2026-08-07** inför säsongsstarten: sidoböcker, deep-marknader,
@@ -674,11 +683,28 @@ måste Saman lägga in en Bash-behörighetsregel — se
 - Inga `cursor: help`-frågetecken; förklaringar som title-tooltips.
 - Oddset-delen: röd = oddset NER (ökad vinstchans), grön = UPP (vm-konvention).
 - Oddset har FEM persisterade sub-tabbar och en alltid synlig räknarrad.
-  **🏋 Lagstyrka (2026-08-07)** visar modellens egen powerrank per liga:
-  `att`/`def` ur samma `fit_league` som prognoserna använder (aldrig en
-  parallell skattning), plus xPts ur matchernas xG och avvikelsen mot
+  **🏋 Lagstyrka (`powerrank-v2`, 2026-08-07)** visar modellens egen powerrank
+  per liga: `att`/`def` ur samma `fit_league` som prognoserna använder (aldrig
+  en parallell skattning), plus xPts ur matchernas xG och avvikelsen mot
   faktiska poäng — positivt = laget har tagit mer än chanserna motiverar och
-  är kandidat för nedgång. Ranken syns även som chip i matchraden, uppslaget
+  är kandidat för nedgång. **Poäng, mål och xPts mäts på EXAKT samma
+  matchmängd: de med observerad xG.** En match utan xG bidrar med ingenting,
+  och ett lag utan xG-matcher visas inte alls — v1:s skalning
+  `pts × n_xg / matches` antog att poängen fördelade sig jämnt över täckta
+  och otäckta matcher och gjorde avvikelsen till en approximation. Ingen
+  bakfyllning här; xG kommer ur `oddset_result_stats`.
+  `season_of()` avgör säsongsetikett på `FD_SEASON_CODES` (höst/vår ⇒
+  `2025/26`, annars kalenderår) — återanvänd den listan, skriv aldrig en
+  parallell. Säsongsvalet gäller BARA de räknade kolumnerna: fitten ser alltid
+  hela poolen med tidsvikt, och `MIN_MATCHES` prövas mot hela historiken så
+  tabellen inte är tom två månader varje säsongsstart.
+  `#` är styrkerank, INTE tabellplacering — avsiktligt, annars vore den bara
+  tabellen igen. Visningsnamnet (`name`) väljs bland RÅA namn: diakriter
+  först, sedan längst, och oddssidans namn (`Storage.oddset_team_names`)
+  läggs till som variant eftersom football-data strippar diakriter
+  (`Djurgarden` → `Djurgårdens IF`). Uppslaget kräver exakt normaliserad
+  nyckel — aldrig fuzzy, fel klubbnamn är värre än ett tråkigt.
+  Ranken syns även som chip i matchraden, uppslaget
   på RÅA lagnamn (`aliases`), aldrig på substräng när ett exakt alias finns.
   Allt detta är **AMBER**: uppmätt förutsäger modellen inte Pinnacles drift
   till stängning (r = −0,120, 90 % KI [−0,252, +0,034]), så ranken får inte

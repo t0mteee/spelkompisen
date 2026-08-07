@@ -825,21 +825,29 @@ function oddsetValueTier(v) {
    får inte påverka edge, urval eller notiser. */
 function PowerRankPanel({ leagues }) {
   const [league, setLeague] = useState('allsvenskan')
+  // '' = hela historiken. Säsongen nollställs vid ligabyte: etiketterna är
+  // ligans egna (kalenderår vs 2025/26) och en kvarhängande säsong från
+  // förra ligan skulle tyst filtrera bort allt.
+  const [season, setSeason] = useState('')
   const [data, setData] = useState(null)
   const [err, setErr] = useState(null)
+  useEffect(() => { setSeason('') }, [league])
   useEffect(() => {
     setData(null); setErr(null)
-    fetch(`/api/oddset/powerrank?league=${league}&_t=${Date.now()}`,
-      { cache: 'no-store' })
+    fetch(`/api/oddset/powerrank?league=${league}`
+      + `${season ? `&season=${encodeURIComponent(season)}` : ''}`
+      + `&_t=${Date.now()}`, { cache: 'no-store' })
       .then((r) => r.json()).then(setData).catch((e) => setErr(String(e)))
-  }, [league])
+  }, [league, season])
 
   const cols = [
-    { key: 'rank', label: '#', defaultDir: 'asc' },
-    { key: 'team', label: 'Lag', defaultDir: 'asc' },
-    { key: 'ratio', label: 'Styrka', title: 'Anfall ÷ försvar ur modellens egen fit' },
-    { key: 'att', label: 'Anfall' },
-    { key: 'def', label: 'Försvar', defaultDir: 'asc' },
+    { key: 'rank', label: '#', defaultDir: 'asc',
+      title: 'Styrkerank — INTE tabellplacering. Listan är sorterad på anfall ÷ försvar ur modellens fit. Att den avviker från tabellen är hela poängen: tabellen säger vad som hänt, styrkan vad modellen tror om laget.' },
+    { key: 'name', label: 'Lag', defaultDir: 'asc' },
+    { key: 'ratio', label: 'Styrka', title: 'Anfall ÷ försvar ur modellens egen fit. 1,00 = ligasnitt.' },
+    { key: 'att', label: 'Anfall', title: 'Målfaktor i anfall mot ett genomsnittligt försvar. 1,20 = gör 20 % fler mål än snittlaget.' },
+    { key: 'def', label: 'Försvar', defaultDir: 'asc',
+      title: 'Målfaktor i försvar. LÄGRE är bättre: 0,80 = släpper in 20 % färre mål än snittlaget.' },
     { key: 'points', label: 'Poäng' },
     { key: 'xpts', label: 'xPoäng', title: 'Förväntade poäng ur matchernas xG' },
     { key: 'overperformance', label: 'Över/under',
@@ -856,12 +864,21 @@ function PowerRankPanel({ leagues }) {
             <option key={l.key} value={l.key}>{l.name}</option>
           ))}
         </select>
+        {data?.seasons?.length > 0 && (
+          <select value={season} onChange={(e) => setSeason(e.target.value)}
+            title="Fitten bakom styrkan tidsviktar alltid hela historiken. Säsongsvalet gäller de räknade kolumnerna: poäng, xPoäng och över/under.">
+            <option value="">Alla säsonger</option>
+            {data.seasons.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        )}
       </div>
       {err && <ErrorState message={err} />}
       {!data && !err && <LoadingState label="Räknar styrkor…" />}
       {data && !data.teams?.length && (
         <EmptyState title="Ingen styrkeskattning för den här ligan"
-          detail="Modellen kräver resultat med tillräckligt många matcher per lag." />
+          detail="Tabellen räknar bara på matcher med observerad xG, och kräver tillräckligt många per lag. xG bakfylls aldrig — den samlas framåt." />
       )}
       {data?.teams?.length > 0 && (
         <>
@@ -875,38 +892,77 @@ function PowerRankPanel({ leagues }) {
                 nedflyttare länkar populationerna.</>
             )}
           </p>
+          <p className="hint">
+            Poäng och xPoäng räknas på <b>samma matcher</b>: de som har
+            observerad xG{data.season ? ` under ${data.season}` : ''}. Lag utan
+            xG-matcher visas inte — det finns inget att jämföra deras poäng
+            mot. Kolumnen <b>m</b> är alltså antal xG-täckta matcher, inte
+            antal spelade.
+          </p>
+          <details className="powerrank-method">
+            <summary>Så räknas styrka, anfall och försvar</summary>
+            <p>
+              Modellen skattar två tal per lag genom att upprepat justera dem
+              tills de förväntade målen matchar de observerade
+              (<code>fit_league</code>
+              {data.params?.iters ? `, ${data.params.iters} iterationer` : ''}):
+            </p>
+            <pre>{`λ_hemma = base_liga × hemmafördel_liga × anfall_hemma × försvar_borta
+λ_borta = base_liga × anfall_borta × försvar_hemma`}</pre>
+            <ul>
+              <li><b>Anfall</b> och <b>försvar</b> är målfaktorer normaliserade
+                så ligasnittet är 1,00. Anfall 1,20 = gör 20 % fler mål än
+                snittlaget; försvar 0,80 = släpper in 20 % färre. <b>Lägre
+                försvar är alltså bättre.</b></li>
+              <li><b>Styrka</b> = anfall ÷ försvar. Ett enda tal att sortera
+                på, men det döljer profilen: 1,50 kan vara ett målrikt lag
+                med läckande försvar eller ett defensivt lag som gör få mål.</li>
+              <li><b>Mål räknas xG-viktat</b>: effektiva mål ={' '}
+                {(data.params?.xg_weight ?? 0.65).toString().replace('.', ',')} × xG
+                + {(1 - (data.params?.xg_weight ?? 0.65)).toFixed(2).replace('.', ',')} ×
+                faktiska mål. Det är därför en tursam vinst inte lyfter
+                styrkan lika mycket som en dominant match.</li>
+              <li><b>Äldre matcher väger mindre</b> (exponentiell tidsvikt,
+                halveringstid {data.params?.half_life_d ?? 166} dagar), och
+                fitten går över hela poolen och alla säsonger — säsongsvalet
+                ovan gäller bara de räknade kolumnerna, aldrig styrkan.</li>
+            </ul>
+            <p>
+              <b>#-kolumnen är styrkerank, inte tabellplacering.</b> Att de två
+              skiljer sig är hela poängen: tabellen säger vad som har hänt,
+              styrkan vad modellen tror om laget. Över/under-kolumnen är
+              avståndet mellan dem.
+            </p>
+          </details>
           <SortableTable id="oddset-powerrank" columns={cols} rows={data.teams}
             defaultSort={{ key: 'rank', dir: 'asc' }}
             className="grid compact"
             renderRow={(t) => (
               <tr key={t.team}>
                 <td>{t.rank}</td>
-                <td className="match-name"><b>{t.team}</b>
+                <td className="match-name"><b>{t.name || t.team}</b>
                   <span className="hint"> {t.matches} m</span></td>
                 <td><b>{num(t.ratio)}</b></td>
                 <td>{num(t.att)}</td>
                 <td>{num(t.def)}</td>
                 <td>{t.points}</td>
-                <td>{t.xpts ?? '–'}</td>
-                <td className={t.overperformance == null ? ''
-                  : t.overperformance > 0 ? 'neg' : 'pos'}>
-                  {t.overperformance == null ? '–'
-                    : `${t.overperformance > 0 ? '+' : ''}${t.overperformance}`}
+                <td>{t.xpts}</td>
+                <td className={t.overperformance > 0 ? 'neg' : 'pos'}>
+                  {`${t.overperformance > 0 ? '+' : ''}${t.overperformance}`}
                 </td>
               </tr>
             )}
             renderCard={(t) => (
               <div key={t.team} className="live-radar-card">
                 <div className="live-radar-teams">
-                  <b>{t.rank}. {t.team}</b>
+                  <b>{t.rank}. {t.name || t.team}</b>
+                  <span className="hint">{t.matches} m</span>
                 </div>
                 <div className="live-radar-stats">
                   <span>styrka <b>{num(t.ratio)}</b></span>
-                  <span>poäng <b>{t.points}</b> · xP <b>{t.xpts ?? '–'}</b></span>
-                  <span className={t.overperformance == null ? ''
-                    : t.overperformance > 0 ? 'neg' : 'pos'}>
-                    {t.overperformance == null ? 'xP saknas'
-                      : `${t.overperformance > 0 ? '+' : ''}${t.overperformance} mot xP`}
+                  <span>poäng <b>{t.points}</b> · xP <b>{t.xpts}</b></span>
+                  <span className={t.overperformance > 0 ? 'neg' : 'pos'}>
+                    {`${t.overperformance > 0 ? '+' : ''}${t.overperformance} mot xP`}
                   </span>
                 </div>
               </div>

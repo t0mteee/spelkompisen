@@ -1585,6 +1585,20 @@ class Storage:
         q += " ORDER BY start"
         return [dict(r) for r in self.conn.execute(q, args).fetchall()]
 
+    def oddset_team_names(self, league: str) -> list[str]:
+        """Lagnamn som oddskällorna skrev dem, för en liga.
+
+        Resultatkällan (football-data) strippar diakriter för en del klubbar
+        ("Djurgarden"), medan oddssidan skriver dem ("Djurgårdens IF"). Båda
+        är OBSERVERADE namn — det här är alltså inte en gissad rekonstruktion
+        utan ett val mellan två källor som faktiskt skrivit namnet.
+        """
+        rows = self.conn.execute(
+            "SELECT DISTINCT home AS name FROM oddset_matches WHERE league=? "
+            "UNION SELECT DISTINCT away FROM oddset_matches WHERE league=?",
+            (league, league)).fetchall()
+        return [r["name"] for r in rows if r["name"]]
+
     def oddset_match(self, match_id: str) -> Optional[dict]:
         row = self.conn.execute(
             "SELECT * FROM oddset_matches WHERE id=?", (match_id,)).fetchone()

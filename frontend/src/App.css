@@ -1071,6 +1071,29 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 .rankchip { opacity: .72; font-variant-numeric: tabular-nums; }
 .powerrank .valhead select {
   background: var(--panel2); color: var(--text); border: 1px solid var(--line);
-  border-radius: 7px; padding: 3px 8px; font-size: 12px; margin-left: auto;
+  border-radius: 7px; padding: 3px 8px; font-size: 12px; margin-left: 6px;
 }
+/* Bara den FÖRSTA väljaren skjuter ut gruppen till höger — får båda
+   margin-left:auto delar flexen utrymmet och de glider isär. */
+.powerrank .valhead select:first-of-type { margin-left: auto; }
 .powerrank .rchip.amber { color: #dca85e; border-color: #dca85e55; }
+
+.powerrank-method { margin: 6px 0 10px; color: var(--muted); font-size: 12px; }
+.powerrank-method summary { cursor: pointer; color: var(--text); opacity: .8; }
+.powerrank-method summary:hover { opacity: 1; }
+.powerrank-method p, .powerrank-method ul { margin: 8px 0; line-height: 1.55; }
+.powerrank-method ul { padding-left: 18px; }
+.powerrank-method li { margin-bottom: 5px; }
+.powerrank-method pre {
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 7px;
+  padding: 8px 10px; overflow-x: auto; font-size: 11.5px; color: var(--text);
+}
+
+/* Zebra: tabellen är 16–30 rader breda tal, och utan nyansskillnad tappar
+   ögat raden på väg ut till över/under-kolumnen. Nyansen ligger PÅ raden
+   (inte på cellerna) så den inte slår ut cellernas egna färgklasser. */
+.powerrank .grid tbody tr:nth-child(even) { background: #ffffff07; }
+.powerrank .grid tbody tr:hover { background: #ffffff12; }
+.powerrank .grid td { border-bottom-color: #ffffff0d; }
+.powerrank .grid td:first-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+.powerrank .grid td { font-variant-numeric: tabular-nums; }

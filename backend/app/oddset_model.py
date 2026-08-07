@@ -636,7 +636,25 @@ def attach_model(store: Storage, matches: list[dict],
 # stödchip, lyfta ett spelkort eller påverka edge, urval eller notiser. Ska
 # den bli actionable krävs egen förregistrering och grind — samma väg som
 # amber-modellen fälldes på 2026-07-24.
-POWERRANK_VERSION = "powerrank-v1"
+POWERRANK_VERSION = "powerrank-v2"
+
+
+def season_of(date_iso: str, league: Optional[str] = None) -> Optional[str]:
+    """Säsongsetikett för ett matchdatum.
+
+    Höst/vår-ligorna är exakt de som football-data publicerar per säsongsfil
+    (`FD_SEASON_CODES`) — den listan finns redan och beskriver samma verklighet,
+    så den återanvänds i stället för en parallell handskriven uppsättning som
+    kan glida isär. Övriga (nordiska ligor, MLS) spelar inom kalenderåret.
+    """
+    try:
+        year, month = int(date_iso[:4]), int(date_iso[5:7])
+    except (TypeError, ValueError, IndexError):
+        return None
+    if league in oddset_data.FD_SEASON_CODES:
+        start = year if month >= 7 else year - 1
+        return f"{start}/{(start + 1) % 100:02d}"
+    return str(year)
 
 
 def expected_points(xg_h: float, xg_a: float,
@@ -653,47 +671,72 @@ def expected_points(xg_h: float, xg_a: float,
     return (3 * probs["1"] + probs["X"], 3 * probs["2"] + probs["X"])
 
 
+def _display_name(key: str, raws: Optional[set[str]]) -> str:
+    """Visningsnamn ur de RÅA namnen källorna skrev, aldrig ur nyckeln.
+
+    Nyckeln är normaliserad för matchning (gemener, diakriter strippade), och
+    den formen ska aldrig nå skärmen. Bland varianterna vinner den som bär
+    diakriter (`Djurgårdens IF` slår `Djurgarden`) och därefter den längsta
+    (`Degerfors IF` slår `Degerfors`) — fullständigare namn är lättare att
+    känna igen. Saknas råa namn helt title-casas nyckeln; diakriter GISSAS
+    aldrig fram, de kommer bara från en källa som faktiskt skrev dem.
+    """
+    if not raws:
+        return key.title()
+    return max(raws, key=lambda n: (not n.isascii(), len(n), n))
+
+
 def powerrank(results: list[dict], fit: Optional[dict] = None,
-              league: Optional[str] = None) -> list[dict]:
+              league: Optional[str] = None,
+              season: Optional[str] = None,
+              odds_names: Optional[list[str]] = None) -> list[dict]:
     """Lagstyrka + xPts-avvikelse per lag, starkast först.
 
     `att`/`def` kommer ur den fit modellen FAKTISKT använder — ingen egen
-    parallell skattning som kan glida isär från prognoserna.
+    parallell skattning som kan glida isär från prognoserna. Fitten ser HELA
+    poolen med tidsvikt; säsongsfiltret gäller bara de räknade kolumnerna.
 
-    xPts räknas bara på matcher som HAR xG. Ett lag utan xG-täckta matcher
-    får `xpts=None`, aldrig 0: saknad mätning och nollprestation är olika
-    saker, och den skillnaden är hela poängen med måttet.
+    **Poäng och xPts räknas på EXAKT samma matcher: de som har xG.** En match
+    utan xG bidrar med ingenting alls — inte poäng, inte mål, inte xPts. Fram
+    till 2026-08-07 räknades poängen på alla matcher och skalades ned med
+    täckningsgraden (`pts × n_xg / matches`), vilket antog att poängen
+    fördelade sig jämnt över täckta och otäckta matcher. Det antagandet är
+    inte givet, och gjorde avvikelsen till en approximation i stället för en
+    mätning. Lag helt utan xG-matcher faller ur tabellen: det finns inget att
+    jämföra deras poäng MOT, och en rad med `–` inbjuder till en jämförelse
+    som inte går att göra. xG bakfylls aldrig (`MODEL_DATA_VERSION`-regeln).
     """
     fit = fit or fit_league(results)
     if not fit:
         return []
     teams = fit.get("teams") or {}
     agg: dict[str, dict] = {}
+    seen: dict[str, int] = {}          # xG-matcher i HELA historiken
     for row in results:
         if league and row.get("league") != league:
             continue
         hg, ag = row.get("hg"), row.get("ag")
-        if hg is None or ag is None:
+        xg_h, xg_a = row.get("xg_h"), row.get("xg_a")
+        if hg is None or ag is None or xg_h is None or xg_a is None:
             continue
-        for side, team in (("h", row.get("home")), ("a", row.get("away"))):
+        for team in (row.get("home"), row.get("away")):
+            if team:
+                seen[team] = seen.get(team, 0) + 1
+        if season and season_of(row.get("date") or "", row.get("league")) != season:
+            continue
+        xp_h, xp_a = expected_points(float(xg_h), float(xg_a))
+        for side, team, xp in (("h", row.get("home"), xp_h),
+                               ("a", row.get("away"), xp_a)):
             if not team:
                 continue
             entry = agg.setdefault(team, {
-                "matches": 0, "pts": 0.0, "xpts": 0.0, "n_xg": 0,
-                "gf": 0, "ga": 0})
+                "matches": 0, "pts": 0.0, "xpts": 0.0, "gf": 0, "ga": 0})
             own, opp = (hg, ag) if side == "h" else (ag, hg)
             entry["matches"] += 1
             entry["gf"] += own
             entry["ga"] += opp
             entry["pts"] += 3 if own > opp else 1 if own == opp else 0
-        xg_h, xg_a = row.get("xg_h"), row.get("xg_a")
-        if xg_h is None or xg_a is None:
-            continue
-        xp_h, xp_a = expected_points(float(xg_h), float(xg_a))
-        for team, xp in ((row.get("home"), xp_h), (row.get("away"), xp_a)):
-            if team and team in agg:
-                agg[team]["xpts"] += xp
-                agg[team]["n_xg"] += 1
+            entry["xpts"] += xp
 
     # Råa namn per normaliserad nyckel: UI:t har matchens namn som providern
     # skrev det ("GIF Sundsvall"), inte den normaliserade formen. Utan dessa
@@ -704,31 +747,40 @@ def powerrank(results: list[dict], fit: Optional[dict] = None,
             name, rawname = row.get(key), row.get(rawkey)
             if name and rawname:
                 raw.setdefault(name, set()).add(rawname)
+    # Oddssidans namn läggs till som variant och vinner via diakriterna i
+    # `_display_name`. Uppslaget kräver EXAKT samma normaliserade nyckel —
+    # ingen fuzzy-matchning: en felkopplad rad skulle sätta fel klubbnamn på
+    # en rad som i övrigt är korrekt, och det är värre än ett tråkigt namn.
+    from .oddset import norm_team          # sen import: oddset importerar oss
+    for name in odds_names or []:
+        key = norm_team(name)
+        if key in agg:
+            raw.setdefault(key, set()).add(name)
 
     out = []
     for team, v in agg.items():
         strength = teams.get(team)
-        if not strength or v["matches"] < MIN_MATCHES:
+        # MIN_MATCHES gäller STYRKESKATTNINGEN och prövas därför mot hela
+        # historiken, inte mot det säsongsfiltrerade urvalet. Annars vore
+        # varje säsong tom i två månader — och det är inte styrkan som blivit
+        # osäker av att man tittar på en kortare period.
+        if not strength or seen.get(team, 0) < MIN_MATCHES:
             continue
-        has_xg = v["n_xg"] > 0
-        # Poängen jämförs bara över de matcher xPts kunde räknas på, annars
-        # vore差 en artefakt av täckningen i stället för av prestationen.
-        pts_on_xg = v["pts"] * (v["n_xg"] / v["matches"]) if has_xg else None
         out.append({
             "team": team,
+            "name": _display_name(team, raw.get(team)),
             "aliases": sorted(raw.get(team, set())),
             "att": round(strength["att"], 3),
             "def": round(strength["def"], 3),
             "ratio": round(strength["att"] / max(strength["def"], 1e-6), 3),
+            # samtliga kolumner nedan mäts på SAMMA matcher: de med xG
             "matches": v["matches"],
             "goal_diff": v["gf"] - v["ga"],
             "points": round(v["pts"], 1),
-            "xpts": round(v["xpts"], 1) if has_xg else None,
-            "n_xg": v["n_xg"],
+            "xpts": round(v["xpts"], 1),
             # positivt = laget har tagit FLER poäng än chanserna motiverar,
             # alltså kandidat för nedgång
-            "overperformance": (round(pts_on_xg - v["xpts"], 1)
-                                if has_xg else None),
+            "overperformance": round(v["pts"] - v["xpts"], 1),
         })
     out.sort(key=lambda r: -r["ratio"])
     for i, row in enumerate(out, 1):

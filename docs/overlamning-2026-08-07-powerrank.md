@@ -40,45 +40,137 @@ Kortfattat, med de mätningar som motiverade besluten:
 * **Källhälsan** filtreras på `active_sources()`, härledd ur BOOKS/ANCHOR/
   SHADOW/LIVE. Både backend och UI följer den listan.
 
-## KVARSTÅENDE — Samans fyra punkter på powerranken
+## Samans fyra punkter på powerranken — KLARA (powerrank-v2)
 
 Fliken 🏋 Lagstyrka finns (`/api/oddset/powerrank`, `PowerRankPanel` i
-App.jsx, `oddset_model.powerrank`). Följande är beställt men INTE gjort:
+App.jsx, `oddset_model.powerrank`). Alla fyra åtgärdades 2026-08-07 och
+versionen gick `powerrank-v1` → **`powerrank-v2`**.
 
-### 1. Matcher utan xG ska inte räknas alls (METODFEL som måste rättas)
+### 1. Matcher utan xG räknas inte alls (METODFELET, rättat)
 
-Nuvarande `powerrank()` räknar `points` på **alla** matcher men `xpts` bara på
-xG-täckta, och jämför dem via skalningen
-`pts_on_xg = pts * (n_xg / matches)`. Det är en approximation som antar att
-poängen fördelar sig jämnt över täckta och otäckta matcher — vilket inte är
-givet.
+`powerrank-v1` räknade `points` på **alla** matcher men `xpts` bara på
+xG-täckta, och jämförde dem via skalningen `pts × (n_xg / matches)`. Den
+antog att poängen fördelade sig jämnt över täckta och otäckta matcher —
+ett antagande utan stöd, som gjorde avvikelsen till en approximation i
+stället för en mätning.
 
-Samans invändning är riktig: *"det är ointressant hur många poäng vissa lag
+Samans invändning var riktig: *"det är ointressant hur många poäng vissa lag
 tog för några säsonger sedan om vi inte har någon xG-data att köra det mot."*
 
-**Åtgärd:** räkna BÅDE poäng och xPts enbart på matcher som har xG. Då blir
-avvikelsen exakt i stället för skalad, och `matches` i tabellen ska visa
-antalet xG-täckta matcher. Lag utan xG-matcher ska falla ur tabellen helt,
-inte visas med `–`. Ingen bakfyllning av xG (`MODEL_DATA_VERSION`-regeln).
+**Nu:** en match utan xG bidrar med ingenting alls — inte poäng, inte mål,
+inte xPts. Alla kolumner på raden (`matches`, `points`, `xpts`, `goal_diff`,
+`overperformance`) mäts på exakt samma matchmängd, så `overperformance` är
+`points − xpts` rakt av. Lag helt utan xG-matcher faller ur tabellen i
+stället för att visas med `–`: det finns inget att jämföra deras poäng mot,
+och en tom rad inbjuder till en jämförelse som inte går att göra. Ingen
+bakfyllning av xG (`MODEL_DATA_VERSION`-regeln).
 
-### 2. Säsongsfilter
+`MIN_MATCHES` prövas mot HELA historiken, inte mot det säsongsfiltrerade
+urvalet — annars vore varje tabell tom de första två månaderna av en säsong,
+och det är inte styrkeskattningen som blivit osäker av att man tittar på en
+kortare period.
 
-Fitten har exponentiell tidsvikt (halveringstid 166 d) men tabellen summerar
-poäng/xPts över HELA historiken, så innevarande säsong blandas med förra.
-Lägg ett säsongsval (innevarande / föregående / allt) som filtrerar raderna
-före aggregeringen. Säsongsgräns kan härledas ur `date` — nordiska ligor är
-vår–höst, MLS likaså, medan Europaligorna är höst–vår.
+Låst av `PowerRankTests` i `tests/test_oddset_model.py`, som bland annat
+kontrollerar att skalningen inte kan smyga tillbaka.
 
-### 3. Läsbar tabell
+### 2. Säsongsfilter (klart)
 
-Raderna flyter ihop. Lägg zebra-nyans per rad i `.powerrank` (App.css).
+`powerrank(..., season=...)` filtrerar raderna före aggregeringen; fitten
+bakom `att`/`def` ser oförändrat hela poolen med tidsvikt (halveringstid
+166 d). Etiketten kommer ur `season_of()`, som avgör kalendertyp på
+`FD_SEASON_CODES` — den listan finns redan och beskriver exakt samma
+verklighet (höst/vår-ligor publiceras per säsongsfil), så den återanvänds i
+stället för en parallell handskriven uppsättning som kan glida isär.
+Nordiska ligor och MLS får `2026`, Europaligorna `2025/26`.
 
-### 4. Riktiga lagnamn
+Endpointen svarar med `seasons` (bara säsonger som HAR xG — annars vore en
+tom vy ett falskt felmeddelande) och `season` (den som faktiskt tillämpades;
+en okänd säsong faller tillbaka på hela historiken). UI:t nollställer
+säsongen vid ligabyte eftersom etiketterna är ligans egna.
 
-Tabellen visar den normaliserade nyckeln (`djurgarden`, `ifk norrkoping`).
-`powerrank()` returnerar redan `aliases` med de RÅA namnen ur
-resultathistoriken — använd det första aliaset som visningsnamn och behåll
-nyckeln som fallback.
+### 3. Läsbar tabell (klart)
+
+Zebra-nyans per rad i `.powerrank` (App.css), lagd PÅ raden så cellernas
+egna färgklasser inte slås ut, plus tabular-nums och dämpad rangkolumn.
+
+### 4. Riktiga lagnamn (klart)
+
+Raden bär nu `name`. `_display_name()` väljer bland de RÅA namnen: diakriter
+först, därefter det längsta. **Oddssidans namn läggs till som variant** via
+`Storage.oddset_team_names()` — football-data strippar diakriter för en del
+klubbar (`Djurgarden`), medan oddskällan skriver dem (`Djurgårdens IF`), och
+båda är observerade namn. Uppslaget kräver EXAKT samma normaliserade nyckel,
+aldrig fuzzy: fel klubbnamn på en i övrigt korrekt rad är värre än ett
+tråkigt namn. Diakriter gissas aldrig fram.
+
+Resultat i Allsvenskan: `Djurgårdens IF`, `BK Häcken`, `Mjällby AIF`,
+`IFK Göteborg` i stället för `djurgarden`, `hacken`, `mjallby`, `goteborg`.
+
+## Så räknas styrka, anfall och försvar
+
+Frågat av Saman 2026-08-07; förklaringen finns nu också i UI:t
+(`<details class="powerrank-method">`), med parametrarna hämtade ur
+endpointens `params` så texten inte kan glida ifrån koden.
+
+`fit_league` skattar två tal per lag genom 80 iterationer tills förväntade
+mål matchar observerade:
+
+```
+λ_hemma = base_liga × hemmafördel_liga × anfall_hemma × försvar_borta
+λ_borta = base_liga × anfall_borta × försvar_hemma
+```
+
+* **Anfall/försvar** är målfaktorer normaliserade så ligasnittet är 1,00.
+  Anfall 1,20 = 20 % fler mål än snittlaget; försvar 0,80 = 20 % färre
+  insläppta. **Lägre försvar är bättre.**
+* **Styrka = anfall ÷ försvar.** Ett tal att sortera på, men det döljer
+  profilen: 1,50 kan vara målrikt-med-läckande-försvar eller defensivt-med-få-mål.
+* **Mål räknas xG-viktat** (`XG_WEIGHT = 0,65`), så en tursam vinst lyfter
+  inte styrkan lika mycket som en dominant match.
+* **Tidsvikt** exponentiell, halveringstid 166 dagar. Fitten är cross-liga
+  över hela poolen och alla säsonger — upp-/nedflyttare länkar populationerna.
+* Mjuk ridge 0,98 mot 1: i en pool där en liga är svagt kopplad är skalan
+  oidentifierbar längs (att·c, def·c, base/c²).
+
+**`#` är styrkerank, inte tabellplacering** — det är avsiktligt. Tabellen
+säger vad som har hänt, styrkan vad modellen tror om laget, och avståndet
+mellan dem är över/under-kolumnen. En rank som bara speglade tabellen vore
+inget mer än tabellen.
+
+## xG-täckningen: varför Allsvenskan har historik men PL inte
+
+Saman noterade 2026-08-07 att Allsvenskan har xG tillbaka till 2024 trots att
+projektet bara körts en säsong, och frågade varför Europaligorna saknar det.
+
+**Svaret är att xG ÄR bakfyllt — via Sofascore.** `oddset_data.xg_backfill()`
+hämtar tidigare säsonger per liga ur `SOFA_UT`, och mätt i DB:n:
+
+| Liga | xG-rader | Från | Provider |
+|---|---|---|---|
+| MLS | 972 | 2024-05-12 | sofascore |
+| Eliteserien | 611 | 2024-03-31 | sofascore |
+| Superettan | 599 | 2024-03-30 | sofascore |
+| OBOS | 597 | 2024-04-01 | sofascore |
+| Allsvenskan | 574 | 2024-03-30 | sofascore |
+| PL / Serie A / La Liga / Bundesliga | **0** | — | — |
+
+`SOFA_UT` innehåller redan de fyra Europaligorna (17/23/8/35). Skälet till
+nollan är alltså inte att data saknas hos providern utan att ligorna var
+`research_only` fram till 2026-08-07 — Sofascore-insamlingen kördes aldrig
+för dem. `oddset_results` har uteslutande `source='fd'` för dem, och
+football-data bär inte xG.
+
+**Det betyder att spärren i CLAUDE.md ("0 av 2 897 matcher har xG … xG samlas
+framåt, aldrig bakåt") beskriver ett tillstånd som går att åtgärda.**
+Regeln "aldrig bakåt" gäller pris- och signalobservationer, där
+observationstiden är en del av mätningen. Ett avgjort matchresultat och dess
+xG är däremot settlade fakta som inte ändrar sig — därför var Sofascore-
+backfillen legitim för de nordiska ligorna, och samma väg är öppen här.
+
+**Inte gjort, kräver Samans beslut:** en backfill flyttar de fyra ligorna in
+i `MODEL_LEAGUES`/`FIT_POOLS`, vilket ändrar `MODEL_PARAMS["pools"]` och
+därmed modellens `signal_version` — facitgruppen delas. Det är en
+förregistreringsfråga, inte en sidoeffekt av en insamling.
 
 ## Regler som gäller allt ovan
 
