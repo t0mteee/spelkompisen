@@ -669,7 +669,17 @@ måste Saman lägga in en Bash-behörighetsregel — se
 - Tillstånd sparas i `localStorage` (`svs_state`); bootstrap återställer.
 - Inga `cursor: help`-frågetecken; förklaringar som title-tooltips.
 - Oddset-delen: röd = oddset NER (ökad vinstchans), grön = UPP (vm-konvention).
-- Oddset har fyra persisterade sub-tabbar och en alltid synlig räknarrad.
+- Oddset har FEM persisterade sub-tabbar och en alltid synlig räknarrad.
+  **🏋 Lagstyrka (2026-08-07)** visar modellens egen powerrank per liga:
+  `att`/`def` ur samma `fit_league` som prognoserna använder (aldrig en
+  parallell skattning), plus xPts ur matchernas xG och avvikelsen mot
+  faktiska poäng — positivt = laget har tagit mer än chanserna motiverar och
+  är kandidat för nedgång. Ranken syns även som chip i matchraden, uppslaget
+  på RÅA lagnamn (`aliases`), aldrig på substräng när ett exakt alias finns.
+  Allt detta är **AMBER**: uppmätt förutsäger modellen inte Pinnacles drift
+  till stängning (r = −0,120, 90 % KI [−0,252, +0,034]), så ranken får inte
+  ge stödchip, lyfta ett spelkort eller påverka edge, urval eller notiser.
+  Ska den bli actionable krävs egen förregistrering och grind.
   Jämförbara listor använder EN `SortableTable`: rubrikklick på desktop,
   sortval + samma kortordning på mobil. Matcher-flikens persisterade
   Dölj/Visa startade-filter får inte filtrera Live eller signalflikarna.
