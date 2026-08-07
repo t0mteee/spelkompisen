@@ -251,6 +251,36 @@ def _sofa_season(store: Storage, lg: str,
         return None
 
 
+def _xg_is_measured(row: dict) -> bool:
+    """Är xG-paret en MÄTNING eller en saknad mätning kodad som noll?
+
+    Samma lärdom som fällde Sofascore som livekälla 2026-08-06: providern
+    rapporterar 0.0 i stället för att utelämna fältet, och en nolla ser ut som
+    ett mätvärde. I modellen är skillnaden stor — effektiva mål är
+    0,65·xG + 0,35·mål, så en falsk nolla gör en 2–2-match till 0,7–0,7.
+
+    Två kriterier, båda objektiva (ingen bedömning av rimlighet):
+
+    1. **Båda exakt 0,00** i en spelad match. Signaturen för "statistik-
+       sektionen fanns men xG saknades". Uppmätt på fyra Bundesliga-
+       relegationsmatcher 2026-08-07, varav tre hade mål.
+    2. **Ett lag som gjorde mål har xG 0,00.** Aritmetiskt omöjligt: varje mål
+       är ett avslut och varje avslut bär xG > 0. (MLS 2025-05-04,
+       Sporting KC 1–0 med xg_h = 0,0.)
+
+    Ett lag som INTE gjorde mål och har xG 0,00 är osannolikt men möjligt, och
+    lämnas därför orört. Att radera på osannolikhet i stället för omöjlighet
+    vore att börja tycka till om datat.
+    """
+    xh, xa = row.get("xg_h"), row.get("xg_a")
+    if xh is None or xa is None:
+        return False
+    hg, ag = row.get("hg") or 0, row.get("ag") or 0
+    if xh == 0 and xa == 0:
+        return False
+    return not ((hg > 0 and xh == 0) or (ag > 0 and xa == 0))
+
+
 def _ingest_event(store: Storage, lg: str, e: dict,
                   results_only: bool = False) -> bool:
     """Spara ett avslutat Sofascore-event (resultat + xG + hörnor).
@@ -323,6 +353,9 @@ def _ingest_event(store: Storage, lg: str, e: dict,
             elif s.get("name") == "Corner kicks":
                 row["cor_h"] = float(s["home"])
                 row["cor_a"] = float(s["away"])
+    if not _xg_is_measured(row):
+        row.pop("xg_h", None)
+        row.pop("xg_a", None)
     row.update({
         "stats_provider": "sofascore",
         "provider_event_id": str(eid),

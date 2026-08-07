@@ -72,7 +72,49 @@ Säkerhet: `oddset_save_result` är FÖRST-VINNER för xG/hörnor (se
 värde som redan är modellindata. `_ingest_event` hoppar över event med
 `oddset_sofa_seen`-markör, så skriptet är idempotent och kan avbrytas.
 
-RESULTAT: se nedan (fylls i när körningen är klar).
+**RESULTAT — 61 minuter, mätt i den SAMMANSLAGNA vyn (`merged_results`), inte
+i råtabellen:**
+
+| Liga | matcher | xG före | xG efter | fuzzy | okopplade |
+|---|---|---|---|---|---|
+| premier_league | 760 | 0 (0 %) | **760 (100 %)** | 0 | 0 |
+| serie_a | 760 | 0 (0 %) | **760 (100 %)** | 0 | 0 |
+| la_liga | 760 | 0 (0 %) | **760 (100 %)** | 0 | 0 |
+| bundesliga | 612 | 0 (0 %) | **611 (100 %)** | 0 | 0 |
+| mls | 1 330 | 972 (73 %) | **1 091 (82 %)** | 0 | 0 |
+| allsvenskan / eliteserien / superettan / obosligaen | — | — | oförändrat 96–100 % | 0 | 0 |
+
+Matchantalen är OFÖRÄNDRADE, vilket är det viktiga kvittot: inga dubbletter
+skapades, Sofascore-raderna mergade in i football-data-raderna. 760 är exakt
+två fulla säsonger för de tre 20-lagsligorna och 612 för Bundesligas 18.
+
+### 4. Falsk noll-xG och relegationsmatcher (upptäckt i körningens egen utdata)
+
+Bundesligas utdata visade fyra matcher med `xg 0.0/0.0` — varav en 2–2. Det är
+**samma fel som kopplade bort Sofascore som livekälla 2026-08-06**: providern
+rapporterar 0.0 i stället för att utelämna, och en nolla ser ut som ett
+mätvärde. I modellen är skillnaden stor — effektiva mål är 0,65·xG + 0,35·mål,
+så en falsk nolla gör en 2–2-match till 0,7–0,7.
+
+* **Kodfix framåt:** `_xg_is_measured()` förkastar xG-paret på två OBJEKTIVA
+  kriterier — (1) båda exakt 0,00 i en spelad match, (2) ett lag som gjorde mål
+  har xG 0,00 (aritmetiskt omöjligt: varje mål är ett avslut). Resultat och
+  hörnor behålls. Låst av två tester.
+* **Städning:** `scripts/stada_falsk_nollxg.py --skarpt` nollade xG på 5 rader
+  (4 Bundesliga + MLS 2025-05-04 Sporting KC 1–0 med `xg_h = 0,0`).
+* **Tre rader lämnades ORÖRDA** där det nollade laget inte gjorde mål
+  (Cremonese–Pisa 3–0, Barcelona–Sociedad 4–0, Werder–Bayern 0–5). Osannolikt
+  men möjligt. Att radera på osannolikhet i stället för omöjlighet vore att
+  börja tycka till om datat.
+* **Fyra relegationsmatcher borttagna:** Sofascore nästlar
+  `Bundesliga, Relegation/Promotion Playoffs` under samma uniqueTournament (35),
+  så playoff mot SC Paderborn 07 och SV 07 Elversberg följde med. De lagen
+  spelar i 2. Bundesliga och kan omöjligt stå i Bundesligas tabell; de gav två
+  lag med två matcher var i fitten. Bundesliga gick 616 → 612 = exakt två
+  säsonger.
+* **Ingen generell playoff-spärr infördes.** MLS slutspel spelas mellan
+  MLS-lag och är legitim ligadata, och diskriminatorn är inte verifierad för
+  alla ligor. Öppen fråga hellre än en gissning.
 
 ### Vad som INTE gjordes
 

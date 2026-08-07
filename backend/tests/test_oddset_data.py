@@ -76,6 +76,30 @@ class FootballDataParserTests(unittest.TestCase):
 
         self.assertEqual(1, len(rows))
 
+    def test_zero_xg_is_treated_as_a_missing_measurement(self) -> None:
+        """En nolla ser ut som ett mätvärde — samma fel som fällde livekällan.
+
+        Effektiva mål är 0,65·xG + 0,35·mål, så en falsk nolla gör en
+        2–2-match till 0,7–0,7 i modellen.
+        """
+        # Båda exakt noll i en spelad match: saknad mätning.
+        self.assertFalse(oddset_data._xg_is_measured(
+            {"hg": 2, "ag": 2, "xg_h": 0.0, "xg_a": 0.0}))
+        # Även i en 0–0: paret bär ingen information.
+        self.assertFalse(oddset_data._xg_is_measured(
+            {"hg": 0, "ag": 0, "xg_h": 0.0, "xg_a": 0.0}))
+        # Ett lag som GJORDE MÅL kan inte ha xG 0,00 — varje mål är ett avslut.
+        self.assertFalse(oddset_data._xg_is_measured(
+            {"hg": 1, "ag": 0, "xg_h": 0.0, "xg_a": 1.39}))
+
+    def test_scoreless_side_with_zero_xg_is_kept(self) -> None:
+        # Osannolikt men möjligt. Att radera på osannolikhet i stället för
+        # omöjlighet vore att tycka till om datat.
+        self.assertTrue(oddset_data._xg_is_measured(
+            {"hg": 3, "ag": 0, "xg_h": 1.32, "xg_a": 0.0}))
+        self.assertTrue(oddset_data._xg_is_measured(
+            {"hg": 1, "ag": 2, "xg_h": 0.9, "xg_a": 1.8}))
+
     def test_season_urls_roll_forward_without_guessing_future_years(self) -> None:
         urls = oddset_data._fd_season_urls(
             "E0", oddset_data.dt.date(2026, 7, 23))

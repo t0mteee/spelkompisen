@@ -47,12 +47,22 @@ skalningen `pts × n_xg / matches`) är rättat — poäng, mål och xPts mäts 
 EXAKT samma matcher, nämligen de med xG, och lag utan xG-matcher faller ur
 tabellen i stället för att visas med `–`. `MIN_MATCHES` prövas mot hela
 historiken, aldrig mot det säsongsfiltrerade urvalet.
-Överlämningen förklarar också att **xG faktiskt ÄR bakfyllt** för de fem
-modelligorna via Sofascore (`xg_backfill`, ~600 matcher/liga sedan
-2024-03); Europaligornas nolla beror på att de var `research_only` när
-insamlingen kördes, inte på att providern saknar data. En backfill dit är
-möjlig men ändrar `MODEL_PARAMS["pools"]` och delar facitgruppen — Samans
-beslut, inte en sidoeffekt.
+**xG är BAKFYLLT för Europaligorna 2026-08-07** (`scripts/backfill_xg_ligor.py`,
+61 min): PL/Serie A/La Liga 760 matcher och Bundesliga 611 — alla **100 %**,
+MLS 73 % → 82 %. Matchantalen är oförändrade, alltså inga dubbletter.
+Bakfyllning är tillåten för RESULTATSTATISTIK (ett avgjort resultat och dess
+xG är settlade fakta) men aldrig för priser, live-signaler eller presence, där
+observationstiden är en del av mätningen. Ligorna ligger fortfarande UTANFÖR
+`MODEL_LEAGUES`/`FIT_POOLS` — att flytta in dem ändrar
+`MODEL_PARAMS["pools"]` och delar facitgruppen, vilket är Samans beslut och
+en förregistreringsfråga. Powerranken fungerar ändå för dem (endpointen
+läser `merged_results` direkt).
+**`_xg_is_measured()`** förkastar xG-par där båda är exakt 0,00 eller där ett
+lag som GJORDE MÅL har 0,00 — Sofascore rapporterar saknad mätning som noll
+(samma fel som fällde den som livekälla). Ett mållöst lag med 0,00 lämnas
+orört: radera på omöjlighet, aldrig på osannolikhet.
+**`_fd_result_rows(..., div=)`** kontrollerar filens EGEN divisionskod:
+football-data serverade skotsk Championship på La Ligas säsongs-URL.
 Föregående Flashscore-överlämning är ersatt och gäller bara som historik.
 De fyra Europaligorna (PL, Serie A, La Liga, Bundesliga) är **FULLT FÖLJDA
 sedan 2026-08-07** inför säsongsstarten: sidoböcker, deep-marknader,
