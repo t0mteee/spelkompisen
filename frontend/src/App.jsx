@@ -1267,6 +1267,12 @@ function OddsetView({ focus = null } = {}) {
   if (!data) return <section><h2>Oddset</h2><LoadingState label="Hämtar matcher och odds…" /></section>
 
   const leagueName = Object.fromEntries(data.leagues.map((l) => [l.key, l.name]))
+  // Etiketter för de källor vi KAN visa. Vilka som faktiskt räknas avgörs av
+  // backendens `active_sources` — listan här är bara namn och ordning.
+  // Utan den kopplingen syntetiserade UI:t en "saknas"-rad (ok:false) för
+  // varje källa backend slutat skicka, så en urkopplad källa gick från
+  // "gammal" till FEL i stället för att försvinna (Sofascore 2026-08-06).
+  const activeSources = data.active_sources
   const healthDefs = [
     ['pinnacle', 'markets', 'P'], ['svenskaspel', '1x2', 'SvS'],
     ['svenskaspel', 'deep', 'SvS djup'], ['expekt', '1x2', 'E'],
@@ -1275,7 +1281,7 @@ function OddsetView({ focus = null } = {}) {
     ['flashscore', 'live', 'Live Flashscore'],
     ['fotmob', 'live', 'Live FotMob'],
     ['sofascore', 'live', 'Live Sofascore'],
-  ]
+  ].filter(([source]) => !activeSources || activeSources.includes(source))
   // Live-radarn pollas varje minut medan den stora Oddset-payloaden bara
   // laddas vid sidöppning. Använd därför live-endpointens färska hälsorader
   // för de tre livekällorna, med den stora payloaden som bakåtkompatibel reserv.

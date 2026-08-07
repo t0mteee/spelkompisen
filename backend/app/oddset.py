@@ -1235,4 +1235,11 @@ def matches_payload(store: Storage, light: bool = False,
     return {"matches": out,
             "leagues": leagues_out,
             "last_run": store.meta_get("oddset_last_run"),
-            "source_health": health}
+            "source_health": health,
+            # Vilka källor som FÖRVÄNTAS finnas. UI:t hade en egen hårdkodad
+            # lista och syntetiserade en "saknas"-rad (ok:false) för varje
+            # källa backend inte skickade — så en urkopplad källa gick från
+            # "gammal" till "FEL" i stället för att försvinna. Två listor som
+            # ska hållas synkade för hand är samma bugg en gång till; backend
+            # äger listan och UI:t följer den.
+            "active_sources": sorted(active_sources())}
