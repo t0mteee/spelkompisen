@@ -34,7 +34,11 @@ v3 hann få 0 captures innan ett ofullständigt aliasfingeravtryck upptäcktes
 och ersattes. Äldre manifest blandas aldrig in. Det är inte en tränad modell
 och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
-`docs/overlamning-2026-08-01-codex-hardening.md` (LÄS FÖRST).
+`docs/overlamning-2026-08-07-powerrank.md` (LÄS FÖRST) — dagens arbete
+(radar v6/v7, sharp v8 closing-drift, Europaligorna fullt följda, MLS
+kalibrerad, powerrank-fliken) OCH fyra kvarstående beställningar på
+powerranken, däribland ett metodfel: poäng räknas i dag på alla matcher
+medan xPts bara räknas på xG-täckta.
 Föregående Flashscore-överlämning är ersatt och gäller bara som historik.
 De fyra Europaligorna (PL, Serie A, La Liga, Bundesliga) är **FULLT FÖLJDA
 sedan 2026-08-07** inför säsongsstarten: sidoböcker, deep-marknader,
