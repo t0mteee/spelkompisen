@@ -1368,7 +1368,6 @@ function LabbV3() {
   const activeSharp = clv?.active_versions?.sharp
   const activePrimaryClv = primaryClv.filter((g) => g.active)
   const historicPrimaryClv = primaryClv.filter((g) => !g.active)
-  const a2 = clv?.anchor2
   const candidateReq = ledger?.criteria?.candidate || {
     n_resolved: 50, n_matches: 30, span_days: 28,
   }
@@ -1754,23 +1753,12 @@ function LabbV3() {
             Aggregat, utfalls-ROI och känsla får aldrig ändra gruppstatus.</span>
         </div>
 
-        <div className="v3card">
-          <div className="v3cardhead"><h3>⚓ Två ankare (Pinnacle ↔ {a2?.source || 'Smarkets'})</h3>
-            <LabbPill s={(a2?.n_measured ?? 0) >= 50 ? 'candidate' : 'samlar'} /></div>
-          {!clv && !err && <LoadingState label="Hämtar ankarmätning…" />}
-          {a2 && (
-            <div className="v3row">
-              <b>{a2.n_measured ?? 0} mätta</b>
-              <span>oenighet median {a2.median_disagree_pp ?? '–'} pp</span>
-              <span>håller mot båda: <b className={evCls(a2.avg_close_ev_survives_both)}>
-                {evPct(a2.avg_close_ev_survives_both)}</b></span>
-              <span>endast Pinnacle: <b className={evCls(a2.avg_close_ev_pinnacle_only)}>
-                {evPct(a2.avg_close_ev_pinnacle_only)}</b></span>
-            </div>
-          )}
-          <span className="v3hint">Skuggmätning på varje flagga — ändrar aldrig urval, edge eller
-            notiser. Beslut vid n ≥ 50 mätta+stängda (veckokadens) — <code>docs/tva-ankare-2026-07-25.md</code>.</span>
-        </div>
+        {/* ⚓ Två ankare togs bort 2026-08-07 när Smarkets kopplades bort som
+            andra ankare: den har 56 030 priser på 1X2 och NOLL på AH/Ö/U/
+            hörnor, så den kunde bara mäta 24 % av flaggorna och 271 av
+            frånvaronoteringarna var brus om ett känt strukturellt hål.
+            Spärren i ANCHOR_SOURCES står kvar — se
+            docs/closing-drift-v8-forregistrering-2026-08-07.md. */}
 
         <div className="v3card v3radar-facit">
           <div className="v3cardhead"><h3>⚡ Radar-facit och signaljournal</h3>
@@ -1827,6 +1815,14 @@ function LabbV3() {
             framåtriktade signalmatcher med observerat livepris, minst 60 dagar och positiv
             undre 90 %-KI-gräns. Saknat livepris räknas öppet som saknat — det bakfylls aldrig.</span>
 
+          {radar && !radar.signal_ledger?.groups?.length && (
+            <div className="v3note">
+              Inga signaler i den här kohorten ännu. Det är väntat direkt efter
+              ett versionsbyte — räknarna nollställs och fylls först när
+              matcher spelas. Föregående kohorters rader finns kvar i
+              journalen och blandas aldrig in.
+            </div>
+          )}
           {!!radar?.signal_ledger?.groups?.length && (
             <div className="v3radar-groups">
               {radar.signal_ledger.groups.map((g) => (

@@ -468,18 +468,33 @@ class ResearchLeagueIsolationTests(unittest.TestCase):
         self.assertAlmostEqual(3.5, rows[0]["odds"]["X"])
         self.assertAlmostEqual(4.0, rows[0]["odds"]["2"])
 
+    def test_europaligorna_ar_fullt_foljda(self) -> None:
+        """Samans beslut 2026-08-07 inför säsongsstarten: PL, Serie A, La Liga
+        och Bundesliga följs som Allsvenskan — sidoböcker, deep, värdesignaler,
+        CLV och notiser.
+
+        Spärren behövdes aldrig för SHARP-tiern: den är ren oddsjämförelse och
+        har inget med V2.2:s modellhypotes att göra. V2.2 kör vidare på sin
+        EGEN `SCOPE_LEAGUES`.
+        """
+        stora = {"premier_league", "serie_a", "la_liga", "bundesliga"}
+        self.assertTrue(stora <= oddset.ACTIONABLE_LEAGUE_KEYS)
+        self.assertTrue(stora <= oddset.VISIBLE_LEAGUE_KEYS)
+        self.assertFalse(stora & set(oddset.RESEARCH_LEAGUE_KEYS))
+        # V2.2 äger fortfarande sitt eget scope, oberoende av ligaflaggan
+        from app import oddset_v22
+        self.assertTrue(stora <= set(oddset_v22.SCOPE_LEAGUES))
+
     def test_visibility_and_actionability_are_independent_properties(self) -> None:
-        # Beställning 2026-07-24: forskningsligorna SYNS i ordinarie vyn men
-        # är fortsatt icke-actionable. Egenskaperna får aldrig smälta ihop.
-        research = {"premier_league", "serie_a", "la_liga", "bundesliga"}
-        self.assertEqual(research, set(oddset.RESEARCH_LEAGUE_KEYS))
-        self.assertTrue(research <= oddset.VISIBLE_LEAGUE_KEYS)
-        self.assertFalse(research & oddset.ACTIONABLE_LEAGUE_KEYS)
+        """Mekanismen finns kvar även när ingen liga använder den just nu —
+        synlig liga får aldrig automatiskt bli actionable."""
         self.assertEqual(
             {lg["key"] for lg in oddset.LEAGUES},
-            oddset.ACTIONABLE_LEAGUE_KEYS | oddset.RESEARCH_LEAGUE_KEYS)
+            oddset.ACTIONABLE_LEAGUE_KEYS | set(oddset.RESEARCH_LEAGUE_KEYS))
+        self.assertTrue(
+            oddset.ACTIONABLE_LEAGUE_KEYS <= oddset.VISIBLE_LEAGUE_KEYS)
 
-    def test_research_leagues_visible_but_sanitized_in_regular_payload(self) -> None:
+    def test_europaligorna_far_vardefalt_som_ovriga(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = Storage(Path(tmp) / "test.db")
             now = dt.datetime.now(dt.timezone.utc)
@@ -494,8 +509,8 @@ class ResearchLeagueIsolationTests(unittest.TestCase):
                     "id": "research", "league": "premier_league", "home": "C",
                     "away": "D", "start": start,
                 })
-                # Färska priser från båda källorna → attach_value skulle ge
-                # ett värdeunderlag; ordinarie payloaden ska ändå sanera det.
+                # Färska priser från båda källorna → båda ligorna ska nu få
+                # värdeunderlag. Före 2026-08-07 sanerades PL-raden bort.
                 for mid in ("public", "research"):
                     store.oddset_save_odds(
                         mid, "pinnacle", {"1": 2.0, "X": 3.5, "2": 3.8}, at)
@@ -508,31 +523,32 @@ class ResearchLeagueIsolationTests(unittest.TestCase):
             finally:
                 store.close()
 
-        # Synlig: forskningsmatchen finns i ordinarie payloaden, märkt,
-        # med odds och rörelseserier kvar.
+        # Båda ligorna finns, båda med odds OCH värdeunderlag. Före
+        # 2026-08-07 saknade PL-raden `value` och bar en `research`-flagga.
         by_id = {row["id"]: row for row in regular["matches"]}
         self.assertEqual({"public", "research"}, set(by_id))
-        self.assertTrue(by_id["research"]["research"])
-        self.assertNotIn("research", by_id["public"])
         self.assertIn("pinnacle", by_id["research"]["odds"])
-        # Icke-actionable: inget värde-/modellunderlag i ordinarie payloaden…
-        self.assertNotIn("value", by_id["research"])
-        self.assertNotIn("model", by_id["research"])
+        self.assertIn("value", by_id["research"])
         self.assertIn("value", by_id["public"])
-        # …men den interna insamlings-payloaden är ofiltrerad (ledger/V2.2).
+        self.assertNotIn("research", by_id["research"],
+                         "ingen forskningsmärkning kvar")
+        # Den interna payloaden ger samma sak (den var ofiltrerad redan förr).
         internal_research = next(
             row for row in internal["matches"] if row["id"] == "research")
         self.assertIn("value", internal_research)
-        # Ligalistan bär forskningsflaggan så UI:t kan märka filtret.
+        # Ligalistan bär ingen forskningsflagga längre.
         leagues = {row["key"]: row for row in regular["leagues"]}
         self.assertIn("premier_league", leagues)
-        self.assertTrue(leagues["premier_league"].get("research"))
+        self.assertNotIn("research", leagues["premier_league"])
         self.assertNotIn("research", leagues["allsvenskan"])
 
-    def test_research_next_round_shown_when_list_window_is_empty(self) -> None:
+    def test_next_round_shown_when_list_window_is_empty(self) -> None:
         # Säsongsuppehåll: premiären ligger utanför 10-dagarsfönstret. UI-
-        # payloaden visar då forskningsligans nästa omgång; ordinarie ligor
-        # och den interna insamlings-payloaden behåller det strikta fönstret.
+        # payloaden visar då ligans nästa omgång; den interna
+        # insamlings-payloaden behåller det strikta fönstret.
+        #
+        # Gällde tidigare bara forskningsligor och blev tyst död kod när de
+        # fyra stora gjordes fullt följda — problemet är allmänt.
         with tempfile.TemporaryDirectory() as tmp:
             store = Storage(Path(tmp) / "test.db")
             now = dt.datetime.now(dt.timezone.utc)
@@ -564,8 +580,10 @@ class ResearchLeagueIsolationTests(unittest.TestCase):
                 store.close()
 
         ids = {row["id"] for row in regular["matches"]}
-        self.assertEqual({"pl-1", "pl-2"}, ids)   # omgången, inte pl-3/public
-        self.assertTrue(all(row["research"] for row in regular["matches"]))
+        # Båda ligorna saknar match i fönstret och får därför sin nästa
+        # omgång — men bara omgången, aldrig pl-3 en vecka senare.
+        self.assertEqual({"pl-1", "pl-2", "future-public"}, ids)
+        self.assertNotIn("pl-3", ids)
         self.assertFalse({row["id"] for row in internal["matches"]})
 
     def test_collect_never_passes_research_matches_to_value_engine(self) -> None:
@@ -601,7 +619,10 @@ class ResearchLeagueIsolationTests(unittest.TestCase):
         self.assertFalse([m for m in passed
                           if m.get("league") in oddset.RESEARCH_LEAGUE_KEYS])
 
-    def test_research_leagues_skip_deep_markets_and_sidebooks(self) -> None:
+    def test_europaligorna_hamtar_deep_och_sidobocker(self) -> None:
+        """Före 2026-08-07 spärrade `research_only` både deep-marknader och
+        sidoböcker för de fyra stora — därför fanns inga AH/Ö/U och ingen
+        Expekt/Ninja att jämföra mot. Nu hämtas de som för Allsvenskan."""
         with tempfile.TemporaryDirectory() as tmp:
             store = Storage(Path(tmp) / "test.db")
             now = dt.datetime.now(dt.timezone.utc)
@@ -621,7 +642,7 @@ class ResearchLeagueIsolationTests(unittest.TestCase):
             finally:
                 store.close()
 
-        deep.assert_not_called()
+        deep.assert_called()
 
 
 class MultiSourceLeagueTests(unittest.TestCase):

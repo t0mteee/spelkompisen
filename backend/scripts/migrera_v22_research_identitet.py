@@ -14,7 +14,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from app.oddset import RESEARCH_LEAGUE_KEYS, _resolve_team_pair  # noqa: E402
+from app.oddset import _resolve_team_pair  # noqa: E402
+
+# FRYST 2026-07-23 — de ligor som VAR research_only när migreringen skrevs.
+# Läste tidigare `oddset.RESEARCH_LEAGUE_KEYS` direkt, men den blev tom när
+# ligorna gjordes fullt följda 2026-08-07 och skriptet slutade tyst göra
+# någonting. Ett engångsskript beskriver ett HISTORISKT tillstånd och får
+# aldrig ändra beteende för att en runtime-konstant ändras — samma princip
+# som kohortregeln i live_radar.
+RESEARCH_LEAGUE_KEYS = frozenset(
+    {"premier_league", "serie_a", "la_liga", "bundesliga"})
 
 
 DB = ROOT / "data" / "stryktips.db"

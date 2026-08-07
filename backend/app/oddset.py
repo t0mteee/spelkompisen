@@ -69,25 +69,28 @@ LEAGUES = [
      "kambi_paths": ["football/conference_league",
                      "football/conference_league_qualification"],
      "altenar": None},
-    # Forskningsligor för V2.2-EU. `research_only` styr insamlingsdjup och
-    # actionability: lätt insamling (1X2, ingen deep/sidoböcker/frånvaro), inga
-    # värdesignaler/Kelly/notiser/CLV, ingen ordinarie model-capture — V2.2-
-    # shadowen äger modellspåret tills experimentet klarat sin forwarddom.
-    # `visible_in_ui` (beställning 2026-07-24) är ett OBEROENDE produktbeslut:
-    # matcherna syns i ordinarie Oddset-vy med odds/prisålder/rörelser och
-    # forskningsmärkning. Synlig liga är INTE automatiskt actionable.
+    # De fyra stora Europaligorna. FULLT FÖLJDA sedan 2026-08-07 (Samans
+    # beslut inför säsongsstarten): sidoböcker, deep-marknader, värdesignaler,
+    # CLV och notiser — precis som Allsvenskan.
+    #
+    # De var `research_only` fram till dess, vilket spärrade sidoböcker och
+    # actionability medan V2.2-experimentet ägde modellspåret. Spärren behövdes
+    # aldrig för SHARP-tiern: den är ren oddsjämförelse (Pinnacle mot bok) och
+    # har inget med V2.2:s modellhypotes att göra. V2.2 kör vidare oförändrad
+    # på sin EGEN `SCOPE_LEAGUES` och sitt eget manifest — capturen berörs inte.
+    #
+    # OBSERVERA att de saknar xG i resultathistoriken (0 av 2 897 matcher), så
+    # de ligger med flit UTANFÖR `MODEL_LEAGUES`: en xG-viktad modell utan xG
+    # vore sämre än ingen. xG samlas framåt via flashscore_data och bakfylls
+    # aldrig.
     {"key": "premier_league", "name": "Premier League", "pin_id": 1980,
-     "kambi": "football/england/premier_league", "altenar": None,
-     "research_only": True, "visible_in_ui": True},
+     "kambi": "football/england/premier_league", "altenar": None,},
     {"key": "serie_a", "name": "Serie A", "pin_id": 2436,
-     "kambi": "football/italy/serie_a", "altenar": None,
-     "research_only": True, "visible_in_ui": True},
+     "kambi": "football/italy/serie_a", "altenar": None,},
     {"key": "la_liga", "name": "La Liga", "pin_id": 2196,
-     "kambi": "football/spain/la_liga", "altenar": None,
-     "research_only": True, "visible_in_ui": True},
+     "kambi": "football/spain/la_liga", "altenar": None,},
     {"key": "bundesliga", "name": "Bundesliga", "pin_id": 1842,
-     "kambi": "football/germany/bundesliga", "altenar": None,
-     "research_only": True, "visible_in_ui": True},
+     "kambi": "football/germany/bundesliga", "altenar": None,},
 ]
 # Actionable = får skapa spelbar signal, Kelly, notis och CLV-/value_log-rader.
 ACTIONABLE_LEAGUE_KEYS = frozenset(
@@ -1105,11 +1108,18 @@ def fast_leagues(store: Storage) -> list[dict]:
 
 # --- läs-API ---------------------------------------------------------------------
 
-def _research_next_round(store: Storage, windowed: list[dict],
-                         now: dt.datetime) -> list[dict]:
-    """Nästa omgång för synliga forskningsligor utan match i listfönstret."""
-    empty = (RESEARCH_LEAGUE_KEYS & VISIBLE_LEAGUE_KEYS) \
-        - {m["league"] for m in windowed}
+def _next_round_for_empty_leagues(store: Storage, windowed: list[dict],
+                                  now: dt.datetime) -> list[dict]:
+    """Nästa omgång för synliga ligor som saknar match i listfönstret.
+
+    Gällde tidigare bara forskningsligor. När de fyra stora gjordes fullt
+    följda 2026-08-07 blev mängden tom och funktionen tyst död — men problemet
+    den löser är allmänt: under säsongsuppehåll ligger premiären utanför
+    10-dagarsfönstret och ligan såg tom ut trots att omgången var satt. Under
+    pågående säsong har varje liga matcher i fönstret, så villkoret slår
+    aldrig till då.
+    """
+    empty = VISIBLE_LEAGUE_KEYS - {m["league"] for m in windowed}
     if not empty:
         return []
     future = store.oddset_matches(
@@ -1140,14 +1150,14 @@ def matches_payload(store: Storage, light: bool = False,
     och rörelser, märkta research=True, men utan värde-/modellfält —
     synlighet och actionability är två oberoende egenskaper. Är list-
     fönstret tomt för en forskningsliga (säsongsuppehåll) visas ligans
-    nästa omgång i stället (_research_next_round)."""
+    nästa omgång i stället (_next_round_for_empty_leagues)."""
     now = dt.datetime.now(dt.timezone.utc)
     frm = (now - dt.timedelta(hours=LIST_WINDOW_H_BACK)).strftime("%Y-%m-%dT%H:%M:%SZ")
     to = (now + dt.timedelta(days=LIST_WINDOW_D_FWD)).strftime("%Y-%m-%dT%H:%M:%SZ")
     ms = store.oddset_matches(since=frm, until=to)
     if not include_research:
         ms = [match for match in ms if match["league"] in VISIBLE_LEAGUE_KEYS]
-        ms.extend(_research_next_round(store, ms, now))
+        ms.extend(_next_round_for_empty_leagues(store, ms, now))
     ids = [m["id"] for m in ms]
     latest = store.oddset_latest(ids)
     movement = store.oddset_movement(ids)

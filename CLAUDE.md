@@ -36,9 +36,18 @@ och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
 `docs/overlamning-2026-08-01-codex-hardening.md` (LÄS FÖRST).
 Föregående Flashscore-överlämning är ersatt och gäller bara som historik.
-Beställning 1 är LEVERERAD 2026-07-24: de fyra Europaligorna syns i ordinarie
-Oddset-vyn (🔬 forskningsmärkta, `visible_in_ui`) men är fortsatt icke-
-actionable — `VISIBLE_LEAGUE_KEYS` ≠ `ACTIONABLE_LEAGUE_KEYS` i `oddset.py`.
+De fyra Europaligorna (PL, Serie A, La Liga, Bundesliga) är **FULLT FÖLJDA
+sedan 2026-08-07** inför säsongsstarten: sidoböcker, deep-marknader,
+värdesignaler, CLV och notiser precis som Allsvenskan. `research_only` är
+borta för dem och `RESEARCH_LEAGUE_KEYS` är tom. Spärren behövdes aldrig för
+SHARP-tiern — den är ren oddsjämförelse och har inget med V2.2:s modell-
+hypotes att göra; V2.2 kör vidare på sin EGEN `SCOPE_LEAGUES`. De ligger
+med flit UTANFÖR `MODEL_LEAGUES`: 0 av 2 897 matcher har xG, och en
+xG-viktad modell utan xG vore sämre än ingen. xG samlas framåt, aldrig
+bakåt. Mekanismen synlig≠actionable finns kvar även när ingen liga använder
+den. `_next_round_for_empty_leagues` (f.d. `_research_next_round`) gäller nu
+ALLA synliga ligor: under säsongsuppehåll visas nästa omgång i stället för
+en tom liga.
 Poolspår PH1–PH4 finns nu: historiskt settlement, framåtriktad presence-ledger
 och CDN-ålderskorrigerad `pit-v3`, kontrafaktiskt systemfacit samt fryst
 forward-gate. Det samlar
