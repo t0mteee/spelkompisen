@@ -7,7 +7,8 @@ from app import pool_settlement as ps
 from app.storage import Storage
 
 
-def _draw(n=100, state="Finalized", events=13, cancelled=(), start_odds=True):
+def _draw(n=100, state="Finalized", events=13, cancelled=(), start_odds=True,
+          match_start="2026-07-18T16:00:00", status_id=None):
     return {
         "drawNumber": n, "drawState": state, "productName": "Stryktipset",
         "regCloseTime": "2026-07-18T15:59:00+02:00",
@@ -16,7 +17,8 @@ def _draw(n=100, state="Finalized", events=13, cancelled=(), start_odds=True):
             "eventNumber": i,
             "eventDescription": f"Hemma{i} - Borta{i}",
             "cancelled": i in cancelled,
-            "match": {"matchStart": "2026-07-18T16:00:00",
+            "match": {"matchStart": match_start,
+                      **({"statusId": status_id} if status_id else {}),
                       "participants": [
                           {"type": "home", "name": f"Hemma{i}"},
                           {"type": "away", "name": f"Borta{i}"}]},
@@ -190,6 +192,124 @@ class PoolSettlementTests(unittest.TestCase):
         # nytt varv direkt: 101 (not_finalized nyss) väntar i retryfönstret
         report2 = ps.settle_recent(self.store, svs, "stryktipset")
         self.assertEqual({"tried": 0, "ok": 0, "skipped": 1}, report2)
+
+
+class RetryPolicyTests(unittest.TestCase):
+    """Omprövningstiden (2026-08-08).
+
+    Bakgrund: den fasta 6-timmarsbackoffen VAR hela fördröjningen. Av 30
+    observerade not_finalized→ok-övergångar tog 100 % mer än 5,5 h, median
+    6,21 h. Ett försök gjordes ofta innan matcherna var färdigspelade och
+    blockerade därmed just det försök som hade lyckats.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+        self.now = dt.datetime(2026, 8, 8, 18, 0, tzinfo=dt.timezone.utc)
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+
+    def test_matcher_som_rullar_provas_nar_de_ar_slut(self):
+        """Ingen utdelning kan finnas medan matcherna pågår — fråga inte."""
+        raw = _draw(state="Closed", match_start="2026-08-08T19:00:00+00:00")
+        self.assertEqual(
+            "2026-08-08T21:10:00Z",       # avspark 19:00 + 130 min speltid
+            ps._retry_after(raw, now=self.now))
+
+    def test_fardigspelad_omgang_provas_inom_kvarten(self):
+        """DEN HÄR var buggen: Stryktipset 4965 låg Finalized hos SvS med full
+        utdelning medan vi satt i en backoff till 22:30."""
+        raw = _draw(state="Closed", status_id=31,
+                    match_start="2026-08-08T15:00:00+00:00")
+        self.assertEqual("2026-08-08T18:15:00Z",
+                         ps._retry_after(raw, now=self.now))
+
+    def test_straffavgjord_match_raknas_som_spelad(self):
+        """Samma definition som livekortet — statusId 33 = slut efter straffar."""
+        raw = _draw(state="Closed", status_id=33,
+                    match_start="2026-08-08T15:00:00+00:00")
+        self.assertEqual("2026-08-08T18:15:00Z",
+                         ps._retry_after(raw, now=self.now))
+
+    def test_taket_haller_en_avlagsen_omgang_i_schack(self):
+        raw = _draw(state="Open", match_start="2026-08-20T19:00:00+00:00")
+        self.assertEqual("2026-08-09T00:00:00Z",   # now + RETRY_MAX_H
+                         ps._retry_after(raw, now=self.now))
+
+    def test_okand_avspark_ger_kort_omprovning_inte_lang(self):
+        """Saknad avspark är okunskap, inte ett skäl att sluta fråga."""
+        raw = _draw(state="Closed", match_start=None)
+        self.assertEqual("2026-08-08T18:15:00Z",
+                         ps._retry_after(raw, now=self.now))
+
+    def _log_row(self, draw_number, status, attempted_at, retry_after):
+        self.store.conn.execute(
+            "INSERT INTO pool_backfill_log (product, draw_number, attempted_at,"
+            " status, detail, retry_after) VALUES ('stryktipset',?,?,?,NULL,?)",
+            (draw_number, attempted_at, status, retry_after))
+        self.store.conn.execute(
+            "INSERT INTO draws (product, draw_number, state, reg_close_time) "
+            "VALUES ('stryktipset', ?, 'Closed', '2026-01-01T12:00:00')",
+            (draw_number,))
+        self.store.conn.commit()
+
+    def test_passerad_retry_after_slar_den_fasta_backoffen(self):
+        """Loggraden är fem minuter gammal — men matcherna är slut, så vi
+        frågar igen. Med gammal kod hade den legat kvar i sex timmar."""
+        recent = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=5)) \
+            .strftime("%Y-%m-%dT%H:%M:%SZ")
+        past = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1)) \
+            .strftime("%Y-%m-%dT%H:%M:%SZ")
+        self._log_row(400, ps.NOT_FINALIZED, recent, past)
+        svs = FakeSvS({400: _draw(400)}, {400: _result(400)})
+        report = ps.settle_recent(self.store, svs, "stryktipset")
+        self.assertEqual({"tried": 1, "ok": 1, "skipped": 0}, report)
+
+    def test_kommande_retry_after_haller_tillbaka(self):
+        future = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=2)) \
+            .strftime("%Y-%m-%dT%H:%M:%SZ")
+        self._log_row(401, ps.NOT_FINALIZED, future[:20], future)
+        svs = FakeSvS({401: _draw(401)}, {401: _result(401)})
+        report = ps.settle_recent(self.store, svs, "stryktipset")
+        self.assertEqual({"tried": 0, "ok": 0, "skipped": 1}, report)
+        self.assertEqual(0, svs.calls)
+
+    def test_historisk_rad_utan_retry_after_faller_tillbaka_pa_backoffen(self):
+        recent = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=1)) \
+            .strftime("%Y-%m-%dT%H:%M:%SZ")
+        self._log_row(402, ps.NOT_FINALIZED, recent, None)
+        svs = FakeSvS({402: _draw(402)}, {402: _result(402)})
+        self.assertEqual({"tried": 0, "ok": 0, "skipped": 1},
+                         ps.settle_recent(self.store, svs, "stryktipset"))
+
+    def test_transportfel_parkerar_inte_omgangen(self):
+        """Ett nätfel säger ingenting om omgången — samma princip som att ett
+        källfel aldrig får markera ett pris unavailable."""
+        svs = FakeSvS({403: RuntimeError("timeout")}, {})
+        self.assertEqual(ps.ERROR, ps.settle_draw(
+            self.store, svs, "stryktipset", 403, "test"))
+        retry_after = self.store.conn.execute(
+            "SELECT retry_after FROM pool_backfill_log WHERE draw_number=403"
+        ).fetchone()[0]
+        limit = (dt.datetime.now(dt.timezone.utc)
+                 + dt.timedelta(minutes=ps.RETRY_SOON_MIN + 1)) \
+            .strftime("%Y-%m-%dT%H:%M:%SZ")
+        self.assertLess(retry_after, limit)
+
+    def test_publicerad_men_ofullstandig_utdelning_provas_snart(self):
+        svs = FakeSvS({404: _draw(404)}, {404: _result(404, complete=False)})
+        self.assertEqual(ps.INCOMPLETE, ps.settle_draw(
+            self.store, svs, "stryktipset", 404, "test"))
+        retry_after = self.store.conn.execute(
+            "SELECT retry_after FROM pool_backfill_log WHERE draw_number=404"
+        ).fetchone()[0]
+        limit = (dt.datetime.now(dt.timezone.utc)
+                 + dt.timedelta(minutes=ps.RETRY_SOON_MIN + 1)) \
+            .strftime("%Y-%m-%dT%H:%M:%SZ")
+        self.assertLess(retry_after, limit)
 
 
 if __name__ == "__main__":

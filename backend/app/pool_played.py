@@ -120,6 +120,27 @@ def _sign_from_score(home, away) -> Optional[str]:
     return "1" if h > a else ("2" if a > h else "X")
 
 
+def match_finished(match: dict) -> bool:
+    """Är matchen färdigspelad så att tecknet står fast?
+
+    EN definition, tre användare: livekortets `final`, settlementens
+    omprövningstid (`pool_settlement._retry_after`) och breddvakten. Skriv
+    aldrig en parallell — det var just en parallell statuslista som gjorde två
+    straffavgjorda cupmatcher till "pågående" 2026-08-08.
+    """
+    status_id = match.get("statusId")
+    status_word = str(match.get("status") or "").casefold()
+    has_fulltime = any(res.get("sportEventResultType") == "Fulltime"
+                       for res in (match.get("result") or []))
+    return bool(
+        (isinstance(status_id, int) and status_id in FINISHED_STATUS_IDS)
+        or status_word in FINISHED_STATUS_WORDS
+        or str(match.get("sportEventStatus") or "").casefold() == "ended"
+        # Ett publicerat Fulltime-resultat betyder att ordinarie tid är spelad,
+        # även om SvS hunnit sätta en statuskod vi inte sett förut.
+        or has_fulltime)
+
+
 def event_state(draw_event: dict) -> dict:
     """{'sign': '1'|'X'|'2'|None, 'final': bool, 'score': '1-0'|None}.
 
@@ -141,15 +162,7 @@ def event_state(draw_event: dict) -> dict:
     current = results.get("Current")
     basis = fulltime or current
     sign = _sign_from_score((basis or {}).get("home"), (basis or {}).get("away"))
-    status_id = match.get("statusId")
-    status_word = str(match.get("status") or "").casefold()
-    final = bool(
-        (isinstance(status_id, int) and status_id in FINISHED_STATUS_IDS)
-        or status_word in FINISHED_STATUS_WORDS
-        or str(match.get("sportEventStatus") or "").casefold() == "ended"
-        # Ett publicerat Fulltime-resultat betyder att ordinarie tid är spelad,
-        # även om SvS hunnit sätta en statuskod vi inte sett förut.
-        or fulltime is not None)
+    final = match_finished(match)
     # Visad ställning följer tecknet: efter en straffläggning ska kortet visa
     # 1–1, inte 6–5, eftersom det är 1–1 som avgör kupongen.
     score = (f"{basis['home']}-{basis['away']}"

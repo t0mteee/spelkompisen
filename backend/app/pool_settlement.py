@@ -32,8 +32,55 @@ DIVERGENCE = "divergence"
 ERROR = "error"
 
 
+# OMPRÖVNINGSPOLICY (2026-08-08). Den fasta 6-timmarsbackoffen mättes upp som
+# HELA fördröjningen: av 30 observerade not_finalized→ok-övergångar tog 100 %
+# mer än 5,5 h och medianen var 6,21 h — alltså backoffen på pricken, inte
+# SvS. Två fel samverkade. Ett försök gjordes ofta INNAN matcherna var
+# färdigspelade (en spelad kupong är kandidat från den sekund den bokförs),
+# och det försöket startade en klocka som blockerade just det försök som hade
+# lyckats. Nu bär varje loggrad sin EGEN tidigaste omprövning, härledd ur
+# draw-payloaden vi ändå har i handen.
+RETRY_SOON_MIN = 15        # matcherna spelade — vi väntar bara på publicering
+RETRY_MAX_H = 6.0          # tak, så en omgång som aldrig finaliseras får ro
+MATCH_DURATION_MIN = 130   # avspark → slutsignal med marginal för tillägg
+
+
 def _now_iso() -> str:
     return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _parse_iso(value) -> Optional[dt.datetime]:
+    try:
+        stamp = dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    return stamp if stamp.tzinfo else stamp.replace(tzinfo=dt.timezone.utc)
+
+
+def _retry_after(raw: Optional[dict], now: Optional[dt.datetime] = None) -> str:
+    """Tidigaste meningsfulla omprövning av en omgång som inte var finaliserad.
+
+    En omgång vars matcher fortfarande rullar KAN inte ha en utdelning; att
+    fråga igen om tio minuter är rent slöseri. En omgång där alla matcher är
+    spelade väntar bara på att SvS publicerar, och då är rätt kadens minuter.
+    Skillnaden läses ur payloaden — inget extra anrop, ingen gissning.
+    """
+    from .pool_played import match_finished
+    now = now or dt.datetime.now(dt.timezone.utc)
+    soon = now + dt.timedelta(minutes=RETRY_SOON_MIN)
+    latest_end = None
+    for ev in ((raw or {}).get("drawEvents") or []):
+        match = ev.get("match") or {}
+        if match_finished(match) or ev.get("cancelled"):
+            continue
+        start = _parse_iso(match.get("matchStart"))
+        if start is None:
+            continue           # okänd avspark: låt `soon` gälla, aldrig längre
+        end = start + dt.timedelta(minutes=MATCH_DURATION_MIN)
+        latest_end = end if latest_end is None else max(latest_end, end)
+    when = max(soon, latest_end) if latest_end else soon
+    return min(when, now + dt.timedelta(hours=RETRY_MAX_H)) \
+        .strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _git_hash() -> str:
@@ -53,12 +100,12 @@ def payload_hash(raw_draw: dict, raw_result: dict) -> str:
 
 
 def _log(store: Storage, product: str, draw_number: int, status: str,
-         detail: Optional[str] = None) -> None:
+         detail: Optional[str] = None, retry_after: Optional[str] = None) -> None:
     store.conn.execute(
         "INSERT OR REPLACE INTO pool_backfill_log "
-        "(product, draw_number, attempted_at, status, detail) "
-        "VALUES (?,?,?,?,?)",
-        (product, draw_number, _now_iso(), status, detail))
+        "(product, draw_number, attempted_at, status, detail, retry_after) "
+        "VALUES (?,?,?,?,?,?)",
+        (product, draw_number, _now_iso(), status, detail, retry_after))
     if not store._bulk:  # noqa: SLF001 — samma commitregel som övriga moduler
         store.conn.commit()
 
@@ -82,26 +129,37 @@ def settle_draw(store: Storage, svs: SvenskaSpel, product: str,
     omgång returnerar 'exists' utan API-anrop. Allt-eller-inget per omgång."""
     if is_settled(store, product, draw_number):
         return EXISTS
+    soon = _retry_after(None)      # transportfel säger inget om omgången
     try:
         raw = svs.raw_draw(product, draw_number)
     except Exception as exc:  # noqa: BLE001 — transportfel är retrybart
-        _log(store, product, draw_number, ERROR, f"draw: {exc}")
+        _log(store, product, draw_number, ERROR, f"draw: {exc}", soon)
         return ERROR
     if raw is None:
+        # Omgången finns inte hos SvS — den fasta backoffen är rätt här.
         _log(store, product, draw_number, HTTP_404, "draw 404")
         return HTTP_404
     state = raw.get("drawState") or ""
     if state != "Finalized":
-        _log(store, product, draw_number, NOT_FINALIZED, f"state={state}")
+        from .pool_played import match_finished
+        events = raw.get("drawEvents") or []
+        left = sum(1 for ev in events
+                   if not (match_finished(ev.get("match") or {})
+                           or ev.get("cancelled")))
+        _log(store, product, draw_number, NOT_FINALIZED,
+             f"state={state}, {left}/{len(events)} matcher kvar",
+             _retry_after(raw))
         return NOT_FINALIZED
     try:
         result = svs.raw_result(product, draw_number)
     except Exception as exc:  # noqa: BLE001
-        _log(store, product, draw_number, ERROR, f"result: {exc}")
+        _log(store, product, draw_number, ERROR, f"result: {exc}", soon)
         return ERROR
     if result is None or not _tiers_complete(result):
+        # Omgången ÄR finaliserad; utdelningen håller på att publiceras just nu.
         _log(store, product, draw_number, INCOMPLETE,
-             "result saknas" if result is None else "distribution ofullständig")
+             "result saknas" if result is None else "distribution ofullständig",
+             soon)
         return INCOMPLETE
 
     version = source_version or _git_hash()
@@ -201,7 +259,12 @@ def settle_recent(store: Storage, svs: SvenskaSpel, product: str,
                   retry_after_h: float = 6.0) -> dict:
     """Framåtriktad settlement i snapshot-varvet: settla nyss stängda omgångar
     (kända i lokala draws-tabellen) som saknar settlementrad. Budgeterad och
-    tyst — får aldrig fälla varvet."""
+    tyst — får aldrig fälla varvet.
+
+    `retry_after_h` är numera bara FALLBACK för loggrader utan egen
+    omprövningstid (historik och 404). Nya rader bär sin egen — se
+    `_retry_after`.
+    """
     now = dt.datetime.now(dt.timezone.utc)
     cutoff = (now - dt.timedelta(hours=min_close_age_h)) \
         .strftime("%Y-%m-%dT%H:%M:%S")
@@ -232,17 +295,27 @@ def settle_recent(store: Storage, svs: SvenskaSpel, product: str,
         "  WHERE c.product=? AND s.draw_number IS NULL"
         ") ORDER BY draw_number DESC LIMIT 25",
         (product, cutoff, product)).fetchall()
+    now_iso = _now_iso()
     report = {"tried": 0, "ok": 0, "skipped": 0}
     for (draw_number,) in rows:
         if report["tried"] >= max_draws:
             break
         last = store.conn.execute(
-            "SELECT MAX(attempted_at) FROM pool_backfill_log "
-            "WHERE product=? AND draw_number=?",
-            (product, draw_number)).fetchone()[0]
-        if last and last > retry_cutoff:
-            report["skipped"] += 1
-            continue   # nyligen försökt (t.ex. ej finaliserad än) — vänta
+            "SELECT attempted_at, retry_after FROM pool_backfill_log "
+            "WHERE product=? AND draw_number=? "
+            "ORDER BY attempted_at DESC LIMIT 1",
+            (product, draw_number)).fetchone()
+        if last:
+            attempted_at, retry_after = last[0], last[1]
+            # Radens egen omprövningstid vinner alltid: den vet om matcherna
+            # rullade eller om vi bara väntade på publicering.
+            if retry_after:
+                if retry_after > now_iso:
+                    report["skipped"] += 1
+                    continue
+            elif attempted_at and attempted_at > retry_cutoff:
+                report["skipped"] += 1
+                continue
         report["tried"] += 1
         if settle_draw(store, svs, product, draw_number) == OK:
             report["ok"] += 1

@@ -320,6 +320,18 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
   `com.saman.spelkompisen.pool` kör ett separat kort varv var 5:e min:
   `pool-tick` gör basinsamling var 30:e min och varje tick när ett poolspel
   stänger inom 2 h; därefter samlar `live-tick` observerad live-xG/chansdata.
+  **SETTLEMENT KÖR PÅ VARJE TICK** (`_settle_pass`, 2026-08-08), även när inget
+  basvarv behövs: insamling kostar, facit gör det inte. Varje rad i
+  `pool_backfill_log` bär sin EGEN `retry_after`, härledd ur draw-payloaden —
+  matcher som rullar prövas när de rimligen är slut (avspark + 130 min), en
+  färdigspelad omgång var 15:e minut, tak 6 h. Den gamla fasta
+  6-timmarsbackoffen VAR hela fördröjningen: 100 % av 30 mätta
+  `not_finalized→ok`-gap låg över 5,5 h, median 6,21 h. Ett försök gjordes ofta
+  innan matcherna var färdigspelade — en spelad kupong är kandidat från
+  bokföringen — och blockerade då just det försök som hade lyckats. Höj inte
+  `SETTLE_PASS_MAX_DRAWS` (2/produkt, uppmätt 0,15 s tyst) utan att räkna om
+  radarns marginal. `pool_played.match_finished()` är EN delad definition av
+  "färdigspelad" för livekortet och omprövningstiden — skriv aldrig en parallell.
   **`live-tick` förtätar sig själv** (två varv, 0 s och 120 s, budget 180 s —
   `LIVE_DENSE_BUDGET_S`/`_INTERVAL_S` i cli.py), så radarn uppdateras varannan
   minut utan ändrat launchd-intervall, och den slutar direkt när ingen livematch

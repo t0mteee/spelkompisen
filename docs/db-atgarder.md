@@ -1088,3 +1088,64 @@ DELETE FROM oddset_results
 - **Efterkontroll:** 546/546 tester gröna (6 nya kohorttester som låser båda
   glidningsriktningarna, växlingsfönstret, bevishorisonten och
   kontamineringsspärren).
+
+## 2026-08-08 — `pool_backfill_log.retry_after`: settlementens omprövningstid
+
+**Symtom (Samans ord):** "Återigen segar du med att avsluta pool spelen."
+Kvällens Stryktipset 4965 och Topptipsetstryk 975 låg `Finalized` hos SvS med
+full utdelning publicerad, medan appen fortfarande visade dem som öppna.
+
+**Mätning före åtgärd** (`pool_backfill_log` ⨝ `pool_draw_settlement`,
+30 observerade `not_finalized → ok`-övergångar):
+
+| mått | värde |
+|---|---|
+| median gap `not_finalized` → `ok` | **6,21 h** |
+| andel gap > 5,5 h | **100 %** |
+| median spelstopp → facit | 8,47 h |
+
+Backoffen var alltså inte *en del av* fördröjningen, den **var** fördröjningen.
+SvS publicerade i tid; vi tittade inte.
+
+**Två samverkande fel.**
+1. `settle_recent` gjorde ofta sitt första försök *innan matcherna var
+   färdigspelade* — en spelad kupong är kandidat från den sekund den bokförs.
+   Det försöket kunde omöjligt lyckas, men det startade en 6-timmarsklocka som
+   blockerade just det försök som hade lyckats.
+2. Settlementen låg inne i det 30-minuters *basvarvet*, som är budgeterat för
+   INSAMLING (odds, streck, sharp, PIT-frysning). Att settla en avgjord omgång
+   kostar ett draw-anrop. De två kadenserna har ingenting med varandra att
+   göra.
+
+**Åtgärd.**
+- **Kolumn `retry_after TEXT` på `pool_backfill_log`** (additiv, nullbar, via
+  `storage.py`-migreringslistan — samma mekanism som övriga kolumntillägg).
+  Varje loggrad bär sin EGEN tidigaste omprövning, härledd ur draw-payloaden
+  vi ändå har i handen: matcher som rullar prövas när de rimligen är slut
+  (avspark + 130 min), en färdigspelad omgång var 15:e minut, med ett tak på
+  6 h. NULL = ingen åsikt ⇒ gammal fast backoff (historik och äkta 404).
+- **`pool_played.match_finished()`** extraherad som EN delad definition av
+  "matchen är färdigspelad", använd av livekortet och av omprövningstiden.
+  Det var en parallell statuslista som gjorde två straffavgjorda cupmatcher
+  till "pågående" tidigare samma dag.
+- **Transportfel och ofullständig utdelning parkerar inte längre omgången** —
+  ett nätfel säger ingenting om omgången, samma princip som att ett källfel
+  aldrig får markera ett pris `unavailable`.
+- **`cli._settle_pass()`** kör settlement på VARJE femminuterstick, även när
+  `pool_tick_due` säger att inget basvarv behövs. Tak
+  `SETTLE_PASS_MAX_DRAWS = 2` per produkt; uppmätt **0,15 s** i tyst läge, så
+  radarns 180-sekundersbudget är orörd.
+
+**Resultat.** Kvällens båda omgångar settlade direkt, och alla tre spelade
+kuponger fick facit: Stryktipset 4965 (256 rader) 3× 11 rätt + 16× 10 rätt =
+**1 758 kr, ROI +587 %**. Kupongvyn visar 13 kuponger · 13 med facit · 0 öppna.
+
+**Förväntad kadens framåt:** facit inom ~15 min efter att SvS publicerar, mot
+uppmätta 6–8 h. **Ingen bakfyllning** — `retry_after` är NULL på historiska
+rader och ska förbli det.
+
+**Efterkontroll:** 596/596 tester gröna (10 nya som låser omprövningstiden i
+båda riktningarna: rullande matcher prövas inte för tidigt, färdigspelade
+prövas inom kvarten, taket håller, straffavgjorda räknas som spelade,
+transportfel parkerar inte, och historiska NULL-rader faller tillbaka på
+backoffen).

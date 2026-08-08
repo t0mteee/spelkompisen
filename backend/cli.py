@@ -146,13 +146,15 @@ def cmd_snapshot(product: str) -> float | None:
     return min_hrs
 
 
-def _settle_recent(store: Storage, ss: SvenskaSpel, product: str) -> None:
+def _settle_recent(store: Storage, ss: SvenskaSpel, product: str,
+                   max_draws: int = 5) -> None:
     """PH1: framåtriktad settlement — nyss avgjorda omgångar skrivs till det
     immutabla facitlagret i samma varv (budgeterat; får aldrig fälla varvet).
     Därefter PH3-settling av frysta system + PH2-features för närtidsomgångar."""
     try:
         from app import pool_settlement
-        rep = pool_settlement.settle_recent(store, ss, product)
+        rep = pool_settlement.settle_recent(store, ss, product,
+                                            max_draws=max_draws)
         if rep.get("ok"):
             print(f"{product}: settlement för {rep['ok']} avgjord(a) omgång(ar).")
     except Exception as e:  # noqa: BLE001
@@ -257,6 +259,41 @@ def _snapshot_all_pools() -> tuple[float | None, int]:
     return min_hrs, succeeded
 
 
+SETTLE_PASS_MAX_DRAWS = 2
+
+
+def _settle_pass() -> None:
+    """Billigt settlementvarv UTAN insamling — körs på varje femminuterstick.
+
+    Ett basvarv kostar odds, streck, sharp och PIT-frysning för varje öppen
+    omgång och är därför budgeterat till 30 minuter. Att settla en avgjord
+    omgång kostar ett draw-anrop, och bara när den faktiskt är klar också ett
+    result-anrop — och `settle_recent` frågar inte alls förrän radens egen
+    `retry_after` passerats. Den kadensen har inget att göra med insamlingens,
+    och det var att koppla ihop dem som gjorde facit segt: kvällens omgångar
+    låg färdiga hos SvS medan vi väntade på nästa basvarv OCH på en
+    6-timmarsbackoff.
+
+    BUDGET: radarns 180 s är räknad mot att `pool-tick` tar upp till en minut
+    före den. I tyst läge kostar det här varvet noll anrop (varje kandidats
+    `retry_after` ligger i framtiden) och mäts till ~0,2 s. Taket är därför
+    `SETTLE_PASS_MAX_DRAWS` per produkt i stället för basvarvets fem: fem
+    produkter × två omgångar × ett draw-anrop ryms med marginal även när allt
+    förfaller samtidigt. Höj det inte utan att räkna om marginalen.
+    """
+    with SvenskaSpel() as ss:
+        store = Storage()
+        try:
+            for product in PRODUCTS:
+                try:
+                    _settle_recent(store, ss, product,
+                                   max_draws=SETTLE_PASS_MAX_DRAWS)
+                except Exception as exc:  # noqa: BLE001 — får aldrig fälla varvet
+                    print(f"{product}: settlementvarv FEL {exc}")
+        finally:
+            store.close()
+
+
 def pool_tick_due(last_run: Optional[dt.datetime],
                   next_close_h: Optional[float], *,
                   now: Optional[dt.datetime] = None) -> bool:
@@ -306,7 +343,9 @@ def cmd_pool_tick() -> None:
     finally:
         store.close()
     if not due:
-        print("pool: inget varv behövs denna tick.")
+        # Inget BASvarv — men facit väntar inte på insamlingen.
+        print("pool: inget basvarv behövs denna tick — settlement körs ändå.")
+        _settle_pass()
         return
     _, succeeded = _snapshot_all_pools()
     if not succeeded:

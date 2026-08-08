@@ -387,6 +387,9 @@ CREATE TABLE IF NOT EXISTS pool_backfill_log (
     attempted_at TEXT NOT NULL,
     status       TEXT NOT NULL,
     detail       TEXT,
+    -- Tidigaste meningsfulla omprövning, härledd ur draw-payloaden (2026-08-08).
+    -- NULL = ingen åsikt, då gäller settle_recent:s fasta backoff.
+    retry_after  TEXT,
     PRIMARY KEY (product, draw_number, attempted_at)
 );
 CREATE INDEX IF NOT EXISTS idx_pool_backfill_latest
@@ -1098,7 +1101,8 @@ class Storage:
                     "ALTER TABLE oddset_live_flashscore ADD COLUMN possession_home REAL",
                     "ALTER TABLE oddset_live_flashscore ADD COLUMN possession_away REAL",
                     "ALTER TABLE oddset_live_flashscore ADD COLUMN stage_label TEXT",
-                    "ALTER TABLE oddset_live_flashscore ADD COLUMN stage_name TEXT"):
+                    "ALTER TABLE oddset_live_flashscore ADD COLUMN stage_name TEXT",
+                    "ALTER TABLE pool_backfill_log ADD COLUMN retry_after TEXT"):
             try:   # migreringar för befintliga DB:er
                 self.conn.execute(mig)
             except sqlite3.OperationalError:
