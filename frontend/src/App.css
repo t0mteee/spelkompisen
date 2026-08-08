@@ -560,6 +560,9 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
 .sourcehealth.bad, .sourcehealth.stale, .sourcehealth.missing {
   color: #e06b6b; border-color: #7d3d3d;
 }
+/* Passiv källa: samlas men matar inget beslut. Dämpad, aldrig röd — annars
+   konkurrerar ett ofarligt 503 visuellt med ett sharp-avbrott. */
+.sourcehealth.passive { color: var(--muted); opacity: .65; }
 .mv { font-size: 10.5px; font-weight: 700; margin-left: 4px; }
 .mv.down { color: #e06b6b; }   /* oddset NER = ökad vinstchans */
 .mv.up { color: var(--green); }
@@ -1097,3 +1100,11 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 .powerrank .grid td { border-bottom-color: #ffffff0d; }
 .powerrank .grid td:first-child { color: var(--muted); font-variant-numeric: tabular-nums; }
 .powerrank .grid td { font-variant-numeric: tabular-nums; }
+
+/* Kupong utan chans kvar: säg det i klartext i stället för en tabell med
+   streck. Dämpad röd — informativ, inte ett larm. */
+.playedcard-dead {
+  margin: 6px 0 0; padding: 7px 9px; font-size: 12px; line-height: 1.5;
+  background: #3a1f1f33; border: 1px solid #7d3d3d66; border-radius: 7px;
+  color: #e0a0a0;
+}

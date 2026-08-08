@@ -151,6 +151,29 @@ def active_sources() -> frozenset[str]:
         | set(LIVE_SOURCES))                           # live-radarn
 
 
+def passive_sources() -> frozenset[str]:
+    """Källor som SAMLAS men inte matar något beslut i dag.
+
+    Skillnaden är inte kosmetisk: ett fel hos Pinnacle stoppar värde, steam
+    och notiser, medan ett fel hos en passiv källa inte påverkar en enda
+    siffra i appen. UI:t sa "behöver tillsyn" om båda, vilket gjorde varningen
+    till brus — Smarkets 503 på ligan `friendlies` såg lika allvarligt ut som
+    ett sharp-avbrott.
+
+    * `matchbook` är per förregistrering ren skuggjämförelse (SHADOW_SOURCES).
+    * `smarkets` är kvar i ANCHOR_SOURCES som SÄKERHETSSPÄRR — utan den blir
+      den en spelbar bok igen (184 av 476 felaktiga flaggor 2026-07-25) — men
+      andra ankaret är bortkopplat sedan 2026-08-07 och `anchor2_*` skrivs som
+      NULL. Serien samlas vidare enbart för den förregistrerade
+      promotionsregeln i `docs/tva-ankare-2026-07-25.md`.
+
+    Spärren och användningen hålls alltså isär: den här listan säger något om
+    KONSUMTION, inte om huruvida källan får vara en bok.
+    """
+    from .oddset_value import ANCHOR2_SOURCE, SHADOW_SOURCES
+    return frozenset(set(SHADOW_SOURCES) | {ANCHOR2_SOURCE})
+
+
 DEEP_MARKETS_DAYS = 7      # Kambi AH/ÖU per event bara för matcher inom N dygn
 LIST_WINDOW_H_BACK = 2     # visa matcher som startat för < 2 h sedan
 LIST_WINDOW_D_FWD = 10
@@ -1252,4 +1275,5 @@ def matches_payload(store: Storage, light: bool = False,
             # "gammal" till "FEL" i stället för att försvinna. Två listor som
             # ska hållas synkade för hand är samma bugg en gång till; backend
             # äger listan och UI:t följer den.
-            "active_sources": sorted(active_sources())}
+            "active_sources": sorted(active_sources()),
+            "passive_sources": sorted(passive_sources())}

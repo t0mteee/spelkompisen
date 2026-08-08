@@ -1470,7 +1470,10 @@ function OddsetView({ focus = null } = {}) {
     const details = summary.issues.length
       ? summary.issues.map((r) => `${leagueName?.[r.league] || r.league}: ${r.error || 'källfel'}`).join('\n')
       : `${summary.eventCount} events · kontrollerad ${timeAgo(summary.latest)}`
-    return [{ source, scope, label, ...summary, details }]
+    // Passiv källa = samlas men matar inget beslut. Ett fel där kräver ingen
+    // åtgärd, så den får aldrig visa samma varning som en bärande källa.
+    const passive = (data.passive_sources || []).includes(source)
+    return [{ source, scope, label, ...summary, details, passive }]
   })
 
   const counts = {}
@@ -2039,21 +2042,26 @@ function OddsetView({ focus = null } = {}) {
           {sourceHealth.map((h) => {
             const stateText = h.ok
               ? timeAgo(h.latest)
-              : h.status === 'partial'
-                ? 'delvis svar'
-                : h.status === 'stale'
-                  ? 'för gammal'
-                  : h.status === 'missing'
-                    ? 'ingen kontroll'
-                    : 'behöver tillsyn'
+              : h.passive
+                ? 'samlas · matar inget'
+                : h.status === 'partial'
+                  ? 'delvis svar'
+                  : h.status === 'stale'
+                    ? 'för gammal'
+                    : h.status === 'missing'
+                      ? 'ingen kontroll'
+                      : 'behöver tillsyn'
             const titleState = h.ok
               ? `frisk · ${timeAgo(h.latest)}`
-              : h.status === 'partial' ? 'ofullständig kontroll' : 'fel eller för gammal'
+              : h.passive
+                ? 'passiv källa — samlas men matar inget beslut, så ett fel här kräver ingen åtgärd'
+                : h.status === 'partial' ? 'ofullständig kontroll' : 'fel eller för gammal'
             return (
               <span key={`${h.source}:${h.scope}`}
-                className={`sourcehealth ${h.status || (h.ok ? 'ok' : 'bad')}`}
+                className={`sourcehealth ${h.passive && !h.ok ? 'passive'
+                  : h.status || (h.ok ? 'ok' : 'bad')}`}
                 title={`${h.label}: ${titleState}\n${h.details}`}>
-                {h.ok ? '●' : h.status === 'partial' ? '◐' : '▲'} {h.label} · {stateText}
+                {h.ok ? '●' : h.passive ? '○' : h.status === 'partial' ? '◐' : '▲'} {h.label} · {stateText}
               </span>
             )
           })}
@@ -2868,11 +2876,26 @@ function PlayedLiveCard({ c, onForget }) {
           <div className="playedcard-sum">
             <span><b>{live.n_decided}</b>/{live.n_events} avgjorda</span>
             <span>bäst <b>{live.best_secure}</b> rätt</span>
+            {/* Max nåbart är ren aritmetik och finns även när en livemarknad
+                är avstängd — det är ofta den enda siffra som betyder något. */}
+            {live.max_possible != null && (
+              <span className={live.out_of_contention ? 'neg' : ''}
+                title="Bästa antal rätt någon rad fortfarande kan nå: säkrade rätt plus alla oavgjorda matcher.">
+                max <b>{live.max_possible}</b> möjligt
+              </span>
+            )}
             {live.chance_open_matches != null && (
               <span className="hint">{live.chance_open_matches} matcher kvar</span>
             )}
           </div>
-          <table className="grid compact playedlevels">
+          {live.out_of_contention && (
+            <p className="playedcard-dead">
+              Kupongen kan inte längre nå någon vinstnivå — bästa raden kan som
+              mest få <b>{live.max_possible}</b> rätt och lägsta redovisade
+              nivå är {Math.min(...levels)}.
+            </p>
+          )}
+          {!live.out_of_contention && <table className="grid compact playedlevels">
             <thead><tr><th>nivå</th><th>rader kvar</th><th>chans</th></tr></thead>
             <tbody>
               {levels.map((lvl) => {
@@ -2888,7 +2911,7 @@ function PlayedLiveCard({ c, onForget }) {
                 )
               })}
             </tbody>
-          </table>
+          </table>}
           <p className="hint">
             {live.chance_note ? `Ingen chans visas: ${live.chance_note}.`
               : <>

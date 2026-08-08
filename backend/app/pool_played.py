@@ -304,9 +304,17 @@ def live_status(coupon: dict, states: list[dict]) -> dict:
     alive = {level: sum(n for p, n in possible_hist.items() if p >= level)
              for level in range(max(1, width - 3), width + 1)}
     levels = sorted(alive, reverse=True)
+    # Bästa NÅBARA antal rätt. Ren aritmetik — den kräver inga odds och finns
+    # därför även när en livemarknad är avstängd. Utan den visade kortet bara
+    # en tabell med streck när kupongen inte längre kunde nå någon vinstnivå,
+    # och Saman fick räkna ut det själv ur "bäst 4 rätt" och 5 kvarvarande.
+    max_possible = max(possible_hist) if possible_hist else 0
     return {"n_events": width, "n_decided": decided,
             "all_decided": bool(width and decided == width),
             "best_secure": best_secure,
+            "max_possible": max_possible,
+            # Ingen rad kan nå ens den lägsta redovisade vinstnivån.
+            "out_of_contention": bool(levels) and max_possible < min(levels),
             "secure_dist": dict(sorted(secure_hist.items(), reverse=True)),
             "alive_per_level": dict(sorted(alive.items(), reverse=True)),
             **_chance_per_level(rows, col_states, width, levels)}
