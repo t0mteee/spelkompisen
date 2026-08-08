@@ -207,13 +207,31 @@ def settle_recent(store: Storage, svs: SvenskaSpel, product: str,
         .strftime("%Y-%m-%dT%H:%M:%S")
     retry_cutoff = (now - dt.timedelta(hours=retry_after_h)) \
         .strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Kandidater ur den lokala draws-tabellen (stängda för > min_close_age_h)
+    # UNION omgångar vi faktiskt SPELAT på.
+    #
+    # Andra ledet behövs för att Topptipset saknar listnings-API: omgångarna
+    # hittas genom nummerscanning, så `draws` fylls opportunistiskt och
+    # slutade 2026-08-08 på 4248 medan Saman hade en spelad kupong på 4251.
+    # Joinen mot draws hittade då ingenting att settla, och kupongen låg kvar
+    # utan facit trots att utdelningen var publicerad (8 rätt, 658 vinnare).
+    # En spelad kupong är det starkaste beviset som finns på att omgången
+    # angår oss — den behöver ingen reg_close_time för att kvalificera, och
+    # `settle_draw` avvisar ändå en omgång som inte är finaliserad.
     rows = store.conn.execute(
-        "SELECT d.draw_number FROM draws d "
-        "LEFT JOIN pool_draw_settlement s "
-        "  ON s.product=d.product AND s.draw_number=d.draw_number "
-        "WHERE d.product=? AND s.draw_number IS NULL "
-        "  AND d.reg_close_time IS NOT NULL AND d.reg_close_time < ? "
-        "ORDER BY d.draw_number DESC LIMIT 25", (product, cutoff)).fetchall()
+        "SELECT draw_number FROM ("
+        "  SELECT d.draw_number AS draw_number FROM draws d "
+        "  LEFT JOIN pool_draw_settlement s "
+        "    ON s.product=d.product AND s.draw_number=d.draw_number "
+        "  WHERE d.product=? AND s.draw_number IS NULL "
+        "    AND d.reg_close_time IS NOT NULL AND d.reg_close_time < ? "
+        "  UNION "
+        "  SELECT c.draw_number FROM pool_played_coupon c "
+        "  LEFT JOIN pool_draw_settlement s "
+        "    ON s.product=c.product AND s.draw_number=c.draw_number "
+        "  WHERE c.product=? AND s.draw_number IS NULL"
+        ") ORDER BY draw_number DESC LIMIT 25",
+        (product, cutoff, product)).fetchall()
     report = {"tried": 0, "ok": 0, "skipped": 0}
     for (draw_number,) in rows:
         if report["tried"] >= max_draws:

@@ -338,90 +338,134 @@ def live_status(coupon: dict, states: list[dict]) -> dict:
 
 CHANCE_EXACT_MAX_COMBOS = 60000     # 3^10; över det blir uppräkningen dyr
 CHANCE_SAMPLES = 20000              # Monte Carlo när uppräkning är för dyr
+# Fler oprissatta matcher än så ger ett intervall så brett att det inte säger
+# något — då är noten ärligare än en gräns mellan 0 och 100 %.
+CHANCE_MAX_UNPRICED = 2
+
+
+def _hit_probabilities(groups, probs, levels) -> tuple[dict, str]:
+    """P(bästa raden når nivån) över de PRISSATTA matchernas utfallsrum.
+
+    `groups` är {teckenmönster över de prissatta kolumnerna: bästa säkrade
+    antal rätt}. Raderna delar matcherna, så utfallen är beroende — därför
+    räknas hela utfallsrummet i stället för en produkt av per-rad-chanser.
+    """
+    signs = ("1", "X", "2")
+    hit = {lvl: 0.0 for lvl in levels}
+    items = list(groups.items())
+
+    def score(outcome: tuple) -> int:
+        return max(secure + sum(1 for i, s in enumerate(pattern) if s == outcome[i])
+                   for pattern, secure in items)
+
+    if not probs:
+        best = max(groups.values())
+        return {lvl: (1.0 if best >= lvl else 0.0) for lvl in levels}, "avgjord"
+
+    combos = 3 ** len(probs)
+    if combos <= CHANCE_EXACT_MAX_COMBOS and combos * len(items) <= 4_000_000:
+        for combo in itertools.product(signs, repeat=len(probs)):
+            weight = 1.0
+            for i, sign in enumerate(combo):
+                weight *= probs[i][sign]
+            best = score(combo)
+            for lvl in levels:
+                if best >= lvl:
+                    hit[lvl] += weight
+        return hit, "exakt"
+
+    rng = random.Random(20260802)        # fast frö: samma svar vid omladdning
+    for _ in range(CHANCE_SAMPLES):
+        combo = tuple(rng.choices(signs, weights=[p["1"], p["X"], p["2"]])[0]
+                      for p in probs)
+        best = score(combo)
+        for lvl in levels:
+            if best >= lvl:
+                hit[lvl] += 1.0 / CHANCE_SAMPLES
+    return hit, "simulerad"
 
 
 def _chance_per_level(rows: list[str], col_states: list[Optional[dict]],
                       width: int, levels: list[int]) -> dict:
-    """P(minst EN rad når nivån) per nivå, givet oddsen på kvarvarande matcher.
+    """Chans per vinstnivå givet oddsen på kvarvarande matcher.
 
-    Raderna delar de kvarvarande matcherna, så utfallen är BEROENDE — en
-    produkt av per-rad-sannolikheter vore fel. Vi räknar därför på hela
-    utfallsrummet: rader grupperas på sitt teckenmönster över de oavgjorda
-    kolumnerna, och per utfall räknas bästa totalen över grupperna.
+    Saknar en kvarvarande match pris — Kambi stänger 1X2-marknaden i sekunder
+    vid farliga lägen — beräknades tidigare INGENTING alls, och hela
+    chanskolumnen slocknade på varenda kupong. Det var korrekt så till vida
+    att ingen sannolikhet fabricerades, men det kastade också bort allt vi
+    faktiskt visste om de övriga matcherna.
 
-    Saknar någon oavgjord match sannolikhet returneras inget alls — en halv
-    beräkning är värre än ingen.
+    Nu betingas beräkningen i stället på de oprissatta matchernas utfall: en
+    körning per kombination, och resultatet redovisas som ett INTERVALL
+    (`chance_min_per_level`/`chance_max_per_level`). Det påstår ingenting om
+    hur den oprissatta matchen går — bara att chansen ligger mellan de här
+    gränserna oavsett. Fler än `CHANCE_MAX_UNPRICED` oprissatta matcher ger
+    ett intervall så brett att det inte säger något, och då lämnas noten kvar.
     """
     if not rows or not width or not levels:
         return {}
     open_cols = [i for i in range(width)
                  if not (col_states[i] and col_states[i].get("final")
                          and not col_states[i].get("cancelled"))]
-    probs = []
+    priced_cols, priced_probs, unpriced_cols, unpriced_names = [], [], [], []
     live_used = 0
     for i in open_cols:
         state = col_states[i] or {}
         p = state.get("probs")
-        if not p or abs(sum(p.values()) - 1.0) > 0.01:
-            # Namnge matchen: live-Ö/U suspenderas i sekunder vid farliga
-            # lägen, så det här är oftast övergående och inte en systemlucka.
-            namn = state.get("description") or "en kvarvarande match"
-            note = (f"{namn} saknar öppet livepris just nu"
-                    if state.get("in_progress")
-                    else f"{namn} saknar odds")
-            return {"chance_note": note}
-        if state.get("probs_basis") == "live":
-            live_used += 1
-        probs.append(p)
+        if p and abs(sum(p.values()) - 1.0) <= 0.01:
+            priced_cols.append(i)
+            priced_probs.append(p)
+            if state.get("probs_basis") == "live":
+                live_used += 1
+        else:
+            unpriced_cols.append(i)
+            unpriced_names.append(state.get("description")
+                                  or f"match {i + 1}")
 
-    base: dict[tuple, int] = {}
-    for row in rows:
-        secure = 0
-        for i in range(width):
-            state = col_states[i]
-            if state and state.get("final") and not state.get("cancelled"):
-                secure += int(state.get("sign") == row[i])
-        pattern = tuple(row[i] for i in open_cols)
-        base[pattern] = max(base.get(pattern, 0), secure)
-    if not open_cols:
-        best = max(base.values())
-        return {"chance_per_level": {lvl: (1.0 if best >= lvl else 0.0)
-                                     for lvl in levels},
-                "chance_basis": "avgjord"}
+    if len(unpriced_cols) > CHANCE_MAX_UNPRICED:
+        return {"chance_note": _unpriced_note(col_states, unpriced_cols,
+                                              unpriced_names)}
 
-    groups = list(base.items())
+    # Bästa säkrade antal rätt per teckenmönster över de PRISSATTA kolumnerna,
+    # för varje tänkt utfall i de oprissatta.
     signs = ("1", "X", "2")
-    hit = {lvl: 0.0 for lvl in levels}
-    combos = 3 ** len(open_cols)
+    lo = {lvl: 1.0 for lvl in levels}
+    hi = {lvl: 0.0 for lvl in levels}
+    basis = "avgjord"
+    for pinned in itertools.product(signs, repeat=len(unpriced_cols)):
+        groups: dict[tuple, int] = {}
+        for row in rows:
+            secure = 0
+            for i in range(width):
+                state = col_states[i]
+                if state and state.get("final") and not state.get("cancelled"):
+                    secure += int(state.get("sign") == row[i])
+            for k, col in enumerate(unpriced_cols):
+                secure += int(row[col] == pinned[k])
+            pattern = tuple(row[i] for i in priced_cols)
+            groups[pattern] = max(groups.get(pattern, 0), secure)
+        hit, basis = _hit_probabilities(groups, priced_probs, levels)
+        for lvl in levels:
+            lo[lvl] = min(lo[lvl], hit[lvl])
+            hi[lvl] = max(hi[lvl], hit[lvl])
 
-    def score(outcome: tuple) -> int:
-        return max(secure + sum(1 for i, s in enumerate(pattern) if s == outcome[i])
-                   for pattern, secure in groups)
+    out = {"chance_basis": basis, "chance_open_matches": len(open_cols),
+           "chance_live_matches": live_used}
+    if not unpriced_cols:
+        out["chance_per_level"] = {lvl: round(hi[lvl], 6) for lvl in levels}
+        return out
+    out["chance_min_per_level"] = {lvl: round(lo[lvl], 6) for lvl in levels}
+    out["chance_max_per_level"] = {lvl: round(hi[lvl], 6) for lvl in levels}
+    out["chance_unpriced"] = unpriced_names
+    return out
 
-    if combos <= CHANCE_EXACT_MAX_COMBOS and combos * len(groups) <= 4_000_000:
-        for combo in itertools.product(signs, repeat=len(open_cols)):
-            weight = 1.0
-            for i, s in enumerate(combo):
-                weight *= probs[i][s]
-            best = score(combo)
-            for lvl in levels:
-                if best >= lvl:
-                    hit[lvl] += weight
-        basis = "exakt"
-    else:
-        rng = random.Random(20260802)     # fast frö: samma svar vid omladdning
-        for _ in range(CHANCE_SAMPLES):
-            combo = tuple(
-                rng.choices(signs, weights=[p["1"], p["X"], p["2"]])[0]
-                for p in probs)
-            best = score(combo)
-            for lvl in levels:
-                if best >= lvl:
-                    hit[lvl] += 1.0 / CHANCE_SAMPLES
-        basis = "simulerad"
-    return {"chance_per_level": {lvl: round(hit[lvl], 6) for lvl in levels},
-            "chance_basis": basis, "chance_open_matches": len(open_cols),
-            "chance_live_matches": live_used}
+
+def _unpriced_note(col_states, cols, names) -> str:
+    """Förklara varför ingen chans visas — med matchnamn, inte "en match"."""
+    live = any((col_states[i] or {}).get("in_progress") for i in cols)
+    joined = ", ".join(names)
+    return (f"{joined} saknar öppet livepris just nu" if live
+            else f"{joined} saknar odds")
 
 
 def _mark_incomplete(store: Storage, coupon: dict, note: str) -> dict:

@@ -256,15 +256,32 @@ class ChancePerLevelTests(unittest.TestCase):
         self.assertAlmostEqual(0.925, live["chance_per_level"][3], places=6)
         self.assertEqual(1.0, live["chance_per_level"][2])
 
-    def test_missing_odds_gives_no_number_instead_of_a_guess(self):
+    def test_missing_odds_gives_an_interval_not_a_guess(self):
+        """En oprissatt match ska begränsa svaret, inte radera det.
+
+        Tidigare returnerades ingenting alls så fort EN match saknade odds,
+        och hela chanskolumnen slocknade. Nu betingas beräkningen på den
+        matchens tre utfall och redovisas som ett intervall — inget påstående
+        om hur den går, bara gränserna den kan ge.
+        """
         states = self._states(
             ("1", True, None), (None, False, None))
         coupon = {"rows_text": "11\n12", "events_order": "[1,2]"}
 
         live = pool_played.live_status(coupon, states)
 
+        # Ingen punktskattning får uppstå ur en okänd match.
         self.assertNotIn("chance_per_level", live)
-        self.assertIn("saknar odds", live["chance_note"])
+        self.assertIn("chance_min_per_level", live)
+        lo = live["chance_min_per_level"]
+        hi = live["chance_max_per_level"]
+        for level in lo:
+            self.assertLessEqual(lo[level], hi[level])
+        # Rad "11" har redan 1 rätt, "12" har 1 rätt: minst 1 oavsett utfall.
+        self.assertEqual(1.0, lo[1])
+        # Exakt en rad kan nå 2 rätt, och vilken beror på den okända matchen —
+        # alltså säker på 2 oavsett utfall.
+        self.assertEqual(1.0, hi[2])
 
     def test_finished_coupon_is_certainty_not_probability(self):
         states = self._states(("1", True, None), ("X", True, None))
@@ -371,7 +388,7 @@ class LiveOddsForRunningMatchTests(unittest.TestCase):
                      {"id": "2", "home": "AIK", "away": "Örgryte"}]
         self.assertIsNone(pool_played._kambi_id_for(catalogue, self._state()))
 
-    def test_chance_is_withheld_when_a_running_match_has_no_live_price(self):
+    def test_running_match_without_live_price_gives_an_interval(self):
         states = [{"event_number": 1, "sign": "1", "final": True,
                    "cancelled": False, "probs": None},
                   {"event_number": 2, "sign": "2", "final": False,
@@ -379,7 +396,20 @@ class LiveOddsForRunningMatchTests(unittest.TestCase):
                    "probs_basis": "live_saknas"}]
         live = pool_played.live_status(
             {"rows_text": "11\n12", "events_order": "[1,2]"}, states)
+
         self.assertNotIn("chance_per_level", live)
+        self.assertIn("chance_min_per_level", live)
+        self.assertEqual(1, len(live["chance_unpriced"]))
+
+    def test_too_many_unpriced_matches_keep_the_note(self):
+        """Ett intervall över för många okända matcher säger ingenting."""
+        states = [{"event_number": n, "sign": None, "final": False,
+                   "cancelled": False, "in_progress": True, "probs": None,
+                   "probs_basis": "live_saknas"} for n in range(1, 5)]
+        live = pool_played.live_status(
+            {"rows_text": "1111\n1112", "events_order": "[1,2,3,4]"}, states)
+
+        self.assertNotIn("chance_min_per_level", live)
         self.assertIn("livepris", live["chance_note"])
 
 

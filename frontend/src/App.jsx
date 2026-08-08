@@ -2907,12 +2907,22 @@ function PlayedLiveCard({ c, onForget }) {
               {levels.map((lvl) => {
                 const alive = live.alive_per_level[lvl]
                 const p = live.chance_per_level?.[lvl]
+                // Saknar en match pris finns ingen punktskattning, bara ett
+                // intervall betingat på hur den matchen går.
+                const lo = live.chance_min_per_level?.[lvl]
+                const hi = live.chance_max_per_level?.[lvl]
+                const text = !alive ? '0%'
+                  : p != null ? pct(p)
+                    : lo != null ? (lo === hi ? pct(lo) : `${pct(lo)}–${pct(hi)}`)
+                      : '–'
                 return (
                   <tr key={lvl} className={alive ? '' : 'dead'}>
                     <td><b>{lvl} rätt</b></td>
                     <td>{alive || '–'}</td>
-                    <td className={p >= 0.5 ? 'pos' : ''}>
-                      {p == null ? '–' : alive ? pct(p) : '0%'}</td>
+                    <td className={(p ?? lo) >= 0.5 ? 'pos' : ''}
+                      title={p == null && lo != null
+                        ? 'Intervall: chansen beroende på hur de oprissatta matcherna går. Ingen sannolikhet gissas åt dem.'
+                        : undefined}>{text}</td>
                   </tr>
                 )
               })}
@@ -2920,6 +2930,10 @@ function PlayedLiveCard({ c, onForget }) {
           </table>}
           <p className="hint">
             {live.chance_note ? `Ingen chans visas: ${live.chance_note}.`
+              : live.chance_unpriced?.length
+                ? <>Chansen visas som <b>intervall</b>: {live.chance_unpriced.join(', ')} saknar
+                  öppet pris, så siffran ges för alla utfall den matchen kan få.
+                  Ingen sannolikhet gissas åt den.</>
               : <>
                 {live.chance_basis === 'simulerad'
                   ? 'Chans simulerad ur oddsen på kvarvarande matcher (för många kombinationer för exakt uppräkning).'
@@ -3017,9 +3031,11 @@ function PlayedPanel({ product = null }) {
                     c.value_weight != null
                       ? `värde ${Math.round(c.value_weight * 100)} %` : null,
                   ].filter(Boolean).join(' · ')}</span>
-                  : <span className="hint" title="Bokförd innan förslagstyp
-                    började sparas (2026-08-05). Uppgiften fanns aldrig och
-                    bakfylls inte.">okänd</span>}</td>
+                  : <span className="hint" title="Budget, strategi och
+                    värdevikt började sparas på kupongen 2026-08-05. Äldre
+                    kuponger bär dem inte, och uppgiften bakfylls aldrig —
+                    den fanns helt enkelt inte när kupongen bokfördes.">
+                    ej sparad före 2026-08-05</span>}</td>
                 <td>{c.n_rows}</td>
                 <td>{kr(c.cost_kr)}</td>
                 <td>bäst {c.correct_max} rätt</td>
