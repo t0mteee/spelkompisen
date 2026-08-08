@@ -2861,7 +2861,13 @@ function PlayedLiveCard({ c, onForget }) {
     <div className="playedcard">
       <div className="playedcard-head">
         <b>{couponLabel(c)}</b>
-        <span className="epill live">pågår</span>
+        {/* "pågår" på en omgång där varje match är spelad är osant — den
+            väntar bara på att SvS publicerar utdelningen. Gårdagens
+            Topptipset låg kvar som aktiv av precis det skälet. */}
+        {live?.all_decided
+          ? <span className="epill" title="Alla matcher är avgjorda. Kupongen får facit när Svenska Spel publicerar utdelningen.">
+              avgjord · väntar på utdelning</span>
+          : <span className="epill live">pågår</span>}
         <span className="hint">{c.n_rows} rader · {kr(c.cost_kr)}</span>
         <button className="linkbtn" onClick={onForget}
           title="Ta bort felaktigt bokförd kupong (går bara innan facit satts)">✕</button>

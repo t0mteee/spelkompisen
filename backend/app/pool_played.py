@@ -42,7 +42,12 @@ SIGNS = ("1", "X", "2")
 SETTLEMENT_VERSION = "played-v2"
 
 # SvS-statusar: matchen är färdigspelad och tecknet står fast.
-FINISHED_STATUS_IDS = frozenset({31})       # 31 = "Slut"/Ended
+# 31 = "Slut", 33 = "Slut efter straffläggning". 33 saknades och gjorde två
+# FÄRDIGSPELADE cupmatcher till "pågående" i live-rättningen 2026-08-08
+# (Barnsley–Wigan och Preston–Huddersfield i Stryktipset 4965): kortet sa
+# 8/13 avgjorda när det var 10/13, och påstod att fem matcher rullade när
+# det bara var tre.
+FINISHED_STATUS_IDS = frozenset({31, 33})
 FINISHED_STATUS_WORDS = frozenset({"slut", "ended", "finished", "avslutad"})
 
 
@@ -123,21 +128,32 @@ def event_state(draw_event: dict) -> dict:
     final=False; det är information, inte ett facit.
     """
     match = draw_event.get("match") or {}
-    current = None
-    for res in (match.get("result") or []):
-        if res.get("sportEventResultType") == "Current":
-            current = res
-            break
-    sign = _sign_from_score((current or {}).get("home"),
-                            (current or {}).get("away"))
+    results = {res.get("sportEventResultType"): res
+               for res in (match.get("result") or [])}
+    # `Fulltime` är poolens EGEN definition av tecknet: resultatet efter
+    # ordinarie tid. `Current` är bara "ställningen nu" och kan i cupmatcher
+    # bära förlängning eller straffar — Barnsley–Wigan 2026-08-08 hade
+    # Fulltime 1–1 men Penalties 6–5, och Montreal–Atlanta 2024 blev "6-7" i
+    # stället för 2–2 på exakt det sättet. Fulltime vinner därför när den
+    # finns; den publiceras aldrig under pågående match (verifierat: matcher
+    # i spel bär bara Current och Halftime).
+    fulltime = results.get("Fulltime")
+    current = results.get("Current")
+    basis = fulltime or current
+    sign = _sign_from_score((basis or {}).get("home"), (basis or {}).get("away"))
     status_id = match.get("statusId")
     status_word = str(match.get("status") or "").casefold()
     final = bool(
         (isinstance(status_id, int) and status_id in FINISHED_STATUS_IDS)
         or status_word in FINISHED_STATUS_WORDS
-        or str(match.get("sportEventStatus") or "").casefold() == "ended")
-    score = (f"{current['home']}-{current['away']}"
-             if current and current.get("home") is not None else None)
+        or str(match.get("sportEventStatus") or "").casefold() == "ended"
+        # Ett publicerat Fulltime-resultat betyder att ordinarie tid är spelad,
+        # även om SvS hunnit sätta en statuskod vi inte sett förut.
+        or fulltime is not None)
+    # Visad ställning följer tecknet: efter en straffläggning ska kortet visa
+    # 1–1, inte 6–5, eftersom det är 1–1 som avgör kupongen.
+    score = (f"{basis['home']}-{basis['away']}"
+             if basis and basis.get("home") is not None else None)
     return {"sign": sign, "final": final, "score": score,
             "event_number": draw_event.get("eventNumber"),
             "cancelled": bool(draw_event.get("cancelled")),

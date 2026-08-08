@@ -385,3 +385,69 @@ class LiveOddsForRunningMatchTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PenaltyShootoutStateTests(unittest.TestCase):
+    """Cupmatcher avgjorda på straffar — uppmätt fel 2026-08-08.
+
+    Barnsley–Wigan och Preston–Huddersfield i Stryktipset 4965 hade
+    statusId 33 ("Slut efter straffläggning"). Den koden saknades i
+    FINISHED_STATUS_IDS, så två FÄRDIGSPELADE matcher räknades som
+    pågående: kortet sa 8/13 avgjorda när det var 10/13 och påstod att fem
+    matcher rullade när det bara var tre.
+    """
+
+    @staticmethod
+    def _shootout(number=1):
+        """SvS-form för en cupmatch: 1–1 efter full tid, 6–5 på straffar."""
+        return {
+            "eventNumber": number, "cancelled": False,
+            "match": {
+                "statusId": 33, "status": "Slut efter straffläggning",
+                "result": [
+                    {"sportEventResultType": "Current", "home": "1", "away": "1"},
+                    {"sportEventResultType": "Halftime", "home": "0", "away": "1"},
+                    {"sportEventResultType": "Fulltime", "home": "1", "away": "1"},
+                    {"sportEventResultType": "Penalties", "home": "6", "away": "5"},
+                ],
+            },
+        }
+
+    def test_shootout_is_final_and_scored_on_normal_time(self) -> None:
+        state = pool_played.event_state(self._shootout())
+
+        self.assertTrue(state["final"])
+        self.assertFalse(state["in_progress"])
+        # Straffsegraren vann matchen men INTE pooltecknet: 1–1 ⇒ X.
+        self.assertEqual("X", state["sign"])
+        self.assertEqual("1-1", state["score"])
+
+    def test_fulltime_beats_current_when_current_carries_penalties(self) -> None:
+        """Skyddet mot Montreal–Atlanta 2024, som blev "6-7" i stället för 2–2."""
+        event = self._shootout()
+        event["match"]["result"][0] = {
+            "sportEventResultType": "Current", "home": "6", "away": "5"}
+
+        state = pool_played.event_state(event)
+
+        self.assertEqual("X", state["sign"])
+        self.assertEqual("1-1", state["score"])
+
+    def test_running_match_without_fulltime_is_not_final(self) -> None:
+        # Verifierat mot SvS: matcher i spel bär bara Current och Halftime.
+        event = {
+            "eventNumber": 1, "cancelled": False,
+            "match": {
+                "statusId": 7, "status": "Andra halvlek",
+                "result": [
+                    {"sportEventResultType": "Current", "home": "3", "away": "0"},
+                    {"sportEventResultType": "Halftime", "home": "1", "away": "0"},
+                ],
+            },
+        }
+
+        state = pool_played.event_state(event)
+
+        self.assertFalse(state["final"])
+        self.assertTrue(state["in_progress"])
+        self.assertEqual("1", state["sign"])
