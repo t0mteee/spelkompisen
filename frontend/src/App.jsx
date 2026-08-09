@@ -1,6 +1,7 @@
-import { Component, Fragment, useEffect, useState } from 'react'
+import { Component, Fragment, useEffect, useEffectEvent, useState } from 'react'
 import './App.css'
 import { summarizeSourceHealth } from './sourceHealth.js'
+import { payoutMatchesSelection } from './poolSelection.js'
 
 // Komponentbibliotek: appskalet bor i AppV3.jsx (laddas av main.jsx) och
 // importerar alla tunga byggstenar, konstanter och helpers härifrån —
@@ -69,7 +70,14 @@ function Collection() {
     } catch (e) { setErr(String(e)) }
   }
   const stop = async () => { setErr(null); await fetch('/api/collection/stop', { method: 'POST' }); refresh() }
-  useEffect(() => { refresh(); const id = setInterval(refresh, 10000); return () => clearInterval(id) }, [])
+  useEffect(() => {
+    // Första körningen läggs i samma timerslinga som fortsättningen. Effekten
+    // installerar då bara synkroniseringen; state ändras först när I/O:t är
+    // klart och aldrig synkront under själva React-effekten.
+    const first = setTimeout(refresh, 0)
+    const id = setInterval(refresh, 10000)
+    return () => { clearTimeout(first); clearInterval(id) }
+  }, [])
 
   const active = st?.active
   return (
@@ -418,8 +426,11 @@ function MovementChart({ product, drawNumber, eventNumber }) {
 /* ---------- sharp (Pinnacle, gratis, auto) – kompakt status + manuell uppdatering ---------- */
 function SharpPanel({ product, draw, onLoaded }) {
   const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(!!draw)
   const [show, setShow] = useState(false)
+  const notifyLoaded = useEffectEvent(() => {
+    if (onLoaded) onLoaded()
+  })
   const STATUS = {
     derived: { txt: 'härledd från spread/total (1X2 ej öppnad)', cls: 'st-wait' },
     no_moneyline: { txt: '1X2 ej öppnad än', cls: 'st-wait' },
@@ -437,7 +448,20 @@ function SharpPanel({ product, draw, onLoaded }) {
       }
     } catch (e) { setData({ error: String(e) }) } finally { setLoading(false) }
   }
-  useEffect(() => { fetchSharp() }, [product, draw])  // hämta direkt (gratis) vid byte
+  useEffect(() => {
+    if (!draw) return undefined
+    let current = true
+    fetch(`/api/external-odds?product=${product}&draw=${draw}&_t=${Date.now()}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!current || !d || (!d.matches && d.enabled !== false)) return
+        setData(d)
+        if (d.cached > 0) notifyLoaded()
+      })
+      .catch((e) => { if (current) setData({ error: String(e) }) })
+      .finally(() => { if (current) setLoading(false) })
+    return () => { current = false }
+  }, [product, draw])
 
   const matched = data?.matches?.filter((m) => m.external) || []
   return (
@@ -831,13 +855,15 @@ function PowerRankPanel({ leagues }) {
   const [season, setSeason] = useState('')
   const [data, setData] = useState(null)
   const [err, setErr] = useState(null)
-  useEffect(() => { setSeason('') }, [league])
   useEffect(() => {
-    setData(null); setErr(null)
+    let current = true
     fetch(`/api/oddset/powerrank?league=${league}`
       + `${season ? `&season=${encodeURIComponent(season)}` : ''}`
       + `&_t=${Date.now()}`, { cache: 'no-store' })
-      .then((r) => r.json()).then(setData).catch((e) => setErr(String(e)))
+      .then((r) => r.json())
+      .then((d) => { if (current) { setData(d); setErr(null) } })
+      .catch((e) => { if (current) setErr(String(e)) })
+    return () => { current = false }
   }, [league, season])
 
   const cols = [
@@ -859,13 +885,17 @@ function PowerRankPanel({ leagues }) {
       <div className="valhead">
         <b>🏋 Lagstyrka och xPoäng</b>
         <span className="rchip amber">amber · påverkar inga tips</span>
-        <select value={league} onChange={(e) => setLeague(e.target.value)}>
+        <select value={league} onChange={(e) => {
+          setLeague(e.target.value); setSeason(''); setData(null); setErr(null)
+        }}>
           {(leagues || []).map((l) => (
             <option key={l.key} value={l.key}>{l.name}</option>
           ))}
         </select>
         {data?.seasons?.length > 0 && (
-          <select value={season} onChange={(e) => setSeason(e.target.value)}
+          <select value={season} onChange={(e) => {
+            setSeason(e.target.value); setData(null); setErr(null)
+          }}
             title="Fitten bakom styrkan tidsviktar alltid hela historiken. Säsongsvalet gäller de räknade kolumnerna: poäng, xPoäng och över/under.">
             <option value="">Alla säsonger</option>
             {data.seasons.map((s) => (
@@ -1013,6 +1043,8 @@ function OddsetView({ focus = null } = {}) {
       .then((r) => r.json()).then(setPowerRank).catch(() => setPowerRank(null))
   }, [])
   const [oddsetTab, setOddsetTab] = useState(() => {
+    const focusTab = { varde: 'varde', radar: 'rorelser' }[focus]
+    if (focusTab) return focusTab
     try {
       const saved = localStorage.getItem('svs_oddset_tab')
       return ['matcher', 'live', 'varde', 'rorelser', 'styrka'].includes(saved) ? saved : 'matcher'
@@ -1050,7 +1082,7 @@ function OddsetView({ focus = null } = {}) {
       setData(d); setNotices(n?.notices || []); setLiveRadar(live); setErr(null)
     })
       .catch((e) => setErr(String(e)))
-  useEffect(() => { load() }, [])  // eslint-disable-line
+  useEffect(() => { load() }, [])
   useEffect(() => {
     const poll = () => fetch(`/api/oddset/live-radar?_t=${Date.now()}`, { cache: 'no-store' })
       .then((r) => r.json()).then(setLiveRadar).catch(() => {})
@@ -1066,15 +1098,13 @@ function OddsetView({ focus = null } = {}) {
   useEffect(() => {
     if (!focus || !data) return
     // djuplänkar hoppar till rätt SUB-TABB först (UI-passet 2026-07-29)
-    const focusTab = { varde: 'varde', radar: 'rorelser' }[focus]
-    if (focusTab) pickTab(focusTab)
     const id = { varde: 'oddset-varde', radar: 'oddset-radar' }[focus]
     const jump = () => document.getElementById(id)
       ?.scrollIntoView({ behavior: 'auto', block: 'start' })
     jump()                              // synkront: landar direkt även throttlat
     const t = setTimeout(jump, 400)     // korrigeringspass efter sen reflow
     return () => clearTimeout(t)
-  }, [focus, !!data])  // eslint-disable-line
+  }, [focus, data])
 
   // Rek-historiken hämtas BARA när en matchdetalj öppnas — aldrig för alla
   // rader. Endpointen läser value_log; ett GET skapar inga nya flaggor.
@@ -1453,7 +1483,7 @@ function OddsetView({ focus = null } = {}) {
   ].filter(([source]) => !activeSources || activeSources.includes(source))
   // Live-radarn pollas varje minut medan den stora Oddset-payloaden bara
   // laddas vid sidöppning. Använd därför live-endpointens färska hälsorader
-  // för de tre livekällorna, med den stora payloaden som bakåtkompatibel reserv.
+  // för backendens aktiva livekällor, med den stora payloaden som reserv.
   const currentHealth = [
     ...(data.source_health || []).filter((r) => r.scope !== 'live'),
     ...((liveRadar?.source_health?.length
@@ -2101,8 +2131,11 @@ function OddsetView({ focus = null } = {}) {
               )}
               {liveRadar.last_run
                 ? ` · kollad ${timeAgo(liveRadar.last_run)}`
-                : <span title="Gemensam tid visas först när Flashscore, FotMob och Sofascore alla har kontrollerats.">
-                    {' '}· inväntar alla tre livekällor
+                : <span title={`Gemensam tid visas först när ${(liveRadar.sources?.length
+                  ? liveRadar.sources : ['flashscore', 'fotmob'])
+                  .map((s) => ({ flashscore: 'Flashscore', fotmob: 'FotMob', sofascore: 'Sofascore' })[s] || s)
+                  .join(' och ')} har kontrollerats.`}>
+                    {' '}· inväntar {liveRadar.sources?.length || 2} livekällor
                   </span>}
             </span>
           </div>
@@ -2654,7 +2687,7 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
   const [redOn, setRedOn] = useState(false)
   const [minDiv, setMinDiv] = useState(50)
   const [turnover, setTurnover] = useState(null)   // null = använd live-omsättning
-  const [jackpot, setJackpot] = useState(0)
+  const [jackpotOverride, setJackpotOverride] = useState(null)
   const [copied, setCopied] = useState(false)
   const [bankroll, setBankroll] = useState(() => {
     try { return Number(localStorage.getItem('svs_bankroll')) || 5000 } catch { return 5000 }
@@ -2673,14 +2706,12 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
   // står på är den ännu inte omhämtad, och då är noll rätt svar — ett
   // kvarhängande belopp från förra spelet är farligare än en sekund utan.
   // En manuell justering inom samma omgång står kvar tills omgången byts.
-  const payoutsMatchProduct = payouts?.product === product
-  // Omsättningsöverstyrningen ("→ prognos") beskriver EN omgång. Nyckeln är
-  // omgången ensam — inte jackpotten, annars raderas en manuell siffra så
-  // fort rullpotten råkar ändras mitt i omgången.
-  useEffect(() => { setTurnover(null) }, [product, draw])
-  useEffect(() => {
-    setJackpot(payoutsMatchProduct && payouts?.jackpot > 0 ? payouts.jackpot : 0)
-  }, [product, draw, payoutsMatchProduct, payouts?.jackpot])  // eslint-disable-line
+  const payoutsMatchSelection = payoutMatchesSelection(payouts, product, draw)
+  // Panelen är key:ad på produkt+omgång i AppV3 och remountas vid byte. Då
+  // behövs inga setState-effekter för återställning: grundvärdet följer det
+  // verifierade svaret och manuella overrides lever bara i denna omgång.
+  const jackpot = jackpotOverride ?? (
+    payoutsMatchSelection && payouts?.jackpot > 0 ? payouts.jackpot : 0)
   const copyCoupon = () => {
     // radläge: kopiera de faktiska raderna (en per rad) — teckenunionen per
     // match säger inget om vilka rader som faktiskt spelas
@@ -2692,10 +2723,11 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
   // Bokför att ANVÄNDAREN själv lämnat in kupongen. Lägger inga spel — den ger
   // facit per kupong (mot publicerad utdelning, inte kontrafaktisk utspädning)
   // och livestatus för reducerade system medan omgången pågår.
-  const [played, setPlayed] = useState(false)
-  useEffect(() => { setPlayed(false) }, [product, draw, pickRows?.length])
+  const [played, setPlayed] = useState(null)
+  const playedStatus = played?.rows === pickRows ? played.status : false
   const markPlayed = async () => {
-    setPlayed('sparar')
+    const submittedRows = pickRows
+    setPlayed({ rows: submittedRows, status: 'sparar' })
     try {
       const res = await fetch('/api/pool/played', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2714,9 +2746,12 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
           label: `${product} ${draw}`,
         }),
       })
-      setPlayed(res.ok ? true : false)
+      setPlayed({ rows: submittedRows, status: res.ok })
       if (!res.ok) alert('Kunde inte bokföra kupongen — se backend-loggen.')
-    } catch { setPlayed(false); alert('Kunde inte nå backend.') }
+    } catch {
+      setPlayed({ rows: submittedRows, status: false })
+      alert('Kunde inte nå backend.')
+    }
   }
   const egnaUrl = egnaRaderUrl(product)
   const rowMode = !!(pickRows && pickRows.length)
@@ -2753,7 +2788,7 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
                 </label>
                 <label>Jackpot (mkr)
                   <input type="number" min="0" step="0.5" value={(jackpot / 1e6)}
-                    onChange={(e) => setJackpot(Number(e.target.value) * 1e6)} />
+                    onChange={(e) => setJackpotOverride(Number(e.target.value) * 1e6)} />
                 </label>
                 {payouts?.projected_turnover > (payouts?.turnover || 0) && turnover !== payouts.projected_turnover && (
                   <button onClick={() => setTurnover(payouts.projected_turnover)}
@@ -2828,11 +2863,11 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
             <button onClick={copyCoupon} title={rowMode ? 'Kopierar alla rader, en per rad' : 'Kopierar valda tecken per match'}>
               {copied ? '✓ Kopierad' : rowMode ? `Kopiera ${nRows} rader` : 'Kopiera kupong'}</button>
             {rowMode && pickRows.length > 0 && (
-              <button className={played ? 'playedbtn on' : 'playedbtn'}
-                onClick={markPlayed} disabled={played === 'sparar'}
+              <button className={playedStatus ? 'playedbtn on' : 'playedbtn'}
+                onClick={markPlayed} disabled={playedStatus === 'sparar'}
                 title="Bokför att DU har lämnat in den här kupongen hos Svenska Spel. Inget spel läggs härifrån — knappen ger facit per kupong och livestatus för reducerade system under omgången.">
-                {played === true ? '✓ Bokförd som spelad'
-                  : played === 'sparar' ? 'Sparar…' : '🎟 Markera som spelad'}</button>
+                {playedStatus === true ? '✓ Bokförd som spelad'
+                  : playedStatus === 'sparar' ? 'Sparar…' : '🎟 Markera som spelad'}</button>
             )}
           </div>
           {egnaUrl ? (
@@ -2973,7 +3008,7 @@ function PlayedPanel({ product = null }) {
   const [data, setData] = useState(null)
   const load = () => fetch(`/api/pool/played?_t=${Date.now()}`, { cache: 'no-store' })
     .then((r) => r.json()).then(setData).catch(() => setData({ coupons: [] }))
-  useEffect(() => { load() }, [])   // eslint-disable-line
+  useEffect(() => { load() }, [])
   if (!data) return <LoadingState label="Hämtar spelade kuponger…" />
   const all = data.coupons || []
   const coupons = product ? all.filter((c) => c.product === product) : all
@@ -3073,10 +3108,13 @@ function PlayedPanel({ product = null }) {
 function SteamPanel({ product, draw, matches }) {
   const [data, setData] = useState(null)
   useEffect(() => {
-    if (!draw) return
-    setData(null)
+    if (!draw) return undefined
+    let current = true
     fetch(`/api/steam?product=${product}&draw=${draw}&_t=${Date.now()}`, { cache: 'no-store' })
-      .then((r) => r.json()).then(setData).catch(() => setData(null))
+      .then((r) => r.json())
+      .then((d) => { if (current) setData(d) })
+      .catch(() => { if (current) setData(null) })
+    return () => { current = false }
   }, [product, draw])
   const desc = {}
   ;(matches || []).forEach((m) => { desc[m.event_number] = m.description })
@@ -3112,9 +3150,12 @@ function ClvPanel({ group }) {
   const [data, setData] = useState(null)
   const [open, setOpen] = useState(false)
   useEffect(() => {
-    setData(null)
+    let current = true
     fetch(`/api/clv?product=${group}&_t=${Date.now()}`, { cache: 'no-store' })
-      .then((r) => r.json()).then(setData).catch(() => setData(null))
+      .then((r) => r.json())
+      .then((d) => { if (current) setData(d) })
+      .catch(() => { if (current) setData(null) })
+    return () => { current = false }
   }, [group])
   if (!data) return <div className="loading sm">Hämtar facit…</div>
   const p100 = (v) => (v == null ? '–' : Math.round(v * 100) + ' %')
@@ -3312,14 +3353,16 @@ function BombenBuilder({ draw }) {
 
 function BombenView({ draw, nonce }) {
   const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(!!draw)
   const [showHelp, setShowHelp] = useStoredBool('svs_ui_bomben_help')
   useEffect(() => {
-    if (!draw) return
-    setLoading(true)
+    if (!draw) return undefined
+    let current = true
     fetch(`/api/bomben?draw=${draw}&_t=${Date.now()}`, { cache: 'no-store' })
-      .then((r) => r.json()).then((d) => { setData(d); setLoading(false) })
-      .catch(() => { setData(null); setLoading(false) })
+      .then((r) => r.json())
+      .then((d) => { if (current) { setData(d); setLoading(false) } })
+      .catch(() => { if (current) { setData(null); setLoading(false) } })
+    return () => { current = false }
   }, [draw, nonce])
   if (!data || !Array.isArray(data.matches)) return loading
     ? <LoadingState label="Hämtar Bomben…" />

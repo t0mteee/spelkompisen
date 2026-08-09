@@ -510,10 +510,9 @@ def cmd_live_tick(dense_seconds: int = LIVE_DENSE_BUDGET_S,
         sleep(interval)
 
 
-# Sofascore står kvar i dubblettjakten trots att den kopplats ur radarn:
+# Sofascore står kvar i den HISTORISKA dubblettjakten trots att den kopplats ur:
 # `oddset_live_capture` bär historiken, och rapporten är retrospektiv. Den
 # skriver inga nya rader och kan alltså inte återinföra källan i visningen.
-LIVE_SOURCES = ("flashscore", "fotmob", "sofascore")
 LIVE_CAPTURE_TABLES = {"flashscore": "oddset_live_flashscore",
                        "fotmob": "oddset_live_fotmob",
                        "sofascore": "oddset_live_capture"}
@@ -644,6 +643,8 @@ def format_source_health(store, hours: int = 6) -> str:
     därav `oddset_source_health_log`. Varvkolumnen gör en utebliven kontroll
     synlig som ett hål i stället för som tystnad.
     """
+    from app.live_radar import LIVE_SOURCES
+
     since = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours)) \
         .strftime("%Y-%m-%dT%H:%M:%SZ")
     rows = store.oddset_source_health_history(scope="live", since=since, limit=5000)
@@ -1209,10 +1210,13 @@ def main() -> None:
         finally:
             store.close()
     elif cmd == "kallhalsa":
+        from app.pool_health import format_report as format_pool_health
+        from app.pool_health import report as pool_health_report
         store = Storage()
         try:
             timmar = next((int(a) for a in rest if a.isdigit()), 6)
             print(format_source_health(store, hours=timmar))
+            print("\n" + format_pool_health(pool_health_report(store)))
         finally:
             store.close()
     elif cmd == "lanklucka":

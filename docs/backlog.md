@@ -1,6 +1,6 @@
 # Backlog — aktuell prioritering
 
-**Skapad 2026-07-26, hardening-status uppdaterad 2026-08-01 — aktiv arbetslista
+**Skapad 2026-07-26, status uppdaterad 2026-08-09 — aktiv arbetslista
 i "MODELLPLAN" längst ned; arbetsordningen där kräver Samans godkännande.**
 Detta är projektets enda aktiva backlog. `docs/forbattringar.md` är arkiv (svs-ärvda lärdomar + bokkälls-
 kartläggningen), WP-listan i `docs/plan.md` är historik över avslutat arbete.
@@ -9,22 +9,36 @@ Metodreglerna i `CLAUDE.md` (observationstid, ANKARE ≠ BOK, transportregeln,
 signalversions-disciplin, källgränsen) gäller varje punkt nedan och upprepas
 inte per rad.
 
-## 2026-08-09 — nästa uppgift (öppen)
+## 2026-08-09 — senast levererat
 
-- **Larm när en poolprodukt slutar samlas.** Topptipset Dagens var TYST utan
+- **✅ Larm när en poolprodukt slutar samlas.** Topptipset Dagens var TYST utan
   insamling i fem dygn (scanhintet mot kodens statiska seed — se
-  `docs/overlamning-2026-08-09.md` punkt 5). Roten är fixad, men det finns
-  fortfarande ingen väg som säger till. `cli.py kallhalsa` täcker Oddsets
-  källor, inte poolproduktarnas scanfönster. Föreslagen kontroll: jämför
-  `Storage.seed_hint(product)` mot `_scan_draws`-fönstrets räckvidd
-  (`max_scan=80`) och varna när marginalen krymper, plus "senaste snapshot per
-  produkt" i samma vy. Kräver Samans godkännande av prioritet.
-- **Leta fler per-omgångsvärden i panelstate.** Jackpotläckan mellan produkter
+  `docs/overlamning-2026-08-09.md` punkt 5). `pool_health` kontrollerar nu
+  slutartefakterna i stället för att lita på att rätt funktion anropades:
+  snapshot per öppen omgång, färskhetskadens, komplett PH3-familj efter
+  horisonten, scanhint som ligger bakom och passerad settlement-retry. Syns i
+  Idag, `/api/health` och `cli.py kallhalsa`; rent läsande, inga nätanrop.
+- **✅ Per-omgångsvärden i panelstate.** Jackpotläckan mellan produkter
   (punkt 3 i överlämningen) var ett `useState` utan omgångsnycklad
-  återställning, och `turnover` bar samma fel. Andra paneler bör granskas med
-  samma fråga: *hör det här värdet till omgången eller till panelen?*
+  återställning. Nu ogiltigförklaras sena analys-/rörelse-/pott-svar och
+  pottdata används bara när både produkt OCH draw_number matchar. Skyddet
+  omfattar rubrik, spelvärde, byggare, systemvy och kupong — inte bara
+  jackpotfältet.
+- **✅ Livekällor och träningsmatcher.** UI/diagnoser läser livekällistan ur
+  backend (`flashscore`, `fotmob`). Ensidig friendly-länkning har eget
+  15-minutersfönster och faller stängt på saknad/trasig tid.
 
-## Hardening 2026-08-01 — levererat och driftverifierat
+## Nästa verifiering/arbete
+
+- Verifiera settlementens nya kadens på första omgång som finaliseras efter
+  2026-08-09: SvS-publicering → lokalt facit bör vara högst cirka 15 minuter.
+- Utöka det lilla frontend-testskelettet med komponent-/browsernivå när UI:t
+  växer. `npm test` låser nu sen-svar-grinden, produkt+omgångsidentiteten och
+  källhälsans grönt/partial/stale-semantik utan nya beroenden.
+- Nästa metodändring av PH3-familjen ska skapa en namngiven generation i
+  stället för att radera/dölja armar i samma familj.
+
+## Historisk hardening 2026-08-01 — levererat, ersatt av statusen ovan
 
 - **Live v4:** `chance-gap-shadow-v4` börjar rent 21:00Z. v3-fönstret
   08:00–21:00Z är ogiltig historisk pilot och får aldrig ge stöd. Tre separata
@@ -57,13 +71,13 @@ testning.
 
 | Mätning | Läge 2026-08-01 | Beslutspunkt |
 |---|---|---|
-| **Två ankare** (Pinnacle vs Smarkets, skugga) | 13 mätta, 9 mätta+stängda efter identitetssanering; ankarkrav behåller 3/9 | n ≥ 50 mätta+stängda 1X2 i primärgruppen, veckokadens — regel i `docs/tva-ankare-2026-07-25.md` (~7 dygn vid nuvarande takt) |
-| **Modell mot close** (aktuell `model_version`) | modelldata v4 nollställer den jämförbara serien; exakta versions-id:n tas ur ledgern | grind i `docs/modell-mot-close-2026-07-25.md`; close-scriptet väljer exakt aktuell version och historik blandas aldrig |
-| **Hörnbaslinje** (aktuell modell + `corner-poisson-total-v1`) | börjar om under modelldata v4; hörnprovider redovisas separat från xG | samma close-grind, sist i ordningen (Samans ordning 2026-07-25) |
+| **Två ankare** | AVFÖRD som aktiv väg: Smarkets hade 56 030 1X2-priser men noll AH/ÖU/hörnor och får inte vara spelbar bok/ankare | Historik i `docs/tva-ankare-2026-07-25.md`; `ANCHOR_SOURCES`-spärren står kvar |
+| **Modell mot close** (aktuell `model_version`) | aktuell modellsignal `m-e900ed90`; V2.2 samlar isolerat under manifest v6 | grind i `docs/modell-mot-close-2026-07-25.md`; historiska versioner blandas aldrig |
+| **Hörnbaslinje** (aktuell modell + `corner-poisson-total-v1`) | providerpar separeras från xG; fortsatt amber tills samma close-grind håller | samma close-grind, sist i ordningen (Samans ordning 2026-07-25) |
 | **pit-v4 forward** (`pool-streckmove-v3`) | 4 omgångar | ≥ 40 out-of-time-omgångar per produkt med hela KI90 < 0 |
 | **Sharp-CLV-facitet** | historiskt aggregat +2,3 % [1,1..3,4], 272 stängda efter sanering; ny aktiv `s-95e14fca` börjar från nästa capture | veckokadens (`EVAL_INTERVAL_H`), aldrig per varv; grönt beslutas per liga × marknad × version |
-| **V2.2 flerliga-shadow v5** | ren samling från 2026-08-07T11:05Z under manifest v5; v1/v2 historik, v3 0 captures, v4 12 rader/2 avgjorda (aliasomfrysning) | träningsgate 300 kompletta avgjorda/horisont, ≥ 50/liga, ≥ 42 dagar |
-| **Live-radar tre källor v4** (shadow) | ren kohort från 2026-08-01T21:00Z; v3 är ogiltig pilot, v2/v3 endast historik | prediktiv lyft: separat momentgate; blind Över-ROI: första aktiva signal/match, ≥200 oddssatta+avgjorda, ≥60 dagar och undre KI90 > 0 — `docs/live-radar-2026-07-25.md` |
+| **V2.2 flerliga-shadow v6** | ren samling från 2026-08-07T14:20Z; v4 12/2 och v5 1/0 är stängda historiska kohorter | träningsgate 300 kompletta avgjorda/horisont, ≥ 50/liga, ≥ 42 dagar |
+| **Live-radar två källor v7** (shadow) | Flashscore ankare + FotMob; Sofascore urkopplad. Ensidig scope-länk kräver giltig tid ±15 min | prediktiv lyft separat; blind Över-ROI ≥200 oddssatta+avgjorda, ≥60 dagar och undre KI90 > 0 — `docs/live-radar-2026-07-25.md` |
 
 ## B. Fixar ur granskningen 2026-07-26 — ✅ GENOMFÖRDA samma dag (godkända)
 

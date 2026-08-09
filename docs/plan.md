@@ -1,9 +1,37 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-08-01 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-08-09 — läs detta först i ny session)
 
-> **Aktiv backlog och prioritering: `docs/backlog.md`** (uppdaterad 2026-08-01).
+> **Aktiv backlog och prioritering: `docs/backlog.md`** (uppdaterad 2026-08-09).
 > WP-listan längre ned är historik över avslutat arbete.
+
+**Aktuellt kontrakt.** Live-radarn är `chance-gap-shadow-v7` med exakt TVÅ
+bärande livekällor: Flashscore som ankare och FotMob som sekundär. Sofascore
+är urkopplad ur live-radarn eftersom saknad xG kunde rapporteras som 0,00; den
+finns kvar för resultatstatistik och frånvaro. Backend skickar den aktiva
+källistan till UI/diagnoser — inga egna kopior. Ensidig träningsmatchidentitet
+kräver giltig avspark på båda sidor, entydig kandidat och högst 15 minuters
+skillnad; den äldre tvåsidiga regeln behåller sitt tvåtimmarsfönster.
+
+**Aktuell V2.2-kohort är manifest v6** från 2026-08-07T14:20Z
+(`docs/model-v2.2-multileague-forward-manifest-v6.json`). PL, Serie A, La Liga
+och Bundesliga är fullt följda modelligor efter providerseparerad xG-backfill;
+powerranken är `powerrank-v2` och fortsatt AMBER. Modellen är sämre än
+Pinnacle i samtliga ligor och påverkar aldrig spelbar edge, urval eller notiser.
+
+**Poolstatus 2026-08-09.** Settlement omprövas per payload och på varje
+femminuterstick; Topptipsets scanhint delas av API och insamlingsvarv; b1024
+är ute ur åttamatchsfamiljen. Ett rent läsande änd-till-änd-larm kontrollerar
+nu färska snapshots per öppen omgång, komplett PH3-frysning efter respektive
+horisont, scanhint som halkat efter och passerad settlement-retry. Det visas i
+Idag-vyn, `/api/health` och `cli.py kallhalsa`. Frontenden accepterar pottdata
+bara när både produkt och omgång matchar och ignorerar sena svar från tidigare
+val.
+
+**Aktuell överlämning:** `docs/overlamning-2026-08-09.md`. Alla statusblock
+nedan är daterad historik och får inte läsas som nuvarande kontrakt.
+
+## Historisk status 2026-08-01 (ersatt, behålls som evidens)
 
 **CODEX-HÄRDNING: REN LIVEKOHORT v4 (2026-08-01).** Flashscore, FotMob och
 Sofascore samlar var sin råserie, presence och source-health. Ett livekort får

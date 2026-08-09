@@ -486,18 +486,34 @@ def known_friendly(home: str, away: str, start_ts: Optional[int],
 
 
 FRIENDLY_WINDOW_S = 2 * 3600
+# Ett lag är svagare identitetsbevis än två. Argumentet "ett lag spelar en
+# match i taget" håller bara runt samma avspark, inte över hela det tvåtimmars-
+# fönster som används när BÅDA lagen redan stämmer. 15 minuter täcker källornas
+# observerade avrundning/ombokning utan att länka två separata träningsmatcher.
+ONE_SIDED_FRIENDLY_WINDOW_S = 15 * 60
 
 
-def _friendly_time_ok(match: dict, start_ts: Optional[int]) -> bool:
-    """Ligger Oddset-matchens avspark inom fönstret? Okänd tid = inget hinder."""
+def _friendly_time_ok(match: dict, start_ts: Optional[int], *,
+                      window_s: int = FRIENDLY_WINDOW_S,
+                      require_known: bool = False) -> bool:
+    """Ligger Oddset-matchens avspark inom fönstret?
+
+    Två matchande lag får behålla den äldre toleransen att en tid saknas. För
+    den ensidiga regeln är tiden däremot själva identitetsbeviset: båda måste
+    finnas och gå att tolka. En trasig tid är aldrig samma sak som en känd tid.
+    """
     if start_ts is None or not match.get("start"):
-        return True
+        return not require_known
     try:
-        known_start = dt.datetime.fromisoformat(
-            match["start"].replace("Z", "+00:00")).timestamp()
-    except (TypeError, ValueError):
-        return True
-    return abs(known_start - int(start_ts)) <= FRIENDLY_WINDOW_S
+        parsed = dt.datetime.fromisoformat(
+            match["start"].replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=dt.timezone.utc)
+        known_start = parsed.timestamp()
+        observed_start = int(start_ts)
+    except (TypeError, ValueError, OverflowError):
+        return False
+    return abs(known_start - observed_start) <= window_s
 
 
 def _one_sided_friendly(home: str, away: str, start_ts: Optional[int],
@@ -530,7 +546,9 @@ def _one_sided_friendly(home: str, away: str, start_ts: Optional[int],
     if start_ts is None:
         return False
     hits = [match for match in known
-            if match.get("start") and _friendly_time_ok(match, start_ts)
+            if _friendly_time_ok(
+                match, start_ts, window_s=ONE_SIDED_FRIENDLY_WINDOW_S,
+                require_known=True)
             and (_same_team(match.get("home"), home)
                  or _same_team(match.get("away"), home)
                  or _same_team(match.get("home"), away)
@@ -1579,12 +1597,15 @@ def payload(store: Storage, *,
     else:
         # En delkällas färska tid får inte se ut som att HELA radarn körts.
         # De enskilda tiderna finns kvar i source_runs; gemensam watermark
-        # förblir okänd tills alla tre faktiskt har kontrollerats.
+        # förblir okänd tills alla aktiva livekällor faktiskt kontrollerats.
         combined_last_run = None
     return {
         "version": RADAR_VERSION,
         "mode": "shadow",
         "last_run": combined_last_run,
+        # UI och diagnoser ska aldrig bära en egen kopia av källistan. Det var
+        # så Sofascore stod kvar i texten efter att den kopplats ur radarn.
+        "sources": list(LIVE_SOURCES),
         "source_runs": source_runs,
         "source_health": live_health,
         "matches": matches,

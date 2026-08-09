@@ -211,7 +211,7 @@ class LiveRadarTests(unittest.TestCase):
             {"league": "friendlies", "home": "Liverpool", "away": "AS Monaco",
              "start": "2026-08-09T11:00:00Z"},
             {"league": "friendlies", "home": "Liverpool", "away": "Everton",
-             "start": "2026-08-09T12:00:00Z"},
+             "start": "2026-08-09T11:10:00Z"},
         ]
         self.assertFalse(live_radar.known_friendly(
             "Liverpool (Eng)", "Nagelfar (Ger)", start_ts, oddset))
@@ -232,6 +232,26 @@ class LiveRadarTests(unittest.TestCase):
         self.assertFalse(live_radar.known_friendly(   # sex timmar bort
             "Liverpool (Eng)", "Monaco (Fra)",
             _ts("2026-08-09T17:00:00Z"), oddset))
+
+    def test_ensidigt_slapp_anvander_snava_fonstret(self):
+        """Två timmar är toleransen när BÅDA lag stämmer, inte när ett lag är
+        hela identitetsbeviset. Ett lag kan spela två träningsmatcher samma dag."""
+        oddset = [{"league": "friendlies", "home": "Manchester City",
+                   "away": "Atlético Madrid", "start": "2026-08-09T13:00:00Z"}]
+        self.assertFalse(live_radar.known_friendly(
+            "Manchester City (Eng)", "Nagelfar (Ger)",
+            _ts("2026-08-09T11:00:00Z"), oddset))
+        oddset[0]["start"] = "2026-08-09T11:14:00Z"
+        self.assertTrue(live_radar.known_friendly(
+            "Manchester City (Eng)", "Nagelfar (Ger)",
+            _ts("2026-08-09T11:00:00Z"), oddset))
+
+    def test_ensidigt_slapp_faller_stangt_pa_trasig_kand_tid(self):
+        oddset = [{"league": "friendlies", "home": "Manchester City",
+                   "away": "Atlético Madrid", "start": "trasig-tid"}]
+        self.assertFalse(live_radar.known_friendly(
+            "Manchester City (Eng)", "Nagelfar (Ger)",
+            _ts("2026-08-09T11:00:00Z"), oddset))
 
     def test_truppmarkor_sparrar_aven_ensidigt(self):
         """`Inter` och `Inter U23` är två lag — regeln får inte slå ihop dem."""
@@ -1012,6 +1032,8 @@ class LiveRadarTests(unittest.TestCase):
                 self.assertEqual("2026-07-25T19:09:00Z", payload["last_run"])
                 self.assertEqual(
                     {"flashscore", "fotmob"}, set(payload["source_runs"]))
+                self.assertEqual(
+                    ["flashscore", "fotmob"], payload["sources"])
                 self.assertEqual(2, len(payload["source_health"]))
             finally:
                 store.close()

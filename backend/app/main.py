@@ -94,7 +94,16 @@ def _analyze(product: str, draw_number: int | None = None):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    # HTTP-processen kan vara frisk samtidigt som en hel poolprodukt slutat
+    # samlas. Returnera därför även den rent lokala änd-till-änd-kontrollen.
+    from . import pool_health
+    store = Storage()
+    try:
+        pools = pool_health.report(store)
+        return {"status": "ok" if pools["status"] == "ok" else "degraded",
+                "pools": pools}
+    finally:
+        store.close()
 
 
 # Omgångslistningen live-scannar SvS-API:t (topptipsgruppen = nummerscanning

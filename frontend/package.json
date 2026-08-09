@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test:ui": "node --test src/sourceHealth.test.js",
+    "test": "npm run test:ui",
+    "test:ui": "node --test src/*.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

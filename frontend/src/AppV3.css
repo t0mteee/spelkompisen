@@ -56,6 +56,14 @@
 @media (min-width: 1280px) { .v3cols { grid-template-columns: 1fr 1fr; } }
 
 /* ---------- Idag (dashboard) ---------- */
+.v3alert {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px;
+  margin-bottom: 12px; padding: 10px 13px; border-radius: 10px;
+  border: 1px solid color-mix(in srgb, #e06c75 65%, var(--line));
+  background: color-mix(in srgb, #e06c75 10%, var(--panel));
+  color: var(--text); font-size: 12px;
+}
+.v3alert b { color: #e88a91; }
 .v3grid {
   display: grid; gap: 12px;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));

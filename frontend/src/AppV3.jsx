@@ -2,8 +2,11 @@
 // De tunga komponenterna (analys/bygg/kupong/oddset) importeras från App.jsx,
 // som är komponentbiblioteket. Eget här: skalet med vyväxlingen samt
 // Idag-översikten, Historik-vyn (PH1-settlementlagret) och Labb.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './AppV3.css'
+import {
+  beginRequest, payoutMatchesSelection, requestIsCurrent,
+} from './poolSelection.js'
 import {
   AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel,
   BombenView, OddsetView, Legend, Collection, LoadingState, EmptyState,
@@ -122,6 +125,7 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
   const [hist, setHist] = useState(null)
   const [systems, setSystems] = useState(null)
   const [played, setPlayed] = useState(null)
+  const [health, setHealth] = useState(null)
   const [err, setErr] = useState(null)
 
   const load = () => {
@@ -147,6 +151,7 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
     get('/api/oddset/predictions').then(setLedger).catch(() => setLedger(null))
     get('/api/pool/systems').then(setSystems).catch(() => setSystems(null))
     get('/api/pool/played').then(setPlayed).catch(() => setPlayed(null))
+    get('/api/health').then(setHealth).catch(() => setHealth(null))
     Promise.all(HIST_PRODUCTS.map((p) =>
       get(`/api/pool/history?product=${p.id}&limit=1`).then((j) => [p.id, j]).catch(() => [p.id, null])
     )).then((pairs) => setHist(Object.fromEntries(pairs)))
@@ -162,7 +167,7 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
       clearInterval(id)
       document.removeEventListener('visibilitychange', tick)
     }
-  }, [])  // eslint-disable-line
+  }, [])
 
   // värdespel + rörelser ur samma payload som Oddset-vyn (sanerad: research bär inga).
   // Urvalet ligger i delade oddsetBestValue (App.jsx) — samma som 💰-korten/Rek.
@@ -190,10 +195,22 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
   const histRows = HIST_PRODUCTS
     .map((p) => ({ ...p, sum: hist?.[p.id] }))
     .filter((r) => r.sum?.available)
+  const poolIssues = health?.pools?.issues || []
 
   return (
     <div className="v3dash">
       {err && <ErrorState message={err} />}
+      {poolIssues.length > 0 && (
+        <div className="v3alert" role="alert">
+          <b>⚠ Poolinsamlingen behöver tillsyn</b>
+          {poolIssues.slice(0, 4).map((issue, i) => (
+            <span key={`${issue.product}-${issue.kind}-${issue.draw_number || i}`}>
+              {issue.product}{issue.draw_number ? ` omg ${issue.draw_number}` : ''}: {issue.message}
+            </span>
+          ))}
+          {poolIssues.length > 4 && <span>+{poolIssues.length - 4} ytterligare fel</span>}
+        </div>
+      )}
       <div className="v3grid">
         <div className="v3card v3span2">
           <div className="v3cardhead"><h3>🎟 Nästa spelstopp</h3>
@@ -400,23 +417,46 @@ function PoolV3() {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(null)
   const [bombenNonce, setBombenNonce] = useState(0)
+  // Varje omladdning får ett löpnummer. Ett sent svar från föregående
+  // omgång får aldrig skriva över analys, rörelse eller pott för den som nu
+  // är vald — särskilt jackpotten går direkt in i både ROI och radbyggaren.
+  const loadSequence = useRef(0)
 
   const loadAnalysis = async (p = product, dn = draw, silent = false) => {
     if (!dn) return
+    const sequence = beginRequest(loadSequence)
     if (!silent) { setLoading(true); setErr(null); setSelected(null) }
     try {
       const a = await get(`/api/analysis?product=${p}&draw=${dn}`)
+      if (!requestIsCurrent(loadSequence, sequence)) return
       setAnalysis(a)
-      get(`/api/movement?product=${p}&draw=${dn}`).then(setMovement).catch(() => setMovement(null))
-      get(`/api/payouts?product=${p}&draw=${dn}`).then(setPayouts).catch(() => setPayouts(null))
-    } catch (e) { if (!silent) setErr(String(e)) } finally { if (!silent) setLoading(false) }
+      const [moveResult, payoutResult] = await Promise.allSettled([
+        get(`/api/movement?product=${p}&draw=${dn}`),
+        get(`/api/payouts?product=${p}&draw=${dn}`),
+      ])
+      if (!requestIsCurrent(loadSequence, sequence)) return
+      setMovement(moveResult.status === 'fulfilled' ? moveResult.value : null)
+      const pay = payoutResult.status === 'fulfilled' ? payoutResult.value : null
+      // Svarskontraktet bär både produkt och omgång. Ett korrekt men gammalt
+      // svar är fortfarande fel data för den synliga kupongen.
+      setPayouts(payoutMatchesSelection(pay, p, dn) ? pay : null)
+    } catch (e) {
+      if (requestIsCurrent(loadSequence, sequence) && !silent) setErr(String(e))
+    } finally {
+      if (requestIsCurrent(loadSequence, sequence) && !silent) setLoading(false)
+    }
   }
 
   const pickDraws = async (g, restore = false) => {
+    // Ogiltigförklara alla svar som hör till den tidigare spelgruppen redan
+    // vid klicket, inte först när den nya omgångens analys hunnit svara.
+    const selectionSequence = beginRequest(loadSequence)
     setLoading(true); setErr(null); setSys(null); setAnalysis(null)
+    setMovement(null); setPayouts(null)
     if (!restore) { setPicks({}); setPickRows(null) }
     try {
       const d = await get(`/api/draws?product=${g}`)
+      if (!requestIsCurrent(loadSequence, selectionSequence)) return
       const raw = d.open?.length ? d.open : d.draws || []
       const list = [...raw].sort((a, b) => {
         const at = a.reg_close_time ? new Date(a.reg_close_time).getTime() : Infinity
@@ -431,13 +471,19 @@ function PoolV3() {
       setProduct(chosen.product); setDraw(chosen.draw_number)
       if (g !== 'bomben') await loadAnalysis(chosen.product, chosen.draw_number)
       else setLoading(false)
-    } catch (e) { setErr(String(e)); setLoading(false) }
+    } catch (e) {
+      if (requestIsCurrent(loadSequence, selectionSequence)) {
+        setErr(String(e)); setLoading(false)
+      }
+    }
   }
   useEffect(() => { pickDraws(game, true) }, [])  // eslint-disable-line
 
   const switchGame = (g) => { setGame(g); pickDraws(g) }
   const changeDraw = (slug, dn) => {
-    setProduct(slug); setDraw(dn); setSys(null); setPicks({}); setPickRows(null)
+    beginRequest(loadSequence)
+    setProduct(slug); setDraw(dn); setSys(null); setAnalysis(null)
+    setMovement(null); setPayouts(null); setPicks({}); setPickRows(null)
     if (game !== 'bomben') loadAnalysis(slug, dn)
   }
 
@@ -495,18 +541,27 @@ function PoolV3() {
     }))
     return { counts, total: pickRows.length }
   })() : null
+  // Försvar på rendernivå också: även en framtida anropsväg som glömmer
+  // sekvensvakten får inte mata fel omgångs pengar till UI eller byggare.
+  const currentPayouts = payoutMatchesSelection(payouts, product, draw)
+    ? payouts : null
 
   const loadSystem = async () => {
+    const selectionSequence = loadSequence.current
     setErr(null)
     try {
       let q = (systemTypes.find((t) => t.id === sysType) || SYSTEM_BASE[0]).q
       if (q.endsWith('guarantee=')) q += Math.max(1, nMatches - 1)
       const vw = valueWeight / 100
-      const jp = payouts?.jackpot != null ? `&jackpot=${encodeURIComponent(payouts.jackpot)}` : ''
-      setSys(await getDetail(
+      const jp = currentPayouts?.jackpot != null
+        ? `&jackpot=${encodeURIComponent(currentPayouts.jackpot)}` : ''
+      const built = await getDetail(
         `/api/system?product=${product}&draw=${draw}&strategy=${encodeURIComponent(strategy)}&budget=${budget}&value_weight=${vw}&${q}${jp}`,
-        'System'))
-    } catch (e) { setErr(String(e)) }
+        'System')
+      if (requestIsCurrent(loadSequence, selectionSequence)) setSys(built)
+    } catch (e) {
+      if (requestIsCurrent(loadSequence, selectionSequence)) setErr(String(e))
+    }
   }
 
   return (
@@ -532,10 +587,10 @@ function PoolV3() {
         {analysis && game !== 'bomben' && (
           <span className="v3poolkpi">
             oms <b>{analysis.turnover ? kr(analysis.turnover) : '–'}</b>
-            {payouts?.available && <> · spelvärde <b className={((payouts.spelvarde_proj ?? payouts.spelvarde) || 0) >= 1 ? 'pos' : ''}>
-              {Math.round(((payouts.spelvarde_proj ?? payouts.spelvarde) || 0) * 100)}%</b></>}
-            {payouts?.jackpot > 0 && <> · 💰 {kr(payouts.jackpot)}</>}
-            {payouts?.available && <PlayRec payouts={payouts} product={game} />}
+            {currentPayouts?.available && <> · spelvärde <b className={((currentPayouts.spelvarde_proj ?? currentPayouts.spelvarde) || 0) >= 1 ? 'pos' : ''}>
+              {Math.round(((currentPayouts.spelvarde_proj ?? currentPayouts.spelvarde) || 0) * 100)}%</b></>}
+            {currentPayouts?.jackpot > 0 && <> · 💰 {kr(currentPayouts.jackpot)}</>}
+            {currentPayouts?.available && <PlayRec payouts={currentPayouts} product={product} />}
           </span>
         )}
         <span className="v3steps">
@@ -551,7 +606,7 @@ function PoolV3() {
           <div className="v3bombenbar">
             <button onClick={() => setBombenNonce((n) => n + 1)}>↻ Uppdatera Bomben</button>
           </div>
-          <BombenView draw={draw} nonce={bombenNonce} />
+          <BombenView key={`${draw}:${bombenNonce}`} draw={draw} nonce={bombenNonce} />
         </ErrBoundary>
       )}
 
@@ -600,7 +655,8 @@ function PoolV3() {
                 <span>Max EV</span>
                 <span className="evval">{valueWeight}%</span>
               </div>
-              <SystemView sys={sys} matches={analysis?.matches} payouts={payouts}
+              <SystemView key={`${product}:${draw}`} sys={sys}
+                matches={analysis?.matches} payouts={currentPayouts}
                 onRecalc={loadSystem} onUse={useSystem} />
             </section>
 
@@ -610,8 +666,9 @@ function PoolV3() {
                   gick det inte att i efterhand se VILKET slags förslag en
                   spelad kupong byggde på — alla rader före 2026-08-05 har
                   därför okänd förslagstyp, och de bakfylls aldrig. */}
-              <CouponPanel matches={analysis.matches} picks={picks} pickRows={pickRows}
-                payouts={payouts} product={product} draw={draw} onClear={clearCoupon}
+              <CouponPanel key={`${product}:${draw}`} matches={analysis.matches}
+                picks={picks} pickRows={pickRows}
+                payouts={currentPayouts} product={product} draw={draw} onClear={clearCoupon}
                 buildConfig={{ strategy, budget, value_weight: valueWeight / 100,
                   source: sys ? 'byggare' : 'manuell' }} />
             </section>
@@ -622,12 +679,14 @@ function PoolV3() {
             <div className="v3cols">
               <section>
                 <h2>Sharp-odds &amp; steam</h2>
-                <SharpPanel product={product} draw={draw} onLoaded={() => loadAnalysis()} />
-                <SteamPanel product={product} draw={draw} matches={analysis?.matches} />
+                <SharpPanel key={`${product}:${draw}`} product={product} draw={draw}
+                  onLoaded={() => loadAnalysis()} />
+                <SteamPanel key={`${product}:${draw}`} product={product} draw={draw}
+                  matches={analysis?.matches} />
               </section>
               <section>
                 <h2>Signal-facit (CLV)</h2>
-                <ClvPanel group={game} />
+                <ClvPanel key={game} group={game} />
               </section>
             </div>
           </details>
@@ -684,10 +743,12 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
   const [d, setD] = useState(null)
   const [err, setErr] = useState(null)
   useEffect(() => {
-    setD(null); setErr(null)
+    let current = true
     get(`/api/pool/systems/detail?product=${product}&draw=${draw}`
       + `&horizon=${horizon}&config=${encodeURIComponent(config)}`)
-      .then(setD).catch((e) => setErr(String(e)))
+      .then((value) => { if (current) setD(value) })
+      .catch((e) => { if (current) setErr(String(e)) })
+    return () => { current = false }
   }, [product, draw, horizon, config])
   const move = (e, sign) => {
     const a = e.streck_at_freeze?.[sign], b = e.streck_at_close?.[sign]
@@ -781,12 +842,18 @@ function HistorikV3({ initialProduct, focus }) {
   // ETT filter styr hela sidan. `alla` visar tvärsnittet; en produkt filtrerar
   // kuponger, systemfacit OCH omsättning samtidigt.
   const single = product !== 'alla'
+  const chooseProduct = (next) => {
+    setProduct(next); setData(null); setErr(null); setExpanded(null)
+    setOpenSystem(null)
+  }
 
   useEffect(() => {
-    if (!single) { setData(null); setErr(null); return }
-    setData(null); setErr(null); setExpanded(null)
+    if (!single) return undefined
+    let current = true
     get(`/api/pool/history?product=${product}&limit=400`)
-      .then(setData).catch((e) => setErr(String(e)))
+      .then((value) => { if (current) setData(value) })
+      .catch((e) => { if (current) setErr(String(e)) })
+    return () => { current = false }
   }, [product, single])
   useEffect(() => {
     get('/api/pool/systems').then(setSystems).catch(() => setSystems(null))
@@ -833,10 +900,10 @@ function HistorikV3({ initialProduct, focus }) {
       <div className="v3histbar">
         <nav className="v3subnav" aria-label="Spel">
           <button className={product === 'alla' ? 'on' : ''}
-            onClick={() => setProduct('alla')}>Alla spel</button>
+            onClick={() => chooseProduct('alla')}>Alla spel</button>
           {HIST_PRODUCTS.map((p) => (
             <button key={p.id} className={product === p.id ? 'on' : ''}
-              onClick={() => setProduct(p.id)}>{p.label}</button>
+              onClick={() => chooseProduct(p.id)}>{p.label}</button>
           ))}
         </nav>
         <span className="v3hint">Filtret styr hela sidan — kuponger, systemfacit
@@ -1036,7 +1103,8 @@ function HistorikV3({ initialProduct, focus }) {
           </details>
         )}
         {openSystem && (
-          <SystemDetail product={openSystem.product} draw={openSystem.draw_number}
+          <SystemDetail key={`${openSystem.product}:${openSystem.draw_number}:${openSystem.horizon}:${openSystem.config_key}`}
+            product={openSystem.product} draw={openSystem.draw_number}
             horizon={openSystem.horizon} config={openSystem.config_key}
             onClose={() => setOpenSystem(null)} />
         )}
@@ -1090,10 +1158,10 @@ function HistorikV3({ initialProduct, focus }) {
                   const o = overview[p.id]
                   return (
                     <tr key={p.id} className="v3histrowline" role="button" tabIndex={0}
-                      onClick={() => setProduct(p.id)}
+                      onClick={() => chooseProduct(p.id)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault(); setProduct(p.id)
+                          e.preventDefault(); chooseProduct(p.id)
                         }
                       }}>
                       <td>{p.label}</td>

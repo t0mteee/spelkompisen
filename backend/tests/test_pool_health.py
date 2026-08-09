@@ -1,0 +1,90 @@
+import datetime as dt
+import tempfile
+import unittest
+from pathlib import Path
+
+from app import pool_health
+from app.storage import Storage
+
+
+NOW = dt.datetime(2026, 8, 9, 13, 0, tzinfo=dt.timezone.utc)
+
+
+class PoolHealthTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+
+    def _draw(self, product="stryktipset", number=5000, hours=8):
+        close = NOW + dt.timedelta(hours=hours)
+        self.store.conn.execute(
+            "INSERT INTO draws(product,draw_number,state,reg_close_time) "
+            "VALUES (?,?,?,?)", (product, number, "Open", close.isoformat()))
+        return close
+
+    def _snapshot(self, product="stryktipset", number=5000, minutes_ago=2):
+        at = NOW - dt.timedelta(minutes=minutes_ago)
+        self.store.conn.execute(
+            "INSERT INTO pool_draw_snapshot"
+            "(product,draw_number,fetched_at,net_sale,jackpot,jackpot_source) "
+            "VALUES (?,?,?,?,?,?)",
+            (product, number, pool_health._iso(at), 1000, 0, "test"))
+
+    def test_fresh_snapshot_for_future_draw_is_healthy(self):
+        self._draw()
+        self._snapshot()
+        rep = pool_health.report(
+            self.store, now=NOW, products=("stryktipset",))
+        self.assertEqual("ok", rep["status"])
+        self.assertEqual([], rep["issues"])
+
+    def test_stale_snapshot_is_visible_end_to_end(self):
+        self._draw()
+        self._snapshot(minutes_ago=60)
+        rep = pool_health.report(
+            self.store, now=NOW, products=("stryktipset",))
+        self.assertIn("stale_snapshots", {i["kind"] for i in rep["issues"]})
+
+    def test_due_horizon_requires_the_whole_benchmark_family(self):
+        self._draw(hours=1)       # h3 har varit öppet länge; m20 ännu inte
+        self._snapshot()
+        rep = pool_health.report(
+            self.store, now=NOW, products=("stryktipset",))
+        freezes = [i for i in rep["issues"] if i["kind"] == "freeze_incomplete"]
+        self.assertEqual(1, len(freezes))
+        self.assertIn("h3 har 0/12", freezes[0]["message"])
+
+    def test_scanhint_must_not_lag_observed_draw(self):
+        self._draw("topptipset", 4300, 8)
+        self._snapshot("topptipset", 4300)
+        self.store.meta_set("latest_topptipset", "4299")
+        rep = pool_health.report(
+            self.store, now=NOW, products=("topptipset",))
+        self.assertIn("seed_behind", {i["kind"] for i in rep["issues"]})
+
+    def test_expired_settlement_retry_is_an_error(self):
+        self.store.conn.execute(
+            "INSERT INTO pool_played_coupon "
+            "(product,draw_number,played_at,row_price,n_rows,cost_kr,"
+            "events_order,rows_text,rows_hash) VALUES (?,?,?,?,?,?,?,?,?)",
+            ("stryktipset", 4999, pool_health._iso(NOW - dt.timedelta(hours=5)),
+             1, 1, 1, "1", "1", "hash"))
+        retry = pool_health._iso(NOW - dt.timedelta(minutes=30))
+        self.store.conn.execute(
+            "INSERT INTO pool_backfill_log "
+            "(product,draw_number,attempted_at,status,retry_after) "
+            "VALUES (?,?,?,?,?)",
+            ("stryktipset", 4999,
+             pool_health._iso(NOW - dt.timedelta(hours=1)),
+             "not_finalized", retry))
+        rep = pool_health.report(
+            self.store, now=NOW, products=("stryktipset",))
+        self.assertIn("settlement_overdue", {i["kind"] for i in rep["issues"]})
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -5,9 +5,10 @@ Europatipset, Topptipset, Bomben) med en ny **Oddset-del**: enskilda matcher (Al
 norska Eliteserien, träningsmatcher till att börja med) med sharp-odds, oddsrörelser,
 egen modell och värdespels-tips (1X2, asian handicap, över/under, hörnor på sikt).
 
-**Läge (2026-08-01):** Etapp 0–5 KLARA + långt därutöver. Oddset-delen är i full drift:
-10 ligor (Allsvenskan/Superettan/Eliteserien/OBOS/Besta deild/MLS/träningsmatcher + CL/EL/
-Conference INKL. kval — cuperna är två Pinnacle-ligor + två Kambi-vägar per nyckel,
+**Läge (2026-08-09):** Etapp 0–5 KLARA + långt därutöver. Oddset-delen är i full drift:
+14 ligor (Allsvenskan/Superettan/Eliteserien/OBOS/Besta deild/MLS/träningsmatcher + CL/EL/
+Conference INKL. kval + Premier League/Serie A/La Liga/Bundesliga — cuperna är
+två Pinnacle-ligor + två Kambi-vägar per nyckel,
 `pin_ids`/`kambi_paths` i oddset.py), 4 bokkällor +
 Pinnacle, kvalitetsviktade värdesignaler, steam-radar, xG-viktad Poisson-modell med
 DC-korrektion (amber, settlement-ankrad efter T — kalla den inte DC-MLE), frånvarodata, CLV-facit

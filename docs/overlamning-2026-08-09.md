@@ -147,21 +147,62 @@ fortsatte fungera, vilket dolde felet fullständigt.
 vägarna delar. Varvet läser hintet OCH skriver tillbaka det, så det håller
 sig färskt även utan API-trafik. Hintet går bara FRAMÅT.
 
-**Att göra härnäst:** det finns ingen larmväg för "en produkt slutade samlas".
-`cli.py kallhalsa` täcker Oddsets källor, inte poolproduktarnas
-scanfönster. En rimlig nästa uppgift är en kontroll som jämför hintet mot
-scanfönstrets räckvidd och säger till när marginalen krymper.
+**Eftergranskning:** larmvägen är nu byggd; se punkt 6. Den mäter snapshots,
+frysningar och settlement änd-till-änd i stället för enbart scanfönstrets
+marginal.
+
+---
+
+## 6. Codex-eftergranskning — åtgärdad 2026-08-09
+
+Fyra luckor hittades trots 607 gröna tester och är nu stängda. Paketet avslutas med 614 gröna backendtester:
+
+1. **Gamla frontend-svar kunde vinna efter omgångsbyte.** `PoolV3` hade ingen
+   request-identitet; ett sent payout-svar från föregående draw kunde skriva
+   över den nya omgången. Alla laster har nu sekvensvakt, gamla svar
+   ogiltigförklaras vid själva klicket och pottdata används bara när både
+   `product` och `draw_number` matchar. Det skyddar rubrik, systembyggare,
+   systemvy och kupong — inte bara jackpotfältets lokala state.
+2. **Ensiding friendly-matchning var för bred.** Regeln använde samma ±2 h
+   som tvåsidig identitet och parsefel på starttid föll öppet. Ensidig matchning
+   har nu eget fönster ±15 min och kräver två giltiga tider. Tvåsidig matchning
+   behåller sin äldre tolerans. Regressionstest täcker två separata matcher
+   samma dag och trasig tid.
+3. **UI och `kallhalsa` bar en egen gammal källista.** Backendens livepayload
+   skickar nu `sources=[flashscore,fotmob]`; UI och hälsorapport läser den
+   aktiva radarkonfigurationen. Sofascore finns bara kvar i den retrospektiva
+   dubblettjakten, där historiken fortfarande behövs.
+4. **Poollarmet mäter nu utfallet, inte scanfönstrets avsikt.** En ren
+   hint-marginal hade inte säkert fångat originalfelet — meta-hintet var rätt,
+   men `cli.py` ignorerade det. `app.pool_health` kontrollerar därför färsk
+   `pool_draw_snapshot` per öppen omgång, komplett benchmarkfamilj efter h3/m20,
+   scanhint bakom observerad draw och settlement vars `retry_after` passerats.
+   Rapporten är rent läsande och visas i Idag, `/api/health` och
+   `cli.py kallhalsa`.
+5. **Frontendens React-lint är åter grön.** Tio äldre synkrona stateändringar
+   i effekter är borttagna utan att stänga av regeln. Liga- och historikval
+   återställer nu sin panel i användarens valhandling, omgångsbundna paneler
+   remountas med stabil nyckel och asynkrona svar ignoreras efter cleanup.
+   Därmed är rättningen också ett extra skydd mot gamla svar i Sharp, steam,
+   CLV, Bomben, lagstyrka och systemhistorik.
+
+Statusblocket överst i `docs/plan.md` och den aktiva delen av
+`docs/backlog.md` är uppdaterade till radar v7/två källor och V2.2-manifest
+v6. Äldre status ligger kvar uttryckligen märkt historisk.
 
 ---
 
 ## Kommandon
 
 ```bash
-cd backend && .venv/bin/python -B -m unittest discover -s tests   # 607 gröna
+cd backend && .venv/bin/python -B -m unittest discover -s tests   # 614 gröna
 cd backend && .venv/bin/python -B cli.py pool-tick                # settlement varje tick
 cd backend && .venv/bin/python -B cli.py live-tick                # radar
 cd backend && .venv/bin/python -B cli.py lanklucka [timmar]       # dubblettjakt
-cd frontend && npx vite build
+cd backend && .venv/bin/python -B cli.py kallhalsa [timmar]       # live + pool E2E
+cd frontend && npm test                                           # 5 gröna UI-test
+cd frontend && npm run lint                                       # 0 fel/varningar
+cd frontend && npm run build
 ```
 
 Backend har ingen auto-reload — starta om enligt CLAUDE.md efter ändring.

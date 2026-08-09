@@ -743,7 +743,9 @@ def powerrank(results: list[dict], fit: Optional[dict] = None,
     inte givet, och gjorde avvikelsen till en approximation i stället för en
     mätning. Lag helt utan xG-matcher faller ur tabellen: det finns inget att
     jämföra deras poäng MOT, och en rad med `–` inbjuder till en jämförelse
-    som inte går att göra. xG bakfylls aldrig (`MODEL_DATA_VERSION`-regeln).
+    som inte går att göra. Resultat-xG får bakfyllas som settlat faktum med
+    providerproveniens; priser, signaler och presence får däremot aldrig
+    bakfyllas eftersom observationstiden är en del av mätningen.
     """
     fit = fit or fit_league(results)
     if not fit:
