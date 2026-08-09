@@ -77,6 +77,38 @@ BENCHMARKS = tuple(
     for slug, strategy, weight in RISK_PROFILES
 )
 
+# BUDGETTAK FÖR 8-MATCHSSPELEN (Samans beslut 2026-08-09).
+#
+# Budgeten är antal rader, och hur mycket en budget "är" beror på hur stort
+# utfallsrummet är. Topptipset-spelen har 8 matcher, alltså 3^8 = 6 561
+# möjliga rader: 1 024 rader köper då 15,6 % av HELA rummet. Det är inte
+# längre ett radval utan en mattbombning, och spelen har dessutom bara EN
+# vinstnivå (8 rätt) att fördela på. Samma 1 024 rader på ett 13-matchsspel
+# är 1 024 / 1 594 323 = 0,06 % — en genuin selektion. Matrisen måste därför
+# vara produktberoende; en gemensam budgetlista mätte olika saker i samma
+# namn.
+#
+# ÄRLIGHETSNOT: uteslutningen gjordes EFTER att de första b1024-raderna var
+# synliga (2–3 per produkt/horisont, alla från 2026-08-06 och framåt). Den
+# vilar på utfallsrummets storlek och inte på deras ROI, men den är därmed
+# inte en ren förregistrering, och de kvarvarande Topptipset-jämförelserna
+# ska läsas med det i minnet. Se docs/db-atgarder.md 2026-08-09.
+EIGHT_MATCH_PRODUCTS = frozenset(
+    {"topptipset", "topptipsetstryk", "topptipsetextra"})
+EIGHT_MATCH_MAX_BUDGET = 512.0
+
+
+def benchmarks_for(product: str) -> tuple[dict, ...]:
+    """Benchmarkfamiljen för EN produkt — enda källan till vad som mäts.
+
+    Frysning, championrapport och översikt MÅSTE läsa samma familj, annars
+    dyker en konfiguration upp i tabellen som varvet inte längre fryser.
+    """
+    if product in EIGHT_MATCH_PRODUCTS:
+        return tuple(b for b in BENCHMARKS
+                     if b["budget"] <= EIGHT_MATCH_MAX_BUDGET)
+    return BENCHMARKS
+
 
 def _parse(ts: Optional[str]) -> Optional[dt.datetime]:
     if not ts:
@@ -122,7 +154,7 @@ def freeze_due(store: Storage, product: str, draw: Draw,
     plan = _prize_plan(product)
     analysis: Optional[DrawAnalysis] = None
     for horizon, minutes, tol in due:
-        for bench in BENCHMARKS:
+        for bench in benchmarks_for(product):
             if _frozen(store, product, draw.draw_number, horizon, bench["key"]):
                 continue
             if analysis is None:
@@ -368,12 +400,16 @@ def champion_report(store: Storage) -> dict:
     "ska jag ändra inställningar?" — i en rad. Jämförelsen är PARAD över samma
     omgångar och FDR-korrigerad över hela utmanarfamiljen.
     """
-    challengers = tuple(b["key"] for b in BENCHMARKS if not b["primary"])
-    all_keys = (CHAMPION_KEY, *challengers)
     rows, tests = [], []
     products = [r[0] for r in store.conn.execute(
         "SELECT DISTINCT product FROM pool_system_ledger ORDER BY product")]
     for product in products:
+        # Utmanarfamiljen är PRODUKTENS egen — och det krymper även FDR-
+        # familjen för den produkten, vilket är hela poängen: en budget vi
+        # aldrig skulle spela ska inte stjäla en jämförelse.
+        challengers = tuple(b["key"] for b in benchmarks_for(product)
+                            if not b["primary"])
+        all_keys = (CHAMPION_KEY, *challengers)
         for horizon in FREEZE_HORIZONS:
             roi = _paired_draw_roi(store, product, horizon, all_keys)
             champion = roi[CHAMPION_KEY]
@@ -550,6 +586,13 @@ def summary(store: Storage) -> dict:
         (product, key, horizon, n, n_settled, n_timely, n_evaluable,
          n_unresolvable, n_payout_incomplete, cost, payout, best,
          budget, strategy, value_weight) = row
+        if not any(b["key"] == key for b in benchmarks_for(product)) \
+                and key not in RETIRED_KEYS:
+            # Utanför produktens familj (t.ex. b1024 på ett 8-matchsspel):
+            # varvet fryser den inte längre, så den ska inte heller stå kvar
+            # i tabellen och se ut som en levande utmanare. Pensionerade
+            # nycklar är ett eget, redan hanterat fall.
+            continue
         bench = _bench(key, {"budget": budget, "strategy": strategy,
                              "value_weight": value_weight})
         out.append({

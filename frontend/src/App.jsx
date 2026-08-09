@@ -2660,10 +2660,27 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
     try { return Number(localStorage.getItem('svs_bankroll')) || 5000 } catch { return 5000 }
   })
   useEffect(() => { try { localStorage.setItem('svs_bankroll', String(bankroll)) } catch { /* ok */ } }, [bankroll])
-  // jackpot/rullpott hämtas numera ur API:t — förifyll när omgången har en
+  // Jackpott och omsättningsöverstyrning hör till OMGÅNGEN, inte till panelen.
+  //
+  // Effekten synkade tidigare bara UPPÅT (`if (payouts?.jackpot > 0)`), så ett
+  // byte till ett spel utan jackpott lämnade föregående spels rullpott kvar i
+  // state: Europatipsets 2,5 Mkr följde med in i Topptipset, vars hela
+  // omsättning är 42 563 kr — toppotten blåstes upp ~59 gånger och tog
+  // EV/ROI-prognosen med sig. `turnover` bar exakt samma fel: en `→ prognos`
+  // på Europatipset (4,3 Mkr) värderade sedan Topptipsetkupongen mot den.
+  //
+  // Nyckeln är omgången, inte värdet. Matchar inte payloaden produkten vi
+  // står på är den ännu inte omhämtad, och då är noll rätt svar — ett
+  // kvarhängande belopp från förra spelet är farligare än en sekund utan.
+  // En manuell justering inom samma omgång står kvar tills omgången byts.
+  const payoutsMatchProduct = payouts?.product === product
+  // Omsättningsöverstyrningen ("→ prognos") beskriver EN omgång. Nyckeln är
+  // omgången ensam — inte jackpotten, annars raderas en manuell siffra så
+  // fort rullpotten råkar ändras mitt i omgången.
+  useEffect(() => { setTurnover(null) }, [product, draw])
   useEffect(() => {
-    if (payouts?.jackpot > 0) setJackpot(payouts.jackpot)
-  }, [payouts?.jackpot])  // eslint-disable-line
+    setJackpot(payoutsMatchProduct && payouts?.jackpot > 0 ? payouts.jackpot : 0)
+  }, [product, draw, payoutsMatchProduct, payouts?.jackpot])  // eslint-disable-line
   const copyCoupon = () => {
     // radläge: kopiera de faktiska raderna (en per rad) — teckenunionen per
     // match säger inget om vilka rader som faktiskt spelas

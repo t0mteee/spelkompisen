@@ -359,5 +359,53 @@ class OddsetSourceHealthHistoryTests(unittest.TestCase):
                             for r in self.store.oddset_source_health()))
 
 
+class SeedHintTests(unittest.TestCase):
+    """Scanhintet för produkter utan listnings-API (2026-08-09).
+
+    Topptipset hittas genom nummerscanning 80 nummer framåt från ett hint.
+    API-vägen läste hintet ur meta, insamlingsvarvet körde på kodens statiska
+    seed (4177) — när Dagens passerade 4248 låg omgångarna utanför varvets
+    scanfönster och Topptipset Dagens slutade TYST samlas 2026-08-04 medan
+    appen visade omgångarna som vanligt. En definition, båda vägarna.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+
+    def test_tomt_hint_ar_none_inte_krasch(self):
+        self.assertIsNone(self.store.seed_hint("topptipset"))
+
+    def test_hintet_gar_bara_framat(self):
+        self.store.store_seed("topptipset", [{"draw_number": 4259}])
+        self.assertEqual(4259, self.store.seed_hint("topptipset"))
+        # Ett kort scanresultat får ALDRIG backa hintet — nästa varv hade då
+        # blivit ännu blindare, precis den spiral som gömde buggen.
+        self.store.store_seed("topptipset", [{"draw_number": 4200}])
+        self.assertEqual(4259, self.store.seed_hint("topptipset"))
+        self.store.store_seed("topptipset", [{"draw_number": 4262}])
+        self.assertEqual(4262, self.store.seed_hint("topptipset"))
+
+    def test_tom_lista_lamnar_hintet_orort(self):
+        self.store.store_seed("topptipset", [{"draw_number": 4259}])
+        self.store.store_seed("topptipset", [])
+        self.store.store_seed("topptipset", None)
+        self.assertEqual(4259, self.store.seed_hint("topptipset"))
+
+    def test_tar_bade_objekt_och_dictar(self):
+        class Draw:
+            draw_number = 1861
+        self.store.store_seed("topptipsetextra", [Draw()])
+        self.assertEqual(1861, self.store.seed_hint("topptipsetextra"))
+
+    def test_skrapigt_varde_kraschar_inte_uppslaget(self):
+        self.store.meta_set("latest_topptipset", "inte-ett-tal")
+        self.assertIsNone(self.store.seed_hint("topptipset"))
+
+
 if __name__ == "__main__":
     unittest.main()

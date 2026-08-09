@@ -1149,3 +1149,70 @@ båda riktningarna: rullande matcher prövas inte för tidigt, färdigspelade
 prövas inom kvarten, taket håller, straffavgjorda räknas som spelade,
 transportfel parkerar inte, och historiska NULL-rader faller tillbaka på
 backoffen).
+
+## 2026-08-09 — b1024 ur Topptipset-familjen + scanhintet delas
+
+Två åtgärder samma dag, båda utlösta av Samans observationer.
+
+### 1. b1024-benchmarken borttagen ur Topptipset-familjen
+
+**Skäl (Samans beslut):** budgeten i PH3-matrisen är ANTAL RADER, och vad en
+budget betyder beror på utfallsrummets storlek.
+
+| spel | matcher | möjliga rader | 1 024 rader = |
+|---|---|---|---|
+| Topptipset (alla tre) | 8 | 6 561 | **15,6 %** |
+| Stryktipset/Europatipset | 13 | 1 594 323 | 0,06 % |
+
+15,6 % av hela rummet är ingen selektion, det är en mattbombning — och
+Topptipset har dessutom bara EN vinstnivå (8 rätt). Samma `config_key` mätte
+alltså två olika saker beroende på produkt.
+
+- **Kod:** `pool_system_ledger.benchmarks_for(product)` är nu ENDA källan till
+  vad som mäts; frysning, championrapport och översikt läser samma familj.
+  `EIGHT_MATCH_MAX_BUDGET = 512` gäller `topptipset`/`topptipsetstryk`/
+  `topptipsetextra`. Stryktipset och Europatipset behåller 1 024 — där är den
+  en genuin selektion.
+- **Skript:** `scripts/ta_bort_topptipset_b1024.py` (torrkörning som default).
+  **Backup:** `data/backups/stryktips-2026-08-09-fore-b1024-borttagning.db`
+  (sqlite3-backup, inte filkopiering — databasen kör WAL).
+- **Resultat:** 15 rader raderade i 12 grupper (topptipsetextra 9,
+  topptipsetstryk 6). `integrity_check=ok`, efterkontroll 0 kvar.
+  Topptipset-produkterna gick 15 → 12 konfigurationer i facitet; Stryktipset
+  och Europatipset står kvar på 15. Championrapportens "bästa utmanare" för
+  Topptipset Stryk 180 min gick från `b1024-saker +149 %` (n=1) till
+  `b144-saker`.
+- **ÄRLIGHETSNOT:** uteslutningen beslutades EFTER att raderna var synliga.
+  Den vilar på utfallsrummets storlek och inte på deras ROI, men den är
+  därmed inte en ren förregistrering. De kvarvarande Topptipset-jämförelserna
+  ska läsas med det i minnet. Att familjen krymper gör dessutom FDR-
+  korrektionen mildare för de kvarvarande utmanarna i just de produkterna.
+
+### 2. Scanhintet delas mellan API och insamlingsvarv
+
+**Symtom:** Topptipset Dagens hade inte fryst ett enda system sedan
+2026-08-04 — dagen INNAN generation 2 infördes. Alla andra produkter fryste.
+
+**Orsak:** Topptipset saknar listnings-API och hittas genom nummerscanning
+(`_scan_draws`, 80 nummer framåt från ett hint). `main.py` läste hintet ur
+meta (`latest_<product>` = 4259), men `cli.py` anropade `open_draws(product)`
+UTAN hint och fick då kodens statiska seed **4177**. Scanfönstret blev
+4169–4248, och Dagens omgångar låg på **4256–4259**. Appen visade dem;
+varvet såg dem inte. Stryk (975 mot seed 966) och Extra (1856 mot 1840) låg
+kvar inne i fönstret och fortsatte fungera, vilket dolde felet.
+
+**Åtgärd:** `Storage.seed_hint()` / `Storage.store_seed()` — EN definition som
+båda vägarna delar. Insamlingsvarvet läser hintet OCH skriver tillbaka det,
+så det håller sig färskt även om ingen öppnar appen (tidigare underhölls det
+bara av API-trafik). Hintet går bara FRAMÅT: ett kort scanresultat får aldrig
+backa det, eftersom nästa varv då blir ännu blindare — precis den spiral som
+gömde buggen.
+
+**Verifierat i drift:** `list_draws('topptipset')` ger nu öppna 4256–4259,
+`cmd_snapshot('topptipset')` snapshottar alla fyra, och `freeze_due` skriver
+9 konfigurationer (inte 12 — budgettaket ovan). Ingen DB-ändring behövdes;
+meta-hintet var redan korrekt.
+
+**Not:** nio diagnosrader som skrevs under felsökningen (omg 4256,
+`code_version='diagnos'`, simulerad frystid 15:09Z) togs bort direkt — de
+hade blockerat den riktiga frysningen 14:59Z via `_frozen()`.

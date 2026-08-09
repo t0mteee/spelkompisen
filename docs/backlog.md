@@ -9,6 +9,21 @@ Metodreglerna i `CLAUDE.md` (observationstid, ANKARE ≠ BOK, transportregeln,
 signalversions-disciplin, källgränsen) gäller varje punkt nedan och upprepas
 inte per rad.
 
+## 2026-08-09 — nästa uppgift (öppen)
+
+- **Larm när en poolprodukt slutar samlas.** Topptipset Dagens var TYST utan
+  insamling i fem dygn (scanhintet mot kodens statiska seed — se
+  `docs/overlamning-2026-08-09.md` punkt 5). Roten är fixad, men det finns
+  fortfarande ingen väg som säger till. `cli.py kallhalsa` täcker Oddsets
+  källor, inte poolproduktarnas scanfönster. Föreslagen kontroll: jämför
+  `Storage.seed_hint(product)` mot `_scan_draws`-fönstrets räckvidd
+  (`max_scan=80`) och varna när marginalen krymper, plus "senaste snapshot per
+  produkt" i samma vy. Kräver Samans godkännande av prioritet.
+- **Leta fler per-omgångsvärden i panelstate.** Jackpotläckan mellan produkter
+  (punkt 3 i överlämningen) var ett `useState` utan omgångsnycklad
+  återställning, och `turnover` bar samma fel. Andra paneler bör granskas med
+  samma fråga: *hör det här värdet till omgången eller till panelen?*
+
 ## Hardening 2026-08-01 — levererat och driftverifierat
 
 - **Live v4:** `chance-gap-shadow-v4` börjar rent 21:00Z. v3-fönstret

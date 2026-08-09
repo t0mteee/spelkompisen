@@ -47,26 +47,21 @@ app.add_middleware(
 PRODUCTS_PUBLIC = ["topptipset", "stryktipset", "europatipset"]
 
 
+# Scanhintet ägs av Storage sedan 2026-08-09 — insamlingsvarvet behöver exakt
+# samma hint som API:t, och två kopior gled isär i fem dygn utan att någon
+# märkte det. Se `Storage.seed_hint`.
 def _seed_hint(product: str) -> int | None:
     store = Storage()
     try:
-        v = store.meta_get(f"latest_{product}")
-        return int(v) if v else None
+        return store.seed_hint(product)
     finally:
         store.close()
 
 
 def _store_seed(product: str, draws) -> None:
-    nums = [d.draw_number if hasattr(d, "draw_number") else d.get("draw_number")
-            for d in draws]
-    nums = [n for n in nums if n]
-    if not nums:
-        return
     store = Storage()
     try:
-        prev = store.meta_get(f"latest_{product}")
-        newmax = max(nums + ([int(prev)] if prev else []))
-        store.meta_set(f"latest_{product}", str(newmax))
+        store.store_seed(product, draws)
     finally:
         store.close()
 

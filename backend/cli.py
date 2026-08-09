@@ -85,7 +85,18 @@ def cmd_snapshot(product: str) -> float | None:
     from app import notify, clv
     min_hrs: float | None = None
     with SvenskaSpel() as ss:
-        opens = ss.open_draws(product)
+        # Scanhintet, inte kodens statiska seed. Topptipset saknar
+        # listnings-API och hittas genom nummerscanning 80 nummer framåt; med
+        # seed 4177 låg Dagens omgångar 4256+ utanför fönstret och varvet
+        # slutade tyst samla dem 2026-08-04 medan appen visade dem. Varvet
+        # skriver också tillbaka hintet, så det håller sig färskt av sig självt.
+        store = Storage()
+        try:
+            listed = ss.list_draws(product, start_hint=store.seed_hint(product))
+            store.store_seed(product, listed)
+        finally:
+            store.close()
+        opens = [d for d in listed if d["state"] == "Open"]
         if not opens:
             # inga öppna omgångar — men lös ev. väntande CLV-facit för avgjorda
             store = Storage()

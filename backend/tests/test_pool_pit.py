@@ -353,13 +353,14 @@ class SystemLedgerTests(unittest.TestCase):
         draw = _draw_fixture(close)
         rep = pool_system_ledger.freeze_due(
             self.store, "topptipset", draw, now=NOW, code_version="test")
-        self.assertEqual(len(pool_system_ledger.BENCHMARKS), rep["frozen"])
+        family = pool_system_ledger.benchmarks_for("topptipset")
+        self.assertEqual(len(family), rep["frozen"])
         rows = self.store.conn.execute(
             "SELECT horizon, timely, n_rows, cost_kr, events_order "
             "FROM pool_system_ledger ORDER BY config_key").fetchall()
         self.assertTrue(all(r[0] == "h3" for r in rows))    # m20 inte öppet än
         self.assertTrue(all(r[1] == 1 for r in rows))       # lag 2 min ≤ 30
-        widest = max(b["budget"] for b in pool_system_ledger.BENCHMARKS)
+        widest = max(b["budget"] for b in family)
         self.assertTrue(all(r[2] >= 1 and r[3] <= widest for r in rows))
         self.assertEqual("1,2,3,4,5,6,7,8", rows[0][4])
         rep2 = pool_system_ledger.freeze_due(
@@ -392,6 +393,29 @@ class SystemLedgerTests(unittest.TestCase):
         # ändras aldrig i efterhand, och gamla kohorter blandas aldrig in.
         for retired in pool_system_ledger.RETIRED_KEYS:
             self.assertNotIn(retired, keys)
+
+    def test_8_matchsspelen_har_budgettak(self):
+        """1 024 rader är 15,6 % av Topptipsets HELA utfallsrum (3^8 = 6 561)
+        och 0,06 % av ett 13-matchsspels — samma nyckel mätte två olika saker.
+        Taket gäller Topptipset-familjen och bara den (Samans beslut
+        2026-08-09)."""
+        for product in ("topptipset", "topptipsetstryk", "topptipsetextra"):
+            budgets = {b["budget"]
+                       for b in pool_system_ledger.benchmarks_for(product)}
+            self.assertNotIn(1024.0, budgets, product)
+            self.assertEqual({144.0, 256.0, 512.0}, budgets, product)
+        for product in ("stryktipset", "europatipset"):
+            budgets = {b["budget"]
+                       for b in pool_system_ledger.benchmarks_for(product)}
+            self.assertIn(1024.0, budgets, product)
+            self.assertEqual(len(pool_system_ledger.BENCHMARKS),
+                             len(pool_system_ledger.benchmarks_for(product)))
+        # Championen måste överleva taket i ALLA produkter, annars har
+        # rapporten ingen baslinje att jämföra mot.
+        for product in ("topptipset", "stryktipset"):
+            self.assertIn(pool_system_ledger.CHAMPION_KEY,
+                          [b["key"]
+                           for b in pool_system_ledger.benchmarks_for(product)])
         self.assertEqual({"h3", "m20"}, set(pool_system_ledger.FREEZE_HORIZONS))
 
     def test_summary_grupperar_per_config(self):

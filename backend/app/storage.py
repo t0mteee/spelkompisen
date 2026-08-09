@@ -1225,6 +1225,37 @@ class Storage:
             "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
         self._commit()
 
+    # --- scanhint för produkter UTAN listnings-API (topptipset-familjen) ---
+    #
+    # Topptipsets omgångar hittas genom nummerscanning från ett hint, och
+    # `_scan_draws` tittar bara 80 nummer framåt. Hintet MÅSTE därför följa med
+    # verkligheten. Det gjorde det bara i API-vägen: `main.py` läste och skrev
+    # det, medan insamlingsvarvet i `cli.py` körde på kodens statiska seed
+    # (4177). När Topptipset Dagens passerade 4248 låg dagens omgångar utanför
+    # scanfönstret — appen visade dem, varvet såg dem inte, och Dagens slutade
+    # tyst få snapshots och systemfrysningar 2026-08-04. Metoderna bor här så
+    # att båda vägarna delar EN definition och varvet självt håller hintet
+    # färskt även om ingen öppnar appen.
+    def seed_hint(self, product: str) -> Optional[int]:
+        value = self.meta_get(f"latest_{product}")
+        try:
+            return int(value) if value else None
+        except (TypeError, ValueError):
+            return None
+
+    def store_seed(self, product: str, draws) -> None:
+        """Flytta fram hintet. Bara FRAMÅT — ett kort scanresultat får aldrig
+        backa hintet och göra nästa varv ännu blindare."""
+        numbers = [d.draw_number if hasattr(d, "draw_number")
+                   else (d or {}).get("draw_number") for d in (draws or [])]
+        numbers = [int(n) for n in numbers if n]
+        if not numbers:
+            return
+        previous = self.seed_hint(product)
+        newest = max(numbers + ([previous] if previous else []))
+        if newest != previous:
+            self.meta_set(f"latest_{product}", str(newest))
+
     def meta_delete(self, key: str) -> None:
         self.conn.execute("DELETE FROM meta WHERE key=?", (key,))
         self._commit()

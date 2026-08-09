@@ -41,7 +41,11 @@ ett nytt manifest — en aliasändring i en liga som ingår i V2.2:s FIT_POOLS
 datagenererande process. Äldre manifest blandas aldrig in. Det är inte en
 tränad modell och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
-`docs/overlamning-2026-08-07-powerrank.md` (LÄS FÖRST) — dagens arbete
+`docs/overlamning-2026-08-09.md` (LÄS FÖRST) — settlementens omprövningstid,
+ensidig träningsmatchslänkning, jackpotläckan mellan produkter, b1024 ur
+Topptipset-familjen och det TYSTA bortfallet av Topptipset Dagens (fem dygn
+utan insamling). Föregående överlämning
+`docs/overlamning-2026-08-07-powerrank.md` gäller nu bara som historik — dess arbete
 (radar v6/v7, sharp v8 closing-drift, Europaligorna fullt följda, MLS
 kalibrerad, powerrank-fliken). Powerranken är nu **`powerrank-v2`**: v1:s
 metodfel (poäng på ALLA matcher men xPts bara på xG-täckta, hopjämkat med
@@ -155,6 +159,15 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       144/256/512/1024 kr × risk säker/medel/tuff (vw 20/50/80)
                       = 12 konfigurationer, champion `b256-medel`. Radpriset är
                       1 kr för alla produkter, så budget = antal rader.
+                      **`benchmarks_for(product)` är ENDA källan till vad som
+                      mäts** (frysning, championrapport och översikt måste läsa
+                      samma familj). Topptipset-familjen har tak 512:
+                      8 matcher ⇒ 3^8 = 6 561 möjliga rader, så 1 024 rader är
+                      15,6 % av HELA utfallsrummet (mattbombning, och spelet
+                      har bara EN vinstnivå) mot 0,06 % på ett 13-matchsspel.
+                      Samma nyckel mätte två olika saker. Beslutat 2026-08-09
+                      EFTER att raderna var synliga — inte en ren
+                      förregistrering, se `docs/db-atgarder.md`.
                       Generation 1 (`ev50-*`, `ev256-*`) är PENSIONERAD och
                       blandas aldrig in — en config_key ändras aldrig i
                       efterhand, så nya nycklar räcker (ingen migrering).
@@ -176,7 +189,20 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       strukturell fälttäckning (aldrig på signalvärdet),
                       därefter fast prioritet Flashscore→FotMob.
                       Länk kräver unik liga/lag/avsparksträff; en olänkad
-                      färsk providerserie får eget kort. Aldrig automatiska
+                      färsk providerserie får eget kort.
+                      **Oddset-spärren för träningsmatcher** (`known_friendly`)
+                      prövar ETT lag entydigt när båda inte räcker: ett lag
+                      spelar en match i taget, så delar exakt EN Oddset-
+                      träningsmatch i samma tidslucka ett lag med providerns
+                      rad är det samma match. Uppmätt 2026-08-09 föll 15 av 27
+                      på tvåsidig namnlikhet, varav 6 uppenbart samma match
+                      (`Atl. Madrid`/`Atlético Madrid`, `Johor DT`/`Johor
+                      Darul Takzim`, `Ath Bilbao`, `Monaco`/`AS Monaco`) och
+                      noll tvetydiga. Manchester City och Chelsea föll på
+                      MOTSTÅNDARENS namn. Avspark måste vara känd på båda
+                      sidor och två kandidater ⇒ avslag. Spärren styr RÄCKVIDD,
+                      inte pris: ett falskt positivt kostar ett statistikanrop,
+                      aldrig ett odds på fel match. Aldrig automatiska
                       spel eller runtime-modellinput.
                       **NAMNLÄNKNING I TRE STEG** (`_linked_series`), där
                       varje steg kräver EXAKT en kandidat: (1) strikt
@@ -512,6 +538,13 @@ enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
 - Slugs: stryktipset, europatipset (har listing); topptipset, topptipsetstryk, topptipsetextra
   (pid 25/23/24, INGEN listing → nummerscanning med seed i meta-tabellen). Topptipset-fliken
   aggregerar alla tre via `GAME_GROUPS`; varje omgång bär sin egen `product`-slug.
+  **Scanhintet ägs av `Storage.seed_hint()`/`store_seed()`** och MÅSTE användas
+  av både API och insamlingsvarv — `_scan_draws` tittar bara 80 nummer framåt.
+  `cli.py` körde på kodens statiska seed (4177) medan `main.py` läste meta
+  (4259), så Topptipset Dagens 4256+ låg utanför varvets scanfönster: appen
+  visade omgångarna, varvet slutade TYST samla dem 2026-08-04. Stryk och Extra
+  låg kvar innanför fönstret och dolde felet. Varvet skriver tillbaka hintet
+  själv, och hintet går bara FRAMÅT.
 - Svenska decimaler: "5,50" → 5.50 (`_f` i svenskaspel.py). `svenskaFolket` = streck %,
   `currentNetSale` = omsättning, `drawEvents[].match.participants[].isoCode` = flaggor.
 - `/draws/{nr}/result` ger `distribution` (faktiska vinstnivåer/utdelningar).

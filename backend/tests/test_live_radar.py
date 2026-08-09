@@ -9,6 +9,12 @@ from app.storage import Storage
 
 
 NOW = dt.datetime(2026, 7, 25, 19, 10, tzinfo=dt.timezone.utc)
+
+
+def _ts(iso: str) -> int:
+    """Epoch ur ISO — handräknade epochtal blir fel och testet blir otydligt."""
+    return int(dt.datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp())
+
 AT = "2026-07-25T19:10:00Z"
 START_AT = "2026-07-25T18:00:00Z"
 
@@ -181,6 +187,58 @@ class LiveRadarTests(unittest.TestCase):
             "league": "friendlies", "home": "Away", "away": "Home FC",
             "start": "2026-07-25T08:00:00Z",
         }]))
+
+    def test_ett_lag_racker_nar_kandidaten_ar_entydig(self):
+        """Manchester City och Chelsea föll 2026-08-09 på MOTSTÅNDARENS namn:
+        `Atl. Madrid` mot `Atlético Madrid` och `Johor DT` mot `Johor Darul
+        Takzim`. Ett lag spelar en match i taget — delar exakt en Oddset-match
+        i samma tidslucka ett lag med den här, är det samma match."""
+        oddset = [{"league": "friendlies", "home": "Manchester City",
+                   "away": "Atlético Madrid", "start": "2026-08-09T11:00:00Z"}]
+        start_ts = _ts("2026-08-09T11:00:00Z")
+        self.assertTrue(live_radar.known_friendly(
+            "Manchester City (Eng)", "Atl. Madrid (Esp)", start_ts, oddset))
+        # ... och det gäller oavsett vilken sida som är igenkännlig.
+        johor = [{"league": "friendlies", "home": "Johor Darul Takzim",
+                  "away": "Chelsea", "start": "2026-08-09T12:00:00Z"}]
+        self.assertTrue(live_radar.known_friendly(
+            "Johor DT (Mys)", "Chelsea (Eng)", start_ts + 3600, johor))
+
+    def test_tva_kandidater_ger_avslag_inte_gissning(self):
+        """Entydighet är hela säkerheten i regeln."""
+        start_ts = _ts("2026-08-09T11:00:00Z")
+        oddset = [
+            {"league": "friendlies", "home": "Liverpool", "away": "AS Monaco",
+             "start": "2026-08-09T11:00:00Z"},
+            {"league": "friendlies", "home": "Liverpool", "away": "Everton",
+             "start": "2026-08-09T12:00:00Z"},
+        ]
+        self.assertFalse(live_radar.known_friendly(
+            "Liverpool (Eng)", "Nagelfar (Ger)", start_ts, oddset))
+
+    def test_okand_avspark_ger_inget_ensidigt_slapp(self):
+        """Utan avspark finns ingen tidslucka, och då håller inte argumentet."""
+        oddset = [{"league": "friendlies", "home": "Liverpool",
+                   "away": "AS Monaco", "start": "2026-08-09T11:00:00Z"}]
+        self.assertFalse(live_radar.known_friendly(
+            "Liverpool (Eng)", "Monaco (Fra)", None, oddset))
+
+    def test_ensidigt_slapp_kraver_ratt_tidslucka(self):
+        oddset = [{"league": "friendlies", "home": "Liverpool",
+                   "away": "AS Monaco", "start": "2026-08-09T11:00:00Z"}]
+        self.assertTrue(live_radar.known_friendly(
+            "Liverpool (Eng)", "Monaco (Fra)", _ts("2026-08-09T11:00:00Z"),
+            oddset))
+        self.assertFalse(live_radar.known_friendly(   # sex timmar bort
+            "Liverpool (Eng)", "Monaco (Fra)",
+            _ts("2026-08-09T17:00:00Z"), oddset))
+
+    def test_truppmarkor_sparrar_aven_ensidigt(self):
+        """`Inter` och `Inter U23` är två lag — regeln får inte slå ihop dem."""
+        oddset = [{"league": "friendlies", "home": "Internazionale U23",
+                   "away": "Pergolettese", "start": "2026-08-09T11:00:00Z"}]
+        self.assertFalse(live_radar.known_friendly(
+            "Inter (Ita)", "Como (Ita)", _ts("2026-08-09T11:00:00Z"), oddset))
 
     def test_capture_parses_observed_xg_and_match_clock(self):
         capture = live_radar.parse_capture(

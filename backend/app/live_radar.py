@@ -471,24 +471,71 @@ def known_friendly(home: str, away: str, start_ts: Optional[int],
     Lagjämförelsen är `_same_team` (prefix ≥4 tecken), inte exakt likhet:
     FotMob kortar namnen ("Western Sydney" för "Western Sydney Wanderers"),
     precis som genitivfallet Djurgården/Djurgårdens IF som regeln byggdes för.
+
+    Räcker inte båda lagen prövas ETT lag entydigt (se `_one_sided_friendly`).
     """
     for match in known:
         known_home, known_away = match.get("home"), match.get("away")
-        if not ((_same_team(known_home, home) and
-                 _same_team(known_away, away)) or
-                (_same_team(known_home, away) and
-                 _same_team(known_away, home))):
-            continue
-        if start_ts is None or not match.get("start"):
+        if ((_same_team(known_home, home) and
+             _same_team(known_away, away)) or
+            (_same_team(known_home, away) and
+             _same_team(known_away, home))) and \
+                _friendly_time_ok(match, start_ts):
             return True
-        try:
-            known_start = dt.datetime.fromisoformat(
-                match["start"].replace("Z", "+00:00")).timestamp()
-        except (TypeError, ValueError):
-            return True
-        if abs(known_start - int(start_ts)) <= 2 * 3600:
-            return True
-    return False
+    return _one_sided_friendly(home, away, start_ts, known)
+
+
+FRIENDLY_WINDOW_S = 2 * 3600
+
+
+def _friendly_time_ok(match: dict, start_ts: Optional[int]) -> bool:
+    """Ligger Oddset-matchens avspark inom fönstret? Okänd tid = inget hinder."""
+    if start_ts is None or not match.get("start"):
+        return True
+    try:
+        known_start = dt.datetime.fromisoformat(
+            match["start"].replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError):
+        return True
+    return abs(known_start - int(start_ts)) <= FRIENDLY_WINDOW_S
+
+
+def _one_sided_friendly(home: str, away: str, start_ts: Optional[int],
+                        known: list[dict]) -> bool:
+    """ETT lag räcker när avsparken är känd och kandidaten är ENTYDIG.
+
+    Samma resonemang som steg 3 i `_linked_series`: ett lag spelar en match i
+    taget, så om exakt en Oddset-träningsmatch i samma tidslucka delar ett lag
+    med den här kan de omöjligen vara olika matcher. Det avskaffar aliasjakten
+    på providerns kortnamn — och den jakten var oändlig. Uppmätt på dagsfeeden
+    2026-08-09: av 27 träningsmatcher föll 15 på tvåsidig namnlikhet, varav 6
+    var uppenbart samma match som en Oddset-rad (`Atl. Madrid` mot `Atlético
+    Madrid`, `Johor DT` mot `Johor Darul Takzim`, `Ath Bilbao` mot `Athletic
+    Bilbao`, `Monaco` mot `AS Monaco`, `Sporting Lokeren` mot `Lokeren-Temse`,
+    `Inter U23` mot `Internazionale U23`). Noll av dem var tvetydiga. Bland de
+    fällda fanns Manchester City och Chelsea — båda föll på MOTSTÅNDARENS namn,
+    aldrig sitt eget.
+
+    Säkerheten ligger i anropsstället och får inte lyftas ut: `known` är redan
+    filtrerad till träningsmatcher, avsparken måste vara känd på BÅDA sidor,
+    och två kandidater betyder avslag i stället för gissning. Truppmarkörer
+    (U23/B/women) spärras av `_same_team` som vanligt.
+
+    Konsekvensen av ett falskt positivt är dessutom liten och känd: spärren
+    styr RÄCKVIDD, inte pris. En felsläppt match kostar ett extra statistik-
+    anrop och en shadowrad — den kan aldrig länka ett odds till fel match,
+    eftersom livekortets odds hämtas i ett separat steg som gör sin egen
+    identitetskontroll (`no_canonical_match`).
+    """
+    if start_ts is None:
+        return False
+    hits = [match for match in known
+            if match.get("start") and _friendly_time_ok(match, start_ts)
+            and (_same_team(match.get("home"), home)
+                 or _same_team(match.get("away"), home)
+                 or _same_team(match.get("home"), away)
+                 or _same_team(match.get("away"), away))]
+    return len(hits) == 1
 
 
 def _known_friendly(event: dict, known: list[dict]) -> bool:
