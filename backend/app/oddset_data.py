@@ -93,7 +93,11 @@ MODEL_STATS_LEAGUES = RESULT_LEAGUES
 # joinas ändå per liga+lag+datum så överskottet är harmlöst.
 RESULT_ONLY_UT = {"champions_league": 7, "europa_league": 679,
                   "conference_league": 17015, "bestadeild": 188,
-                  "friendlies": 853}
+                  "friendlies": 853,
+                  # Nya sharp-ligor 2026-08-09: resultatfacit ja, modell/xG
+                  # nej. Direkt här bevarar V2.2:s SOFA_UT-fingeravtryck.
+                  "danish_superliga": 39, "belgian_pro_league": 38,
+                  "primeira_liga": 238, "bolivian_primera": 16736}
 SOFA_MAX_PAGES = 4            # events/last/{page} per körning (backfill tar några pass)
 
 FD_TTL_H, XG_TTL_H, ELO_TTL_H, ABS_TTL_H = 12, 6, 24, 2

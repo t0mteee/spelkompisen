@@ -219,6 +219,17 @@ class RetryPolicyTests(unittest.TestCase):
             "2026-08-08T21:10:00Z",       # avspark 19:00 + 130 min speltid
             ps._retry_after(raw, now=self.now))
 
+    def test_matchstart_med_svensk_offset_normaliseras_till_utc(self):
+        """Europatipset 2597: 19:15+02 + 130 min är 19:25Z, inte 21:25Z.
+
+        Ett Z-suffix får aldrig sättas på lokal väggtid utan konvertering.
+        Felet höll en redan publicerad utdelning gömd i två extra timmar.
+        """
+        raw = _draw(state="Closed", match_start="2026-08-09T19:15:00+02:00")
+        now = dt.datetime(2026, 8, 9, 18, 22, tzinfo=dt.timezone.utc)
+        self.assertEqual("2026-08-09T19:25:00Z",
+                         ps._retry_after(raw, now=now))
+
     def test_fardigspelad_omgang_provas_inom_kvarten(self):
         """DEN HÄR var buggen: Stryktipset 4965 låg Finalized hos SvS med full
         utdelning medan vi satt i en backoff till 22:30."""

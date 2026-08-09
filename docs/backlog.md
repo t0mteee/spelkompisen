@@ -11,6 +11,29 @@ inte per rad.
 
 ## 2026-08-09 — senast levererat
 
+- **✅ Europatipsets tvåtimmarsfördröjning rättad.** Omgång 2597 var
+  finaliserad med publicerad utdelning men visades som väntande. Senaste
+  matchens `19:15+02` hade formaterats direkt med `Z`, så omprövningen blev
+  21:25Z i stället för korrekta 19:25Z. `_retry_after` konverterar nu till UTC
+  före serialisering och har ett explicit sommartidstest. Omgången settlades
+  genom ordinarie kod: den spelade kupongen fick 10 rätt och 126 kr.
+- **✅ Bolivia + verifierat Island + ren livekohort v9.** Bolivias Primera
+  División är synlig/actionable med verifierade identiteter hos Pinnacle,
+  Smarkets, Sofascore, Flashscore och FotMob. Kambis giltiga landsväg är tom
+  i aktuellt SvS-utbud men fångar automatiskt framtida event. Besta deild
+  fanns redan i ordinarie vy/Flashscore, men FotMobs aktuella namn
+  `Besta deildin` saknades och är nu explicit mappat; Sofascore UT 188 ligger
+  också explicit i radarscopet. Ingen
+  av ligorna läggs i målmodellen eller V2.2. Scopeändringen startar rent som
+  `chance-gap-shadow-v9` 2026-08-09T18:00Z; trösklarna är oförändrade
+  (`docs/radar-scope-v9-2026-08-09.md`).
+- **✅ Tre nya toppligor + ren livekohort v8.** Danska Superliga, belgiska
+  Pro League och Primeira Liga är verifierade mot aktuella Pinnacle-, Kambi-,
+  Smarkets-, Flashscore-, FotMob- och Sofascore-identiteter. De är synliga
+  sharp-ligor och resultat settlas, men de ligger utanför MODEL_LEAGUES och
+  V2.2 tills separat historik/kalibrering finns. Livepopulationen ändras och
+  startar därför rent som `chance-gap-shadow-v8` 2026-08-09T17:15Z; inga
+  signaltrösklar ändrades (`docs/radar-scope-v8-2026-08-09.md`).
 - **✅ Larm när en poolprodukt slutar samlas.** Topptipset Dagens var TYST utan
   insamling i fem dygn (scanhintet mot kodens statiska seed — se
   `docs/overlamning-2026-08-09.md` punkt 5). `pool_health` kontrollerar nu
@@ -30,6 +53,10 @@ inte per rad.
 
 ## Nästa verifiering/arbete
 
+- Förregistrera en ny radarversion om de tre verifierade isländska
+  liveidentiteterna (`ÍA`, `Gardabae`, `FH`) ska länkas till Oddset. Statsen
+  visas redan, men signaljournalen faller korrekt stängt utan kanoniskt pris;
+  ändra aldrig identiteten inne i v9-kohorten.
 - Verifiera settlementens nya kadens på första omgång som finaliseras efter
   2026-08-09: SvS-publicering → lokalt facit bör vara högst cirka 15 minuter.
 - Utöka det lilla frontend-testskelettet med komponent-/browsernivå när UI:t
@@ -77,7 +104,7 @@ testning.
 | **pit-v4 forward** (`pool-streckmove-v3`) | 4 omgångar | ≥ 40 out-of-time-omgångar per produkt med hela KI90 < 0 |
 | **Sharp-CLV-facitet** | historiskt aggregat +2,3 % [1,1..3,4], 272 stängda efter sanering; ny aktiv `s-95e14fca` börjar från nästa capture | veckokadens (`EVAL_INTERVAL_H`), aldrig per varv; grönt beslutas per liga × marknad × version |
 | **V2.2 flerliga-shadow v6** | ren samling från 2026-08-07T14:20Z; v4 12/2 och v5 1/0 är stängda historiska kohorter | träningsgate 300 kompletta avgjorda/horisont, ≥ 50/liga, ≥ 42 dagar |
-| **Live-radar två källor v7** (shadow) | Flashscore ankare + FotMob; Sofascore urkopplad. Ensidig scope-länk kräver giltig tid ±15 min | prediktiv lyft separat; blind Över-ROI ≥200 oddssatta+avgjorda, ≥60 dagar och undre KI90 > 0 — `docs/live-radar-2026-07-25.md` |
+| **Live-radar två källor v9** (shadow) | Flashscore ankare + FotMob; Sofascore urkopplad. 18-ligorsscope, v9 rent från 2026-08-09T18:00Z | prediktiv lyft separat; blind Över-ROI ≥200 oddssatta+avgjorda, ≥60 dagar och undre KI90 > 0 — `docs/live-radar-2026-07-25.md` |
 
 ## B. Fixar ur granskningen 2026-07-26 — ✅ GENOMFÖRDA samma dag (godkända)
 

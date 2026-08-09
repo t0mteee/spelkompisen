@@ -5,13 +5,21 @@
 > **Aktiv backlog och prioritering: `docs/backlog.md`** (uppdaterad 2026-08-09).
 > WP-listan längre ned är historik över avslutat arbete.
 
-**Aktuellt kontrakt.** Live-radarn är `chance-gap-shadow-v7` med exakt TVÅ
+**Aktuellt kontrakt.** Live-radarn är `chance-gap-shadow-v9` från
+2026-08-09T18:00Z med exakt TVÅ
 bärande livekällor: Flashscore som ankare och FotMob som sekundär. Sofascore
 är urkopplad ur live-radarn eftersom saknad xG kunde rapporteras som 0,00; den
 finns kvar för resultatstatistik och frånvaro. Backend skickar den aktiva
 källistan till UI/diagnoser — inga egna kopior. Ensidig träningsmatchidentitet
 kräver giltig avspark på båda sidor, entydig kandidat och högst 15 minuters
 skillnad; den äldre tvåsidiga regeln behåller sitt tvåtimmarsfönster.
+Oddset har 18 synliga ligor. Danska Superliga, belgiska Pro League, Primeira
+Liga och Bolivias Primera División är fullt följda sharp-ligor med Pinnacle,
+Smarkets och livebevakning hos Flashscore/FotMob; SvS/Kambi visas när deras
+utbud innehåller ligan (Bolivia är tomt där vid verifieringen). Besta deild
+fanns redan; v9 rättar FotMobs aktuella namn `Besta deildin` och lägger
+Sofascore UT 188 explicit i radarscopet. De är medvetet utanför
+målmodellen och V2.2 tills egen xG-/closehistorik har mätts och kalibrerats.
 
 **Aktuell V2.2-kohort är manifest v6** från 2026-08-07T14:20Z
 (`docs/model-v2.2-multileague-forward-manifest-v6.json`). PL, Serie A, La Liga
@@ -27,6 +35,9 @@ horisont, scanhint som halkat efter och passerad settlement-retry. Det visas i
 Idag-vyn, `/api/health` och `cli.py kallhalsa`. Frontenden accepterar pottdata
 bara när både produkt och omgång matchar och ignorerar sena svar från tidigare
 val.
+Omprövningstider normaliseras alltid till UTC före ett `Z`-suffix; felet som
+tolkade svensk `+02:00`-väggtid som UTC fördröjde Europatipset 2597 exakt två
+timmar och är regressionstestat. Omgången och den spelade kupongen är settlade.
 
 **Aktuell överlämning:** `docs/overlamning-2026-08-09.md`. Alla statusblock
 nedan är daterad historik och får inte läsas som nuvarande kontrakt.

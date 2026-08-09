@@ -51,6 +51,11 @@ LEAGUE_SLUGS = {
     "serie_a": "italy-serie-a",
     "la_liga": "spain-la-liga",
     "bundesliga": "germany-bundesliga",
+    # Observerade i upcoming-listan 2026-08-09 med riktiga, bettable event.
+    "danish_superliga": "denmark-superliga",
+    "belgian_pro_league": "belgium-first-division-a",
+    "primeira_liga": "portugal-primeira-liga",
+    "bolivian_primera": "bolivia-primera-division",
     # Smarkets kör TVÅ aktiva slugs för Besta deild (uppmätt 2026-07-27:
     # en bettable match under vardera) — värdet får därför vara en tupel.
     "bestadeild": ("iceland-premier-league", "iceland-besta-deild"),

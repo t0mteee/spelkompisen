@@ -17,12 +17,12 @@ from app import flashscore, fotmob, live_radar, live_settlement
 from app.storage import Storage
 from scripts import migrera_radar_event_id_text, migrera_radar_settlement
 
-# Ligger efter v6-gränsen (2026-08-06T16:45Z) så att T0-captures hamnar i den
+# Ligger efter aktuell kohortgräns så att T0-captures hamnar i den
 # AKTUELLA kohorten — facit rapporterar bara aktuell RADAR_VERSION. Fixturerna
 # skrivs av dagens kod, som stämplar raden med dagens version; en fixtur
 # daterad före fönstret blir därför korrekt `transitional`. Datumet ska följa
 # med vid VARJE ny kohortstart — T0 ligger 5 h före NOW och måste också rymmas.
-NOW = dt.datetime(2026, 8, 7, 12, 0, tzinfo=dt.timezone.utc)
+NOW = dt.datetime(2026, 8, 10, 12, 0, tzinfo=dt.timezone.utc)
 T0 = NOW - dt.timedelta(hours=5)     # stängd serie: sista capture > 3 h gammal
 
 
@@ -490,6 +490,40 @@ class CohortBoundaryTests(unittest.TestCase):
             "chance-gap-shadow-v5",
             live_radar.cohort_for("2026-08-03T15:12:16Z",
                                   produced_by=live_radar.RADAR_V5_VERSION))
+
+    def test_v8_scope_start_is_a_clean_boundary(self):
+        self.assertEqual(
+            live_radar.RADAR_TRANSITIONAL,
+            live_radar.cohort_for("2026-08-09T17:14:59Z",
+                                  produced_by=live_radar.RADAR_V8_VERSION))
+        self.assertEqual(
+            live_radar.RADAR_V8_VERSION,
+            live_radar.cohort_for("2026-08-09T17:15:00Z",
+                                  produced_by=live_radar.RADAR_V8_VERSION))
+        # Även fallbacken för eventuella historiska rader utan eget
+        # radar_version känner den observerade växlingen.
+        self.assertEqual(
+            live_radar.RADAR_TRANSITIONAL,
+            live_radar.cohort_for("2026-08-09T17:00:00Z"))
+        self.assertEqual(
+            live_radar.RADAR_V8_VERSION,
+            live_radar.cohort_for("2026-08-09T17:15:00Z"))
+
+    def test_v9_bolivia_scope_start_is_a_clean_boundary(self):
+        self.assertEqual(
+            live_radar.RADAR_TRANSITIONAL,
+            live_radar.cohort_for("2026-08-09T17:59:59Z",
+                                  produced_by=live_radar.RADAR_V9_VERSION))
+        self.assertEqual(
+            live_radar.RADAR_V9_VERSION,
+            live_radar.cohort_for("2026-08-09T18:00:00Z",
+                                  produced_by=live_radar.RADAR_V9_VERSION))
+        self.assertEqual(
+            live_radar.RADAR_TRANSITIONAL,
+            live_radar.cohort_for("2026-08-09T17:24:30Z"))
+        self.assertEqual(
+            live_radar.RADAR_V9_VERSION,
+            live_radar.cohort_for("2026-08-09T18:00:00Z"))
 
     def test_declared_start_before_the_real_switch_yields_transitional(self):
         # v3 deklarerades 08:00Z men koden bytte först ~11:32–11:47Z.

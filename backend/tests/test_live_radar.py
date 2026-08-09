@@ -141,8 +141,17 @@ class LiveRadarTests(unittest.TestCase):
             self.assertEqual(0, live_radar.LEAGUE_PRIORITY[key],
                              "cuperna får inte klippas som friendlies")
 
-    def test_v7_och_alla_synliga_ligor_har_liveprioritet(self):
-        self.assertEqual("chance-gap-shadow-v7", live_radar.RADAR_VERSION)
+    def test_nya_toppligor_ar_i_live_scope_utan_att_andra_v22_scope(self):
+        expected = {188: "bestadeild",
+                    39: "danish_superliga", 38: "belgian_pro_league",
+                    238: "primeira_liga", 16736: "bolivian_primera"}
+        for tournament_id, league in expected.items():
+            self.assertEqual(league, live_radar.TARGET_UT[tournament_id])
+            self.assertNotIn(league, live_radar.SOFA_UT)
+            self.assertEqual(0, live_radar.LEAGUE_PRIORITY[league])
+
+    def test_v9_och_alla_synliga_ligor_har_liveprioritet(self):
+        self.assertEqual("chance-gap-shadow-v9", live_radar.RADAR_VERSION)
         # Passerade gränser är frysta — en ändring skulle märka om historiska
         # captures och tyst blanda ihop kohorterna.
         self.assertEqual("2026-08-01T08:00:00Z",
@@ -154,9 +163,14 @@ class LiveRadarTests(unittest.TestCase):
         self.assertEqual("2026-08-06T16:45:00Z",
                          live_radar.RADAR_V6_STARTED_AT)
         self.assertEqual("2026-08-06T21:40:00Z",
+                         live_radar.RADAR_V7_STARTED_AT)
+        self.assertEqual("2026-08-09T17:15:00Z",
+                         live_radar.RADAR_V8_STARTED_AT)
+        self.assertEqual("2026-08-09T18:00:00Z",
                          live_radar.RADAR_VERSION_STARTED_AT)
         for key in ("bestadeild", "premier_league", "serie_a", "la_liga",
-                    "bundesliga"):
+                    "bundesliga", "danish_superliga", "belgian_pro_league",
+                    "primeira_liga", "bolivian_primera"):
             self.assertEqual(0, live_radar.LEAGUE_PRIORITY[key])
 
     def test_global_friendly_requires_match_in_our_oddset_view(self):

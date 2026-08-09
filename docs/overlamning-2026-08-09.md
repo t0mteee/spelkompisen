@@ -187,15 +187,47 @@ Fyra luckor hittades trots 607 gröna tester och är nu stängda. Paketet avslut
    CLV, Bomben, lagstyrka och systemhistorik.
 
 Statusblocket överst i `docs/plan.md` och den aktiva delen av
-`docs/backlog.md` är uppdaterade till radar v7/två källor och V2.2-manifest
+`docs/backlog.md` är uppdaterade till radar v8/två källor och V2.2-manifest
 v6. Äldre status ligger kvar uttryckligen märkt historisk.
+
+---
+
+## 7. Tre nya toppligor och livekohort v8 — 2026-08-09
+
+Danska Superliga (`danish_superliga`), belgiska Pro League
+(`belgian_pro_league`) och Primeira Liga (`primeira_liga`) är tillagda i den
+vanliga Oddset-vyn och i live-radarn. Provideridentiteterna verifierades mot
+aktuellt utbud: Pinnacle 1913/1817/2386, Kambi `superligaen`/
+`jupiler_pro_league`/`primeira_liga`, Sofascore UT 39/38/238 samt observerade
+exakta ligarubriker hos Flashscore och FotMob. Smarkets-slugs bar riktiga
+bettable event vid kontrollen.
+
+En isolerad provinsamling gav utan fel 4/7/5 Pinnacle-matcher, 1/1/4
+Kambi-matchningar och 4/7/5 Smarkets-matchningar för Danmark/Belgien/Portugal.
+Ligorna är fullt synliga och sharp-actionable men har ingen målmodell: de
+ligger utanför både `MODEL_LEAGUES` och V2.2:s frysta scope tills egen
+xG-/closehistorik har mätts. Normaltidsresultat hämtas via det separata
+`RESULT_ONLY_UT`-lagret, som inte ändrar V2.2:s `SOFA_UT`-fingeravtryck.
+
+Livepopulationen ändras, så en ny ren kohort startar som
+`chance-gap-shadow-v8` exakt 2026-08-09T17:15Z. Providers, trösklar,
+fältrankning och identitetsregler är oförändrade; enbart ligascope ändras.
+Metodkontrakt: `docs/radar-scope-v8-2026-08-09.md`.
+
+**Driftkvitto efter gränsen:** 17:15Z sparade Flashscore och FotMob var sitt
+xG-capture för Horsens–Brøndby, Anderlecht–RAAL La Louvière och Porto–Alverca.
+Payloaden gav exakt tre kort, inte sex providerduplikat. Anderlecht-matchen
+gav v8:s första Följer-signal och journalen fångade samtidigt ett öppet
+live-Ö/U-pris. Den observerade växlingen v7→v8 är låst till sista v7-capture
+16:54:12Z och första v8-capture 17:07:03Z; v8-rader före 17:15 är
+`transitional`, som planerat.
 
 ---
 
 ## Kommandon
 
 ```bash
-cd backend && .venv/bin/python -B -m unittest discover -s tests   # 614 gröna
+cd backend && .venv/bin/python -B -m unittest discover -s tests   # 619 gröna
 cd backend && .venv/bin/python -B cli.py pool-tick                # settlement varje tick
 cd backend && .venv/bin/python -B cli.py live-tick                # radar
 cd backend && .venv/bin/python -B cli.py lanklucka [timmar]       # dubblettjakt
@@ -206,3 +238,67 @@ cd frontend && npm run build
 ```
 
 Backend har ingen auto-reload — starta om enligt CLAUDE.md efter ändring.
+
+---
+
+## 8. Bolivia tillagd, Island verifierat och livekohort v9 — 2026-08-09
+
+Samans tilläggsbeställning var högstaligorna i Island och Bolivia. Island var
+redan inkopplat som `bestadeild` i ordinarie vy och Flashscore: Pinnacle 2102, Kambi
+`football/iceland/urvalsdeild`, Sofascore UT 188, Smarkets observerade
+Island-slugs samt Flashscores exakta identitet. Kontroll av dagsfeederna
+avslöjade att FotMob nu använder `Besta deildin` (id 215), en variant som
+saknades trots två äldre namn i tabellen. v9 lägger till den aktuella varianten
+och Sofascore UT 188 explicit i radarscopet; ingen dublett skapades.
+
+Bolivias högstaliga har projektnyckeln `bolivian_primera` och UI-namnet
+Bolivianska Primera División. Direkt verifierade identiteter: Pinnacle 5595
+(`Bolivia - Primera Division`), Sofascore UT 16736 (fotboll, División
+Profesional 2026), Flashscore `BOLIVIA: Division Profesional`, FotMob
+`BOL` + `Primera División` och Smarkets `bolivia-primera-division` med tre
+aktuella bettable event. Svenska Spels Kambi-index innehöll inga Boliviaevent;
+den giltiga och felsäkra landsvägen `football/bolivia` används så att utbudet
+kommer med automatiskt när det finns utan att 404:a ligainsamlingen.
+
+Ligan är synlig och sharp-actionable i ordinarie Oddset-vy samt med i
+live-radarn, men medvetet utanför `MODEL_LEAGUES` och V2.2. Resultat settlas
+via det separata `RESULT_ONLY_UT`; `SOFA_UT` och V2.2:s manifest påverkas inte.
+Livepopulationen ändras och får därför `chance-gap-shadow-v9` med ren start
+2026-08-09T18:00Z. Inga signaltrösklar, providers, källvikter eller
+identitetsregler ändrades. Se `docs/radar-scope-v9-2026-08-09.md`.
+Den observerade processväxlingen är sista v8-capture 17:24:10Z och första
+v9-capture därefter 17:25:07Z; överlappande/för tidiga v9-rader är
+`transitional`, inte del av den rena kohorten.
+
+**Driftkvitto:** isolerad och ordinarie Bolivia-insamling gav
+3 Pinnaclematcher, 3 Expektmatchningar, 2 Smarketsmatchningar, 0 SvS och inga
+källfel. `/api/oddset/matches`-underlaget innehåller alla tre matcherna; en
+Expekt-tvåa ligger cirka +8,2 % mot devigad Pinnacle men går fortsatt genom
+den ordinarie ankare-/färskhetsgrinden. FotMobs aktuella dagslista gav exakt
+5 planerade Besta deild-matcher efter namnfixen. Efter rena v9-starten sparades
+207/199 Island-captures och 48/47 Bolivia-captures hos Flashscore/FotMob;
+Flashscores samtliga bar xG. Island gav fyra journalförda signalögonblick.
+Ett fick kanoniskt SvS-livepris, medan tre saknade pris på grund av observerade
+namnvarianter (`ÍA`, `Gardabae`, `FH`) — stats visas, men de tre får korrekt
+inte räknas i odds-ROI. En framtida aliasfix är en identitetsändring och ska få
+egen radarversion, inte smygas in i v9. Backendtester 619, UI-tester 5, lint
+och produktionsbygge är gröna; backend är omstartad och `/api/health` är grönt.
+
+---
+
+## 9. Europatipset 2597 — settlementens tidszon rättad
+
+UI:t visade `avgjord · väntar på utdelning` trots att Svenska Spel hade
+finaliserat omgången och publicerat alla fyra vinstnivåerna. Backfillloggen
+förklarade fördröjningen: kontrollen 18:22Z såg en återstående match med
+avspark `2026-08-09T19:15:00+02:00`. `_retry_after` lade korrekt på 130
+minuter men skrev sedan den offsetmedvetna tiden direkt med ett `Z`-suffix.
+Resultatet blev felaktiga 21:25Z i stället för 19:25Z — exakt två timmars
+extra väntan under svensk sommartid.
+
+`pool_settlement._retry_after` konverterar nu alltid den valda tidpunkten till
+UTC innan `strftime(...Z)`. Regressionstestet använder samma `+02:00`-form
+och låser svaret 19:25Z. Omgång 2597 settlades därefter genom ordinarie
+append-once-kod, PH3- och kupongfacit kördes, och den spelade kupongen fick
+10 rätt, 126 kr i publicerad utdelning och ROI −75,39 %. Inga öppna spelade
+kuponger återstår.

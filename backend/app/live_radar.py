@@ -39,7 +39,9 @@ RADAR_V4_VERSION = "chance-gap-shadow-v4"
 RADAR_V5_VERSION = "chance-gap-shadow-v5"
 RADAR_V6_VERSION = "chance-gap-shadow-v6"
 RADAR_V7_VERSION = "chance-gap-shadow-v7"
-RADAR_VERSION = RADAR_V7_VERSION
+RADAR_V8_VERSION = "chance-gap-shadow-v8"
+RADAR_V9_VERSION = "chance-gap-shadow-v9"
+RADAR_VERSION = RADAR_V9_VERSION
 
 # En observation som inte bevisligen hör till någon kohort. Se `cohort_for`.
 RADAR_TRANSITIONAL = "transitional"
@@ -56,7 +58,18 @@ RADAR_V6_STARTED_AT = "2026-08-06T16:45:00Z"
 # bytet tillförde proxyn NOLL matcher utöver xG-signalen och 59 % av
 # matcherna kunde aldrig få en signal. Förregistrering med mätningar:
 # docs/radar-proxy-v7-forregistrering-2026-08-07.md
-RADAR_VERSION_STARTED_AT = "2026-08-06T21:40:00Z"
+RADAR_V7_STARTED_AT = "2026-08-06T21:40:00Z"
+# v8 (2026-08-09): tre nya ordinarie toppligor ändrar radarns population och
+# kan även påverka vilka matcher som ryms under providertaken. Trösklar,
+# källval, identitet och signalmått är oförändrade. Scopeändringen är ändå en
+# ny datagenererande process, så v7 får inte blandas med de nya ligorna.
+# Koden deployades före den runda gränsen; captures före 17:15Z blev då
+# transitional enligt cohort_for och den rena v8-kohorten började exakt där.
+RADAR_V8_STARTED_AT = "2026-08-09T17:15:00Z"
+# v9 (2026-08-09): Bolivias División Profesional läggs till. Island är ingen
+# scopeändring — Besta deild fanns redan i hela kedjan och verifierades på
+# nytt. Endast populationen ändras; trösklar/providers/identitet är frysta.
+RADAR_VERSION_STARTED_AT = "2026-08-09T18:00:00Z"
 
 # OBSERVERADE växlingar — när koden faktiskt bytte.
 #
@@ -85,6 +98,17 @@ RADAR_OBSERVED_SWITCHES = (
      "2026-08-01T18:57:06Z", "2026-08-02T00:22:05Z"),
     (RADAR_V4_VERSION, RADAR_V5_VERSION,
      "2026-08-02T13:32:04Z", "2026-08-02T14:07:05Z"),
+    (RADAR_V5_VERSION, RADAR_V6_VERSION,
+     "2026-08-06T16:44:19Z", "2026-08-06T16:45:15Z"),
+    (RADAR_V6_VERSION, RADAR_V7_VERSION,
+     "2026-08-06T21:08:57Z", "2026-08-07T12:06:57Z"),
+    (RADAR_V7_VERSION, RADAR_V8_VERSION,
+     "2026-08-09T16:54:12Z", "2026-08-09T17:07:03Z"),
+    # Ett äldre varv hann skriva v8 efter att första v9-processen startat.
+    # Gränsen använder därför sista v8 och första v9 DÄREFTER; hela
+    # processöverlappet är transitional, aldrig tilldelat genom gissning.
+    (RADAR_V8_VERSION, RADAR_V9_VERSION,
+     "2026-08-09T17:24:10Z", "2026-08-09T17:25:07Z"),
 )
 RECENT_MINUTES = 15
 RECENT_TOLERANCE_MIN = 6
@@ -261,6 +285,17 @@ for _cup_ut, _cup_key in ((7, "champions_league"), (679, "europa_league"),
                           (17015, "conference_league")):
     TARGET_UT[_cup_ut] = _cup_key
 
+# Sharp-/live-ligor utanför modellscopet. Direkt i TARGET_UT i stället för
+# SOFA_UT: den senare ingår i V2.2:s frysta featurefingeravtryck.
+# Turneringarna är verifierad fotboll med aktuella säsonger och lag hos
+# Sofascore; Besta deild lades till explicit vid v9-verifieringen.
+for _league_ut, _league_key in ((188, "bestadeild"),
+                                (39, "danish_superliga"),
+                                (38, "belgian_pro_league"),
+                                (238, "primeira_liga"),
+                                (16736, "bolivian_primera")):
+    TARGET_UT[_league_ut] = _league_key
+
 # Taket delas av ALLA ligor, så en lördag med 43 behöriga träningsmatcher kunde
 # tränga ut Allsvenskan helt — och urvalet blev det Sofascore råkade returnera
 # först. Riktiga ligor går därför före träningsmatcher, och inom gruppen väljs
@@ -270,6 +305,8 @@ LEAGUE_PRIORITY = {"allsvenskan": 0, "superettan": 0, "eliteserien": 0,
                    "obosligaen": 0, "bestadeild": 0, "mls": 0,
                    "premier_league": 0, "serie_a": 0,
                    "la_liga": 0, "bundesliga": 0,
+                   "danish_superliga": 0, "belgian_pro_league": 0,
+                   "primeira_liga": 0, "bolivian_primera": 0,
                    "champions_league": 0, "europa_league": 0,
                    "conference_league": 0, "friendlies": 1}
 
@@ -879,7 +916,9 @@ def previous_capture(earlier: list[dict],
 def declared_version_at(observed_at: str) -> str:
     """Vilken kohort som DEKLARERAT äger observationsögonblicket."""
     observed = _parse_iso(observed_at)
-    for version, start in ((RADAR_V7_VERSION, RADAR_VERSION_STARTED_AT),
+    for version, start in ((RADAR_V9_VERSION, RADAR_VERSION_STARTED_AT),
+                           (RADAR_V8_VERSION, RADAR_V8_STARTED_AT),
+                           (RADAR_V7_VERSION, RADAR_V7_STARTED_AT),
                            (RADAR_V6_VERSION, RADAR_V6_STARTED_AT),
                            (RADAR_V5_VERSION, RADAR_V5_STARTED_AT),
                            (RADAR_V4_VERSION, RADAR_V4_STARTED_AT),

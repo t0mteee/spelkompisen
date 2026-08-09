@@ -119,6 +119,11 @@ LEAGUE_NAMES = {
     "SPAIN: LaLiga": "la_liga",
     "SPAIN: La Liga": "la_liga",
     "GERMANY: Bundesliga": "bundesliga",
+    # Verifierade mot Flashscores dagsfeed 2026-08-09.
+    "DENMARK: Superliga": "danish_superliga",
+    "BELGIUM: Jupiler Pro League": "belgian_pro_league",
+    "PORTUGAL: Liga Portugal": "primeira_liga",
+    "BOLIVIA: Division Profesional": "bolivian_primera",
     "WORLD: Club Friendly": "friendlies",
     "EUROPE: Champions League": "champions_league",
     "EUROPE: Champions League - Qualification": "champions_league",

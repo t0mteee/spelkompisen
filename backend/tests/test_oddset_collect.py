@@ -485,6 +485,23 @@ class ResearchLeagueIsolationTests(unittest.TestCase):
         from app import oddset_v22
         self.assertTrue(stora <= set(oddset_v22.SCOPE_LEAGUES))
 
+    def test_nya_toppligor_ar_synliga_sharp_ligor_med_verifierade_idn(self) -> None:
+        expected = {
+            "danish_superliga": (1913, "football/denmark/superligaen"),
+            "belgian_pro_league": (1817, "football/belgium/jupiler_pro_league"),
+            "primeira_liga": (2386, "football/portugal/primeira_liga"),
+            "bolivian_primera": (5595, "football/bolivia"),
+        }
+        by_key = {league["key"]: league for league in oddset.LEAGUES}
+        from app import oddset_data, oddset_v22
+        for key, (pin_id, kambi_path) in expected.items():
+            self.assertEqual(pin_id, by_key[key]["pin_id"])
+            self.assertEqual(kambi_path, by_key[key]["kambi"])
+            self.assertIn(key, oddset.ACTIONABLE_LEAGUE_KEYS)
+            self.assertIn(key, oddset.VISIBLE_LEAGUE_KEYS)
+            self.assertNotIn(key, oddset_data.MODEL_LEAGUES)
+            self.assertNotIn(key, oddset_v22.SCOPE_LEAGUES)
+
     def test_visibility_and_actionability_are_independent_properties(self) -> None:
         """Mekanismen finns kvar även när ingen liga använder den just nu —
         synlig liga får aldrig automatiskt bli actionable."""

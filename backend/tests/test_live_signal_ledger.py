@@ -11,11 +11,11 @@ from app.oddset import norm_team
 from app.storage import Storage
 
 
-# Inne i v5:s DEKLARERADE fönster (>= RADAR_VERSION_STARTED_AT). Fixturerna
-# skrivs av dagens kod, som stämplar raden `radar_version=v5`; en fixtur daterad
+# Inne i den aktuella kohortens DEKLARERADE fönster. Fixturerna skrivs av
+# dagens kod, som stämplar raden med aktuell `radar_version`; en fixtur daterad
 # före fönstret blir därför korrekt `transitional` och faller ur blindkohorten.
 # Datumet ska följa med vid nästa kohortstart.
-NOW = dt.datetime(2026, 8, 7, 18, 30, tzinfo=dt.timezone.utc)
+NOW = dt.datetime(2026, 8, 10, 18, 30, tzinfo=dt.timezone.utc)
 
 
 def iso(when: dt.datetime) -> str:

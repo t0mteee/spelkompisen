@@ -66,12 +66,20 @@ LEAGUE_NAMES = {
     ("NOR", "1. Division"): "obosligaen",
     ("ISL", "Besta deild karla"): "bestadeild",
     ("ISL", "Besta deild"): "bestadeild",
+    # Aktuellt FotMob-namn 2026-08-09 (id 215). De äldre varianterna finns
+    # kvar eftersom providern har växlat namn mellan säsonger/dagslistor.
+    ("ISL", "Besta deildin"): "bestadeild",
     ("USA", "MLS"): "mls",
     ("ENG", "Premier League"): "premier_league",
     ("ITA", "Serie A"): "serie_a",
     ("ESP", "LaLiga"): "la_liga",
     ("ESP", "La Liga"): "la_liga",
     ("GER", "Bundesliga"): "bundesliga",
+    # Verifierade mot FotMobs dagslistor 2026-08-09–18.
+    ("DEN", "Superligaen"): "danish_superliga",
+    ("BEL", "Belgian Pro League"): "belgian_pro_league",
+    ("POR", "Liga Portugal"): "primeira_liga",
+    ("BOL", "Primera División"): "bolivian_primera",
     # Club Friendlies är GLOBAL (som Sofascores UT 853) och går därför genom
     # samma Oddset-spärr som Sofascore-varvet (_scope_friendlies) — utan den
     # hade varje turnématch i världen ätit varvets matchtak.

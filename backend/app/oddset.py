@@ -91,6 +91,24 @@ LEAGUES = [
      "kambi": "football/spain/la_liga", "altenar": None,},
     {"key": "bundesliga", "name": "Bundesliga", "pin_id": 1842,
      "kambi": "football/germany/bundesliga", "altenar": None,},
+    # Tre nya toppligor (2026-08-09, Samans beställning). Pinnacle-id och
+    # Kambi-vägar är verifierade mot aktuellt utbud, inte mönsterhärledda.
+    # De är fullt synliga/actionable för ren sharp-värdering men står utanför
+    # MODEL_LEAGUES tills egen xG-/closehistorik har mätts och kalibrerats.
+    {"key": "danish_superliga", "name": "Danska Superliga", "pin_id": 1913,
+     "kambi": "football/denmark/superligaen", "altenar": None},
+    {"key": "belgian_pro_league", "name": "Belgiska Pro League", "pin_id": 1817,
+     "kambi": "football/belgium/jupiler_pro_league", "altenar": None},
+    {"key": "primeira_liga", "name": "Primeira Liga", "pin_id": 2386,
+     "kambi": "football/portugal/primeira_liga", "altenar": None},
+    # Bolivia (2026-08-09). Pinnacle, Sofascore, Flashscore, FotMob och
+    # Smarkets är verifierade mot aktuella event. Kambi har ingen egen
+    # ligaväg i nuvarande index men den giltiga landsvägen gör att ett
+    # eventuellt SvS-utbud fångas utan att ett 404 gör ligainsamlingen röd.
+    # Sharp/actionable som ligorna ovan, men ingen målmodell innan egen
+    # xG-/closehistorik finns.
+    {"key": "bolivian_primera", "name": "Bolivianska Primera División",
+     "pin_id": 5595, "kambi": "football/bolivia", "altenar": None},
 ]
 # Actionable = får skapa spelbar signal, Kelly, notis och CLV-/value_log-rader.
 ACTIONABLE_LEAGUE_KEYS = frozenset(

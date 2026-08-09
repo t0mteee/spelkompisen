@@ -136,6 +136,10 @@ class ParseTests(unittest.TestCase):
             "SPAIN: LaLiga": "la_liga",
             "GERMANY: Bundesliga": "bundesliga",
             "ICELAND: Besta deild karla": "bestadeild",
+            "DENMARK: Superliga": "danish_superliga",
+            "BELGIUM: Jupiler Pro League": "belgian_pro_league",
+            "PORTUGAL: Liga Portugal": "primeira_liga",
+            "BOLIVIA: Division Profesional": "bolivian_primera",
         }
         for provider_name, league in expected.items():
             self.assertEqual(league, flashscore.LEAGUE_NAMES[provider_name])

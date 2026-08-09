@@ -6,8 +6,9 @@ norska Eliteserien, träningsmatcher till att börja med) med sharp-odds, oddsr�
 egen modell och värdespels-tips (1X2, asian handicap, över/under, hörnor på sikt).
 
 **Läge (2026-08-09):** Etapp 0–5 KLARA + långt därutöver. Oddset-delen är i full drift:
-14 ligor (Allsvenskan/Superettan/Eliteserien/OBOS/Besta deild/MLS/träningsmatcher + CL/EL/
-Conference INKL. kval + Premier League/Serie A/La Liga/Bundesliga — cuperna är
+18 ligor (Allsvenskan/Superettan/Eliteserien/OBOS/Besta deild/MLS/träningsmatcher + CL/EL/
+Conference INKL. kval + Premier League/Serie A/La Liga/Bundesliga + danska
+Superliga/belgiska Pro League/Primeira Liga/Bolivias Primera División — cuperna är
 två Pinnacle-ligor + två Kambi-vägar per nyckel,
 `pin_ids`/`kambi_paths` i oddset.py), 4 bokkällor +
 Pinnacle, kvalitetsviktade värdesignaler, steam-radar, xG-viktad Poisson-modell med
@@ -385,9 +386,15 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
   Följer→Stark-eskalering får finnas i diagnostiken men får inte dubblera
   blindtestet). Minst 200 oddssatta+avgjorda signalmatcher, minst 60 dagar och
   undre KI90 > 0 krävs före stöd; inga historiska liveodds bakfylls.
-  **Aktiv signalversion är `chance-gap-shadow-v7` från exakt
-  2026-08-06T21:40:00Z**
-  (`docs/radar-proxy-v7-forregistrering-2026-08-07.md`). Proxysignalens
+  **Aktiv signalversion är `chance-gap-shadow-v9` från exakt
+  2026-08-09T18:00:00Z**. v9 ändrar bara scope: Bolivias Primera División
+  läggs till som ordinarie live-/sharp-liga. Besta deild fanns redan, men
+  v9 rättar FotMobs aktuella ligarubrik `Besta deildin` och lägger UT 188
+  explicit i radarscopet; Island blir därmed verifierat tvåkälligt.
+  Trösklar, providers, källrankning och identitet är oförändrade; metodnot:
+  `docs/radar-scope-v9-2026-08-09.md`. v8:s tre ligor och produktionskvitto
+  finns kvar i `docs/radar-scope-v8-2026-08-09.md`. v7:s proxysignal
+  (`docs/radar-proxy-v7-forregistrering-2026-08-07.md`) aktiverade
   aktivering krävde `skott i box` — ett fält som bara finns i 43 % av
   matcherna, nämligen exakt de som ändå har xG. Proxyn tillförde därför NOLL
   matcher utöver xG-signalen medan 59 % aldrig kunde få någon signal alls.
@@ -483,6 +490,10 @@ observationsögonblicket används som observationstid.**
    djupvarvet. Samma princip som presence-ledgern: skriv en rad per kontroll,
    annars går "vi frågade och fick tomt" inte att skilja från "vi frågade
    aldrig".
+8. **`Z` betyder UTC, inte bara ett suffix.** En offsetmedveten tid måste
+   konverteras med `astimezone(timezone.utc)` innan den formateras med `Z`.
+   Europatipset 2597 fick annars `21:25Z` av `21:25+02` fast rätt tid var
+   `19:25Z`, vilket gömde publicerad utdelning i exakt två timmar.
 
 ### 📦 TRANSPORTREGELN — status 200 betyder inte läsbar kropp
 

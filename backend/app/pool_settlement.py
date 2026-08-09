@@ -79,8 +79,12 @@ def _retry_after(raw: Optional[dict], now: Optional[dt.datetime] = None) -> str:
         end = start + dt.timedelta(minutes=MATCH_DURATION_MIN)
         latest_end = end if latest_end is None else max(latest_end, end)
     when = max(soon, latest_end) if latest_end else soon
+    # `matchStart` bär normalt svensk offset (+01/+02). `strftime(...Z)`
+    # ändrar bara TEXTEN, inte tidszonen: utan konverteringen nedan blev
+    # 21:25+02 felaktigt 21:25Z i stället för 19:25Z och settlement väntade
+    # exakt två extra timmar under sommartid (Europatipset 2597).
     return min(when, now + dt.timedelta(hours=RETRY_MAX_H)) \
-        .strftime("%Y-%m-%dT%H:%M:%SZ")
+        .astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _git_hash() -> str:

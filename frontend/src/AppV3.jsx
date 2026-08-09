@@ -1341,6 +1341,10 @@ const LABB_LEAGUE = {
   conference_league: 'Conference League',
   premier_league: 'Premier League', serie_a: 'Serie A',
   la_liga: 'La Liga', bundesliga: 'Bundesliga',
+  danish_superliga: 'Danska Superliga',
+  belgian_pro_league: 'Belgiska Pro League',
+  primeira_liga: 'Primeira Liga',
+  bolivian_primera: 'Bolivianska Primera División',
 }
 const LABB_MARKET = {
   '1x2': '1X2', ah: 'AH', ou: 'Ö/U', cor: 'Hörnor',

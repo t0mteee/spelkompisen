@@ -100,6 +100,11 @@ class ParseTests(unittest.TestCase):
             ("ESP", "LaLiga"): "la_liga",
             ("GER", "Bundesliga"): "bundesliga",
             ("ISL", "Besta deild karla"): "bestadeild",
+            ("ISL", "Besta deildin"): "bestadeild",
+            ("DEN", "Superligaen"): "danish_superliga",
+            ("BEL", "Belgian Pro League"): "belgian_pro_league",
+            ("POR", "Liga Portugal"): "primeira_liga",
+            ("BOL", "Primera División"): "bolivian_primera",
         }
         for provider_name, league in expected.items():
             self.assertEqual(league, fotmob.LEAGUE_NAMES[provider_name])
