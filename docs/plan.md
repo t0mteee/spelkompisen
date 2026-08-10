@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-08-09 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-08-10 — läs detta först i ny session)
 
 > **Aktiv backlog och prioritering: `docs/backlog.md`** (uppdaterad 2026-08-09).
 > WP-listan längre ned är historik över avslutat arbete.
@@ -21,11 +21,16 @@ fanns redan; v9 rättar FotMobs aktuella namn `Besta deildin` och lägger
 Sofascore UT 188 explicit i radarscopet. De är medvetet utanför
 målmodellen och V2.2 tills egen xG-/closehistorik har mätts och kalibrerats.
 
-**Aktuell V2.2-kohort är manifest v6** från 2026-08-07T14:20Z
-(`docs/model-v2.2-multileague-forward-manifest-v6.json`). PL, Serie A, La Liga
+**Aktuell V2.2-kohort är manifest v7** från 2026-08-10T06:50:39Z
+(`docs/model-v2.2-multileague-forward-manifest-v7.json`). Ett lyckat men
+xG-tomt Sofascore-svar kan nu återförsökas och äldre säsongssidor nås;
+`MODEL_DATA_VERSION=5`. V6:s 19 rader/8 matcher är orörd historik. PL, Serie A, La Liga
 och Bundesliga är fullt följda modelligor efter providerseparerad xG-backfill;
 powerranken är `powerrank-v2` och fortsatt AMBER. Modellen är sämre än
 Pinnacle i samtliga ligor och påverkar aldrig spelbar edge, urval eller notiser.
+Allsvenskan 2026 är 125/125 i xG efter säker bakfyllning. Lagstyrketabellen
+visar nu både faktiska `Spelade` och `Med xG`, så täckning inte kan misstolkas
+som lagets matchantal.
 
 **Poolstatus 2026-08-09.** Settlement omprövas per payload och på varje
 femminuterstick; Topptipsets scanhint delas av API och insamlingsvarv; b1024
@@ -38,6 +43,22 @@ val.
 Omprövningstider normaliseras alltid till UTC före ett `Z`-suffix; felet som
 tolkade svensk `+02:00`-väggtid som UTC fördröjde Europatipset 2597 exakt två
 timmar och är regressionstestat. Omgången och den spelade kupongen är settlade.
+Historik visar Autopoolens alla konfigurationsgrupper från start (ingen dold
+global topp-20), skiljer automatiskt frysta förslag från faktiskt markerade
+spel och visar omgångens datum även före settlement genom fallback till
+`draws.reg_close_time`.
+
+**Poolens lagstyrke-shadow 2026-08-10.** Den ordinarie poolbyggaren använder
+fortsatt inte lagstyrka. Ett nytt isolerat `pool-strength-blend-v1` fryser i
+stället Pinnacles devigade 1X2-prognos och samma tidsviktade xG-styrka som
+Oddset/PowerRank använder vid h24/h3/m20. 90/10 Pinnacle/styrka är enda
+kandidat; 80/20 och ren modell är diagnostik. Ingen historik rekonstrueras,
+inga system ändras och spåret kan inte fälla PH2/PH3-varvet. Status och
+bortfall följs i **Historik → Poolmodell** eller
+`/api/pool/strength-shadow`. Grind: minst 300 avgjorda matcher per
+beslutshorisont, 30 per liga i minst tre ligor, 42 dagar, positiv nedre
+90 %-KI-gräns och högst 0,005 loglossförsämring i någon liga. Ett eventpass
+leder bara till en separat system-shadow, aldrig direkt till livebyggaren.
 
 **Aktuell överlämning:** `docs/overlamning-2026-08-09.md`. Alla statusblock
 nedan är daterad historik och får inte läsas som nuvarande kontrakt.

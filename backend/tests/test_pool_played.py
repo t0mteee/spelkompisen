@@ -56,6 +56,16 @@ class RecordTests(unittest.TestCase):
         self._kupong()          # samma rader igen
         self.assertEqual(1, len(pool_played.all_coupons(self.store)))
 
+    def test_historiken_bar_omgangens_datum_fore_settlement(self):
+        close = "2026-08-09T21:29:00+02:00"
+        self.store.conn.execute(
+            "INSERT INTO draws (product, draw_number, state, reg_close_time) "
+            "VALUES ('topptipset', 4300, 'Open', ?)", (close,))
+        self.store.conn.commit()
+        self._kupong()
+        row = pool_played.all_coupons(self.store)[0]
+        self.assertEqual(close, row["draw_close"])
+
     def test_rader_kan_skickas_som_listor_eller_strangar(self):
         a = pool_played.normalize_rows([["1", "X", "2"], "1x2", "1,X,2"])
         self.assertEqual(["1X2", "1X2", "1X2"], a)

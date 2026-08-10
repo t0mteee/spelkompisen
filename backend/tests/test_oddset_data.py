@@ -147,6 +147,39 @@ class SofaIngestTests(unittest.TestCase):
         self.assertAlmostEqual(1.4, row["xg_h"])
         self.assertAlmostEqual(0.9, row["xg_a"])
 
+    def test_successful_but_xg_empty_response_is_retried(self) -> None:
+        """Djurgården–Västerås 2026-08-03 markerades `seen` när Sofa gav
+        ett lyckat men ännu xG-tomt svar. När 3,71–1,32 publicerades senare
+        frågade v4 aldrig igen. `seen` får bara stoppa ett komplett xG-par."""
+        event = _event(456)
+        empty = {"statistics": [{"groups": [{"statisticsItems": [
+            {"name": "Corner kicks", "home": "5", "away": "1"},
+        ]}]}]}
+        complete = {"statistics": [{"groups": [{"statisticsItems": [
+            {"name": "Expected goals", "home": "3.71", "away": "1.32"},
+            {"name": "Corner kicks", "home": "5", "away": "1"},
+        ]}]}]}
+        with mock.patch.object(oddset_data.time, "sleep"), \
+                mock.patch.object(oddset_data, "_sofa_get",
+                                  side_effect=[empty, complete]) as source:
+            self.assertTrue(oddset_data._ingest_event(
+                self.store, "allsvenskan", event))
+            self.assertIsNotNone(self.store.meta_get("oddset_sofa_seen:456"))
+            retry = json.loads(self.store.meta_get("oddset_sofa_retry:456"))
+            self.assertEqual("missing_xg_in_successful_response", retry["error"])
+            self.assertTrue(oddset_data._ingest_event(
+                self.store, "allsvenskan", event))
+
+        self.assertEqual(2, source.call_count)
+        row = self.store.oddset_results("allsvenskan")[0]
+        self.assertEqual((3.71, 1.32), (row["xg_h"], row["xg_a"]))
+        self.assertIsNone(self.store.meta_get("oddset_sofa_retry:456"))
+
+        with mock.patch.object(oddset_data, "_sofa_get") as source:
+            self.assertFalse(oddset_data._ingest_event(
+                self.store, "allsvenskan", event))
+            source.assert_not_called()
+
     def test_normaltime_excludes_penalty_shootout(self) -> None:
         with mock.patch.object(oddset_data.time, "sleep"), \
                 mock.patch.object(oddset_data, "_sofa_get", return_value={}):
@@ -155,7 +188,7 @@ class SofaIngestTests(unittest.TestCase):
         row = self.store.oddset_results("mls")[0]
         self.assertEqual((2, 2), (row["hg"], row["ag"]))
 
-    def test_permanent_missing_statistics_does_not_retry_forever(self) -> None:
+    def test_missing_statistics_404_is_retried_but_410_is_terminal(self) -> None:
         class MissingStatistics(RuntimeError):
             response = type("Response", (), {"status_code": 404})()
 
@@ -166,7 +199,47 @@ class SofaIngestTests(unittest.TestCase):
 
         self.assertTrue(completed)
         self.assertIsNotNone(self.store.meta_get("oddset_sofa_seen:789"))
+        self.assertIsNone(self.store.meta_get("oddset_sofa_stats_terminal:789"))
+        retry = json.loads(self.store.meta_get("oddset_sofa_retry:789"))
+        self.assertEqual(404, retry["status"])
+
+        class GoneStatistics(RuntimeError):
+            response = type("Response", (), {"status_code": 410})()
+
+        with mock.patch.object(oddset_data.time, "sleep"), \
+                mock.patch.object(oddset_data, "_sofa_get",
+                                  side_effect=GoneStatistics("gone")):
+            self.assertTrue(oddset_data._ingest_event(
+                self.store, "mls", _event(789)))
+        self.assertEqual("410", self.store.meta_get(
+            "oddset_sofa_stats_terminal:789"))
         self.assertIsNone(self.store.meta_get("oddset_sofa_retry:789"))
+        with mock.patch.object(oddset_data, "_sofa_get") as source:
+            self.assertFalse(oddset_data._ingest_event(
+                self.store, "mls", _event(789)))
+            source.assert_not_called()
+
+    def test_refresh_checks_older_page_when_newest_is_already_known(self) -> None:
+        """En fullständigt känd sida 0 bevisar inte att sida 1 saknar luckor."""
+        pages = {
+            "/unique-tournament/242/season/99/events/last/0": {
+                "events": [_event(1)]},
+            "/unique-tournament/242/season/99/events/last/1": {
+                "events": [_event(2)]},
+            "/unique-tournament/242/season/99/events/last/2": {"events": []},
+        }
+        with mock.patch.object(oddset_data, "SOFA_UT", {"mls": 242}), \
+                mock.patch.object(oddset_data, "SOFA_MAX_PAGES", 3), \
+                mock.patch.object(oddset_data, "_sofa_season", return_value=99), \
+                mock.patch.object(oddset_data, "_sofa_get",
+                                  side_effect=lambda path: pages[path]) as source, \
+                mock.patch.object(oddset_data, "_ingest_event",
+                                  side_effect=[False, True]) as ingest:
+            result = oddset_data.refresh_xg(self.store, force=True)
+
+        self.assertEqual(1, result["mls"])
+        self.assertEqual(2, ingest.call_count)
+        self.assertEqual(3, source.call_count)
 
 
 class SofaSeasonCacheTests(unittest.TestCase):

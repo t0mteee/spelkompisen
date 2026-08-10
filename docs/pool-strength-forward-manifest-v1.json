@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "experiment": "pool-strength-blend-v1",
+  "frozen_at": "2026-08-10T07:53:16Z",
+  "hypothesis": "En liten linjär inblandning av den xG-viktade lagstyrkemodellen kan förbättra Pinnacles devigade 1X2-sannolikheter på poolkupongernas strikt identifierade ligamatcher utan att en enskild liga försämras materiellt.",
+  "source_versions": {
+    "model_signal_version": "m-a6a54189",
+    "sharp_policy": "pinnacle-direct-complete-1x2-power-devig",
+    "strength_policy": "fit_league-exact-team-no-fuzzy-no-elo-prior",
+    "change_policy": "varje ändring av modellversion, ligaidentitet, blend, timing eller grind kräver nytt manifest och ny shadow_version"
+  },
+  "scope": {
+    "products": [
+      "stryktipset",
+      "europatipset",
+      "topptipset",
+      "topptipsetstryk",
+      "topptipsetextra"
+    ],
+    "leagues": [
+      "allsvenskan",
+      "superettan",
+      "eliteserien",
+      "obosligaen",
+      "mls",
+      "premier_league",
+      "serie_a",
+      "la_liga",
+      "bundesliga"
+    ],
+    "horizons": ["h24", "h3", "m20"],
+    "decision_horizons": ["h3", "m20"],
+    "unit": "unique_match_per_horizon",
+    "primary_candidate": "blend10",
+    "diagnostic_candidates": ["model", "blend20"]
+  },
+  "candidates": {
+    "sharp": {"pinnacle": 1.0, "strength": 0.0},
+    "blend10": {"pinnacle": 0.9, "strength": 0.1},
+    "blend20": {"pinnacle": 0.8, "strength": 0.2},
+    "model": {"pinnacle": 0.0, "strength": 1.0},
+    "blend_method": "linear_probability_then_renormalize"
+  },
+  "collection": {
+    "starts_at": "2026-08-10T07:53:16Z",
+    "historical_reconstruction_allowed": false,
+    "capture_requires_successful_current_sharp_observation": true,
+    "team_identity": "exact normalized canonical or explicit alias; no fuzzy",
+    "cancelled_matches_eligible": false,
+    "actionable": false,
+    "affects_systems": false
+  },
+  "season_weighting": {
+    "method": "continuous_exponential_decay",
+    "e_folding_days": 240,
+    "half_life_days": 166,
+    "extra_current_season_multiplier": 1.0,
+    "note": "Aktuell säsong får redan störst vikt genom ålder. Alternativa decay-värden är en framtida, separat hypotes och får inte väljas på detta forwardutfall."
+  },
+  "gate": {
+    "minimum_settled_events_per_horizon": 300,
+    "minimum_settled_per_league": 30,
+    "minimum_represented_leagues": 3,
+    "minimum_span_days": 42,
+    "primary_metric": "paired_delta_logloss_sharp_minus_blend10",
+    "cluster_bootstrap": "90_percent_ci_clustered_by_unique_match",
+    "pass": {
+      "mean_delta_logloss": ">0",
+      "ci90_lower": ">0",
+      "maximum_per_league_logloss_degradation": 0.005
+    },
+    "evaluation_cadence": "weekly_after_data_gate",
+    "multiple_testing": "blend10 is the only promotion candidate; model and blend20 are descriptive",
+    "next_phase_after_pass": "freeze counterfactual pool systems under a new manifest; do not change the live builder"
+  },
+  "forbidden": [
+    "changing current pool recommendations from this capture",
+    "backfilling historical model probabilities",
+    "fuzzy team or league matching",
+    "selecting a blend weight after seeing forward outcomes",
+    "counting the same match twice across pool products in aggregate status",
+    "promoting directly from event logloss without a separate system-row shadow"
+  ]
+}

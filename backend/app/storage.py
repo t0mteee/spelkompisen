@@ -551,6 +551,39 @@ CREATE INDEX IF NOT EXISTS idx_pool_played_open
     ON pool_played_coupon (settled_at, product, draw_number);
 """
 
+# Förregistrerat pool-strength-shadow: Pinnacle som baslinje mot små linjära
+# blandningar med målmodellens lagstyrka. En rad per poolmatch och fast
+# horisont, även när den inte är eligible, så täckningsbortfall förblir synligt.
+POOL_STRENGTH_SHADOW_SCHEMA = """
+CREATE TABLE IF NOT EXISTS pool_strength_shadow_capture (
+    product              TEXT NOT NULL,
+    draw_number          INTEGER NOT NULL,
+    horizon              TEXT NOT NULL,
+    event_number         INTEGER NOT NULL,
+    shadow_version       TEXT NOT NULL,
+    model_signal_version TEXT NOT NULL,
+    captured_at          TEXT NOT NULL,
+    target_at            TEXT NOT NULL,
+    delay_min            REAL NOT NULL,
+    match_start          TEXT,
+    league_raw           TEXT,
+    league               TEXT,
+    home                 TEXT,
+    away                 TEXT,
+    eligible             INTEGER NOT NULL DEFAULT 0,
+    issue                TEXT,
+    p_sharp_1 REAL, p_sharp_x REAL, p_sharp_2 REAL,
+    p_model_1 REAL, p_model_x REAL, p_model_2 REAL,
+    p_blend10_1 REAL, p_blend10_x REAL, p_blend10_2 REAL,
+    p_blend20_1 REAL, p_blend20_x REAL, p_blend20_2 REAL,
+    PRIMARY KEY
+      (product, draw_number, horizon, event_number, shadow_version)
+);
+CREATE INDEX IF NOT EXISTS idx_pool_strength_shadow_report
+    ON pool_strength_shadow_capture
+       (shadow_version, product, horizon, eligible, captured_at);
+"""
+
 # Live-radar (2026-07-25): observerade, kumulativa matchstats i shadow mode.
 # Tabellen lagrar källobservationer, inte spelrekommendationer. Signalen kan
 # därmed ändras/versioneras och utvärderas i efterhand utan att rådata skrivs om.
@@ -1028,7 +1061,7 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
     outcome_key  TEXT,
     PRIMARY KEY (match_id, market, sign, line_key, model_version)
 );
-""" + RESULT_STATS_SCHEMA + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + V22_SHADOW_SCHEMA + TEAM_EVENT_SCHEMA + POOL_SETTLEMENT_SCHEMA + POOL_PIT_SCHEMA + LIVE_RADAR_SCHEMA + MATCHBOOK_SCHEMA
+""" + RESULT_STATS_SCHEMA + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + V22_SHADOW_SCHEMA + TEAM_EVENT_SCHEMA + POOL_SETTLEMENT_SCHEMA + POOL_PIT_SCHEMA + POOL_STRENGTH_SHADOW_SCHEMA + LIVE_RADAR_SCHEMA + MATCHBOOK_SCHEMA
 
 
 class Storage:

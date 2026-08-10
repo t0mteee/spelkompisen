@@ -580,12 +580,12 @@ def summary(store: Storage) -> dict:
             "AND payout_complete=1 THEN COALESCE(payout_kr,0) ELSE 0 END) payout, "
             "MAX(CASE WHEN timely=1 THEN correct_max END) best, "
             "MAX(budget) budget, MAX(strategy) strategy, "
-            "MAX(value_weight) value_weight "
+            "MAX(value_weight) value_weight, MAX(frozen_at) latest_frozen "
             "FROM pool_system_ledger GROUP BY product, config_key, horizon "
             "ORDER BY product, config_key, horizon"):
         (product, key, horizon, n, n_settled, n_timely, n_evaluable,
          n_unresolvable, n_payout_incomplete, cost, payout, best,
-         budget, strategy, value_weight) = row
+         budget, strategy, value_weight, latest_frozen) = row
         if not any(b["key"] == key for b in benchmarks_for(product)) \
                 and key not in RETIRED_KEYS:
             # Utanför produktens familj (t.ex. b1024 på ett 8-matchsspel):
@@ -602,6 +602,7 @@ def summary(store: Storage) -> dict:
             # vilket läste som procent och veckonummer. De är egna fält nu.
             "budget": bench["budget"], "strategy": bench["strategy"],
             "value_weight": bench["value_weight"], "retired": bench["retired"],
+            "latest_frozen": latest_frozen,
             "n_frozen": n,
             "n_settled": n_settled, "n_timely": n_timely,
             "n_evaluable": n_evaluable, "n_unresolvable": n_unresolvable,
@@ -622,10 +623,13 @@ def summary(store: Storage) -> dict:
             "SELECT l.product, l.draw_number, l.horizon, l.config_key, "
             "l.frozen_at, l.timely, l.n_rows, l.cost_kr, l.correct_max, "
             "l.payout_kr, l.published_payout_kr, l.payout_complete, "
-            "l.settlement_version, l.roi, l.settle_note, s.reg_close_time, "
+            "l.settlement_version, l.roi, l.settle_note, "
+            "COALESCE(s.reg_close_time, d.reg_close_time), "
             "l.budget, l.strategy, l.value_weight "
             "FROM pool_system_ledger l LEFT JOIN pool_draw_settlement s "
             "ON s.product=l.product AND s.draw_number=l.draw_number "
+            "LEFT JOIN draws d "
+            "ON d.product=l.product AND d.draw_number=l.draw_number "
             "ORDER BY l.frozen_at DESC LIMIT 200"):
         bench = _bench(r[3], {"budget": r[16], "strategy": r[17],
                               "value_weight": r[18]})
@@ -638,7 +642,9 @@ def summary(store: Storage) -> dict:
             "payout_complete": bool(r[11]) if r[11] is not None else None,
             "settlement_version": r[12], "roi": r[13], "settle_note": r[14],
             # Vilken omgång raden gäller går inte att läsa ur nyckeln — datumet
-            # kommer ur settlementlagrets spelstopp, inte ur frysningstiden.
+            # kommer ur omgångens spelstopp, inte ur frysningstiden. En öppen
+            # omgång saknar ännu settlementrad och faller därför tillbaka på
+            # draws — datumet ska synas redan när förslaget fryses.
             "close": r[15],
             "budget": bench["budget"], "strategy": bench["strategy"],
             "value_weight": bench["value_weight"], "retired": bench["retired"],

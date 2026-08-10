@@ -870,6 +870,10 @@ function PowerRankPanel({ leagues }) {
     { key: 'rank', label: '#', defaultDir: 'asc',
       title: 'Styrkerank — INTE tabellplacering. Listan är sorterad på anfall ÷ försvar ur modellens fit. Att den avviker från tabellen är hela poängen: tabellen säger vad som hänt, styrkan vad modellen tror om laget.' },
     { key: 'name', label: 'Lag', defaultDir: 'asc' },
+    { key: 'played_matches', label: 'Spelade',
+      title: 'Alla registrerade ligamatcher i valt säsongsurval' },
+    { key: 'matches', label: 'Med xG',
+      title: 'Matcher som faktiskt ingår i poäng/xPoäng-jämförelsen' },
     { key: 'ratio', label: 'Styrka', title: 'Anfall ÷ försvar ur modellens egen fit. 1,00 = ligasnitt.' },
     { key: 'att', label: 'Anfall', title: 'Målfaktor i anfall mot ett genomsnittligt försvar. 1,20 = gör 20 % fler mål än snittlaget.' },
     { key: 'def', label: 'Försvar', defaultDir: 'asc',
@@ -970,8 +974,9 @@ function PowerRankPanel({ leagues }) {
             renderRow={(t) => (
               <tr key={t.team}>
                 <td>{t.rank}</td>
-                <td className="match-name"><b>{t.name || t.team}</b>
-                  <span className="hint"> {t.matches} m</span></td>
+                <td className="match-name"><b>{t.name || t.team}</b></td>
+                <td>{t.played_matches ?? t.matches}</td>
+                <td>{t.matches}</td>
                 <td><b>{num(t.ratio)}</b></td>
                 <td>{num(t.att)}</td>
                 <td>{num(t.def)}</td>
@@ -2898,6 +2903,14 @@ function couponLabel(c) {
   const variant = VARIANT[c.product]
   return `${base}${variant ? ` ${variant}` : ''} · omgång ${c.draw_number}`
 }
+function couponDate(c) {
+  if (!c?.draw_close) return 'datum saknas'
+  const date = new Date(c.draw_close)
+  if (Number.isNaN(date.getTime())) return 'datum saknas'
+  return date.toLocaleDateString('sv-SE', {
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+  })
+}
 
 /* Ett pågående system i siffror: hur långt raderna kommit och vad oddsen på
    de kvarvarande matcherna säger om chansen per vinstnivå. Sannolikheterna
@@ -2913,6 +2926,7 @@ function PlayedLiveCard({ c, onForget }) {
     <div className="playedcard">
       <div className="playedcard-head">
         <b>{couponLabel(c)}</b>
+        <span className="hint" title="Omgångens spelstopp">{couponDate(c)}</span>
         {/* "pågår" på en omgång där varje match är spelad är osant — den
             väntar bara på att SvS publicerar utdelningen. Gårdagens
             Topptipset låg kvar som aktiv av precis det skälet. */}
@@ -3054,13 +3068,15 @@ function PlayedPanel({ product = null }) {
           {open_.length > 0 && <div className="playeddivider">avgjorda</div>}
           <SortableTable id="played-done" className="grid compact playeddone"
             wrapperClassName="tablewrap"
-            defaultSort={{ key: 'played_at', dir: 'desc' }}
+            defaultSort={{ key: 'draw_close', dir: 'desc' }}
             rows={done}
             columns={[
               { key: 'product', label: 'Spel', defaultDir: 'asc',
                 value: (c) => `${PRODUCT_LABEL[c.product] || c.product}`
                   + `${VARIANT[c.product] ? ` ${VARIANT[c.product]}` : ''}` },
-              { key: 'played_at', label: 'Omgång' },
+              { key: 'draw_number', label: 'Omgång' },
+              { key: 'draw_close', label: 'Datum',
+                title: 'Datum för omgångens spelstopp' },
               { key: 'build', label: 'Förslagstyp', defaultDir: 'asc',
                 title: 'Byggarens inställningar när kupongen bokfördes. Kuponger före 2026-08-05 saknar uppgiften.',
                 value: (c) => (c.budget != null
@@ -3075,7 +3091,8 @@ function PlayedPanel({ product = null }) {
               <tr key={c.id}>
                 <td>{PRODUCT_LABEL[c.product] || c.product}
                   {VARIANT[c.product] ? ` ${VARIANT[c.product]}` : ''}</td>
-                <td>{couponLabel(c)}</td>
+                <td>{c.draw_number}</td>
+                <td>{couponDate(c)}</td>
                 <td>{c.budget != null
                   ? <span className="buildbadge">{[
                     `${Math.round(c.budget)} kr`,

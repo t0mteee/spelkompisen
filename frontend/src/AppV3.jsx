@@ -95,6 +95,7 @@ function fmtDay(iso) {
     return new Date(iso).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' })
   } catch { return '–' }
 }
+
 const selLabel3 = (m, mk, sg, line) => {
   if (mk === '1x2') return sg === '1' ? `1 · ${m.home}` : sg === '2' ? `2 · ${m.away}` : 'X · Kryss'
   if (mk === 'ah') return `${sg === 'H' ? m.home : m.away} ${line > 0 && sg === 'H' ? '+' : ''}${sg === 'H' ? line : -line} AH`
@@ -828,12 +829,15 @@ function HistorikV3({ initialProduct, focus }) {
   const [expanded, setExpanded] = useState(null)
   const [detail, setDetail] = useState({})
   const [systems, setSystems] = useState(null)
+  const [strength, setStrength] = useState(null)
   const [halsa, setHalsa] = useState(null)
   const [overview, setOverview] = useState(null)
   const [openSystem, setOpenSystem] = useState(null)
   const [showAllDraws, setShowAllDraws] = useState(false)
   const [showAllFreezes, setShowAllFreezes] = useState(false)
-  const [showAllGroups, setShowAllGroups] = useState(false)
+  // Rubriken lovar alla konfigurationer. Visa därför hela urvalet från start;
+  // användaren kan aktivt komprimera det till topplistan.
+  const [showAllGroups, setShowAllGroups] = useState(true)
   // Pensionerade konfigurationer visas som standard. Att dölja dem gjorde
   // sidan tom trots 33 frysta omgångar i databasen — historik som finns ska
   // synas, tydligt märkt, och kunna döljas aktivt i stället för tvärtom.
@@ -844,7 +848,7 @@ function HistorikV3({ initialProduct, focus }) {
   const single = product !== 'alla'
   const chooseProduct = (next) => {
     setProduct(next); setData(null); setErr(null); setExpanded(null)
-    setOpenSystem(null)
+    setOpenSystem(null); setStrength(null)
   }
 
   useEffect(() => {
@@ -859,6 +863,14 @@ function HistorikV3({ initialProduct, focus }) {
     get('/api/pool/systems').then(setSystems).catch(() => setSystems(null))
     get('/api/pool/turnover-prognos').then(setHalsa).catch(() => setHalsa(null))
   }, [])
+  useEffect(() => {
+    let current = true
+    const query = single ? `?product=${product}` : ''
+    get(`/api/pool/strength-shadow${query}`)
+      .then((value) => { if (current) setStrength(value) })
+      .catch(() => { if (current) setStrength(null) })
+    return () => { current = false }
+  }, [product, single])
   useEffect(() => {
     Promise.all(HIST_PRODUCTS.map((p) => get(`/api/pool/history?product=${p.id}&limit=1`)
       .then((j) => [p.id, j]).catch(() => [p.id, null])))
@@ -912,18 +924,21 @@ function HistorikV3({ initialProduct, focus }) {
 
       {/* ---------------------------- kuponger ---------------------------- */}
       <div className="v3card">
-        <div className="v3cardhead"><h3>🎟 Dina spelade kuponger</h3></div>
+        <div className="v3cardhead"><h3>🎟 Dina spelade kuponger</h3>
+          <span className="v3hint">bara kuponger du markerat som spelade</span>
+        </div>
         <PlayedPanel product={single ? product : null} />
       </div>
 
       {/* --------------------------- systemfacit -------------------------- */}
       <div className="v3card v3systembox" id="hist-system">
-        <div className="v3cardhead"><h3>📋 Systemfacit</h3>
+        <div className="v3cardhead"><h3>📋 Autopool · sparade förslag och facit</h3>
           {systems?.champion_key && (
             <span className="v3hint">champion: {systems.champion_key}</span>)}
         </div>
         <span className="v3hint">
-          Före varje spelstopp fryser varvet vad radbyggaren föreslår — vid
+          Det här är automatiskt sparade förslag, inte inlämnade spel. Före
+          varje spelstopp fryser varvet vad radbyggaren föreslår — vid
           180 min och vid 20 min — och rättar sedan raderna mot riktigt utfall.
           <b> Championen är appens egen standardinställning</b>; övriga är
           utmanare. Ingen inställning byts förrän en utmanare slår championen på
@@ -996,14 +1011,15 @@ function HistorikV3({ initialProduct, focus }) {
         )}
         {groups.length > 0 && (
           <>
-            <h4 className="v3subhead">Alla konfigurationer</h4>
-            {/* Nya matrisen ger 12 konfigurationer × 2 horisonter per spel —
-                120 rader över alla spel. Kapad som omsättningstabellen, annars
-                äger den sidan igen. Sorteringen gäller HELA urvalet, så
-                topplistan är de faktiskt bästa och inte de 20 första. */}
-            <SortableTable id="hist-systemgroups" className="v3histtable"
+            <h4 className="v3subhead">Alla konfigurationer{' '}
+              <span className="v3hint">({groups.length} grupper)</span></h4>
+            <span className="v3hint">Datumet är den senaste kupong där
+              konfigurationen sparades. Klicka Datum för äldst eller nyast.</span>
+            {/* Nytt id nollställer äldre sparade produkt-/ROI-sorteringar.
+                Senaste datum är det naturliga grundläget för Historik. */}
+            <SortableTable id="hist-systemgroups-v3" className="v3histtable"
               wrapperClassName="v3histtablewrap"
-              defaultSort={{ key: 'roi', dir: 'desc' }}
+              defaultSort={{ key: 'latest_frozen', dir: 'desc' }}
               rows={groups} limit={showAllGroups ? null : 20}
               columns={[
                 { key: 'product', label: 'Spel', defaultDir: 'asc',
@@ -1015,6 +1031,11 @@ function HistorikV3({ initialProduct, focus }) {
                 { key: 'value_weight', label: 'Värdevikt' },
                 { key: 'horizon_minutes', label: 'Fryst',
                   title: 'Minuter före spelstopp' },
+                { key: 'latest_frozen', label: 'Datum', defaultDir: 'desc',
+                  title: 'Datum för senaste omgång där konfigurationen sparades automatiskt',
+                  // Sortera kalenderdag, inte klockslaget för h3/m20. Då hålls
+                  // samma dags produkter ihop i backendens produktordning.
+                  value: (g) => g.latest_frozen?.slice(0, 10) || null },
                 { key: 'n_frozen', label: 'Bokförda',
                   title: 'Antal frysta förslag för gruppen.' },
                 { key: 'n_evaluable', label: 'Med facit',
@@ -1035,6 +1056,7 @@ function HistorikV3({ initialProduct, focus }) {
                   <td>{STRATEGY_LABEL[g.strategy] || g.strategy || '–'}</td>
                   <td>{g.value_weight != null ? `${Math.round(g.value_weight * 100)} %` : '–'}</td>
                   <td>{horizonLabel(g)}</td>
+                  <td>{g.latest_frozen ? fmtDay(g.latest_frozen) : '–'}</td>
                   <td>{g.n_frozen}{g.n_timely < g.n_frozen
                     ? <span className="v3hint"> ({g.n_frozen - g.n_timely} sena)</span> : ''}</td>
                   <td>{g.n_evaluable}{g.n_payout_incomplete
@@ -1275,6 +1297,97 @@ function HistorikV3({ initialProduct, focus }) {
           )}
         </div>
       )}
+
+      {/* ---------------------- styrkemodell-shadow ---------------------- */}
+      <div className="v3card">
+        <div className="v3cardhead">
+          <h3>🧬 Poolmodell · Pinnacle + lagstyrka</h3>
+          <LabbPill s={strength?.status || 'samlar'} />
+        </div>
+        <span className="v3hint">
+          Här provar vi om den xG-viktade styrketabellen förbättrar Pinnacles
+          1X2-prognos. Kandidaten väger <b>90 % Pinnacle och 10 % lagstyrka</b>;
+          80/20 visas som ett känslighetstest. Det här ändrar inga system eller
+          spel medan mätningen pågår.
+        </span>
+
+        <div className="v3histkpis" style={{ marginTop: 12 }}>
+          <div className="v3kpi"><b>{strength?.captured ?? 0}</b>
+            <span>matcher observerade</span></div>
+          <div className="v3kpi"><b>{strength?.eligible ?? 0}</b>
+            <span>med både sharp och styrka</span></div>
+          <div className="v3kpi"><b>{strength?.settled ?? 0}</b>
+            <span>med riktigt facit</span></div>
+          <div className="v3kpi"><b>{strength?.coverage != null
+            ? `${Math.round(strength.coverage * 100)} %` : '–'}</b>
+            <span>datatäckning</span></div>
+          <div className="v3kpi"><b>{strength?.decay_half_life_days ?? 166} d</b>
+            <span>halveringstid · färska matcher väger mest</span></div>
+        </div>
+
+        {strength && (
+          <div className="v3histtablewrap">
+            <table className="v3histtable">
+              <thead><tr>
+                <th>Mätt före stopp</th><th>Med facit</th><th>90/10 mot Pinnacle</th>
+                <th>90 % KI</th><th>80/20 test</th><th>Läge</th>
+              </tr></thead>
+              <tbody>
+                {['h24', 'h3', 'm20'].map((horizon) => {
+                  const row = strength.horizons?.[horizon] || {}
+                  const metrics = Object.fromEntries((row.metrics || [])
+                    .map((metric) => [metric.candidate, metric]))
+                  const primary = metrics.blend10 || {}
+                  const diagnostic = metrics.blend20 || {}
+                  const delta = (value) => value == null ? '–'
+                    : `${value > 0 ? '+' : ''}${value.toFixed(4)}`
+                  return (
+                    <tr key={horizon}>
+                      <td>{{ h24: '24 timmar', h3: '3 timmar', m20: '20 minuter' }[horizon]}</td>
+                      <td>{row.settled || 0} / {strength.gate?.minimum_settled_events_per_horizon || 300}</td>
+                      <td className={primary.mean_delta_logloss > 0 ? 'v3pos'
+                        : primary.mean_delta_logloss < 0 ? 'v3neg' : ''}>
+                        {delta(primary.mean_delta_logloss)}</td>
+                      <td>{primary.ci90
+                        ? `${delta(primary.ci90[0])} … ${delta(primary.ci90[1])}` : '–'}</td>
+                      <td className={diagnostic.mean_delta_logloss > 0 ? 'v3pos'
+                        : diagnostic.mean_delta_logloss < 0 ? 'v3neg' : ''}>
+                        {delta(diagnostic.mean_delta_logloss)}</td>
+                      <td>{row.data_ready
+                        ? <b className="v3pos">mängdkrav nått</b>
+                        : <span className="v3hint">samlar</span>}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!strength?.captured && (
+          <div className="v3note" style={{ marginTop: 12 }}>
+            Första datapunkterna sparas automatiskt när en kommande kupong når
+            24 timmar, 3 timmar eller 20 minuter före spelstopp och Pinnacle är
+            tillgängligt. Äldre sannolikheter fylls aldrig i efterhand.
+          </div>
+        )}
+        {!!strength && Object.keys(strength.issues || {}).length > 0 && (
+          <span className="v3hint">Bortfall: {Object.entries(strength.issues)
+            .map(([issue, n]) => `${{
+              unsupported_league: 'liga utan styrkemodell', missing_sharp: 'sharp saknas',
+              unlinked_team: 'lag ej säkert länkat', thin_history: 'för tunn historik',
+              missing_fit: 'styrkefit saknas', missing_prediction: 'prognos saknas',
+              cancelled: 'struken match',
+            }[issue] || issue} ${n}`).join(' · ')}</span>
+        )}
+        <span className="v3hint">Positiv skillnad betyder att blandningen
+          träffar bättre än Pinnacle. Ett beslut kräver minst{' '}
+          {strength?.gate?.minimum_settled_events_per_horizon ?? 300} avgjorda
+          matcher per beslutstid, minst{' '}
+          {strength?.gate?.minimum_settled_per_league ?? 30} per liga och{' '}
+          {strength?.gate?.minimum_span_days ?? 42} dagar. Därefter krävs en
+          separat systemmätning innan poolbyggaren ens kan övervägas.</span>
+      </div>
 
       {/* ------------------- forskningsspår (pool) ------------------------ */}
       {/* Flyttade från Labb 2026-08-05: ytgränsen säger Historik = pool,

@@ -174,9 +174,12 @@ class PowerRankTests(unittest.TestCase):
         self.assertTrue(rank)
         by_team = {r["team"]: r for r in rank}
         for team, row in by_team.items():
-            played = sum(1 for r in covered
-                         if team in (r["home"], r["away"]))
-            self.assertEqual(played, row["matches"])
+            xg_matches = sum(1 for r in covered
+                             if team in (r["home"], r["away"]))
+            all_matches = sum(1 for r in rows
+                              if team in (r["home"], r["away"]))
+            self.assertEqual(xg_matches, row["matches"])
+            self.assertEqual(all_matches, row["played_matches"])
             wins = sum(1 for r in covered if r["home"] == team)
             self.assertEqual(3.0 * wins, row["points"])
             self.assertAlmostEqual(row["points"] - row["xpts"],

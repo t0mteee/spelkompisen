@@ -227,7 +227,7 @@ live-Ö/U-pris. Den observerade växlingen v7→v8 är låst till sista v7-captu
 ## Kommandon
 
 ```bash
-cd backend && .venv/bin/python -B -m unittest discover -s tests   # 619 gröna
+cd backend && .venv/bin/python -B -m unittest discover -s tests   # 621 gröna
 cd backend && .venv/bin/python -B cli.py pool-tick                # settlement varje tick
 cd backend && .venv/bin/python -B cli.py live-tick                # radar
 cd backend && .venv/bin/python -B cli.py lanklucka [timmar]       # dubblettjakt
@@ -281,7 +281,7 @@ Flashscores samtliga bar xG. Island gav fyra journalförda signalögonblick.
 Ett fick kanoniskt SvS-livepris, medan tre saknade pris på grund av observerade
 namnvarianter (`ÍA`, `Gardabae`, `FH`) — stats visas, men de tre får korrekt
 inte räknas i odds-ROI. En framtida aliasfix är en identitetsändring och ska få
-egen radarversion, inte smygas in i v9. Backendtester 619, UI-tester 5, lint
+egen radarversion, inte smygas in i v9. Backendtester 621, UI-tester 5, lint
 och produktionsbygge är gröna; backend är omstartad och `/api/health` är grönt.
 
 ---
@@ -302,3 +302,114 @@ och låser svaret 19:25Z. Omgång 2597 settlades därefter genom ordinarie
 append-once-kod, PH3- och kupongfacit kördes, och den spelade kupongen fick
 10 rätt, 126 kr i publicerad utdelning och ROI −75,39 %. Inga öppna spelade
 kuponger återstår.
+
+---
+
+## 10. Autopool fanns — Historik dolde produkterna och öppna omgångars datum
+
+Frågan "har vi inga sparade Autopool-spel i dag?" visade två UI-problem, inte
+förlorad data. Den 2026-08-09 fanns **78 automatiskt frysta förslag**:
+Europatipset 2597 hade 24, och Topptipset 4256, 4257 samt Extra 1856 hade 18
+vardera. De är kontrafaktiska Autopool-förslag för utvärdering, inte kuponger
+som lämnats in. Panelen "Dina spelade kuponger" innehåller avsiktligt bara
+kuponger användaren själv markerat som spelade. Historik skiljer nu
+uttryckligen på dessa två saker.
+
+"Alla konfigurationer" visade tidigare bara de 20 högst ROI-sorterade av 132
+grupper. Därför kunde hela produkter försvinna: Europatipset hade noll rader i
+det synliga topp-20-urvalet, och Topptipsets synliga rader var bara äldre
+pensionerade grupper. Tabellen visar nu alla grupper från start; användaren
+kan själv komprimera till topp 20. En gammal lokalt sparad ROI-sortering kunde
+fortfarande lägga Europatipset långt ned och få produkten att se frånvarande
+ut. Sorteringsidentiteten är därför nollställd och grundläget visar senaste
+datum först. Kolumnen `Datum` visar det faktiska datumet för senaste omgång där
+konfigurationen sparades och kan sorteras stigande/fallande. De 24 aktiva
+Europatipset-grupperna visar 9 augusti 2026. Produktfiltret fungerar oförändrat.
+
+Datumkolumnen för enskilda Autopool-frysningar läste enbart
+`pool_draw_settlement.reg_close_time`. Öppna omgångar saknar settlementrad,
+så dagens förslag fick `–` fram till efter facit. Både Autopool-ledgern och
+spelade kuponger använder nu settlementens spelstopp när det finns och faller
+annars tillbaka på öppna omgångens `draws.reg_close_time`. Spelade kuponger
+visar ett separat omgångsdatum i arkivtabellen och på öppna livekort.
+
+Två regressionstest låser datumet före settlement. Full verifiering:
+621 backendtester, 5 UI-tester, frontend-lint och produktionsbygge gröna.
+
+---
+
+## 11. Lagstyrkans matchantal och xG-bakfyllning — 2026-08-10
+
+`10 m` i Lagstyrka betydde tidigare **10 matcher med xG**, inte Djurgårdens
+spelade ligamatcher. Modellen hade 14 resultat men bara 10 kompletta xG-par.
+API:t redovisar nu `played_matches` separat och UI-tabellen visar både
+`Spelade` och `Med xG`; den otydliga `m`-etiketten är borttagen.
+
+Grundfelet bakom luckorna var en permanent `seen`-spärr: om Sofascores
+statistiksvar var lyckat men xG ännu inte publicerat kontrollerades eventet
+aldrig igen. `MODEL_DATA_VERSION=5` gör tomma 200-svar återförsökbara,
+404 återförsökbara, endast 410 terminalt, och fortsätter säsongspagineringen även om nyaste sidan är
+helt känd. Regressionstester låser alla tre fallen. Bakfyllningsskriptet är
+fail-closed och kräver exakt en känd match med rätt liga, lag, datum ±1 och
+normaltidsresultat; exakt kanonnamn vinner före gamla alias.
+
+Skarpt återställdes 83 xG-par: Allsvenskan +24, Superettan +29, OBOS +20 och
+MLS +10. Allsvenskan 2026 är nu 125/125; övriga aktuella modellligor är också
+fulla utom Superettan 141/142 och OBOS 132/135. De fem ursprungliga färska luckorna
+kontrollerades mot båda gratisleverantörerna: Sofascore svarar just nu 404 och
+Flashscore hittar exakt match men saknar xG. En ny retry återställde därefter
+Sogndal–Bryne 0,79–1,39; de fyra återstående lämnas öppna och använder
+modellens dokumenterade mål-fallback — inga gissade värden lagras.
+
+Backup och fulla före/efter-tal finns i `docs/db-atgarder.md`. Matchantalet
+var oförändrat och SQLite-integriteten `ok`. V2.2 startar rent under manifest
+v7 från 2026-08-10T06:50:39Z (`m22-9e2d2b4b`, `f22-3d4bc5b6`); v6:s 19
+captures över 8 matcher ligger kvar orörda. Nästa assistent ska inte försöka
+fylla kvarvarande xG med modellvärden eller blanda providers fältvis.
+
+Verifierat efter omstart: 627 backendtester, 5 UI-tester, frontend-lint och
+produktionsbygge gröna; `/api/health` är `ok`. Allsvenskan 2026 i det riktiga
+API:t visar Djurgården `Spelade 14`, `Med xG 14`.
+
+---
+
+## 12. Lagstyrkan får ett isolerat poolfacit — 2026-08-10
+
+Oddsetmodellens prognoser och Lagstyrka använder redan samma `fit_league`;
+att mata tillbaka tabellen i Oddset hade därför dubbelräknat samma skattning.
+Poolbyggaren använde däremot ingen egen lagstyrka, bara marknads- och
+poolinformation. Den ändras fortfarande inte. I stället samlar
+`app/pool_strength_shadow.py` framåtriktat under det frysta manifestet
+`docs/pool-strength-forward-manifest-v1.json`.
+
+Vid en verklig h24/h3/m20-horisont och ett lyckat aktuellt Pinnacle-svar
+sparas Pinnacles devigade 1X2-vektor, modellens xG-viktade vektor och två
+linjära blandningar: 90/10 är enda kandidat, 80/20 är diagnostik. Varje
+poolmatch får en rad även när liga, sharp eller säker lagidentitet saknas, så
+täckning inte kan selekteras i efterhand. Liga och lag kräver exakt kanon eller
+explicit alias; ingen fuzzy. Avbrutna matcher faller ur facitet. Modellen
+behåller e-folding 240 dagar, halveringstid cirka 166 dagar, vilket ger den
+aktuella säsongen störst vikt utan en ny efterhandsvald parameter.
+
+`capture_due` ligger isolerad i poolvarvet: import-, fit- eller skrivfel loggas
+men kan aldrig stoppa ordinarie PIT- eller systemfrysning. Facitet joinas mot
+`pool_event_settlement`; samma match på flera produkter räknas en gång i
+aggregatet och 90 %-KI bootstrappas med unik match som block.
+
+Statusen finns i **Historik → Poolmodell** och i
+`GET /api/pool/strength-shadow` (valfritt `?product=`). Panelen visar
+observerade/eligible/avgjorda, täckning, halveringstid, bortfallsorsaker och
+loglossdifferens mot Pinnacle per horisont. Positiv differens är bättre.
+Mängdgrinden kräver 300 avgjorda per beslutshorisont, 30 per liga, minst tre
+ligor och 42 dagar. Statistiskt pass kräver dessutom nedre 90 %-KI > 0 och
+ingen liga sämre än −0,005. Även ett pass startar bara en ny, separat
+system-row-shadow — aldrig en direkt ändring av livebyggaren.
+
+Ny tabell: `pool_strength_shadow_capture`, migration
+`scripts/migrera_pool_strength_shadow.py`, backup och produktionskvitto i
+`docs/db-atgarder.md`. Första skarpa statusen är 0 rader, som väntat: ingen
+historisk rekonstruktion görs.
+
+Verifierat: 633 backendtester, 5 UI-tester, frontend-lint och
+produktionsbygge gröna. Aktiv modellversion `m-a6a54189`, fryst
+shadowversion `ps-59893bd6`.

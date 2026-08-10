@@ -33,7 +33,7 @@ from .pool_mc import materialize_system_rows, simulate_pool_portfolio
 from . import sharp_service
 from .pinnacle import Pinnacle
 from .storage import Storage
-from .svenskaspel import SvenskaSpel, draw_to_dict, GAME_GROUPS
+from .svenskaspel import SvenskaSpel, draw_to_dict, GAME_GROUPS, PRODUCTS
 
 app = FastAPI(title="Spelkompisen", version="0.1.0")
 app.add_middleware(
@@ -487,6 +487,19 @@ def pool_systems():
     store = Storage()
     try:
         return pool_system_ledger.summary(store)
+    finally:
+        store.close()
+
+
+@app.get("/api/pool/strength-shadow")
+def pool_strength_shadow_report(product: str | None = None):
+    """Pinnacle mot 90/10- och 80/20-styrkeblend; påverkar inga system."""
+    from . import pool_strength_shadow
+    if product is not None and product not in PRODUCTS:
+        raise HTTPException(400, f"okänd poolprodukt: {product}")
+    store = Storage()
+    try:
+        return pool_strength_shadow.report(store, product=product)
     finally:
         store.close()
 

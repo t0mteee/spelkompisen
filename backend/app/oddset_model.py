@@ -753,10 +753,17 @@ def powerrank(results: list[dict], fit: Optional[dict] = None,
     teams = fit.get("teams") or {}
     agg: dict[str, dict] = {}
     seen: dict[str, int] = {}          # xG-matcher i HELA historiken
+    played: dict[str, int] = {}        # verkligt spelade i valt säsongsurval
     for row in results:
         if league and row.get("league") != league:
             continue
         hg, ag = row.get("hg"), row.get("ag")
+        if hg is not None and ag is not None and (
+                not season or season_of(row.get("date") or "",
+                                        row.get("league")) == season):
+            for team in (row.get("home"), row.get("away")):
+                if team:
+                    played[team] = played.get(team, 0) + 1
         xg_h, xg_a = row.get("xg_h"), row.get("xg_a")
         if hg is None or ag is None or xg_h is None or xg_a is None:
             continue
@@ -816,6 +823,7 @@ def powerrank(results: list[dict], fit: Optional[dict] = None,
             "ratio": round(strength["att"] / max(strength["def"], 1e-6), 3),
             # samtliga kolumner nedan mäts på SAMMA matcher: de med xG
             "matches": v["matches"],
+            "played_matches": played.get(team, v["matches"]),
             "goal_diff": v["gf"] - v["ga"],
             "points": round(v["pts"], 1),
             "xpts": round(v["xpts"], 1),

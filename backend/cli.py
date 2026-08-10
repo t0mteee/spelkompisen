@@ -222,6 +222,19 @@ def _pool_pit_freeze(store: Storage, ss: SvenskaSpel, product: str, draw,
         if sharp_result:
             pool_dataset.record_sharp_capture(
                 store, product, draw, sharp_result)
+        # Shadowspåret får ALDRIG stoppa den ordinarie PIT-/systemfrysningen.
+        # Import, modellfit och skrivning isoleras därför från PH2/PH3-flödet.
+        try:
+            from app import pool_strength_shadow
+            strength = pool_strength_shadow.capture_due(
+                store, product, draw, sharp_result)
+            if strength.get("captured"):
+                print(f"{product} omg {draw.draw_number}: "
+                      f"{strength['captured']} styrke-shadowrader "
+                      f"({strength['horizon']}, "
+                      f"{strength['eligible']} eligible).")
+        except Exception as e:  # noqa: BLE001 — shadow får aldrig fälla system
+            print(f"{product}: styrke-shadow hoppade över ({e})")
         jackpot_source = "missing"
         jackpot = None
         try:

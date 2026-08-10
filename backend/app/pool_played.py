@@ -558,13 +558,24 @@ def settle(store: Storage, coupon: dict, tiers: dict[int, tuple]) -> dict:
 
 def open_coupons(store: Storage) -> list[dict]:
     return [dict(r) for r in store.conn.execute(
-        "SELECT * FROM pool_played_coupon WHERE settled_at IS NULL "
-        "ORDER BY played_at DESC")]
+        "SELECT c.*, COALESCE(s.reg_close_time, d.reg_close_time) AS draw_close "
+        "FROM pool_played_coupon c "
+        "LEFT JOIN pool_draw_settlement s "
+        "ON s.product=c.product AND s.draw_number=c.draw_number "
+        "LEFT JOIN draws d "
+        "ON d.product=c.product AND d.draw_number=c.draw_number "
+        "WHERE c.settled_at IS NULL ORDER BY c.played_at DESC")]
 
 
 def all_coupons(store: Storage, limit: int = 100) -> list[dict]:
     return [dict(r) for r in store.conn.execute(
-        "SELECT * FROM pool_played_coupon ORDER BY played_at DESC LIMIT ?",
+        "SELECT c.*, COALESCE(s.reg_close_time, d.reg_close_time) AS draw_close "
+        "FROM pool_played_coupon c "
+        "LEFT JOIN pool_draw_settlement s "
+        "ON s.product=c.product AND s.draw_number=c.draw_number "
+        "LEFT JOIN draws d "
+        "ON d.product=c.product AND d.draw_number=c.draw_number "
+        "ORDER BY c.played_at DESC LIMIT ?",
         (int(limit),))]
 
 

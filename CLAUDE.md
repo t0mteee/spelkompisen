@@ -29,13 +29,14 @@ det oförändrade bokpriset återobserverats efter Pinnacles senaste prisändrin
 vanlig färskhet eller ett gammalt cachepris räcker inte.
 Den underkända V2.1 är fortsatt vilande. Ett separat V2.2-experiment samlar
 Allsvenskan + Premier League/Serie A/La Liga/Bundesliga med WP9c
-i isolerad sharp-identitetskontroll. **Aktuellt fryst kontrakt är manifest v6**
-från 2026-08-07T14:20Z:
-`docs/model-v2.2-multileague-forward-manifest-v6.json`. V1/v2 är historik;
+i isolerad sharp-identitetskontroll. **Aktuellt fryst kontrakt är manifest v7**
+från 2026-08-10T06:50:39Z:
+`docs/model-v2.2-multileague-forward-manifest-v7.json`. V1/v2 är historik;
 v3 hann få 0 captures innan ett ofullständigt aliasfingeravtryck upptäcktes
 och ersattes; v4 bar 12 rader/2 avgjorda när de fyra Europaligornas
 lagnamnsalias utökades inför xG-bakfyllningen; v5 bar 1 rad/0 avgjorda när
-ClubElo-identiteten rättades och kalibreringen utökades. En ny kalibrering
+ClubElo-identiteten rättades och kalibreringen utökades; v6 bar 19 rader/8
+matcher när xG-retryn rättades (`MODEL_DATA_VERSION=5`). En ny kalibrering
 räknas som ändrad datagenererande process — `model_source_version` bär
 T per liga. Manifestets EGEN `change_policy` kräver då
 ett nytt manifest — en aliasändring i en liga som ingår i V2.2:s FIT_POOLS
@@ -108,6 +109,13 @@ forward-gate. Det samlar
 data utan bakfyllning och påverkar ännu inte runtimeförslag. Nästa steg är att
 auditera de första riktiga v3-horisonterna, systemfrysningarna och settlementen;
 se `docs/pool-pit-v3-2026-07-25.md`.
+Ett separat `pool-strength-blend-v1` samlar från 2026-08-10 under
+`docs/pool-strength-forward-manifest-v1.json`: Pinnacle är orörd baslinje,
+90/10 Pinnacle/lagstyrka är enda kandidat och 80/20 är diagnostik. En rad
+fryses per match vid h24/h3/m20, även vid bortfall; ingen historisk
+rekonstruktion och inga system ändras. Status visas i **Historik → Poolmodell**
+och API:t är `/api/pool/strength-shadow`. Modellversion, timing, identitet,
+blend eller gate ändras aldrig inne i samma manifest/shadowversion.
 
 **Relationen till syskonprojekten:**
 - `/Users/saman/svs` (SvS kompisen, portar 8000/5173) — ursprunget, **FRYST ARKIV sedan
@@ -300,6 +308,8 @@ frontend/ React + Vite, mörkt tema. src/AppV3.jsx + AppV3.css är APPEN
   PH4-κ-fönster flyttades därför till Historik, och PH3-kortet togs bort ur
   Labb (det dubblerade Historikens Systemfacit). Historik har EN produktväljare
   överst som styr hela sidan — kuponger, systemfacit, prognos och omsättning.
+  Det gäller även poolens styrkemodell-shadow: dess täckning, logloss mot
+  Pinnacle och grind ligger i Historik → Poolmodell, aldrig i Labb.
   Långa tabeller visar 20 rader med "visa alla". Ingen parameter göms i en
   nyckelsträng: budget, strategi och värdevikt är egna kolumner. Horisonter
   visas i minuter (180/20), aldrig som `h3`/`m20`. Se
@@ -801,7 +811,9 @@ måste Saman lägga in en Bash-behörighetsregel — se
   Allt detta är **AMBER**: uppmätt förutsäger modellen inte Pinnacles drift
   till stängning (r = −0,120, 90 % KI [−0,252, +0,034]), så ranken får inte
   ge stödchip, lyfta ett spelkort eller påverka edge, urval eller notiser.
-  Ska den bli actionable krävs egen förregistrering och grind.
+  Poolens nya styrkeblend är därför ett isolerat facitspår, inte ett undantag:
+  den får först mäta 90/10 mot Pinnacle och därefter passera en separat
+  system-shadow innan byggaren ens kan övervägas.
   Jämförbara listor använder EN `SortableTable`: rubrikklick på desktop,
   sortval + samma kortordning på mobil. Matcher-flikens persisterade
   Dölj/Visa startade-filter får inte filtrera Live eller signalflikarna.

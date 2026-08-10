@@ -114,8 +114,10 @@ ABSENCE_START_TOLERANCE_MIN = 30
 # inte av providerstatistikens modellv4 och behåller därför dataversion 3.
 DATA_VERSION = 3
 # Målmodellens resultatsammanslagning: 4 = separat providerobservation,
-# Flashscore→Sofascore→football-data/legacy och aldrig fältvis källblandning.
-MODEL_DATA_VERSION = 4
+# Flashscore→Sofascore→football-data/legacy och aldrig fältvis källblandning;
+# 5 = ett lyckat men ännu xG-tomt Sofa-svar är inte terminalt och får läkas
+# vid senare varv/bakfyllning. Modellindatan kan ändras, alltså ny version.
+MODEL_DATA_VERSION = 5
 # missingPlayers-orsakskoder (Sofascore): observerade typer
 _ABS_REASON = {0: "annat", 1: "skada", 2: "tveksam", 3: "avstängd",
                11: "avstängd", 12: "avstängd", 13: "avstängd"}
@@ -311,6 +313,25 @@ def _xg_is_measured(row: dict) -> bool:
     return not ((hg > 0 and xh == 0) or (ag > 0 and xa == 0))
 
 
+def _sofa_xg_complete(store: Storage, row: dict, event_id) -> bool:
+    """Har exakt Sofa-identitet redan ett komplett, giltigt xG-par?
+
+    Event-id saknas på äldre migrerade observationer. Därför räcker antingen
+    provider-id ELLER ligans exakta Sofa-normaliserade matchnyckel. Ingen
+    fuzzy-/datumtolerans används i skrivvägen.
+    """
+    found = store.conn.execute(
+        "SELECT xg_h, xg_a, final_home_score, final_away_score "
+        "FROM oddset_result_stats WHERE provider='sofascore' "
+        "AND (provider_event_id=? OR (league=? AND date=? AND home=? AND away=?)) "
+        "AND xg_h IS NOT NULL AND xg_a IS NOT NULL",
+        (str(event_id), row["league"], row["date"], row["home"], row["away"]),
+    ).fetchall()
+    return any(_xg_is_measured({
+        "xg_h": r[0], "xg_a": r[1], "hg": r[2], "ag": r[3],
+    }) for r in found)
+
+
 def _ingest_event(store: Storage, lg: str, e: dict,
                   results_only: bool = False) -> bool:
     """Spara ett avslutat Sofascore-event (resultat + xG + hörnor).
@@ -329,8 +350,6 @@ def _ingest_event(store: Storage, lg: str, e: dict,
     if e.get("status", {}).get("type") != "finished":
         return False
     eid = e["id"]
-    if store.meta_get(f"oddset_sofa_seen:{eid}"):
-        return False
     date = dt.datetime.fromtimestamp(
         e["startTimestamp"], dt.timezone.utc).strftime("%Y-%m-%d")
     # normaltime, inte current: för slutspel/cup inkluderar current straffar
@@ -345,13 +364,30 @@ def _ingest_event(store: Storage, lg: str, e: dict,
            "hg": hs.get("normaltime", hs.get("current")),
            "ag": as_.get("normaltime", as_.get("current")),
            "source": "sofa"}
+    seen_key = f"oddset_sofa_seen:{eid}"
+    terminal_key = f"oddset_sofa_stats_terminal:{eid}"
+    terminal_status = store.meta_get(terminal_key)
+    if store.meta_get(seen_key):
+        if results_only or terminal_status == "410":
+            return False
+        # En gammal `seen` bevisar bara att resultatet behandlades. Före v5
+        # skrevs markören även när ett 200-svar ännu saknade xG, vilket gjorde
+        # luckan permanent. Bara ett faktiskt komplett par får stoppa retry.
+        if _sofa_xg_complete(store, row, eid):
+            return False
+    # v5:s första iteration behandlade även 404 som permanent. För nyss
+    # avslutade matcher betyder 404 ofta bara att statistikdokumentet inte
+    # publicerats än. Gamla 404-markörer får därför självläka vid nästa varv.
+    if terminal_status == "404":
+        store.meta_delete(terminal_key)
     # Basresultatet ska inte gå förlorat bara för att detaljstatistiken ligger
     # nere; en senare lyckad detaljhämtning får en egen providerobservation.
     store.oddset_save_result(row)
     if results_only:
-        store.meta_set(f"oddset_sofa_seen:{eid}", row["date"])
+        store.meta_set(seen_key, row["date"])
         return True
     time.sleep(1.1)
+    missing_status = 200
     try:
         payload = _sofa_get(f"/event/{eid}/statistics")
     except Exception as exc:  # noqa: BLE001 — 403/429/5xx ska försökas igen
@@ -371,7 +407,10 @@ def _ingest_event(store: Storage, lg: str, e: dict,
                 "status": status,
             }))
             return False
-        payload = {}  # permanent avsaknad: resultatet är komplett utan stats
+        payload = {}  # resultatet är komplett även om stats saknas
+        missing_status = status
+        if status == 410:
+            store.meta_set(terminal_key, str(status))
 
     stats = payload.get("statistics") or []
     groups = (stats[0].get("groups", []) if stats else [])
@@ -394,8 +433,28 @@ def _ingest_event(store: Storage, lg: str, e: dict,
             e["startTimestamp"], dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     })
     store.oddset_save_result(row)
-    store.meta_delete(f"oddset_sofa_retry:{eid}")
-    store.meta_set(f"oddset_sofa_seen:{eid}", row["date"])
+    if row.get("xg_h") is not None and row.get("xg_a") is not None:
+        store.meta_delete(f"oddset_sofa_retry:{eid}")
+        store.meta_delete(terminal_key)
+    elif not store.meta_get(terminal_key):
+        # Ett 200-svar kan komma innan providern publicerat slutstatistiken.
+        # Bevara resultatraden men lämna xG öppet för nästa varv.
+        retry_key = f"oddset_sofa_retry:{eid}"
+        try:
+            attempts = int(json.loads(store.meta_get(retry_key) or "{}").get(
+                "attempts", 0))
+        except (ValueError, TypeError):
+            attempts = 0
+        store.meta_set(retry_key, json.dumps({
+            "attempts": attempts + 1,
+            "last_at": _now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "error": ("missing_statistics_endpoint" if missing_status == 404
+                      else "missing_xg_in_successful_response"),
+            "status": missing_status,
+        }))
+    else:
+        store.meta_delete(f"oddset_sofa_retry:{eid}")
+    store.meta_set(seen_key, row["date"])
     return True
 
 
@@ -466,8 +525,9 @@ def refresh_xg(store: Storage, force: bool = False) -> dict:
                     break
                 new_on_page = sum(_ingest_event(store, lg, e) for e in evs)
                 n_new += new_on_page
-                if new_on_page == 0:
-                    break   # hela sidan redan känd -> äldre sidor också
+                # En ny sida kan vara helt känd samtidigt som en äldre sida
+                # bär en xG-lucka. v4:s tidiga break gjorde sådana luckor
+                # permanenta; det fasta sidtaket begränsar redan trafiken.
         except Exception as e:  # noqa: BLE001
             out[lg] = f"fel: {e}"
             continue

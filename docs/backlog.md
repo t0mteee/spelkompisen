@@ -1,6 +1,6 @@
 # Backlog — aktuell prioritering
 
-**Skapad 2026-07-26, status uppdaterad 2026-08-09 — aktiv arbetslista
+**Skapad 2026-07-26, status uppdaterad 2026-08-10 — aktiv arbetslista
 i "MODELLPLAN" längst ned; arbetsordningen där kräver Samans godkännande.**
 Detta är projektets enda aktiva backlog. `docs/forbattringar.md` är arkiv (svs-ärvda lärdomar + bokkälls-
 kartläggningen), WP-listan i `docs/plan.md` är historik över avslutat arbete.
@@ -9,8 +9,36 @@ Metodreglerna i `CLAUDE.md` (observationstid, ANKARE ≠ BOK, transportregeln,
 signalversions-disciplin, källgränsen) gäller varje punkt nedan och upprepas
 inte per rad.
 
-## 2026-08-09 — senast levererat
+## 2026-08-10 — senast levererat
 
+- **✅ Poolens lagstyrka mäts nu säkert mot Pinnacle.** Ett isolerat
+  forwardspår fryser h24/h3/m20 för 90/10 Pinnacle/lagstyrka, med 80/20 och
+  ren modell som diagnostik. Aktuell säsong väger mest genom modellens
+  kontinuerliga 240-dagars e-folding (cirka 166 dagars halveringstid).
+  Bortfall sparas lika synligt som lyckade länkar; inga gamla sannolikheter
+  fylls i och inga poolsystem påverkas. Följ under Historik → Poolmodell.
+  Förregistrering: `docs/pool-strength-forward-manifest-v1.json`.
+- **✅ xG-luckor återhämtade och räknaren förtydligad.** 83 xG-par
+  bakfylldes säkert i Allsvenskan, Superettan, OBOS och MLS utan att en enda
+  match lades till eller skrevs om. Allsvenskan 2026 är nu 125/125. Tomma
+  lyckade statistik-svar återförsöks i stället för att spärras permanent,
+  äldre säsongssidor nås och exakt kanonnamn vinner före alias. Alla andra
+  aktuella modellligor kontrollerades; fyra färska matcher saknar xG hos både
+  Sofascore och Flashscore och lämnas ärligt saknade. Lagstyrka skiljer nu
+  `Spelade` från `Med xG`. Modellens datakontrakt är v5 och V2.2 samlar rent
+  under manifest v7.
+
+## 2026-08-09 — tidigare levererat
+
+- **✅ Autopool-historiken visar hela underlaget och rätt omgångsdatum.**
+  Dagens 78 frysta förslag fanns i ledgern; de såg ut att saknas eftersom
+  "Alla konfigurationer" i praktiken var en global ROI-topp-20 som kunde
+  dölja hela produkter. Alla 132 grupper visas nu från start, med frivillig
+  topp-20-komprimering. En sorterbar `Datum`-kolumn visar senaste kupongdatum
+  per grupp och tabellen öppnas med nyaste datum först. UI:t skiljer automatiskt
+  sparade förslag från kuponger
+  som användaren markerat som spelade, och båda visar omgångens spelstoppsdatum
+  redan före settlement genom fallback till öppna `draws`-raden.
 - **✅ Europatipsets tvåtimmarsfördröjning rättad.** Omgång 2597 var
   finaliserad med publicerad utdelning men visades som väntande. Senaste
   matchens `19:15+02` hade formaterats direkt med `Z`, så omprövningen blev

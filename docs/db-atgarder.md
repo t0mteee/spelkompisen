@@ -8,6 +8,84 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-08-10 — poolens lagstyrke-shadow (additiv, tom forwardtabell)
+
+**Backup:** `data/backups/stryktips-2026-08-10-fore-pool-strength-shadow.db`
+(`sqlite3.backup()`, skapad innan någon skarp capture).
+
+**Skript:** `scripts/migrera_pool_strength_shadow.py` (idempotent).
+
+Ny tabell `pool_strength_shadow_capture` har 28 kolumner och primärnyckel
+produkt × omgång × horisont × event × shadowversion. Den lagrar Pinnacle,
+modell, 90/10- och 80/20-vektorer vid verkliga h24/h3/m20-observationer.
+Ingen historik bakfylldes. Första produktionsläget är därför **0 rader**.
+
+Processavvikelse, öppet dokumenterad: tabellen hann skapas tom av
+`Storage.__init__` när den nya schemakonstanten verifierades, innan det
+dedikerade migrationsskriptet kördes. Ingen capture eller annan datamutation
+hade skett. Backupen togs därefter före första möjliga skarpa capture och
+migrationen validerade den redan existerande tabellens exakta schema/PK.
+Skyddade radantal var oförändrade: `snapshots` 132 249,
+`sharp_snapshots` 42 838, `pool_event_settlement` 76 938 och
+`pool_system_ledger` 357. `PRAGMA integrity_check=ok` och
+`foreign_key_check` gav 0 fel. Framtida nya scheman ska migreras innan någon
+produktions-`Storage()` öppnas.
+
+---
+
+## 2026-08-10 — xG-luckor återhämtade utan nya matcher
+
+**Backup:** `data/backups/stryktips-2026-08-10-fore-xg-luckor.db`
+(`sqlite3.backup()` före första skarpa körningen).
+
+### Orsak och kodfix
+
+`oddset_sofa_seen:<event-id>` sattes efter ett lyckat event/resultatanrop även
+när statistik-endpointen svarade 200 men ännu inte innehöll xG. Alla senare
+varv hoppade över eventet för alltid. Dessutom avbröt `refresh_xg` en säsong
+så fort den nyaste sidan bara innehöll redan kända resultat, trots att äldre
+sidor kunde innehålla luckor.
+
+`MODEL_DATA_VERSION` är nu 5. Ett lyckat men xG-tomt svar får en beständig
+retrymarkör och kontrolleras igen; 404 återförsöks och endast 410 är terminalt. En fullständig
+provider-xG-rad hoppas fortfarande över. Sidbläddringen fortsätter till
+källans slut/hårda sidgräns. Bakfyllningsskriptet använder samma
+identitetsordning som modelläsningen: exakt kanonnamn vinner före alias. Det
+rättade tre IFK Göteborg-matcher som ett gammalt alias annars mappade bort.
+
+### Skarp bakfyllning
+
+`scripts/backfill_xg_ligor.py` kördes med `--skarpt` mot redan kända resultat.
+En rad fick bara fyllas när liga, verifierad lagidentitet, datum ±1 dygn och
+normaltidsresultat gav exakt en träff. Inga nya matcher importerades och
+befintlig provider-xG skrevs inte över.
+
+| Liga | xG före | xG efter | senaste säsong efter |
+|---|---:|---:|---:|
+| Allsvenskan | 584/609 | **608/609** | **125/125** |
+| Superettan | 599/630 | **628/630** | 141/142 |
+| OBOS-ligaen | 597/623 | **617/623** | 132/135 |
+| MLS | 1092/1331 | **1102/1331** | **269/269** |
+
+Totalt återställdes **83 xG-par**. Matchantalen var exakt oförändrade i varje
+liga och `PRAGMA integrity_check` gav `ok` efter samtliga körningar.
+
+Den sista färska Superettan-matchen och först fyra färska OBOS-matcher matchades
+även entydigt mot Flashscore, men ingen av de två leverantörerna publicerade
+xG för dem. Vid nästa Sofa-retry hade Sogndal–Bryne fått 0,79–1,39 och läkte
+automatiskt. De återstående fyra (Sofascore 404 just nu; Flashscore matchad
+men xG saknas) lämnas därför
+öppet saknade; inga uppskattade värden skrivs som observationer. Samtliga
+andra aktuella modellligor är 100 % kompletta. Äldre kvarvarande luckor är
+Allsvenskan 1, Bundesliga 1, Eliteserien 1, Superettan 1, OBOS 2 och MLS 229;
+modellen använder sin dokumenterade mål-fallback där, inte fabricerad xG.
+
+V2.2:s datagenererande process ändrades och startar därför rent under
+`docs/model-v2.2-multileague-forward-manifest-v7.json`; v6:s 19 rader/8
+matcher ligger kvar orörda som historik.
+
+---
+
 ## 2026-08-07 — xG-bakfyllning för Europaligorna + skotska rader ur La Liga
 
 **Backup:** `data/backups/stryktips-2026-08-07-fore-xg-backfill-europa.db`

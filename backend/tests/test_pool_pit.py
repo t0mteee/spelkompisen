@@ -429,7 +429,18 @@ class SystemLedgerTests(unittest.TestCase):
         self.assertEqual("topptipset", group["product"])
         self.assertEqual(1, group["n_evaluable"])
         self.assertTrue(group["primary"])
+        self.assertEqual("2026-07-24T10:00:00Z", group["latest_frozen"])
         self.assertAlmostEqual((5000 / 11) / 2.0 - 1, group["roi"], places=1)
+
+    def test_recent_far_spelstopp_fran_oppen_draw_fore_settlement(self):
+        self._freeze_fixture()
+        close = "2026-08-09T21:29:00+02:00"
+        self.store.conn.execute(
+            "INSERT INTO draws (product, draw_number, state, reg_close_time) "
+            "VALUES ('topptipset', 100, 'Open', ?)", (close,))
+        self.store.conn.commit()
+        recent = pool_system_ledger.summary(self.store)["recent"]
+        self.assertEqual(close, recent[0]["close"])
 
 
 if __name__ == "__main__":
