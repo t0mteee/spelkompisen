@@ -9,6 +9,18 @@ Metodreglerna i `CLAUDE.md` (observationstid, ANKARE ≠ BOK, transportregeln,
 signalversions-disciplin, källgränsen) gäller varje punkt nedan och upprepas
 inte per rad.
 
+## 2026-08-10 — nästa uppgift (störst kvarvarande vinst)
+
+- **Avbryt föregående vys hämtningar vid vybyte.** Startvägens kvarvarande
+  kostnad är samtidighet, inte enskild långsamhet: varje endpoint är 20–180 ms
+  ensam men 1 500–1 800 ms när 43 anrop startar samtidigt. Appen öppnas på
+  Idag, vars ~400 kB är i luften när användaren trycker Oddset, och Oddsets
+  anrop ställer sig i kö bakom dem. Förslag: `AbortController` per vy i
+  `AppV3`:s `get`/`getDetail` — vyerna är redan gatade, det som saknas är att
+  stoppa det som redan skickats. **Lägg inte till fler cachar för det här;
+  serversidan är klar.** Baslinje, mätmetod och invarianter i
+  `docs/overlamning-2026-08-10-prestanda.md`.
+
 ## 2026-08-10 — senast levererat
 
 - **✅ Poolens lagstyrka mäts nu säkert mot Pinnacle.** Ett isolerat

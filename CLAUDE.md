@@ -44,7 +44,10 @@ ett nytt manifest — en aliasändring i en liga som ingår i V2.2:s FIT_POOLS
 datagenererande process. Äldre manifest blandas aldrig in. Det är inte en
 tränad modell och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
-`docs/overlamning-2026-08-09.md` (LÄS FÖRST) — settlementens omprövningstid,
+`docs/overlamning-2026-08-10-prestanda.md` — startvägens prestanda
+(4 268 → 945 ms), vad som är cachat och varför, samt den kvarvarande posten:
+43 samtidiga startanrop som ska avbrytas vid vybyte, inte cachas bort.
+Därefter `docs/overlamning-2026-08-09.md` — settlementens omprövningstid,
 ensidig träningsmatchslänkning, jackpotläckan mellan produkter, b1024 ur
 Topptipset-familjen och det TYSTA bortfallet av Topptipset Dagens (fem dygn
 utan insamling). Föregående överlämning
