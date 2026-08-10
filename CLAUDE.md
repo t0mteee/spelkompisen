@@ -529,6 +529,38 @@ testerna var gröna. **En parse som misslyckas på 200 är ett transportfel
 tills motsatsen är bevisad** — kontrollera `content-encoding` innan du drar
 slutsatsen att sidan ändrats eller källan blockerar.
 
+### ⚡ MODELLFITTEN CACHAS — rör inte numeriken för att vinna tid
+
+`oddset_model.cached_fit()`/`cached_results()` är ENDA vägen till en ligafit i
+ett HTTP-svar. Fitten refittades tidigare per request: profilen på
+`/api/oddset/matches` visade `attach_model` 1,087 s av 1,331 s (82 %), och
+`powerrank?league=all` byggde ELVA egna fits (2,2 s) parallellt med
+matchhämtningen. Underlaget ändras bara när varvet skriver nya resultat.
+
+Nyckeln är `(db_path, resultat-datastämpel, dagens datum)` + 5 min TTL.
+Databasen MÅSTE ingå — två tomma DB:er ger annars samma fingeravtryck och
+delar fit. TTL:n är skyddsnät: stämpeln fångar tillägg, inte uppdateringar på
+plats. Modellen är amber, så minuters inaktualitet kostar inget.
+
+Optimera ALDRIG `_anchor_total`/`dc_matrix` genom att ändra konvergens eller
+iterationer — det ändrar modellens utdata, alltså `model_version`, och
+nollställer dess facitgrupp. Cachning är gratis; numerik är det inte.
+
+**`UI_HIDDEN_SOURCES`** (oddset.py) döljer källor i API-payloaden — i dag
+`smarkets`, som varken är spelbar bok eller ankare sedan 2026-08-07 och kostade
+116 kB (10 %) per listhämtning. Att DÖLJA är inte att AVSPÄRRA: spärren i
+`ANCHOR_SOURCES` står kvar, insamlingen fortsätter för promotionsregeln, och
+den INTERNA payloaden till WP5-ledgern strippas aldrig (det vore en ändrad
+förregistrerad process). Låst av
+`test_dold_kalla_forsvinner_ur_api_men_inte_ur_ledgerns_payload`.
+
+**Dev-servern dubbelkör allt.** `<StrictMode>` + `npm run dev` gör att varje
+effekt körs två gånger, så Oddset-vyn hämtar matcher, powerrank, notiser och
+radar TVÅ gånger vid mount. Uppmätt första paint: 2 110 ms på dev mot
+**1 094 ms på den byggda bunten** (`npx vite preview --port 5176`, proxy finns
+i vite.config). Ta med det innan du jagar en frontendbugg som är ett
+dev-artefakt.
+
 ### 🎯 ANKARE ≠ BOK
 
 `BOOKS` i oddset.py styr INSAMLINGEN. `oddset_value.ANCHOR_SOURCES` styr

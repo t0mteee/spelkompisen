@@ -422,6 +422,50 @@ class ResearchLeagueIsolationTests(unittest.TestCase):
         )
         self.assertNotIn("odds", payload["matches"][0])
 
+    def test_dold_kalla_forsvinner_ur_api_men_inte_ur_ledgerns_payload(self) -> None:
+        """Smarkets döljs i UI:t (2026-08-10) — den är varken spelbar bok eller
+        ankare sedan andra ankaret kopplades bort, och kostade 116 kB per
+        listhämtning.
+
+        Att DÖLJA är inte att AVSPÄRRA. Två saker måste överleva: spärren i
+        `ANCHOR_SOURCES` (utan den blir Smarkets en spelbar bok igen — 184 av
+        476 felaktiga flaggor 2026-07-25) och den interna payloaden som WP5-
+        ledgern fryser. Strippas den internt ändras en förregistrerad
+        datagenererande process.
+        """
+        from app.oddset_value import ANCHOR_SOURCES
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            now = dt.datetime.now(dt.timezone.utc)
+            start = (now + dt.timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+            try:
+                store.oddset_upsert_match({
+                    "id": "hidden", "league": "allsvenskan",
+                    "home": "A", "away": "B", "start": start,
+                })
+                for source in ("pinnacle", "smarkets"):
+                    store.oddset_save_odds(
+                        "hidden", source, {"1": 2.0, "X": 3.5, "2": 4.0}, at)
+                api = oddset.matches_payload(
+                    store, light=True, compact_movement=True,
+                    hide_sources=oddset.UI_HIDDEN_SOURCES)
+                internal = oddset.matches_payload(
+                    store, light=True, compact_movement=True)
+            finally:
+                store.close()
+
+        api_row = next(m for m in api["matches"] if m["id"] == "hidden")
+        self.assertNotIn("smarkets", api_row["odds"])
+        self.assertNotIn("smarkets", api_row.get("movement") or {})
+        self.assertIn("pinnacle", api_row["odds"])      # övriga rörs inte
+
+        internal_row = next(m for m in internal["matches"] if m["id"] == "hidden")
+        self.assertIn("smarkets", internal_row["odds"])
+
+        # Säkerhetsspärren är en HELT annan sak än visningen.
+        self.assertIn("smarkets", ANCHOR_SOURCES)
+
     def test_compact_list_omits_raw_points_and_client_unused_presence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = Storage(Path(tmp) / "test.db")

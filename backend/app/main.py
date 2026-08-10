@@ -809,7 +809,8 @@ def oddset_matches(light: bool = False, compact: bool = False,
     try:
         return oddset_mod.matches_payload(
             store, light=light, compact_movement=compact,
-            include_movement=movement, limit=limit)
+            include_movement=movement, limit=limit,
+            hide_sources=oddset_mod.UI_HIDDEN_SOURCES)
     finally:
         store.close()
 
@@ -885,10 +886,13 @@ def oddset_powerrank(league: str = "allsvenskan", season: str | None = None):
                 pool = oddset_model.FIT_POOLS.get(lg, (lg,))
                 rows, names = [], []
                 for plg in pool:
-                    rows.extend(oddset_data.merged_results(store, plg))
+                    rows.extend(oddset_model.cached_results(store, plg))
                     names.extend(store.oddset_team_names(plg))
-                out[lg] = oddset_model.powerrank(rows, league=lg,
-                                                 odds_names=names)
+                # Fitten ur den DELADE cachen — elva egna fits i ett anrop tog
+                # 2,2 s och låg parallellt med matchhämtningen.
+                out[lg] = oddset_model.powerrank(
+                    rows, fit=oddset_model.cached_fit(store, pool),
+                    league=lg, odds_names=names)
             return {"league": "all", "tier": "amber",
                     "version": oddset_model.POWERRANK_VERSION,
                     "by_league": out}
@@ -896,7 +900,7 @@ def oddset_powerrank(league: str = "allsvenskan", season: str | None = None):
         rows: list[dict] = []
         names: list[str] = []
         for plg in pool:
-            rows.extend(oddset_data.merged_results(store, plg))
+            rows.extend(oddset_model.cached_results(store, plg))
             names.extend(store.oddset_team_names(plg))
         # Bara säsonger som HAR xG kan väljas: tabellen räknar uteslutande på
         # xG-täckta matcher, så en säsong utan xG skulle ge en tom vy och se
@@ -909,7 +913,8 @@ def oddset_powerrank(league: str = "allsvenskan", season: str | None = None):
         }, reverse=True)
         if season and season not in seasons:
             season = None
-        rank = oddset_model.powerrank(rows, league=league, season=season,
+        rank = oddset_model.powerrank(rows, fit=oddset_model.cached_fit(store, pool),
+                                      league=league, season=season,
                                       odds_names=names)
         return {
             "league": league,

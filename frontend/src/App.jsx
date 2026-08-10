@@ -750,7 +750,7 @@ function OddsetLegend() {
           <div><b>Raderna i varje oddscell</b> — <b>stort odds</b> = Svenska Spels primärrad ·
             <b> P</b> = Pinnacle, världens skarpaste bok = vår referens för
             "sant" pris (<b>P~</b> = härlett ur handikapp när 1X2 inte öppnats) ·
-            <b> S</b> = Smarkets (andra sharp-ankaret) · <b>E</b> = Expekt ·
+            <b> E</b> = Expekt ·
             <b> N</b> = Ninja/Altenar (1X2, Ö/U och hörnor när de finns) ·
             <b> M</b> = vår egen modell (amber, se nedan). Slå på <b>+ Fler odds</b>
             för att visa de spelbara sidoböckerna.</div>
@@ -1357,7 +1357,6 @@ function OddsetView({ focus = null } = {}) {
   const cell1x2 = (m, sign) => {
     const svs = m.odds?.svenskaspel?.['1x2']
     const pin = m.odds?.pinnacle?.['1x2']
-    const smarkets = m.odds?.smarkets?.['1x2']
     const mv = m.movement?.svenskaspel?.['1x2']?.[sign]
     const mvP = m.movement?.pinnacle?.['1x2']?.[sign]
     const v = m.value?.['1x2']?.[sign]
@@ -1374,11 +1373,6 @@ function OddsetView({ focus = null } = {}) {
         {pin?.[sign] && (
           <div className={quoteClass('p', pin)} title={mvP?.pts?.length > 1 ? `Pinnacle:\n${serie(mvP)}` : 'Pinnacle (sharp)'}>
             P{pin.derived ? '~' : ''} {pin[sign].toFixed(2)}{arrow(mvP)}{priceStamp(pin)}
-          </div>
-        )}
-        {smarkets?.[sign] && (
-          <div className={quoteClass('p', smarkets)} title="Smarkets börs-mid · oberoende sharp-ankare">
-            S {smarkets[sign].toFixed(2)}{priceStamp(smarkets)}
           </div>
         )}
         {showBooks && [['expekt', 'E', 'Expekt'], ['ninjacasino', 'N', 'Ninja/Altenar']].map(([bk, tag, label]) => {

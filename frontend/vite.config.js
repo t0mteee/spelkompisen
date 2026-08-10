@@ -14,4 +14,16 @@ export default defineConfig({
       '/api': 'http://127.0.0.1:8002',
     },
   },
+  // `vite preview` servar den BYGGDA bunten. Skillnaden är inte kosmetisk:
+  // i dev dubbelkör React StrictMode varje effekt, så Oddset-vyn hämtar
+  // matcher, powerrank, notiser och radar TVÅ gånger vid varje mount (mätt
+  // 2026-08-10). Proxyn måste anges separat — `server.proxy` gäller inte här.
+  preview: {
+    host: true,
+    allowedHosts: true,
+    port: 5176,
+    proxy: {
+      '/api': 'http://127.0.0.1:8002',
+    },
+  },
 })

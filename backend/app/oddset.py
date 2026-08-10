@@ -1180,10 +1180,27 @@ def _next_round_for_empty_leagues(store: Storage, windowed: list[dict],
     return extra
 
 
+# KÄLLOR SOM INTE SKA VISAS (2026-08-10). Smarkets är varken spelbar bok
+# (utanför BOOKS) eller ankare — andra ankaret kopplades bort 2026-08-07 och
+# `anchor2_*` skrivs som NULL, så ⚓-chipet kan inte längre utlösas. Kvar var
+# ett `S`-pris i matchraden som ingen kan spela och som inte ankrar någon
+# signal, till en kostnad av 116 kB (10,1 %) i varje listhämtning.
+#
+# Det här är ett VISNINGSVAL och inget annat. Spärren i
+# `oddset_value.ANCHOR_SOURCES` står kvar — utan den blir Smarkets en spelbar
+# bok igen (184 av 476 felaktiga flaggor 2026-07-25). Insamlingen står också
+# kvar: serien matar den förregistrerade promotionsregeln i
+# `docs/tva-ankare-2026-07-25.md`, och `attach_value` räknar sitt anchor2-skugg-
+# mått FÖRE strippningen. Därför sätts flaggan bara av API:t — den INTERNA
+# payloaden till WP5-ledgern fryser oförändrat innehåll.
+UI_HIDDEN_SOURCES = frozenset({"smarkets"})
+
+
 def matches_payload(store: Storage, light: bool = False,
                     include_research: bool = False,
                     compact_movement: bool = False,
                     include_movement: bool = True,
+                    hide_sources: frozenset = frozenset(),
                     limit: int | None = None) -> dict:
     """Matchlistan i tidsordning med senaste odds + rörelseserier per källa.
     light=True (snabbvarven) hoppar frånvaro + modell — modellfitten är dyr
@@ -1275,6 +1292,10 @@ def matches_payload(store: Storage, light: bool = False,
                             series.pop("pts", None)
         if not include_movement:
             m.pop("movement", None)
+        # Efter att värde/anchor2 räknats ovan — se UI_HIDDEN_SOURCES.
+        for source in hide_sources:
+            (m.get("odds") or {}).pop(source, None)
+            (m.get("movement") or {}).pop(source, None)
         # Per-tecken-presence behövs när värdet räknas ovan men duplicerar
         # marknadens tider/status i JSON och används inte av klienten.
         for markets in (m.get("odds") or {}).values():

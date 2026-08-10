@@ -42,6 +42,87 @@ ELO_K = 0.35            # M2: styrka ur ClubElo: att = q^k, def = q^-k där
                         # ≈ 1.5× λ-kvot) — forward-loggen utvärderar, inte tron.
 CORNER_MODEL_VERSION = "corner-poisson-total-v1"
 
+# LIGAFIT-CACHE (2026-08-10). Fitten refittades från grunden vid VARJE
+# HTTP-anrop: profilen på `/api/oddset/matches` visade `attach_model` 1,087 s
+# av 1,331 s (82 %), varav sju `fit_league` à 80 iterationer plus arton
+# fullständiga läsningar av resultathistoriken. Underlaget ändras bara när
+# insamlingsvarvet skriver nya resultat — några gånger per dygn — så per-request
+# är rent slöseri, och det låg på kritiska vägen till första skärmen.
+#
+# Nyckeln är en BILLIG datastämpel (två aggregat, uppmätt 0,97 + 0,89 ms) plus
+# dagens datum, eftersom tidsavklingningen gör fitten datumberoende. TTL:n är
+# ett skyddsnät: stämpeln fångar tillägg och nya xG-observationer, men en
+# uppdatering PÅ PLATS av en befintlig resultatrad rör varken antal eller
+# maxdatum. Modellen är amber och får ändå aldrig påverka tips, notiser eller
+# CLV, så fem minuters inaktualitet kostar ingenting.
+_FIT_CACHE: dict = {}
+_FIT_CACHE_TTL_S = 300.0
+
+
+def results_version(store: Storage) -> tuple:
+    """Datastämpel för resultatunderlaget — ändras när nya rader skrivs."""
+    n_res, max_date = store.conn.execute(
+        "SELECT COUNT(*), MAX(date) FROM oddset_results").fetchone()
+    n_stats, max_obs = store.conn.execute(
+        "SELECT COUNT(*), MAX(xg_observed_at) FROM oddset_result_stats").fetchone()
+    return (n_res, max_date, n_stats, max_obs)
+
+
+def _fit_generation(store: Storage) -> dict:
+    """Öppna (eller nollställ) cachen för det aktuella underlaget.
+
+    Anropas EN gång per `attach_model`, inte per liga — datastämpeln kostar
+    ~2 ms och ska inte betalas arton gånger i samma svar.
+    """
+    import time as _time
+    # Databasen ingår i stämpeln. Utan den fick två tomma DB:er samma
+    # fingeravtryck `(0, None, 0, None)` och delade fit — ofarligt i drift
+    # (en databas) men det läckte mellan testers temp-DB:er direkt, vilket är
+    # samma klass av fel som cachen ska förhindra.
+    stamp = (str(store.db_path), results_version(store), dt.date.today())
+    now = _time.monotonic()
+    current = _FIT_CACHE.get("stamp")
+    if current is None or current[1] != stamp \
+            or now - current[0] >= _FIT_CACHE_TTL_S:
+        _FIT_CACHE.clear()
+        _FIT_CACHE["stamp"] = (now, stamp)
+    return _FIT_CACHE
+
+
+def _cached(cache: dict, kind: str, key, build):
+    """Memoisera en dyr fit inom en generation. `build` körs bara vid miss."""
+    entry = (kind, key)
+    if entry not in cache:
+        cache[entry] = build()
+    return cache[entry]
+
+
+def clear_fit_cache() -> None:
+    """För tester och skript som ändrar resultat under samma process."""
+    _FIT_CACHE.clear()
+
+
+def cached_results(store: Storage, league: str) -> list[dict]:
+    """`merged_results` memoiserad på samma datastämpel som fitten."""
+    return _cached(_fit_generation(store), "results", league,
+                   lambda: oddset_data.merged_results(store, league))
+
+
+def cached_fit(store: Storage, pool: tuple[str, ...]) -> Optional[dict]:
+    """Ligafitten för en pool — ENDA vägen till en fit i ett HTTP-svar.
+
+    Både prognoserna (`attach_model`) och lagstyrkevyn (`/api/oddset/powerrank`)
+    måste gå via den här: powerrank byggde tidigare sin egen fit per liga, och
+    `league=all` blev då elva fits i ett anrop — 2,2 s som låg parallellt med
+    matchhämtningen och sköt första skärmen framför sig.
+    """
+    def _build() -> Optional[dict]:
+        rows: list[dict] = []
+        for league in pool:
+            rows.extend(cached_results(store, league))
+        return fit_league(rows)
+    return _cached(_fit_generation(store), "fit", tuple(pool), _build)
+
 
 def _pois(k: int, lam: float) -> float:
     return math.exp(-lam) * lam ** k / math.factorial(k)
@@ -551,6 +632,9 @@ def attach_model(store: Storage, matches: list[dict],
     signalversion påverkas därför inte när nya forskningsligor läggs till."""
     from .oddset import norm_team
     fits: dict[str, Optional[dict]] = {}
+    # Ligafitten och hörnmodellen överlever mellan anrop så länge underlaget är
+    # oförändrat — se `_FIT_CACHE`. Generationen öppnas en gång här.
+    cache = _fit_generation(store)
     elo = oddset_data.get_elo(store)
     # ELO_TEAM_ALIAS bodde tidigare bara i V2-spåret och nådde aldrig hit, så
     # den ordinarie modellen hade bara exakt-eller-fuzzy. Nu delas tabellen.
@@ -584,15 +668,14 @@ def attach_model(store: Storage, matches: list[dict],
             continue   # startad match — modell-edges mot live-odds är meningslösa
         pool = pool_policy.get(lg, (lg,))
         if pool not in fits:
-            rows = []
-            for plg in pool:
-                rows.extend(oddset_data.merged_results(store, plg))
-            fits[pool] = fit_league(rows)
+            fits[pool] = cached_fit(store, pool)
         fit = fits[pool]
         if not fit:
             continue
         if lg not in corner_ms:
-            corner_ms[lg] = corner_model(oddset_data.merged_results(store, lg))
+            corner_ms[lg] = _cached(
+                cache, "corner", lg,
+                lambda lg=lg: corner_model(cached_results(store, lg)))
         hn, an = norm_team(m["home"]), norm_team(m["away"])
         prior_used = _ensure_priors(fit, elo, (hn, an), elo_aliases)
         mus = predict(fit, hn, an, league=lg)
