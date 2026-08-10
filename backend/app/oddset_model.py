@@ -17,6 +17,7 @@ momentekvationer och DC:s rho-korrektion appliceras först i prediktionsmatrisen
 """
 from __future__ import annotations
 
+import copy
 import datetime as dt
 import math
 from difflib import SequenceMatcher
@@ -54,7 +55,7 @@ CORNER_MODEL_VERSION = "corner-poisson-total-v1"
 # ett skyddsnät: stämpeln fångar tillägg och nya xG-observationer, men en
 # uppdatering PÅ PLATS av en befintlig resultatrad rör varken antal eller
 # maxdatum. Modellen är amber och får ändå aldrig påverka tips, notiser eller
-# CLV, så fem minuters inaktualitet kostar ingenting.
+# CLV, så upp till en timmes inaktualitet i just det fallet kostar ingenting.
 _FIT_CACHE: dict = {}
 # TTL:n är BARA ett skyddsnät. Datastämpeln kontrolleras vid varje uppslag och
 # kostar 2 ms, så nya resultat slår igenom omedelbart oavsett TTL — det enda
@@ -128,7 +129,13 @@ def cached_fit(store: Storage, pool: tuple[str, ...]) -> Optional[dict]:
         for league in pool:
             rows.extend(cached_results(store, league))
         return fit_league(rows)
-    return _cached(_fit_generation(store), "fit", tuple(pool), _build)
+    # `_ensure_priors` muterar fitten per request (Elo-blend för tunna/nya
+    # lag). Den cachade basfitten måste därför vara orörd: annars beror nästa
+    # svar på vilken endpoint/match som råkade använda cachen först, och ett
+    # gammalt Elo-prior kan leva kvar tills generationen löper ut. En deepcopy
+    # av det lilla fit-objektet kostar försumbart jämfört med 80 fit-iterationer.
+    base = _cached(_fit_generation(store), "fit", tuple(pool), _build)
+    return copy.deepcopy(base)
 
 
 def _pois(k: int, lam: float) -> float:

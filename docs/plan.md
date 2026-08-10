@@ -82,7 +82,17 @@ Poolhälsan använder frysningens verkliga tolerans: h3 får ett helt
 30-minutersbasvarv, m20 fortsatt minst 15 minuter. Därmed blinkar inte Idag
 falskt rött mellan h3:s 15:e och 30:e minut.
 
-**Aktuell överlämning:** `docs/overlamning-2026-08-09.md`. Alla statusblock
+**Slutlig startprestanda 2026-08-10.** Modellfit och powerrank delar en
+cachad basfit men varje request får en isolerad kopia före Elo-priorer, så
+anropsordning kan inte ändra modellen. Kalla samtidiga pottkort delar exakt
+ett jackpotanrop. Idag väntar 650 ms med kärnan och 1200 ms med sekundära kort;
+ett direkt Oddset-val hinner rensa båda innan synkront backendarbete startar.
+Ordinarie 5175 kör nu byggd bundle, dev/StrictMode ligger på 5181. Uppmätt vid
+390 px: första Oddset-lista **2472 → 619 ms**, första Idag-poolkort 953 ms,
+40/187 matcher efter berikning, ingen overflow eller konsolfel.
+
+**Aktuell överlämning:** `docs/overlamning-2026-08-10-prestanda.md`, därefter
+`docs/overlamning-2026-08-09.md`. Alla statusblock
 nedan är daterad historik och får inte läsas som nuvarande kontrakt.
 
 ## Historisk status 2026-08-01 (ersatt, behålls som evidens)

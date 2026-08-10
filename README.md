@@ -38,9 +38,13 @@ Avsluta även med Ctrl+C. Insamlingsstatus och start/stopp finns också i UI:t.
 Eller manuellt i två terminaler:
 
 ```bash
-cd backend && .venv/bin/uvicorn app.main:app --reload   # terminal 1
-cd frontend && npm run dev                               # terminal 2
+cd backend && .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8002
+cd frontend && npm run serve                             # byggd mobilvy, port 5175
 ```
+
+Frontendutveckling med hot reload/React StrictMode körs separat med
+`cd frontend && npm run dev -- --port 5181 --strictPort`. Den dubbelkör
+effekter och är därför medvetet inte den dagliga mobilservern.
 
 ### Datainsamling (körs i bakgrunden via launchd)
 

@@ -1,7 +1,41 @@
 import datetime
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
 from app import oddset_model
+from app.storage import Storage
+
+
+class FitCacheTests(unittest.TestCase):
+    def tearDown(self) -> None:
+        oddset_model.clear_fit_cache()
+
+    def test_cached_fit_returns_an_isolated_copy(self) -> None:
+        """Elo-priorer muterar requestens fit men aldrig den cachade basen."""
+        base = {
+            "teams": {"a": {"att": 1.1, "def": 0.9, "n": 4.0}},
+            "home_adv": {"liga": 1.2}, "base": {"liga": 1.3},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                with mock.patch.object(oddset_model, "cached_results",
+                                       return_value=[]), \
+                        mock.patch.object(oddset_model, "fit_league",
+                                          return_value=base) as build:
+                    first = oddset_model.cached_fit(store, ("liga",))
+                    first["teams"]["a"]["att"] = 999
+                    first["teams"]["ny"] = {"att": 2, "def": 0.5, "n": 8}
+                    second = oddset_model.cached_fit(store, ("liga",))
+            finally:
+                store.close()
+
+        self.assertEqual(1.1, second["teams"]["a"]["att"])
+        self.assertNotIn("ny", second["teams"])
+        self.assertIsNot(first, second)
+        build.assert_called_once()
 
 
 class AsianSettlementTests(unittest.TestCase):

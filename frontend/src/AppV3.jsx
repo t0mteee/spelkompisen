@@ -130,61 +130,94 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
   const [health, setHealth] = useState(null)
   const loadSeq = useRef(0)
   const abortRef = useRef(null)
+  const deferredRef = useRef(new Set())
+
+  const clearDeferred = () => {
+    for (const id of deferredRef.current) window.clearTimeout(id)
+    deferredRef.current.clear()
+  }
 
   const load = () => {
     abortRef.current?.abort()
+    clearDeferred()
     const controller = new AbortController()
     abortRef.current = controller
     const request = (url) => get(url, { signal: controller.signal })
     const seq = ++loadSeq.current
-    // Visa varje spelform så fort den är klar. Promise.all gjorde att en enda
-    // långsam jackpot-/garantifråga höll hela kortet i laddningsläge.
-    POOL_GAMES.forEach(async (g) => {
-      let result
-      try {
-        const d = await request(`/api/draws?product=${g.id}`)
-        const list = d.open?.length ? d.open : d.draws || []
-        // NÄSTA spelstopp = tidigaste framtida stängning bland öppna omgångar
-        // (listan kan innehålla passerade/sena poster — lita inte på list[0])
-        const upcoming = list
-          .filter((x) => x.reg_close_time && new Date(x.reg_close_time) > new Date())
-          .sort((a, b) => new Date(a.reg_close_time) - new Date(b.reg_close_time))
-        const first = upcoming[0]
-        if (!first) result = { ...g, none: true }
-        let pay = null
-        if (first && g.id !== 'bomben') {
-          pay = await request(`/api/payouts?product=${first.product}&draw=${first.draw_number}`).catch(() => null)
-        }
-        if (first) result = { ...g, draw: first, pay, count: upcoming.length }
-      } catch { result = { ...g, none: true } }
-      if (loadSeq.current !== seq) return
-      setPool((current) => {
-        const byId = new Map((current || []).map((row) => [row.id, row]))
-        byId.set(g.id, result)
+    const current = () => loadSeq.current === seq
+    const defer = (fn, delay = 550) => {
+      const id = window.setTimeout(() => {
+        deferredRef.current.delete(id)
+        if (current()) fn()
+      }, delay)
+      deferredRef.current.add(id)
+    }
+    const guarded = (promise, setter, fallback = null) => promise
+      .then((value) => { if (current()) setter(value) })
+      .catch((e) => {
+        if (current() && e?.name !== 'AbortError') setter(fallback)
+      })
+    const mergePool = (row) => {
+      if (!current()) return
+      setPool((existing) => {
+        const byId = new Map((existing || []).map((item) => [item.id, item]))
+        byId.set(row.id, row)
         return POOL_GAMES.map((game) => byId.get(game.id)).filter(Boolean)
       })
-    })
-    request('/api/dashboard/oddset').then(setOddset).catch(() => setOddset(null))
-    request('/api/oddset/predictions/summary').then(setLedger).catch(() => setLedger(null))
-    request('/api/pool/systems').then(setSystems).catch(() => setSystems(null))
-    // Den lokala kuponglistan visas direkt. Extern livestatus kan ta flera
-    // sekunder och fylls därför på efteråt utan att blockera första skärmen.
-    request('/api/pool/played?live=false').then((data) => {
-      setPlayed(data)
-      if ((data.coupons || []).some((coupon) => !coupon.settled_at)) {
-        // Ge kärninnehållet nätverksutrymme först; livekortet är en påfyllnad.
-        window.setTimeout(() => {
-          if (loadSeq.current !== seq) return
-          request('/api/pool/played').then((live) => {
-            if (loadSeq.current === seq) setPlayed(live)
-          }).catch(() => {})
-        }, 900)
-      }
-    }).catch(() => setPlayed(null))
-    request('/api/health').then(setHealth).catch(() => setHealth(null))
-    Promise.all(HIST_PRODUCTS.map((p) =>
-      request(`/api/pool/history?product=${p.id}&limit=1`).then((j) => [p.id, j]).catch(() => [p.id, null])
-    )).then((pairs) => setHist(Object.fromEntries(pairs)))
+    }
+    // Ge navigationen ett kort, helt nätverksfritt fönster. Ett direkt tryck
+    // på Oddset avmonterar Dashboarden före 650 ms och inget Idag-jobb hinner
+    // då belasta FastAPI/SQLite. Stannar användaren kvar börjar korten ändå i
+    // tid för cirka en sekund till första innehåll (samma nivå som tidigare).
+    defer(() => {
+      // Visa varje spelform så fort den är klar. Promise.all gjorde att en enda
+      // långsam jackpot-/garantifråga höll hela kortet i laddningsläge. Själva
+      // omgången visas direkt; pottdata väntar tills användaren hunnit välja vy.
+      POOL_GAMES.forEach(async (g) => {
+        let result
+        try {
+          const d = await request(`/api/draws?product=${g.id}`)
+          const list = d.open?.length ? d.open : d.draws || []
+          // NÄSTA spelstopp = tidigaste framtida stängning bland öppna omgångar
+          // (listan kan innehålla passerade/sena poster — lita inte på list[0])
+          const upcoming = list
+            .filter((x) => x.reg_close_time && new Date(x.reg_close_time) > new Date())
+            .sort((a, b) => new Date(a.reg_close_time) - new Date(b.reg_close_time))
+          const first = upcoming[0]
+          if (!first) result = { ...g, none: true }
+          if (first) result = { ...g, draw: first, pay: null, count: upcoming.length }
+        } catch { result = { ...g, none: true } }
+        if (!current()) return
+        mergePool(result)
+        if (result.draw && g.id !== 'bomben') {
+          defer(() => request(`/api/payouts?product=${result.draw.product}&draw=${result.draw.draw_number}`)
+            .then((pay) => mergePool({ ...result, pay })).catch(() => {}))
+        }
+      })
+      guarded(request('/api/dashboard/oddset'), setOddset)
+    }, 650)
+
+    // Sekundära Idag-kort startar inte förrän 1200 ms senare. Ett direkt klick
+    // på Oddset hinner då avmontera Dashboarden och rensa timern, så dess
+    // synkrona backendjobb hamnar aldrig framför Oddsets första svar.
+    defer(() => {
+      guarded(request('/api/oddset/predictions/summary'), setLedger)
+      guarded(request('/api/pool/systems'), setSystems)
+      guarded(request('/api/health'), setHealth)
+      guarded(request('/api/pool/played?live=false'), (data) => {
+        setPlayed(data)
+        if (!data) return
+        if ((data.coupons || []).some((coupon) => !coupon.settled_at)) {
+          defer(() => guarded(request('/api/pool/played'), setPlayed), 900)
+        }
+      })
+      Promise.all(HIST_PRODUCTS.map((p) =>
+        request(`/api/pool/history?product=${p.id}&limit=1`)
+          .then((j) => [p.id, j]).catch(() => [p.id, null])
+      )).then((pairs) => {
+        if (current()) setHist(Object.fromEntries(pairs))
+      })
+    }, 1200)
   }
   useEffect(() => {
     const tick = () => {
@@ -196,10 +229,13 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
     return () => {
       loadSeq.current += 1
       abortRef.current?.abort()
+      clearDeferred()
       clearInterval(id)
       document.removeEventListener('visibilitychange', tick)
     }
-  }, [])
+  // load/clearDeferred hör till mountens controller och ska inte bytas under
+  // dess livstid; varje ny vy får en ny komponent/controller.
+  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // värdespel + rörelser ur samma payload som Oddset-vyn (sanerad: research bär inga).
   // Urvalet ligger i delade oddsetBestValue (App.jsx) — samma som 💰-korten/Rek.

@@ -15,6 +15,7 @@ import datetime as dt
 import math
 import statistics
 import subprocess
+import threading
 from dataclasses import asdict
 from pathlib import Path
 
@@ -77,6 +78,7 @@ def _store_seed(product: str, draws) -> None:
 # `data` och hämtar därmed färskt, precis som förut.
 _JACKPOTS_TTL_S = 120.0
 _jackpots_cache: dict = {}
+_jackpots_lock = threading.Lock()
 
 
 def _jackpots_for_ui(ss: SvenskaSpel) -> dict | None:
@@ -85,9 +87,17 @@ def _jackpots_for_ui(ss: SvenskaSpel) -> dict | None:
     hit = _jackpots_cache.get("hit")
     if hit and now - hit[0] < _JACKPOTS_TTL_S:
         return hit[1]
-    data = ss.jackpots_payload()
-    _jackpots_cache["hit"] = (now, data)
-    return data
+    # Payouts för tre produkter startar parallellt. Utan single-flight såg
+    # alla tre en kall cache och gjorde var sitt identiskt uppströmsanrop.
+    # Recheck inne i låset gör att exakt den första hämtar; övriga återbrukar.
+    with _jackpots_lock:
+        now = _time.monotonic()
+        hit = _jackpots_cache.get("hit")
+        if hit and now - hit[0] < _JACKPOTS_TTL_S:
+            return hit[1]
+        data = ss.jackpots_payload()
+        _jackpots_cache["hit"] = (_time.monotonic(), data)
+        return data
 
 
 def _get_draw(product: str, draw_number: int | None = None):

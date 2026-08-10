@@ -45,8 +45,9 @@ datagenererande process. Äldre manifest blandas aldrig in. Det är inte en
 tränad modell och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
 `docs/overlamning-2026-08-10-prestanda.md` — startvägens prestanda
-(4 268 → 945 ms), vad som är cachat och varför, samt den kvarvarande posten:
-43 samtidiga startanrop som ska avbrytas vid vybyte, inte cachas bort.
+(4 268 → 619 ms till första Oddset-lista i byggd mobilvy), vad som är cachat
+och varför. Idag-jobben får 650/1200 ms startfrist och rensas vid vybyte;
+ordinarie 5175 serverar byggd bundle, utveckling körs separat på 5181.
 Därefter `docs/overlamning-2026-08-09.md` — settlementens omprövningstid,
 ensidig träningsmatchslänkning, jackpotläckan mellan produkter, b1024 ur
 Topptipset-familjen och det TYSTA bortfallet av Topptipset Dagens (fem dygn
@@ -127,7 +128,7 @@ blend eller gate ändras aldrig inne i samma manifest/shadowversion.
 - `/Users/saman/vm` (Boll boll kollen, portar 8001/5174) — VM-bevakning, mönsterkälla för
   Oddset-delen (Pinnacle AH/ÖU/hörnor, Kambi-klient, värdescreen, steam, Dixon-Coles, CLV).
   Läs vm-koden som referens vid portning men RÖR den inte.
-- Portar här: **backend 8002, frontend 5175, preview 5181** — krockar aldrig med svs/vm.
+- Portar här: **backend 8002, byggd frontend 5175, dev 5181** — krockar aldrig med svs/vm.
 
 ## Arkitektur
 
@@ -337,7 +338,7 @@ frontend/ React + Vite, mörkt tema. src/AppV3.jsx + AppV3.css är APPEN
   ligger bakom togglar med datumintervall, ROI/KI visas aldrig under
   `ROI_MIN_N` (=10) observationer, och poolens forskningskort (pit-v4, PH5,
   startOdds) renderas i Historik via `HISTORIK_RESEARCH`.
-start.sh / stop.sh    kör/stoppa båda lokalt (8002 + 5175)
+start.sh / stop.sh    kör/stoppa backend + byggd frontend (8002 + 5175)
 docs/plan.md          FÄRDPLANEN: status, datakällor, beslut — projektets sanning
 docs/backlog.md       AKTIV BACKLOG (2026-07-26): prioritering, pågående mätningar,
                       parkerat/avfört — ändra prioritet bara med Samans godkännande
@@ -365,7 +366,8 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
 - ALDRIG `pkill -f uvicorn` (dödar svs 8000 och vm 8001 — samma kommando).
   ALDRIG `lsof -ti:<port>` utan `-sTCP:LISTEN` (dödar annars webbläsare med öppna sockets).
 - Frontend nås via Tailscale/LAN (vite.config: `host:true, allowedHosts:true`).
-- Verifiering i browser: preview-servern `frontend-preview` (port 5181) i `.claude/launch.json`.
+  `frontend` i `.claude/launch.json` bygger och serverar produktionsbunten på
+  5175. `frontend-dev` kör Vite/StrictMode på 5181 endast under utveckling.
 - **Insamling: två launchd-jobb är LADDade.**
   `com.saman.spelkompisen.snapshot` kör Oddsets fullvarv på fasta :00/:30
   (alla källor + Kambi-deep + modelldata) och därefter snabbvarv var 4:e min så länge någon
@@ -540,10 +542,13 @@ ett HTTP-svar. Fitten refittades tidigare per request: profilen på
 `powerrank?league=all` byggde ELVA egna fits (2,2 s) parallellt med
 matchhämtningen. Underlaget ändras bara när varvet skriver nya resultat.
 
-Nyckeln är `(db_path, resultat-datastämpel, dagens datum)` + 5 min TTL.
+Nyckeln är `(db_path, resultat-datastämpel, dagens datum)` + 1 h TTL.
 Databasen MÅSTE ingå — två tomma DB:er ger annars samma fingeravtryck och
 delar fit. TTL:n är skyddsnät: stämpeln fångar tillägg, inte uppdateringar på
-plats. Modellen är amber, så minuters inaktualitet kostar inget.
+plats. Den cachade basfitten returneras alltid som en isolerad deepcopy:
+`_ensure_priors` muterar requestens kopia och får aldrig förorena nästa svar.
+Modellen är amber, så upp till en timmes inaktualitet vid uppdatering på plats
+kostar inget.
 
 Optimera ALDRIG `_anchor_total`/`dc_matrix` genom att ändra konvergens eller
 iterationer — det ändrar modellens utdata, alltså `model_version`, och
@@ -560,9 +565,10 @@ förregistrerad process). Låst av
 **Dev-servern dubbelkör allt.** `<StrictMode>` + `npm run dev` gör att varje
 effekt körs två gånger, så Oddset-vyn hämtar matcher, powerrank, notiser och
 radar TVÅ gånger vid mount. Uppmätt första paint: 2 110 ms på dev mot
-**1 094 ms på den byggda bunten** (`npx vite preview --port 5176`, proxy finns
-i vite.config). Ta med det innan du jagar en frontendbugg som är ett
-dev-artefakt.
+**619 ms till första listan på den byggda bunten** efter Idag-fristen
+(`npm run serve`, port 5175). Ordinarie `start.sh` kör den byggda bunten;
+dev-servern hör hemma på 5181. Ta med det innan du jagar en frontendbugg som
+är ett dev-artefakt.
 
 ### 🎯 ANKARE ≠ BOK
 

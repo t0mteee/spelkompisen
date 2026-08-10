@@ -9,17 +9,18 @@ Metodreglerna i `CLAUDE.md` (observationstid, ANKARE ≠ BOK, transportregeln,
 signalversions-disciplin, källgränsen) gäller varje punkt nedan och upprepas
 inte per rad.
 
-## 2026-08-10 — nästa uppgift (störst kvarvarande vinst)
+## 2026-08-10 — prestandapaket levererat
 
-- **Avbryt föregående vys hämtningar vid vybyte.** Startvägens kvarvarande
-  kostnad är samtidighet, inte enskild långsamhet: varje endpoint är 20–180 ms
-  ensam men 1 500–1 800 ms när 43 anrop startar samtidigt. Appen öppnas på
-  Idag, vars ~400 kB är i luften när användaren trycker Oddset, och Oddsets
-  anrop ställer sig i kö bakom dem. Förslag: `AbortController` per vy i
-  `AppV3`:s `get`/`getDetail` — vyerna är redan gatade, det som saknas är att
-  stoppa det som redan skickats. **Lägg inte till fler cachar för det här;
-  serversidan är klar.** Baslinje, mätmetod och invarianter i
-  `docs/overlamning-2026-08-10-prestanda.md`.
+- **✅ Direktvägen Idag → Oddset har fri kapacitet.** Dashboardens controller
+  fanns redan, men synkrona backendjobb fortsatte efter klientens abort. Idag
+  startar därför inget nätarbete de första 650 ms och sekundära kort väntar
+  1200 ms; timers och requests rensas vid vybyte. Byggd mobilvy på ordinarie
+  5175 gick från 2472 till 619 ms till första Oddset-lista. Idags första
+  poolkort är fortsatt 953 ms. Modellcachens basfit är immutable mellan
+  requests och jackpotpayloaden är single-flight vid kall samtidig start.
+- **✅ Byggd bundle är nu normalläget.** `start.sh` och launch-konfigurationen
+  `frontend` bygger/serverar port 5175. Vite/StrictMode-dev ligger separat på
+  5181 som `frontend-dev`.
 
 ## 2026-08-10 — senast levererat
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Startar Spelkompisen lokalt: backend (FastAPI, 8002) + frontend (Vite, 5175).
+# Startar Spelkompisen lokalt: backend 8002 + byggd frontend 5175.
 # Avsluta med Ctrl+C (eller kör ./stop.sh från en annan terminal).
 set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -20,6 +20,6 @@ for _ in $(seq 1 20); do
 done
 echo "✓ Backend uppe."
 
-echo "→ Startar frontend – öppna http://localhost:5175 ..."
+echo "→ Bygger och startar snabb frontend – öppna http://localhost:5175 ..."
 cd "$ROOT/frontend"
-npm run dev
+npm run serve

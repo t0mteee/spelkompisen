@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "serve": "npm run build && vite preview",
     "lint": "eslint .",
     "test": "npm run test:ui",
     "test:ui": "node --test src/*.test.js",

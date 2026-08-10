@@ -109,9 +109,41 @@ de är lätta att missa när man optimerar.
 
 ---
 
-## Rekommendationer, i prioritetsordning
+## Uppföljning Codex 2026-08-10 — rekommendationerna genomförda
 
-### 1. Avbryt föregående vys hämtningar vid vybyte (störst kvarvarande vinst)
+Den första rekommendationen var delvis felställd: `DashboardV3` hade redan en
+`AbortController` och avbröt vid unmount. FastAPI-endpoints är synkrona och
+kan ändå fortsätta sitt arbete efter att klienten slutat vänta. Lösningen blev
+därför att **inte starta** konkurrerande Idag-arbete: kärnan får 650 ms och
+sekundära kort 1200 ms startfrist; båda timers och pågående fetcher rensas vid
+vybyte. Poolomgången renderas före sin pott och pottarna hämtas senare.
+
+Ordinarie mobiladress 5175 kör nu byggd bundle via `npm run serve`/`start.sh`.
+Vite/StrictMode-dev ligger separat på 5181 som `frontend-dev`; StrictMode är
+kvar. Samma 390 px-väg, omladdning och omedelbart tryck på Oddset:
+
+| byggd bundle | före startfristen | efter startfristen |
+|---|---:|---:|
+| första Oddset-lista | 2472 ms | **619 ms** |
+| första Idag-poolkort | — | **953 ms** |
+
+Oddset slutade på 40/187 renderade rader, dokumentbredd 375/375 och utan
+konsolfel. Den dedikerade Chrome DevTools-tracen var inte installerad; talen
+är samma lokala browser-/API-metod som tidigare överlämning.
+
+Två korrekthetsluckor i cachearbetet är också stängda:
+
+- `cached_fit` cachar en basfit men returnerar en deepcopy. `_ensure_priors`
+  muterar per request och kan därför inte göra modellsvaret beroende av vilken
+  endpoint som råkade anropas först eller hålla kvar ett gammalt Elo-prior.
+- `_jackpots_for_ui` har single-flight-lås med recheck. Tre kalla parallella
+  payouts gör nu exakt ett uppströmsanrop, inte upp till tre.
+
+Verifierat: **640 backendtester**, 5 UI-tester, grön lint och produktionsbygge.
+
+## Ursprungliga rekommendationer och utfall
+
+### 1. Avbryt föregående vys hämtningar vid vybyte — ✅ ersatt av startfrist
 
 **Detta är den enda kvarvarande stora posten, och den är frontend.**
 
@@ -129,13 +161,13 @@ och Saman hade inte bett om så bred ändring.
 **Mät före och efter med samma metod:** kall appstart, klicka Oddset direkt,
 räkna anrop och tid till att spinnern försvinner. Sifforna ovan är baslinjen.
 
-### 2. Fundera på om dev-servern ska vara det dagliga läget
+### 2. Fundera på om dev-servern ska vara det dagliga läget — ✅ byggd är normalläge
 
 `<StrictMode>` dubbelkör varje effekt i dev — det är hela skillnaden mellan 43
 och 25 anrop, och mellan 2 626 ms och 945 ms. Samans telefon går mot
 dev-servern på 5175 via Tailscale. `vite.config` har nu `preview`-proxy så den
-byggda bunten går att köra på 5176. Ta INTE bort StrictMode: den är ett
-dev-skyddsnät, och det var den som gjorde dubbelhämtningen synlig.
+byggda bunten körs nu på ordinarie 5175. StrictMode är kvar på dev-port 5181:
+det är ett dev-skyddsnät, och det var den som gjorde dubbelhämtningen synlig.
 
 ### 3. Larm när en poolprodukt slutar samlas
 
