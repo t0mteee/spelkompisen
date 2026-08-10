@@ -1276,6 +1276,40 @@ class Storage:
         except (TypeError, ValueError):
             return None
 
+    # --- omgångslistning per SLUG (dyr: topptipset = nummerscanning) ---
+    #
+    # `/api/draws` cachade tidigare per GRUPP med 5 min TTL. Ett kallt
+    # `draws?product=topptipset` mättes till 1 616 ms (tre slugs × scanning)
+    # mot 20 ms varmt — och eftersom TTL:n är fem minuter betalade varje
+    # appstart efter en paus den kostnaden mitt på kritiska vägen, som ett av
+    # ~15 samtidiga anrop.
+    #
+    # Insamlingsvarvet gör REDAN samma listning var femte minut. Cachen ligger
+    # därför per slug: varvet skriver det den ändå hämtat, och API:t sätter
+    # ihop gruppen gratis. Ingen extra uppströmstrafik — bara ett slut på att
+    # göra samma arbete två gånger.
+    def draws_cache_get(self, slug: str, ttl_s: float) -> Optional[list]:
+        import json as _json
+        raw = self.meta_get(f"draws_slug:{slug}")
+        if not raw:
+            return None
+        try:
+            obj = _json.loads(raw)
+            at = dt.datetime.fromisoformat(obj["at"])
+            age = (dt.datetime.now(dt.timezone.utc) - at).total_seconds()
+        except (ValueError, KeyError, TypeError):
+            return None
+        return obj["rows"] if 0 <= age < ttl_s else None
+
+    def draws_cache_put(self, slug: str, rows: list) -> None:
+        import json as _json
+        try:
+            self.meta_set(f"draws_slug:{slug}", _json.dumps(
+                {"at": dt.datetime.now(dt.timezone.utc).isoformat(),
+                 "rows": rows}))
+        except (TypeError, ValueError):
+            pass          # cachefel får aldrig fälla varvet eller svaret
+
     def store_seed(self, product: str, draws) -> None:
         """Flytta fram hintet. Bara FRAMÅT — ett kort scanresultat får aldrig
         backa hintet och göra nästa varv ännu blindare."""

@@ -56,7 +56,14 @@ CORNER_MODEL_VERSION = "corner-poisson-total-v1"
 # maxdatum. Modellen är amber och får ändå aldrig påverka tips, notiser eller
 # CLV, så fem minuters inaktualitet kostar ingenting.
 _FIT_CACHE: dict = {}
-_FIT_CACHE_TTL_S = 300.0
+# TTL:n är BARA ett skyddsnät. Datastämpeln kontrolleras vid varje uppslag och
+# kostar 2 ms, så nya resultat slår igenom omedelbart oavsett TTL — det enda
+# den fångar är en uppdatering PÅ PLATS av en befintlig rad, som varken ändrar
+# antal eller maxdatum. Fem minuter var därför fel avvägning: den gjorde
+# cachen kall vid varje appstart efter en paus, vilket är exakt det fall som
+# kändes segt. En timme, och dagens datum ingår i nyckeln så tidsavklingningen
+# ändå räknas om varje dygn.
+_FIT_CACHE_TTL_S = 3600.0
 
 
 def results_version(store: Storage) -> tuple:

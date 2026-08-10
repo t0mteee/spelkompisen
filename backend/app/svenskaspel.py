@@ -259,11 +259,26 @@ class SvenskaSpel:
                 "turnover": _f(r.get("currentNetSale")),
                 "tiers": tiers}
 
-    def get_jackpot(self, product: str, draw_number: int) -> Optional[float]:
+    def jackpots_payload(self) -> Optional[dict]:
+        """Rå `/jackpots` — EN global payload för samtliga produkter.
+
+        Exponerad så att en anropare kan hämta den EN gång och skicka in den
+        till både `get_jackpot` och `get_guarantees`. Utan det gjorde varje
+        `/api/payouts` två identiska uppströmsanrop, och startsidan frågar för
+        tre produkter: sex hämtningar av samma objekt.
+        """
+        return self._get_or_none(f"/draw/{API_VER}/jackpots")
+
+    def get_jackpot(self, product: str, draw_number: int,
+                    data: Optional[dict] = None) -> Optional[float]:
         """Riktig jackpot/rullpott från /jackpots-endpointen (fund-fältet på
         draws är opålitligt — t.ex. 6 Mkr-jackpot syns bara här). Matchar på
-        productId eftersom productName byter skepnad (Europatipset = 'VM-tipset')."""
-        data = self._get_or_none(f"/draw/{API_VER}/jackpots")
+        productId eftersom productName byter skepnad (Europatipset = 'VM-tipset').
+
+        `data` = redan hämtad payload. Utelämnas den hämtas den färsk — det är
+        vad insamlingsvarvet gör, eftersom PIT-serien stämplar observationstid
+        och aldrig får bokföra ett cachat värde som en ny observation."""
+        data = data if data is not None else self.jackpots_payload()
         if not data:
             return None
         pid = PRODUCTS.get(product, {}).get("pid")
@@ -276,7 +291,8 @@ class SvenskaSpel:
                     total += _f(x.get("jackpotAmount")) or 0.0
         return total or None
 
-    def get_guarantees(self, product: str, draw_number: int) -> list[dict]:
+    def get_guarantees(self, product: str, draw_number: int,
+                       data: Optional[dict] = None) -> list[dict]:
         """Garantier ur /jackpots (`guaranteedJackpots`) — ett HELT eget fält
         som get_jackpot medvetet inte summerar in.
 
@@ -287,7 +303,7 @@ class SvenskaSpel:
         visa dem utan att EV-motorn tyst räknar med dem. Se
         docs/forbattringar.md innan detta kopplas in i EV.
         """
-        data = self._get_or_none(f"/draw/{API_VER}/jackpots")
+        data = data if data is not None else self.jackpots_payload()
         if not data:
             return []
         pid = PRODUCTS.get(product, {}).get("pid")

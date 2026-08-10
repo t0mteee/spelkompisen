@@ -1,5 +1,6 @@
 import datetime as dt
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -356,7 +357,9 @@ class CollectionPresenceTests(unittest.TestCase):
                 mock.patch.object(altenar, "last_age_s", 120), \
                 mock.patch.object(altenar, "event_markets", return_value={}), \
                 mock.patch.object(oddset.time, "sleep"):
+            started = time.monotonic()
             report = oddset.collect(self.store, leagues=[league], deep=False)
+            elapsed = time.monotonic() - started
 
         seen = dt.datetime.fromisoformat(
             self.store.oddset_latest(
@@ -364,8 +367,15 @@ class CollectionPresenceTests(unittest.TestCase):
             .replace("Z", "+00:00"))
         retrieved = dt.datetime.fromisoformat(
             report["at"].replace("Z", "+00:00"))
-        self.assertAlmostEqual(
-            120, (retrieved - seen).total_seconds(), delta=5)
+        # `report["at"]` sätts när HELA varvet är klart, medan `last_seen_at`
+        # bakdateras 120 s från bokanropet. Skillnaden är därför 120 s PLUS
+        # varvets egen längd — en fast delta på 5 s gjorde testet till en
+        # lastmätare och fällde det på belastade körningar. Gränsen mäts nu i
+        # stället mot varvets faktiska varaktighet: avdraget måste finnas
+        # (≥ 120 s) och får inte vara större än vad tiden medger.
+        backdated = (retrieved - seen).total_seconds()
+        self.assertGreaterEqual(backdated, 120 - 1)
+        self.assertLessEqual(backdated, 120 + elapsed + 1)
 
     def test_altenar_corners_are_fetched_from_event_details(self) -> None:
         league = {**self.league, "altenar": 999}

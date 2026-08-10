@@ -66,6 +66,30 @@ def _store_seed(product: str, draws) -> None:
         store.close()
 
 
+# `/draw/1/jackpots` är EN global payload. `/api/payouts` hämtade den TVÅ
+# gånger per anrop (jackpot + garantier) och startsidan frågar för tre
+# produkter — sex identiska uppströmshämtningar på kritiska vägen, uppmätt
+# 2 293 ms för det långsammaste payouts-anropet 2026-08-10.
+#
+# Cachen ligger HÄR och inte i klienten med flit: insamlingsvarvet skriver
+# jackpotten till PIT-serien med observationstid, och ett cachat värde får
+# aldrig bokföras som en ny observation. Varvet anropar `get_jackpot()` utan
+# `data` och hämtar därmed färskt, precis som förut.
+_JACKPOTS_TTL_S = 120.0
+_jackpots_cache: dict = {}
+
+
+def _jackpots_for_ui(ss: SvenskaSpel) -> dict | None:
+    import time as _time
+    now = _time.monotonic()
+    hit = _jackpots_cache.get("hit")
+    if hit and now - hit[0] < _JACKPOTS_TTL_S:
+        return hit[1]
+    data = ss.jackpots_payload()
+    _jackpots_cache["hit"] = (now, data)
+    return data
+
+
 def _get_draw(product: str, draw_number: int | None = None):
     with SvenskaSpel() as ss:
         if draw_number:
@@ -109,9 +133,17 @@ def health():
 # Omgångslistningen live-scannar SvS-API:t (topptipsgruppen = nummerscanning
 # × 3 slugs ≈ 40-55 requests). v3-dashboarden pollar var 2:e min — utan cache
 # blev det 1 500+ upstream-requests/timme från en öppen flik, mer än hela
-# launchd-insamlingen. Listan ändras på minutskala aldrig (nya omgångar dyker
-# upp dagligen, stopptider är fasta) — 5 min TTL är säkert och artigt.
-DRAWS_CACHE_TTL_S = 300
+# launchd-insamlingen.
+#
+# TTL:n höjdes 300 → 1800 s 2026-08-10. Skälet är inte artighet utan att
+# INSAMLINGSVARVET numera fyller cachen (`Storage.draws_cache_put` i
+# `cmd_snapshot`): basvarvet går var 30:e minut, så en femminuters-TTL gick
+# ut mellan varven och lämnade appstarten att betala scanningen själv —
+# uppmätt 1 616 ms för topptipset, mitt bland ~15 samtidiga startanrop.
+# Listan tål det: nya omgångar publiceras dagar i förväg och stopptider är
+# fasta, så en halvtimmes eftersläpning syns inte. Går den ändå ut hämtar
+# API:t själv, per slug och bara den som saknas.
+DRAWS_CACHE_TTL_S = 1800
 
 
 def _draws_cached(product: str):
@@ -150,10 +182,12 @@ def draws(product: str = "stryktipset"):
     Topptipset-gruppen aggregerar flera produkter; varje omgång bär sin egen
     'product' (slug) så efterföljande anrop använder rätt produkt.
     Svaret cachas i DRAWS_CACHE_TTL_S sekunder — se kommentaren ovan."""
-    cached = _draws_cached(product)
-    if cached is not None:
-        return cached
     if product == "bomben":
+        # Bomben har en egen hämtväg (ingen nummerscanning) och behåller
+        # därför gruppcachen. Poolprodukterna cachas per slug längre ned.
+        cached = _draws_cached(product)
+        if cached is not None:
+            return cached
         with SvenskaSpel() as ss:
             raw = ss.bomben_draws()
         ds = [{"product": "bomben", "draw_number": d["drawNumber"],
@@ -166,16 +200,28 @@ def draws(product: str = "stryktipset"):
         return payload
     slugs = GAME_GROUPS.get(product, [product])
     all_draws = []
-    with SvenskaSpel() as ss:
+    store = Storage()
+    try:
+        # Insamlingsvarvet listar samma slugs i sitt basvarv och lägger
+        # resultatet i slug-cachen. Scanningen görs bara för de slugs varvet
+        # inte hunnit fylla — se `Storage.draws_cache_get`.
+        missing = [s for s in slugs
+                   if store.draws_cache_get(s, DRAWS_CACHE_TTL_S) is None]
+        if missing:
+            with SvenskaSpel() as ss:
+                for slug in missing:
+                    rows = ss.list_draws(slug, start_hint=store.seed_hint(slug))
+                    store.store_seed(slug, rows)
+                    store.draws_cache_put(slug, rows)
         for slug in slugs:
-            ds = ss.list_draws(slug, start_hint=_seed_hint(slug))
-            _store_seed(slug, ds)
-            all_draws.extend(ds)
+            all_draws.extend(store.draws_cache_get(slug, DRAWS_CACHE_TTL_S) or [])
+    finally:
+        store.close()
     all_draws.sort(key=lambda d: d.get("reg_close_time") or "")
     opens = [d for d in all_draws if d["state"] == "Open"]
-    payload = {"product": product, "draws": all_draws, "open": opens}
-    _draws_cache_put(product, payload)
-    return payload
+    # Ingen gruppcache här: slug-cachen ÄR sanningen, och en gruppkopia hade
+    # kunnat skugga en färskare slug-listning från varvet.
+    return {"product": product, "draws": all_draws, "open": opens}
 
 
 @app.get("/api/draw")
@@ -601,10 +647,12 @@ def payouts(product: str = "stryktipset", draw: int | None = None):
              for c, s in sorted(plan["splits"].items(), reverse=True)]
     # spelvärde = total återbetalning inkl jackpot/rullpott; > ratio => extra bra omgång
     with SvenskaSpel() as ss:
-        jackpot = ss.get_jackpot(product, d.draw_number) or d.jackpot or 0.0
+        jp_data = _jackpots_for_ui(ss)      # EN hämtning, delad av båda
+        jackpot = ss.get_jackpot(product, d.draw_number, jp_data) \
+            or d.jackpot or 0.0
         # Garantier (t.ex. ensamvinnargaranti) redovisas SEPARAT och räknas
         # medvetet inte in i spelvärdet — semantiken är overifierad.
-        guarantees = ss.get_guarantees(product, d.draw_number)
+        guarantees = ss.get_guarantees(product, d.draw_number, jp_data)
     # Spelvärdet ska bygga på det som FAKTISKT betalas ut i omgången, inte på
     # bruttoandelen: Stryktipsets splits summerar till 0,92 så rubriken visade
     # 65 % när verklig utbetalning är 59,7 % (uppmätt, se _payout_ratio).

@@ -893,3 +893,27 @@ måste Saman lägga in en Bash-behörighetsregel — se
 - API-nycklar i gitignore:ad `backend/.env` (ODDS_API_KEY finns, the-odds-api är vilande).
 - Rör ALDRIG `/Users/saman/svs` eller `/Users/saman/vm` från detta projekt.
 - Uppdatera STATUS-blocket i `docs/plan.md` när en etapp/delmål blir klar.
+
+### 🚀 STARTVÄGEN — vad som är cachat och varför
+
+Uppmätt 2026-08-10, kall appstart rakt till Oddset: **4 268 ms → 945 ms**.
+Ingen numerik ändrad; allt är arbete som inte behövde göras om.
+
+- **Omgångslistningen delas med varvet.** `/api/draws` cachar per SLUG
+  (`Storage.draws_cache_get/put`), och `cmd_snapshot` skriver dit det den ändå
+  hämtat. Ett kallt `draws?product=topptipset` mättes till 1 616 ms
+  (nummerscanning × 3 slugs) mot 36 ms varmt. TTL 1800 s, satt för att täcka
+  basvarvets 30-minutersintervall — inte av artighet.
+- **`/jackpots` hämtas en gång per payouts-anrop.** `get_jackpot` och
+  `get_guarantees` gjorde varsin identisk hämtning, och startsidan frågar för
+  tre produkter: sex hämtningar av samma objekt. Båda tar nu en valfri
+  `data`-payload. **Cachen ligger i API-lagret, inte i klienten** — varvet
+  anropar utan `data` och observerar färskt, eftersom PIT-serien stämplar
+  observationstid.
+- **Ligafitten**, se avsnittet ovan.
+
+**Det som återstår är samtidighet, inte enskild långsamhet.** Varje endpoint är
+20–180 ms ensam men 1 500–1 800 ms när 43 anrop startar samtidigt. Appen öppnas
+på Idag, vars hämtningar redan är i luften när man trycker Oddset. Nästa steg
+är att avbryta föregående vys hämtningar vid vybyte (`AbortController` i
+`AppV3`:s `get`/`getDetail`), inte att lägga till fler cachar.

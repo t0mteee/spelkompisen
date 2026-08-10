@@ -94,6 +94,10 @@ def cmd_snapshot(product: str) -> float | None:
         try:
             listed = ss.list_draws(product, start_hint=store.seed_hint(product))
             store.store_seed(product, listed)
+            # Dela listningen med API:t. Varvet har ändå betalat scanningen;
+            # utan det här gjorde varje appstart om den (1,6 s för topptipset)
+            # mitt på kritiska vägen till första skärmen.
+            store.draws_cache_put(product, listed)
         finally:
             store.close()
         opens = [d for d in listed if d["state"] == "Open"]
