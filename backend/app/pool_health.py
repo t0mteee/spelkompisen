@@ -100,9 +100,14 @@ def report(store, *, now: Optional[dt.datetime] = None,
         # frysta när deras nominella tid plus ett helt tätvarv har passerat.
         expected = len(benchmarks_for(product))
         for draw in draws:
-            for horizon, (minutes, _timely_tol) in FREEZE_HORIZONS.items():
+            for horizon, (minutes, timely_tol) in FREEZE_HORIZONS.items():
                 due = draw["close"] - dt.timedelta(minutes=minutes)
-                if now < due + dt.timedelta(minutes=FREEZE_GRACE_MIN):
+                # h3 ligger utanför tvåtimmars-förtätningen och får därför
+                # komma vid nästa 30-minutersbasvarv. Den gamla fasta
+                # 15-minutersgränsen gav ett falskt rött fönster innan ett
+                # helt tillåtet h3-varv hunnit ske. m20 behåller 15 min.
+                grace = max(FREEZE_GRACE_MIN, timely_tol)
+                if now < due + dt.timedelta(minutes=grace):
                     continue
                 count = store.conn.execute(
                     "SELECT COUNT(DISTINCT config_key) FROM pool_system_ledger "

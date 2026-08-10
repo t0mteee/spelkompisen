@@ -2733,6 +2733,40 @@ class Storage:
             "SELECT * FROM oddset_prediction_capture ORDER BY captured_at, match_id, tier"
         ).fetchall()]
 
+    def oddset_prediction_dashboard_summary(
+            self, sharp_version: str, leagues: set[str],
+            horizon_max_delay: dict[str, int]) -> dict:
+        """Små aggregat för Idag utan att materialisera hela ledgern."""
+        n_predictions = self.conn.execute(
+            "SELECT COUNT(*) FROM oddset_prediction_log").fetchone()[0]
+        n_captures = self.conn.execute(
+            "SELECT COUNT(*) FROM oddset_prediction_capture").fetchone()[0]
+        if not leagues:
+            return {"n_predictions": n_predictions, "n_captures": n_captures,
+                    "groups": []}
+        placeholders = ",".join("?" for _ in leagues)
+        ordered_leagues = sorted(leagues)
+        rows = self.conn.execute(
+            f"SELECT p.league, p.signal_version, "  # noqa: S608 — placeholders below
+            "SUM(CASE WHEN c.delay_minutes <= CASE p.horizon "
+            "WHEN 'm20' THEN ? WHEN 'h3' THEN ? WHEN 'h24' THEN ? ELSE -1 END "
+            "AND p.eligible=1 AND p.is_flag=1 AND p.closing_fair IS NOT NULL "
+            "AND p.book_odds IS NOT NULL AND p.book_fresh=1 THEN 1 ELSE 0 END) "
+            "AS n_resolved FROM oddset_prediction_log p "
+            "JOIN oddset_prediction_capture c ON c.match_id=p.match_id "
+            "AND c.horizon=p.horizon AND c.tier=p.tier "
+            "AND c.signal_version=p.signal_version "
+            f"WHERE p.tier='sharp' AND p.market='1x2' "  # noqa: S608
+            f"AND p.signal_version=? AND p.league IN ({placeholders}) "  # noqa: S608
+            "GROUP BY p.league, p.signal_version ORDER BY p.league",
+            (horizon_max_delay["m20"], horizon_max_delay["h3"],
+             horizon_max_delay["h24"], sharp_version, *ordered_leagues),
+        ).fetchall()
+        return {
+            "n_predictions": n_predictions, "n_captures": n_captures,
+            "groups": [dict(row) for row in rows],
+        }
+
     def oddset_prediction_market_rows(
             self, match_id: str, horizon: str, tier: str,
             signal_version: str, market: str) -> list[dict]:

@@ -399,6 +399,64 @@ class CollectionPresenceTests(unittest.TestCase):
 
 
 class ResearchLeagueIsolationTests(unittest.TestCase):
+    def test_dashboard_payload_strips_heavy_oddset_fields(self) -> None:
+        full = {
+            "matches": [{
+                "id": "m1", "home": "A", "away": "B",
+                "start": "2026-08-10T12:00:00Z", "league": "allsvenskan",
+                "research": False, "value": {"1x2": {}}, "steam": {"1": 2.1},
+                "odds": {"pinnacle": {"raw": [1] * 1000}},
+                "movement": {"pinnacle": [1] * 1000}, "model": {"p": {}},
+                "absences": ["unused"],
+            }],
+            "leagues": [{"key": "allsvenskan", "name": "Allsvenskan"}],
+            "last_run": "2026-08-10T10:00:00Z",
+        }
+        with mock.patch.object(oddset, "matches_payload", return_value=full) as build:
+            payload = oddset.dashboard_payload(mock.sentinel.store)
+
+        build.assert_called_once_with(mock.sentinel.store, light=True)
+        self.assertEqual(
+            {"id", "home", "away", "start", "league", "research", "value", "steam"},
+            set(payload["matches"][0]),
+        )
+        self.assertNotIn("odds", payload["matches"][0])
+
+    def test_compact_list_omits_raw_points_and_client_unused_presence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            now = dt.datetime.now(dt.timezone.utc)
+            start = (now + dt.timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            first = (now - dt.timedelta(hours=4)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            last = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+            try:
+                store.oddset_upsert_match({
+                    "id": "compact", "league": "allsvenskan",
+                    "home": "A", "away": "B", "start": start,
+                })
+                for at, one in ((first, 2.0), (last, 1.9)):
+                    store.oddset_save_odds(
+                        "compact", "pinnacle",
+                        {"1": one, "X": 3.5, "2": 4.0}, at)
+                compact = oddset.matches_payload(
+                    store, light=True, compact_movement=True)
+                quick = oddset.matches_payload(
+                    store, light=True, compact_movement=True,
+                    include_movement=False, limit=1)
+            finally:
+                store.close()
+
+        row = next(m for m in compact["matches"] if m["id"] == "compact")
+        self.assertIn("movement", row)
+        self.assertNotIn("pts", row["movement"]["pinnacle"]["1x2"]["1"])
+        self.assertNotIn("selections", row["odds"]["pinnacle"]["1x2"])
+        quick_row = next(m for m in quick["matches"] if m["id"] == "compact")
+        self.assertNotIn("movement", quick_row)
+        self.assertIn("steam", quick_row)
+        self.assertEqual(1, len(quick["matches"]))
+        self.assertGreaterEqual(quick["total_matches"], 1)
+        self.assertGreaterEqual(quick["league_counts"]["allsvenskan"], 1)
+
     def test_global_live_health_survives_regular_league_filter(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = Storage(Path(tmp) / "test.db")

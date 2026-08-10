@@ -53,6 +53,7 @@
 .v3 section { border-top: 2px solid var(--v3acc-dim); }
 .v3 h2 { font-size: 14px; }
 .v3cols { display: grid; gap: 12px; grid-template-columns: 1fr; margin-top: 12px; }
+.v3cols > * { min-width: 0; max-width: 100%; }
 @media (min-width: 1280px) { .v3cols { grid-template-columns: 1fr 1fr; } }
 
 /* ---------- Idag (dashboard) ---------- */
@@ -386,6 +387,11 @@
   .v3right .colstat > :not(.dot) { display: none; }  /* bara pricken på mobil */
   .v3exit { padding: 4px 9px; font-size: 11px; }
   .v3main { padding: 10px; }
+  .v3 .buildbar, .v3 #kupong { min-width: 0; max-width: 100%; overflow: hidden; }
+  .v3 .buildbar .grid.compact, .v3 #kupong .grid.compact {
+    display: block; width: 100%; max-width: 100%; overflow-x: auto;
+    white-space: nowrap; -webkit-overflow-scrolling: touch;
+  }
   .v3span2 { grid-column: span 1; }
   .v3wide { grid-column: 1; }
   .v3grid { grid-template-columns: 1fr; }

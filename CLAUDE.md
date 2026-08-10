@@ -301,6 +301,19 @@ frontend/ React + Vite, mörkt tema. src/AppV3.jsx + AppV3.css är APPEN
   Matcher/Live/Värdespel/Rörelser; desktop använder delade `SortableTable`,
   mobil samma sortering över kort. `SortableTable` kapar med `limit` EFTER
   sorteringen — slicea aldrig `rows` före anropet, det ger en falsk topplista.
+  Idag är en lätt översikt: använd `/api/dashboard/oddset` och
+  `/api/oddset/predictions/summary`, aldrig de fulla Oddset-/ledger-rapporterna
+  där. `/api/pool/played?live=false` ger lokal kupongdata direkt; extern
+  livestatus är progressiv och får inte blockera första skärmen. Omladdning
+  börjar alltid i Idag (återinför inte `svs_v3_view`).
+  Oddset-vyn laddar progressivt: första listan är
+  `/api/oddset/matches?light=true&compact=true&movement=false&limit=40`;
+  svaret bär fortfarande `total_matches` och `league_counts`. Först efter
+  1,2 s berikas vyn med hela `compact=true`-listan. `compact` tar bara bort råa `pts`, aldrig
+  first/last/linjeskift; hela serien hämtas för en öppnad match via
+  `/api/oddset/movement?match_id=...`. Matcher renderas 40 åt gången efter
+  sortering. Återinför inte all historik eller alla cirka 190 rader i första
+  svar/paint.
   Signalgruppsfacit och signallogg hör hemma i Labb, aldrig som en femte
   Oddset-sektion.
   **YTGRÄNSEN (2026-08-05): Historik = 100 % POOL, Labb = 100 % ODDS.**

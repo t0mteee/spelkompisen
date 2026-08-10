@@ -1181,10 +1181,19 @@ def _next_round_for_empty_leagues(store: Storage, windowed: list[dict],
 
 
 def matches_payload(store: Storage, light: bool = False,
-                    include_research: bool = False) -> dict:
+                    include_research: bool = False,
+                    compact_movement: bool = False,
+                    include_movement: bool = True,
+                    limit: int | None = None) -> dict:
     """Matchlistan i tidsordning med senaste odds + rörelseserier per källa.
     light=True (snabbvarven) hoppar frånvaro + modell — modellfitten är dyr
     och amber-flaggorna är inte tidskritiska; 30-min-varvet tar dem.
+    compact_movement=True behåller first/last/linjeskift men tar bort de råa
+    punkterna; UI hämtar dem separat först när en matchdetalj öppnas.
+    include_movement=False tar bort även summeringen efter att `steam` räknats.
+    limit begränsar bara API-listan efter att globala ligaantal räknats. Klienten
+    kan därför måla de första raderna med ett litet svar men ändå visa korrekt
+    totalantal och korrekta ligafilter medan resten berikas i bakgrunden.
     include_research=True är den INTERNA insamlings-payloaden (alla ligor,
     V2.2-forskningsmodell, ofiltrerat värde-underlag). Ordinarie API:t kör
     False: forskningsligor med visible_in_ui visas då med odds, prisålder
@@ -1258,6 +1267,20 @@ def matches_payload(store: Storage, light: bool = False,
         # Alt-linjerna behövs ovan för samma-linje-transparensen, men hela
         # rålagret ska inte blåsa upp API-payloaden.
         m.pop("sharp_alt", None)
+        if compact_movement:
+            for markets in (m.get("movement") or {}).values():
+                for signs in (markets or {}).values():
+                    for series in (signs or {}).values():
+                        if isinstance(series, dict):
+                            series.pop("pts", None)
+        if not include_movement:
+            m.pop("movement", None)
+        # Per-tecken-presence behövs när värdet räknas ovan men duplicerar
+        # marknadens tider/status i JSON och används inte av klienten.
+        for markets in (m.get("odds") or {}).values():
+            for market in (markets or {}).values():
+                if isinstance(market, dict):
+                    market.pop("selections", None)
     visible_leagues = [
         league for league in LEAGUES
         if include_research or league["key"] in VISIBLE_LEAGUE_KEYS
@@ -1283,7 +1306,17 @@ def matches_payload(store: Storage, light: bool = False,
         if lg.get("research_only"):
             entry["research"] = True
         leagues_out.append(entry)
+    total_matches = len(out)
+    league_counts: dict[str, int] = {}
+    for match in out:
+        league = match.get("league")
+        if league:
+            league_counts[league] = league_counts.get(league, 0) + 1
+    if limit is not None:
+        out = out[:max(0, limit)]
     return {"matches": out,
+            "total_matches": total_matches,
+            "league_counts": league_counts,
             "leagues": leagues_out,
             "last_run": store.meta_get("oddset_last_run"),
             "source_health": health,
@@ -1295,3 +1328,27 @@ def matches_payload(store: Storage, light: bool = False,
             # äger listan och UI:t följer den.
             "active_sources": sorted(active_sources()),
             "passive_sources": sorted(passive_sources())}
+
+
+def dashboard_payload(store: Storage) -> dict:
+    """Litet Idag-underlag utan modellfit, frånvaro eller råa prisserier.
+
+    Dashboarden behöver bara kunna välja de tre bästa värdesignalerna och
+    rörelserna samt visa forskningsligornas antal. Att skicka Oddset-vyns
+    fulla payload dit kostade ~2,4 MB och tvingade mobilen att parsa tusentals
+    historiska prispunkter som aldrig renderades på startsidan.
+    """
+    payload = matches_payload(store, light=True)
+    matches = []
+    for match in payload["matches"]:
+        matches.append({
+            key: match.get(key)
+            for key in ("id", "home", "away", "start", "league",
+                        "research", "value", "steam")
+            if match.get(key) is not None
+        })
+    return {
+        "matches": matches,
+        "leagues": payload["leagues"],
+        "last_run": payload.get("last_run"),
+    }

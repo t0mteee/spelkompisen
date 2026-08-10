@@ -58,6 +58,18 @@ class PoolHealthTests(unittest.TestCase):
         self.assertEqual(1, len(freezes))
         self.assertIn("h3 har 0/12", freezes[0]["message"])
 
+    def test_h3_alarm_waits_for_one_allowed_base_interval(self):
+        close = self._draw(hours=3)
+        self._snapshot()
+        before = pool_health.report(
+            self.store, now=close - dt.timedelta(minutes=180) + dt.timedelta(minutes=20),
+            products=("stryktipset",))
+        after = pool_health.report(
+            self.store, now=close - dt.timedelta(minutes=180) + dt.timedelta(minutes=31),
+            products=("stryktipset",))
+        self.assertNotIn("freeze_incomplete", {i["kind"] for i in before["issues"]})
+        self.assertIn("freeze_incomplete", {i["kind"] for i in after["issues"]})
+
     def test_scanhint_must_not_lag_observed_draw(self):
         self._draw("topptipset", 4300, 8)
         self._snapshot("topptipset", 4300)

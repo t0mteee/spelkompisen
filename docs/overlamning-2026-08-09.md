@@ -413,3 +413,83 @@ historisk rekonstruktion görs.
 Verifierat: 633 backendtester, 5 UI-tester, frontend-lint och
 produktionsbygge gröna. Aktiv modellversion `m-a6a54189`, fryst
 shadowversion `ps-59893bd6`.
+
+---
+
+## 13. Snabb Idag-vy och stabil kupong på mobil — 2026-08-10
+
+Fördröjningen på 2–5 sekunder var inte React-bundlen. Idag-vyn hämtade den
+fulla Oddset-payloaden (cirka 2,4 MB), hela prediction-rapporten med bootstrap
+och `/api/pool/played`, som gör externa SvS-anrop för varje öppen kupong
+(uppmätt 3,25 s). Dessutom återställde `svs_v3_view` Historik eller Oddset vid
+omladdning, så en mobil kunde starta direkt i en tung vy.
+
+Nya kontrakt:
+
+- `GET /api/dashboard/oddset` använder `matches_payload(light=True)` men
+  skickar bara identitet, tid, liga, research, `value` och `steam` (uppmätt
+  0,31 s/155 kB). Fulla odds-/rörelseserier finns oförändrat kvar på
+  `/api/oddset/matches` för Oddset-vyn.
+- `GET /api/oddset/predictions/summary` läser antal och aktuella primära
+  sharp/1X2-statusar utan close-upplösning eller bootstrap (cirka 0,8 s/843 B).
+  Labb använder fortsatt den fulla rapporten.
+- `/api/pool/played?live=false` returnerar den lokala listan och summeringen
+  utan nätanrop (0,12 s). Idag visar den först och hämtar full livestatus
+  fördröjt; Historik visar samma lokala kort med “Hämtar livestatus…” och
+  fyller på direkt. Standardanropet utan parameter är bakåtkompatibelt.
+- Nästa spelstopp renderas per produkt så fort just den produkten är klar;
+  en långsam jackpotfråga blockerar inte längre alla fyra. Ny session eller
+  omladdning börjar alltid i Idag; navigationen inom sessionen ändras inte.
+
+“Inzoomningen” efter **Lägg i kupongen** var horisontell overflow, inte
+browserzoom: vid 390 px blev dokumentet 654 px brett eftersom gridbarnens
+automatiska minbredd följde en `nowrap`-tabell. `scrollIntoView` flyttade sedan
+även X-led. Gridbarnen har nu `min-width: 0`, tabellerna scrollar inom sin
+kolumn och hoppet använder dubbel animation frame + `window.scrollTo` med
+`left: 0`. Browserverifiering efter klick: body/html/client 375/375/375,
+`scrollX=0`, kupongen x=10–365 och top=8.
+
+Verifierat: 635 backendtester, 5 UI-tester, frontend-lint och
+produktionsbygge gröna. Ingen DB- eller modelländring gjordes.
+
+---
+
+## 14. Oddset laddar progressivt; falskt h3-hälsolarm borttaget — 2026-08-10
+
+Oddset-sidan väntade på `Promise.all` över full matchlista, notiser och
+live-radar. Matchlistan var cirka 2,70 MB; 1,68 MB var historiska
+rörelsepunkter för samtliga matcher och cirka 0,70 MB odds innehöll dessutom
+per-tecken-presence som klienten aldrig läser.
+
+Nu visas först
+`/api/oddset/matches?light=true&compact=true&movement=false&limit=40`:
+aktuella odds, värde, steam, linjer och källhälsa utan modell/frånvaro eller
+rörelsehistorik. `total_matches` och `league_counts` räknas före begränsningen,
+så räknare och ligafilter är korrekta från första svaret. Uppmätt genom
+produktions-API:t: **0,246 s och 111 kB för 40 av 186 matcher** (tidigare
+0,43 MB trots samma visuella 40-radersgräns). Efter 1,2 s fyller
+`compact=true` på hela listan med modell, frånvaro och summerade
+first/last/linjeskift (1,08 s/1,05 MB). Notiser och live-radar sätter egna
+state och blockerar inte listan. En request-sekvens kontrolleras även före
+det fördröjda fullanropet, så ett vybyte inte startar onödig nätverkstrafik.
+Idag-vyn avbryter sina kvarvarande HTTP-anrop
+vid vybyte så de inte tar mobilens anslutningar när Oddset öppnas. Råa
+kurvpunkter hämtas endast när användaren öppnar matchen via
+`GET /api/oddset/movement?match_id=...` (observerat cirka 30 kB/1 ms för en
+match). Detaljgrafer, odds, värdespel, rörelser, modeller och frånvaro finns
+kvar; bara leveransordning och oanvänd duplicering ändrades. Sena svar spärras
+med request-sekvens. Matcher-fliken renderar först 40 rader efter korrekt
+sortering och erbjuder “Visa alla” när hela listan är hämtad; första svaret
+visar ändå exempelvis 40/186 via totalfältet. 390 px-browserprovet visade 40/185 rader,
+ingen sidoverflow och fem polylines när första matchdetaljen öppnades.
+
+Idag-varningen `topptipset 4259: h3 har 0/9 frysta system` var ett falskt
+mellanläge. H3 fryses i ett 30-minutersbasvarv eftersom T−3 h ligger utanför
+poolens tvåtimmars-förtätning, men `pool_health` larmade efter fasta 15
+minuter. Den faktiska frysningen kom korrekt 28 minuter efter horisonten och
+`cli.py kallhalsa` blev grön utan manuell åtgärd. Hälsan använder nu
+`max(15 min, FREEZE_HORIZONS[horizon].timely_tol)`: 30 min för h3 och 15 min
+för m20. Ett regressionstest låser inget larm vid +20 min men larm vid +31.
+
+Verifierat: 637 backendtester, 5 UI-tester, frontend-lint och
+produktionsbygge gröna. Ingen DB-, modell- eller insamlingsändring gjordes.

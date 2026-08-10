@@ -551,7 +551,7 @@ def pool_played_forget(coupon_id: int):
 
 
 @app.get("/api/pool/played")
-def pool_played_list():
+def pool_played_list(live: bool = True):
     """Spelade kuponger med LIVESTATUS för öppna omgångar.
 
     Livestatusen läses ur SvS egen draw-payload (`match.result` +
@@ -563,24 +563,25 @@ def pool_played_list():
     store = Storage()
     try:
         coupons = pool_played.all_coupons(store)
-        out = []
-        with SvenskaSpel() as ss:
-            for coupon in coupons:
-                item = dict(coupon)
-                if not coupon["settled_at"]:
+        out = [dict(coupon) for coupon in coupons]
+        if live:
+            with SvenskaSpel() as ss:
+                for item in out:
+                    if item["settled_at"]:
+                        continue
                     try:
-                        raw = ss.get_draw_raw(coupon["product"],
-                                              coupon["draw_number"])
+                        raw = ss.get_draw_raw(item["product"],
+                                              item["draw_number"])
                         states = [pool_played.event_state(e)
                                   for e in (raw.get("drawEvents") or [])]
                         # Pågående matcher måste prissättas live — SvS odds i
                         # payloaden är statiska prematch-odds hela omgången.
                         pool_played.attach_live_odds(store, states)
-                        item["live"] = pool_played.live_status(coupon, states)
+                        item["live"] = pool_played.live_status(item, states)
                     except Exception as exc:      # noqa: BLE001
                         item["live_error"] = f"{type(exc).__name__}"
-                out.append(item)
-        return {"coupons": out, "summary": pool_played.summary(store)}
+        return {"coupons": out, "summary": pool_played.summary(store),
+                "live_included": live}
     finally:
         store.close()
 
@@ -797,14 +798,40 @@ def turnover_prognos():
 
 
 @app.get("/api/oddset/matches")
-def oddset_matches():
+def oddset_matches(light: bool = False, compact: bool = False,
+                   movement: bool = True,
+                   limit: int | None = Query(default=None, ge=1, le=250)):
     """Oddset-fliken: matcher i tidsordning med senaste odds (Pinnacle + Svenska Spel)
     och rörelseserier. Läser bara DB — insamlingen sker via /api/oddset/refresh
     eller launchd-jobbet."""
     from . import oddset as oddset_mod
     store = Storage()
     try:
-        return oddset_mod.matches_payload(store)
+        return oddset_mod.matches_payload(
+            store, light=light, compact_movement=compact,
+            include_movement=movement, limit=limit)
+    finally:
+        store.close()
+
+
+@app.get("/api/oddset/movement")
+def oddset_movement(match_id: str):
+    """Råa rörelsepunkter för en öppnad matchdetalj, aldrig hela listan."""
+    store = Storage()
+    try:
+        return {"match_id": match_id,
+                "movement": store.oddset_movement([match_id]).get(match_id, {})}
+    finally:
+        store.close()
+
+
+@app.get("/api/dashboard/oddset")
+def dashboard_oddset():
+    """Kompakt Oddset-underlag för Idag; fulla prisserier hör till Oddset-vyn."""
+    from . import oddset as oddset_mod
+    store = Storage()
+    try:
+        return oddset_mod.dashboard_payload(store)
     finally:
         store.close()
 
@@ -919,6 +946,17 @@ def oddset_predictions():
     try:
         oddset_ledger.resolve_closings(store)
         return oddset_ledger.prediction_report(store)
+    finally:
+        store.close()
+
+
+@app.get("/api/oddset/predictions/summary")
+def oddset_predictions_summary():
+    """Kompakt, read-only ledgerstatus för Idag-vyn."""
+    from . import oddset_ledger
+    store = Storage()
+    try:
+        return oddset_ledger.dashboard_summary(store)
     finally:
         store.close()
 

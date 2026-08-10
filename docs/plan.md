@@ -60,6 +60,28 @@ beslutshorisont, 30 per liga i minst tre ligor, 42 dagar, positiv nedre
 90 %-KI-gräns och högst 0,005 loglossförsämring i någon liga. Ett eventpass
 leder bara till en separat system-shadow, aldrig direkt till livebyggaren.
 
+**Mobilens första skärm och kupongbredd 2026-08-10.** Idag-vyn använder nu
+kompakta, read-only sammandrag för Oddset och prediction-ledgern i stället för
+att hämta 2,4 MB fulla prisserier och köra alla bootstrap-KI:n. Spelade
+kuponger visas från lokal DB på cirka 0,1 s; extern SvS-livestatus fylls på
+efteråt och blockerar inte sidan. Poolspelen renderas ett i taget och appen
+startar alltid i Idag, inte i en tung senast sparad vy. Verifierat vid 390 px:
+första Oddset-innehåll cirka 0,9 s, första poolkort cirka 1,0 s; samtliga fyra
+poolkort cirka 2,3 s men sidan är användbar under tiden. Kupongtabellerna hålls
+inom sin gridkolumn och “Lägg i kupongen” scrollar endast vertikalt; dokumentet
+förblir 375 px brett före och efter klicket.
+
+**Oddset-progressiv laddning + poolhälsans h3-tolerans 2026-08-10.** Oddset
+visar nu en 0,11 MB snabbpayload med 40 matcher på cirka 0,25 s via API:t;
+korrekt total- och ligaantal följer separat. Modell/frånvaro berikar hela
+listan först efter 1,2 s och råa rörelsepunkter hämtas bara för öppnad match.
+Första renderingen begränsas till 40 korrekt sorterade matcher med explicit
+“visa alla”, och Idag-anrop avbryts vid vybyte. Tidigare första svar var cirka
+2,70 MB och 1,0–1,6 s lokalt, tydligare långsamt över mobilnät.
+Poolhälsan använder frysningens verkliga tolerans: h3 får ett helt
+30-minutersbasvarv, m20 fortsatt minst 15 minuter. Därmed blinkar inte Idag
+falskt rött mellan h3:s 15:e och 30:e minut.
+
 **Aktuell överlämning:** `docs/overlamning-2026-08-09.md`. Alla statusblock
 nedan är daterad historik och får inte läsas som nuvarande kontrakt.
 

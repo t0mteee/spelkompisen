@@ -822,3 +822,38 @@ def prediction_report(store: Storage, update_states: bool = False,
             rows, current_versions["model"]),
         "groups": groups,
     }
+
+
+def dashboard_summary(store: Storage) -> dict:
+    """Billig ledgerstatus för Idag-vyn, utan bootstrap eller close-upplösning.
+
+    Den fulla rapporten är ett forskningsverktyg och räknar om bootstrap-KI:n
+    för alla grupper. Startsidan visar bara insamlingsantal och status för de
+    primära sharp/1X2-grupperna; att köra hela rapporten där gav flera sekunders
+    väntan utan att resten av resultatet användes.
+    """
+    current_versions = {
+        tier: version["signal_version"]
+        for tier, version in prediction_versions(store).items()
+    }
+    compact = store.oddset_prediction_dashboard_summary(
+        current_versions["sharp"], PRIMARY_LEAGUES, HORIZON_MAX_DELAY)
+    states = store.oddset_prediction_states()
+    groups = []
+    for row in compact["groups"]:
+        tier, league, market = "sharp", row["league"], "1x2"
+        version = row["signal_version"]
+        key = (tier, league, market, version)
+        groups.append({
+            "tier": tier, "league": league, "market": market,
+            "version": version, "active_version": True, "primary": True,
+            "n_resolved": row["n_resolved"],
+            "status": states.get(key, {}).get("status", "amber"),
+        })
+    groups.sort(key=lambda group: group["league"])
+    return {
+        "n_predictions": compact["n_predictions"],
+        "n_captures": compact["n_captures"],
+        "current_versions": current_versions,
+        "groups": groups,
+    }

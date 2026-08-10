@@ -53,8 +53,9 @@ const asJson = async (r) => {
   }
 }
 
-const get = (url) => fetch(`${url}${url.includes('?') ? '&' : '?'}_t=${Date.now()}`,
-  { cache: 'no-store' }).then((r) => {
+const get = (url, options = {}) => fetch(
+  `${url}${url.includes('?') ? '&' : '?'}_t=${Date.now()}`,
+  { cache: 'no-store', ...options }).then((r) => {
     if (!r.ok) throw new Error(`${r.status}`)
     return asJson(r)
   })
@@ -127,12 +128,21 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
   const [systems, setSystems] = useState(null)
   const [played, setPlayed] = useState(null)
   const [health, setHealth] = useState(null)
-  const [err, setErr] = useState(null)
+  const loadSeq = useRef(0)
+  const abortRef = useRef(null)
 
   const load = () => {
-    Promise.all(POOL_GAMES.map(async (g) => {
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+    const request = (url) => get(url, { signal: controller.signal })
+    const seq = ++loadSeq.current
+    // Visa varje spelform så fort den är klar. Promise.all gjorde att en enda
+    // långsam jackpot-/garantifråga höll hela kortet i laddningsläge.
+    POOL_GAMES.forEach(async (g) => {
+      let result
       try {
-        const d = await get(`/api/draws?product=${g.id}`)
+        const d = await request(`/api/draws?product=${g.id}`)
         const list = d.open?.length ? d.open : d.draws || []
         // NÄSTA spelstopp = tidigaste framtida stängning bland öppna omgångar
         // (listan kan innehålla passerade/sena poster — lita inte på list[0])
@@ -140,21 +150,40 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
           .filter((x) => x.reg_close_time && new Date(x.reg_close_time) > new Date())
           .sort((a, b) => new Date(a.reg_close_time) - new Date(b.reg_close_time))
         const first = upcoming[0]
-        if (!first) return { ...g, none: true }
+        if (!first) result = { ...g, none: true }
         let pay = null
-        if (g.id !== 'bomben') {
-          pay = await get(`/api/payouts?product=${first.product}&draw=${first.draw_number}`).catch(() => null)
+        if (first && g.id !== 'bomben') {
+          pay = await request(`/api/payouts?product=${first.product}&draw=${first.draw_number}`).catch(() => null)
         }
-        return { ...g, draw: first, pay, count: upcoming.length }
-      } catch { return { ...g, none: true } }
-    })).then(setPool).catch((e) => setErr(String(e)))
-    get('/api/oddset/matches').then(setOddset).catch(() => setOddset(null))
-    get('/api/oddset/predictions').then(setLedger).catch(() => setLedger(null))
-    get('/api/pool/systems').then(setSystems).catch(() => setSystems(null))
-    get('/api/pool/played').then(setPlayed).catch(() => setPlayed(null))
-    get('/api/health').then(setHealth).catch(() => setHealth(null))
+        if (first) result = { ...g, draw: first, pay, count: upcoming.length }
+      } catch { result = { ...g, none: true } }
+      if (loadSeq.current !== seq) return
+      setPool((current) => {
+        const byId = new Map((current || []).map((row) => [row.id, row]))
+        byId.set(g.id, result)
+        return POOL_GAMES.map((game) => byId.get(game.id)).filter(Boolean)
+      })
+    })
+    request('/api/dashboard/oddset').then(setOddset).catch(() => setOddset(null))
+    request('/api/oddset/predictions/summary').then(setLedger).catch(() => setLedger(null))
+    request('/api/pool/systems').then(setSystems).catch(() => setSystems(null))
+    // Den lokala kuponglistan visas direkt. Extern livestatus kan ta flera
+    // sekunder och fylls därför på efteråt utan att blockera första skärmen.
+    request('/api/pool/played?live=false').then((data) => {
+      setPlayed(data)
+      if ((data.coupons || []).some((coupon) => !coupon.settled_at)) {
+        // Ge kärninnehållet nätverksutrymme först; livekortet är en påfyllnad.
+        window.setTimeout(() => {
+          if (loadSeq.current !== seq) return
+          request('/api/pool/played').then((live) => {
+            if (loadSeq.current === seq) setPlayed(live)
+          }).catch(() => {})
+        }, 900)
+      }
+    }).catch(() => setPlayed(null))
+    request('/api/health').then(setHealth).catch(() => setHealth(null))
     Promise.all(HIST_PRODUCTS.map((p) =>
-      get(`/api/pool/history?product=${p.id}&limit=1`).then((j) => [p.id, j]).catch(() => [p.id, null])
+      request(`/api/pool/history?product=${p.id}&limit=1`).then((j) => [p.id, j]).catch(() => [p.id, null])
     )).then((pairs) => setHist(Object.fromEntries(pairs)))
   }
   useEffect(() => {
@@ -165,6 +194,8 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
     const id = setInterval(tick, 120000)
     document.addEventListener('visibilitychange', tick)
     return () => {
+      loadSeq.current += 1
+      abortRef.current?.abort()
       clearInterval(id)
       document.removeEventListener('visibilitychange', tick)
     }
@@ -200,7 +231,6 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
 
   return (
     <div className="v3dash">
-      {err && <ErrorState message={err} />}
       {poolIssues.length > 0 && (
         <div className="v3alert" role="alert">
           <b>⚠ Poolinsamlingen behöver tillsyn</b>
@@ -527,7 +557,15 @@ function PoolV3() {
     sys.picks.forEach((pk) => { p[pk.event_number] = pk.signs })
     setPickRows(sys.rows && sys.rows.length ? sys.rows.map((r) => [...r]) : null)
     setPicks(p)
-    setTimeout(() => document.getElementById('kupong')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
+    // scrollIntoView får även flytta sidan horisontellt. När den breda
+    // kupongtabellen nyss mountats ser det på mobil ut som att sidan zoomar.
+    // Vänta tills layouten satt sig och flytta bara Y-led.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const coupon = document.getElementById('kupong')
+      if (!coupon) return
+      const top = coupon.getBoundingClientRect().top + window.scrollY - 8
+      window.scrollTo({ top, left: 0, behavior: 'smooth' })
+    }))
   }
 
   const nMatches = analysis?.matches?.length || 0
@@ -2096,16 +2134,16 @@ function LabbV3() {
 /* ================================= Skal =================================== */
 
 export default function AppV3() {
-  const [view, setView] = useState(() => {
-    try { return localStorage.getItem('svs_v3_view') || 'idag' } catch { return 'idag' }
-  })
+  // En ny/omladdad session ska alltid ge den snabba översikten. Att återställa
+  // Historik/Oddset här gjorde mobilens första skärm beroende av deras stora
+  // rapporter innan användaren ens valt dem.
+  const [view, setView] = useState('idag')
   const [histProduct, setHistProduct] = useState(null)
   const [histFocus, setHistFocus] = useState(null)
   const [oddsetFocus, setOddsetFocus] = useState(null)
   const go = (v) => {
     if (v !== 'oddset') setOddsetFocus(null)
     setView(v)
-    try { localStorage.setItem('svs_v3_view', v) } catch { /* ok */ }
     window.scrollTo({ top: 0 })
   }
   const openOddset = (target = null) => { setOddsetFocus(target); go('oddset') }

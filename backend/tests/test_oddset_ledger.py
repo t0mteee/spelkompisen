@@ -57,6 +57,11 @@ class PredictionCaptureTests(unittest.TestCase):
         self.assertTrue(any(not row["is_flag"] for row in rows))  # control group
         self.assertEqual({"sharp", "model"}, {row["tier"] for row in rows})
         self.assertTrue(all(row["delay_minutes"] == 60 for row in rows))
+        compact = self.store.oddset_prediction_dashboard_summary(
+            "s-ledger", {"allsvenskan"}, oddset_ledger.HORIZON_MAX_DELAY)
+        self.assertEqual(6, compact["n_predictions"])
+        self.assertEqual(2, compact["n_captures"])
+        self.assertEqual("allsvenskan", compact["groups"][0]["league"])
 
     def test_empty_capture_is_not_backfilled_late(self) -> None:
         match = {**self._match(), "odds": {}}
@@ -98,6 +103,27 @@ class PredictionCaptureTests(unittest.TestCase):
             start, dt.datetime(2026, 7, 17, 9, 50, tzinfo=UTC)))
         self.assertIsNone(oddset_ledger.horizon_at(
             start, dt.datetime(2026, 7, 16, 9, 59, tzinfo=UTC)))
+
+    def test_dashboard_summary_only_returns_current_primary_groups(self) -> None:
+        versions = {
+            "sharp": {"signal_version": "s-current", "base_version": "s-base"},
+            "model": {"signal_version": "m-current", "base_version": "m-base"},
+        }
+        compact = {
+            "n_predictions": 2, "n_captures": 3,
+            "groups": [{"league": "allsvenskan",
+                        "signal_version": "s-current", "n_resolved": 1}],
+        }
+        with patch.object(oddset_ledger, "prediction_versions", return_value=versions), \
+                patch.object(self.store, "oddset_prediction_dashboard_summary",
+                             return_value=compact):
+            summary = oddset_ledger.dashboard_summary(self.store)
+
+        self.assertEqual(2, summary["n_predictions"])
+        self.assertEqual(3, summary["n_captures"])
+        self.assertEqual(1, len(summary["groups"]))
+        self.assertEqual(1, summary["groups"][0]["n_resolved"])
+        self.assertTrue(summary["groups"][0]["primary"])
 
     def test_corner_model_is_frozen_in_the_same_prediction_ledger(self) -> None:
         match = self._match()

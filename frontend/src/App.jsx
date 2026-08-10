@@ -1,4 +1,4 @@
-import { Component, Fragment, useEffect, useEffectEvent, useState } from 'react'
+import { Component, Fragment, useEffect, useEffectEvent, useRef, useState } from 'react'
 import './App.css'
 import { summarizeSourceHealth } from './sourceHealth.js'
 import { payoutMatchesSelection } from './poolSelection.js'
@@ -1017,11 +1017,14 @@ function OddsetView({ focus = null } = {}) {
   const [showSources, setShowSources] = useStoredBool('svs_ui_oddset_sources')
   const [showAllModel, setShowAllModel] = useStoredBool('svs_ui_oddset_model_list')
   const [showBooks, setShowBooks] = useStoredBool('svs_ui_oddset_books')
+  const [showAllMatches, setShowAllMatches] = useState(false)
   const [expanded, setExpanded] = useState(null)
   // 📒 Rek-historiken för EN öppnad matchdetalj: { id, rows } | { id, error }
   const [matchFlags, setMatchFlags] = useState(null)
+  const [movementDetail, setMovementDetail] = useState(null)
   const [err, setErr] = useState(null)
   const [busy, setBusy] = useState(false)
+  const loadSeq = useRef(0)
   const [hidden, setHidden] = useState(() => {
     try { return JSON.parse(localStorage.getItem(ODDSET_HIDDEN_KEY)) || [] } catch { return [] }
   })
@@ -1078,16 +1081,51 @@ function OddsetView({ focus = null } = {}) {
     } catch { /* ok */ }
   }
 
-  const load = () =>
-    Promise.all([
-      fetch(`/api/oddset/matches?_t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()),
-      fetch(`/api/oddset/notices?_t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
-      fetch(`/api/oddset/live-radar?_t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
-    ]).then(([d, n, live]) => {
-      setData(d); setNotices(n?.notices || []); setLiveRadar(live); setErr(null)
-    })
-      .catch((e) => setErr(String(e)))
-  useEffect(() => { load() }, [])
+  const load = () => {
+    const seq = ++loadSeq.current
+    const stamp = Date.now()
+    let quickLoaded = false
+    // Första svaret hoppar den dyra amber-modellen/frånvaron och skickar
+    // inga historiska punkter. Det räcker för hela beslutsytan: aktuella odds,
+    // värde, steam och linjeskift. Detaljerna berikar samma rader efter första
+    // paint utan att hålla sidan i laddningsläge.
+    const quick = fetch(`/api/oddset/matches?light=true&compact=true&movement=false&limit=40&_t=${stamp}`,
+      { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        quickLoaded = true
+        if (loadSeq.current === seq) { setData(d); setErr(null) }
+      })
+      .catch((e) => {
+        if (loadSeq.current === seq) setErr(String(e))
+      })
+    const detailed = quick.then(() => new Promise((resolve) => setTimeout(resolve, 1200)))
+      .then(() => {
+        if (loadSeq.current !== seq) return null
+        return fetch(`/api/oddset/matches?compact=true&_t=${stamp}`,
+          { cache: 'no-store' })
+      })
+      .then((r) => r ? r.json() : null)
+      .then((d) => {
+        if (d && loadSeq.current === seq) { setData(d); setErr(null) }
+      })
+      .catch((e) => {
+        if (loadSeq.current === seq && !quickLoaded) setErr(String(e))
+      })
+    fetch(`/api/oddset/notices?_t=${stamp}`, { cache: 'no-store' })
+      .then((r) => r.json()).then((n) => {
+        if (loadSeq.current === seq) setNotices(n?.notices || [])
+      }).catch(() => {})
+    fetch(`/api/oddset/live-radar?_t=${stamp}`, { cache: 'no-store' })
+      .then((r) => r.json()).then((live) => {
+        if (loadSeq.current === seq) setLiveRadar(live)
+      }).catch(() => {})
+    return detailed
+  }
+  useEffect(() => {
+    load()
+    return () => { loadSeq.current += 1 }
+  }, [])
   useEffect(() => {
     const poll = () => fetch(`/api/oddset/live-radar?_t=${Date.now()}`, { cache: 'no-store' })
       .then((r) => r.json()).then(setLiveRadar).catch(() => {})
@@ -1122,6 +1160,11 @@ function OddsetView({ focus = null } = {}) {
       .then((r) => r.json())
       .then((d) => { if (alive) setMatchFlags({ id: expanded, rows: d.flags || [] }) })
       .catch(() => { if (alive) setMatchFlags({ id: expanded, error: true }) })
+    fetch(`/api/oddset/movement?match_id=${encodeURIComponent(expanded)}&_t=${Date.now()}`,
+      { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => { if (alive) setMovementDetail({ id: expanded, movement: d.movement || {} }) })
+      .catch(() => { if (alive) setMovementDetail({ id: expanded, movement: {} }) })
     return () => { alive = false }
   }, [expanded])
 
@@ -1511,8 +1554,9 @@ function OddsetView({ focus = null } = {}) {
     return [{ source, scope, label, ...summary, details, passive }]
   })
 
-  const counts = {}
-  for (const m of data.matches) counts[m.league] = (counts[m.league] || 0) + 1
+  const counts = data.league_counts || data.matches.reduce((all, m) => ({
+    ...all, [m.league]: (all[m.league] || 0) + 1,
+  }), {})
   const visible = data.matches.filter((m) => !hidden.includes(m.league))
   const hasSignal = (m) => {
     if (m.research || m.data_conflict) return false
@@ -1534,6 +1578,10 @@ function OddsetView({ focus = null } = {}) {
   const matchRows = hideStarted
     ? listed.filter((m) => !m.start || new Date(m.start) >= new Date())
     : listed
+  const completeMatchList = data.matches.length >= (data.total_matches || data.matches.length)
+  const unfilteredInitialList = !completeMatchList && hidden.length === 0
+    && !onlySignals && !hideStarted
+  const matchRowTotal = unfilteredInitialList ? data.total_matches : matchRows.length
   const showCorners = listed.some((m) => {
     const priced = Object.values(m.odds || {}).some((book) => book?.cor?.O && book?.cor?.U)
     return priced || (showModel && m.model?.corners)
@@ -1867,6 +1915,8 @@ function OddsetView({ focus = null } = {}) {
       [sh.h6, sh.h24].filter((v) => v != null).map(Math.abs))
     return values.length ? Math.max(...values) : null
   }
+  const detailedMovement = (m) => movementDetail?.id === m.id
+    ? movementDetail.movement : m.movement
   const svsPrice = (m, market, sign) =>
     m.odds?.svenskaspel?.[market]?.[sign] ??
     m.odds?.pinnacle?.[market]?.[sign] ?? null
@@ -1965,8 +2015,8 @@ function OddsetView({ focus = null } = {}) {
               <DetailChart key={sg}
                 label={sg === '1' ? `1 · ${m.home}` : sg === '2' ? `2 · ${m.away}` : 'X · Kryss'}
                 series={[
-                  { color: 'var(--green)', pts: m.movement?.svenskaspel?.['1x2']?.[sg]?.pts },
-                  { color: '#5b9bd5', pts: m.movement?.pinnacle?.['1x2']?.[sg]?.pts },
+                  { color: 'var(--green)', pts: detailedMovement(m)?.svenskaspel?.['1x2']?.[sg]?.pts },
+                  { color: '#5b9bd5', pts: detailedMovement(m)?.pinnacle?.['1x2']?.[sg]?.pts },
                 ]} />
             ))}
           </div>
@@ -2237,7 +2287,9 @@ function OddsetView({ focus = null } = {}) {
       {oddsetTab === 'matcher' && (
         <div className="tab-panel" id="oddset-matches">
           <div className="match-list-toolbar">
-            <span className="hint">{matchRows.length} matcher visas</span>
+            <span className="hint">{showAllMatches || matchRowTotal <= 40
+              ? `${matchRows.length} matcher visas`
+              : `40 av ${matchRowTotal} matcher visas`}</span>
             <button className={hideStarted ? 'lg on' : 'lg'}
               onClick={toggleStarted} aria-pressed={hideStarted}
               disabled={startedCount === 0}>
@@ -2246,11 +2298,19 @@ function OddsetView({ focus = null } = {}) {
             </button>
           </div>
           {matchRows.length > 0
-            ? <SortableTable id="oddset-matches" columns={matchColumns}
-                rows={matchRows} renderRow={renderMatchRow}
-                defaultSort={{ key: 'start', dir: 'asc' }}
-                className="oddset-table"
-                wrapperClassName="oddset-table-wrap" />
+            ? <>
+                <SortableTable id="oddset-matches" columns={matchColumns}
+                  rows={matchRows} renderRow={renderMatchRow}
+                  defaultSort={{ key: 'start', dir: 'asc' }}
+                  className="oddset-table" limit={showAllMatches ? null : 40}
+                  wrapperClassName="oddset-table-wrap" />
+                {completeMatchList && matchRows.length > 40 && (
+                  <button className="show-more" onClick={() => setShowAllMatches(!showAllMatches)}>
+                    {showAllMatches ? 'Visa de första 40 matcherna'
+                      : `Visa alla ${matchRows.length} matcher`}
+                  </button>
+                )}
+              </>
             : <EmptyState title="Inga matcher att visa"
                 detail={hideStarted && startedCount > 0
                   ? 'Alla matcher i urvalet har startat. Visa startade för att ta fram dem igen.'
@@ -2939,7 +2999,9 @@ function PlayedLiveCard({ c, onForget }) {
           title="Ta bort felaktigt bokförd kupong (går bara innan facit satts)">✕</button>
       </div>
       {!live && (
-        <p className="hint">{c.live_error
+        <p className="hint">{c.live_pending
+          ? 'Hämtar livestatus…'
+          : c.live_error
           ? 'Livestatus otillgänglig just nu — omgången följs igen vid nästa varv.'
           : 'Väntar på omgångens första resultat.'}</p>
       )}
@@ -3020,8 +3082,25 @@ function PlayedLiveCard({ c, onForget }) {
 // stå kvar som rubrik när tabellen bara visar ett.
 function PlayedPanel({ product = null }) {
   const [data, setData] = useState(null)
-  const load = () => fetch(`/api/pool/played?_t=${Date.now()}`, { cache: 'no-store' })
-    .then((r) => r.json()).then(setData).catch(() => setData({ coupons: [] }))
+  const load = () => {
+    const stamp = Date.now()
+    fetch(`/api/pool/played?live=false&_t=${stamp}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((local) => {
+        const hasOpen = (local.coupons || []).some((coupon) => !coupon.settled_at)
+        setData({
+          ...local,
+          coupons: (local.coupons || []).map((coupon) => (
+            !coupon.settled_at && hasOpen ? { ...coupon, live_pending: true } : coupon
+          )),
+        })
+        if (hasOpen) {
+          fetch(`/api/pool/played?_t=${stamp}`, { cache: 'no-store' })
+            .then((r) => r.json()).then(setData).catch(() => {})
+        }
+      })
+      .catch(() => setData({ coupons: [] }))
+  }
   useEffect(() => { load() }, [])
   if (!data) return <LoadingState label="Hämtar spelade kuponger…" />
   const all = data.coupons || []
