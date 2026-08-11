@@ -9,6 +9,24 @@ Metodreglerna i `CLAUDE.md` (observationstid, ANKARE ≠ BOK, transportregeln,
 signalversions-disciplin, källgränsen) gäller varje punkt nedan och upprepas
 inte per rad.
 
+## 2026-08-11 — serverfrågan avslutad
+
+- **✅ Molnspåret är stängt.** AWS Lightsail (Stockholm) mättes var 20:e minut
+  i sex dygn, 2 549 giltiga mätpunkter. Sex källor rena (Pinnacle 96,2 %,
+  övriga 100 %), men **Sofascore 0,0 % av 365** — omedelbar 403 på IP-nivå,
+  bekräftad tio dagar senare efter omstart. Sofascore är kritisk: 99,4 % av
+  våra xG-rader och tre fjärdedelar av frånvarodatan. Källgränsen förbjuder
+  att kringgå utmaningen, så detta är ett definitivt nej. Instansen tas bort,
+  rådatan är sparad i `docs/kalltest-bevis/`. Full rapport:
+  `docs/serverfragan-avslutad-2026-08-11.md`. Pi-spåret hemma står kvar som
+  alternativ; insamlingen ligger tills vidare på Macen.
+- **Öppen, liten:** härda `kalltest_ip.py` så att `ConnectError` med
+  namnuppslagningsfel räknas som INFRASTRUKTUR och aldrig mot källans
+  OK-andel. En degraderad DNS på testmaskinen gav 2 460 rader som fick sex
+  friska källor att se ut som 14 % — verktyget som mäter källor kunde inte
+  skilja sitt eget fel från en blockering. Gör den innan skriptet används på
+  nästa IP.
+
 ## 2026-08-10 — prestandapaket levererat
 
 - **✅ Direktvägen Idag → Oddset har fri kapacitet.** Dashboardens controller
