@@ -3054,8 +3054,11 @@ function LiveScorecard({ live }) {
    produkt av per-rad-chanser hade varit fel. */
 function PlayedLiveCard({ c, onForget }) {
   const live = c.live
-  const pct = (p) => p >= 0.1 ? `${(p * 100).toFixed(0)}%`
-    : p >= 0.001 ? `${(p * 100).toFixed(1)}%` : '<0,1%'
+  /* Exakt noll är noll. "<0,1%" om ett utfall som är uteslutet läste som en
+     liten men verklig chans, och gjorde intervallets underkant obegriplig. */
+  const pct = (p) => p === 0 ? '0%'
+    : p >= 0.1 ? `${(p * 100).toFixed(0)}%`
+      : p >= 0.001 ? `${(p * 100).toFixed(1)}%` : '<0,1%'
   const levels = live ? Object.keys(live.alive_per_level)
     .map(Number).sort((a, b) => b - a) : []
   return (
@@ -3145,8 +3148,10 @@ function PlayedLiveCard({ c, onForget }) {
             {live.chance_note ? `Ingen chans visas: ${live.chance_note}.`
               : live.chance_unpriced?.length
                 ? <>Chansen visas som <b>intervall</b>: {live.chance_unpriced.join(', ')} saknar
-                  öppet pris, så siffran ges för alla utfall den matchen kan få.
-                  Ingen sannolikhet gissas åt den.</>
+                  öppet pris, så siffran ges för alla utfall den matchen kan få —
+                  <b> underkanten förutsätter att den går emot dina rader</b>, även
+                  när ställningen säger annat. Ingen sannolikhet gissas åt den;
+                  bedöm ställningen själv.</>
               : <>
                 {live.chance_basis === 'simulerad'
                   ? 'Chans simulerad ur oddsen på kvarvarande matcher (för många kombinationer för exakt uppräkning).'

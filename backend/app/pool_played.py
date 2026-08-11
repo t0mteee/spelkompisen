@@ -754,8 +754,15 @@ def _chance_per_level(rows: list[str], col_states: list[Optional[dict]],
                 live_used += 1
         else:
             unpriced_cols.append(i)
-            unpriced_names.append(state.get("description")
-                                  or f"match {i + 1}")
+            # Ställningen MÅSTE med. Intervallet spänner över alla utfall den
+            # oprissatta matchen kan få, så underkanten är noll även när
+            # matchen i praktiken är avgjord: NK Celje ledde 2–0 i andra
+            # halvlek och kortet visade "0 %–73 %" utan att avslöja att
+            # underkanten förutsätter att en tvåmålsledning går förlorad.
+            name = state.get("description") or f"match {i + 1}"
+            if state.get("score"):
+                name = f"{name} ({state['score']})"
+            unpriced_names.append(name)
 
     if len(unpriced_cols) > CHANCE_MAX_UNPRICED:
         return {"chance_note": _unpriced_note(col_states, unpriced_cols,
