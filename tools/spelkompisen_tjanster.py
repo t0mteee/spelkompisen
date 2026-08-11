@@ -28,6 +28,7 @@ PLIST_DIR = Path.home() / "Library" / "LaunchAgents"
 @dataclass(frozen=True)
 class Service:
     key: str
+    name: str
     label: str
     project: str
     summary: str
@@ -43,51 +44,52 @@ class Service:
 
 SERVICES: tuple[Service, ...] = (
     Service(
-        "backend", "com.saman.spelkompisen.backend", "Spelkompisen",
+        "backend", "API", "com.saman.spelkompisen.backend", "Spelkompisen",
         "API på 127.0.0.1:8002",
     ),
     Service(
-        "frontend", "com.saman.spelkompisen.frontend", "Spelkompisen",
+        "frontend", "Webb", "com.saman.spelkompisen.frontend", "Spelkompisen",
         "byggd frontend på 0.0.0.0:5175",
     ),
     Service(
-        "snapshot", "com.saman.spelkompisen.snapshot", "Spelkompisen",
+        "snapshot", "Oddset-insamling", "com.saman.spelkompisen.snapshot", "Spelkompisen",
         "Oddset-insamling :00 och :30", scheduled=True,
         warning="Oddsets insamlingsvarv stannar. Priser som rör sig under "
                 "stoppet går inte att hämta i efterhand.",
     ),
     Service(
-        "pool", "com.saman.spelkompisen.pool", "Spelkompisen",
+        "pool", "Pool & live", "com.saman.spelkompisen.pool", "Spelkompisen",
         "pool, settlement och liveradar var 5:e minut", scheduled=True,
         warning="Pool, settlement och liveradar stannar. Observationstid är en "
                 "del av mätningen och får aldrig bakfyllas.",
     ),
     Service(
-        "kalltest", "com.saman.spelkompisen.kalltest", "Spelkompisen",
-        "append-only källprov var 20:e minut", scheduled=True,
-        warning="Källprovet är append-only; luckan går inte att fylla i efterhand.",
-    ),
-    Service(
-        "awake", "com.saman.spelkompisen.awake", "Spelkompisen",
-        "caffeinate -s, sömnskydd",
-        warning="Sömnskyddet släpps. Somnar datorn stannar ALLA tre projektens "
-                "insamlare, inte bara den här tjänsten.",
-    ),
-    Service(
-        "menubar", "com.saman.spelkompisen.menubar", "Spelkompisen",
-        "statusmenyn SK↗ i menyraden",
-    ),
-    Service(
-        "charter", "com.saman.chartervakt", "Chartervakt",
+        "charter", "Chartervakt", "com.saman.chartervakt", "Chartervakt",
         "webb och scheduler på 3100",
         warning="Chartervakts scheduler stannar. Prisändringar som sker under "
                 "stoppet syns aldrig i historiken.",
     ),
     Service(
-        "bonus", "com.saman.bonusvakt", "Bonusvakt",
+        "bonus", "Bonusvakt", "com.saman.bonusvakt", "Bonusvakt",
         "webb, /v1-API och scheduler på 3000",
         warning="Bonusvakts scheduler stannar. Bonusplatser som dyker upp och "
                 "försvinner under stoppet larmar aldrig.",
+    ),
+    Service(
+        "awake", "Sömnskydd", "com.saman.spelkompisen.awake", "Server & övervakning",
+        "caffeinate -s, sömnskydd",
+        warning="Sömnskyddet släpps. Somnar datorn stannar ALLA tre projektens "
+                "insamlare, inte bara den här tjänsten.",
+    ),
+    Service(
+        "kalltest", "Källprov (IP och datakällor)",
+        "com.saman.spelkompisen.kalltest", "Server & övervakning",
+        "fristående källprov var 6:e timme", scheduled=True,
+        warning="Källprovet är append-only; luckan går inte att fylla i efterhand.",
+    ),
+    Service(
+        "menubar", "Serverkontroll", "com.saman.spelkompisen.menubar",
+        "Server & övervakning", "lokal status- och tjänstemeny",
     ),
 )
 
@@ -98,6 +100,16 @@ GROUPS: dict[str, tuple[str, ...]] = {
     "all": tuple(service.key for service in SERVICES),
     "spelkompisen": tuple(
         service.key for service in SERVICES if service.project == "Spelkompisen"
+    ),
+    "chartervakt": tuple(
+        service.key for service in SERVICES if service.project == "Chartervakt"
+    ),
+    "bonusvakt": tuple(
+        service.key for service in SERVICES if service.project == "Bonusvakt"
+    ),
+    "server": tuple(
+        service.key for service in SERVICES
+        if service.project == "Server & övervakning"
     ),
 }
 
@@ -144,7 +156,7 @@ def ssh_runner(host: str, user: str, key: str) -> Runner:
 
 
 class Launchd:
-    """launchd-domänen som håller de nio com.saman-tjänsterna."""
+    """launchd-domänen som håller de registrerade com.saman-tjänsterna."""
 
     def __init__(
         self,
@@ -272,6 +284,31 @@ def state_text(state: dict[str, object] | None, scheduled: bool = False) -> str:
     return "aktiv · väntar på nästa körning" if scheduled else "aktiv"
 
 
+def state_tone(state: dict[str, object] | None, scheduled: bool = False) -> str:
+    """Färgroll för UI: grön drift, rött stopp/fel, orange okänt mellanläge."""
+    state = state or {}
+    if not state.get("loaded"):
+        return "red"
+    if state.get("running"):
+        return "green"
+    exit_code = state.get("last_exit")
+    if scheduled and exit_code in (None, 0):
+        return "green"
+    if exit_code not in (None, 0):
+        return "red"
+    return "orange"
+
+
+def service_is_healthy(service: Service, state: dict[str, object] | None) -> bool:
+    """Kontinuerliga tjänster måste köra; schemalagda får vänta med exit 0."""
+    state = state or {}
+    if not state.get("loaded"):
+        return False
+    if service.scheduled:
+        return bool(state.get("running")) or state.get("last_exit") in (None, 0)
+    return bool(state.get("running"))
+
+
 # ---- CLI ----
 
 USAGE = """Användning:
@@ -283,8 +320,11 @@ USAGE = """Användning:
 Tjänster:
   backend frontend snapshot pool kalltest awake menubar charter bonus
 Grupper:
-  all            alla nio
-  spelkompisen   Spelkompisens sju
+  all            alla tjänster
+  spelkompisen   API, webb och Spelkompisens två insamlare
+  chartervakt    Chartervakt
+  bonusvakt      Bonusvakt
+  server         sömnskydd, källprov och serverkontroll
 
 Flaggor:
   --permanent  stoppet överlever omstart och inloggning (launchctl disable)

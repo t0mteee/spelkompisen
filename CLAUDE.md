@@ -340,8 +340,9 @@ frontend/ React + Vite, mörkt tema. src/AppV3.jsx + AppV3.css är APPEN
   startOdds) renderas i Historik via `HISTORIK_RESEARCH`.
 start.sh / stop.sh    kör/stoppa backend + byggd frontend (8002 + 5175) — bara
                       för lokal utveckling; biter INTE på serverns KeepAlive
-tools/tjanster.sh     drift på MacBook-servern: start/stopp/omstart av alla nio
-                      LaunchAgents (Spelkompisen + Chartervakt + Bonusvakt).
+tools/tjanster.sh     drift på MacBook-servern: start/stopp/omstart av alla
+                      LaunchAgents, grupperade som Spelkompisen (4),
+                      Chartervakt, Bonusvakt och Server & övervakning (3).
                       Logiken i tools/spelkompisen_tjanster.py delas med menyraden
 docs/plan.md          FÄRDPLANEN: status, datakällor, beslut — projektets sanning
 docs/backlog.md       AKTIV BACKLOG (2026-07-26): prioritering, pågående mätningar,

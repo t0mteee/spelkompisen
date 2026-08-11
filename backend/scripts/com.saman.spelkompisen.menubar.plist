@@ -30,14 +30,17 @@
         <string>/Users/saman/.ssh/spelkompisen_server_ed25519</string>
     </dict>
 
+    <!-- Fjärrkontrollen på huvuddatorn startas numera vid behov via
+         Serverkontroll.app på skrivbordet. Den här plisten behålls bara som
+         valfri mall och får inte skapa en ständig process. -->
     <key>RunAtLoad</key>
-    <true/>
+    <false/>
     <key>LimitLoadToSessionType</key>
     <string>Aqua</string>
     <key>ProcessType</key>
     <string>Interactive</string>
     <key>KeepAlive</key>
-    <true/>
+    <false/>
     <key>ThrottleInterval</key>
     <integer>10</integer>
 

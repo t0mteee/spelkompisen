@@ -97,8 +97,8 @@ kör `caffeinate -s`, vilket hindrar vanlig systemvila på nätström. Ett stän
 lock kan fortfarande försätta en laptop i vila: håll locket öppet eller använd
 ett korrekt clamshell-upplägg.
 
-Menyradsappen visar `SK↗ ✓` när alla tre apparna, insamlarna och
-sömnskyddet är friska. Källan finns i:
+Serverns menyradsapp visar en lokal tjänstestack med `✓` när alla tre
+apparna, insamlarna och sömnskyddet är friska. Källan finns i:
 
 ```text
 /Users/saman/spelkompisen/tools/spelkompisen_menubar.py
@@ -135,7 +135,7 @@ launchctl kickstart -k gui/501/com.saman.bonusvakt
 Spelkompisens `start.sh`/`stop.sh` duger inte på den här datorn. De frigör bara
 portarna, och varje långlivad tjänst har `KeepAlive = true`, så launchd startar
 om processen inom sekunder. Använd driftverktyget i stället; det täcker alla
-nio tjänsterna i de tre projekten:
+registrerade tjänster för de tre apparna och serverdriften:
 
 ```bash
 /Users/saman/spelkompisen/tools/tjanster.sh status
@@ -144,8 +144,15 @@ nio tjänsterna i de tre projekten:
 /Users/saman/spelkompisen/tools/tjanster.sh start all
 ```
 
-Tjänstnamn: `backend`, `frontend`, `snapshot`, `pool`, `kalltest`, `awake`,
-`menubar`, `charter`, `bonus`. Grupperna är `all` och `spelkompisen`.
+Tjänstnamn: `backend`, `frontend`, `snapshot`, `pool`, `charter`, `bonus`,
+`awake`, `kalltest`, `menubar`. Grupperna är `all`, `spelkompisen`,
+`chartervakt`, `bonusvakt` och `server`. I menyerna visas de som:
+
+- **Spelkompisen:** API, Webb, Oddset-insamling, Pool & live.
+- **Chartervakt:** Chartervakt.
+- **Bonusvakt:** Bonusvakt.
+- **Server & övervakning:** Sömnskydd, Källprov (IP och datakällor),
+  Serverkontroll.
 
 Ett vanligt `stopp` gör `bootout` — tjänsten kommer tillbaka vid nästa
 inloggning. `stopp <tjänst> --permanent` lägger till `launchctl disable`, så
@@ -156,8 +163,10 @@ som `stoppad`, ett permanent avstängt som `avstängd (överlever omstart)`.
 
 All logik ligger i `tools/spelkompisen_tjanster.py`. Menyraden går genom samma
 modul och har Starta / Stoppa / Starta om / Stoppa permanent per tjänst under
-**Tjänster**, plus *Starta allt som ligger nere*. Skriv aldrig en parallell
-launchd-implementation — lägestexterna och tjänstlistan ska ha en enda källa.
+**Tjänster**, plus *Starta allt som ligger nere*. Projektrubrikerna är
+synliga och orden för kör/väntar respektive stopp/fel är gröna och röda.
+Skriv aldrig en parallell launchd-implementation — lägestexterna och
+tjänstlistan ska ha en enda källa.
 
 Schemalagda jobb som `snapshot`, `pool` och `kalltest` har normalt ingen PID
 mellan körningarna. Ett `-` i PID-kolumnen och exitstatus 0 är friskt, inte ett
@@ -235,14 +244,29 @@ behålla providerproveniens.
 | `com.saman.spelkompisen.frontend` | Vite preview på 5175 | kontinuerlig | `backend/data/frontend-server.{out,err}.log` |
 | `com.saman.spelkompisen.snapshot` | Oddset och smart snapshot | :00 och :30 | `backend/data/launchd.{out,err}.log` |
 | `com.saman.spelkompisen.pool` | pool, settlement och liveradar | var 5:e minut, :02-offset | `backend/data/pool-launchd.{out,err}.log` |
-| `com.saman.spelkompisen.kalltest` | append-only källprov | var 20:e minut | `backend/data/kalltest-macbook.{out,err}.log` och JSONL |
+| `com.saman.spelkompisen.kalltest` | fristående IP-/källprov | var 6:e timme | `backend/data/kalltest-macbook.{out,err}.log` och JSONL |
 | `com.saman.spelkompisen.awake` | `caffeinate -s` | kontinuerlig | `backend/data/awake.{out,err}.log` |
-| `com.saman.spelkompisen.menubar` | lokal statusmeny | kontinuerlig Aqua-app | `backend/data/menubar.{out,err}.log` |
+| `com.saman.spelkompisen.menubar` | lokal serverkontroll | kontinuerlig Aqua-app på servern | `backend/data/menubar.{out,err}.log` |
 
 Installerade plist-filer finns i `~/Library/LaunchAgents`; versionsstyrda
 mallar finns i `backend/scripts`. Serverns menyrad ska använda mallen
 `com.saman.spelkompisen.server-menubar.plist`, inte fjärrmallen för
 huvuddatorn.
+
+På huvuddatorn finns ingen ständig monitor. Genvägen
+`~/Desktop/Serverkontroll.app` startar fjärrversionen vid behov, skiljd från
+serverversionen med en utåtriktad pil i tjänstestack-ikonen. Den hindrar
+dubbelstart och avslutas automatiskt efter 15 minuter utan menyaktivitet.
+Fjärr-plisten `com.saman.spelkompisen.menubar.plist` är endast en valfri
+mall med `RunAtLoad=false` och `KeepAlive=false`; den ska inte installeras på
+huvuddatorn.
+
+Apppaketet ligger i `tools/Serverkontroll.app` och installeras/uppdateras med
+`tools/installera_serverkontroll_app.sh`. Den 2026-08-11 flyttades även de
+gamla lokala `snapshot`-, `pool`- och `menubar`-plisterna från
+`~/Library/LaunchAgents` till `~/Library/LaunchAgents.disabled`. Huvuddatorn
+ska alltså varken samla Spelkompisen-data eller köra Chartervakt/Bonusvakt;
+den är bara en klient mot MacBook-servern.
 
 ### Utveckling och verifiering
 

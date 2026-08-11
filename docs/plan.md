@@ -95,17 +95,18 @@ Ordinarie 5175 kör nu byggd bundle, dev/StrictMode ligger på 5181. Uppmätt vi
 frontend, Oddset-snapshot, pool/settlement och liveradar kör nu på
 `192.168.50.100`. Huvuddatorns motsvarande tjänster är stoppade och dess
 orörda databas är rollback. MacBooken har verifierad SQLite-onlinebackup,
-647 gröna backendtester, fem gröna frontendtester, alla åtta källfamiljer
+654 gröna backendtester, fem gröna frontendtester, alla åtta källfamiljer
 gröna och bevisat nya pool-, live- och källhälsorader efter skiftet.
-`caffeinate -s` håller den vaken på nätström. Huvuddatorns nya `SK↗`-monitor
-kontrollerar fjärrapp, datastatus och launchd-jobb var 30:e sekund. Full
+`caffeinate -s` håller den vaken på nätström. Huvuddatorns Serverkontroll
+startas vid behov från skrivbordet och kontrollerar fjärrapp, datastatus och
+launchd-jobb; servern har en separat kontinuerlig lokal version. Full
 drift-/rollbackbeskrivning: `docs/macbook-server-2026-08-11.md`.
 
 **Chartervakt flyttad till samma MacBook 2026-08-11.** Ving/TUI-tjänsten kör
 nu som `com.saman.chartervakt` på port 3100; alla 176 tester var gröna före
 skiftet och 8 bevakningar/hela prishistoriken verifierades efter kopieringen.
-Den gamla processen är stoppad men databasen är kvar för rollback. `SK↗`-
-monitorn kräver nu även att Chartervakts process och webbsida är friska och
+Den gamla processen är stoppad men databasen är kvar för rollback.
+Serverkontrollen kräver nu även att Chartervakts process och webbsida är friska och
 har en egen genväg dit. Samma monitor är installerad lokalt i MacBookens
 interaktiva Aqua-session, där den läser tjänsterna utan SSH. Detaljer:
 `docs/macbook-server-2026-08-11.md`.
@@ -115,7 +116,7 @@ SAS-pollern och ntfy kör nu som `com.saman.bonusvakt` på port 3000 efter 102
 gröna tester och ett skarpt SAS-källprov från MacBooken. Fyra bevakningar och
 hela databasen verifierades. Partnerfavoriten är inte schemalagd och den
 gamla Keychain-bundna Chrome-sessionen kopierades inte; partnerinloggning kan
-återställas senare utan att kärnan påverkas. `SK↗` på båda datorerna visar
+återställas senare utan att kärnan påverkas. Serverkontrollen visar
 även Bonusvakt. Extern telefonåtkomst väntar på Tailscale; LAN-adressen är
 under tiden `http://192.168.50.100:3000`. Detaljer:
 `docs/macbook-server-2026-08-11.md`.

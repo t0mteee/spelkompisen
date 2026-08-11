@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Menyradsmonitor för Spelkompisen på den separata MacBook-servern."""
+"""Serverkontroll för Spelkompisen, Chartervakt och Bonusvakt."""
 
 from __future__ import annotations
 
 import json
+import fcntl
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 import webbrowser
@@ -28,6 +30,13 @@ SSH_KEY = os.path.expanduser(os.environ.get(
 ))
 # Serverns saman är UID 501; över ssh måste domänen vara serverns, inte vår.
 SERVER_UID = os.environ.get("SPELKOMPISEN_SERVER_UID", "501")
+AUTO_QUIT_MINUTES = max(0, int(os.environ.get(
+    "SERVERKONTROLL_AUTO_QUIT_MINUTES", "0",
+)))
+TOOLS_DIR = Path(__file__).resolve().parent
+ICON_PATH = TOOLS_DIR / "icons" / (
+    "server-localTemplate.svg" if LOCAL_MODE else "server-remoteTemplate.svg"
+)
 
 # Tjänstlistan ägs av spelkompisen_tjanster — en enda sanning för menyraden,
 # CLI:t och drifthandboken.
@@ -89,10 +98,8 @@ def collect_status() -> dict[str, object]:
     bonus_ok, bonus_health, bonus_error = _fetch("/v1/health", base_url=BONUS_URL)
     services, ssh_error = _remote_services()
     def service_ok(name: str) -> bool:
-        service = services.get(name, {})
-        return bool(service.get("loaded")) and (
-            bool(service.get("running"))
-            or service.get("last_exit") in (None, 0)
+        return tjanster.service_is_healthy(
+            tjanster.BY_KEY[name], services.get(name),
         )
     required_services_ok = all(
         service_ok(name)
@@ -144,16 +151,63 @@ def _run_once() -> int:
 
 def _run_app() -> int:
     import rumps
+    from AppKit import (  # laddas bara när GUI:t faktiskt startas
+        NSMutableAttributedString,
+        NSColor,
+        NSForegroundColorAttributeName,
+    )
 
-    class SpelkompisenMonitor(rumps.App):
+    lock_path = Path("/tmp") / (
+        f"serverkontroll-{os.getuid()}-{'local' if LOCAL_MODE else 'remote'}.lock"
+    )
+    lock = lock_path.open("w", encoding="utf-8")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        return 0
+
+    def heading(title: str) -> "rumps.MenuItem":
+        item = rumps.MenuItem(title.upper())
+        item.set_callback(None)
+        item._menuitem.setEnabled_(False)
+        return item
+
+    def colored_title(
+        item: "rumps.MenuItem", title: str, colored_text: str, tone: str,
+    ) -> None:
+        """Färga bara lägesordet; resten följer macOS-temat."""
+        item.title = title
+        start = title.find(colored_text)
+        if start < 0:
+            return
+        colors = {
+            "green": NSColor.systemGreenColor(),
+            "red": NSColor.systemRedColor(),
+            "orange": NSColor.systemOrangeColor(),
+        }
+        attributed = NSMutableAttributedString.alloc().initWithString_(title)
+        attributed.addAttribute_value_range_(
+            NSForegroundColorAttributeName,
+            colors.get(tone, NSColor.secondaryLabelColor()),
+            (start, len(colored_text)),
+        )
+        item._menuitem.setAttributedTitle_(attributed)
+
+    class Serverkontroll(rumps.App):
         def __init__(self) -> None:
-            super().__init__("SK↗ …", quit_button=None)
-            self.server_item = rumps.MenuItem("Server: kontrollerar …")
+            super().__init__(
+                "Serverkontroll", title="…",
+                icon=str(ICON_PATH) if ICON_PATH.exists() else None,
+                template=True, quit_button=None,
+            )
+            if not ICON_PATH.exists():
+                self.title = "▤↗ …" if not LOCAL_MODE else "▤ …"
+            self.server_item = rumps.MenuItem("Webb & API: kontrollerar …")
             self.data_item = rumps.MenuItem("Datastatus: kontrollerar …")
             self.snapshot_item = rumps.MenuItem("Oddset-insamling: kontrollerar …")
             self.pool_item = rumps.MenuItem("Pool + live: kontrollerar …")
             self.awake_item = rumps.MenuItem("Sömnskydd: kontrollerar …")
-            self.kalltest_item = rumps.MenuItem("Källtest: kontrollerar …")
+            self.kalltest_item = rumps.MenuItem("Källprov: kontrollerar …")
             self.charter_item = rumps.MenuItem("Chartervakt: kontrollerar …")
             self.bonus_item = rumps.MenuItem("Bonusvakt: kontrollerar …")
             self.checked_item = rumps.MenuItem("Senast kontrollerad: –")
@@ -167,16 +221,21 @@ def _run_app() -> int:
                 item.set_callback(None)
             self.services_item = self._build_services_menu()
             self.menu = [
+                heading("Spelkompisen"),
                 self.server_item,
                 self.data_item,
-                None,
                 self.snapshot_item,
                 self.pool_item,
+                None,
+                heading("Chartervakt"),
+                self.charter_item,
+                None,
+                heading("Bonusvakt"),
+                self.bonus_item,
+                None,
+                heading("Server & övervakning"),
                 self.awake_item,
                 self.kalltest_item,
-                None,
-                self.charter_item,
-                self.bonus_item,
                 None,
                 self.services_item,
                 None,
@@ -185,13 +244,29 @@ def _run_app() -> int:
                 rumps.MenuItem("Öppna Bonusvakt", callback=self.open_bonus),
                 rumps.MenuItem("Uppdatera nu", callback=self.refresh),
                 self.checked_item,
+                *([rumps.MenuItem(
+                    f"Stängs efter {AUTO_QUIT_MINUTES} min utan aktivitet",
+                    callback=None,
+                )] if AUTO_QUIT_MINUTES else []),
                 None,
-                rumps.MenuItem("Avsluta monitor", callback=rumps.quit_application),
+                rumps.MenuItem("Avsluta serverkontroll", callback=rumps.quit_application),
             ]
             self._refreshing = False
+            self._last_interaction = time.monotonic()
             self.timer = rumps.Timer(self.refresh, 30)
             self.timer.start()
+            self.idle_timer = None
+            if AUTO_QUIT_MINUTES:
+                self.idle_timer = rumps.Timer(self._auto_quit, 30)
+                self.idle_timer.start()
             self.refresh(None)
+
+        def _touch(self) -> None:
+            self._last_interaction = time.monotonic()
+
+        def _auto_quit(self, _sender) -> None:
+            if time.monotonic() - self._last_interaction >= AUTO_QUIT_MINUTES * 60:
+                rumps.quit_application()
 
         # ---- start/stopp ----
 
@@ -205,11 +280,13 @@ def _run_app() -> int:
             self.service_items: dict[str, rumps.MenuItem] = {}
             project = None
             for service in tjanster.SERVICES:
-                if project is not None and service.project != project:
-                    root.add(rumps.separator)
+                if service.project != project:
+                    if project is not None:
+                        root.add(rumps.separator)
+                    root.add(heading(service.project))
                 project = service.project
 
-                item = rumps.MenuItem(service.key)
+                item = rumps.MenuItem(service.name)
                 for label, action in (
                     ("Starta om", "omstart"),
                     ("Stoppa", "stopp"),
@@ -232,17 +309,18 @@ def _run_app() -> int:
             return run
 
         def _run_action(self, action: str, service) -> None:
+            self._touch()
             permanent = action == "permanent"
             if action == "stopp" and service.warning:
                 if not rumps.alert(
-                    title=f"Stoppa {service.key}?",
+                    title=f"Stoppa {service.name}?",
                     message=f"{service.summary}\n\n{service.warning}",
                     ok="Stoppa", cancel="Avbryt",
                 ):
                     return
             if permanent:
                 if not rumps.alert(
-                    title=f"Stoppa {service.key} permanent?",
+                    title=f"Stoppa {service.name} permanent?",
                     message=(
                         f"{service.summary}\n\n"
                         f"{service.warning or ''}\n\n"
@@ -262,10 +340,11 @@ def _run_app() -> int:
                 result = launchd.stop(service, permanent=permanent)
 
             if not result.ok:
-                rumps.alert(title=f"{service.key} — gick inte", message=result.message)
+                rumps.alert(title=f"{service.name} — gick inte", message=result.message)
             self.refresh(None)
 
         def start_all(self, _sender) -> None:
+            self._touch()
             launchd = _launchd()
             states, error = launchd.state()
             if error:
@@ -276,7 +355,10 @@ def _run_app() -> int:
                 if not states.get(service.label, {}).get("loaded")
             ]
             if not nere:
-                rumps.alert(title="Allt är redan igång", message="Alla nio tjänster är laddade.")
+                rumps.alert(
+                    title="Allt är redan igång",
+                    message=f"Alla {len(tjanster.SERVICES)} tjänster är laddade.",
+                )
                 return
             problem = []
             for service in nere:
@@ -288,69 +370,98 @@ def _run_app() -> int:
             self.refresh(None)
 
         def open_app(self, _sender) -> None:
+            self._touch()
             webbrowser.open(SERVER_URL)
 
         def open_charter(self, _sender) -> None:
+            self._touch()
             webbrowser.open(CHARTER_URL)
 
         def open_bonus(self, _sender) -> None:
+            self._touch()
             webbrowser.open(BONUS_URL)
 
         def refresh(self, _sender) -> None:
+            if _sender is not self.timer:
+                self._touch()
             if self._refreshing:
                 return
             self._refreshing = True
-            self.title = "SK↗ …"
+            self.title = "…" if ICON_PATH.exists() else (
+                "▤↗ …" if not LOCAL_MODE else "▤ …"
+            )
             status = collect_status()
             self._apply(status)
 
         def _apply(self, status: dict[str, object]) -> None:
             self._refreshing = False
             services = status.get("services") or {}
-            self.title = "SK↗ ✓" if status.get("healthy") else "SK↗ !"
+            marker = "✓" if status.get("healthy") else "!"
+            self.title = marker if ICON_PATH.exists() else (
+                f"▤↗ {marker}" if not LOCAL_MODE else f"▤ {marker}"
+            )
             if status.get("frontend_ok") and status.get("api_ok"):
-                self.server_item.title = f"Server: online · {SERVER_HOST}"
+                state, tone = "kör", "green"
+                title = f"Webb & API: {state} · {SERVER_HOST}"
             elif status.get("frontend_ok"):
-                self.server_item.title = "Server: frontend online · backend svarar inte"
+                state, tone = "delvis fel", "red"
+                title = f"Webb & API: {state} · backend svarar inte"
             else:
-                self.server_item.title = "Server: offline"
+                state, tone = "stoppad", "red"
+                title = f"Webb & API: {state}"
+            colored_title(self.server_item, title, state, tone)
             data_status = status.get("data_status")
-            self.data_item.title = (
-                "Datastatus: grön" if data_status == "ok"
-                else "Datastatus: kräver tillsyn" if data_status
-                else "Datastatus: inget svar"
+            data_text = (
+                "grön" if data_status == "ok"
+                else "kräver tillsyn" if data_status else "inget svar"
             )
-            self.snapshot_item.title = (
-                "Oddset-insamling: " + _service_text(services.get("snapshot"), True)
+            colored_title(
+                self.data_item, f"Datastatus: {data_text}", data_text,
+                "green" if data_status == "ok" else "red",
             )
-            self.pool_item.title = (
-                "Pool + live: " + _service_text(services.get("pool"), True)
-            )
-            self.awake_item.title = "Sömnskydd: " + _service_text(services.get("awake"))
-            self.kalltest_item.title = (
-                "Källtest: " + _service_text(services.get("kalltest"), True)
-            )
+            for item, key, label in (
+                (self.snapshot_item, "snapshot", "Oddset-insamling"),
+                (self.pool_item, "pool", "Pool & live"),
+                (self.awake_item, "awake", "Sömnskydd"),
+                (self.kalltest_item, "kalltest", "Källprov"),
+            ):
+                definition = tjanster.BY_KEY[key]
+                state = _service_text(services.get(key), definition.scheduled)
+                colored_title(
+                    item, f"{label}: {state}", state,
+                    tjanster.state_tone(services.get(key), definition.scheduled),
+                )
             charter_process = _service_text(services.get("charter"))
-            self.charter_item.title = (
-                f"Chartervakt: online · {charter_process}"
-                if status.get("charter_ok")
-                else f"Chartervakt: offline · {charter_process}"
+            charter_state = "kör" if status.get("charter_ok") else "stoppad"
+            colored_title(
+                self.charter_item,
+                f"Chartervakt: {charter_state} · {charter_process}",
+                charter_state, "green" if status.get("charter_ok") else "red",
             )
             bonus_process = _service_text(services.get("bonus"))
             notifier = status.get("bonus_notifier") or "ingen push"
-            self.bonus_item.title = (
-                f"Bonusvakt: online · {bonus_process} · {notifier}"
-                if status.get("bonus_ok")
-                else f"Bonusvakt: offline · {bonus_process}"
+            bonus_state = "kör" if status.get("bonus_ok") else "stoppad"
+            bonus_title = (
+                f"Bonusvakt: {bonus_state} · {bonus_process} · {notifier}"
+                if status.get("bonus_ok") else
+                f"Bonusvakt: {bonus_state} · {bonus_process}"
+            )
+            colored_title(
+                self.bonus_item, bonus_title, bonus_state,
+                "green" if status.get("bonus_ok") else "red",
             )
             for service in tjanster.SERVICES:
-                self.service_items[service.key].title = (
-                    f"{service.key} · "
-                    f"{_service_text(services.get(service.key), service.scheduled)}"
+                state = _service_text(services.get(service.key), service.scheduled)
+                colored_title(
+                    self.service_items[service.key],
+                    f"{service.name} · {state}", state,
+                    tjanster.state_tone(
+                        services.get(service.key), service.scheduled,
+                    ),
                 )
             self.checked_item.title = f"Senast kontrollerad: {status['checked_at']}"
 
-    SpelkompisenMonitor().run()
+    Serverkontroll().run()
     return 0
 
 

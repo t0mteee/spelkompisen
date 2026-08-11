@@ -1,0 +1,20 @@
+#!/bin/zsh
+
+export SPELKOMPISEN_SERVER_URL="http://192.168.50.100:5175"
+export CHARTERVAKT_SERVER_URL="http://192.168.50.100:3100"
+export BONUSVAKT_SERVER_URL="http://192.168.50.100:3000"
+export SPELKOMPISEN_SERVER_HOST="192.168.50.100"
+export SPELKOMPISEN_SERVER_USER="saman"
+export SPELKOMPISEN_SERVER_UID="501"
+export SPELKOMPISEN_SERVER_SSH_KEY="/Users/saman/.ssh/spelkompisen_server_ed25519"
+export SERVERKONTROLL_AUTO_QUIT_MINUTES="15"
+
+PYTHON="/Users/saman/spelkompisen/tools/.venv/bin/python"
+SCRIPT="/Users/saman/spelkompisen/tools/spelkompisen_menubar.py"
+
+if [[ ! -x "$PYTHON" || ! -f "$SCRIPT" ]]; then
+    /usr/bin/osascript -e 'display alert "Serverkontroll kunde inte starta" message "Körmiljön saknas i Spelkompisen-projektet."'
+    exit 1
+fi
+
+exec "$PYTHON" "$SCRIPT"

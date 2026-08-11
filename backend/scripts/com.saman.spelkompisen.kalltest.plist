@@ -17,8 +17,10 @@
 
     <key>WorkingDirectory</key>
     <string>/Users/saman/spelkompisen/backend</string>
+    <!-- Produktionsservern är redan validerad. Sex timmar räcker som
+         fristående IP-/källvakt; ordinarie insamlare har egen källhälsa. -->
     <key>StartInterval</key>
-    <integer>1200</integer>
+    <integer>21600</integer>
     <key>RunAtLoad</key>
     <true/>
 

@@ -16,7 +16,7 @@ Följande körs nu på MacBooken:
 - backend och byggd frontend;
 - Oddset-snapshot på :00/:30 med smart förtätning;
 - pool, settlement och liveradar var femte minut med :02-offset;
-- ett separat, append-only källtest var 20:e minut;
+- ett separat, append-only IP-/källprov var sjätte timme;
 - ett kontinuerligt `caffeinate -s`-skydd mot systemvila på nätström.
 - Chartervakt på port `3100`, med Ving och TUI samt sina åtta befintliga
   bevakningar.
@@ -67,8 +67,8 @@ annat Pinnacle, SvS, Expekt, Smarkets, Matchbook, FotMob och Flashscore.
 
 Det ursprungliga försiktighetskriteriet var minst 72 användbara prov över 72
 timmar. Saman valde i stället ett direkt, reversibelt produktionsskifte när
-engångstest, apptester och de första riktiga skrivvarven var gröna. Källtestet
-fortsätter var 20:e minut som tidig varning och långsiktigt IP-facit, men är
+engångstest, apptester och de första riktiga skrivvarven var gröna. Källprovet
+fortsätter var sjätte timme som tidig varning och långsiktigt IP-facit, men är
 inte längre en grind före drift.
 
 ## Autostart
@@ -80,7 +80,7 @@ inte längre en grind före drift.
   gränssnitt, port `5175`;
 - `com.saman.spelkompisen.snapshot` — ordinarie Oddset-insamling;
 - `com.saman.spelkompisen.pool` — pool, settlement och liveradar;
-- `com.saman.spelkompisen.kalltest` — källtest var 20:e minut;
+- `com.saman.spelkompisen.kalltest` — fristående IP-/källprov var 6:e timme;
 - `com.saman.spelkompisen.awake` — håller systemet vaket på nätström.
 - `com.saman.chartervakt` — Chartervakt på alla lokala gränssnitt, port
   `3100`.
@@ -108,20 +108,31 @@ Bonusvakt öppnas på:
 
 `http://192.168.50.100:3000`
 
-Menyradsmonitorn finns i `tools/spelkompisen_menubar.py` och kör nu både på
-huvuddatorn och MacBook-servern. På huvuddatorn kontrollerar den servern via
-HTTP och SSH; på MacBooken använder den lokala adresser och `launchctl`
-direkt. Båda visar `SK↗ ✓` när Spelkompisen, Chartervakt och Bonusvakt, API, datastatus,
+Serverkontrollen finns i `tools/spelkompisen_menubar.py`. MacBook-servern kör
+den kontinuerligt med en lokal tjänstestack-ikon. Huvuddatorn har i stället
+`~/Desktop/Serverkontroll.app`, som startar fjärrkontrollen vid behov, visar
+en tjänstestack med utåtriktad pil och avslutas efter 15 minuters inaktivitet.
+Ingen fjärrmonitor startar automatiskt där. Serverversionen använder lokala
+adresser och `launchctl`; fjärrversionen använder HTTP och SSH. Båda visar
+`✓` när Spelkompisen, Chartervakt och Bonusvakt, API, datastatus,
 insamlare och sömnskydd är friska. De kontrollerar var 30:e sekund och har
 genvägar till båda apparna. Sedan 2026-08-11 har de även en **Tjänster**-meny
 med Starta / Stoppa / Starta om / Stoppa permanent per tjänst samt *Starta allt
 som ligger nere*. Den går genom `tools/spelkompisen_tjanster.py` — samma modul
 som `tools/tjanster.sh` i terminalen — och kör launchctl lokalt på MacBooken
-respektive över ssh från huvuddatorn. MacBookens separata plistmall heter
+respektive över ssh från huvuddatorn. Tjänsterna grupperas synligt som
+Spelkompisen, Chartervakt, Bonusvakt och Server & övervakning; kör/väntar
+visas grönt och stopp/fel rött. MacBookens separata plistmall heter
 `backend/scripts/com.saman.spelkompisen.server-menubar.plist` och laddas som
 en interaktiv Aqua-LaunchAgent. Den gamla
 menyradsappen tillhör ett annat projekt och ändras inte; om båda ikonerna
 syns avslutas den gamla manuellt från dess egen meny.
+
+På huvuddatorn är de gamla lokala Spelkompisen-jobben `snapshot`, `pool` och
+`menubar` urkopplade och deras plist-filer arkiverade under
+`~/Library/LaunchAgents.disabled`. Där ska inte heller någon Chartervakt- eller
+Bonusvakt-process köras. Skrivbordsappen är endast en fjärrkontroll och startar
+ingen lokal insamling.
 
 ## Chartervakt — produktionsskifte 2026-08-11
 
