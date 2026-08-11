@@ -326,6 +326,74 @@ def _event_probs(draw_event: dict) -> Optional[dict]:
     return None
 
 
+def attach_regulation_time(states: list[dict]) -> None:
+    """Belägg ordinarie tid för förlängningsmatcher via Flashscore.
+
+    SvS publicerar varken `Fulltime` eller `Overtime` medan förlängningen
+    pågår, och `Current` bär förlängningsmålen. CSKA 1948 Sofia–Panathinaikos
+    stod i Current 1–2 i andra övertidsperioden medan ordinarie tid var 1–1 —
+    alltså X och inte 2, vilket är skillnaden mellan 1 och 7 kvarvarande rader
+    på en 256-radars Topptipsetkupong.
+
+    Flashscores per-match-feed (`df_sur`) bär ordinarie tids ställning och
+    lästes rätt i det fallet. Den används bara som KOMPLETTERING när SvS inte
+    har publicerat ordinarie tid; SvS `Fulltime` vinner alltid när den finns.
+
+    Ett källfel får aldrig ändra ett tecken: allt som misslyckas lämnar
+    matchen märkt som obelagd, och radantalet redovisas då som spann.
+    """
+    pending = [state for state in states if state.get("sign_provisional")]
+    if not pending:
+        return
+    from .flashscore import Flashscore
+    from .live_radar import _same_team
+    try:
+        with Flashscore() as source:
+            rows, _ = source.matches()
+            for state in pending:
+                home, away = state.get("home"), state.get("away")
+                if not (home and away):
+                    continue
+                hits = {row.get("flashscore_id") for row in rows
+                        if _same_team(str(row.get("home") or ""), home)
+                        and _same_team(str(row.get("away") or ""), away)}
+                hits.discard(None)
+                if len(hits) != 1:
+                    continue          # tvetydigt eller olänkat: gissa aldrig
+                summary, _ = source.summary(hits.pop())
+                _apply_regulation(state, summary)
+    except Exception:                 # noqa: BLE001 — källfel är inte ett facit
+        return
+
+
+def _apply_regulation(state: dict, summary: Optional[dict]) -> None:
+    """Skriv ordinarie tid från Flashscore om den är konsistent med SvS.
+
+    Mål kan bara TILLKOMMA i förlängningen, så ordinarie tid får aldrig ligga
+    över den ställning SvS redan visar. Ett högre värde betyder att vi läst
+    fel fält, och då rörs tecknet inte.
+    """
+    if not summary:
+        return
+    home, away = summary.get("home_score"), summary.get("away_score")
+    if home is None or away is None:
+        return
+    current = str(state.get("score") or "").split("-")
+    if len(current) == 2:
+        try:
+            if int(home) > int(current[0]) or int(away) > int(current[1]):
+                return
+        except ValueError:
+            return
+    sign = _sign_from_score(home, away)
+    if sign is None:
+        return
+    state["sign"] = sign
+    state["score"] = f"{home}-{away}"
+    state["sign_provisional"] = False
+    state["regulation_source"] = "flashscore"
+
+
 def attach_live_odds(store: Storage, states: list[dict]) -> None:
     """Byt prematch-sannolikheten mot LIVEpris för matcher som redan rullar.
 

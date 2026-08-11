@@ -610,6 +610,44 @@ class PenaltyShootoutStateTests(unittest.TestCase):
         self.assertTrue(state["extra_time"], "matchen spelas fortfarande")
         self.assertFalse(state["in_progress"], "ingen 1X2-marknad för ordinarie tid")
 
+    def test_flashscore_supplies_regulation_time_during_extra_time(self) -> None:
+        """CSKA 1948 Sofia–Panathinaikos, Topptipset 4260 (2026-08-11).
+
+        SvS Current stod i 1–2 i andra övertidsperioden medan ordinarie tid var
+        1–1. Skillnaden är tecknet X mot 2, alltså 1 mot 7 kvarvarande rader.
+        """
+        state = {"score": "1-2", "sign": "2", "sign_provisional": True}
+
+        pool_played._apply_regulation(state, {"home_score": 1, "away_score": 1})
+
+        self.assertEqual("X", state["sign"])
+        self.assertEqual("1-1", state["score"])
+        self.assertFalse(state["sign_provisional"])
+        self.assertEqual("flashscore", state["regulation_source"])
+
+    def test_regulation_time_may_never_exceed_the_current_score(self) -> None:
+        """Mål kan bara TILLKOMMA i förlängningen.
+
+        Ett högre värde betyder att fel fält lästs, och då rörs inte tecknet —
+        en trasig källa får aldrig flytta ett resultat.
+        """
+        state = {"score": "1-2", "sign": "2", "sign_provisional": True}
+
+        pool_played._apply_regulation(state, {"home_score": 3, "away_score": 2})
+
+        self.assertEqual("2", state["sign"], "tecknet är orört")
+        self.assertTrue(state["sign_provisional"])
+        self.assertNotIn("regulation_source", state)
+
+    def test_missing_flashscore_summary_leaves_the_sign_unproven(self) -> None:
+        for summary in (None, {}, {"home_score": 1, "away_score": None}):
+            state = {"score": "1-2", "sign": "2", "sign_provisional": True}
+
+            pool_played._apply_regulation(state, summary)
+
+            self.assertTrue(state["sign_provisional"], f"vid {summary}")
+            self.assertEqual("2", state["sign"])
+
     def test_finished_after_extra_time_status_counts_as_finished(self) -> None:
         """statusId 32 saknades i FINISHED_STATUS_IDS — samma lucka som 33.
 

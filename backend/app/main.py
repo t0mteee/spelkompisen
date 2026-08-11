@@ -632,6 +632,9 @@ def pool_played_list(live: bool = True):
                                               item["draw_number"])
                         states = [pool_played.event_state(e)
                                   for e in (raw.get("drawEvents") or [])]
+                        # Under förlängning bär SvS `Current` förlängningsmålen
+                        # och ordinarie tid är opublicerad — Flashscore har den.
+                        pool_played.attach_regulation_time(states)
                         # Pågående matcher måste prissättas live — SvS odds i
                         # payloaden är statiska prematch-odds hela omgången.
                         pool_played.attach_live_odds(store, states)

@@ -183,7 +183,19 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       VILKET resultatet är får inte avgöra frågan om matchen är
                       AVGJORD; den bärs av `sign_provisional`. Ordinarie tid
                       läses i fallande ordning `Fulltime` → `Current` minus
-                      `Overtime` → `Current` (märkt). Med ordinarie 2–2 och ett
+                      `Overtime` → **Flashscores per-match-feed `df_sur`**
+                      (`attach_regulation_time`, Samans beslut 2026-08-11: SvS
+                      har inte ordinarie tid under förlängning, Flashscore har)
+                      → `Current` (märkt). Flashscorevärdet får ALDRIG ligga
+                      över SvS ställning — mål kan bara TILLKOMMA i
+                      förlängningen, så ett högre värde är ett läsfel och
+                      tecknet lämnas orört. Källfel ändrar aldrig ett tecken.
+                      Är tecknet ändå obelagt redovisas radantalet som SPANN
+                      (`alive_min/max_per_level`), aldrig som en gissning
+                      presenterad som faktum: CSKA–Panathinaikos stod i Current
+                      1–2 med ordinarie tid 1–1, alltså X och inte 2 — 1 mot 7
+                      kvarvarande rader på en 256-radarskupong.
+                      Med ordinarie 2–2 och ett
                       hemmamål i förlängningen visar Current 3–2, så utan de två
                       första blir tecknet en etta i stället för kryss —
                       markeringen finns för det, och rättas av sig själv när
