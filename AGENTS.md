@@ -19,8 +19,10 @@
 ## Codex-specifikt
 
 - Commit-meddelanden på svenska, imperativ rubrik, avsluta med
-  `Co-Authored-By: Codex <modell>`. Committa endast när Saman ber om det
-  (eller stående order om per-arbetspaket-commits gäller för uppgiften).
+  `Co-Authored-By: Codex <modell>`. **Committa färdigt arbete utan att fråga**
+  (Samans stående order 2026-08-11). Committa bara egna ändringar — aldrig
+  `git add .`, aldrig `backend/data/`, aldrig hemligheter, och rör inte andras
+  ocommittade ändringar i arbetskatalogen.
 - Preview/launch-konfigurationen ligger i `.claude/launch.json` (delas av båda
   assistenterna — katalognamnet är historiskt, skapa ingen egen kopia).
 - Rör ALDRIG `/Users/saman/svs` eller `/Users/saman/vm`. Lägg ALDRIG spel

@@ -906,8 +906,12 @@ måste Saman lägga in en Bash-behörighetsregel — se
 
 - **Lägg ALDRIG spel automatiskt** — bara deep-link/fil; användaren laddar upp och betalar själv.
 - Klicka inte i cookie-/samtyckesrutor åt användaren.
-- Committa endast när användaren ber om det. Commit-meddelanden på svenska,
-  imperativ rubrik, avsluta med `Co-Authored-By: Claude <modell>`.
+- **Committa färdigt arbete utan att fråga** (Samans stående order 2026-08-11 —
+  den ersätter den gamla regeln "committa endast på begäran"). Fråga alltså inte
+  om lov varje gång. Villkoren är oförändrade: committa BARA filer du själv
+  ändrat, aldrig `git add .`, aldrig `backend/data/` och aldrig hemligheter, och
+  rör inte andras ocommittade ändringar i arbetskatalogen. Commit-meddelanden på
+  svenska, imperativ rubrik, avsluta med `Co-Authored-By: Claude <modell>`.
 - API-nycklar i gitignore:ad `backend/.env` (ODDS_API_KEY finns, the-odds-api är vilande).
 - Rör ALDRIG `/Users/saman/svs` eller `/Users/saman/vm` från detta projekt.
 - Uppdatera STATUS-blocket i `docs/plan.md` när en etapp/delmål blir klar.

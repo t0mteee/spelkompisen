@@ -593,6 +593,14 @@ tail -n 100 /Users/saman/sas/server-launchd.err.log
 
 ## 9. Git och ändringsdisciplin
 
+**Stående order sedan 2026-08-11: committa färdigt arbete utan att fråga om
+lov.** Den ersätter den tidigare regeln "committa endast på begäran" och gäller
+projekt som har Git. Det är bara *tillståndet att committa* som ändras — allt
+annat står kvar: committa BARA filer du själv ändrat, kör aldrig `git add .`,
+och lägg aldrig databas, loggar, produktionsdata eller hemligheter i en commit.
+Andras ocommittade ändringar i arbetskatalogen ska bevaras, inte sopas in i din
+egen commit.
+
 ### Spelkompisen
 
 Detta är ett Git-projekt. Innan arbete:
@@ -604,20 +612,24 @@ git log -1 --oneline
 ```
 
 Arbetskatalogen kan innehålla Samans, Claudes eller Codex pågående
-ändringar. Bevara dem. Committa bara när Saman uttryckligen ber om det.
-Commitmeddelanden ska vara på svenska med imperativ rubrik och korrekt
+ändringar. Bevara dem — den stående ordern gäller ditt eget arbete, inte
+någon annans. `backend/data/` är produktionsdata och hör aldrig hemma i en
+commit. Commitmeddelanden ska vara på svenska med imperativ rubrik och korrekt
 `Co-Authored-By` enligt `AGENTS.md`.
 
 ### Chartervakt
 
-Detta är ett Git-projekt. Kontrollera alltid `git status` och bevara
-driftdokument/plist/loggar som kan ligga utanför versionsstyrningen. Lägg inte
-databas eller loggar i en commit.
+Detta är ett Git-projekt och den stående ordern gäller. Kontrollera alltid
+`git status` och bevara driftdokument/plist/loggar som kan ligga utanför
+versionsstyrningen. Lägg inte databas eller loggar i en commit; `.gitignore`
+täcker databasen och `charter.env` men INTE `server-launchd.{out,err}.log`,
+så lägg aldrig till dem oavsiktligt.
 
 ### Bonusvakt/SAS
 
-Mappen saknade Git vid flytten. Innan större arbete: ta en separat kopia eller
-inför Git på ett medvetet sätt med korrekt `.gitignore` för databas, WAL,
+Mappen saknade Git vid flytten, så **den stående ordern gäller inte här** —
+det finns inget att committa till. Innan större arbete: ta en separat kopia
+eller inför Git på ett medvetet sätt med korrekt `.gitignore` för databas, WAL,
 miljöfil, Chromeprofil, loggar och beroenden. Initiera inte och committa inte
 hela mappen slentrianmässigt; det finns hemligheter och runtime-data.
 
