@@ -3159,6 +3159,13 @@ function PlayedLiveCard({ c, onForget }) {
                 {live.chance_live_matches > 0 && <> <b>{live.chance_live_matches} pågående
                   {live.chance_live_matches === 1 ? ' match' : ' matcher'} prissatta live</b> —
                   ställningen är alltså inräknad.</>}
+                {/* Modellskattningen är inget marknadspris och får aldrig läsas
+                    som ett. Den syns bara på kupongen, aldrig i värde/CLV. */}
+                {live.chance_modelled_matches > 0 && <> <b>{live.chance_modelled_matches}</b>
+                  {live.chance_modelled_matches === 1 ? ' match saknar' : ' matcher saknar'} öppen
+                  livemarknad och är <b>skattad</b> ur ställning och tid kvar, ankrad i
+                  spelbolagets prematchpris. Det är en uppskattning — inget marknadspris —
+                  och den påverkar aldrig värdespel eller facit.</>}
               </>}
           </p>
         </>

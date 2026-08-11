@@ -1,3 +1,4 @@
+import datetime as dt
 import json
 import tempfile
 import unittest
@@ -647,6 +648,51 @@ class PenaltyShootoutStateTests(unittest.TestCase):
 
             self.assertTrue(state["sign_provisional"], f"vid {summary}")
             self.assertEqual("2", state["sign"])
+
+    def test_model_is_anchored_in_the_prematch_price(self) -> None:
+        """Intensiteterna ska ÅTERGE marknadens pris, inte ha en egen åsikt.
+
+        Utan ankaret vore siffran en fristående modellgissning, och projektet
+        har mätt tre gånger att modell-edges utan marknadsankare blir
+        systematiskt uppblåsta.
+        """
+        prematch = {"1": 0.68, "X": 0.20, "2": 0.12}
+
+        lam_home, lam_away = pool_played._lambdas_from_prematch(prematch)
+        back = pool_played._signs_from_lambdas(lam_home, lam_away)
+
+        for sign in ("1", "X", "2"):
+            self.assertAlmostEqual(prematch[sign], back[sign], places=2,
+                                   msg=f"tecken {sign}")
+
+    def test_score_and_time_move_the_estimate(self) -> None:
+        """En tvåmålsledning sent i matchen är nästan avgjord.
+
+        Det var hela anledningen: kortet visade "0 %–77 %" på en kupong där
+        NK Celje ledde 2–0 i andra halvlek.
+        """
+        prematch = {"1": 0.68, "X": 0.20, "2": 0.12}
+        start = (dt.datetime.now(dt.timezone.utc)
+                 - dt.timedelta(minutes=75)).isoformat()
+
+        leading = pool_played.live_probs_from_score(
+            {"prematch_probs": prematch, "score": "2-0", "start": start})
+        trailing = pool_played.live_probs_from_score(
+            {"prematch_probs": prematch, "score": "0-2", "start": start})
+
+        self.assertGreater(leading["1"], 0.95)
+        self.assertGreater(trailing["2"], 0.80)
+        # Favoritskapet får inte överleva ett underläge.
+        self.assertLess(trailing["1"], 0.10)
+
+    def test_model_needs_both_price_and_score(self) -> None:
+        start = dt.datetime.now(dt.timezone.utc).isoformat()
+        for state in ({"score": "1-0", "start": start},
+                      {"prematch_probs": {"1": .5, "X": .3, "2": .2},
+                       "start": start},
+                      {"prematch_probs": {"1": .5, "X": .3, "2": .2},
+                       "score": "1-0"}):
+            self.assertIsNone(pool_played.live_probs_from_score(state))
 
     def test_finished_after_extra_time_status_counts_as_finished(self) -> None:
         """statusId 32 saknades i FINISHED_STATUS_IDS — samma lucka som 33.

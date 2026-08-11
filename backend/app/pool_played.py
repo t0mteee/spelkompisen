@@ -29,6 +29,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import itertools
+import math
 import json
 import random
 from typing import Optional
@@ -253,6 +254,7 @@ def event_state(draw_event: dict) -> dict:
     # ordinarie tid stått 2–2 och hemmalaget gjort mål i förlängningen skulle
     # Current visa 3–2 och kupongen påstå "1" när rätt tecken är "X".
     provisional = bool(extra and regulation is None)
+    prematch_probs = _event_probs(draw_event)
     sign = _sign_from_score((basis or {}).get("home"), (basis or {}).get("away"))
     # POOLREGELN (Saman 2026-08-11): poolspelen fastställs på ordinarie 90
     # minuter, så en match i förlängning ÄR klar för kupongen även om matchen
@@ -271,7 +273,10 @@ def event_state(draw_event: dict) -> dict:
             "status_text": match.get("status") or None,
             "event_number": draw_event.get("eventNumber"),
             "cancelled": bool(draw_event.get("cancelled")),
-            "probs": _event_probs(draw_event),
+            "probs": prematch_probs,
+            # Bevaras separat: `probs` byts mot livepris för matcher som rullar,
+            # och prematchpriset är ankaret när livemarknaden är stängd.
+            "prematch_probs": prematch_probs,
             "home": _participant(match, "home"),
             "away": _participant(match, "away"),
             "start": match.get("matchStart"),
@@ -324,6 +329,112 @@ def _event_probs(draw_event: dict) -> Optional[dict]:
         total = sum(streck.values())
         return {sign: value / total for sign, value in streck.items()}
     return None
+
+
+_MAX_GOALS = 9          # trunkering: P(fler än 9 mål av ett lag) är försumbar
+_FULL_TIME_MIN = 90.0
+
+
+def _poisson_pmf(lam: float, k: int) -> float:
+    return math.exp(-lam) * lam ** k / math.factorial(k)
+
+
+def _signs_from_lambdas(lam_home: float, lam_away: float,
+                        lead_home: int = 0, lead_away: int = 0) -> dict:
+    """P(1/X/2) för RESTEN av matchen ovanpå en befintlig ledning."""
+    home = [_poisson_pmf(lam_home, k) for k in range(_MAX_GOALS)]
+    away = [_poisson_pmf(lam_away, k) for k in range(_MAX_GOALS)]
+    out = {"1": 0.0, "X": 0.0, "2": 0.0}
+    for i, p_home in enumerate(home):
+        for j, p_away in enumerate(away):
+            final_home, final_away = lead_home + i, lead_away + j
+            key = ("1" if final_home > final_away
+                   else "2" if final_away > final_home else "X")
+            out[key] += p_home * p_away
+    total = sum(out.values()) or 1.0
+    return {sign: value / total for sign, value in out.items()}
+
+
+def _lambdas_from_prematch(prematch: dict) -> Optional[tuple[float, float]]:
+    """Målintensiteter som återger MARKNADENS prematch-1X2 under Poisson.
+
+    Ankaret är priset, inte en egen uppfattning om lagen: vi letar bara det
+    (totalmål, hemmaandel) vars Poisson-1X2 ligger närmast det marknaden redan
+    prissatt. Utan det steget vore siffran en fristående modellgissning, och
+    projektet har tre gånger mätt att modell-edges utan marknadsankare blir
+    systematiskt uppblåsta.
+    """
+    target = [prematch.get(sign) for sign in SIGNS]
+    if any(value is None for value in target):
+        return None
+    best, best_err = None, None
+    total = 1.6
+    while total <= 4.21:
+        share = 0.20
+        while share <= 0.801:
+            lam_home, lam_away = total * share, total * (1 - share)
+            probs = _signs_from_lambdas(lam_home, lam_away)
+            err = sum((probs[sign] - prematch[sign]) ** 2 for sign in SIGNS)
+            if best_err is None or err < best_err:
+                best, best_err = (lam_home, lam_away), err
+            share += 0.02
+        total += 0.1
+    return best
+
+
+def _minutes_played(state: dict, now: Optional[dt.datetime] = None) -> Optional[float]:
+    """Spelade minuter ur avspark. Grovt men riktningsrätt; tillägg ignoreras."""
+    start = state.get("start")
+    if not start:
+        return None
+    try:
+        kickoff = dt.datetime.fromisoformat(str(start).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    now = now or dt.datetime.now(dt.timezone.utc)
+    if kickoff.tzinfo is None:
+        kickoff = kickoff.replace(tzinfo=dt.timezone.utc)
+    elapsed = (now - kickoff).total_seconds() / 60.0
+    # Halvtidspaus ligger i klocktiden men inte i speltiden.
+    return max(0.0, elapsed - 15.0) if elapsed > 60 else max(0.0, elapsed)
+
+
+def live_probs_from_score(state: dict,
+                          now: Optional[dt.datetime] = None) -> Optional[dict]:
+    """1X2 betingat på ställning och tid kvar, ankrat i prematchpriset.
+
+    Används BARA när Kambi saknar öppen livemarknad. En stängd marknad är inte
+    samma sak som okunskap: står matchen 2–0 i 75:e minuten är utfallet nästan
+    givet, och att då redovisa "0 %–77 %" var att kasta bort både ställningen
+    och det pris marknaden faktiskt satte före avspark.
+
+    Siffran är en SKATTNING och märks som sådan (`probs_basis="modell"`). Den
+    får aldrig gå in i värde, CLV, notiser eller systemförslag — den beskriver
+    en kupong som redan är lämnad.
+    """
+    prematch, score = state.get("prematch_probs"), state.get("score")
+    if not prematch or not score:
+        return None
+    parts = str(score).split("-")
+    if len(parts) != 2:
+        return None
+    try:
+        lead_home, lead_away = int(parts[0]), int(parts[1])
+    except ValueError:
+        return None
+    lambdas = _lambdas_from_prematch(prematch)
+    if lambdas is None:
+        return None
+    played = _minutes_played(state, now)
+    if played is None:
+        return None
+    remaining = max(0.0, _FULL_TIME_MIN - played) / _FULL_TIME_MIN
+    # Ingen tid kvar ⇒ ställningen ÄR resultatet; ingen modell behövs.
+    if remaining <= 0.0:
+        sign = _sign_from_score(lead_home, lead_away)
+        return {s: 1.0 if s == sign else 0.0 for s in SIGNS} if sign else None
+    return _signs_from_lambdas(lambdas[0] * remaining, lambdas[1] * remaining,
+                               lead_home, lead_away)
 
 
 def attach_regulation_time(states: list[dict]) -> None:
@@ -418,6 +529,14 @@ def attach_live_odds(store: Storage, states: list[dict]) -> None:
         prices = kambi.live_1x2(event_id) if event_id else {}
         if len(prices) == 3:
             state["probs"] = _power_probs({s: 1 / o for s, o in prices.items()})
+            continue
+        # Stängd livemarknad är inte okunskap. Ställningen och marknadens eget
+        # prematchpris finns kvar, och att kasta båda gav "0 %–77 %" på en
+        # kupong där NK Celje ledde 2–0 i andra halvlek (2026-08-11).
+        modelled = live_probs_from_score(state)
+        if modelled:
+            state["probs"] = modelled
+            state["probs_basis"] = "modell"
         else:
             state["probs"] = None
             state["probs_basis"] = "live_saknas"
@@ -533,7 +652,6 @@ def live_status(coupon: dict, states: list[dict]) -> dict:
             **_chance_per_level(rows, col_states, width, levels)}
 
 
-SIGNS = ("1", "X", "2")
 
 
 def _alive_span(rows: list[str], col_states: list[Optional[dict]], width: int,
@@ -743,7 +861,7 @@ def _chance_per_level(rows: list[str], col_states: list[Optional[dict]],
                  if not (col_states[i] and col_states[i].get("final")
                          and not col_states[i].get("cancelled"))]
     priced_cols, priced_probs, unpriced_cols, unpriced_names = [], [], [], []
-    live_used = 0
+    live_used = modelled_used = 0
     for i in open_cols:
         state = col_states[i] or {}
         p = state.get("probs")
@@ -752,6 +870,8 @@ def _chance_per_level(rows: list[str], col_states: list[Optional[dict]],
             priced_probs.append(p)
             if state.get("probs_basis") == "live":
                 live_used += 1
+            elif state.get("probs_basis") == "modell":
+                modelled_used += 1
         else:
             unpriced_cols.append(i)
             # Ställningen MÅSTE med. Intervallet spänner över alla utfall den
@@ -792,7 +912,8 @@ def _chance_per_level(rows: list[str], col_states: list[Optional[dict]],
             hi[lvl] = max(hi[lvl], hit[lvl])
 
     out = {"chance_basis": basis, "chance_open_matches": len(open_cols),
-           "chance_live_matches": live_used}
+           "chance_live_matches": live_used,
+           "chance_modelled_matches": modelled_used}
     if not unpriced_cols:
         out["chance_per_level"] = {lvl: round(hi[lvl], 6) for lvl in levels}
         return out
