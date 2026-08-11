@@ -1058,10 +1058,59 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   text-transform: uppercase; color: var(--muted); }
 .playeddone { opacity: 0.75; }
 
+/* Liverättningen */
+.liverattning { width: 100%; margin: 4px 0 10px; }
+.liverattning td { vertical-align: middle; }
+.liverattning tr.decided .lr-team { opacity: 0.75; }
+.lr-team { display: block; }
+.lr-status { display: block; font-size: 11px; color: var(--muted); }
+.lr-status.warn { color: var(--amber, #d19a3a); }
+.lr-sign { display: inline-block; margin-left: 6px; min-width: 17px;
+  text-align: center; border: 1px solid var(--line); border-radius: 4px;
+  padding: 0 3px; font-size: 11px; color: var(--muted); }
+.lr-sign.final { border-color: var(--green); color: var(--green); }
+.lr-prov { color: var(--amber, #d19a3a); margin-left: 3px; cursor: default; }
+.lr-mine { white-space: nowrap; }
+/* Chippet bär tecknet och radantalet: `X 73` läses som ett par, aldrig som 73
+   egna rader med okänt tecken. */
+.lr-chip { display: inline-block; margin-right: 4px; padding: 1px 5px;
+  border: 1px solid var(--line); border-radius: 4px; font-size: 11px; }
+.lr-chip i { font-style: normal; margin-left: 4px; color: var(--muted); }
+.lr-chip.hit { border-color: var(--green); color: var(--green); }
+.lr-chip.hit i { color: var(--green); }
+.lr-chip.leading { border-color: var(--muted); }
+.lr-chip.miss { opacity: 0.35; }
+.lr-cheer { display: inline-block; padding: 1px 6px; border-radius: 4px;
+  background: var(--panel); border: 1px solid var(--line); }
+.lr-cheer b { font-size: 13px; }
+.lr-cheer i { font-style: normal; margin-left: 5px; font-size: 11px;
+  color: var(--muted); }
+
 @media (max-width: 760px) {
   .playedcard-sum { gap: 10px; }
   .playedlevels { width: 100%; min-width: 0; }
   .playedlevels td, .playedlevels th { padding-right: 8px; }
+  /* Fem kolumner får inte plats på 375 px — "Mina rader" och "Heja på" föll
+     utanför vyn, alltså exakt de två som gör kortet användbart. Raden staplas
+     därför i två våningar i stället för att scrolla i sidled. */
+  .liverattning { font-size: 12px; }
+  .liverattning thead { display: none; }
+  .liverattning tbody { display: block; }
+  .liverattning tr { display: grid; gap: 2px 6px; padding: 7px 0;
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    grid-template-areas: "nr match score" ". mine cheer";
+    border-bottom: 1px solid var(--line); }
+  .liverattning td { display: block; padding: 0; border: none; }
+  .liverattning td:nth-child(1) { grid-area: nr; }
+  .liverattning td:nth-child(2) { grid-area: match; }
+  .liverattning td:nth-child(3) { grid-area: score; text-align: right;
+    white-space: nowrap; }
+  .liverattning td:nth-child(4) { grid-area: mine; }
+  .liverattning td:nth-child(5) { grid-area: cheer; text-align: right; }
+  /* Utan kolumnrubriken behöver chippet säga vad det betyder. */
+  .lr-cheer::before { content: 'heja '; font-size: 10px; color: var(--muted); }
+  .lr-chip { margin-right: 3px; padding: 1px 4px; }
+  .lr-chip i { margin-left: 3px; }
 }
 
 /* Sorterbar tabell (UI-passet 2026-07-29) — delas av Oddset-sidans listor */

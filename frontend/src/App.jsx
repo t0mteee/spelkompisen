@@ -2966,6 +2966,86 @@ function couponDate(c) {
   })
 }
 
+/* Liverättningen: matcherna i kupongordning med ställning, mitt tecken och —
+   för de som är kvar — vilket resultat som håller flest rader vid liv.
+   Aggregaten under (bäst X rätt, chans per nivå) säger VAD som hänt men aldrig
+   VILKEN match det gäller, och utan den kopplingen gick kupongen inte att följa
+   medan omgången pågick. */
+function LiveScorecard({ live }) {
+  const matches = live?.matches || []
+  if (!matches.length) return null
+  const cheerByCol = Object.fromEntries((live.cheer || []).map((c) => [c.col, c]))
+  const topLevel = live.cheer?.[0]?.top_level ?? live.n_events
+
+  return (
+    <table className="grid compact liverattning">
+      <thead>
+        <tr>
+          <th>#</th><th>Match</th><th>Ställning</th>
+          <th title="Kupongens tecken i den här matchen och hur många rader som har vardera.">Mina rader</th>
+          <th title={`Hur många rader som fortfarande kan nå ${topLevel} rätt om matchen slutar så.`}>Heja på</th>
+        </tr>
+      </thead>
+      <tbody>
+        {matches.map((m) => {
+          const cheer = cheerByCol[m.col]
+          const label = m.description || `${m.home || '?'} – ${m.away || '?'}`
+          /* Struken match: SvS fastställer tecknet i settlementet, så den
+             håller alla tecken öppna tills dess — aldrig "rätt för alla". */
+          const status = m.cancelled ? 'struken'
+            : m.extra_time ? (m.status_text || 'förlängning')
+              : m.final ? 'slut'
+                : m.in_progress ? (m.status_text || 'spelas')
+                  : 'ej start'
+          return (
+            <tr key={m.col} className={m.final ? 'decided' : ''}>
+              <td className="hint">{m.col}</td>
+              <td>
+                <span className="lr-team">{label}</span>
+                <span className={`lr-status${m.extra_time ? ' warn' : ''}`}>{status}</span>
+              </td>
+              <td>
+                <b>{m.score || '–'}</b>
+                {m.sign && (
+                  <span className={`lr-sign${m.final ? ' final' : ''}`}>{m.sign}</span>
+                )}
+                {/* Under förlängning tickar SvS `Current` vidare och beskriver
+                    inte längre ordinarie tid, som är det som avgör kupongen. */}
+                {m.sign_provisional && (
+                  <span className="lr-prov" title="Matchen är i förlängning. Kupongen avgörs på ORDINARIE tid, och ställningen här kan innehålla förlängningsmål. Tecknet låses när Svenska Spel publicerar slutresultatet.">*</span>
+                )}
+              </td>
+              <td className="lr-mine">
+                {['1', 'X', '2'].map((s) => {
+                  const n = m.row_signs?.[s]
+                  if (!n) return null
+                  // Rätt så långt = grönt, fällt = utgråat. Under pågående
+                  // match är det preliminärt och får inte se ut som facit.
+                  const tone = !m.sign ? '' : s === m.sign
+                    ? (m.final ? ' hit' : ' leading') : (m.final ? ' miss' : '')
+                  return (
+                    <span key={s} className={`lr-chip${tone}`}
+                      title={`${n} rader har ${s}`}>{s}<i>{n}</i></span>
+                  )
+                })}
+              </td>
+              <td>
+                {cheer?.best
+                  ? <span className="lr-cheer" title={`1: ${cheer.signs['1'].top} · X: ${cheer.signs.X.top} · 2: ${cheer.signs['2'].top} rader kvar till ${topLevel} rätt`}>
+                      <b>{cheer.best}</b><i>{cheer.signs[cheer.best].top}</i>
+                    </span>
+                  : cheer
+                    ? <span className="hint" title="Alla tre utfallen lämnar lika många rader med chans — matchen avgör ingenting för den här kupongen.">spelar ingen roll</span>
+                    : <span className="hint">–</span>}
+              </td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
+  )
+}
+
 /* Ett pågående system i siffror: hur långt raderna kommit och vad oddsen på
    de kvarvarande matcherna säger om chansen per vinstnivå. Sannolikheterna
    räknas i backend över HELA utfallsrummet — raderna delar ju matcher, så en
@@ -3016,6 +3096,7 @@ function PlayedLiveCard({ c, onForget }) {
               <span className="hint">{live.chance_open_matches} matcher kvar</span>
             )}
           </div>
+          <LiveScorecard live={live} />
           {live.out_of_contention && (
             <p className="playedcard-dead">
               Kupongen kan inte längre nå någon vinstnivå — bästa raden kan som

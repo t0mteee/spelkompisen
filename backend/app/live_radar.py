@@ -155,6 +155,12 @@ LIVE_TEAM_ALIASES = {
     # regel vore farlig. PSV är entydigt. Utan aliaset saknade PSV–AZ livepris
     # och hela Europatipsets chansberäkning uteblev (2026-08-02).
     "psv": "psv eindhoven",
+    # Topptipset 4260 (2026-08-11): SvS skriver `Olympiakos`, Kambi
+    # `Olympiakos Pireus`. Enordsspärren tillåter bara svensk genitiv, så
+    # `olympiakos` mot `olympiakos pireus` föll — och utan länk saknade
+    # Nijmegen–Olympiakos livepris mitt under matchen. Samma klass som PSV
+    # ovan: entydig klubb, ren presentationsskillnad.
+    "olympiakos pireus": "olympiakos",
     # Systematisk genomgång 2026-08-02 av ALLA olänkade par med samma liga och
     # samma avspark (13 av 24 kontrollerade). Kanonisk form är den som redan
     # finns i `oddset_results`, så signal↔facit-joinen träffar. Nycklarna är

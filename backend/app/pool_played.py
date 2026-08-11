@@ -50,6 +50,16 @@ SETTLEMENT_VERSION = "played-v2"
 FINISHED_STATUS_IDS = frozenset({31, 33})
 FINISHED_STATUS_WORDS = frozenset({"slut", "ended", "finished", "avslutad"})
 
+# Spel EFTER ordinarie tid. Poolen avgörs på ordinarie tid, så här står tecknet
+# redan fast trots att matchen inte är slut. Observerat 2026-08-11: statusId 20
+# = "Första övertidsperioden" (Apollon Limassol–Brann, Topptipset 4260).
+# Orden är skyddsnät för de koder vi ännu inte sett — SvS numrerar
+# övertidsperioder, paus i förlängning och straffläggning var för sig, och en
+# okänd kod får inte tyst göra en avgjord match "öppen" igen.
+EXTRA_TIME_STATUS_IDS = frozenset({20, 21, 22, 23, 24, 25})
+EXTRA_TIME_STATUS_WORDS = ("övertid", "overtid", "förläng", "forlang",
+                           "straff", "extra time", "penalt")
+
 
 def _now() -> str:
     return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -120,6 +130,23 @@ def _sign_from_score(home, away) -> Optional[str]:
     return "1" if h > a else ("2" if a > h else "X")
 
 
+def _regulation_from_periods(results: dict) -> Optional[dict]:
+    """Ordinarie tid som halvlek 1 + halvlek 2, när SvS publicerat båda.
+
+    `Period2` är MÅLEN i andra halvlek, inte ställningen — verifierat på
+    Helsingborg–Värnamo 2026-08-11: Halftime 0–2, Period2 1–0, Fulltime 1–2.
+    Summan är därför ordinarie tid och påverkas inte av förlängningsmål.
+    """
+    half, second = results.get("Halftime"), results.get("Period2")
+    if not (half and second):
+        return None
+    try:
+        return {"home": str(int(half["home"]) + int(second["home"])),
+                "away": str(int(half["away"]) + int(second["away"]))}
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 def match_finished(match: dict) -> bool:
     """Är matchen färdigspelad så att tecknet står fast?
 
@@ -141,6 +168,38 @@ def match_finished(match: dict) -> bool:
         or has_fulltime)
 
 
+def in_extra_time(match: dict) -> bool:
+    """Spelas matchen förlängning eller straffar JUST NU?
+
+    En avslutad straffmatch bär ordet "straffläggning" i sin slutstatus utan
+    att något spelas — den är färdig, inte pågående.
+    """
+    if match_finished(match):
+        return False
+    status_id = match.get("statusId")
+    word = str(match.get("status") or "").casefold()
+    return bool(
+        (isinstance(status_id, int) and status_id in EXTRA_TIME_STATUS_IDS)
+        or any(needle in word for needle in EXTRA_TIME_STATUS_WORDS))
+
+
+def regulation_over(match: dict) -> bool:
+    """Är ORDINARIE tid färdigspelad, så att pooltecknet står fast?
+
+    Detta är INTE samma fråga som `match_finished`, och skillnaden är hela
+    poängen. En cupmatch i förlängning är inte färdigspelad — men dess
+    ordinarie tid är avgjord, och det är ordinarie tid som avgör kupongen.
+
+    Apollon Limassol–Brann (Topptipset 4260, 2026-08-11) satt i förlängning med
+    ordinarie tid 2–3. Utan den här skillnaden räknades matchen som helt öppen:
+    kupongen påstod att den ännu kunde bli 1, X eller 2, och chansmotorn jagade
+    ett livepris som per definition inte finns — Kambis 1X2-marknad för
+    ordinarie tid är stängd när ordinarie tid är slut. Resultatet blev noten
+    "saknar odds" på en match som hade odds hela vägen.
+    """
+    return match_finished(match) or in_extra_time(match)
+
+
 def event_state(draw_event: dict) -> dict:
     """{'sign': '1'|'X'|'2'|None, 'final': bool, 'score': '1-0'|None}.
 
@@ -160,14 +219,33 @@ def event_state(draw_event: dict) -> dict:
     # i spel bär bara Current och Halftime).
     fulltime = results.get("Fulltime")
     current = results.get("Current")
-    basis = fulltime or current
+    extra = in_extra_time(match)
+    # Under förlängning bär `Current` ordinarie tids resultat bara tills ett mål
+    # görs i förlängningen — då tickar den vidare och beskriver inte längre det
+    # som avgör kupongen. Halvlekssummorna är immuna mot det och går därför före
+    # när SvS publicerat dem. Fulltime slår allt när den finns.
+    periods = _regulation_from_periods(results)
+    basis = fulltime or (periods if extra else None) or current
+    # ENDAST `Fulltime` är pålitlig under förlängning. Observerat direkt på
+    # Apollon Limassol–Brann 2026-08-11: vid 21:07 bar matchen Current 2–3 och
+    # Halftime 2–3, och när Brann gjorde mål i förlängningen kl. 21:15 skrevs
+    # BÅDA om till 2–4. `Halftime` är alltså inte det ankare mot ordinarie tid
+    # som namnet antyder — SvS uppdaterar fältet under förlängningen. Därför är
+    # tecknet preliminärt tills Fulltime publiceras, även när halvlekssummorna
+    # finns. Efter matchen rättar Fulltime allt av sig självt.
+    provisional = bool(extra and not fulltime)
     sign = _sign_from_score((basis or {}).get("home"), (basis or {}).get("away"))
-    final = match_finished(match)
+    final = regulation_over(match)
     # Visad ställning följer tecknet: efter en straffläggning ska kortet visa
     # 1–1, inte 6–5, eftersom det är 1–1 som avgör kupongen.
     score = (f"{basis['home']}-{basis['away']}"
              if basis and basis.get("home") is not None else None)
     return {"sign": sign, "final": final, "score": score,
+            # Ordinarie tid är slut men matchen rullar vidare. UI:t ska kunna
+            # säga "förlängning" i stället för att visa matchen som öppen.
+            "extra_time": extra,
+            "sign_provisional": provisional,
+            "status_text": match.get("status") or None,
             "event_number": draw_event.get("eventNumber"),
             "cancelled": bool(draw_event.get("cancelled")),
             "probs": _event_probs(draw_event),
@@ -346,7 +424,105 @@ def live_status(coupon: dict, states: list[dict]) -> dict:
             "out_of_contention": bool(levels) and max_possible < min(levels),
             "secure_dist": dict(sorted(secure_hist.items(), reverse=True)),
             "alive_per_level": dict(sorted(alive.items(), reverse=True)),
+            "matches": _match_rows(rows, col_states, events, width),
+            "cheer": _cheer_per_match(rows, col_states, width, levels),
             **_chance_per_level(rows, col_states, width, levels)}
+
+
+SIGNS = ("1", "X", "2")
+
+
+def _decided(state: Optional[dict]) -> bool:
+    """Står tecknet fast? Struken match är oavgjord tills SvS fastställt den."""
+    return bool(state and state.get("final") and not state.get("cancelled"))
+
+
+def _match_rows(rows: list[str], col_states: list[Optional[dict]],
+                events: list[int], width: int) -> list[dict]:
+    """Matcherna i kupongordning med ställning, tecken och kupongens egna val.
+
+    Det här är liverättningens vänsterhalva: utan den syns bara aggregat, och
+    Saman kunde inte se VILKEN match som gått åt vilket håll — bara att antalet
+    levande rader sjunkit.
+    """
+    out = []
+    for i in range(width):
+        state = col_states[i] or {}
+        played = {sign: sum(1 for row in rows if row[i] == sign)
+                  for sign in SIGNS}
+        decided = _decided(state)
+        out.append({
+            "col": i + 1,
+            "event": events[i] if i < len(events) else i + 1,
+            "home": state.get("home"), "away": state.get("away"),
+            "description": state.get("description"),
+            "start": state.get("start"),
+            "score": state.get("score"), "sign": state.get("sign"),
+            "final": decided,
+            "cancelled": bool(state.get("cancelled")),
+            "extra_time": bool(state.get("extra_time")),
+            "sign_provisional": bool(state.get("sign_provisional")),
+            "status_text": state.get("status_text"),
+            "in_progress": bool(state.get("in_progress")),
+            # Kupongens egna tecken i den här matchen, och hur många rader som
+            # träffade när tecknet väl står fast.
+            "row_signs": {sign: n for sign, n in played.items() if n},
+            "rows_hit": played.get(state.get("sign")) if decided else None,
+        })
+    return out
+
+
+def _cheer_per_match(rows: list[str], col_states: list[Optional[dict]],
+                     width: int, levels: list[int]) -> list[dict]:
+    """Per kvarvarande match: hur många rader lever om den slutar 1, X eller 2.
+
+    Svaret på "vilket resultat ska jag heja på". `alive` räknas mot den lägsta
+    redovisade vinstnivån och `top` mot alla rätt — ett tecken kan mycket väl
+    hålla flest rader vid liv och samtidigt döda jackpotchansen, och då ska
+    båda synas i stället för ett hopslaget mått som döljer valet.
+    """
+    if not levels or not rows or not width:
+        return []
+    top, floor = max(levels), min(levels)
+    out = []
+    for i in range(width):
+        if _decided(col_states[i]):
+            continue
+        counts = {sign: {"alive": 0, "top": 0} for sign in SIGNS}
+        for row in rows:
+            # Möjliga rätt över ALLA andra kolumner — oberoende av tecknet vi
+            # prövar, så det räknas en gång per rad i stället för tre.
+            base = 0
+            for j in range(width):
+                if j == i:
+                    continue
+                state = col_states[j]
+                base += (int(state.get("sign") == row[j]) if _decided(state)
+                         else 1)
+            for sign in SIGNS:
+                possible = base + int(row[i] == sign)
+                if possible >= floor:
+                    counts[sign]["alive"] += 1
+                if possible >= top:
+                    counts[sign]["top"] += 1
+        state = col_states[i] or {}
+        best = max(SIGNS, key=lambda s: (counts[s]["top"], counts[s]["alive"]))
+        # Alla tre tecknen lika bra = matchen avgör ingenting för kupongen.
+        matters = len({(c["alive"], c["top"]) for c in counts.values()}) > 1
+        # Topptipset har åtta matcher men BARA 8 rätt delar potten, så
+        # `alive` mot golvnivån är 256 för varenda tecken och säger ingenting.
+        # På Stryktipset ger 10 rätt pengar och då bär samma kolumn verklig
+        # information. UI:t ska visa den bara när den skiljer tecknen åt.
+        alive_varies = len({c["alive"] for c in counts.values()}) > 1
+        out.append({
+            "col": i + 1,
+            "description": state.get("description"),
+            "signs": counts,
+            "best": best if matters else None,
+            "alive_varies": alive_varies,
+            "floor_level": floor, "top_level": top,
+        })
+    return out
 
 
 CHANCE_EXACT_MAX_COMBOS = 60000     # 3^10; över det blir uppräkningen dyr
@@ -474,11 +650,16 @@ def _chance_per_level(rows: list[str], col_states: list[Optional[dict]],
 
 
 def _unpriced_note(col_states, cols, names) -> str:
-    """Förklara varför ingen chans visas — med matchnamn, inte "en match"."""
+    """Förklara varför ingen chans visas — med matchnamn, inte "en match".
+
+    "saknar odds" var fel ord om en match som rullar: den HAR odds hela vägen,
+    men Kambis livemarknad är stängd just då. Ordet fick Saman att leta efter
+    en insamlingslucka som inte fanns (2026-08-11).
+    """
     live = any((col_states[i] or {}).get("in_progress") for i in cols)
     joined = ", ".join(names)
-    return (f"{joined} saknar öppet livepris just nu" if live
-            else f"{joined} saknar odds")
+    return (f"{joined} har stängd livemarknad just nu" if live
+            else f"{joined} saknar spelbart pris")
 
 
 def _mark_incomplete(store: Storage, coupon: dict, note: str) -> dict:

@@ -164,7 +164,29 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       LIVESTATUS (aldrig facit) ur SvS draw-payload
                       (`match.result` "Current" + `statusId`), tecken parade
                       via `events_order`, så en oavgjord/struken match håller
-                      alla tecken öppna
+                      alla tecken öppna.
+                      **FÖRLÄNGNING ≠ PÅGÅENDE (2026-08-11):** poolen avgörs på
+                      ORDINARIE tid, så `regulation_over()` (= `match_finished`
+                      ELLER `in_extra_time`) styr livekortet, medan
+                      `match_finished` fortsatt betyder "matchen är slut" för
+                      settlementets omprövningstid. Apollon–Brann i Topptipset
+                      4260 satt i förlängning (statusId 20/21) med ordinarie tid
+                      2–3: utan skillnaden räknades matchen som helt öppen och
+                      chansmotorn jagade ett livepris som INTE FINNS när
+                      ordinarie tid är slut — Kambi stänger 1X2 då. Det gav
+                      noten "saknar odds" på en match som hade odds hela vägen.
+                      **Bara `Fulltime` är pålitlig under förlängning.** Uppmätt
+                      direkt: 21:07 bar matchen Current 2–3 OCH Halftime 2–3;
+                      när Brann gjorde mål i förlängningen 21:15 skrevs BÅDA om
+                      till 2–4. `Halftime` är alltså inget ankare mot ordinarie
+                      tid trots namnet. Tecknet bärs därför med
+                      `sign_provisional` tills Fulltime publiceras, och UI:t
+                      märker det med `*`. Efter matchen rättar Fulltime allt.
+                      `live_status` ger dessutom `matches` (liverättningen per
+                      match) och `cheer` (hur många rader som lever vid 1/X/2 —
+                      "vad ska jag heja på"). `alive` mot golvnivån är
+                      degenererad på Topptipset, där bara 8 rätt delar potten;
+                      `alive_varies` säger när kolumnen bär information
   app/pool_system_ledger.py PH3: förregistrerade benchmarksystem fryses
                       T−3h/T−20m i varvet, settlas kontrafaktiskt med egen
                       vinnarutspädning; rollover utan vinnare = okänd ROI

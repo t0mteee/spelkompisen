@@ -420,7 +420,10 @@ class LiveOddsForRunningMatchTests(unittest.TestCase):
             {"rows_text": "1111\n1112", "events_order": "[1,2,3,4]"}, states)
 
         self.assertNotIn("chance_min_per_level", live)
-        self.assertIn("livepris", live["chance_note"])
+        # "saknar odds" var fel ord om en match som rullar — den har odds hela
+        # omgången, det är livemarknaden som är stängd just då.
+        self.assertIn("livemarknad", live["chance_note"])
+        self.assertNotIn("saknar odds", live["chance_note"])
 
 
 if __name__ == "__main__":
@@ -472,6 +475,70 @@ class PenaltyShootoutStateTests(unittest.TestCase):
 
         self.assertEqual("X", state["sign"])
         self.assertEqual("1-1", state["score"])
+
+    def test_extra_time_decides_the_pool_sign_but_not_the_match(self) -> None:
+        """Apollon Limassol–Brann, Topptipset 4260 (2026-08-11).
+
+        statusId 20 = "Första övertidsperioden": ordinarie tid slut 2–3, alltså
+        står pooltecknet fast. Utan den skillnaden räknades matchen som helt
+        öppen, chansmotorn jagade ett livepris som inte finns när ordinarie tid
+        är slut, och kupongen fick noten "saknar odds" på en match som hade
+        odds hela vägen.
+        """
+        event = {
+            "eventNumber": 7, "cancelled": False,
+            "match": {
+                "statusId": 20, "status": "Första övertidsperioden",
+                "result": [
+                    {"sportEventResultType": "Current", "home": "2", "away": "3"},
+                    {"sportEventResultType": "Halftime", "home": "2", "away": "3"},
+                ],
+            },
+        }
+
+        state = pool_played.event_state(event)
+
+        self.assertTrue(state["final"], "ordinarie tid är spelad")
+        self.assertTrue(state["extra_time"])
+        self.assertFalse(state["in_progress"], "ingen livemarknad att hämta")
+        self.assertEqual("2", state["sign"])
+        self.assertEqual("2-3", state["score"])
+        # Current kan förorenas av ett förlängningsmål innan Fulltime kommer.
+        self.assertTrue(state["sign_provisional"])
+
+    def test_extra_time_prefers_period_sums_over_current(self) -> None:
+        """Ett mål i förlängningen får inte flytta pooltecknet.
+
+        Halvlekssummorna är immuna mot förlängningsmål: Halftime 1–0 plus
+        Period2 0–1 är ordinarie tid 1–1 även när Current hunnit bli 2–1.
+        """
+        event = {
+            "eventNumber": 7, "cancelled": False,
+            "match": {
+                "statusId": 21, "status": "Andra övertidsperioden",
+                "result": [
+                    {"sportEventResultType": "Current", "home": "2", "away": "1"},
+                    {"sportEventResultType": "Halftime", "home": "1", "away": "0"},
+                    {"sportEventResultType": "Period2", "home": "0", "away": "1"},
+                ],
+            },
+        }
+
+        state = pool_played.event_state(event)
+
+        self.assertEqual("X", state["sign"], "ordinarie tid var 1–1")
+        self.assertEqual("1-1", state["score"])
+        # Fortfarande preliminärt: SvS skrev om `Halftime` mitt i förlängningen
+        # på Apollon–Brann 2026-08-11, så summan är bättre än Current men inte
+        # ett facit. Bara Fulltime låser tecknet.
+        self.assertTrue(state["sign_provisional"])
+
+    def test_finished_shootout_is_not_reported_as_playing_extra_time(self) -> None:
+        """Slutstatusen bär ordet "straffläggning" utan att något spelas."""
+        state = pool_played.event_state(self._shootout())
+
+        self.assertFalse(state["extra_time"])
+        self.assertFalse(state["sign_provisional"])
 
     def test_running_match_without_fulltime_is_not_final(self) -> None:
         # Verifierat mot SvS: matcher i spel bär bara Current och Halftime.
