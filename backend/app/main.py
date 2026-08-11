@@ -12,6 +12,7 @@ GET /api/history?draw=...&event=...&sign=1   -> oddshistorik för ett utfall
 from __future__ import annotations
 
 import datetime as dt
+import logging
 import math
 import statistics
 import subprocess
@@ -37,6 +38,7 @@ from .storage import Storage
 from .svenskaspel import SvenskaSpel, draw_to_dict, GAME_GROUPS, PRODUCTS
 
 app = FastAPI(title="Spelkompisen", version="0.1.0")
+logger = logging.getLogger(__name__)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5175", "http://127.0.0.1:5175"],
@@ -636,6 +638,10 @@ def pool_played_list(live: bool = True):
                         item["live"] = pool_played.live_status(item, states)
                     except Exception as exc:      # noqa: BLE001
                         item["live_error"] = f"{type(exc).__name__}"
+                        logger.warning(
+                            "Livestatus misslyckades för %s %s",
+                            item["product"], item["draw_number"],
+                            exc_info=True)
         return {"coupons": out, "summary": pool_played.summary(store),
                 "live_included": live}
     finally:

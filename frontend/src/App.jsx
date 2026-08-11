@@ -1,4 +1,4 @@
-import { Component, Fragment, useEffect, useEffectEvent, useRef, useState } from 'react'
+import { Component, Fragment, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import './App.css'
 import { summarizeSourceHealth } from './sourceHealth.js'
 import { payoutMatchesSelection } from './poolSelection.js'
@@ -2996,7 +2996,7 @@ function PlayedLiveCard({ c, onForget }) {
         <p className="hint">{c.live_pending
           ? 'Hämtar livestatus…'
           : c.live_error
-          ? 'Livestatus otillgänglig just nu — omgången följs igen vid nästa varv.'
+          ? <span title={c.live_error}>Livestatus tillfälligt otillgänglig — försöker igen automatiskt inom en minut.</span>
           : 'Väntar på omgångens första resultat.'}</p>
       )}
       {live && (
@@ -3076,10 +3076,13 @@ function PlayedLiveCard({ c, onForget }) {
 // stå kvar som rubrik när tabellen bara visar ett.
 function PlayedPanel({ product = null }) {
   const [data, setData] = useState(null)
-  const load = () => {
+  const load = useCallback(() => {
     const stamp = Date.now()
     fetch(`/api/pool/played?live=false&_t=${stamp}`, { cache: 'no-store' })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
       .then((local) => {
         const hasOpen = (local.coupons || []).some((coupon) => !coupon.settled_at)
         setData({
@@ -3090,12 +3093,30 @@ function PlayedPanel({ product = null }) {
         })
         if (hasOpen) {
           fetch(`/api/pool/played?_t=${stamp}`, { cache: 'no-store' })
-            .then((r) => r.json()).then(setData).catch(() => {})
+            .then((r) => {
+              if (!r.ok) throw new Error(`HTTP ${r.status}`)
+              return r.json()
+            })
+            .then(setData)
+            .catch((error) => setData((current) => current ? {
+              ...current,
+              coupons: (current.coupons || []).map((coupon) => (
+                coupon.settled_at ? coupon : {
+                  ...coupon,
+                  live_pending: false,
+                  live_error: error?.name || 'FetchError',
+                }
+              )),
+            } : current))
         }
       })
-      .catch(() => setData({ coupons: [] }))
-  }
-  useEffect(() => { load() }, [])
+      .catch(() => setData((current) => current || { coupons: [] }))
+  }, [])
+  useEffect(() => {
+    load()
+    const timer = window.setInterval(load, 60_000)
+    return () => window.clearInterval(timer)
+  }, [load])
   if (!data) return <LoadingState label="Hämtar spelade kuponger…" />
   const all = data.coupons || []
   const coupons = product ? all.filter((c) => c.product === product) : all

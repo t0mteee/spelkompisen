@@ -896,6 +896,99 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
   )
 }
 
+/* En grupp är en simulerad konfiguration över flera omgångar, inte en spelad
+   kupong. Håll därför kostnad/utdelning explicit kontrafaktiska i både rubrik
+   och tooltip; annars läser den ackumulerade ROI-nämnaren som verkliga pengar. */
+function SystemGroupsTable({ id, groups, limit = null }) {
+  return (
+    <SortableTable id={id} className="v3histtable"
+      wrapperClassName="v3histtablewrap"
+      defaultSort={{ key: 'latest_frozen', dir: 'desc' }}
+      rows={groups} limit={limit}
+      columns={[
+        { key: 'product', label: 'Spel', defaultDir: 'asc',
+          value: (g) => PRODUCT_LABEL[g.product] || g.product },
+        { key: 'budget', label: 'Kostnad/test',
+          title: 'Systemets kostnad i en enskild testomgång. Radpriset är 1 kr, så beloppet är också antalet rader.' },
+        { key: 'strategy', label: 'Strategi', defaultDir: 'asc',
+          value: (g) => STRATEGY_LABEL[g.strategy] || g.strategy || '' },
+        { key: 'value_weight', label: 'Värdevikt' },
+        { key: 'horizon_minutes', label: 'Fryst',
+          title: 'Minuter före spelstopp' },
+        { key: 'latest_frozen', label: 'Senast testad', defaultDir: 'desc',
+          title: 'Datum för senaste omgång där konfigurationen sparades automatiskt',
+          // Sortera kalenderdag, inte klockslaget för h3/m20. Då hålls
+          // samma dags produkter ihop i backendens produktordning.
+          value: (g) => g.latest_frozen?.slice(0, 10) || null },
+        { key: 'n_frozen', label: 'Sparade tester',
+          title: 'Antal automatiskt frysta förslag för gruppen.' },
+        { key: 'n_evaluable', label: 'ROI-underlag',
+          title: 'Frysta i tid, med känt resultat OCH känd utdelning — de enda ROI räknas på.' },
+        { key: 'cost_kr', label: 'Sammanlagt',
+          title: 'Antal tester med facit × kostnad per test. Inga pengar har spelats.' },
+        { key: 'payout_kr', label: 'Simulerad utdelning',
+          title: 'Kontrafaktiskt uppskattad utdelning. Detta är inte mottagna pengar.' },
+        { key: 'roi', label: 'Simulerad ROI' },
+        { key: 'best_correct', label: 'Bäst' },
+      ]}
+      renderRow={(g) => {
+        const perTest = g.cost_per_draw_kr ?? g.budget
+        return (
+          <tr key={`${g.product}-${g.config_key}-${g.horizon}`}
+            className={g.retired ? 'v3retired' : ''}>
+            <td>{PRODUCT_LABEL[g.product] || g.product}</td>
+            <td>{g.primary ? '★ ' : ''}{perTest != null ? kr(perTest) : '–'}</td>
+            <td>{STRATEGY_LABEL[g.strategy] || g.strategy || '–'}</td>
+            <td>{g.value_weight != null ? `${Math.round(g.value_weight * 100)} %` : '–'}</td>
+            <td>{horizonLabel(g)}</td>
+            <td>{g.latest_frozen ? fmtDay(g.latest_frozen) : '–'}</td>
+            <td>{g.n_frozen}{g.n_timely < g.n_frozen
+              ? <span className="v3hint"> ({g.n_frozen - g.n_timely} sena)</span> : ''}</td>
+            <td>{g.n_evaluable ? `${g.n_evaluable} tester` : '–'}
+              {g.n_payout_incomplete
+                ? <span className="v3hint"> ({g.n_payout_incomplete} okänd utd.)</span> : ''}</td>
+            <td className="v3costformula">{g.n_evaluable
+              ? <>{g.n_evaluable} × {kr(perTest)} = <b>{kr(g.cost_kr)}</b></>
+              : '–'}</td>
+            <td>{g.n_evaluable ? kr(g.payout_kr) : '–'}</td>
+            <td className={roiCls(g.roi)}>{pctSigned(g.roi)}</td>
+            <td>{g.best_correct ?? '–'}</td>
+          </tr>
+        )
+      }}
+      renderCard={(g) => {
+        const perTest = g.cost_per_draw_kr ?? g.budget
+        return (
+          <article key={`${g.product}-${g.config_key}-${g.horizon}`}
+            className={`v3groupcard${g.retired ? ' v3retired' : ''}`}>
+            <div className="v3groupcardhead">
+              <b>{PRODUCT_LABEL[g.product] || g.product}</b>
+              <strong className={roiCls(g.roi)}>{pctSigned(g.roi)}</strong>
+            </div>
+            <div className="v3groupcardmeta">
+              <span>{g.primary ? '★ ' : ''}{kr(perTest)}/test</span>
+              <span>{STRATEGY_LABEL[g.strategy] || g.strategy || '–'}</span>
+              <span>värde {g.value_weight != null
+                ? `${Math.round(g.value_weight * 100)} %` : '–'}</span>
+              <span>fryst {horizonLabel(g)}</span>
+            </div>
+            <div className="v3groupcardformula">
+              {g.n_evaluable
+                ? <>{g.n_evaluable} tester × {kr(perTest)} = <b>{kr(g.cost_kr)}</b></>
+                : 'Inga tester med komplett facit ännu'}
+            </div>
+            <div className="v3groupcardfoot">
+              <span>{g.n_frozen} sparade tester</span>
+              <span>sim. utdelning {g.n_evaluable ? kr(g.payout_kr) : '–'}</span>
+              <span>senast {g.latest_frozen ? fmtDay(g.latest_frozen) : '–'}</span>
+              <span>bäst {g.best_correct ?? '–'} rätt</span>
+            </div>
+          </article>
+        )
+      }} />
+  )
+}
+
 function HistorikV3({ initialProduct, focus }) {
   const [product, setProduct] = useState(initialProduct || 'alla')
   const [data, setData] = useState(null)
@@ -912,10 +1005,12 @@ function HistorikV3({ initialProduct, focus }) {
   // Rubriken lovar alla konfigurationer. Visa därför hela urvalet från start;
   // användaren kan aktivt komprimera det till topplistan.
   const [showAllGroups, setShowAllGroups] = useState(true)
-  // Pensionerade konfigurationer visas som standard. Att dölja dem gjorde
-  // sidan tom trots 33 frysta omgångar i databasen — historik som finns ska
-  // synas, tydligt märkt, och kunna döljas aktivt i stället för tvärtom.
-  const [showRetired, setShowRetired] = useState(true)
+  // Pensionerade grupper är jämförelsehistorik, men får inte blandas visuellt
+  // med den aktiva testmatrisen eller blåsa upp dess gruppantal.
+  const [showRetired, setShowRetired] = useState(false)
+  const [groupFilter, setGroupFilter] = useState({
+    product: 'alla', budget: 'alla', strategy: 'alla', horizon: 'alla',
+  })
 
   // ETT filter styr hela sidan. `alla` visar tvärsnittet; en produkt filtrerar
   // kuponger, systemfacit OCH omsättning samtidigt.
@@ -923,6 +1018,7 @@ function HistorikV3({ initialProduct, focus }) {
   const chooseProduct = (next) => {
     setProduct(next); setData(null); setErr(null); setExpanded(null)
     setOpenSystem(null); setStrength(null)
+    setGroupFilter((current) => ({ ...current, product: 'alla' }))
   }
 
   useEffect(() => {
@@ -975,8 +1071,29 @@ function HistorikV3({ initialProduct, focus }) {
   const sparkVals = [...draws].reverse().map((d) => d.turnover)
   const inScope = (row) => !single || row.product === product
 
-  const groups = (systems?.groups || [])
-    .filter(inScope).filter((g) => showRetired || !g.retired)
+  const allGroups = (systems?.groups || []).filter(inScope)
+  const activeGroupBase = allGroups.filter((g) => !g.retired)
+  const retiredGroupBase = allGroups.filter((g) => g.retired)
+  const groupMatches = (g) => (
+    (groupFilter.product === 'alla' || g.product === groupFilter.product)
+    && (groupFilter.budget === 'alla' || String(g.budget) === groupFilter.budget)
+    && (groupFilter.strategy === 'alla' || g.strategy === groupFilter.strategy)
+    && (groupFilter.horizon === 'alla'
+      || String(g.horizon_minutes) === groupFilter.horizon)
+  )
+  const activeGroups = activeGroupBase.filter(groupMatches)
+  const retiredGroups = retiredGroupBase.filter(groupMatches)
+  const groupProducts = HIST_PRODUCTS.filter((p) =>
+    activeGroupBase.some((g) => g.product === p.id))
+  const groupBudgets = [...new Set(activeGroupBase.map((g) => g.budget))]
+    .filter((v) => v != null).sort((a, b) => a - b)
+  const groupStrategies = [...new Set(activeGroupBase.map((g) => g.strategy))]
+    .filter(Boolean)
+  const groupHorizons = [...new Set(activeGroupBase.map((g) => g.horizon_minutes))]
+    .filter((v) => v != null).sort((a, b) => b - a)
+  const groupFilterActive = Object.values(groupFilter).some((v) => v !== 'alla')
+  const setGroupFilterValue = (key, value) => setGroupFilter(
+    (current) => ({ ...current, [key]: value }))
   const champRows = (systems?.champion_report?.rows || []).filter(inScope)
   const recent = (systems?.recent || [])
     .filter(inScope).filter((r) => showRetired || !r.retired)
@@ -1076,87 +1193,101 @@ function HistorikV3({ initialProduct, focus }) {
           </>
         )}
 
-        {!groups.length && (
-          <EmptyState title={showRetired ? 'Inga frysta system ännu'
-            : 'Inga frysta system i nuvarande matris'}
-            detail={showRetired
-              ? 'Första frysningen sker automatiskt när nästa omgång går in i sitt 180-minutersfönster.'
-              : 'Historiken nedan tillhör den pensionerade matrisen — kryssa i rutan för att visa den.'} />
+        {!allGroups.length && (
+          <EmptyState title="Inga frysta testsystem ännu"
+            detail="Första frysningen sker automatiskt när nästa omgång går in i sitt 180-minutersfönster." />
         )}
-        {groups.length > 0 && (
+        {allGroups.length > 0 && (
           <>
-            <h4 className="v3subhead">Alla konfigurationer{' '}
-              <span className="v3hint">({groups.length} grupper)</span></h4>
-            <span className="v3hint">Datumet är den senaste kupong där
-              konfigurationen sparades. Klicka Datum för äldst eller nyast.</span>
-            {/* Nytt id nollställer äldre sparade produkt-/ROI-sorteringar.
-                Senaste datum är det naturliga grundläget för Historik. */}
-            <SortableTable id="hist-systemgroups-v3" className="v3histtable"
-              wrapperClassName="v3histtablewrap"
-              defaultSort={{ key: 'latest_frozen', dir: 'desc' }}
-              rows={groups} limit={showAllGroups ? null : 20}
-              columns={[
-                { key: 'product', label: 'Spel', defaultDir: 'asc',
-                  value: (g) => PRODUCT_LABEL[g.product] || g.product },
-                { key: 'budget', label: 'Insats/omgång',
-                  title: 'Budgeten per omgång. Radpriset är 1 kr, så beloppet är också antalet rader.' },
-                { key: 'strategy', label: 'Strategi', defaultDir: 'asc',
-                  value: (g) => STRATEGY_LABEL[g.strategy] || g.strategy || '' },
-                { key: 'value_weight', label: 'Värdevikt' },
-                { key: 'horizon_minutes', label: 'Fryst',
-                  title: 'Minuter före spelstopp' },
-                { key: 'latest_frozen', label: 'Datum', defaultDir: 'desc',
-                  title: 'Datum för senaste omgång där konfigurationen sparades automatiskt',
-                  // Sortera kalenderdag, inte klockslaget för h3/m20. Då hålls
-                  // samma dags produkter ihop i backendens produktordning.
-                  value: (g) => g.latest_frozen?.slice(0, 10) || null },
-                { key: 'n_frozen', label: 'Bokförda',
-                  title: 'Antal frysta förslag för gruppen.' },
-                { key: 'n_evaluable', label: 'Med facit',
-                  title: 'Frysta i tid, med känt resultat OCH känd utdelning — de enda ROI räknas på.' },
-                { key: 'cost_kr', label: 'Totalt satsat',
-                  title: 'Ackumulerat över omgångarna med facit — inte insatsen.' },
-                { key: 'payout_kr', label: 'Utdelning est.' },
-                { key: 'roi', label: 'ROI' },
-                { key: 'best_correct', label: 'Bäst' },
-              ]}
-              renderRow={(g) => (
-                <tr key={`${g.product}-${g.config_key}-${g.horizon}`}
-                  className={g.retired ? 'v3retired' : ''}>
-                  <td>{PRODUCT_LABEL[g.product] || g.product}</td>
-                  <td>{g.primary ? '★ ' : ''}{g.budget != null ? kr(g.budget) : '–'}
-                    {g.retired && <span className="v3hint" title="Pensionerad
-                      konfiguration — ingår inte i nuvarande matris."> (gammal)</span>}</td>
-                  <td>{STRATEGY_LABEL[g.strategy] || g.strategy || '–'}</td>
-                  <td>{g.value_weight != null ? `${Math.round(g.value_weight * 100)} %` : '–'}</td>
-                  <td>{horizonLabel(g)}</td>
-                  <td>{g.latest_frozen ? fmtDay(g.latest_frozen) : '–'}</td>
-                  <td>{g.n_frozen}{g.n_timely < g.n_frozen
-                    ? <span className="v3hint"> ({g.n_frozen - g.n_timely} sena)</span> : ''}</td>
-                  <td>{g.n_evaluable}{g.n_payout_incomplete
-                    ? <span className="v3hint"> ({g.n_payout_incomplete} okänd utd.)</span> : ''}</td>
-                  <td>{g.n_evaluable ? kr(g.cost_kr) : '–'}</td>
-                  <td>{g.n_evaluable ? kr(g.payout_kr) : '–'}</td>
-                  <td className={roiCls(g.roi)}>{pctSigned(g.roi)}</td>
-                  <td>{g.best_correct ?? '–'}</td>
-                </tr>
-              )} />
-            {groups.length > 20 && (
+            <div className="v3note">
+              <b>Automatiska testsystem — inga pengar har spelats.</b>{' '}
+              Varje rad följer en systeminställning över flera omgångar.
+              Sammanlagt visar uträkningen antal tester med facit × kostnad per
+              test. Resultaten får inte summeras mellan raderna.
+            </div>
+
+            <div className="v3groupfilters" aria-label="Filtrera testkonfigurationer">
+              <label><span>Spel</span>
+                <select value={groupFilter.product}
+                  onChange={(e) => setGroupFilterValue('product', e.target.value)}>
+                  <option value="alla">Alla spel</option>
+                  {groupProducts.map((p) => <option key={p.id} value={p.id}>
+                    {p.label}</option>)}
+                </select>
+              </label>
+              <label><span>Kostnad/test</span>
+                <select value={groupFilter.budget}
+                  onChange={(e) => setGroupFilterValue('budget', e.target.value)}>
+                  <option value="alla">Alla kostnader</option>
+                  {groupBudgets.map((budget) => <option key={budget} value={String(budget)}>
+                    {kr(budget)}</option>)}
+                </select>
+              </label>
+              <label><span>Strategi</span>
+                <select value={groupFilter.strategy}
+                  onChange={(e) => setGroupFilterValue('strategy', e.target.value)}>
+                  <option value="alla">Alla strategier</option>
+                  {groupStrategies.map((strategy) => <option key={strategy} value={strategy}>
+                    {STRATEGY_LABEL[strategy] || strategy}</option>)}
+                </select>
+              </label>
+              <label><span>Fryst</span>
+                <select value={groupFilter.horizon}
+                  onChange={(e) => setGroupFilterValue('horizon', e.target.value)}>
+                  <option value="alla">Alla tider</option>
+                  {groupHorizons.map((minutes) => <option key={minutes} value={String(minutes)}>
+                    {minutes} min före stopp</option>)}
+                </select>
+              </label>
+              {groupFilterActive && <button className="v3filterreset"
+                onClick={() => setGroupFilter({
+                  product: 'alla', budget: 'alla', strategy: 'alla', horizon: 'alla',
+                })}>Rensa filter</button>}
+            </div>
+
+            <h4 className="v3subhead">Aktiva testkonfigurationer{' '}
+              <span className="v3hint">({activeGroups.length === activeGroupBase.length
+                ? `${activeGroups.length} grupper`
+                : `${activeGroups.length} av ${activeGroupBase.length} grupper`})</span></h4>
+            <span className="v3hint">Senast testad är den senaste omgång där
+              konfigurationen sparades. Klicka kolumnen för äldst eller nyast.</span>
+            {activeGroups.length > 0
+              ? <SystemGroupsTable id="hist-systemgroups-v5" groups={activeGroups}
+                  limit={showAllGroups ? null : 20} />
+              : <EmptyState title="Inga testkonfigurationer matchar filtren"
+                  detail="Ändra eller rensa filtren för att visa fler grupper." />}
+            {activeGroups.length > 20 && (
               <button className="v3more"
                 onClick={() => setShowAllGroups(!showAllGroups)}>
                 {showAllGroups ? 'visa topp 20 ▲'
-                  : `visa alla ${groups.length} konfigurationer ▼`}</button>
+                  : `visa alla ${activeGroups.length} aktiva konfigurationer ▼`}</button>
             )}
           </>
         )}
 
-        {(systems?.retired_keys || []).length > 0 && (
+        {retiredGroupBase.length > 0 && (
           <label className="v3toggle">
             <input type="checkbox" checked={showRetired}
               onChange={(e) => setShowRetired(e.target.checked)} />
-            Visa den pensionerade matrisen ({systems.retired_keys.join(', ')}) —
-            mätt före 2026-08-05 och jämförbar bara med sig själv
+            Visa pensionerade testkonfigurationer ({retiredGroups.length === retiredGroupBase.length
+              ? `${retiredGroups.length} grupper`
+              : `${retiredGroups.length} av ${retiredGroupBase.length} grupper`})
           </label>
+        )}
+        {showRetired && retiredGroupBase.length > 0 && (
+          <>
+            <h4 className="v3subhead">Pensionerade testkonfigurationer{' '}
+              <span className="v3hint">({retiredGroups.length === retiredGroupBase.length
+                ? `${retiredGroups.length} grupper`
+                : `${retiredGroups.length} av ${retiredGroupBase.length} grupper`})</span></h4>
+            <span className="v3hint">Äldre matris, mätt före 2026-08-05 och
+              jämförbar bara med sig själv.</span>
+            {retiredGroups.length > 0
+              ? <SystemGroupsTable id="hist-systemgroups-retired-v2"
+                  groups={retiredGroups} />
+              : <EmptyState title="Inga pensionerade grupper matchar filtren"
+                  detail="Rensa filtren för att se hela den äldre matrisen." />}
+          </>
         )}
 
         {recent.length > 0 && (
@@ -1166,7 +1297,7 @@ function HistorikV3({ initialProduct, focus }) {
             <div className="v3histtablewrap">
               <table className="v3histtable">
                 <thead><tr><th>Spel</th><th>Omgång</th><th>Spelstopp</th>
-                  <th>Fryst</th><th>Insats</th><th>Rader</th><th>Facit</th></tr></thead>
+                  <th>Fryst</th><th>Sim. kostnad</th><th>Rader</th><th>Facit</th></tr></thead>
                 <tbody>
                   {recent.slice(0, showAllFreezes ? recent.length : 20).map((r, i) => (
                     <tr key={i} className="v3histrowline" role="button" tabIndex={0}

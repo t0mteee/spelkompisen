@@ -344,6 +344,38 @@
   letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
 }
 
+.v3groupfilters {
+  display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)) auto;
+  align-items: end; gap: 8px; margin: 12px 0 4px;
+}
+.v3groupfilters label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.v3groupfilters label > span {
+  color: var(--muted); font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.03em; text-transform: uppercase;
+}
+.v3groupfilters select { width: 100%; min-width: 0; }
+.v3filterreset { white-space: nowrap; }
+.v3costformula { white-space: nowrap; }
+.v3groupcard {
+  display: flex; flex-direction: column; gap: 7px; padding: 10px 11px;
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 9px;
+}
+.v3groupcard.v3retired { opacity: 0.65; }
+.v3groupcardhead, .v3groupcardmeta, .v3groupcardfoot {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px;
+}
+.v3groupcardhead { justify-content: space-between; }
+.v3groupcardmeta span {
+  padding: 2px 7px; border: 1px solid var(--line); border-radius: 999px;
+  color: var(--muted); font-size: 10.5px;
+}
+.v3groupcardformula {
+  padding: 7px 9px; border-radius: 7px;
+  background: color-mix(in srgb, var(--v3acc) 7%, var(--panel));
+  font-size: 12.5px;
+}
+.v3groupcardfoot { color: var(--muted); font-size: 10.5px; }
+
 /* Pensionerad matris: läsbar men tydligt nedtonad, aldrig dold utan besked. */
 .v3histtable tr.v3retired td { opacity: 0.6; }
 
@@ -401,6 +433,8 @@
   .v3steps a { flex: 1 1 0; text-align: center; }
   .v3drawsel { max-width: 100%; width: 100%; }
   .v3histkpis { grid-template-columns: 1fr 1fr; }
+  .v3groupfilters { grid-template-columns: 1fr 1fr; }
+  .v3filterreset { grid-column: 1 / -1; }
   .v3radar-rules { grid-template-columns: 1fr; }
   .v3radar-logrow { grid-template-columns: 1fr; gap: 5px; }
   .v3radar-logrow > div + div { padding-top: 4px; }
