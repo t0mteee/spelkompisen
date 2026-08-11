@@ -123,7 +123,8 @@ som `tools/tjanster.sh` i terminalen — och kör launchctl lokalt på MacBooken
 respektive över ssh från huvuddatorn. Tjänsterna grupperas synligt som
 Spelkompisen, Chartervakt, Bonusvakt och Server & övervakning; kör/väntar
 visas grönt och stopp/fel rött. Huvudöversikten använder en mörkare adaptiv
-variant för läsbarhet, och varje tjänst har en förklaring vid hover.
+variant för läsbarhet. Vid hover öppnas tjänstens undermeny med förklaringen
+som en låst rad ovanför knapparna, så hjälpen aldrig täcker Starta/Stoppa.
 Serverkontrollens eget läge visas även i huvudöversikten. MacBookens separata plistmall heter
 `backend/scripts/com.saman.spelkompisen.server-menubar.plist` och laddas som
 en interaktiv Aqua-LaunchAgent. Den gamla

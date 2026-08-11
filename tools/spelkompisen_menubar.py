@@ -321,7 +321,14 @@ def _run_app() -> int:
                 project = service.project
 
                 item = rumps.MenuItem(service.name)
-                set_help(item, service.help_text)
+                # NSMenuItems vanliga tooltip placeras av macOS och hamnar
+                # ibland ovanpå den öppna undermenyn. Visa hjälpen som första
+                # låsta rad i stället, ovanför alla start/stopp-knappar.
+                help_item = rumps.MenuItem(f"ⓘ {service.menu_help}")
+                help_item.set_callback(None)
+                help_item._menuitem.setEnabled_(False)
+                item.add(help_item)
+                item.add(rumps.separator)
                 for label, action in (
                     ("Starta om", "omstart"),
                     ("Stoppa", "stopp"),

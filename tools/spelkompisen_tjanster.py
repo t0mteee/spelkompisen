@@ -42,6 +42,12 @@ class Service:
     def plist(self) -> Path:
         return PLIST_DIR / f"{self.label}.plist"
 
+    @property
+    def menu_help(self) -> str:
+        """Kort första mening som ryms ovanför tjänstens menyknappar."""
+        first = self.help_text.split(". ", 1)[0].rstrip(".")
+        return first + "."
+
 
 SERVICES: tuple[Service, ...] = (
     Service(
@@ -107,9 +113,8 @@ SERVICES: tuple[Service, ...] = (
     Service(
         "menubar", "Serverkontroll", "com.saman.spelkompisen.menubar",
         "Server & övervakning", "lokal status- och tjänstemeny",
-        "Menyradsappen på MacBook-servern. Den visar status och låter dig "
-        "starta eller stoppa tjänster; själva insamlingarna fortsätter även "
-        "om kontrollmenyn stängs.",
+        "Statusmenyn kan starta och stoppa tjänster; övriga insamlingar "
+        "fortsätter om den stängs. På servern kör den som menyradsapp.",
     ),
 )
 

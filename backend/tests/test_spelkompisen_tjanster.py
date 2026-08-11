@@ -54,6 +54,9 @@ class ServiceCatalogTests(unittest.TestCase):
         self.assertIn("vaken", tjanster.BY_KEY["awake"].help_text)
         self.assertIn("var sjätte timme", tjanster.BY_KEY["kalltest"].help_text)
         self.assertIn("fortsätter", tjanster.BY_KEY["menubar"].help_text)
+        self.assertTrue(all("\n" not in service.menu_help
+                            for service in tjanster.SERVICES))
+        self.assertIn("fortsätter", tjanster.BY_KEY["menubar"].menu_help)
 
     def test_state_text_tone_and_health_distinguish_scheduled_services(self):
         waiting = {"loaded": True, "running": False, "last_exit": 0}

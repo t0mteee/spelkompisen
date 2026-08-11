@@ -166,9 +166,10 @@ modul och har Starta / Stoppa / Starta om / Stoppa permanent per tjänst under
 **Tjänster**, plus *Starta allt som ligger nere*. Projektrubrikerna är
 synliga och orden för kör/väntar respektive stopp/fel är gröna och röda.
 Huvudöversikten använder mörkare, adaptiva statusfärger eftersom dess
-bakgrund är ljusare än undermenyn. Varje tjänst har en macOS-hjälptext som
-visas när muspekaren hålls över den. `Serverkontroll` visas både i översikten
-och under **Tjänster**.
+bakgrund är ljusare än undermenyn. När en tjänst hovras under **Tjänster**
+öppnas dess undermeny med en låst förklaringsrad överst, ovanför knapparna;
+använd inte NSMenuItems system-tooltip där eftersom den täcker knapparna.
+`Serverkontroll` visas både i översikten och under **Tjänster**.
 Skriv aldrig en parallell launchd-implementation — lägestexterna och
 tjänstlistan ska ha en enda källa.
 
