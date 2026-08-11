@@ -130,6 +130,35 @@ launchctl kickstart -k gui/501/com.saman.chartervakt
 launchctl kickstart -k gui/501/com.saman.bonusvakt
 ```
 
+### Start och stopp med `tjanster.sh`
+
+Spelkompisens `start.sh`/`stop.sh` duger inte på den här datorn. De frigör bara
+portarna, och varje långlivad tjänst har `KeepAlive = true`, så launchd startar
+om processen inom sekunder. Använd driftverktyget i stället; det täcker alla
+nio tjänsterna i de tre projekten:
+
+```bash
+/Users/saman/spelkompisen/tools/tjanster.sh status
+/Users/saman/spelkompisen/tools/tjanster.sh omstart backend
+/Users/saman/spelkompisen/tools/tjanster.sh stopp charter
+/Users/saman/spelkompisen/tools/tjanster.sh start all
+```
+
+Tjänstnamn: `backend`, `frontend`, `snapshot`, `pool`, `kalltest`, `awake`,
+`menubar`, `charter`, `bonus`. Grupperna är `all` och `spelkompisen`.
+
+Ett vanligt `stopp` gör `bootout` — tjänsten kommer tillbaka vid nästa
+inloggning. `stopp <tjänst> --permanent` lägger till `launchctl disable`, så
+stoppet överlever omstart; enda vägen tillbaka är `start`, som häver disablen.
+Verktyget kräver bekräftelse innan det stoppar något som samlar data, och
+vägrar köra utan `--ja` när stdin inte är en terminal. Ett stoppat jobb visas
+som `stoppad`, ett permanent avstängt som `avstängd (överlever omstart)`.
+
+All logik ligger i `tools/spelkompisen_tjanster.py`. Menyraden går genom samma
+modul och har Starta / Stoppa / Starta om / Stoppa permanent per tjänst under
+**Tjänster**, plus *Starta allt som ligger nere*. Skriv aldrig en parallell
+launchd-implementation — lägestexterna och tjänstlistan ska ha en enda källa.
+
 Schemalagda jobb som `snapshot`, `pool` och `kalltest` har normalt ingen PID
 mellan körningarna. Ett `-` i PID-kolumnen och exitstatus 0 är friskt, inte ett
 stoppat jobb. `backend`, `frontend`, `awake`, `menubar`, `chartervakt` och
@@ -539,6 +568,7 @@ När en app ser trasig ut, gör detta i ordning:
 Användbara kontroller:
 
 ```bash
+/Users/saman/spelkompisen/tools/tjanster.sh status
 lsof -nP -iTCP -sTCP:LISTEN | grep -E ':(3000|3100|5175|8002)'
 df -h /
 pmset -g assertions

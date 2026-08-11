@@ -338,7 +338,11 @@ frontend/ React + Vite, mörkt tema. src/AppV3.jsx + AppV3.css är APPEN
   ligger bakom togglar med datumintervall, ROI/KI visas aldrig under
   `ROI_MIN_N` (=10) observationer, och poolens forskningskort (pit-v4, PH5,
   startOdds) renderas i Historik via `HISTORIK_RESEARCH`.
-start.sh / stop.sh    kör/stoppa backend + byggd frontend (8002 + 5175)
+start.sh / stop.sh    kör/stoppa backend + byggd frontend (8002 + 5175) — bara
+                      för lokal utveckling; biter INTE på serverns KeepAlive
+tools/tjanster.sh     drift på MacBook-servern: start/stopp/omstart av alla nio
+                      LaunchAgents (Spelkompisen + Chartervakt + Bonusvakt).
+                      Logiken i tools/spelkompisen_tjanster.py delas med menyraden
 docs/plan.md          FÄRDPLANEN: status, datakällor, beslut — projektets sanning
 docs/backlog.md       AKTIV BACKLOG (2026-07-26): prioritering, pågående mätningar,
                       parkerat/avfört — ändra prioritet bara med Samans godkännande
@@ -348,6 +352,11 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
 ## Kommandon
 
 - Starta allt: `./start.sh` (backend :8002, frontend :5175). Stoppa: `./stop.sh`.
+- **På MacBook-servern gäller `tools/tjanster.sh` i stället** — `stop.sh` dödar
+  bara porten och launchd startar om tjänsten inom sekunder (`KeepAlive`).
+  `tjanster.sh status|start|stopp|omstart <tjänst|all|spelkompisen>`;
+  `stopp … --permanent` lägger till `launchctl disable` och överlever omstart.
+  Se `docs/AI-OVERLAMNING-SERVER.md` § 3.
 - Tester: `cd backend && .venv/bin/python -B -m unittest discover -s tests -v`.
 - V2.2-status: `cd backend && .venv/bin/python -B cli.py v22audit`.
 - Källhälsa/varvlucka: `cd backend && .venv/bin/python -B cli.py kallhalsa [timmar]`

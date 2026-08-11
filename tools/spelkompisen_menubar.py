@@ -5,12 +5,15 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import urllib.error
 import urllib.request
 import webbrowser
 from datetime import datetime
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import spelkompisen_tjanster as tjanster  # noqa: E402
 
 
 SERVER_URL = os.environ.get("SPELKOMPISEN_SERVER_URL", "http://192.168.50.100:5175")
@@ -23,17 +26,25 @@ SSH_KEY = os.path.expanduser(os.environ.get(
     "SPELKOMPISEN_SERVER_SSH_KEY",
     "~/.ssh/spelkompisen_server_ed25519",
 ))
+# Serverns saman är UID 501; över ssh måste domänen vara serverns, inte vår.
+SERVER_UID = os.environ.get("SPELKOMPISEN_SERVER_UID", "501")
 
+# Tjänstlistan ägs av spelkompisen_tjanster — en enda sanning för menyraden,
+# CLI:t och drifthandboken.
 SERVICE_LABELS = {
-    "backend": "com.saman.spelkompisen.backend",
-    "frontend": "com.saman.spelkompisen.frontend",
-    "snapshot": "com.saman.spelkompisen.snapshot",
-    "pool": "com.saman.spelkompisen.pool",
-    "kalltest": "com.saman.spelkompisen.kalltest",
-    "awake": "com.saman.spelkompisen.awake",
-    "charter": "com.saman.chartervakt",
-    "bonus": "com.saman.bonusvakt",
+    service.key: service.label for service in tjanster.SERVICES
 }
+
+
+def _launchd() -> tjanster.Launchd:
+    """Lokalt på servern, annars samma kommandon över ssh från huvuddatorn."""
+    if LOCAL_MODE:
+        return tjanster.Launchd()
+    return tjanster.Launchd(
+        tjanster.ssh_runner(SERVER_HOST, SERVER_USER, SSH_KEY),
+        domain=f"gui/{SERVER_UID}",
+        local=False,
+    )
 
 
 def _fetch(
@@ -57,34 +68,11 @@ def _fetch(
 
 
 def _remote_services() -> tuple[dict[str, dict[str, object]], str | None]:
-    command = (["/bin/launchctl", "list"] if LOCAL_MODE else [
-        "/usr/bin/ssh", "-i", SSH_KEY,
-        "-o", "BatchMode=yes", "-o", "ConnectTimeout=4",
-        f"{SERVER_USER}@{SERVER_HOST}", "launchctl list",
-    ])
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=7)
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        return {}, str(exc)
-    if result.returncode != 0:
-        transport = "launchctl" if LOCAL_MODE else "ssh"
-        return {}, (result.stderr.strip() or f"{transport} slutade med {result.returncode}")
-
-    by_label: dict[str, dict[str, object]] = {}
-    wanted = set(SERVICE_LABELS.values())
-    for line in result.stdout.splitlines():
-        parts = line.split("\t")
-        if len(parts) != 3 or parts[2] not in wanted:
-            continue
-        pid_text, exit_text, label = parts
-        by_label[label] = {
-            "loaded": True,
-            "running": pid_text != "-",
-            "pid": int(pid_text) if pid_text.isdigit() else None,
-            "last_exit": int(exit_text) if exit_text.lstrip("-").isdigit() else None,
-        }
+    states, error = _launchd().state()
+    if error:
+        return {}, error
     return {
-        key: by_label.get(label, {
+        key: states.get(label, {
             "loaded": False,
             "running": False,
             "pid": None,
@@ -143,16 +131,9 @@ def collect_status() -> dict[str, object]:
     }
 
 
-def _service_text(service: dict[str, object] | None, scheduled: bool = False) -> str:
-    service = service or {}
-    if not service.get("loaded"):
-        return "saknas"
-    if service.get("running"):
-        return "kör nu"
-    exit_code = service.get("last_exit")
-    if exit_code not in (None, 0):
-        return f"stoppad efter fel ({exit_code})"
-    return "aktiv · väntar på nästa körning" if scheduled else "aktiv"
+# Samma lägestext som CLI:t — menyraden och terminalen ska aldrig kunna säga
+# olika saker om samma tjänst.
+_service_text = tjanster.state_text
 
 
 def _run_once() -> int:
@@ -184,6 +165,7 @@ def _run_app() -> int:
                 self.checked_item,
             ):
                 item.set_callback(None)
+            self.services_item = self._build_services_menu()
             self.menu = [
                 self.server_item,
                 self.data_item,
@@ -196,6 +178,8 @@ def _run_app() -> int:
                 self.charter_item,
                 self.bonus_item,
                 None,
+                self.services_item,
+                None,
                 rumps.MenuItem("Öppna Spelkompisen", callback=self.open_app),
                 rumps.MenuItem("Öppna Chartervakt", callback=self.open_charter),
                 rumps.MenuItem("Öppna Bonusvakt", callback=self.open_bonus),
@@ -207,6 +191,100 @@ def _run_app() -> int:
             self._refreshing = False
             self.timer = rumps.Timer(self.refresh, 30)
             self.timer.start()
+            self.refresh(None)
+
+        # ---- start/stopp ----
+
+        def _build_services_menu(self) -> "rumps.MenuItem":
+            """En post per tjänst med Starta om / Stoppa / Starta i undermeny.
+
+            Byggs EN gång; `_apply` uppdaterar bara titlarna, annars flimrar
+            menyn vid varje 30-sekunderskontroll.
+            """
+            root = rumps.MenuItem("Tjänster")
+            self.service_items: dict[str, rumps.MenuItem] = {}
+            project = None
+            for service in tjanster.SERVICES:
+                if project is not None and service.project != project:
+                    root.add(rumps.separator)
+                project = service.project
+
+                item = rumps.MenuItem(service.key)
+                for label, action in (
+                    ("Starta om", "omstart"),
+                    ("Stoppa", "stopp"),
+                    ("Starta", "start"),
+                    ("Stoppa permanent …", "permanent"),
+                ):
+                    item.add(rumps.MenuItem(
+                        label, callback=self._service_action(action, service),
+                    ))
+                self.service_items[service.key] = item
+                root.add(item)
+
+            root.add(rumps.separator)
+            root.add(rumps.MenuItem("Starta allt som ligger nere", callback=self.start_all))
+            return root
+
+        def _service_action(self, action: str, service) -> "callable":
+            def run(_sender) -> None:
+                self._run_action(action, service)
+            return run
+
+        def _run_action(self, action: str, service) -> None:
+            permanent = action == "permanent"
+            if action == "stopp" and service.warning:
+                if not rumps.alert(
+                    title=f"Stoppa {service.key}?",
+                    message=f"{service.summary}\n\n{service.warning}",
+                    ok="Stoppa", cancel="Avbryt",
+                ):
+                    return
+            if permanent:
+                if not rumps.alert(
+                    title=f"Stoppa {service.key} permanent?",
+                    message=(
+                        f"{service.summary}\n\n"
+                        f"{service.warning or ''}\n\n"
+                        "Tjänsten startar INTE vid nästa inloggning eller omstart. "
+                        "Den kommer tillbaka först när du startar den igen."
+                    ).strip(),
+                    ok="Stäng av", cancel="Avbryt",
+                ):
+                    return
+
+            launchd = _launchd()
+            if action == "start":
+                result = launchd.start(service)
+            elif action == "omstart":
+                result = launchd.restart(service)
+            else:
+                result = launchd.stop(service, permanent=permanent)
+
+            if not result.ok:
+                rumps.alert(title=f"{service.key} — gick inte", message=result.message)
+            self.refresh(None)
+
+        def start_all(self, _sender) -> None:
+            launchd = _launchd()
+            states, error = launchd.state()
+            if error:
+                rumps.alert(title="Kunde inte läsa launchd", message=error)
+                return
+            nere = [
+                service for service in tjanster.SERVICES
+                if not states.get(service.label, {}).get("loaded")
+            ]
+            if not nere:
+                rumps.alert(title="Allt är redan igång", message="Alla nio tjänster är laddade.")
+                return
+            problem = []
+            for service in nere:
+                result = launchd.start(service)
+                if not result.ok:
+                    problem.append(f"{service.key}: {result.message}")
+            if problem:
+                rumps.alert(title="Några startade inte", message="\n".join(problem))
             self.refresh(None)
 
         def open_app(self, _sender) -> None:
@@ -265,6 +343,11 @@ def _run_app() -> int:
                 if status.get("bonus_ok")
                 else f"Bonusvakt: offline · {bonus_process}"
             )
+            for service in tjanster.SERVICES:
+                self.service_items[service.key].title = (
+                    f"{service.key} · "
+                    f"{_service_text(services.get(service.key), service.scheduled)}"
+                )
             self.checked_item.title = f"Senast kontrollerad: {status['checked_at']}"
 
     SpelkompisenMonitor().run()

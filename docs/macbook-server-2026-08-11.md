@@ -113,7 +113,11 @@ huvuddatorn och MacBook-servern. På huvuddatorn kontrollerar den servern via
 HTTP och SSH; på MacBooken använder den lokala adresser och `launchctl`
 direkt. Båda visar `SK↗ ✓` när Spelkompisen, Chartervakt och Bonusvakt, API, datastatus,
 insamlare och sömnskydd är friska. De kontrollerar var 30:e sekund och har
-genvägar till båda apparna. MacBookens separata plistmall heter
+genvägar till båda apparna. Sedan 2026-08-11 har de även en **Tjänster**-meny
+med Starta / Stoppa / Starta om / Stoppa permanent per tjänst samt *Starta allt
+som ligger nere*. Den går genom `tools/spelkompisen_tjanster.py` — samma modul
+som `tools/tjanster.sh` i terminalen — och kör launchctl lokalt på MacBooken
+respektive över ssh från huvuddatorn. MacBookens separata plistmall heter
 `backend/scripts/com.saman.spelkompisen.server-menubar.plist` och laddas som
 en interaktiv Aqua-LaunchAgent. Den gamla
 menyradsappen tillhör ett annat projekt och ändras inte; om båda ikonerna
