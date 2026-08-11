@@ -95,11 +95,13 @@ Ordinarie 5175 kör nu byggd bundle, dev/StrictMode ligger på 5181. Uppmätt vi
 frontend, Oddset-snapshot, pool/settlement och liveradar kör nu på
 `192.168.50.100`. Huvuddatorns motsvarande tjänster är stoppade och dess
 orörda databas är rollback. MacBooken har verifierad SQLite-onlinebackup,
-654 gröna backendtester, fem gröna frontendtester, alla åtta källfamiljer
+655 gröna backendtester, fem gröna frontendtester, alla åtta källfamiljer
 gröna och bevisat nya pool-, live- och källhälsorader efter skiftet.
 `caffeinate -s` håller den vaken på nätström. Huvuddatorns Serverkontroll
 startas vid behov från skrivbordet och kontrollerar fjärrapp, datastatus och
-launchd-jobb; servern har en separat kontinuerlig lokal version. Full
+launchd-jobb; servern har en separat kontinuerlig lokal version. Menyn har
+projektgrupper, kontrastrik status, hover-förklaringar och visar även sin egen
+serverprocess i huvudöversikten. Full
 drift-/rollbackbeskrivning: `docs/macbook-server-2026-08-11.md`.
 
 **Chartervakt flyttad till samma MacBook 2026-08-11.** Ving/TUI-tjänsten kör

@@ -49,6 +49,12 @@ class ServiceCatalogTests(unittest.TestCase):
         self.assertEqual("Källprov (IP och datakällor)",
                          tjanster.BY_KEY["kalltest"].name)
 
+    def test_every_service_has_hover_help_and_server_helpers_explain_their_role(self):
+        self.assertTrue(all(service.help_text for service in tjanster.SERVICES))
+        self.assertIn("vaken", tjanster.BY_KEY["awake"].help_text)
+        self.assertIn("var sjätte timme", tjanster.BY_KEY["kalltest"].help_text)
+        self.assertIn("fortsätter", tjanster.BY_KEY["menubar"].help_text)
+
     def test_state_text_tone_and_health_distinguish_scheduled_services(self):
         waiting = {"loaded": True, "running": False, "last_exit": 0}
         stopped = {"loaded": False, "running": False, "last_exit": None}

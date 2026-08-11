@@ -165,8 +165,21 @@ All logik ligger i `tools/spelkompisen_tjanster.py`. Menyraden går genom samma
 modul och har Starta / Stoppa / Starta om / Stoppa permanent per tjänst under
 **Tjänster**, plus *Starta allt som ligger nere*. Projektrubrikerna är
 synliga och orden för kör/väntar respektive stopp/fel är gröna och röda.
+Huvudöversikten använder mörkare, adaptiva statusfärger eftersom dess
+bakgrund är ljusare än undermenyn. Varje tjänst har en macOS-hjälptext som
+visas när muspekaren hålls över den. `Serverkontroll` visas både i översikten
+och under **Tjänster**.
 Skriv aldrig en parallell launchd-implementation — lägestexterna och
 tjänstlistan ska ha en enda källa.
+
+De tre generella servertjänsterna betyder:
+
+- **Sömnskydd:** håller MacBooken vaken på nätström så att alla insamlare kan
+  fortsätta.
+- **Källprov:** provar var sjätte timme att serverns IP når externa
+  datakällor och sparar facit; det är inte den ordinarie oddsinsamlingen.
+- **Serverkontroll:** den lokala menyradsappen för status och start/stopp.
+  Stängs den fortsätter övriga insamlare att arbeta.
 
 Schemalagda jobb som `snapshot`, `pool` och `kalltest` har normalt ingen PID
 mellan körningarna. Ett `-` i PID-kolumnen och exitstatus 0 är friskt, inte ett

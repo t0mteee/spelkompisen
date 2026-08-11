@@ -174,24 +174,39 @@ def _run_app() -> int:
 
     def colored_title(
         item: "rumps.MenuItem", title: str, colored_text: str, tone: str,
+        *, high_contrast: bool = False,
     ) -> None:
-        """Färga bara lägesordet; resten följer macOS-temat."""
+        """Färga lägesordet och ge resten ett uttryckligt adaptivt textläge."""
         item.title = title
         start = title.find(colored_text)
         if start < 0:
             return
+        control_text = NSColor.controlTextColor()
         colors = {
             "green": NSColor.systemGreenColor(),
             "red": NSColor.systemRedColor(),
             "orange": NSColor.systemOrangeColor(),
         }
+        color = colors.get(tone, NSColor.secondaryLabelColor())
+        # Huvudmenyn är ljusare än undermenyn på många macOS-versioner.
+        # Blanda statusfärgen mot systemets ordinarie textfärg så kontrasten
+        # ökar adaptivt i både ljust och mörkt läge.
+        blend = 0.48 if high_contrast else 0.18
+        color = color.blendedColorWithFraction_ofColor_(blend, control_text)
         attributed = NSMutableAttributedString.alloc().initWithString_(title)
         attributed.addAttribute_value_range_(
+            NSForegroundColorAttributeName, control_text, (0, len(title)),
+        )
+        attributed.addAttribute_value_range_(
             NSForegroundColorAttributeName,
-            colors.get(tone, NSColor.secondaryLabelColor()),
+            color,
             (start, len(colored_text)),
         )
         item._menuitem.setAttributedTitle_(attributed)
+
+    def set_help(item: "rumps.MenuItem", text: str) -> None:
+        """Visa en kort förklaring med macOS vanliga hover-hjälp."""
+        item._menuitem.setToolTip_(text)
 
     class Serverkontroll(rumps.App):
         def __init__(self) -> None:
@@ -208,17 +223,35 @@ def _run_app() -> int:
             self.pool_item = rumps.MenuItem("Pool + live: kontrollerar …")
             self.awake_item = rumps.MenuItem("Sömnskydd: kontrollerar …")
             self.kalltest_item = rumps.MenuItem("Källprov: kontrollerar …")
+            self.menubar_item = rumps.MenuItem("Serverkontroll: kontrollerar …")
             self.charter_item = rumps.MenuItem("Chartervakt: kontrollerar …")
             self.bonus_item = rumps.MenuItem("Bonusvakt: kontrollerar …")
             self.checked_item = rumps.MenuItem("Senast kontrollerad: –")
             for item in (
                 self.server_item, self.data_item, self.snapshot_item,
                 self.pool_item, self.awake_item, self.kalltest_item,
+                self.menubar_item,
                 self.charter_item,
                 self.bonus_item,
                 self.checked_item,
             ):
                 item.set_callback(None)
+            for item, key in (
+                (self.server_item, "backend"),
+                (self.snapshot_item, "snapshot"),
+                (self.pool_item, "pool"),
+                (self.awake_item, "awake"),
+                (self.kalltest_item, "kalltest"),
+                (self.menubar_item, "menubar"),
+                (self.charter_item, "charter"),
+                (self.bonus_item, "bonus"),
+            ):
+                set_help(item, tjanster.BY_KEY[key].help_text)
+            set_help(
+                self.data_item,
+                "Samlad kontroll av att Spelkompisens senaste insamlingar och "
+                "datakällor är tillräckligt färska.",
+            )
             self.services_item = self._build_services_menu()
             self.menu = [
                 heading("Spelkompisen"),
@@ -236,6 +269,7 @@ def _run_app() -> int:
                 heading("Server & övervakning"),
                 self.awake_item,
                 self.kalltest_item,
+                self.menubar_item,
                 None,
                 self.services_item,
                 None,
@@ -287,6 +321,7 @@ def _run_app() -> int:
                 project = service.project
 
                 item = rumps.MenuItem(service.name)
+                set_help(item, service.help_text)
                 for label, action in (
                     ("Starta om", "omstart"),
                     ("Stoppa", "stopp"),
@@ -409,7 +444,9 @@ def _run_app() -> int:
             else:
                 state, tone = "stoppad", "red"
                 title = f"Webb & API: {state}"
-            colored_title(self.server_item, title, state, tone)
+            colored_title(
+                self.server_item, title, state, tone, high_contrast=True,
+            )
             data_status = status.get("data_status")
             data_text = (
                 "grön" if data_status == "ok"
@@ -417,7 +454,7 @@ def _run_app() -> int:
             )
             colored_title(
                 self.data_item, f"Datastatus: {data_text}", data_text,
-                "green" if data_status == "ok" else "red",
+                "green" if data_status == "ok" else "red", high_contrast=True,
             )
             for item, key, label in (
                 (self.snapshot_item, "snapshot", "Oddset-insamling"),
@@ -430,13 +467,22 @@ def _run_app() -> int:
                 colored_title(
                     item, f"{label}: {state}", state,
                     tjanster.state_tone(services.get(key), definition.scheduled),
+                    high_contrast=True,
                 )
+            menubar_state = _service_text(services.get("menubar"))
+            colored_title(
+                self.menubar_item,
+                f"Serverkontroll: {menubar_state}", menubar_state,
+                tjanster.state_tone(services.get("menubar")),
+                high_contrast=True,
+            )
             charter_process = _service_text(services.get("charter"))
             charter_state = "kör" if status.get("charter_ok") else "stoppad"
             colored_title(
                 self.charter_item,
                 f"Chartervakt: {charter_state} · {charter_process}",
                 charter_state, "green" if status.get("charter_ok") else "red",
+                high_contrast=True,
             )
             bonus_process = _service_text(services.get("bonus"))
             notifier = status.get("bonus_notifier") or "ingen push"
@@ -449,6 +495,7 @@ def _run_app() -> int:
             colored_title(
                 self.bonus_item, bonus_title, bonus_state,
                 "green" if status.get("bonus_ok") else "red",
+                high_contrast=True,
             )
             for service in tjanster.SERVICES:
                 state = _service_text(services.get(service.key), service.scheduled)

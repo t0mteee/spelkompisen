@@ -32,6 +32,7 @@ class Service:
     label: str
     project: str
     summary: str
+    help_text: str
     scheduled: bool = False
     # Sätts när ett stopp kostar data eller drift. Observationstid går inte att
     # bakfylla, så texten ska säga vad som faktiskt går förlorat.
@@ -46,38 +47,51 @@ SERVICES: tuple[Service, ...] = (
     Service(
         "backend", "API", "com.saman.spelkompisen.backend", "Spelkompisen",
         "API på 127.0.0.1:8002",
+        "Själva motorn bakom Spelkompisen. Den hämtar data, räknar analyser "
+        "och svarar webbgränssnittet.",
     ),
     Service(
         "frontend", "Webb", "com.saman.spelkompisen.frontend", "Spelkompisen",
         "byggd frontend på 0.0.0.0:5175",
+        "Webbsidan du öppnar i mobilen eller datorn. Den visar informationen "
+        "som API-tjänsten räknar fram.",
     ),
     Service(
         "snapshot", "Oddset-insamling", "com.saman.spelkompisen.snapshot", "Spelkompisen",
         "Oddset-insamling :00 och :30", scheduled=True,
+        help_text="Hämtar och sparar odds och oddsrörelser två gånger i timmen. "
+                  "Att den väntar mellan körningarna är normalt.",
         warning="Oddsets insamlingsvarv stannar. Priser som rör sig under "
                 "stoppet går inte att hämta i efterhand.",
     ),
     Service(
         "pool", "Pool & live", "com.saman.spelkompisen.pool", "Spelkompisen",
         "pool, settlement och liveradar var 5:e minut", scheduled=True,
+        help_text="Uppdaterar poolkuponger, rättar avgjorda spel och följer "
+                  "livematcher var femte minut. Vänteläge mellan varven är normalt.",
         warning="Pool, settlement och liveradar stannar. Observationstid är en "
                 "del av mätningen och får aldrig bakfyllas.",
     ),
     Service(
         "charter", "Chartervakt", "com.saman.chartervakt", "Chartervakt",
         "webb och scheduler på 3100",
+        "Letar efter charterresor, sparar prisutvecklingen och driver "
+        "Chartervakts webbsida.",
         warning="Chartervakts scheduler stannar. Prisändringar som sker under "
                 "stoppet syns aldrig i historiken.",
     ),
     Service(
         "bonus", "Bonusvakt", "com.saman.bonusvakt", "Bonusvakt",
         "webb, /v1-API och scheduler på 3000",
+        "Följer SAS bonusplatser, skickar larm och driver Bonusvakts webbsida.",
         warning="Bonusvakts scheduler stannar. Bonusplatser som dyker upp och "
                 "försvinner under stoppet larmar aldrig.",
     ),
     Service(
         "awake", "Sömnskydd", "com.saman.spelkompisen.awake", "Server & övervakning",
         "caffeinate -s, sömnskydd",
+        "Håller MacBook-servern vaken när strömadaptern är ansluten. Om datorn "
+        "somnar pausas alla tre projektens insamlingar.",
         warning="Sömnskyddet släpps. Somnar datorn stannar ALLA tre projektens "
                 "insamlare, inte bara den här tjänsten.",
     ),
@@ -85,11 +99,17 @@ SERVICES: tuple[Service, ...] = (
         "kalltest", "Källprov (IP och datakällor)",
         "com.saman.spelkompisen.kalltest", "Server & övervakning",
         "fristående källprov var 6:e timme", scheduled=True,
+        help_text="Kontrollerar var sjätte timme att serverns internetanslutning "
+                  "fortfarande når de externa datakällorna och sparar resultatet. "
+                  "Det ersätter inte den vanliga oddsinsamlingen.",
         warning="Källprovet är append-only; luckan går inte att fylla i efterhand.",
     ),
     Service(
         "menubar", "Serverkontroll", "com.saman.spelkompisen.menubar",
         "Server & övervakning", "lokal status- och tjänstemeny",
+        "Menyradsappen på MacBook-servern. Den visar status och låter dig "
+        "starta eller stoppa tjänster; själva insamlingarna fortsätter även "
+        "om kontrollmenyn stängs.",
     ),
 )
 
