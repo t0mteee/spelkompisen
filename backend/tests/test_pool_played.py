@@ -476,14 +476,19 @@ class PenaltyShootoutStateTests(unittest.TestCase):
         self.assertEqual("X", state["sign"])
         self.assertEqual("1-1", state["score"])
 
-    def test_extra_time_decides_the_pool_sign_but_not_the_match(self) -> None:
+    def test_extra_time_stops_the_live_price_hunt_but_keeps_the_sign_unknown(self) -> None:
         """Apollon Limassol–Brann, Topptipset 4260 (2026-08-11).
 
-        statusId 20 = "Första övertidsperioden": ordinarie tid slut 2–3, alltså
-        står pooltecknet fast. Utan den skillnaden räknades matchen som helt
-        öppen, chansmotorn jagade ett livepris som inte finns när ordinarie tid
-        är slut, och kupongen fick noten "saknar odds" på en match som hade
-        odds hela vägen.
+        Matchen följdes live genom hela förlängningen. Ordinarie tid var 1–2,
+        Overtime 1–2 och Current 2–4 — `Current` bär alltså ordinarie tid PLUS
+        förlängningsmålen, och kl. 21:07 stod den i 2–3 (1–2 plus ett mål i
+        förlängningen). Tecknet är därför OKÄNT tills Fulltime publiceras, och
+        matchen ska förbli öppen för radräkningen.
+
+        Det som ändras är prisjakten: Kambis 1X2-marknad stänger när ordinarie
+        tid är slut, så `in_progress` måste bli False. Annars letar chansmotorn
+        efter ett livepris som per definition inte finns, och kupongen fick
+        noten "saknar odds" på en match som hade odds hela vägen.
         """
         event = {
             "eventNumber": 7, "cancelled": False,
@@ -498,40 +503,89 @@ class PenaltyShootoutStateTests(unittest.TestCase):
 
         state = pool_played.event_state(event)
 
-        self.assertTrue(state["final"], "ordinarie tid är spelad")
         self.assertTrue(state["extra_time"])
         self.assertFalse(state["in_progress"], "ingen livemarknad att hämta")
-        self.assertEqual("2", state["sign"])
-        self.assertEqual("2-3", state["score"])
-        # Current kan förorenas av ett förlängningsmål innan Fulltime kommer.
+        self.assertFalse(state["final"], "ordinarie tids resultat är inte känt")
         self.assertTrue(state["sign_provisional"])
 
-    def test_extra_time_prefers_period_sums_over_current(self) -> None:
-        """Ett mål i förlängningen får inte flytta pooltecknet.
+    def test_extra_time_goal_must_not_flip_the_pool_sign(self) -> None:
+        """Det farliga fallet: ordinarie 2–2 (X), mål i förlängningen.
 
-        Halvlekssummorna är immuna mot förlängningsmål: Halftime 1–0 plus
-        Period2 0–1 är ordinarie tid 1–1 även när Current hunnit bli 2–1.
+        `Current` visar då 3–2 och en naiv läsning påstår "1" när rätt tecken
+        är "X". Matchen får därför inte räknas som avgjord — och när Fulltime
+        väl publiceras vinner den över Current.
         """
-        event = {
+        running = {
             "eventNumber": 7, "cancelled": False,
             "match": {
                 "statusId": 21, "status": "Andra övertidsperioden",
                 "result": [
-                    {"sportEventResultType": "Current", "home": "2", "away": "1"},
-                    {"sportEventResultType": "Halftime", "home": "1", "away": "0"},
-                    {"sportEventResultType": "Period2", "home": "0", "away": "1"},
+                    {"sportEventResultType": "Current", "home": "3", "away": "2"},
+                    {"sportEventResultType": "Halftime", "home": "1", "away": "1"},
+                ],
+            },
+        }
+        self.assertFalse(pool_played.event_state(running)["final"])
+
+        # Slutdatan: Fulltime är ordinarie tid, Overtime är målen i
+        # förlängningen och Current är summan av de två.
+        done = {
+            "eventNumber": 7, "cancelled": False,
+            "match": {
+                "statusId": 32, "status": "Slut efter förlängning",
+                "result": [
+                    {"sportEventResultType": "Current", "home": "3", "away": "2"},
+                    {"sportEventResultType": "Halftime", "home": "1", "away": "1"},
+                    {"sportEventResultType": "Fulltime", "home": "2", "away": "2"},
+                    {"sportEventResultType": "Overtime", "home": "1", "away": "0"},
+                ],
+            },
+        }
+        state = pool_played.event_state(done)
+
+        self.assertTrue(state["final"])
+        self.assertFalse(state["extra_time"])
+        self.assertFalse(state["sign_provisional"])
+        self.assertEqual("X", state["sign"], "ordinarie tid var 2–2")
+        self.assertEqual("2-2", state["score"])
+
+    def test_fulltime_during_extra_time_locks_sign_without_ending_match(self) -> None:
+        """Nijmegen–Olympiakos, Topptipset 4260 (2026-08-11).
+
+        SvS publicerade Fulltime 1–1 mitt i första övertidsperioden — tvärtemot
+        antagandet att Fulltime aldrig kommer under pågående match. Tecknet står
+        då fast, men matchen rullar vidare, och kortet ska säga båda delarna i
+        stället för att visa "slut" på en match som spelas.
+        """
+        event = {
+            "eventNumber": 3, "cancelled": False,
+            "match": {
+                "statusId": 20, "status": "Första övertidsperioden",
+                "result": [
+                    {"sportEventResultType": "Current", "home": "1", "away": "1"},
+                    {"sportEventResultType": "Fulltime", "home": "1", "away": "1"},
                 ],
             },
         }
 
         state = pool_played.event_state(event)
 
-        self.assertEqual("X", state["sign"], "ordinarie tid var 1–1")
-        self.assertEqual("1-1", state["score"])
-        # Fortfarande preliminärt: SvS skrev om `Halftime` mitt i förlängningen
-        # på Apollon–Brann 2026-08-11, så summan är bättre än Current men inte
-        # ett facit. Bara Fulltime låser tecknet.
-        self.assertTrue(state["sign_provisional"])
+        self.assertTrue(state["final"], "Fulltime låser tecknet")
+        self.assertEqual("X", state["sign"])
+        self.assertFalse(state["sign_provisional"], "ordinarie tid är publicerad")
+        self.assertTrue(state["extra_time"], "matchen spelas fortfarande")
+        self.assertFalse(state["in_progress"], "ingen 1X2-marknad för ordinarie tid")
+
+    def test_finished_after_extra_time_status_counts_as_finished(self) -> None:
+        """statusId 32 saknades i FINISHED_STATUS_IDS — samma lucka som 33.
+
+        Matchen räddades bara av att ett publicerat Fulltime också räknas som
+        slut. Utan Fulltime hade en färdigspelad match sett pågående ut.
+        """
+        match = {"statusId": 32, "status": "Slut efter förlängning", "result": []}
+
+        self.assertTrue(pool_played.match_finished(match))
+        self.assertFalse(pool_played.in_extra_time(match))
 
     def test_finished_shootout_is_not_reported_as_playing_extra_time(self) -> None:
         """Slutstatusen bär ordet "straffläggning" utan att något spelas."""

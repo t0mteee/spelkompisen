@@ -2992,8 +2992,13 @@ function LiveScorecard({ live }) {
           const label = m.description || `${m.home || '?'} – ${m.away || '?'}`
           /* Struken match: SvS fastställer tecknet i settlementet, så den
              håller alla tecken öppna tills dess — aldrig "rätt för alla". */
+          /* En match kan ha känt tecken OCH rulla vidare: Svenska Spel
+             publicerar `Fulltime` medan förlängningen pågår. Då är kupongens
+             tecken avgjort men matchen är det inte, och båda ska sägas. */
           const status = m.cancelled ? 'struken'
-            : m.extra_time ? (m.status_text || 'förlängning')
+            : m.extra_time
+              ? (m.final ? `ordinarie klar · ${m.status_text || 'förlängning'}`
+                : (m.status_text || 'förlängning'))
               : m.final ? 'slut'
                 : m.in_progress ? (m.status_text || 'spelas')
                   : 'ej start'
@@ -3009,10 +3014,10 @@ function LiveScorecard({ live }) {
                 {m.sign && (
                   <span className={`lr-sign${m.final ? ' final' : ''}`}>{m.sign}</span>
                 )}
-                {/* Under förlängning tickar SvS `Current` vidare och beskriver
-                    inte längre ordinarie tid, som är det som avgör kupongen. */}
+                {/* Under förlängning är ställningen ordinarie tid PLUS
+                    förlängningsmålen, så tecknet här är inte kupongens. */}
                 {m.sign_provisional && (
-                  <span className="lr-prov" title="Matchen är i förlängning. Kupongen avgörs på ORDINARIE tid, och ställningen här kan innehålla förlängningsmål. Tecknet låses när Svenska Spel publicerar slutresultatet.">*</span>
+                  <span className="lr-prov" title="Matchen är i förlängning. Ställningen inkluderar förlängningsmålen, medan kupongen avgörs på ORDINARIE tid — tecknet här är alltså inte kupongens. Matchen räknas som oavgjord tills Svenska Spel publicerar slutresultatet.">*</span>
                 )}
               </td>
               <td className="lr-mine">

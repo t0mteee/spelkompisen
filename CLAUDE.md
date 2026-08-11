@@ -165,23 +165,33 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       (`match.result` "Current" + `statusId`), tecken parade
                       via `events_order`, så en oavgjord/struken match håller
                       alla tecken öppna.
-                      **FÖRLÄNGNING ≠ PÅGÅENDE (2026-08-11):** poolen avgörs på
-                      ORDINARIE tid, så `regulation_over()` (= `match_finished`
-                      ELLER `in_extra_time`) styr livekortet, medan
-                      `match_finished` fortsatt betyder "matchen är slut" för
-                      settlementets omprövningstid. Apollon–Brann i Topptipset
-                      4260 satt i förlängning (statusId 20/21) med ordinarie tid
-                      2–3: utan skillnaden räknades matchen som helt öppen och
-                      chansmotorn jagade ett livepris som INTE FINNS när
-                      ordinarie tid är slut — Kambi stänger 1X2 då. Det gav
-                      noten "saknar odds" på en match som hade odds hela vägen.
-                      **Bara `Fulltime` är pålitlig under förlängning.** Uppmätt
-                      direkt: 21:07 bar matchen Current 2–3 OCH Halftime 2–3;
-                      när Brann gjorde mål i förlängningen 21:15 skrevs BÅDA om
-                      till 2–4. `Halftime` är alltså inget ankare mot ordinarie
-                      tid trots namnet. Tecknet bärs därför med
-                      `sign_provisional` tills Fulltime publiceras, och UI:t
-                      märker det med `*`. Efter matchen rättar Fulltime allt.
+                      **FÖRLÄNGNING (2026-08-11, följd live hela vägen på
+                      Apollon Limassol–Brann i Topptipset 4260).**
+                      RESULTATMODELLEN: `Halftime` + `Period2` = `Fulltime` =
+                      ORDINARIE tid; `Fulltime` + `Overtime` = `Current`.
+                      Uppmätt slutdata: 0–1 + 1–1 = 1–2 och 1–2 + 1–2 = 2–4.
+                      `Overtime` publiceras FÖRST när matchen är slut, så under
+                      förlängning finns ingen väg till ordinarie tid: `Current`
+                      bär förlängningsmålen (kl. 21:07 stod den i 2–3, alltså
+                      1–2 plus ett förlängningsmål) och `Halftime` går inte att
+                      låna — SvS skrev om den till 2–3 och sedan 2–4 mitt i
+                      matchen och rättade den till 0–1 först efteråt.
+                      TECKNET ÄR DÄRFÖR OKÄNT under förlängning, inte bara
+                      osäkert: med ordinarie 2–2 och ett hemmamål i
+                      förlängningen visar Current 3–2 och en naiv läsning
+                      påstår "1" när rätt tecken är "X". Matchen förblir alltså
+                      OAVGJORD för radräkningen (`final` = `match_finished`,
+                      oförändrat), och `sign_provisional` säger att ställningen
+                      inkluderar förlängningsmål. Det som ÄNDRAS är prisjakten:
+                      `in_progress` följer `regulation_over()` (= slut ELLER
+                      förlängning), eftersom Kambi stänger 1X2 för ordinarie tid
+                      när ordinarie tid är slut. Utan det jagade chansmotorn ett
+                      livepris som per definition inte finns och satte noten
+                      "saknar odds" på en match som hade odds hela vägen.
+                      `FINISHED_STATUS_IDS` bär nu även 32 ("Slut efter
+                      förlängning") — samma lucka som 33 gav 2026-08-08, och
+                      matchen räddades bara av att ett publicerat `Fulltime`
+                      också räknas som slut.
                       `live_status` ger dessutom `matches` (liverättningen per
                       match) och `cheer` (hur många rader som lever vid 1/X/2 —
                       "vad ska jag heja på"). `alive` mot golvnivån är

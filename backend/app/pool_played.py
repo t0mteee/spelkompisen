@@ -47,7 +47,10 @@ SETTLEMENT_VERSION = "played-v2"
 # (Barnsley–Wigan och Preston–Huddersfield i Stryktipset 4965): kortet sa
 # 8/13 avgjorda när det var 10/13, och påstod att fem matcher rullade när
 # det bara var tre.
-FINISHED_STATUS_IDS = frozenset({31, 33})
+# 32 = "Slut efter förlängning", observerad 2026-08-11 (Apollon Limassol–Brann).
+# Samma lucka som 33 ("Slut efter straffläggning") som fälldes 2026-08-08:
+# matchen räddades bara av att ett publicerat Fulltime också räknas som slut.
+FINISHED_STATUS_IDS = frozenset({31, 32, 33})
 FINISHED_STATUS_WORDS = frozenset({"slut", "ended", "finished", "avslutad"})
 
 # Spel EFTER ordinarie tid. Poolen avgörs på ordinarie tid, så här står tecknet
@@ -130,23 +133,6 @@ def _sign_from_score(home, away) -> Optional[str]:
     return "1" if h > a else ("2" if a > h else "X")
 
 
-def _regulation_from_periods(results: dict) -> Optional[dict]:
-    """Ordinarie tid som halvlek 1 + halvlek 2, när SvS publicerat båda.
-
-    `Period2` är MÅLEN i andra halvlek, inte ställningen — verifierat på
-    Helsingborg–Värnamo 2026-08-11: Halftime 0–2, Period2 1–0, Fulltime 1–2.
-    Summan är därför ordinarie tid och påverkas inte av förlängningsmål.
-    """
-    half, second = results.get("Halftime"), results.get("Period2")
-    if not (half and second):
-        return None
-    try:
-        return {"home": str(int(half["home"]) + int(second["home"])),
-                "away": str(int(half["away"]) + int(second["away"]))}
-    except (KeyError, TypeError, ValueError):
-        return None
-
-
 def match_finished(match: dict) -> bool:
     """Är matchen färdigspelad så att tecknet står fast?
 
@@ -171,12 +157,20 @@ def match_finished(match: dict) -> bool:
 def in_extra_time(match: dict) -> bool:
     """Spelas matchen förlängning eller straffar JUST NU?
 
-    En avslutad straffmatch bär ordet "straffläggning" i sin slutstatus utan
-    att något spelas — den är färdig, inte pågående.
+    Avgörs på STATUS, inte på `match_finished`. Ett publicerat `Fulltime`
+    betyder bara att ordinarie tid är klar — Nijmegen–Olympiakos bar Fulltime
+    1–1 mitt i första övertidsperioden 2026-08-11, alltså tvärtemot antagandet
+    att Fulltime aldrig publiceras under pågående match. Tecknet står då fast
+    OCH matchen rullar vidare, och kortet ska kunna säga båda delarna.
+
+    En avslutad straffmatch bär däremot ordet "straffläggning" i sin slutstatus
+    utan att något spelas; den är färdig, inte pågående.
     """
-    if match_finished(match):
-        return False
     status_id = match.get("statusId")
+    if isinstance(status_id, int) and status_id in FINISHED_STATUS_IDS:
+        return False
+    if str(match.get("status") or "").casefold().startswith("slut"):
+        return False
     word = str(match.get("status") or "").casefold()
     return bool(
         (isinstance(status_id, int) and status_id in EXTRA_TIME_STATUS_IDS)
@@ -224,18 +218,24 @@ def event_state(draw_event: dict) -> dict:
     # görs i förlängningen — då tickar den vidare och beskriver inte längre det
     # som avgör kupongen. Halvlekssummorna är immuna mot det och går därför före
     # när SvS publicerat dem. Fulltime slår allt när den finns.
-    periods = _regulation_from_periods(results)
-    basis = fulltime or (periods if extra else None) or current
-    # ENDAST `Fulltime` är pålitlig under förlängning. Observerat direkt på
-    # Apollon Limassol–Brann 2026-08-11: vid 21:07 bar matchen Current 2–3 och
-    # Halftime 2–3, och när Brann gjorde mål i förlängningen kl. 21:15 skrevs
-    # BÅDA om till 2–4. `Halftime` är alltså inte det ankare mot ordinarie tid
-    # som namnet antyder — SvS uppdaterar fältet under förlängningen. Därför är
-    # tecknet preliminärt tills Fulltime publiceras, även när halvlekssummorna
-    # finns. Efter matchen rättar Fulltime allt av sig självt.
+    basis = fulltime or current
+    # Under förlängning bär `Current` ordinarie tid PLUS förlängningsmålen, och
+    # ingenting i den löpande payloaden isolerar ordinarie tid. Uppmätt hela
+    # vägen på Apollon Limassol–Brann 2026-08-11: ordinarie tid 1–2, Overtime
+    # 1–2, Current 2–4. Kl. 21:07 stod Current i 2–3 (1–2 plus ett mål i
+    # förlängningen), och `Halftime` gick inte att låna som ankare — SvS skrev
+    # om den till 2–3 och sedan 2–4 mitt i matchen och rättade den till 0–1
+    # först i slutdatan. `Overtime` publiceras inte förrän matchen är slut.
+    # Tecknet är alltså OKÄNT under förlängning, inte bara osäkert: hade
+    # ordinarie tid stått 2–2 och hemmalaget gjort mål i förlängningen skulle
+    # Current visa 3–2 och kupongen påstå "1" när rätt tecken är "X".
     provisional = bool(extra and not fulltime)
     sign = _sign_from_score((basis or {}).get("home"), (basis or {}).get("away"))
-    final = regulation_over(match)
+    # `final` betyder att tecknet står fast OCH är känt — därför oförändrat
+    # `match_finished`, som redan räknar ett publicerat Fulltime som slut. En
+    # match i förlängning är öppen för radräkningen, vilket är konservativt och
+    # sant: vi vet att ordinarie tid är spelad, men inte hur den slutade.
+    final = match_finished(match)
     # Visad ställning följer tecknet: efter en straffläggning ska kortet visa
     # 1–1, inte 6–5, eftersom det är 1–1 som avgör kupongen.
     score = (f"{basis['home']}-{basis['away']}"
@@ -253,8 +253,12 @@ def event_state(draw_event: dict) -> dict:
             "away": _participant(match, "away"),
             "start": match.get("matchStart"),
             # Startad men inte klar ⇒ SvS statiska prematch-odds beskriver inte
-            # längre matchen. Flaggan styr om livepris måste hämtas.
-            "in_progress": bool(score) and not final,
+            # längre matchen. Flaggan styr om livepris måste hämtas — och under
+            # förlängning finns inget att hämta: Kambi stänger 1X2 för ordinarie
+            # tid när ordinarie tid är slut. Därför `regulation_over` här och
+            # `match_finished` i `final`; det är hela skillnaden mellan "går att
+            # prissätta" och "tecknet är känt".
+            "in_progress": bool(score) and not (final or extra),
             "description": (draw_event.get("description")
                             or " - ".join(
                                 p for p in (_participant(match, "home"),
@@ -656,10 +660,13 @@ def _unpriced_note(col_states, cols, names) -> str:
     men Kambis livemarknad är stängd just då. Ordet fick Saman att leta efter
     en insamlingslucka som inte fanns (2026-08-11).
     """
-    live = any((col_states[i] or {}).get("in_progress") for i in cols)
     joined = ", ".join(names)
-    return (f"{joined} har stängd livemarknad just nu" if live
-            else f"{joined} saknar spelbart pris")
+    if any((col_states[i] or {}).get("extra_time") for i in cols):
+        return (f"{joined} spelar förlängning — ordinarie tid avgör kupongen "
+                "och publiceras när matchen är slut")
+    if any((col_states[i] or {}).get("in_progress") for i in cols):
+        return f"{joined} har stängd livemarknad just nu"
+    return f"{joined} saknar spelbart pris"
 
 
 def _mark_incomplete(store: Storage, coupon: dict, note: str) -> dict:
