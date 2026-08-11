@@ -1294,3 +1294,36 @@ meta-hintet var redan korrekt.
 **Not:** nio diagnosrader som skrevs under felsökningen (omg 4256,
 `code_version='diagnos'`, simulerad frystid 15:09Z) togs bort direkt — de
 hade blockerat den riktiga frysningen 14:59Z via `_frozen()`.
+
+## 2026-08-11 — produktionsdatabasen flyttad till MacBook-server
+
+**Skäl:** Saman valde ett direkt, reversibelt skifte från huvuddatorn till den
+gamla Intel-MacBooken efter att ett fullständigt källprov var grönt, i stället
+för ett tre dygn långt shadow-test.
+
+**Skrivstopp och backup:** båda LaunchAgents som skriver på huvuddatorn
+(`snapshot` och `pool`) laddades ur före kopieringen. Därefter skapades
+`/tmp/spelkompisen-cutover-2026-08-11.db` med SQLite `.backup` från WAL-
+databasen. `integrity_check=ok`, `foreign_key_check` utan rader. Vid skiftet
+innehöll kopian 2 086 `oddset_matches` och 111 704
+`pool_market_capture`; senaste poolpunkt var `2026-08-11T16:22:05Z`.
+
+**Aktivering:** kopian skickades först som separat incoming-fil, verifierades
+igen på MacBooken och bytte därefter namn atomiskt. Den tidigare testkopian
+finns kvar där som
+`backend/data/stryktips.pre-cutover-2026-08-11.db`. Huvuddatorns original-DB
+är också orörd och fungerar som rollback. Ingen schema- eller innehålls-
+migration gjordes av skiftessteget.
+
+**Efterkontroll:** MacBookens första pool/live-varv ökade
+`pool_market_capture` till 111 786 och senaste punkt till
+`2026-08-11T16:27:27Z`. Nästa varv skrev ytterligare poolrörelser och en ny
+radarsignal. Oddset-varvet skrev nya `oddset_source_health_log`-kontroller
+till `2026-08-11T16:32:58Z`; de senaste 30 kontrollerna var samtliga gröna.
+API-hälsan svarade `ok` och sidan svarade 200 från huvuddatorn efter att dess
+egna backend/frontend hade stoppats.
+
+**Enskrivarregel:** endast MacBookens snapshot- och pooljobb är nu laddade.
+Vid rollback ska de först laddas ur innan huvuddatorns jobb startas. Om data
+hunnit skrivas på MacBooken ska en ny SQLite-onlinebackup tas tillbaka före
+rollback så att framåtriktat facit inte tappas.

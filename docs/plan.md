@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-08-10 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-08-11 — läs detta först i ny session)
 
 > **Aktiv backlog och prioritering: `docs/backlog.md`** (uppdaterad 2026-08-09).
 > WP-listan längre ned är historik över avslutat arbete.
@@ -91,7 +91,45 @@ Ordinarie 5175 kör nu byggd bundle, dev/StrictMode ligger på 5181. Uppmätt vi
 390 px: första Oddset-lista **2472 → 619 ms**, första Idag-poolkort 953 ms,
 40/187 matcher efter berikning, ingen overflow eller konsolfel.
 
-**Aktuell överlämning:** `docs/overlamning-2026-08-10-prestanda.md`, därefter
+**Drift flyttad till MacBook 2026-08-11.** Produktionsdatabasen, backend,
+frontend, Oddset-snapshot, pool/settlement och liveradar kör nu på
+`192.168.50.100`. Huvuddatorns motsvarande tjänster är stoppade och dess
+orörda databas är rollback. MacBooken har verifierad SQLite-onlinebackup,
+647 gröna backendtester, fem gröna frontendtester, alla åtta källfamiljer
+gröna och bevisat nya pool-, live- och källhälsorader efter skiftet.
+`caffeinate -s` håller den vaken på nätström. Huvuddatorns nya `SK↗`-monitor
+kontrollerar fjärrapp, datastatus och launchd-jobb var 30:e sekund. Full
+drift-/rollbackbeskrivning: `docs/macbook-server-2026-08-11.md`.
+
+**Chartervakt flyttad till samma MacBook 2026-08-11.** Ving/TUI-tjänsten kör
+nu som `com.saman.chartervakt` på port 3100; alla 176 tester var gröna före
+skiftet och 8 bevakningar/hela prishistoriken verifierades efter kopieringen.
+Den gamla processen är stoppad men databasen är kvar för rollback. `SK↗`-
+monitorn kräver nu även att Chartervakts process och webbsida är friska och
+har en egen genväg dit. Samma monitor är installerad lokalt i MacBookens
+interaktiva Aqua-session, där den läser tjänsterna utan SSH. Detaljer:
+`docs/macbook-server-2026-08-11.md`.
+
+**Bonusvakt flyttad till samma MacBook 2026-08-11.** Den inloggningsfria
+SAS-pollern och ntfy kör nu som `com.saman.bonusvakt` på port 3000 efter 102
+gröna tester och ett skarpt SAS-källprov från MacBooken. Fyra bevakningar och
+hela databasen verifierades. Partnerfavoriten är inte schemalagd och den
+gamla Keychain-bundna Chrome-sessionen kopierades inte; partnerinloggning kan
+återställas senare utan att kärnan påverkas. `SK↗` på båda datorerna visar
+även Bonusvakt. Extern telefonåtkomst väntar på Tailscale; LAN-adressen är
+under tiden `http://192.168.50.100:3000`. Detaljer:
+`docs/macbook-server-2026-08-11.md`.
+
+**Spelade kupongers live-retry 2026-08-11.** Topptipset 4260 var inte
+osettlad på grund av serverflytten: sista matchen startar 21:00 och den
+payloadstyrda settlementtiden 23:10 är korrekt. Däremot kunde ett enstaka
+misslyckat livestatusanrop ligga kvar i UI:t för alltid. Öppna kuponger
+uppdateras nu varje minut, feltexten lovar samma retry och backend loggar den
+tidigare bortkastade orsaken. 52 pool-/settlementtester, fem frontendtester,
+produktionsbygge och skarpt API är gröna på den distribuerade versionen.
+
+**Aktuell överlämning:** `docs/macbook-server-2026-08-11.md`, därefter
+`docs/overlamning-2026-08-10-prestanda.md` och
 `docs/overlamning-2026-08-09.md`. Alla statusblock
 nedan är daterad historik och får inte läsas som nuvarande kontrakt.
 

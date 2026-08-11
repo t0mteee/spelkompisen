@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.saman.spelkompisen.kalltest</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/saman/spelkompisen/backend/.venv/bin/python</string>
+        <string>/Users/saman/spelkompisen/backend/scripts/kalltest_ip.py</string>
+        <string>--tyst</string>
+        <string>--logg</string>
+        <string>/Users/saman/spelkompisen/backend/data/kalltest-macbook-192.168.50.100.jsonl</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/saman/spelkompisen/backend</string>
+    <key>StartInterval</key>
+    <integer>1200</integer>
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/saman/spelkompisen/backend/data/kalltest-macbook.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/saman/spelkompisen/backend/data/kalltest-macbook.err.log</string>
+</dict>
+</plist>

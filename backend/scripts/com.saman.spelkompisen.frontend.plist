@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.saman.spelkompisen.frontend</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/saman/.local/spelkompisen-runtime/bin/npm</string>
+        <string>--prefix</string>
+        <string>/Users/saman/spelkompisen/frontend</string>
+        <string>run</string>
+        <string>preview</string>
+        <string>--</string>
+        <string>--host</string>
+        <string>0.0.0.0</string>
+        <string>--port</string>
+        <string>5175</string>
+        <string>--strictPort</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/saman/spelkompisen/frontend</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/saman/.local/spelkompisen-runtime/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/saman/spelkompisen/backend/data/frontend-server.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/saman/spelkompisen/backend/data/frontend-server.err.log</string>
+</dict>
+</plist>

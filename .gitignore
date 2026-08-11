@@ -1,5 +1,6 @@
 # Python
 backend/.venv/
+tools/.venv/
 __pycache__/
 *.pyc
 
@@ -12,6 +13,7 @@ backend/data/*.db-journal
 backend/data/*.db-wal
 backend/data/*.db-shm
 backend/data/*.log
+backend/data/*.jsonl
 backend/data/fd/
 backend/data/backups/
 

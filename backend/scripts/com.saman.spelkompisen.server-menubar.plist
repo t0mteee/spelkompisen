@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.saman.spelkompisen.menubar</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/saman/spelkompisen/tools/.venv/bin/python</string>
+        <string>/Users/saman/spelkompisen/tools/spelkompisen_menubar.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/saman/spelkompisen</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>SPELKOMPISEN_SERVER_URL</key>
+        <string>http://127.0.0.1:5175</string>
+        <key>CHARTERVAKT_SERVER_URL</key>
+        <string>http://127.0.0.1:3100</string>
+        <key>BONUSVAKT_SERVER_URL</key>
+        <string>http://127.0.0.1:3000</string>
+        <key>SPELKOMPISEN_SERVER_HOST</key>
+        <string>192.168.50.100</string>
+        <key>SPELKOMPISEN_MONITOR_LOCAL</key>
+        <string>1</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>LimitLoadToSessionType</key>
+    <string>Aqua</string>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/saman/spelkompisen/backend/data/menubar.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/saman/spelkompisen/backend/data/menubar.err.log</string>
+</dict>
+</plist>
