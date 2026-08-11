@@ -2992,13 +2992,10 @@ function LiveScorecard({ live }) {
           const label = m.description || `${m.home || '?'} – ${m.away || '?'}`
           /* Struken match: SvS fastställer tecknet i settlementet, så den
              håller alla tecken öppna tills dess — aldrig "rätt för alla". */
-          /* En match kan ha känt tecken OCH rulla vidare: Svenska Spel
-             publicerar `Fulltime` medan förlängningen pågår. Då är kupongens
-             tecken avgjort men matchen är det inte, och båda ska sägas. */
+          /* Poolen fastställs på ordinarie 90 min, så en match i förlängning
+             är klar för kupongen men inte klar som match. Båda ska sägas. */
           const status = m.cancelled ? 'struken'
-            : m.extra_time
-              ? (m.final ? `ordinarie klar · ${m.status_text || 'förlängning'}`
-                : (m.status_text || 'förlängning'))
+            : m.extra_time ? `ordinarie klar · ${m.status_text || 'förlängning'}`
               : m.final ? 'slut'
                 : m.in_progress ? (m.status_text || 'spelas')
                   : 'ej start'
@@ -3014,10 +3011,10 @@ function LiveScorecard({ live }) {
                 {m.sign && (
                   <span className={`lr-sign${m.final ? ' final' : ''}`}>{m.sign}</span>
                 )}
-                {/* Under förlängning är ställningen ordinarie tid PLUS
-                    förlängningsmålen, så tecknet här är inte kupongens. */}
+                {/* Matchen är avgjord för kupongen, men utan Fulltime eller
+                    Overtime går ordinarie tid inte att skilja från Current. */}
                 {m.sign_provisional && (
-                  <span className="lr-prov" title="Matchen är i förlängning. Ställningen inkluderar förlängningsmålen, medan kupongen avgörs på ORDINARIE tid — tecknet här är alltså inte kupongens. Matchen räknas som oavgjord tills Svenska Spel publicerar slutresultatet.">*</span>
+                  <span className="lr-prov" title="Matchen är i förlängning och räknas som klar — poolen fastställs på ordinarie 90 minuter. Svenska Spel har dock inte publicerat ordinarie tids resultat än, så ställningen här kan innehålla förlängningsmål. Tecknet rättas automatiskt när slutresultatet kommer.">*</span>
                 )}
               </td>
               <td className="lr-mine">

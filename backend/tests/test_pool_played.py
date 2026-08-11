@@ -505,17 +505,46 @@ class PenaltyShootoutStateTests(unittest.TestCase):
 
         self.assertTrue(state["extra_time"])
         self.assertFalse(state["in_progress"], "ingen livemarknad att hämta")
-        self.assertFalse(state["final"], "ordinarie tids resultat är inte känt")
+        # POOLREGELN: poolspel fastställs på ordinarie 90 minuter, så matchen
+        # är klar för kupongen även om matchen inte är slut.
+        self.assertTrue(state["final"], "ordinarie tid är spelad")
+        # Utan Fulltime och Overtime går ordinarie tid inte att belägga — då
+        # märks tecknet, men matchen räknas ändå.
         self.assertTrue(state["sign_provisional"])
 
-    def test_extra_time_goal_must_not_flip_the_pool_sign(self) -> None:
-        """Det farliga fallet: ordinarie 2–2 (X), mål i förlängningen.
+    def test_overtime_field_recovers_regulation_time_before_fulltime(self) -> None:
+        """Ordinarie 2–2 (X) med ett hemmamål i förlängningen ⇒ Current 3–2.
 
-        `Current` visar då 3–2 och en naiv läsning påstår "1" när rätt tecken
-        är "X". Matchen får därför inte räknas som avgjord — och när Fulltime
-        väl publiceras vinner den över Current.
+        Publicerar SvS `Overtime` innan `Fulltime` går ordinarie tid att räkna
+        fram exakt: 3–2 minus 1–0 är 2–2, alltså X och inte den etta som
+        Current ensam hade gett.
         """
-        running = {
+        event = {
+            "eventNumber": 7, "cancelled": False,
+            "match": {
+                "statusId": 21, "status": "Andra övertidsperioden",
+                "result": [
+                    {"sportEventResultType": "Current", "home": "3", "away": "2"},
+                    {"sportEventResultType": "Overtime", "home": "1", "away": "0"},
+                ],
+            },
+        }
+
+        state = pool_played.event_state(event)
+
+        self.assertTrue(state["final"], "ordinarie tid är spelad")
+        self.assertEqual("X", state["sign"], "3–2 minus 1–0 är 2–2")
+        self.assertEqual("2-2", state["score"])
+        self.assertFalse(state["sign_provisional"], "beräknad, inte gissad")
+
+    def test_extra_time_sign_is_marked_when_regulation_cannot_be_proven(self) -> None:
+        """Utan Fulltime och Overtime bär Current förlängningsmålen.
+
+        Matchen räknas ändå — poolen är avgjord på ordinarie tid — men tecknet
+        märks, eftersom 3–2 här mycket väl kan vara ett 2–2 plus ett mål i
+        förlängningen.
+        """
+        event = {
             "eventNumber": 7, "cancelled": False,
             "match": {
                 "statusId": 21, "status": "Andra övertidsperioden",
@@ -525,8 +554,13 @@ class PenaltyShootoutStateTests(unittest.TestCase):
                 ],
             },
         }
-        self.assertFalse(pool_played.event_state(running)["final"])
 
+        state = pool_played.event_state(event)
+
+        self.assertTrue(state["final"])
+        self.assertTrue(state["sign_provisional"])
+
+    def test_fulltime_beats_current_after_extra_time(self) -> None:
         # Slutdatan: Fulltime är ordinarie tid, Overtime är målen i
         # förlängningen och Current är summan av de två.
         done = {

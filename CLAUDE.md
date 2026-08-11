@@ -176,13 +176,18 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       1–2 plus ett förlängningsmål) och `Halftime` går inte att
                       låna — SvS skrev om den till 2–3 och sedan 2–4 mitt i
                       matchen och rättade den till 0–1 först efteråt.
-                      TECKNET ÄR DÄRFÖR OKÄNT under förlängning, inte bara
-                      osäkert: med ordinarie 2–2 och ett hemmamål i
-                      förlängningen visar Current 3–2 och en naiv läsning
-                      påstår "1" när rätt tecken är "X". Matchen förblir alltså
-                      OAVGJORD för radräkningen (`final` = `match_finished`,
-                      oförändrat), och `sign_provisional` säger att ställningen
-                      inkluderar förlängningsmål. Det som ÄNDRAS är prisjakten:
+                      **POOLREGELN (Samans besked 2026-08-11): poolspel
+                      fastställs på ordinarie 90 minuter, så en match i
+                      förlängning RÄKNAS SOM KLAR** — `final` =
+                      `regulation_over()` (slut ELLER förlängning). Osäkerhet om
+                      VILKET resultatet är får inte avgöra frågan om matchen är
+                      AVGJORD; den bärs av `sign_provisional`. Ordinarie tid
+                      läses i fallande ordning `Fulltime` → `Current` minus
+                      `Overtime` → `Current` (märkt). Med ordinarie 2–2 och ett
+                      hemmamål i förlängningen visar Current 3–2, så utan de två
+                      första blir tecknet en etta i stället för kryss —
+                      markeringen finns för det, och rättas av sig själv när
+                      SvS publicerar. Det som ÄNDRAS utöver detta är prisjakten:
                       `in_progress` följer `regulation_over()` (= slut ELLER
                       förlängning), eftersom Kambi stänger 1X2 för ordinarie tid
                       när ordinarie tid är slut. Utan det jagade chansmotorn ett

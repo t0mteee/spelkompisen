@@ -133,6 +133,25 @@ def _sign_from_score(home, away) -> Optional[str]:
     return "1" if h > a else ("2" if a > h else "X")
 
 
+def _minus_overtime(current: Optional[dict],
+                    overtime: Optional[dict]) -> Optional[dict]:
+    """Ordinarie tid = `Current` minus förlängningens mål.
+
+    `Overtime` bär MÅLEN i förlängningen, inte ställningen — verifierat på
+    Apollon Limassol–Brann 2026-08-11: Fulltime 1–2, Overtime 1–2, Current 2–4.
+    Ger exakt ordinarie tid de gånger SvS publicerar Overtime innan Fulltime.
+    """
+    if not (current and overtime):
+        return None
+    try:
+        home = int(current["home"]) - int(overtime["home"])
+        away = int(current["away"]) - int(overtime["away"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    # Negativt vore ett fältmissförstånd, inte ett resultat.
+    return {"home": str(home), "away": str(away)} if home >= 0 and away >= 0 else None
+
+
 def match_finished(match: dict) -> bool:
     """Är matchen färdigspelad så att tecknet står fast?
 
@@ -218,7 +237,11 @@ def event_state(draw_event: dict) -> dict:
     # görs i förlängningen — då tickar den vidare och beskriver inte längre det
     # som avgör kupongen. Halvlekssummorna är immuna mot det och går därför före
     # när SvS publicerat dem. Fulltime slår allt när den finns.
-    basis = fulltime or current
+    # Ordinarie tid, i fallande tillförlitlighet. `Overtime` är MÅLEN i
+    # förlängningen (uppmätt: Fulltime 1–2 + Overtime 1–2 = Current 2–4), så
+    # Current minus Overtime ger ordinarie tid exakt när Fulltime dröjer.
+    regulation = fulltime or _minus_overtime(current, results.get("Overtime"))
+    basis = regulation or current
     # Under förlängning bär `Current` ordinarie tid PLUS förlängningsmålen, och
     # ingenting i den löpande payloaden isolerar ordinarie tid. Uppmätt hela
     # vägen på Apollon Limassol–Brann 2026-08-11: ordinarie tid 1–2, Overtime
@@ -229,13 +252,13 @@ def event_state(draw_event: dict) -> dict:
     # Tecknet är alltså OKÄNT under förlängning, inte bara osäkert: hade
     # ordinarie tid stått 2–2 och hemmalaget gjort mål i förlängningen skulle
     # Current visa 3–2 och kupongen påstå "1" när rätt tecken är "X".
-    provisional = bool(extra and not fulltime)
+    provisional = bool(extra and regulation is None)
     sign = _sign_from_score((basis or {}).get("home"), (basis or {}).get("away"))
-    # `final` betyder att tecknet står fast OCH är känt — därför oförändrat
-    # `match_finished`, som redan räknar ett publicerat Fulltime som slut. En
-    # match i förlängning är öppen för radräkningen, vilket är konservativt och
-    # sant: vi vet att ordinarie tid är spelad, men inte hur den slutade.
-    final = match_finished(match)
+    # POOLREGELN (Saman 2026-08-11): poolspelen fastställs på ordinarie 90
+    # minuter, så en match i förlängning ÄR klar för kupongen även om matchen
+    # inte är det. Osäkerhet om vilket resultatet är får inte avgöra frågan om
+    # matchen är avgjord — den bärs av `sign_provisional` i stället.
+    final = regulation_over(match)
     # Visad ställning följer tecknet: efter en straffläggning ska kortet visa
     # 1–1, inte 6–5, eftersom det är 1–1 som avgör kupongen.
     score = (f"{basis['home']}-{basis['away']}"
