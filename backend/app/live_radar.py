@@ -161,6 +161,13 @@ LIVE_TEAM_ALIASES = {
     # Nijmegen–Olympiakos livepris mitt under matchen. Samma klass som PSV
     # ovan: entydig klubb, ren presentationsskillnad.
     "olympiakos pireus": "olympiakos",
+    # Samma kväll: SvS skriver `Sparta Prag`, Flashscore `Sparta Prague (Cze)`.
+    # Svensk, engelsk och tjeckisk stavning av staden; prefixregeln kräver
+    # ordgräns och `prag`/`prague`/`praha` delar ingen. `sparta prague` fanns
+    # redan mappad till den kanoniska `sparta praha` — det var SvS svenska form
+    # som saknades, så den måste peka på SAMMA kanon och inte introducera en
+    # tredje. Utan den saknade Lyon–Sparta Prag matchminut mitt i matchen.
+    "sparta prag": "sparta praha",
     # Systematisk genomgång 2026-08-02 av ALLA olänkade par med samma liga och
     # samma avspark (13 av 24 kontrollerade). Kanonisk form är den som redan
     # finns i `oddset_results`, så signal↔facit-joinen träffar. Nycklarna är

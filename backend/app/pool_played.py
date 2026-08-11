@@ -383,7 +383,16 @@ def _lambdas_from_prematch(prematch: dict) -> Optional[tuple[float, float]]:
 
 
 def _minutes_played(state: dict, now: Optional[dt.datetime] = None) -> Optional[float]:
-    """Spelade minuter ur avspark. Grovt men riktningsrätt; tillägg ignoreras."""
+    """Spelad tid — Flashscores matchminut först, klocktid som reserv.
+
+    Klocktiden sedan avspark vet inget om tillägg, avbrott eller hur lång
+    pausen faktiskt blev, och den tickar vidare under paus som om det spelades.
+    Flashscores `minute_at` läser stadiets egen klocka och fryser minuten i
+    paus. Reserven finns kvar för matcher som inte går att länka.
+    """
+    minute = state.get("minute")
+    if isinstance(minute, (int, float)):
+        return float(minute)
     start = state.get("start")
     if not start:
         return None
@@ -438,7 +447,12 @@ def live_probs_from_score(state: dict,
 
 
 def attach_regulation_time(states: list[dict]) -> None:
-    """Belägg ordinarie tid för förlängningsmatcher via Flashscore.
+    """Matchminut och ordinarie tid ur Flashscore — EN hämtning för båda.
+
+    Två behov som delar samma länkning och samma dagsfeed, så de görs i ett
+    svep: den riktiga matchminuten för pågående matcher (chansskattningen
+    behöver tid kvar, och klocktid sedan avspark räknar tillägg och paus fel),
+    och ordinarie tid för matcher i förlängning.
 
     SvS publicerar varken `Fulltime` eller `Overtime` medan förlängningen
     pågår, och `Current` bär förlängningsmålen. CSKA 1948 Sofia–Panathinaikos
@@ -453,26 +467,36 @@ def attach_regulation_time(states: list[dict]) -> None:
     Ett källfel får aldrig ändra ett tecken: allt som misslyckas lämnar
     matchen märkt som obelagd, och radantalet redovisas då som spann.
     """
-    pending = [state for state in states if state.get("sign_provisional")]
+    pending = [state for state in states
+               if state.get("sign_provisional") or state.get("in_progress")]
     if not pending:
         return
-    from .flashscore import Flashscore
+    from .flashscore import Flashscore, minute_at
     from .live_radar import _same_team
     try:
         with Flashscore() as source:
-            rows, _ = source.matches()
+            rows, observed_at = source.matches()
             for state in pending:
                 home, away = state.get("home"), state.get("away")
                 if not (home and away):
                     continue
-                hits = {row.get("flashscore_id") for row in rows
+                hits = [row for row in rows
                         if _same_team(str(row.get("home") or ""), home)
-                        and _same_team(str(row.get("away") or ""), away)}
-                hits.discard(None)
+                        and _same_team(str(row.get("away") or ""), away)]
                 if len(hits) != 1:
                     continue          # tvetydigt eller olänkat: gissa aldrig
-                summary, _ = source.summary(hits.pop())
-                _apply_regulation(state, summary)
+                row = hits[0]
+                # RIKTIG matchminut i stället för klocktid sedan avspark.
+                # Klockan vet inget om tillägg, avbrott eller hur lång pausen
+                # blev; `minute_at` läser stadiets egen tid och FRYSER minuten
+                # i paus i stället för att låta den ticka.
+                minute = minute_at(row, observed_at)
+                if minute is not None:
+                    state["minute"] = minute
+                    state["minute_source"] = "flashscore"
+                if state.get("sign_provisional") and row.get("flashscore_id"):
+                    summary, _ = source.summary(row["flashscore_id"])
+                    _apply_regulation(state, summary)
     except Exception:                 # noqa: BLE001 — källfel är inte ett facit
         return
 

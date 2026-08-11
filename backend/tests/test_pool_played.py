@@ -685,6 +685,33 @@ class PenaltyShootoutStateTests(unittest.TestCase):
         # Favoritskapet får inte överleva ett underläge.
         self.assertLess(trailing["1"], 0.10)
 
+    def test_real_match_minute_beats_wall_clock(self) -> None:
+        """Flashscores matchminut ska slå klocktiden sedan avspark.
+
+        En match som stått stilla i paus eller haft långt tillägg har spelat
+        färre minuter än klockan visar, och tid kvar är hela hävstången i
+        skattningen.
+        """
+        prematch = {"1": 0.68, "X": 0.20, "2": 0.12}
+        # Klockan säger ~85 spelade minuter, Flashscore säger 45 (paus).
+        start = (dt.datetime.now(dt.timezone.utc)
+                 - dt.timedelta(minutes=100)).isoformat()
+        base = {"prematch_probs": prematch, "score": "0-0", "start": start}
+
+        wall = pool_played.live_probs_from_score(dict(base))
+        real = pool_played.live_probs_from_score({**base, "minute": 45})
+
+        # Med bara fem minuter kvar är 0–0 nästan säkert kryss; med 45 kvar
+        # har favoriten fortfarande gott om tid.
+        self.assertGreater(wall["X"], real["X"])
+        self.assertGreater(real["1"], wall["1"])
+
+    def test_frozen_minute_in_half_time_is_used_as_is(self) -> None:
+        """`minute` fryses i paus och får inte räknas upp med pausens längd."""
+        state = {"minute": 45}
+
+        self.assertEqual(45.0, pool_played._minutes_played(state))
+
     def test_model_needs_both_price_and_score(self) -> None:
         start = dt.datetime.now(dt.timezone.utc).isoformat()
         for state in ({"score": "1-0", "start": start},
