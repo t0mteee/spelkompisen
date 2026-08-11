@@ -438,6 +438,14 @@ def live_status(coupon: dict, states: list[dict]) -> dict:
     alive = {level: sum(n for p, n in possible_hist.items() if p >= level)
              for level in range(max(1, width - 3), width + 1)}
     levels = sorted(alive, reverse=True)
+    # En match i förlängning är avgjord för poolen, men om varken Fulltime
+    # eller Overtime publicerats är tecknet läst ur Current och kan bära ett
+    # förlängningsmål. Då är radantalet inte ett faktum utan ett spann:
+    # CSKA–Panathinaikos stod i Current 1–2 medan ordinarie tid var 1–1, och
+    # kortet påstod 7 rader kvar till 8 rätt när det rätta svaret var 1.
+    unproven = [i for i in range(width)
+                if (col_states[i] or {}).get("sign_provisional")]
+    alive_span = _alive_span(rows, col_states, width, levels, unproven)
     # Bästa NÅBARA antal rätt. Ren aritmetik — den kräver inga odds och finns
     # därför även när en livemarknad är avstängd. Utan den visade kortet bara
     # en tabell med streck när kupongen inte längre kunde nå någon vinstnivå,
@@ -451,12 +459,55 @@ def live_status(coupon: dict, states: list[dict]) -> dict:
             "out_of_contention": bool(levels) and max_possible < min(levels),
             "secure_dist": dict(sorted(secure_hist.items(), reverse=True)),
             "alive_per_level": dict(sorted(alive.items(), reverse=True)),
+            **alive_span,
             "matches": _match_rows(rows, col_states, events, width),
             "cheer": _cheer_per_match(rows, col_states, width, levels),
             **_chance_per_level(rows, col_states, width, levels)}
 
 
 SIGNS = ("1", "X", "2")
+
+
+def _alive_span(rows: list[str], col_states: list[Optional[dict]], width: int,
+                levels: list[int], unproven: list[int]) -> dict:
+    """Radantal per nivå som ett SPANN över obelagda förlängningstecken.
+
+    Matchen är avgjord — poolen fastställs på ordinarie tid — men vilket
+    tecknet är vet vi inte förrän SvS publicerar `Fulltime` eller `Overtime`.
+    Att då redovisa siffran för Currents tecken är att presentera en gissning
+    som ett faktum. Spannet säger i stället vad vi faktiskt vet: radantalet
+    ligger mellan de här gränserna oavsett hur ordinarie tid slutade.
+    """
+    if not unproven or not levels or not rows:
+        return {}
+    lo = {level: None for level in levels}
+    hi = {level: 0 for level in levels}
+    for combo in itertools.product(SIGNS, repeat=len(unproven)):
+        pinned = dict(zip(unproven, combo))
+        counts = {level: 0 for level in levels}
+        for row in rows:
+            possible = 0
+            for j in range(width):
+                if j in pinned:
+                    possible += int(row[j] == pinned[j])
+                    continue
+                state = col_states[j]
+                possible += (int(state.get("sign") == row[j])
+                             if _decided(state) else 1)
+            for level in levels:
+                if possible >= level:
+                    counts[level] += 1
+        for level in levels:
+            lo[level] = counts[level] if lo[level] is None else min(lo[level], counts[level])
+            hi[level] = max(hi[level], counts[level])
+    return {
+        "alive_min_per_level": dict(sorted(lo.items(), reverse=True)),
+        "alive_max_per_level": dict(sorted(hi.items(), reverse=True)),
+        "alive_unproven": [
+            (col_states[i] or {}).get("description") or f"match {i + 1}"
+            for i in unproven
+        ],
+    }
 
 
 def _decided(state: Optional[dict]) -> bool:

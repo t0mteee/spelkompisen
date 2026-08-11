@@ -3111,6 +3111,12 @@ function PlayedLiveCard({ c, onForget }) {
             <tbody>
               {levels.map((lvl) => {
                 const alive = live.alive_per_level[lvl]
+                /* En förlängningsmatch utan publicerad ordinarie tid gör
+                   radantalet till ett spann, inte ett faktum. */
+                const aLo = live.alive_min_per_level?.[lvl]
+                const aHi = live.alive_max_per_level?.[lvl]
+                const aliveText = aLo != null && aLo !== aHi
+                  ? `${aLo}–${aHi}` : (alive || '–')
                 const p = live.chance_per_level?.[lvl]
                 // Saknar en match pris finns ingen punktskattning, bara ett
                 // intervall betingat på hur den matchen går.
@@ -3121,9 +3127,11 @@ function PlayedLiveCard({ c, onForget }) {
                     : lo != null ? (lo === hi ? pct(lo) : `${pct(lo)}–${pct(hi)}`)
                       : '–'
                 return (
-                  <tr key={lvl} className={alive ? '' : 'dead'}>
+                  <tr key={lvl} className={(aHi ?? alive) ? '' : 'dead'}>
                     <td><b>{lvl} rätt</b></td>
-                    <td>{alive || '–'}</td>
+                    <td title={aLo != null && aLo !== aHi
+                      ? `Beror på hur ordinarie tid slutade i ${live.alive_unproven?.join(', ')}. Svenska Spel har inte publicerat den än.`
+                      : undefined}>{aliveText}</td>
                     <td className={(p ?? lo) >= 0.5 ? 'pos' : ''}
                       title={p == null && lo != null
                         ? 'Intervall: chansen beroende på hur de oprissatta matcherna går. Ingen sannolikhet gissas åt dem.'
