@@ -44,6 +44,7 @@ import argparse
 import datetime as dt
 import json
 import sys
+import uuid
 from pathlib import Path
 
 import httpx
@@ -60,6 +61,26 @@ MIN_SPAN_HOURS = 72.0
 UA_CHROME = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
              "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 "
              "Safari/537.36")
+
+# Kända, stabila objekt som även appen läser. Den avslutade matchen och
+# spelaren gör att testet inte är beroende av om det råkar finnas en live-
+# match när kontrollen körs. Byt fixtures först om Sofascore faktiskt tar bort
+# historiken; ett säsongsbyte i sig gör dem inte ogiltiga.
+SOFA_BASE = "https://api.sofascore.com/api/v1"
+SOFA_MODEL_PROBES = (
+    ("säsonger", "/unique-tournament/40/seasons", ("seasons",)),
+    ("avslutade matcher",
+     "/unique-tournament/40/season/87925/events/last/0", ("events",)),
+    ("kommande matcher",
+     "/unique-tournament/40/season/87925/events/next/0", ("events",)),
+    ("xG/statistik", "/event/15272488/statistics", ("statistics",)),
+    ("laguppställning", "/event/15271293/lineups", ("home", "away")),
+    ("lagdata", "/team/1783", ("team",)),
+    ("laghistorik", "/team/1783/events/last/0", ("events",)),
+    ("spelarstatistik",
+     "/player/976386/unique-tournament/40/season/87925/statistics/overall",
+     ("statistics",)),
+)
 
 
 def _now() -> str:
@@ -82,6 +103,23 @@ def _check_json(response, expect_key: str) -> tuple[bool, str]:
     value = data[expect_key]
     n = len(value) if isinstance(value, (list, dict)) else value
     return True, f"'{expect_key}' ok ({n})"
+
+
+def _check_json_keys(response, expect_keys: tuple[str, ...]) -> tuple[bool, str]:
+    """Som _check_json, men kräver samtliga fält i samma JSON-objekt."""
+    if response.status_code != 200:
+        return False, f"status {response.status_code}"
+    try:
+        data = response.json()
+    except Exception:
+        encoding = response.headers.get("content-encoding", "-")
+        return False, f"otolkbar kropp (content-encoding: {encoding})"
+    if not isinstance(data, dict):
+        return False, "200 men JSON-kroppen är inte ett objekt"
+    missing = [key for key in expect_keys if key not in data]
+    if missing:
+        return False, "200 men fält saknas: " + ", ".join(missing)
+    return True, "+".join(expect_keys) + " ok"
 
 
 def check_svenskaspel() -> tuple[bool, str]:
@@ -109,12 +147,36 @@ def check_kambi() -> tuple[bool, str]:
     return _check_json(r, "events")
 
 
-def check_sofascore() -> tuple[bool, str]:
+def _sofa_get(path: str):
     if cffi is None:
-        return False, "curl_cffi saknas i venv:et (pip install curl_cffi)"
-    r = cffi.get("https://api.sofascore.com/api/v1"
-                 "/sport/football/events/live",
-                 impersonate="chrome", timeout=TIMEOUT)
+        raise RuntimeError("curl_cffi saknas i venv:et (pip install curl_cffi)")
+    return cffi.get(f"{SOFA_BASE}{path}", impersonate="chrome",
+                    timeout=TIMEOUT)
+
+
+def check_sofascore_model() -> tuple[bool, str]:
+    """Kontrollera de endpoint-typer som faktiskt matar modell och schema."""
+    results: list[str] = []
+    all_ok = True
+    for label, path, expect_keys in SOFA_MODEL_PROBES:
+        try:
+            ok, note = _check_json_keys(_sofa_get(path), expect_keys)
+        except Exception as exc:  # ett fel får inte dölja övriga endpoint-svar
+            ok = False
+            note = f"{type(exc).__name__}: {str(exc)[:80]}"
+        all_ok &= ok
+        results.append(f"{label} {'OK' if ok else note}")
+    passed = sum(item.endswith(" OK") for item in results)
+    failures = [item for item in results if not item.endswith(" OK")]
+    summary = f"{passed}/{len(results)} modell-endpoints OK"
+    if failures:
+        summary += " · " + "; ".join(failures)
+    return all_ok, summary
+
+
+def check_sofascore_live() -> tuple[bool, str]:
+    """Separat diagnos; appens modell kan fungera även om live är spärrat."""
+    r = _sofa_get("/sport/football/events/live")
     return _check_json(r, "events")
 
 
@@ -162,11 +224,16 @@ def check_flashscore() -> tuple[bool, str, bool | None]:
         if s.status_code != 200:
             return (False, f"statistikfeed status {s.status_code} "
                     f"för {match_id}", None)
+        tested += 1
+        # Flashscore använder en giltig tom 200-kropp när matchen ännu saknar
+        # statistik. Det är frånvaro av täckning, inte ett transportfel, och
+        # nästa kandidat ska fortfarande provas.
+        if not s.text.strip():
+            continue
         # En läsbar Flashscore-feed innehåller fältavgränsaren ÷. SG är
         # själva statistikgruppen och redovisas som täckning nedan.
         if "÷" not in s.text:
             return False, f"otolkbar statistikfeed för {match_id}", None
-        tested += 1
         covered += "SG÷" in s.text
     coverage_ok = covered > 0
     return (True, f"{len(live)} live; transport ok; "
@@ -194,9 +261,11 @@ CHECKS = (
      "sharp-ankaret: hela värdemotorn, CLV-facitet och steam"),
     ("kambi", check_kambi, True,
      "SvS Oddset-priser: det vi faktiskt kan spela"),
-    ("sofascore", check_sofascore, True,
+    ("sofa_model", check_sofascore_model, True,
      "MODELLENS datarygg: historisk xG, frånvaro, cupresultat och "
-     "WP9c-schema (refresh_all) — INTE bara live-radarn"),
+     "WP9c-schema (refresh_all)"),
+    ("sofa_live", check_sofascore_live, False,
+     "Sofascores livefeed; diagnostik, inte krav för modellservern"),
     ("flashscore", check_flashscore, True,
      "live-radarns primära chansdata (xG/skott) sedan 2026-08-01"),
     ("fotmob", check_fotmob, False,
@@ -206,10 +275,31 @@ CHECKS = (
 )
 
 
-def run_once(quiet: bool) -> int:
+def _infrastructure_reason(note: str) -> str | None:
+    """Klassificera endast säkra lokala DNS-fel, även i äldre loggrader."""
+    lowered = note.lower()
+    dns_markers = (
+        "temporary failure in name resolution",
+        "could not resolve host",
+        "name or service not known",
+        "nodename nor servname provided",
+    )
+    return "dns" if any(marker in lowered for marker in dns_markers) else None
+
+
+def _row_infrastructure_reason(row: dict) -> str | None:
+    explicit = row.get("infrastructure_error")
+    if explicit:
+        return str(explicit)
+    return _infrastructure_reason(str(row.get("note", "")))
+
+
+def run_once(quiet: bool, log_path: Path | None = None) -> int:
+    log_path = log_path or LOG
+    run_id = f"{_now()}-{uuid.uuid4().hex[:8]}"
     failures = 0
-    with LOG.open("a", encoding="utf-8") as log:
-        for name, check, _critical, _feeds in CHECKS:
+    with log_path.open("a", encoding="utf-8") as log:
+        for name, check, critical, _feeds in CHECKS:
             started = dt.datetime.now(dt.timezone.utc)
             try:
                 result = check()
@@ -222,30 +312,39 @@ def run_once(quiet: bool) -> int:
                 transport_ok = False
                 coverage_ok = None
                 note = f"{type(exc).__name__}: {str(exc)[:80]}"
+            infrastructure_error = _infrastructure_reason(note)
             ms = int((dt.datetime.now(dt.timezone.utc)
                       - started).total_seconds() * 1000)
-            row = {"at": _now(), "source": name,
+            row = {"schema_version": 2, "run_id": run_id,
+                   "at": _now(), "source": name,
                    # Behåll `ok` för bakåtkompatibla loggläsare, men ge
                    # det nu den entydiga betydelsen transport/innehållstolkning.
                    "ok": transport_ok, "transport_ok": transport_ok,
-                   "coverage_ok": coverage_ok, "ms": ms, "note": note}
+                   "coverage_ok": coverage_ok,
+                   "outcome": ("infrastructure_error" if infrastructure_error
+                               else "ok" if transport_ok else "source_error"),
+                   "infrastructure_error": infrastructure_error,
+                   "ms": ms, "note": note}
             log.write(json.dumps(row, ensure_ascii=False) + "\n")
-            failures += not transport_ok
+            failures += critical and not transport_ok
             if not quiet:
-                mark = "✅" if transport_ok else "❌"
-                print(f"{mark} {name:12s} {ms:5d} ms  {note}")
+                mark = "⚠️" if infrastructure_error else ("✅" if transport_ok
+                                                           else "❌")
+                role = "KRITISK" if critical else "stöd"
+                print(f"{mark} {name:12s} [{role:7s}] {ms:5d} ms  {note}")
     if not quiet:
-        print(f"\nlogg: {LOG}")
+        print(f"\nlogg: {log_path}")
     return 1 if failures else 0
 
 
-def report() -> int:
-    if not LOG.exists():
+def report(log_path: Path | None = None) -> int:
+    log_path = log_path or LOG
+    if not log_path.exists():
         print("ingen logg ännu — kör utan flaggor först")
         return 1
     rows = []
     malformed_json = 0
-    for line in LOG.read_text(encoding="utf-8").splitlines():
+    for line in log_path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
         try:
@@ -274,27 +373,55 @@ def report() -> int:
         print("loggen saknar giltiga tidsstämplar")
         return 1
     rows = [row for row, _when in parsed]
+    infrastructure = [(row, when) for row, when in parsed
+                      if _row_infrastructure_reason(row)]
+    observable = [(row, when) for row, when in parsed
+                  if not _row_infrastructure_reason(row)]
     days = sorted({row["at"][:10] for row in rows})
     print(f"Käll-rapport · {len(rows)} mätpunkter · "
           f"{days[0]} – {days[-1]} ({len(days)} dygn)\n")
-    verdict_ok = malformed == 0
+    # DNS-bortfall säger inget om källan och tas därför ur källornas nämnare.
+    # Servern är ändå inte driftduglig om mer än 5 % av mätkörningarna har
+    # lokalt DNS-fel. Nya loggar har run_id; gamla grupperas approximativt per
+    # minut eftersom varje källanrop tidsstämplades separat.
+    def run_key(row: dict) -> str:
+        return str(row.get("run_id") or str(row.get("at", ""))[:16])
+
+    all_runs = {run_key(row) for row in rows}
+    infra_runs = {run_key(row) for row, _when in infrastructure}
+    infra_share = len(infra_runs) / len(all_runs) if all_runs else 0.0
+    infrastructure_healthy = infra_share <= 0.05
+    verdict_ok = malformed == 0 and infrastructure_healthy
     incomplete: list[str] = []
     missing_sources: list[str] = []
+    support_warnings: list[str] = []
     if malformed:
         print(f"❌ {malformed} loggrader är trasiga eller har ogiltig "
               "tidsstämpel\n")
+    if infrastructure:
+        print(f"⚠️  Infrastruktur: {len(infrastructure)} källrader i "
+              f"{len(infra_runs)}/{len(all_runs)} körningar hade lokalt "
+              f"DNS-fel ({100 * infra_share:.1f} % av körningarna).")
+        print("   De är exkluderade ur källornas OK-andelar. "
+              + ("Servern underkänns som driftmiljö.\n"
+                 if not infrastructure_healthy else
+                 "Nivån är inom 5 %-gränsen.\n"))
     broken_critical: list[tuple[str, str]] = []
     for name, _check, critical, feeds in CHECKS:
-        mine = [row for row in rows if row["source"] == name]
+        mine = [row for row, _when in observable if row.get("source") == name]
         if not mine:
-            verdict_ok = False
-            missing_sources.append(name)
+            if critical:
+                verdict_ok = False
+                missing_sources.append(name)
+            else:
+                support_warnings.append(name)
             print(f"❌ {name:12s}"
                   f"{' (kritisk)' if critical else '          '}"
                   " saknas helt i loggen")
             print(f"   kostar: {feeds}")
             continue
-        mine_times = [when for row, when in parsed if row.get("source") == name]
+        mine_times = [when for row, when in observable
+                      if row.get("source") == name]
         span_h = ((max(mine_times) - min(mine_times)).total_seconds() / 3600
                   if len(mine_times) > 1 else 0.0)
         sample_ready = len(mine) >= MIN_SAMPLES_PER_SOURCE
@@ -310,9 +437,12 @@ def report() -> int:
         transport_healthy = ok_share > 0.95
         ready = sample_ready and span_ready
         healthy = transport_healthy and ready
-        verdict_ok &= healthy
-        if not ready:
-            incomplete.append(name)
+        if critical:
+            verdict_ok &= healthy
+            if not ready:
+                incomplete.append(name)
+        elif not healthy:
+            support_warnings.append(name)
         # Ett tidigt fel är ett mätvärde, inte ett domslut. Kritisk
         # diskvalificering får ske först när samma 72-prov/72h-gate som
         # friskförklaring är uppfylld.
@@ -337,7 +467,13 @@ def report() -> int:
         if not healthy:
             print(f"   kostar: {feeds}")
     print()
-    if verdict_ok:
+    if not infrastructure_healthy:
+        print("Bedömning: INFRASTRUKTUR UNDERKÄND — DNS-bortfallet säger "
+              "inget om källorna, men servern är inte stabil nog för drift.")
+    elif verdict_ok and support_warnings:
+        print("Bedömning: IP:n är användbar för alla kritiska funktioner. "
+              "Stödkällor med varning: " + ", ".join(support_warnings) + ".")
+    elif verdict_ok:
         print("Bedömning: IP:n ser ren ut — men kräv ≥3 dygn innan beslut.")
     elif broken_critical:
         print("Bedömning: DISKVALIFICERAD — kritisk källa blockerad:")
@@ -364,8 +500,11 @@ def main() -> None:
                         help="ingen utskrift (för cron), bara logg")
     parser.add_argument("--rapport", action="store_true",
                         help="sammanfatta loggen i stället för att mäta")
+    parser.add_argument("--logg", type=Path,
+                        help="egen loggfil (bra när flera IP-test arkiveras)")
     args = parser.parse_args()
-    sys.exit(report() if args.rapport else run_once(args.tyst))
+    sys.exit(report(args.logg) if args.rapport else
+             run_once(args.tyst, args.logg))
 
 
 if __name__ == "__main__":

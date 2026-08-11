@@ -75,11 +75,14 @@ med färsk `fs:`-capture.
    mot 63 % historiskt. Flashscore täcker luckan nu, men orsaken är inte
    utredd. Värt en titt: har deras endpoint ändrats eller har vår hämtning
    tystnat?
-2. **Serverfrågan — AVSLUTAD 2026-08-11, se
-   `docs/serverfragan-avslutad-2026-08-11.md`.** Molnspåret är stängt:
-   Sofascore blockerar datacenter-IP:n med 403 på 365 av 365 försök och är
-   kritisk. Instansen avvecklad, rådatan sparad i repot. Nedan är den
-   ursprungliga formuleringen, kvar som historik.
+2. **Serverfrågan — KORRIGERAD 2026-08-11, se
+   `docs/serverfragan-avslutad-2026-08-11.md`.** Den provade AWS-adressen fick
+   403 på Sofascores live-endpoint, men modellens faktiska endpoint-typer
+   testades aldrig. Ett korrekt omtest gjordes därefter på en ny Lightsail-IP:
+   samtliga åtta modell-endpoints gav 403. AWS Stockholm är därmed avfärdat
+   för nuvarande arkitektur; annan leverantör/region är fortfarande oprövad.
+   Nedan är den ursprungliga formuleringen, kvar som historik och inte som
+   aktuell slutsats.
 
    **Serverfrågan.** AWS Lightsail testad med `backend/scripts/kalltest_ip.py`:
    sex av sju källor rena, men **Sofascore ger 403 challenge** från

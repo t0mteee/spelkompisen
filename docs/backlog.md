@@ -9,23 +9,22 @@ Metodreglerna i `CLAUDE.md` (observationstid, ANKARE ≠ BOK, transportregeln,
 signalversions-disciplin, källgränsen) gäller varje punkt nedan och upprepas
 inte per rad.
 
-## 2026-08-11 — serverfrågan avslutad
+## 2026-08-11 — AWS korrekt omtestat och avfärdat
 
-- **✅ Molnspåret är stängt.** AWS Lightsail (Stockholm) mättes var 20:e minut
-  i sex dygn, 2 549 giltiga mätpunkter. Sex källor rena (Pinnacle 96,2 %,
-  övriga 100 %), men **Sofascore 0,0 % av 365** — omedelbar 403 på IP-nivå,
-  bekräftad tio dagar senare efter omstart. Sofascore är kritisk: 99,4 % av
-  våra xG-rader och tre fjärdedelar av frånvarodatan. Källgränsen förbjuder
-  att kringgå utmaningen, så detta är ett definitivt nej. Instansen tas bort,
-  rådatan är sparad i `docs/kalltest-bevis/`. Full rapport:
-  `docs/serverfragan-avslutad-2026-08-11.md`. Pi-spåret hemma står kvar som
-  alternativ; insamlingen ligger tills vidare på Macen.
-- **Öppen, liten:** härda `kalltest_ip.py` så att `ConnectError` med
-  namnuppslagningsfel räknas som INFRASTRUKTUR och aldrig mot källans
-  OK-andel. En degraderad DNS på testmaskinen gav 2 460 rader som fick sex
-  friska källor att se ut som 14 % — verktyget som mäter källor kunde inte
-  skilja sitt eget fel från en blockering. Gör den innan skriptet används på
-  nästa IP.
+- **❌ AWS Lightsail Stockholm är avfärdat.** En ny adress (`51.20.96.34`)
+  testades med rätt endpoint-uppsättning: Svenskaspel, Pinnacle, Kambi,
+  Flashscore, FotMob och Altenar fungerade, men samtliga åtta Sofascore-
+  modellvägar gav 403. Inget 72-timmarstest behövs. Den nya instansen ska
+  avvecklas. Detta är stark evidens mot AWS Stockholm, inte ett bevis mot
+  varje annan leverantör eller region. Full rapport och rålogg finns i
+  `docs/serverfragan-avslutad-2026-08-11.md` och `docs/kalltest-bevis/`.
+- **✅ Testverktyget är härdat.** `kalltest_ip.py` provar nu åtta verkliga
+  Sofascore-modellvägar separat från live, märker varje körning med `run_id`
+  och skiljer både httpx- och curl_cffi-DNS-fel från källfel. Det sparade
+  AWS-underlaget visar 302 hela körningar med totalt DNS-bortfall, inte en
+  källa som lyckades sporadiskt. Nästa steg är ett engångsprov på en ny billig
+  instans; endast `sofa_model 8/8` motiverar ett 72-timmarstest. Flashscore-
+  kontrollen skiljer nu också en giltig tom statistikfeed från transportfel.
 
 ## 2026-08-10 — prestandapaket levererat
 
