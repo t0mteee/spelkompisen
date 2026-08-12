@@ -24,7 +24,7 @@ from . import pool_settlement
 from .analysis import DrawAnalysis, analyze_draw
 from .builder import build_ev_system
 from .storage import Storage
-from .svenskaspel import Draw
+from .svenskaspel import Draw, family_of
 
 # (minuter före spelstopp, timely-tolerans i minuter)
 FREEZE_HORIZONS = {"h3": (180, 30), "m20": (20, 10)}
@@ -349,23 +349,29 @@ def _bench(key: str, stored: Optional[dict] = None) -> dict:
             "primary": False, "retired": True}
 
 
-def _paired_draw_roi(store: Storage, product: str, horizon: str,
-                     keys: tuple[str, ...]) -> dict[str, dict[int, float]]:
+def _paired_draw_roi(store: Storage, products: tuple[str, ...], horizon: str,
+                     keys: tuple[str, ...]) -> dict[str, dict[tuple, float]]:
     """ROI per omgång för givna konfigurationer — bara utvärderbara rader.
 
     Parvis jämförelse kräver SAMMA omgångar: en utmanare som råkar sakna de
     dyra omgångarna ska inte kunna se bättre ut än championen av den orsaken.
+
+    Nyckeln är (produkt, omgång), inte omgångsnumret ensamt. En familj som
+    Topptipset har tre oberoende nummerserier — Dagens 4260, Extra 1856 och
+    Stryk 975 — och utan produkten i nyckeln skulle två olika omgångar med
+    samma nummer para ihop sig som om de vore samma.
     """
-    out: dict[str, dict[int, float]] = {key: {} for key in keys}
+    out: dict[str, dict[tuple, float]] = {key: {} for key in keys}
     placeholders = ",".join("?" for _ in keys)
-    for key, draw_number, cost, payout in store.conn.execute(
-            f"SELECT config_key, draw_number, cost_kr, COALESCE(payout_kr, 0) "
-            f"FROM pool_system_ledger WHERE product=? AND horizon=? "
+    marks_p = ",".join("?" for _ in products)
+    for product, key, draw_number, cost, payout in store.conn.execute(
+            f"SELECT product, config_key, draw_number, cost_kr, COALESCE(payout_kr, 0) "
+            f"FROM pool_system_ledger WHERE product IN ({marks_p}) AND horizon=? "
             f"AND config_key IN ({placeholders}) AND timely=1 "
             f"AND correct_max IS NOT NULL AND payout_complete=1",
-            (product, horizon, *keys)):
+            (*products, horizon, *keys)):
         if cost:
-            out[key][int(draw_number)] = payout / cost - 1
+            out[key][(product, int(draw_number))] = payout / cost - 1
     return out
 
 
@@ -415,22 +421,33 @@ def champion_report(store: Storage) -> dict:
     omgångar och FDR-korrigerad över hela utmanarfamiljen.
     """
     rows, tests = [], []
-    products = [r[0] for r in store.conn.execute(
-        "SELECT DISTINCT product FROM pool_system_ledger ORDER BY product")]
-    for product in products:
-        # Utmanarfamiljen är PRODUKTENS egen — och det krymper även FDR-
-        # familjen för den produkten, vilket är hela poängen: en budget vi
-        # aldrig skulle spela ska inte stjäla en jämförelse.
-        challengers = tuple(b["key"] for b in benchmarks_for(product)
-                            if not b["primary"])
+    # SPELFAMILJ, inte produktslug. Topptipset Dagens/Stryk/Extra kör samma
+    # benchmarkfamilj på samma spelform, så deras omgångar hör till samma
+    # jämförelse. Att mäta dem var för sig delade underlaget i tre och gjorde
+    # varje del för tunn för grinden. Pareringen sker på (produkt, omgång), så
+    # de tre nummerserierna kan inte blandas ihop.
+    families: dict[str, list[str]] = {}
+    for (product,) in store.conn.execute(
+            "SELECT DISTINCT product FROM pool_system_ledger ORDER BY product"):
+        families.setdefault(family_of(product), []).append(product)
+    for family, members in sorted(families.items()):
+        # Utmanarfamiljen är SPELETS egen — och det krymper även FDR-familjen,
+        # vilket är hela poängen: en budget vi aldrig skulle spela ska inte
+        # stjäla en jämförelse. Snittet skyddar mot en framtida grupp där
+        # medlemmarna inte delar benchmarkfamilj.
+        gemensamma = set.intersection(*[
+            {b["key"] for b in benchmarks_for(m) if not b["primary"]}
+            for m in members])
+        challengers = tuple(b["key"] for b in benchmarks_for(members[0])
+                            if not b["primary"] and b["key"] in gemensamma)
         all_keys = (CHAMPION_KEY, *challengers)
         for horizon in FREEZE_HORIZONS:
-            roi = _paired_draw_roi(store, product, horizon, all_keys)
+            roi = _paired_draw_roi(store, tuple(members), horizon, all_keys)
             champion = roi[CHAMPION_KEY]
             if not champion:
                 continue
             entry = {
-                "product": product, "horizon": horizon,
+                "product": family, "horizon": horizon,
                 "horizon_minutes": FREEZE_HORIZONS[horizon][0],
                 "champion_key": CHAMPION_KEY,
                 "champion_n": len(champion),
@@ -442,7 +459,7 @@ def champion_report(store: Storage) -> dict:
                 if not shared:
                     continue
                 diffs = [roi[key][d] - champion[d] for d in shared]
-                test_key = (product, horizon, key)
+                test_key = (family, horizon, key)
                 p_value = _signflip_p(diffs, test_key)
                 entry["challengers"].append({
                     "config_key": key, "n_paired": len(shared),

@@ -497,3 +497,31 @@ beslut. Uppskattade beslutsdatum:
 - **P6 ✅ (omskopad)** — utfalls-ROI + 🌡-kalibrering i Signal-loggen,
   prognosgrund som tooltip. `oddsetcalibrate` på veckokadens återstår
   som driftbeslut (CLI:n gör nätverksbacktest).
+
+## 2026-08-12 — spelfamiljer, Idag-vyn och två sorters "aldrig spelad"
+
+- **✅ Topptipset är ETT spel överallt.** Historik (`?family=1`),
+  championrapporten, Autopools konfigurationstabell, spelade kuponger och
+  Idag-korten går på `svenskaspel.family_of()`. Championens underlag gick från
+  tre rader med 4/2/1 parade omgångar till en med 7. Variantetiketterna
+  (Dagens/Stryk/Extra) är borta ur UI:t. Produktslug, settlementidentitet och
+  `config_key` är oförändrade.
+- **✅ Inställd omgång skiljs från saknad data.** 56 av 8 324 omgångar bar
+  `cancelled: true` på resultatet men `Finalized` i `drawState` och lagrades
+  som avgjorda med saknade utfall. Migrerade efter verifiering mot källan.
+- **✅ `statusId 23` är "Uppskjuten", inte förlängning.** Den gissade serien
+  20–25 gjorde en aldrig spelad match till avgjord. Bara observerade koder får
+  ligga i statusmängder; klartexten är skyddsnätet.
+- **✅ Idag-vyn ombyggd** — spelstopp per rad i spelstoppsordning, bredare
+  värde-/rörelselistor med devigade Pinnacle-odds och oddsskift, dolda
+  forskningsligor, summerat system- och signalfacit, dagsfärskt historikfacit.
+- **✅ Spelläge-etiketten bär avståndet** till nästa tröskel i stället för att
+  upprepa en konstant (`frontend/src/playRec.js`).
+- **✅ ⚓/andra ankaret borttaget ur UI:t.** Mätningen och spärren i
+  `ANCHOR_SOURCES` är orörda.
+
+### Öppet efter 2026-08-12
+
+- **Topptipset 4259 m20 frystes aldrig.** En missad frysning (h3 finns, m20
+  saknas), orsaken inte utredd. Liten men värd en titt: en systematisk lucka i
+  m20-frysningen skulle tunna ut PH3:s underlag tyst.

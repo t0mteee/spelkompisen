@@ -11,7 +11,7 @@ import {
   AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel,
   BombenView, OddsetView, Legend, Collection, LoadingState, EmptyState,
   ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS,
-  SYSTEM_BASE, SYSTEM_SVS, VARIANT, FAMILY, kr, fmtClose, PlayRec,
+  SYSTEM_BASE, SYSTEM_SVS, FAMILY, kr, fmtClose, PlayRec,
   PlayedPanel, oddsetBestValue, SortableTable,
 } from './App'
 
@@ -327,7 +327,7 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
       const senaste = sum?.draws?.[0]
       return {
         key: p.id, label: p.label, sum, senaste, total: sum?.total || 0,
-        id: senaste?.product || p.id, variant: VARIANT[senaste?.product] || null,
+        id: senaste?.product || p.id,
       }
     })
     .filter((r) => r.sum?.available)
@@ -375,7 +375,7 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
                 {g.none ? <span className="v3hint">ingen öppen omgång</span> : (
                   <>
                     <span className="v3hint">
-                      {VARIANT[g.draw.product] ? `${VARIANT[g.draw.product]} · ` : ''}omg {g.draw.draw_number}
+                      omg {g.draw.draw_number}
                       {g.count > 1 ? ` · +${g.count - 1} till` : ''}
                     </span>
                     {g.pay?.available && (
@@ -477,7 +477,7 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
                 .filter(([, n]) => n > 0).sort((a, b) => b[0] - a[0])[0]
               return (
                 <div key={`${c.product}-${c.draw_number}-${c.rows_hash}`} className="v3row">
-                  <b>{VARIANT[c.product] ? `Topptipset ${VARIANT[c.product]}` : c.product} {c.draw_number}</b>
+                  <b>{FAMILY_LABEL[FAMILY(c.product)] || c.product} {c.draw_number}</b>
                   <span className="v3hint">
                     {c.n_rows} rader ({kr(c.cost_kr)}) · {live.n_decided ?? '–'}/{live.n_events ?? '–'} avgjorda
                     · bäst {live.best_secure ?? '–'} rätt
@@ -629,7 +629,7 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
               <b>{r.label}{r.senaste ? ` ${r.senaste.draw_number}` : ''}</b>
               {r.senaste ? (
                 <span className="v3hint">
-                  {r.variant ? `${r.variant} · ` : ''}{fmtDay(r.senaste.close)} ·
+                  {fmtDay(r.senaste.close)} ·
                   {' '}oms {kr(r.senaste.turnover)}
                   {r.senaste.top_winners != null && r.senaste.tiers?.[0]
                     ? ` · ${r.senaste.top_winners} vinnare på ${r.senaste.tiers[0].correct} rätt`
@@ -847,7 +847,7 @@ function PoolV3() {
             onChange={(e) => { const [sl, dn] = e.target.value.split('|'); changeDraw(sl, Number(dn)) }}>
             {draws.map((d) => (
               <option key={`${d.product}|${d.draw_number}`} value={`${d.product}|${d.draw_number}`}>
-                {VARIANT[d.product] ? `${VARIANT[d.product]} · ` : ''}stänger {fmtClose(d.reg_close_time)}
+                stänger {fmtClose(d.reg_close_time)}
                 {d.state !== 'Open' ? ` (${d.state})` : ''} · omg {d.draw_number}
               </option>
             ))}
@@ -1367,11 +1367,10 @@ function HistorikV3({ initialProduct, focus }) {
           FDR-korrigering över hela utmanarfamiljen. Utdelningen är en
           kontrafaktisk uppskattning: den publicerade nivån späds med våra egna
           vinnande rader.
-          {' '}<b>Topptipset Dagens, Stryk och Extra står kvar var för sig här</b>,
-          till skillnad från resten av sidan: varje rad ÄR en förregistrerad
-          jämförelse mellan champion och utmanare i just den omgångsserien. Att
-          slå ihop dem vore ett annat statistiskt test än det som registrerades,
-          inte en annan rubrik.
+          {' '}Topptipset Dagens, Stryk och Extra räknas som ETT spel: de kör
+          samma benchmarkfamilj på samma spelform, så deras omgångar hör till
+          samma jämförelse. Pareringen sker på produkt OCH omgång, så de tre
+          nummerserierna kan inte blandas ihop.
         </span>
 
         {!champRows.length && (
@@ -1683,11 +1682,7 @@ function HistorikV3({ initialProduct, focus }) {
                               e.preventDefault(); toggle(d.draw_number, d.product)
                             }
                           }}>
-                          {/* Varianten står ut i familjeläget — annars ser tre
-                              nummerserier ut som hål i en enda serie. */}
-                          <td>{d.draw_number}
-                            {IS_FAMILY(product) && VARIANT[d.product]
-                              && <span className="v3hint"> {VARIANT[d.product]}</span>}</td>
+                          <td>{d.draw_number}</td>
                           <td>{fmtDay(d.close)}</td>
                           <td>{d.turnover ? kr(d.turnover) : '–'}</td>
                           <td>{top ? `${top.name}: ${top.winners ?? '–'} st` : '–'}

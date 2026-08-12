@@ -41,6 +41,16 @@ GAME_GROUPS = {
     "stryktipset": ["stryktipset"],
     "europatipset": ["europatipset"],
 }
+# Omvänd uppslagning. Topptipset Dagens/Stryk/Extra är SAMMA spel — åtta
+# matcher, samma vinstplan, samma benchmarkfamilj — bara olika omgångsserier
+# under olika namn. Allt som mäter eller redovisar per spel ska gå på familjen;
+# produktslugen lever kvar oförändrad i settlement, ledger och API-anrop.
+PRODUCT_FAMILY = {p: g for g, members in GAME_GROUPS.items() for p in members}
+
+
+def family_of(product: str) -> str:
+    """Familjenyckeln för en produkt. En produkt utan grupp är sin egen familj."""
+    return PRODUCT_FAMILY.get(product, product)
 _HEADERS = {"User-Agent": "Mozilla/5.0 (stryktips-helper/0.1)"}
 
 

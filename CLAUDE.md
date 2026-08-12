@@ -44,6 +44,10 @@ ett nytt manifest — en aliasändring i en liga som ingår i V2.2:s FIT_POOLS
 datagenererande process. Äldre manifest blandas aldrig in. Det är inte en
 tränad modell och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
+`docs/overlamning-2026-08-12-idag-och-familjer.md` — spelfamiljer (Topptipset
+är ETT spel överallt där något mäts eller visas), inställd omgång vs uppskjuten
+match, ombyggd Idag-vy, spelläge-etiketten och borttaget andra ankare i UI.
+Därefter `docs/macbook-server-2026-08-11.md` (drift på MacBooken) och
 `docs/overlamning-2026-08-10-prestanda.md` — startvägens prestanda
 (4 268 → 619 ms till första Oddset-lista i byggd mobilvy), vad som är cachat
 och varför. Idag-jobben får 650/1200 ms startfrist och rensas vid vybyte;
@@ -209,6 +213,32 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       förlängning") — samma lucka som 33 gav 2026-08-08, och
                       matchen räddades bara av att ett publicerat `Fulltime`
                       också räknas som slut.
+                      **STATUSKODER GISSAS ALDRIG (2026-08-12).**
+                      `EXTRA_TIME_STATUS_IDS` innehöll den gissade serien
+                      20–25. `statusId 23` betyder **"Uppskjuten"** (uppmätt på
+                      Topptipset 4261, D. Tolima–Independiente), alltså raka
+                      motsatsen: matchen spelas inte alls. `regulation_over()`
+                      blev därmed sann för en match som aldrig spelats —
+                      kupongen redovisade den som avgjord och tecknet lästes ur
+                      ett resultat som inte fanns. Bara 20 ("Första
+                      övertidsperioden") är observerad och serien krymper till
+                      den; skyddsnätet mot okända koder är KLARTEXTEN SvS
+                      skickar bredvid (`EXTRA_TIME_STATUS_WORDS`). Lägg aldrig
+                      in en kod i en statusmängd innan den observerats.
+                      `match_postponed()` är en egen fråga, matchen exponeras
+                      som `postponed`, och settlementets omprövning hoppar över
+                      den: en uppskjuten match blir aldrig färdigspelad och
+                      dess `matchStart` kan flyttas veckor fram. SvS lottar
+                      tecknet för en struken match FÖRST vid finalisering — tills
+                      dess är det okänt och kupongen håller matchen öppen.
+                      **INSTÄLLD OMGÅNG (2026-08-12):** SvS sätter
+                      `cancelled: true` på RESULTATET men lämnar `drawState` på
+                      `Finalized`. `settle_draw` skriver därför
+                      `draw_state='Cancelled'` (`CANCELLED_STATE`) och ledgern
+                      skiljer `cancelled` från `unresolvable` — en inställd
+                      omgång är inte en misslyckad mätning, den är ingen mätning
+                      alls. 56 av 8 324 omgångar migrerade 2026-08-12 efter
+                      verifiering mot källan; se `docs/db-atgarder.md`.
                       `live_status` ger dessutom `matches` (liverättningen per
                       match) och `cheer` (hur många rader som lever vid 1/X/2 —
                       "vad ska jag heja på"). `alive` mot golvnivån är
@@ -224,7 +254,23 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       1 kr för alla produkter, så budget = antal rader.
                       **`benchmarks_for(product)` är ENDA källan till vad som
                       mäts** (frysning, championrapport och översikt måste läsa
-                      samma familj). Topptipset-familjen har tak 512:
+                      samma familj).
+                      **SPELFAMILJ, INTE PRODUKTSLUG (2026-08-12):**
+                      `champion_report()` grupperar på `svenskaspel.family_of()`
+                      — Topptipset Dagens/Stryk/Extra är samma spel med samma
+                      benchmarkfamilj, så deras omgångar hör till SAMMA
+                      jämförelse. Att mäta dem var för sig delade underlaget i
+                      tre (4/2/1 parade omgångar) och gjorde varje del för tunn
+                      för grinden; ihopslaget blir det 7 per horisont.
+                      `_paired_draw_roi` parar på `(produkt, omgång)` eftersom
+                      familjen har tre oberoende nummerserier — utan produkten
+                      i nyckeln skulle Extra 1856 och Dagens 1856 para ihop sig.
+                      Utmanarmängden är SNITTET av medlemmarnas
+                      `benchmarks_for`, som skydd om en framtida grupp blandar
+                      spelformer. Produktslug, settlementidentitet och
+                      `config_key` är OFÖRÄNDRADE — familjen styr vad som mäts
+                      ihop och visas ihop, aldrig vad något heter i lagret.
+                      Topptipset-familjen har tak 512:
                       8 matcher ⇒ 3^8 = 6 561 möjliga rader, så 1 024 rader är
                       15,6 % av HELA utfallsrummet (mattbombning, och spelet
                       har bara EN vinstnivå) mot 0,06 % på ett 13-matchsspel.

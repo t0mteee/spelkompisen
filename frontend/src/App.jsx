@@ -2962,9 +2962,10 @@ const PRODUCT_LABEL = {
   topptipsetextra: 'Topptipset', bomben: 'Bomben',
 }
 function couponLabel(c) {
-  const base = PRODUCT_LABEL[c.product] || c.product
-  const variant = VARIANT[c.product]
-  return `${base}${variant ? ` ${variant}` : ''} · omgång ${c.draw_number}`
+  // Ingen variantetikett: Topptipset är Topptipset. Dagens/Stryk/Extra är
+  // omgångsserier hos Svenska Spel, inte olika spel — omgångsnumret skiljer
+  // dem åt där det behövs.
+  return `${PRODUCT_LABEL[c.product] || c.product} · omgång ${c.draw_number}`
 }
 function couponDate(c) {
   if (!c?.draw_close) return 'datum saknas'
@@ -3280,8 +3281,7 @@ function PlayedPanel({ product = null }) {
             rows={done}
             columns={[
               { key: 'product', label: 'Spel', defaultDir: 'asc',
-                value: (c) => `${PRODUCT_LABEL[c.product] || c.product}`
-                  + `${VARIANT[c.product] ? ` ${VARIANT[c.product]}` : ''}` },
+                value: (c) => PRODUCT_LABEL[c.product] || c.product },
               { key: 'draw_number', label: 'Omgång' },
               { key: 'draw_close', label: 'Datum',
                 title: 'Datum för omgångens spelstopp' },
@@ -3297,8 +3297,7 @@ function PlayedPanel({ product = null }) {
             ]}
             renderRow={(c) => (
               <tr key={c.id}>
-                <td>{PRODUCT_LABEL[c.product] || c.product}
-                  {VARIANT[c.product] ? ` ${VARIANT[c.product]}` : ''}</td>
+                <td>{PRODUCT_LABEL[c.product] || c.product}</td>
                 <td>{c.draw_number}</td>
                 <td>{couponDate(c)}</td>
                 <td>{c.budget != null

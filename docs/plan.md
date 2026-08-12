@@ -1,6 +1,35 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-08-11 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-08-12 — läs detta först i ny session)
+
+**Spelfamiljer 2026-08-12.** Topptipset Dagens/Stryk/Extra räknas nu som ETT
+spel överallt där något mäts eller redovisas: historik (`?family=1`),
+championrapporten (`champion_report` grupperar på familj, parering på
+`(produkt, omgång)`), Autopools konfigurationstabell, spelade kuponger och
+Idag-korten. Underlaget gick från tre rader med 4/2/1 parade omgångar till en
+med 7. `svenskaspel.family_of()` är enda källan; produktslug,
+settlementidentitet och `config_key` är OFÖRÄNDRADE. Variantetiketterna
+(Dagens/Stryk/Extra) är borttagna ur UI:t — omgångsnumret skiljer serierna åt.
+
+**Två sorters "aldrig spelad" 2026-08-12.** (1) INSTÄLLD OMGÅNG: SvS sätter
+`cancelled: true` på resultatet men lämnar `drawState` på `Finalized`.
+`settle_draw` skriver nu `draw_state='Cancelled'` och ledgern skiljer
+`cancelled` från `unresolvable`. 56 av 8 324 omgångar migrerade efter
+verifiering mot källan. (2) UPPSKJUTEN MATCH: `statusId 23` betyder
+"Uppskjuten", inte en övertidsperiod — den låg i den gissade serien 20–25 och
+gjorde en aldrig spelad match till avgjord. Bara observerade koder får ligga i
+statusmängder; klartexten är skyddsnätet. Se
+`docs/overlamning-2026-08-12-idag-och-familjer.md`.
+
+**Idag-vyn ombyggd 2026-08-12.** Spelstopp en box per rad i spelstoppsordning
+med omsättning och prognos; Värdespel/Rörelser bredare och rikare (Pinnacles
+devigade odds respektive `3.10 → 2.31 på 24 h`); Forskningsligor dolt tills en
+liga är research; Signal-facit kokat till en statusrad; Systemfacit summerat
+med ROI dold under `ROI_MIN_N`; Historikfacit visar senast settlade omgång.
+Spelläge-etiketten bär avståndet till nästa tröskel (`playRec.js`).
+⚓/andra ankaret borttaget ur hela UI:t. Båda AWS-instanserna avvecklade.
+
+## STATUS-SAMMANFATTNING (2026-08-11 — historik)
 
 > **Aktiv backlog och prioritering: `docs/backlog.md`** (uppdaterad 2026-08-09).
 > WP-listan längre ned är historik över avslutat arbete.
@@ -131,7 +160,8 @@ uppdateras nu varje minut, feltexten lovar samma retry och backend loggar den
 tidigare bortkastade orsaken. 52 pool-/settlementtester, fem frontendtester,
 produktionsbygge och skarpt API är gröna på den distribuerade versionen.
 
-**Aktuell överlämning:** `docs/macbook-server-2026-08-11.md`, därefter
+**Aktuell överlämning:** `docs/overlamning-2026-08-12-idag-och-familjer.md`,
+därefter `docs/macbook-server-2026-08-11.md` och
 `docs/overlamning-2026-08-10-prestanda.md` och
 `docs/overlamning-2026-08-09.md`. Alla statusblock
 nedan är daterad historik och får inte läsas som nuvarande kontrakt.
