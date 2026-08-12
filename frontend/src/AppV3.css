@@ -69,6 +69,14 @@
   display: grid; gap: 12px;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
 }
+/* Toppraden får EXPLICITA bredder i stället för auto-fit: spelstoppen staplas
+   en per rad och klarar sig på en smal spalt, så värde- och rörelselistorna
+   kan bära liga, avspark och pris på samma rad utan att brytas. */
+.v3toprow {
+  display: grid; gap: 12px; margin-bottom: 12px;
+  grid-template-columns: minmax(250px, 0.85fr) 1.15fr 1.15fr;
+}
+@media (max-width: 1080px) { .v3toprow { grid-template-columns: 1fr; } }
 .v3card {
   background: var(--panel); border: 1px solid var(--line);
   border-top: 2px solid var(--v3acc-dim); border-radius: 12px;
@@ -95,6 +103,14 @@
   border-radius: 999px; padding: 1px 7px;
 }
 .v3steam { color: #e0853b; font-weight: 800; font-size: 11.5px; }
+/* Värde-/rörelserader är staplade i stället för inline: med liga, avspark och
+   pris på samma rad blev flex-wrap:en oläslig när raden bröts mitt i priset. */
+.v3feedrow { flex-direction: column; align-items: stretch; gap: 2px; }
+.v3feedtop { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.v3feedmatch { font-size: 12px; color: var(--text); }
+.v3held {
+  font-size: 10.5px; color: var(--green); font-weight: 700; align-self: flex-start;
+}
 .v3status { font-weight: 800; }
 .v3status.green { color: var(--green); }
 .v3status.candidate { color: #e0c04b; }
@@ -102,7 +118,10 @@
 .v3histrow { cursor: pointer; }
 .v3histrow:hover b { color: var(--v3acc); }
 
-.v3stops { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+/* En box per rad, i spelstoppsordning. Rubrik och nedräkning delar första
+   raden så ögat kan läsa "vad stänger härnäst" i en enda kolumn. */
+.v3stops { display: grid; gap: 8px; grid-template-columns: 1fr; }
+.v3stoptop { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .v3stop {
   text-align: left; background: var(--panel2); border: 1px solid var(--line);
   border-radius: 10px; padding: 10px 12px; cursor: pointer;
@@ -427,7 +446,8 @@
   .v3span2 { grid-column: span 1; }
   .v3wide { grid-column: 1; }
   .v3grid { grid-template-columns: 1fr; }
-  .v3stops { grid-template-columns: 1fr 1fr; }
+  /* Spelstoppen är en box per rad även här. Två kolumner på 375 px gjorde
+     cellerna så smala att rubrik och nedräkning bröts på tre rader. */
   .v3poolbar { gap: 8px; }
   .v3steps { width: 100%; margin-left: 0; }
   .v3steps a { flex: 1 1 0; text-align: center; }

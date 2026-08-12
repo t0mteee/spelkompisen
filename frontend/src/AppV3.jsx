@@ -35,6 +35,11 @@ const HIST_PRODUCTS = [
   { id: 'topptipsetstryk', label: 'Topptipset Stryk' },
   { id: 'topptipsetextra', label: 'Topptipset Extra' },
 ]
+const PRODUCT_LABEL = Object.fromEntries(
+  [...POOL_GAMES, ...HIST_PRODUCTS].map((p) => [p.id, p.label]))
+// Under så här många utvärderingsbara observationer visas ingen ROI någonstans
+// i appen — ett par rättade omgångar ger tresiffriga procenttal som är brus.
+const ROI_MIN_N = 10
 
 // Ett svar som inte är JSON betyder nästan alltid att backend är nere eller
 // startar om: vite-proxyn svarar då med något annat än vårt API. Rått blir
@@ -95,6 +100,19 @@ function fmtDay(iso) {
   try {
     return new Date(iso).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' })
   } catch { return '–' }
+}
+// Avspark på Idag-korten: "idag 20:00" säger mer än ett datum, och nästan allt
+// som ligger i värde-/rörelselistan spelas inom ett dygn.
+function fmtKickoff(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const tid = d.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })
+  const dygn = Math.round(
+    (new Date(d).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400000)
+  if (dygn === 0) return `idag ${tid}`
+  if (dygn === 1) return `imorgon ${tid}`
+  return `${d.toLocaleDateString('sv-SE', { weekday: 'short', day: 'numeric', month: 'numeric' })} ${tid}`
 }
 
 const selLabel3 = (m, mk, sg, line) => {
@@ -248,22 +266,40 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
     let move = null
     for (const [sg, sh] of Object.entries(m.steam || {})) {
       const pp = Math.max(sh.h6 ?? -99, sh.h24 ?? -99)
-      if (pp >= 1.5 && (!move || pp > move.pp)) move = { m, sg, pp }
+      // Behåll BÅDA fönstren: 24 h utan 6 h döljer om skiftet är färskt eller gammalt.
+      if (pp >= 1.5 && (!move || pp > move.pp)) move = { m, sg, pp, h6: sh.h6, h24: sh.h24 }
     }
     if (move) movers.push(move)
   }
   signals.sort((a, b) => (b.v.q ?? 0) - (a.v.q ?? 0))
   movers.sort((a, b) => b.pp - a.pp)
+  const ligaNamn = Object.fromEntries((oddset?.leagues || []).map((l) => [l.key, l.name]))
 
   const research = (oddset?.leagues || []).filter((l) => l.research)
   const researchMatches = (oddset?.matches || []).filter((m) => m.research)
   const nextResearch = researchMatches.map((m) => m.start).filter(Boolean).sort()[0]
   const primaryGroups = (ledger?.groups || []).filter((g) => g.primary && g.active_version)
   const statusIcon = (s) => s === 'green' ? '✓' : s === 'candidate' ? '◐' : '●'
+  // Signal-facit kokas ner: en grupp som ligger kvar på amber säger inget nytt
+  // dag för dag. Rader ges bara åt grupper som FAKTISKT bytt läge; resten blir
+  // en räknare plus den som kommit längst.
+  const notableGroups = primaryGroups.filter((g) => g.status !== 'amber')
+  const mostClosed = [...primaryGroups].sort((a, b) => (b.n_resolved || 0) - (a.n_resolved || 0))[0]
+  const nGreen = primaryGroups.filter((g) => g.status === 'green').length
+  // Historikfacit visade arkivantal ("699 omgångar sedan 2013") — ett tal som
+  // aldrig ändras. Senast settlade omgången med utdelning gör kortet dagsfärskt.
   const histRows = HIST_PRODUCTS
-    .map((p) => ({ ...p, sum: hist?.[p.id] }))
+    .map((p) => ({ ...p, sum: hist?.[p.id], senaste: hist?.[p.id]?.draws?.[0] }))
     .filter((r) => r.sum?.available)
+    .sort((a, b) => new Date(b.senaste?.close || 0) - new Date(a.senaste?.close || 0))
   const poolIssues = health?.pools?.issues || []
+  // Spelstoppen ligger i spelstoppsordning, inte i produktordning — kortet
+  // svarar på "vad stänger härnäst". Grupper utan öppen omgång hamnar sist.
+  const stops = [...(pool || [])].sort((a, b) => {
+    if (!!a.none !== !!b.none) return a.none ? 1 : -1
+    if (a.none) return 0
+    return new Date(a.draw.reg_close_time) - new Date(b.draw.reg_close_time)
+  })
 
   return (
     <div className="v3dash">
@@ -278,19 +314,26 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
           {poolIssues.length > 4 && <span>+{poolIssues.length - 4} ytterligare fel</span>}
         </div>
       )}
-      <div className="v3grid">
-        <div className="v3card v3span2">
+      {/* Toppraden har egna kolumnbredder: spelstoppen staplas en per rad och
+          behöver bara en smal spalt, vilket ger värde- och rörelselistorna
+          plats för liga, avspark och pris på samma rad. */}
+      <div className="v3toprow">
+        <div className="v3card">
           <div className="v3cardhead"><h3>🎟️ Nästa spelstopp</h3>
-            <span className="v3hint">poolspelen just nu</span></div>
+            <span className="v3hint">i spelstoppsordning</span></div>
           {!pool && <LoadingState label="Hämtar omgångar…" />}
           <div className="v3stops">
-            {(pool || []).map((g) => (
+            {stops.map((g) => (
               <button key={g.id} className="v3stop" onClick={() => openPool(g.id)}>
-                <b>{g.label}</b>
-                {g.none ? <span className="v3hint">ingen öppen omgång</span> : (
-                  <>
+                <span className="v3stoptop">
+                  <b>{g.label}</b>
+                  {!g.none && (
                     <span className={hoursTo(g.draw.reg_close_time) < 2 ? 'v3close soon' : 'v3close'}>
                       {closesIn(g.draw.reg_close_time)}</span>
+                  )}
+                </span>
+                {g.none ? <span className="v3hint">ingen öppen omgång</span> : (
+                  <>
                     <span className="v3hint">
                       {VARIANT[g.draw.product] ? `${VARIANT[g.draw.product]} · ` : ''}omg {g.draw.draw_number}
                       {g.count > 1 ? ` · +${g.count - 1} till` : ''}
@@ -311,6 +354,54 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
           </div>
         </div>
 
+        <div className="v3card">
+          <div className="v3cardhead"><h3>💰 Värdespel</h3>
+            <button className="v3more" onClick={() => openOddset('varde')}>alla →</button></div>
+          {!signals.length && <span className="v3hint">Inga sharp-ankrade edges ≥ 2 % just nu.</span>}
+          {signals.slice(0, 5).map(({ m, mk, sg, v }, i) => (
+            <div key={i} className="v3row v3feedrow">
+              <span className="v3feedtop">
+                <b>{selLabel3(m, mk, sg, v.line)}</b>
+                <span className="v3edge">+{(v.edge * 100).toFixed(1)}%</span>
+              </span>
+              <span className="v3feedmatch">{m.home} – {m.away}</span>
+              <span className="v3hint">
+                {ligaNamn[m.league] || m.league}{m.start ? ` · ${fmtKickoff(m.start)}` : ''}
+                {' · '}{v.book} @ {v.odds?.toFixed(2)}
+                {v.fair != null ? ` · fair ${(v.fair * 100).toFixed(1)} %` : ''}
+                {v.derived ? ' · härlett pris' : ''}
+              </span>
+              {/* "bekräftat kvar" får bara stå när det oförändrade bokpriset
+                  återobserverats EFTER Pinnacles senaste prisändring. */}
+              {v.held_after_sharp && <span className="v3held" title={`Bokpriset låg kvar oförändrat när det observerades efter Pinnacles senaste prisändring${v.sharp_changed_at ? ` (${fmtKickoff(v.sharp_changed_at)})` : ''} — inte bara ett färskt cachepris.`}>✓ bekräftat kvar</span>}
+            </div>
+          ))}
+        </div>
+
+        <div className="v3card">
+          <div className="v3cardhead"><h3>📈 Rörelser</h3>
+            <button className="v3more" onClick={() => openOddset('radar')}>radar →</button></div>
+          {!movers.length && <span className="v3hint">Inga devigade skift ≥ 1,5 pp senaste dygnet.</span>}
+          {movers.slice(0, 5).map(({ m, sg, pp, h6, h24 }, i) => (
+            <div key={i} className="v3row v3feedrow">
+              <span className="v3feedtop">
+                <b>{selLabel3(m, '1x2', sg)}</b>
+                <span className="v3steam">🔥 +{pp} pp</span>
+              </span>
+              <span className="v3feedmatch">{m.home} – {m.away}{m.research ? ' · 🔬' : ''}</span>
+              <span className="v3hint">
+                {ligaNamn[m.league] || m.league}{m.start ? ` · ${fmtKickoff(m.start)}` : ''}
+                {/* Två fönster: ett skift som bara syns på 24 h är gammalt,
+                    ett som syns på båda pågår just nu. */}
+                {h6 != null ? ` · 6 h ${h6 >= 0 ? '+' : ''}${h6} pp` : ''}
+                {h24 != null ? ` · 24 h ${h24 >= 0 ? '+' : ''}${h24} pp` : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="v3grid">
         {(played?.coupons || []).some((c) => !c.settled_at) && (
           <div className="v3card">
             <div className="v3cardhead"><h3>🎟️ Dina kuponger</h3>
@@ -340,59 +431,47 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
           </div>
         )}
 
-        <div className="v3card">
-          <div className="v3cardhead"><h3>💰 Värdespel</h3>
-            <button className="v3more" onClick={() => openOddset('varde')}>alla →</button></div>
-          {!signals.length && <span className="v3hint">Inga sharp-ankrade edges ≥ 2 % just nu.</span>}
-          {signals.slice(0, 3).map(({ m, mk, sg, v }, i) => (
-            <div key={i} className="v3row">
-              <b>{selLabel3(m, mk, sg, v.line)}</b>
-              <span className="v3edge">+{(v.edge * 100).toFixed(1)}%</span>
-              <span className="v3hint">{m.home} – {m.away} · {v.book} @ {v.odds?.toFixed(2)}</span>
+        {/* Forskningsligor är DOLD så länge ingen liga är aktiv (2026-08-12:
+            RESEARCH_LEAGUE_KEYS är tom). Kortet är inte borttaget — mekanismen
+            synlig≠actionable finns kvar och kortet kommer tillbaka av sig självt
+            om en liga åter märks research. */}
+        {research.length > 0 && (
+          <div className="v3card">
+            <div className="v3cardhead"><h3>🔬 Forskningsligor</h3>
+              <button className="v3more" onClick={() => openOddset(null)}>visa matcher →</button></div>
+            <div className="v3row"><span className="v3hint">
+              {research.map((l) => l.name).join(' · ')}</span></div>
+            <div className="v3row">
+              <b>{researchMatches.length} matcher insamlade</b>
+              {nextResearch && <span className="v3hint">premiärer från {fmtDay(nextResearch)}</span>}
             </div>
-          ))}
-        </div>
-
-        <div className="v3card">
-          <div className="v3cardhead"><h3>📈 Rörelser</h3>
-            <button className="v3more" onClick={() => openOddset('radar')}>radar →</button></div>
-          {!movers.length && <span className="v3hint">Inga devigade skift ≥ 1,5 pp senaste dygnet.</span>}
-          {movers.slice(0, 3).map(({ m, sg, pp }, i) => (
-            <div key={i} className="v3row">
-              <b>{selLabel3(m, '1x2', sg)}</b>
-              <span className="v3steam">🔥 +{pp} pp</span>
-              <span className="v3hint">{m.home} – {m.away}{m.research ? ' · 🔬' : ''}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="v3card">
-          <div className="v3cardhead"><h3>🔬 Forskningsligor</h3>
-            <button className="v3more" onClick={() => openOddset(null)}>visa matcher →</button></div>
-          {!research.length && <span className="v3hint">Inga forskningsligor aktiva.</span>}
-          {research.length > 0 && (
-            <>
-              <div className="v3row"><span className="v3hint">
-                {research.map((l) => l.name).join(' · ')}</span></div>
-              <div className="v3row">
-                <b>{researchMatches.length} matcher insamlade</b>
-                {nextResearch && <span className="v3hint">premiärer från {fmtDay(nextResearch)}</span>}
-              </div>
-              <span className="v3hint">V2.2 samlar data — odds och rörelser visas,
-                inga signaler/Kelly/notiser förrän forwarddomen är klar.</span>
-            </>
-          )}
-        </div>
+            <span className="v3hint">V2.2 samlar data — odds och rörelser visas,
+              inga signaler/Kelly/notiser förrän forwarddomen är klar.</span>
+          </div>
+        )}
 
         <div className="v3card">
           <div className="v3cardhead"><h3>🧭 Signal-facit</h3>
             <button className="v3more" onClick={openLabb}>detaljer i Labb →</button></div>
           {!primaryGroups.length && <span className="v3hint">Inga primära signalgrupper ännu.</span>}
-          {primaryGroups.map((g) => (
+          {primaryGroups.length > 0 && (
+            <div className="v3row">
+              <span className={`v3status ${nGreen ? 'green' : 'amber'}`}>{nGreen ? '✓' : '●'}</span>
+              <b>{nGreen} av {primaryGroups.length} grupper gröna</b>
+              <span className="v3hint">
+                {primaryGroups.reduce((s, g) => s + (g.n_resolved || 0), 0)} stängda flaggor totalt
+                {mostClosed ? ` · flest ${mostClosed.league} ${mostClosed.n_resolved}` : ''}
+              </span>
+            </div>
+          )}
+          {/* Bara grupper som FAKTISKT bytt läge får en egen rad — fem amber-rader
+              som ser likadana ut dag efter dag är brus, inte facit. */}
+          {notableGroups.map((g) => (
             <div key={`${g.league}-${g.market}`} className="v3row">
               <span className={`v3status ${g.status}`}>{statusIcon(g.status)}</span>
               <b>{g.league} · {g.market?.toUpperCase()}</b>
-              <span className="v3hint">{g.n_resolved} stängda flaggor</span>
+              <span className="v3hint">{g.status === 'green' ? 'grön' : 'kandidat'} ·
+                {' '}{g.n_resolved} stängda flaggor</span>
             </div>
           ))}
           {ledger && <span className="v3hint">{ledger.n_predictions} frysta prediktioner ·
@@ -412,20 +491,43 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
                 rättas mot utfall och utspädd utdelningsestimering. Väntar på
                 första frysningen.</span>
             }
-            const primary = groups.filter((g) => g.primary)
+            // En rad per PRODUKT, inte per produkt × horisont. config_key är
+            // alltid championen och stod förut utskriven på var och en av de
+            // tio raderna, vilket radbröt dem. Nu står den en gång i foten.
+            const perProduct = new Map()
+            for (const g of groups.filter((x) => x.primary)) {
+              const cur = perProduct.get(g.product)
+                || { product: g.product, n_frozen: 0, n_evaluable: 0, n_settled: 0, horizons: new Set() }
+              cur.n_frozen += g.n_frozen
+              cur.n_evaluable += g.n_evaluable
+              cur.n_settled += g.n_settled
+              if (g.horizon_minutes != null) cur.horizons.add(g.horizon_minutes)
+              perProduct.set(g.product, cur)
+            }
+            // Deterministisk ordning — förut kom raderna i API-ordning och såg
+            // slumpmässiga ut. Mest rättat först, produktnamn som tiebreak.
+            const rows = [...perProduct.values()].sort((a, b) =>
+              (b.n_settled - a.n_settled) || a.product.localeCompare(b.product, 'sv'))
+            const horisonter = [...new Set(rows.flatMap((r) => [...r.horizons]))].sort((a, b) => b - a)
             return (
               <>
-                {primary.map((g) => (
-                  <div key={`${g.product}-${g.config_key}-${g.horizon}`} className="v3row">
-                    <b>{g.product} · {g.config_key} · {g.horizon}</b>
-                    <span className="v3hint">{g.n_evaluable}/{g.n_frozen} jämförbara</span>
-                    {g.n_evaluable > 0 && g.roi != null &&
-                      <span className={g.roi >= 0 ? 'v3edge' : 'v3steam'}>
-                        {g.roi >= 0 ? '+' : ''}{Math.round(g.roi * 100)}%</span>}
+                {rows.map((r) => (
+                  <div key={r.product} className="v3row">
+                    <b>{PRODUCT_LABEL[r.product] || r.product}</b>
+                    <span className="v3hint">{r.n_frozen} frysta · {r.n_settled} rättade</span>
+                    {/* ROI döljs under ROI_MIN_N. En rättad omgång gav +898 %,
+                        vilket är brus presenterat som facit. Samma regel som Labb. */}
+                    <span className={r.n_evaluable >= ROI_MIN_N ? 'v3edge' : 'v3hint'}>
+                      {r.n_evaluable >= ROI_MIN_N ? 'ROI i Historik' : `ROI vid ${ROI_MIN_N}`}</span>
                   </div>
                 ))}
-                <span className="v3hint">{frozen} frysta system · {settled} rättade ·
-                  champion = dagens byggare</span>
+                {/* Raderna räknar championfamiljen, `frozen`/`settled` HELA
+                    benchmarkregistret (utmanare och pensionerade nycklar).
+                    Skilj dem åt — annars summerar inte foten till raderna. */}
+                <span className="v3hint">{systems?.champion_key || 'champion'} ·
+                  {' '}fryses {horisonter.length ? horisonter.join(' och ') : '180 och 20'} min före stopp ·
+                  {' '}{rows.reduce((s, r) => s + r.n_frozen, 0)} frysta i championfamiljen
+                  {' '}({frozen} med utmanarna, {settled} rättade)</span>
               </>
             )
           })()}
@@ -435,7 +537,9 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
           <div className="v3cardhead"><h3>🗄 Historikfacit</h3>
             <button className="v3more" onClick={() => openHistorik()}>utforska →</button></div>
           {!histRows.length && <span className="v3hint">Settlementlagret fylls på — kör backfillen eller vänta in nästa varv.</span>}
-          {histRows.map((r) => (
+          {/* Senast SETTLADE omgången med sin toppvinst — det är den som ändras.
+              Arkivantalet ("699 omgångar sedan 2013") står kvar i foten. */}
+          {histRows.slice(0, 4).map((r) => (
             <div key={r.id} className="v3row v3histrow" role="button" tabIndex={0}
               onClick={() => openHistorik(r.id)}
               onKeyDown={(e) => {
@@ -443,12 +547,21 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
                   e.preventDefault(); openHistorik(r.id)
                 }
               }}>
-              <b>{r.label}</b>
-              <span className="v3hint">{r.sum.total} omgångar sedan {String(r.sum.first_close || '').slice(0, 4)}</span>
+              <b>{r.label}{r.senaste ? ` ${r.senaste.draw_number}` : ''}</b>
+              {r.senaste ? (
+                <span className="v3hint">
+                  {fmtDay(r.senaste.close)} · oms {kr(r.senaste.turnover)}
+                  {r.senaste.top_winners != null && r.senaste.tiers?.[0]
+                    ? ` · ${r.senaste.top_winners} vinnare på ${r.senaste.tiers[0].correct} rätt`
+                    : ''}
+                  {r.senaste.top_amount ? ` · ${kr(r.senaste.top_amount)}` : ''}
+                </span>
+              ) : <span className="v3hint">{r.sum.total} omgångar i arkivet</span>}
             </div>
           ))}
-          <span className="v3hint">Slutstreck, omsättning och full utdelning per omgång —
-            facit, aldrig prematch-input.</span>
+          <span className="v3hint">
+            {histRows.reduce((s, r) => s + (r.sum?.total || 0), 0)} settlade omgångar i arkivet —
+            slutstreck, omsättning och full utdelning per omgång, facit och aldrig prematch-input.</span>
         </div>
       </div>
     </div>
@@ -784,8 +897,6 @@ function PoolV3() {
 //  * Insats och ackumulerat satsat är olika saker och står aldrig i samma
 //    kolumn.
 
-const PRODUCT_LABEL = Object.fromEntries(
-  HIST_PRODUCTS.map((p) => [p.id, p.label]))
 const STRATEGY_LABEL = { säker: 'Säker', medel: 'Medel', tuff: 'Tuff' }
 
 // Horisonten är minuter före spelstopp. Nyckeln (`h3`/`m20`) är ett internt
@@ -1783,7 +1894,6 @@ function LabbV3() {
   // "Över-ROI −100 %" i rött, vilket läses som facit i stället för brus.
   const gate = radar?.signal_ledger?.blind_gate
   const gateN = gate?.n_priced_settled ?? 0
-  const ROI_MIN_N = 10
   const ledgerTiming = Object.values(ledger?.capture_quality || {}).reduce(
     (sum, h) => ({ n: sum.n + (h.n || 0), timely: sum.timely + (h.n_timely || 0) }),
     { n: 0, timely: 0 })
