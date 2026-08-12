@@ -14,10 +14,15 @@ inte per rad.
 - **❌ AWS Lightsail Stockholm är avfärdat.** En ny adress (`51.20.96.34`)
   testades med rätt endpoint-uppsättning: Svenskaspel, Pinnacle, Kambi,
   Flashscore, FotMob och Altenar fungerade, men samtliga åtta Sofascore-
-  modellvägar gav 403. Inget 72-timmarstest behövs. Den nya instansen ska
-  avvecklas. Detta är stark evidens mot AWS Stockholm, inte ett bevis mot
-  varje annan leverantör eller region. Full rapport och rålogg finns i
-  `docs/serverfragan-avslutad-2026-08-11.md` och `docs/kalltest-bevis/`.
+  modellvägar gav 403. Inget 72-timmarstest behövs. Detta är stark evidens
+  mot AWS Stockholm, inte ett bevis mot varje annan leverantör eller region.
+  Full rapport och rålogg finns i `docs/serverfragan-avslutad-2026-08-11.md`
+  och `docs/kalltest-bevis/`.
+- **✅ Båda AWS-instanserna avvecklade 2026-08-12.** Saman raderade dem i
+  Lightsail-konsolen; inget AWS-beroende finns kvar i drift. Mätdatan i
+  `docs/kalltest-bevis/` behålls som evidens. Nästa serverfråga börjar i så
+  fall med ett engångsprov hos en annan leverantör, aldrig ett nytt
+  flerdygnstest på AWS.
 - **✅ Testverktyget är härdat.** `kalltest_ip.py` provar nu åtta verkliga
   Sofascore-modellvägar separat från live, märker varje körning med `run_id`
   och skiljer både httpx- och curl_cffi-DNS-fel från källfel. Det sparade

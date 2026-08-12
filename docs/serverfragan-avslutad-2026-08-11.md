@@ -128,7 +128,8 @@ procent transport-OK och högst fem procent körningar med lokala DNS-fel.
 - Ursprunglig öppna tråd: `docs/overlamning-2026-08-01-flashscore.md`,
   punkt 2.
 
-Den första instansen är avvecklad. Den andra ska också avvecklas efter
-engångsprovet. Resultaten gäller de två provade AWS-adresserna och säger inte
-säkert hur exempelvis en Hetzner-/Netcup-adress eller en annan region beter
-sig.
+**Båda instanserna är avvecklade 2026-08-12** (Saman, i Lightsail-konsolen).
+Inget AWS-beroende finns kvar i drift; mätdatan i `docs/kalltest-bevis/`
+behålls som evidens. Resultaten gäller de två provade AWS-adresserna och säger
+inte säkert hur exempelvis en Hetzner-/Netcup-adress eller en annan region
+beter sig.
