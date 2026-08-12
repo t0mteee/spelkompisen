@@ -5,7 +5,7 @@
    distribution med noll vinnare och 0,00 kr. Utan draw_state="Cancelled"
    lagras den som en vanlig avgjord omgång vars utfall råkar saknas, och
    systemledgern dömer den "utfall saknas för minst en match". Uppmätt
-   2026-08-12: 12 av 8 324 omgångar, alla Topptipset, februari 2025–augusti 2026.
+   2026-08-12: 56 av 8 324 omgångar, alla Topptipset, maj 2024–augusti 2026.
 
 2. UPPSKJUTEN MATCH. statusId 23 låg i den GISSADE serien 20–25 för
    övertidsperioder. Uppmätt 2026-08-12 på Topptipset 4261

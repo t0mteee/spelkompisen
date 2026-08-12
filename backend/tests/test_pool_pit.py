@@ -341,6 +341,22 @@ class SystemLedgerTests(unittest.TestCase):
             "SELECT settle_note FROM pool_system_ledger").fetchone()[0]
         self.assertIn("saknas", note)
 
+    def test_installd_omgang_ar_varken_facit_eller_tekniskt_fel(self):
+        self._freeze_fixture()
+        self._settlement_fixture([None] * 8, [(8, 0, 0.0)])
+        self.store.conn.execute(
+            "UPDATE pool_draw_settlement SET draw_state='Cancelled' "
+            "WHERE product='topptipset' AND draw_number=100")
+        self.store.conn.commit()
+
+        rep = pool_system_ledger.settle_pending(self.store, now=NOW)
+        group = pool_system_ledger.summary(self.store)["groups"][0]
+
+        self.assertEqual({"settled": 0, "unresolvable": 0, "cancelled": 1}, rep)
+        self.assertEqual(1, group["n_cancelled"])
+        self.assertEqual(0, group["n_unresolvable"])
+        self.assertEqual(0, group["n_settled"])
+
     def test_settling_ar_idempotent(self):
         self._freeze_fixture()
         self._settlement_fixture(["1"] * 8, [(8, 10, 500.0)])

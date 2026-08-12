@@ -33,7 +33,10 @@ FIT_POOLS = {
     "la_liga": ("la_liga", "segunda"),
     "bundesliga": ("bundesliga", "zweite_bundesliga"),
 }
-# v7 sedan 2026-08-10 06:50Z: ett lyckat men xG-tomt Sofascore-svar är inte
+# v8 sedan 2026-08-12 10:19Z: v7 frös av misstag sharp-basversionen som
+# `sharp_signal_version`; alla fyra rader föll därför stängt med
+# sharp_source_version_changed. V8 rättar endast versionskontraktet och börjar
+# rent — inga rader flyttas. v7 från 2026-08-10 06:50Z: ett lyckat men xG-tomt Sofascore-svar är inte
 # längre terminalt, och sidbläddringen når äldre luckor. MODEL_DATA_VERSION=5.
 # v6 från 2026-08-07 14:20Z rättade ClubElo-identiteten. Uppslaget gick via
 # `_find_team`, som provar DELSTRÄNG utan likhetströskel — `stuttgart` blev
@@ -46,7 +49,7 @@ FIT_POOLS = {
 # ihop — inte ens ett manifest med noll observationer skrivs över.
 MANIFEST_PATH = (
     Path(__file__).resolve().parents[2] / "docs" /
-    "model-v2.2-multileague-forward-manifest-v7.json"
+    "model-v2.2-multileague-forward-manifest-v8.json"
 )
 REQUIRED_BASE_FEATURES = (
     "attack_log_ratio", "defence_log_ratio", "home_adv_log",

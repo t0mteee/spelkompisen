@@ -181,7 +181,7 @@ def settle_draw(store: Storage, svs: SvenskaSpel, product: str,
     # `drawState` står kvar på "Finalized", så utan den här flaggan lagras en
     # inställd omgång som en vanlig avgjord omgång vars åtta utfall råkar
     # saknas — och systemledgern dömer den som "utfall saknas för minst en
-    # match" i stället för "spelades aldrig". Uppmätt 12 av 8 324 omgångar.
+    # match" i stället för "spelades aldrig". Uppmätt 56 av 8 324 omgångar.
     draw_cancelled = bool(result.get("cancelled"))
     state = CANCELLED_STATE if draw_cancelled else state
     outcome_by_event = {}

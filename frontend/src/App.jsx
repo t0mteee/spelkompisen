@@ -2,7 +2,7 @@ import { Component, Fragment, useCallback, useEffect, useEffectEvent, useRef, us
 import './App.css'
 import { summarizeSourceHealth } from './sourceHealth.js'
 import { payoutMatchesSelection } from './poolSelection.js'
-import { kompaktKr, playRecommendation } from './playRec.js'
+import { kompaktKr, playRecommendation, projectionBasisText } from './playRec.js'
 
 // Komponentbibliotek: appskalet bor i AppV3.jsx (laddas av main.jsx) och
 // importerar alla tunga byggstenar, konstanter och helpers härifrån —
@@ -655,7 +655,7 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse }) {
               särskilt vid jackpot); raden säger nu det, och förklarar varför
               kupongen till höger kan visa andra tal. */}
           {payouts?.projected_turnover > payouts?.turnover && (
-            <div className="rule" title={`Potterna växer mot spelstopp men det gör medvinnarna också.${payouts.projection_basis ? `\nPrognosgrund: ${payouts.projection_basis.mode === 'weekday' ? `median av ${payouts.projection_basis.n} senaste omgångarna med samma spelstoppsveckodag (${['mån', 'tis', 'ons', 'tors', 'fre', 'lör', 'sön'][payouts.projection_basis.weekday] ?? '?'})` : `median av senaste ${payouts.projection_basis.n} omgångarna oavsett veckodag (backtestet visar att den träffar bättre för produkten, eller för få jämförbara)`}.` : ''}`}>
+            <div className="rule" title={`Potterna växer mot spelstopp men det gör medvinnarna också.${payouts.projection_basis ? `\nPrognosgrund: ${projectionBasisText(payouts.projection_basis)}.` : ''}`}>
               Talen ovan är räknade mot <b>förväntad slutomsättning {kr(payouts.projected_turnover)}</b>
               {' '}— den ärliga horisonten tidigt i veckan. Kupongen till höger står som
               standard på dagens omsättning ({kr(payouts.turnover)}) och visar därför

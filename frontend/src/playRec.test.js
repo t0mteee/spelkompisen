@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { kompaktKr, playRecommendation } from './playRec.js'
+import { kompaktKr, playRecommendation, projectionBasisText } from './playRec.js'
 
 // Uppmätta återbetalningar, se _payout_ratio i backend/app/main.py.
 const STRYK = 0.598
@@ -64,4 +64,12 @@ test('kompaktKr håller sig kort i chipet', () => {
   assert.equal(kompaktKr(139_287), '139 tkr')
   assert.equal(kompaktKr(900), '900 kr')
   assert.equal(kompaktKr(null), '0 kr')
+})
+
+test('prognosgrunden blir läsbar text och aldrig object Object', () => {
+  assert.equal(projectionBasisText({ mode: 'weekday', n: 8, weekday: 5 }),
+    'median av 8 senaste omgångarna med samma spelstoppsveckodag (lör)')
+  assert.equal(projectionBasisText({ mode: 'all', n: 6 }),
+    'median av senaste 6 omgångarna oavsett veckodag')
+  assert.equal(projectionBasisText(null), 'median av tidigare omgångar')
 })

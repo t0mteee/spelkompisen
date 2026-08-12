@@ -171,6 +171,42 @@ class PoolStrengthCaptureTests(unittest.TestCase):
                                primary["mean_delta_logloss"], places=6)
         self.assertIsNotNone(primary["ci90"])
 
+    def test_familjerapport_tar_alla_slugs_men_raknar_samma_match_en_gang(self):
+        values = (.40, .30, .30, .60, .20, .20,
+                  .50, .25, .25, .55, .225, .225)
+        for product, draw in (("topptipset", 4260),
+                              ("topptipsetextra", 1856)):
+            self.store.conn.execute(
+                "INSERT INTO pool_strength_shadow_capture (product,draw_number,"
+                "horizon,event_number,shadow_version,model_signal_version,"
+                "captured_at,target_at,delay_min,match_start,league_raw,league,"
+                "home,away,eligible,issue,p_sharp_1,p_sharp_x,p_sharp_2,"
+                "p_model_1,p_model_x,p_model_2,p_blend10_1,p_blend10_x,"
+                "p_blend10_2,p_blend20_1,p_blend20_x,p_blend20_2) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (product, draw, "h3", 1, "ps-test", "m-test",
+                 "2026-08-10T12:00:00Z", "2026-08-10T12:00:00Z", 0,
+                 "2026-08-10T17:00:00Z", "Allsvenskan", "allsvenskan",
+                 "Hammarby", "AIK", 1, None, *values))
+            self.store.conn.execute(
+                "INSERT INTO pool_event_settlement "
+                "(product,draw_number,event_number,outcome,cancelled) "
+                "VALUES (?,?,1,'1',0)", (product, draw))
+        self.store.conn.commit()
+        with (patch("app.pool_strength_shadow.load_manifest",
+                    return_value=_manifest(horizons=["h3"], decision=["h3"])),
+              patch("app.pool_strength_shadow.shadow_version",
+                    return_value="ps-test")):
+            report = pool_strength_shadow.report(
+                self.store,
+                products=["topptipset", "topptipsetstryk", "topptipsetextra"])
+
+        self.assertEqual(1, report["captured"])
+        self.assertEqual(1, report["settled"])
+        self.assertEqual(
+            ["topptipset", "topptipsetstryk", "topptipsetextra"],
+            report["products"])
+
 
 if __name__ == "__main__":
     unittest.main()

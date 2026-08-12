@@ -131,5 +131,32 @@ spelvärdet. Räknandet ligger i `frontend/src/playRec.js` med egna tester.
 - **Draw 4261** väntar på sin sista match (GKS Katowice–Hapoel Tel Aviv,
   avspark 2026-08-12 16:00Z) och på att SvS lottar tecknet för den uppskjutna
   D. Tolima–Independiente.
-- **Topptipset 4259 m20 frystes aldrig** — en missad frysning, inte en
-  misslyckad. Orsaken är inte utredd.
+- **Topptipset 4259 m20 frystes aldrig**, men omgången ställdes in och är
+  därför ingen förlorad modellobservation. Utred bara schedulerhändelsen om
+  driftspåret behöver granskas; den ska inte prioriteras som ett datahål.
+
+## Codex-granskning 2026-08-12
+
+Hela sviten, produktionsdatabasen och mobilvyn granskades. Följande luckor i
+det nya familje-/inställt-kontraktet rättades:
+
+- inställda omgångar finns kvar i direktarkivet men exkluderas ur historikens
+  antal, omsättning, toppvinst och rolloverfrekvens;
+- systemledgern redovisar dem som `n_cancelled`, inte `n_unresolvable`;
+- Poolmodellens Topptipsfilter expanderar till alla tre familjeprodukter och
+  deduplicerar samma match över kuponger;
+- ett obelagt tecken under förlängning hålls öppet i rad- och chansräkningen
+  tills ordinarie resultat verkligen hämtats;
+- prognosgrunden renderas som text i stället för `[object Object]`, och
+  historikens detaljcache använder produkt + omgång som identitet.
+- V2.2 v7 samlade noll användbara rader: dess manifest jämförde ledgerns
+  sammansatta sharp-version mot sharpens basversion. V8 är en ren kohort med
+  rätt versioner (`s-2f14f9a6` / `s-ccdfecc0`) och manifestbunden
+  featureversion `f22-d6baf69c`; v7:s fyra ogiltiga rader lämnas som historik.
+
+Migreringsskriptets framtida backup använder SQLite onlinebackup, så DB och
+WAL inte kan kopieras i olika ögonblick.
+
+Verifiering: 689 backendtester, 12 frontendtester och produktionsbygget är
+gröna. Före rättningen gav produktionslagret Topptipset-familjen 58
+rollovers; rätt population (inställda exkluderade) ger 5.

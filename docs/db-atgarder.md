@@ -84,6 +84,15 @@ V2.2:s datagenererande process ändrades och startar därför rent under
 `docs/model-v2.2-multileague-forward-manifest-v7.json`; v6:s 19 rader/8
 matcher ligger kvar orörda som historik.
 
+**2026-08-12, ingen DB-skrivning:** Codex-granskningen fann att v7-manifestet
+bar `s-ccdfecc0` (sharpens basversion) som `sharp_signal_version`, medan
+prediction-ledgerns sammansatta version redan var `s-2f14f9a6`. Alla fyra
+v7-rader (två matcher × h3/m20) föll därför stängt med
+`sharp_source_version_changed`; noll var eligible. V8 börjar rent vid
+2026-08-12T10:19:18Z med rätt signal-/baspar och den därav manifestbundna
+featureversionen `f22-d6baf69c`. V7-raderna skrivs inte om och ingen
+databasåtgärd behövs.
+
 ---
 
 ## 2026-08-07 — xG-bakfyllning för Europaligorna + skotska rader ur La Liga

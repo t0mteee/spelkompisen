@@ -6,8 +6,8 @@ inställd omgång lagrades som en vanlig avgjord omgång vars samtliga utfall
 råkade saknas. Systemledgern dömde den då "utfall saknas för minst en match" —
 alltså ett misslyckat rättningsförsök i stället för "spelades aldrig".
 
-Uppmätt: 12 av 8 324 settlade omgångar, samtliga Topptipset, spridda från
-2025-02-15 till 2026-08-10. Kandidaterna hittas lokalt (alla utfall NULL, inga
+Uppmätt: 56 av 8 324 settlade omgångar, samtliga Topptipset, spridda från
+2024-05-08 till 2026-08-10. Kandidaterna hittas lokalt (alla utfall NULL, inga
 strukna) och VERIFIERAS mot SvS resultat-API innan något skrivs — en omgång
 märks bara om källan själv säger `cancelled: true`.
 
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import shutil
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -47,7 +47,10 @@ HAVING n > 0 AND utan = n AND strukna = 0
 def _backup(db_path: Path) -> Path:
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     dest = db_path.with_name(f"{db_path.stem}-backup-installda-{stamp}.db")
-    shutil.copy2(db_path, dest)
+    # Onlinebackup ger en atomär SQLite-snapshot även när produktionsjobben
+    # skriver samtidigt. En vanlig filkopiering kan få DB/WAL ur synk.
+    with sqlite3.connect(db_path) as source, sqlite3.connect(dest) as target:
+        source.backup(target)
     return dest
 
 

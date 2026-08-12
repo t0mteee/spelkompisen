@@ -145,6 +145,31 @@ class LiveStatusTests(unittest.TestCase):
         self.assertFalse(status["all_decided"])
         self.assertEqual(1, status["alive_per_level"][2])
 
+    def test_obelagt_forlangningstecken_presenteras_som_oppet_spann(self):
+        provisional = {
+            "event_number": 1, "description": "A – B", "final": True,
+            "cancelled": False, "sign": "1", "sign_provisional": True,
+            "extra_time": True,
+            "probs": {"1": .99, "X": .005, "2": .005},
+        }
+        final = {"event_number": 2, "final": True, "cancelled": False,
+                 "sign": "1"}
+        coupon = {"rows_text": "11\nX1\n21", "cost_kr": 3.0}
+
+        status = pool_played.live_status(coupon, [provisional, final])
+
+        self.assertEqual(1, status["n_decided"])
+        self.assertFalse(status["all_decided"])
+        self.assertEqual(3, status["alive_per_level"][2])
+        self.assertNotIn("chance_per_level", status)
+        self.assertEqual(["A – B"], status["chance_unpriced"])
+
+        provisional["sign_provisional"] = False
+        proven = pool_played.live_status(coupon, [provisional, final])
+        self.assertEqual(2, proven["n_decided"])
+        self.assertTrue(proven["all_decided"])
+        self.assertEqual(1, proven["alive_per_level"][2])
+
 
 class SettleTests(unittest.TestCase):
     def setUp(self):

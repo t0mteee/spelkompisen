@@ -496,19 +496,32 @@ def pool_history(product: str = "stryktipset",
                            "amount": t[3]} for t in tiers]}}
         products = _history_products(product, family)
         marks_p = ",".join("?" * len(products))
+        # Inställda omgångar bevaras i arkivet och kan fortfarande hämtas via
+        # draw=<nr>, men de är inga spelade observationer. Tar man med dem här
+        # blir framför allt "utan toppvinnare" grovt fel: SvS publicerar noll
+        # vinnare på alla nivåer när hela omgången ställs in.
+        from .pool_settlement import CANCELLED_STATE
+        valid = f"product IN ({marks_p}) AND draw_state<>?"
+        valid_args = (*products, CANCELLED_STATE)
+        archive_total, cancelled_count = store.conn.execute(
+            "SELECT COUNT(*), SUM(CASE WHEN draw_state=? THEN 1 ELSE 0 END) "
+            f"FROM pool_draw_settlement WHERE product IN ({marks_p})",
+            (CANCELLED_STATE, *products)).fetchone()
         total, first_close, last_close = store.conn.execute(
             "SELECT COUNT(*), MIN(reg_close_time), MAX(reg_close_time) "
-            f"FROM pool_draw_settlement WHERE product IN ({marks_p})",
-            products).fetchone()
+            f"FROM pool_draw_settlement WHERE {valid}", valid_args).fetchone()
         mean_turnover = store.conn.execute(
             "SELECT AVG(net_sale) FROM pool_draw_settlement "
-            f"WHERE product IN ({marks_p}) AND net_sale>0", products).fetchone()[0]
+            f"WHERE {valid} AND net_sale>0", valid_args).fetchone()[0]
         top_rows = store.conn.execute(
             "SELECT p.winners, p.amount FROM pool_payout_tier p "
             f"WHERE p.product IN ({marks_p}) AND p.correct=("
             " SELECT MAX(p2.correct) FROM pool_payout_tier p2 "
-            " WHERE p2.product=p.product AND p2.draw_number=p.draw_number)",
-            products).fetchall()
+            " WHERE p2.product=p.product AND p2.draw_number=p.draw_number) "
+            "AND EXISTS (SELECT 1 FROM pool_draw_settlement s "
+            "WHERE s.product=p.product AND s.draw_number=p.draw_number "
+            "AND s.draw_state<>?)",
+            (*products, CANCELLED_STATE)).fetchall()
         paid_top = sorted(
             float(r[1]) for r in top_rows
             if (r[0] or 0) > 0 and r[1] is not None and r[1] > 0)
@@ -521,9 +534,9 @@ def pool_history(product: str = "stryktipset",
         # tiebreak — omgångar kan dela stängningstid.
         rows = store.conn.execute(
             "SELECT draw_number, reg_close_time, net_sale, row_price, "
-            f"n_cancelled, product FROM pool_draw_settlement WHERE product IN ({marks_p}) "
+            f"n_cancelled, product FROM pool_draw_settlement WHERE {valid} "
             "ORDER BY reg_close_time DESC, draw_number DESC LIMIT ?",
-            (*products, limit)).fetchall()
+            (*valid_args, limit)).fetchall()
         # Nyckeln är (produkt, omgång) — draw_number ensamt räcker inte när
         # flera produkter ingår.
         tiers_by_draw: dict[tuple[str, int], list] = {}
@@ -552,6 +565,8 @@ def pool_history(product: str = "stryktipset",
                 "top_amount": top and top["amount"]})
         return {"available": total > 0, "product": product,
                 "products": products, "total": total,
+                "archive_total": archive_total,
+                "cancelled_count": cancelled_count or 0,
                 "first_close": first_close, "last_close": last_close,
                 "sample_size": len(draws),
                 "stats": {
@@ -581,16 +596,19 @@ def pool_systems():
 
 
 @app.get("/api/pool/strength-shadow")
-def pool_strength_shadow_report(product: str | None = None):
+def pool_strength_shadow_report(product: str | None = None,
+                                family: bool = False):
     """Pinnacle mot 90/10- och 80/20-styrkeblend; påverkar inga system."""
     from . import pool_strength_shadow
-    # `topptipset` är både en produkt och en familjenyckel, så familjeläget
-    # behöver ingen egen parameter här — produktnamnet är giltigt i sig.
     if product is not None and product not in PRODUCTS:
         raise HTTPException(400, f"okänd poolprodukt: {product}")
+    products = (_history_products(product, True)
+                if product is not None and family else None)
     store = Storage()
     try:
-        return pool_strength_shadow.report(store, product=product)
+        return pool_strength_shadow.report(
+            store, product=product if products is None else None,
+            products=products)
     finally:
         store.close()
 

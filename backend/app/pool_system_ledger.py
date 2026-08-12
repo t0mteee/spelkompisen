@@ -29,6 +29,7 @@ from .svenskaspel import Draw, family_of
 # (minuter före spelstopp, timely-tolerans i minuter)
 FREEZE_HORIZONS = {"h3": (180, 30), "m20": (20, 10)}
 SETTLEMENT_VERSION = "counterfactual-v2"
+CANCELLED_NOTE = "omgången inställd — ingen insats, inget facit"
 
 # Förregistrerad gate (docs/ph3-gate-2026-07-26.md): en utmanare får inte
 # promoveras till champion på mindre underlag än så här, oavsett hur bra deltat
@@ -282,7 +283,7 @@ def settle_pending(store: Storage, now: Optional[dt.datetime] = None) -> dict:
             store.conn.execute(
                 "UPDATE pool_system_ledger SET settled_at=?, settle_note=? "
                 "WHERE product=? AND draw_number=? AND horizon=? AND config_key=?",
-                (_iso(now), "omgången inställd — ingen insats, inget facit",
+                (_iso(now), CANCELLED_NOTE,
                  product, draw_number, horizon, key))
             report["cancelled"] += 1
             continue
@@ -602,7 +603,8 @@ def summary(store: Storage) -> dict:
             "SUM(CASE WHEN timely=1 AND correct_max IS NOT NULL "
             "AND payout_complete=1 THEN 1 ELSE 0 END) n_evaluable, "
             "SUM(CASE WHEN settled_at IS NOT NULL AND correct_max IS NULL "
-            "THEN 1 ELSE 0 END) n_unresolvable, "
+            "AND COALESCE(settle_note,'')<>? THEN 1 ELSE 0 END) n_unresolvable, "
+            "SUM(CASE WHEN settle_note=? THEN 1 ELSE 0 END) n_cancelled, "
             "SUM(CASE WHEN correct_max IS NOT NULL AND payout_complete=0 "
             "THEN 1 ELSE 0 END) n_payout_incomplete, "
             "SUM(CASE WHEN timely=1 AND correct_max IS NOT NULL "
@@ -613,9 +615,10 @@ def summary(store: Storage) -> dict:
             "MAX(budget) budget, MAX(strategy) strategy, "
             "MAX(value_weight) value_weight, MAX(frozen_at) latest_frozen "
             "FROM pool_system_ledger GROUP BY product, config_key, horizon "
-            "ORDER BY product, config_key, horizon"):
+            "ORDER BY product, config_key, horizon",
+            (CANCELLED_NOTE, CANCELLED_NOTE)):
         (product, key, horizon, n, n_settled, n_timely, n_evaluable,
-         n_unresolvable, n_payout_incomplete, cost, payout, best,
+         n_unresolvable, n_cancelled, n_payout_incomplete, cost, payout, best,
          budget, strategy, value_weight, latest_frozen) = row
         if not any(b["key"] == key for b in benchmarks_for(product)) \
                 and key not in RETIRED_KEYS:
@@ -637,6 +640,7 @@ def summary(store: Storage) -> dict:
             "n_frozen": n,
             "n_settled": n_settled, "n_timely": n_timely,
             "n_evaluable": n_evaluable, "n_unresolvable": n_unresolvable,
+            "n_cancelled": n_cancelled,
             "n_payout_incomplete": n_payout_incomplete,
             # cost_kr är ACKUMULERAT över utvärderbara omgångar. Insatsen per
             # omgång är budgeten — att visa summan under rubriken "Insats" fick

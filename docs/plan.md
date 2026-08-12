@@ -50,8 +50,11 @@ fanns redan; v9 rättar FotMobs aktuella namn `Besta deildin` och lägger
 Sofascore UT 188 explicit i radarscopet. De är medvetet utanför
 målmodellen och V2.2 tills egen xG-/closehistorik har mätts och kalibrerats.
 
-**Aktuell V2.2-kohort är manifest v7** från 2026-08-10T06:50:39Z
-(`docs/model-v2.2-multileague-forward-manifest-v7.json`). Ett lyckat men
+**Aktuell V2.2-kohort är manifest v8** från 2026-08-12T10:19:18Z
+(`docs/model-v2.2-multileague-forward-manifest-v8.json`). V7 frös felaktigt
+sharp-basversionen som ledgerns sammansatta signalversion; dess fyra rader
+föll därför korrekt stängt och är diagnostisk historik. V8 rättar bara
+versionskontraktet och börjar rent. Ett lyckat men
 xG-tomt Sofascore-svar kan nu återförsökas och äldre säsongssidor nås;
 `MODEL_DATA_VERSION=5`. V6:s 19 rader/8 matcher är orörd historik. PL, Serie A, La Liga
 och Bundesliga är fullt följda modelligor efter providerseparerad xG-backfill;
@@ -124,7 +127,8 @@ Ordinarie 5175 kör nu byggd bundle, dev/StrictMode ligger på 5181. Uppmätt vi
 frontend, Oddset-snapshot, pool/settlement och liveradar kör nu på
 `192.168.50.100`. Huvuddatorns motsvarande tjänster är stoppade och dess
 orörda databas är rollback. MacBooken har verifierad SQLite-onlinebackup,
-655 gröna backendtester, fem gröna frontendtester, alla åtta källfamiljer
+689 gröna backendtester och tolv gröna frontendtester efter Codex-granskningen
+2026-08-12, alla åtta källfamiljer
 gröna och bevisat nya pool-, live- och källhälsorader efter skiftet.
 `caffeinate -s` håller den vaken på nätström. Huvuddatorns Serverkontroll
 startas vid behov från skrivbordet och kontrollerar fjärrapp, datastatus och

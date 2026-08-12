@@ -250,12 +250,23 @@ def _metric(rows: list[dict], family: str, seed: str) -> dict:
     }
 
 
-def report(store: Storage, product: Optional[str] = None) -> dict:
+def report(store: Storage, product: Optional[str] = None,
+           products: Optional[list[str]] = None) -> dict:
+    """Mät ett enskilt spel, en hel spelfamilj eller alla produkter.
+
+    `products` används för familjer. Då dedupliceras samma match på samma sätt
+    som i globalvyn; annars skulle en match på två Topptipset-varianter väga
+    dubbelt bara för att den råkade ligga på två kuponger.
+    """
     manifest = load_manifest()
     version = shadow_version()
     args: list = [version]
     where = "c.shadow_version=?"
-    if product:
+    if products:
+        marks = ",".join("?" for _ in products)
+        where += f" AND c.product IN ({marks})"
+        args.extend(products)
+    elif product:
         where += " AND c.product=?"
         args.append(product)
     raw = [dict(row) for row in store.conn.execute(
@@ -269,7 +280,7 @@ def report(store: Storage, product: Optional[str] = None) -> dict:
     unique = {}
     for row in raw:
         key = ((row["product"], row["draw_number"], row["event_number"],
-                row["horizon"]) if product else
+                row["horizon"]) if product and not products else
                (row["league"], row["match_start"], row["home"], row["away"],
                 row["horizon"]))
         unique.setdefault(key, row)
@@ -310,7 +321,8 @@ def report(store: Storage, product: Optional[str] = None) -> dict:
             "settled": len(subset), "span_days": span,
             "league_counts": league_counts, "data_ready": data_ready,
             "metrics": [
-                _metric(subset, family, f"{version}:{product}:{horizon}:{family}")
+                _metric(subset, family,
+                        f"{version}:{product or products}:{horizon}:{family}")
                 for family in ("model", "blend10", "blend20")
             ],
         }
@@ -322,7 +334,8 @@ def report(store: Storage, product: Optional[str] = None) -> dict:
         "model_signal_version": manifest["source_versions"]["model_signal_version"],
         "starts_at": manifest["collection"]["starts_at"],
         "status": status, "actionable": False, "affects_systems": False,
-        "product": product, "captured": len(rows), "eligible": len(eligible),
+        "product": product, "products": products,
+        "captured": len(rows), "eligible": len(eligible),
         "settled": len(settled), "coverage": (round(len(eligible) / len(rows), 4)
                                                 if rows else None),
         "issues": issues, "gate": gate, "horizons": horizons,

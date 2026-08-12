@@ -522,6 +522,26 @@ beslut. Uppskattade beslutsdatum:
 
 ### Öppet efter 2026-08-12
 
-- **Topptipset 4259 m20 frystes aldrig.** En missad frysning (h3 finns, m20
-  saknas), orsaken inte utredd. Liten men värd en titt: en systematisk lucka i
-  m20-frysningen skulle tunna ut PH3:s underlag tyst.
+- **Topptipset 4259 m20 frystes aldrig**, men omgången ställdes in och är
+  därför ingen förlorad modellobservation. Schedulerhändelsen är bara värd att
+  utreda som driftspår, inte som ett prioriterat datahål.
+
+### Codex-granskning 2026-08-12
+
+- **✅ Inställda omgångar påverkar inte längre facitstatistik.** De bevaras i
+  direktarkivet men räknas inte som settlade omgångar, rullpotter, omsättning
+  eller toppvinster. Topptipsets familj gick från 58 skenbara rollovers till
+  5 verkliga. Systemledgern särredovisar dem som `n_cancelled`.
+- **✅ Familjefiltret gäller även Poolmodell.** Topptipset inkluderar alla tre
+  slugs och samma match dedupliceras över kuponger.
+- **✅ Obelagt förlängningstecken faller stängt.** Rader och chans visas som
+  ett öppet spann tills ordinarie resultat är belagt; Current-score får inte
+  presenteras som poolfacit.
+- **✅ UI-/identitetshärdning.** Prognosgrunden visas läsbart och historikens
+  detaljcache nycklas på produkt + omgång. 689 backendtester, 12
+  frontendtester och produktionsbygget är gröna.
+- **✅ V2.2:s nollinsamling hittad.** V7 hade 4/4 rader underkända eftersom
+  manifestet bar sharp-basversionen där prediction-ledgerns sammansatta
+  signalversion skulle stå. V8 börjar rent med rätt versionspar; de fyra
+  ogiltiga v7-raderna lämnas orörda som diagnostisk historik. Ny manifest-
+  identitet ger enligt kontraktet featureversion `f22-d6baf69c`.

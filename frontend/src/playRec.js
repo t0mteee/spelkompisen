@@ -28,6 +28,17 @@ export const kompaktKr = (v) => {
   return n.toLocaleString('sv-SE') + ' kr'
 }
 
+export function projectionBasisText(basis) {
+  if (!basis) return 'median av tidigare omgångar'
+  if (typeof basis === 'string') return basis
+  const n = basis.n || 'de'
+  if (basis.mode === 'weekday') {
+    const days = ['mån', 'tis', 'ons', 'tors', 'fre', 'lör', 'sön']
+    return `median av ${n} senaste omgångarna med samma spelstoppsveckodag (${days[basis.weekday] ?? '?'})`
+  }
+  return `median av senaste ${n} omgångarna oavsett veckodag`
+}
+
 export function playRecommendation(payouts) {
   const p = payouts || {}
   // Samma val som spelvärdet: prognosen används bara när den är högre än

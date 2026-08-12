@@ -667,8 +667,7 @@ def live_status(coupon: dict, states: list[dict]) -> dict:
         number = state.get("event_number")
         by_event[int(number) if number is not None else i + 1] = state
     col_states = [by_event.get(events[i]) for i in range(width)]
-    decided = sum(1 for s in col_states
-                  if s and s.get("final") and not s.get("cancelled"))
+    decided = sum(1 for s in col_states if _decided(s))
     best_secure = 0
     secure_hist: dict[int, int] = {}
     possible_hist: dict[int, int] = {}
@@ -676,7 +675,7 @@ def live_status(coupon: dict, states: list[dict]) -> dict:
         secure = possible = 0
         for i in range(width):
             state = col_states[i]
-            if state is None or state.get("cancelled") or not state.get("final"):
+            if not _decided(state):
                 possible += 1        # okänd/struken/pågående kan ännu bli rätt
                 continue
             hit = state.get("sign") == row[i]
@@ -760,8 +759,14 @@ def _alive_span(rows: list[str], col_states: list[Optional[dict]], width: int,
 
 
 def _decided(state: Optional[dict]) -> bool:
-    """Står tecknet fast? Struken match är oavgjord tills SvS fastställt den."""
-    return bool(state and state.get("final") and not state.get("cancelled"))
+    """Står tecknet fast?
+
+    En struken match är öppen tills SvS fastställt tecknet. Detsamma gäller
+    ett förlängningstecken som bara härletts ur Current: ordinarie tid är då
+    slut, men vilket pooltecken som faktiskt gäller är ännu inte belagt.
+    """
+    return bool(state and state.get("final") and not state.get("cancelled")
+                and not state.get("sign_provisional"))
 
 
 def _match_rows(rows: list[str], col_states: list[Optional[dict]],
@@ -920,14 +925,15 @@ def _chance_per_level(rows: list[str], col_states: list[Optional[dict]],
     """
     if not rows or not width or not levels:
         return {}
-    open_cols = [i for i in range(width)
-                 if not (col_states[i] and col_states[i].get("final")
-                         and not col_states[i].get("cancelled"))]
+    open_cols = [i for i in range(width) if not _decided(col_states[i])]
     priced_cols, priced_probs, unpriced_cols, unpriced_names = [], [], [], []
     live_used = modelled_used = 0
     for i in open_cols:
         state = col_states[i] or {}
-        p = state.get("probs")
+        # Current under förlängning kan bära förlängningsmål. Även ett gammalt
+        # prematchpris vore då falsk precision för ett tecken vars facit ännu
+        # inte är känt; redovisa i stället intervallet över 1/X/2.
+        p = None if state.get("sign_provisional") else state.get("probs")
         if p and abs(sum(p.values()) - 1.0) <= 0.01:
             priced_cols.append(i)
             priced_probs.append(p)
@@ -963,7 +969,7 @@ def _chance_per_level(rows: list[str], col_states: list[Optional[dict]],
             secure = 0
             for i in range(width):
                 state = col_states[i]
-                if state and state.get("final") and not state.get("cancelled"):
+                if _decided(state):
                     secure += int(state.get("sign") == row[i])
             for k, col in enumerate(unpriced_cols):
                 secure += int(row[col] == pinned[k])

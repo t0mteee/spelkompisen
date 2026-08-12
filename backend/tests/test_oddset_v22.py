@@ -220,9 +220,12 @@ class V22ShadowTests(unittest.TestCase):
     def test_active_manifest_is_frozen_to_current_provider_policy(self) -> None:
         manifest = oddset_v22.load_manifest()
         frozen = manifest["source_versions_at_freeze"]
-        self.assertEqual("v2.2-wp9c-multileague-v7", manifest["experiment"])
-        self.assertEqual(frozen["model_signal_version"],
-                         oddset_v22.model_source_version(self.store))
+        self.assertEqual("v2.2-wp9c-multileague-v8", manifest["experiment"])
+        versions = oddset_ledger.prediction_versions(self.store)
+        self.assertEqual(frozen["sharp_signal_version"],
+                         versions["sharp"]["signal_version"])
+        self.assertEqual(frozen["sharp_base_version"],
+                         versions["sharp"]["base_version"])
         self.assertEqual(frozen["model_signal_version"],
                          oddset_v22.model_source_version(self.store))
         self.assertEqual(frozen["feature_version"],

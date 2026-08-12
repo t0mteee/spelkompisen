@@ -20,13 +20,14 @@ def _hist(product, family=False):
     return main.pool_history(product=product, limit=400, family=family)
 
 
-def _settle(store, product, draw, close, net_sale, top_winners, top_amount):
+def _settle(store, product, draw, close, net_sale, top_winners, top_amount,
+            state="Finalized"):
     store.conn.execute(
         "INSERT OR REPLACE INTO pool_draw_settlement (product, draw_number, "
         "draw_state, reg_close_time, net_sale, row_price, n_events, "
         "n_cancelled, product_name, payload_hash, fetched_at, source_version) "
         "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-        (product, draw, "Finalized", close, net_sale, 1.0, 8, 0,
+        (product, draw, state, close, net_sale, 1.0, 8, 0,
          product, f"h{product}{draw}", "2026-08-12T00:00:00Z", 1))
     store.conn.execute(
         "INSERT OR REPLACE INTO pool_payout_tier (product, draw_number, "
@@ -45,6 +46,8 @@ class PoolHistoryFamilyTests(unittest.TestCase):
         _settle(store, "topptipset", 4260, "2026-08-11T18:59:00+02:00", 1_419_016, 1598, 621.0)
         _settle(store, "topptipsetextra", 1856, "2026-08-09T13:59:00+02:00", 1_159_402, 348, 2332.0)
         _settle(store, "topptipsetstryk", 975, "2026-08-08T15:59:00+02:00", 500_000, 0, None)
+        _settle(store, "topptipset", 4259, "2026-08-10T18:59:00+02:00",
+                0, 0, 0.0, state="Cancelled")
         _settle(store, "stryktipset", 4965, "2026-08-08T15:59:00+02:00", 14_231_193, 11, 526_040.0)
         store.close()
         patcher = mock.patch.object(main, "Storage", lambda *a, **k: Storage(self.path))
@@ -91,6 +94,15 @@ class PoolHistoryFamilyTests(unittest.TestCase):
         self.assertAlmostEqual(svar["stats"]["rollover_rate"], 1 / 3)
         self.assertAlmostEqual(
             svar["stats"]["mean_turnover"], (1_419_016 + 1_159_402 + 500_000) / 3)
+
+    def test_installd_omgang_bevaras_i_arkivet_men_inte_i_statistiken(self):
+        svar = _hist("topptipset", family=True)
+
+        self.assertEqual(3, svar["total"])
+        self.assertEqual(4, svar["archive_total"])
+        self.assertEqual(1, svar["cancelled_count"])
+        self.assertNotIn(4259, [d["draw_number"] for d in svar["draws"]])
+        self.assertAlmostEqual(1 / 3, svar["stats"]["rollover_rate"])
 
     def test_familjen_blandar_aldrig_in_andra_spel(self):
         svar = _hist("topptipset", family=True)

@@ -14,6 +14,7 @@ import {
   SYSTEM_BASE, SYSTEM_SVS, FAMILY, kr, fmtClose, PlayRec,
   PlayedPanel, oddsetBestValue, SortableTable,
 } from './App'
+import { projectionBasisText } from './playRec.js'
 
 const VIEWS = [
   { id: 'idag', label: 'Idag', icon: '☀️' },
@@ -383,7 +384,7 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
                         {/* Omsättningen NU, med prognosen som spelvärdet räknas
                             mot — de skiljer sig kraftigt tidigt i en omgång. */}
                         <span title={g.pay.projected_turnover > g.pay.turnover
-                          ? `Omsatt hittills. Spelvärdet räknas mot prognostiserad slutomsättning ${kr(g.pay.projected_turnover)} (${g.pay.projection_basis || 'median av tidigare omgångar'}).`
+                          ? `Omsatt hittills. Spelvärdet räknas mot prognostiserad slutomsättning ${kr(g.pay.projected_turnover)} (${projectionBasisText(g.pay.projection_basis)}).`
                           : 'Omsatt hittills — spelvärdet räknas mot denna.'}>
                           oms <b>{kr(g.pay.turnover)}</b>
                           {g.pay.projected_turnover > g.pay.turnover
@@ -1135,7 +1136,9 @@ function SystemGroupsTable({ id, groups, limit = null }) {
             <td>{horizonLabel(g)}</td>
             <td>{g.latest_frozen ? fmtDay(g.latest_frozen) : '–'}</td>
             <td>{g.n_frozen}{g.n_timely < g.n_frozen
-              ? <span className="v3hint"> ({g.n_frozen - g.n_timely} sena)</span> : ''}</td>
+              ? <span className="v3hint"> ({g.n_frozen - g.n_timely} sena)</span> : ''}
+              {g.n_cancelled
+                ? <span className="v3hint"> ({g.n_cancelled} inställda)</span> : ''}</td>
             <td>{g.n_evaluable ? `${g.n_evaluable} tester` : '–'}
               {g.n_payout_incomplete
                 ? <span className="v3hint"> ({g.n_payout_incomplete} okänd utd.)</span> : ''}</td>
@@ -1171,6 +1174,7 @@ function SystemGroupsTable({ id, groups, limit = null }) {
             </div>
             <div className="v3groupcardfoot">
               <span>{g.n_frozen} sparade tester</span>
+              {g.n_cancelled ? <span>{g.n_cancelled} inställda</span> : null}
               <span>sim. utdelning {g.n_evaluable ? kr(g.payout_kr) : '–'}</span>
               <span>senast {g.latest_frozen ? fmtDay(g.latest_frozen) : '–'}</span>
               <span>bäst {g.best_correct ?? '–'} rätt</span>
@@ -1227,7 +1231,8 @@ function HistorikV3({ initialProduct, focus }) {
   }, [])
   useEffect(() => {
     let current = true
-    const query = single ? `?product=${product}` : ''
+    const query = single
+      ? `?product=${product}${IS_FAMILY(product) ? '&family=1' : ''}` : ''
     get(`/api/pool/strength-shadow${query}`)
       .then((value) => { if (current) setStrength(value) })
       .catch(() => { if (current) setStrength(null) })
@@ -1252,11 +1257,12 @@ function HistorikV3({ initialProduct, focus }) {
   // Raden lämnar sin EGEN produkt: i familjeläget kommer omgångarna från tre
   // slugs, och `product` är då familjenyckeln — den hittar inte Extra 1856.
   const toggle = (n, rowProduct) => {
-    const next = expanded === n ? null : n
+    const key = `${rowProduct || product}:${n}`
+    const next = expanded === key ? null : key
     setExpanded(next)
-    if (next != null && !detail[next]) {
-      get(`/api/pool/history?product=${rowProduct || product}&draw=${next}`)
-        .then((j) => setDetail((d) => ({ ...d, [next]: j })))
+    if (next != null && !detail[key]) {
+      get(`/api/pool/history?product=${rowProduct || product}&draw=${n}`)
+        .then((j) => setDetail((d) => ({ ...d, [key]: j })))
         .catch(() => { /* raden visar ändå nivåerna */ })
     }
   }
@@ -1285,7 +1291,7 @@ function HistorikV3({ initialProduct, focus }) {
       const cur = out.get(key)
       if (!cur) { out.set(key, { ...g, product: FAMILY(g.product) }); continue }
       for (const f of ['n_frozen', 'n_settled', 'n_timely', 'n_evaluable',
-        'n_unresolvable', 'n_payout_incomplete', 'cost_kr', 'payout_kr']) {
+        'n_unresolvable', 'n_cancelled', 'n_payout_incomplete', 'cost_kr', 'payout_kr']) {
         cur[f] = (cur[f] || 0) + (g[f] || 0)
       }
       if ((g.latest_frozen || '') > (cur.latest_frozen || '')) cur.latest_frozen = g.latest_frozen
@@ -1658,6 +1664,10 @@ function HistorikV3({ initialProduct, focus }) {
                 <div className="v3kpi"><b>{data.stats?.rollover_rate != null ? Math.round(100 * data.stats.rollover_rate) : 0} %</b><span>utan toppvinnare</span></div>
                 <div className="v3kpi"><b>{data.stats?.mean_turnover ? kr(data.stats.mean_turnover) : '–'}</b><span>medelomsättning</span></div>
               </div>
+              {data.cancelled_count > 0 && (
+                <span className="v3hint">{data.cancelled_count} inställda omgångar
+                  finns kvar i arkivet men är exkluderade ur statistik och facit.</span>
+              )}
               {sparkVals.filter(Boolean).length > 2 && (
                 <div className="v3sparkbox">
                   <span className="v3hint">Omsättning, äldst → nyast ({draws.length} omgångar)</span>
@@ -1673,6 +1683,7 @@ function HistorikV3({ initialProduct, focus }) {
                   <tbody>
                     {shownDraws.map((d) => {
                       const top = d.tiers?.[0]
+                      const rowKey = `${d.product || product}:${d.draw_number}`
                       return [
                         <tr key={`${d.product || product}-${d.draw_number}`} className="v3histrowline"
                           role="button" tabIndex={0}
@@ -1689,9 +1700,9 @@ function HistorikV3({ initialProduct, focus }) {
                             {d.top_winners === 0 && <span className="v3roll" title="Ingen vinnare på toppnivån — potten rullar">🎰</span>}
                             {d.n_cancelled > 0 && <span className="v3cancel" title={`${d.n_cancelled} struken/strukna matcher`}>⚠️</span>}</td>
                           <td>{top?.amount ? kr(top.amount) : '–'}</td>
-                          <td className="v3expand">{expanded === d.draw_number ? '▲' : '▼'}</td>
+                          <td className="v3expand">{expanded === rowKey ? '▲' : '▼'}</td>
                         </tr>,
-                        expanded === d.draw_number && (
+                        expanded === rowKey && (
                           <tr key={`${d.product || product}-${d.draw_number}-x`} className="v3histdetail"><td colSpan="6">
                             <div className="v3tiers">
                               {(d.tiers || []).map((t) => (
@@ -1700,11 +1711,11 @@ function HistorikV3({ initialProduct, focus }) {
                                 </span>
                               ))}
                             </div>
-                            {!detail[d.draw_number] && <LoadingState label="Hämtar matchfacit…" />}
-                            {detail[d.draw_number]?.available && (
+                            {!detail[rowKey] && <LoadingState label="Hämtar matchfacit…" />}
+                            {detail[rowKey]?.available && (
                               <table className="v3facit">
                                 <tbody>
-                                  {detail[d.draw_number].draw.events.map((e) => (
+                                  {detail[rowKey].draw.events.map((e) => (
                                     <tr key={e.event_number} className={e.cancelled ? 'cancelled' : ''}>
                                       <td>{e.event_number}</td>
                                       <td>{e.home && e.away ? `${e.home} – ${e.away}` : e.description}</td>
