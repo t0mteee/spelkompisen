@@ -64,6 +64,12 @@ Allsvenskan 2026 är 125/125 i xG efter säker bakfyllning. Lagstyrketabellen
 visar nu både faktiska `Spelade` och `Med xG`, så täckning inte kan misstolkas
 som lagets matchantal.
 
+**V2.2-versionerna bevakas automatiskt 2026-08-12.** `/api/health` jämför
+manifestets sharp-signal, sharp-bas, modell och feature mot runtime innan
+första capture, larmar på sparade `source_version_changed`-rader och varnar
+om minst fem rader samlats utan en enda eligible. Felet syns både i menyns
+datastatus och med konkret orsak på Idag-vyn.
+
 **Poolstatus 2026-08-09.** Settlement omprövas per payload och på varje
 femminuterstick; Topptipsets scanhint delas av API och insamlingsvarv; b1024
 är ute ur åttamatchsfamiljen. Ett rent läsande änd-till-änd-larm kontrollerar
@@ -127,7 +133,7 @@ Ordinarie 5175 kör nu byggd bundle, dev/StrictMode ligger på 5181. Uppmätt vi
 frontend, Oddset-snapshot, pool/settlement och liveradar kör nu på
 `192.168.50.100`. Huvuddatorns motsvarande tjänster är stoppade och dess
 orörda databas är rollback. MacBooken har verifierad SQLite-onlinebackup,
-689 gröna backendtester och tolv gröna frontendtester efter Codex-granskningen
+691 gröna backendtester och tolv gröna frontendtester efter Codex-granskningen
 2026-08-12, alla åtta källfamiljer
 gröna och bevisat nya pool-, live- och källhälsorader efter skiftet.
 `caffeinate -s` håller den vaken på nätström. Huvuddatorns Serverkontroll

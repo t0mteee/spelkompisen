@@ -538,10 +538,14 @@ beslut. Uppskattade beslutsdatum:
   ett öppet spann tills ordinarie resultat är belagt; Current-score får inte
   presenteras som poolfacit.
 - **✅ UI-/identitetshärdning.** Prognosgrunden visas läsbart och historikens
-  detaljcache nycklas på produkt + omgång. 689 backendtester, 12
+  detaljcache nycklas på produkt + omgång. 691 backendtester, 12
   frontendtester och produktionsbygget är gröna.
 - **✅ V2.2:s nollinsamling hittad.** V7 hade 4/4 rader underkända eftersom
   manifestet bar sharp-basversionen där prediction-ledgerns sammansatta
   signalversion skulle stå. V8 börjar rent med rätt versionspar; de fyra
   ogiltiga v7-raderna lämnas orörda som diagnostisk historik. Ny manifest-
   identitet ger enligt kontraktet featureversion `f22-d6baf69c`.
+- **✅ Automatisk V2.2-kontraktsvakt.** `/api/health` faller nu från grönt om
+  manifestets fyra versioner inte matchar runtime, om en aktuell capture får
+  `source_version_changed`, eller om fem rader samlats utan en enda eligible.
+  Idag-vyn visar orsaken; menyns befintliga datastatus blir röd.

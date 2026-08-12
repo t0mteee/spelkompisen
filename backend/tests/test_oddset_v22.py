@@ -1,4 +1,5 @@
 import datetime as dt
+import copy
 import json
 import tempfile
 import unittest
@@ -216,6 +217,11 @@ class V22ShadowTests(unittest.TestCase):
         self.assertEqual(0, shadow["eligible"])
         self.assertEqual("source_version_changed", shadow["fallback_reason"])
         self.assertIn("model_source_version_changed", issues)
+        health = oddset_v22.health(self.store)
+        self.assertEqual("error", health["status"])
+        self.assertEqual(1, health["source_mismatch_rows"])
+        self.assertEqual("captured_source_mismatch",
+                         health["issues"][0]["kind"])
 
     def test_active_manifest_is_frozen_to_current_provider_policy(self) -> None:
         manifest = oddset_v22.load_manifest()
@@ -230,6 +236,29 @@ class V22ShadowTests(unittest.TestCase):
                          oddset_v22.model_source_version(self.store))
         self.assertEqual(frozen["feature_version"],
                          oddset_v22.feature_version(self.store))
+        self.assertEqual("ok", oddset_v22.health(self.store)["status"])
+
+    def test_health_larmar_innan_capture_nar_manifestet_inte_matchar(self) -> None:
+        broken = copy.deepcopy(oddset_v22.load_manifest())
+        broken["source_versions_at_freeze"]["sharp_signal_version"] = "s-fel"
+
+        with patch.object(oddset_v22, "load_manifest", return_value=broken):
+            health = oddset_v22.health(self.store)
+
+        self.assertEqual("error", health["status"])
+        self.assertEqual(0, health["rows"])
+        self.assertEqual("source_contract_mismatch", health["issues"][0]["kind"])
+        self.assertIn("sharp_signal_version", health["issues"][0]["message"])
+
+    def test_health_varnar_nar_fem_rader_i_rad_saknar_eligible(self) -> None:
+        rows = [{"eligible": 0, "issues_json": '["wp9c_issues"]'}
+                for _ in range(oddset_v22.ZERO_ELIGIBLE_MIN_ROWS)]
+
+        with patch.object(self.store, "oddset_v22_shadows", return_value=rows):
+            health = oddset_v22.health(self.store)
+
+        self.assertEqual("warning", health["status"])
+        self.assertEqual("zero_eligible_rows", health["issues"][0]["kind"])
 
     def test_feeder_alias_change_bumps_feature_version(self) -> None:
         before = oddset_v22.feature_version(self.store)

@@ -23,6 +23,7 @@ from .storage import Storage
 
 
 SIGNS = ("1", "X", "2")
+ZERO_ELIGIBLE_MIN_ROWS = 5
 SCOPE_LEAGUES = (
     "allsvenskan", "premier_league", "serie_a", "la_liga", "bundesliga",
 )
@@ -509,6 +510,74 @@ def audit(store: Storage) -> dict:
         "rows": len(rows), "unique_matches": len(unique),
         "eligible_rows": len(eligible), "states": states,
         "identity_max_abs": identity_error, "horizons": by_horizon,
+    }
+
+
+def health(store: Storage) -> dict:
+    """Rent läsande vakt för V2.2:s datagenererande kontrakt.
+
+    En kohort ska falla stängt när en källa byter version, men det får inte
+    ske tyst. V7 samlade fyra rader där alla underkändes därför att manifestet
+    bar sharpens basversion i fältet för ledgerns sammansatta signalversion.
+    Den här kontrollen jämför därför kontraktet direkt innan första capture,
+    och granskar dessutom radernas sparade bortfallsorsaker.
+    """
+    from . import oddset_ledger
+
+    manifest = load_manifest()
+    frozen = manifest["source_versions_at_freeze"]
+    sharp = oddset_ledger.prediction_versions(store)["sharp"]
+    current = {
+        "sharp_signal_version": sharp["signal_version"],
+        "sharp_base_version": sharp["base_version"],
+        "model_signal_version": model_source_version(store),
+        "feature_version": feature_version(store),
+    }
+    mismatches = [key for key, value in current.items()
+                  if frozen.get(key) != value]
+    rows = store.oddset_v22_shadows(shadow_version())
+    eligible = sum(bool(row.get("eligible")) for row in rows)
+    source_mismatch_rows = 0
+    for row in rows:
+        try:
+            reasons = json.loads(row.get("issues_json") or "[]")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            reasons = []
+        if any(str(reason).endswith("source_version_changed")
+               for reason in reasons):
+            source_mismatch_rows += 1
+
+    issues = []
+    if mismatches:
+        issues.append({
+            "level": "error", "kind": "source_contract_mismatch",
+            "message": ("manifestet matchar inte runtime: "
+                        + ", ".join(mismatches)),
+        })
+    if source_mismatch_rows:
+        issues.append({
+            "level": "error", "kind": "captured_source_mismatch",
+            "message": (f"{source_mismatch_rows}/{len(rows)} rader har "
+                        "underkänts av versionslåset"),
+        })
+    if (len(rows) >= ZERO_ELIGIBLE_MIN_ROWS and eligible == 0
+            and not mismatches and not source_mismatch_rows):
+        issues.append({
+            "level": "warning", "kind": "zero_eligible_rows",
+            "message": (f"0/{len(rows)} rader är användbara; kontrollera "
+                        "identitet och featuretäckning"),
+        })
+    status = ("error" if any(i["level"] == "error" for i in issues)
+              else "warning" if issues else "ok")
+    return {
+        "status": status,
+        "experiment": manifest["experiment"],
+        "shadow_version": shadow_version(),
+        "rows": len(rows), "eligible_rows": eligible,
+        "source_mismatch_rows": source_mismatch_rows,
+        "zero_eligible_min_rows": ZERO_ELIGIBLE_MIN_ROWS,
+        "versions": {"frozen": frozen, "current": current},
+        "issues": issues,
     }
 
 

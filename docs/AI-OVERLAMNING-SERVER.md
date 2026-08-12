@@ -306,6 +306,12 @@ launchctl kickstart -k gui/501/com.saman.spelkompisen.backend
 curl -fsS http://127.0.0.1:8002/api/health
 ```
 
+Hälsosvaret omfattar både `pools` och `v22`. V2.2-delen är en rent läsande
+kontraktsvakt: den jämför manifestets sharp-signal, sharp-bas, modell och
+feature mot runtime samt larmar på versionsunderkända captures eller fem
+rader utan någon eligible. Övergripande `status=degraded` betyder därför att
+även en forskningsinsamling kan ha stannat, trots att webb och API kör.
+
 Efter frontendändring: kör tester och `npm run build`, starta sedan om
 `com.saman.spelkompisen.frontend`. Frontendtjänsten bygger inte automatiskt;
 den serverar befintlig `dist/` via Vite preview.

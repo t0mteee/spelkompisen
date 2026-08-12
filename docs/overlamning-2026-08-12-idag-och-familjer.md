@@ -157,6 +157,21 @@ det nya familje-/inställt-kontraktet rättades:
 Migreringsskriptets framtida backup använder SQLite onlinebackup, så DB och
 WAL inte kan kopieras i olika ögonblick.
 
-Verifiering: 689 backendtester, 12 frontendtester och produktionsbygget är
+Verifiering: 691 backendtester, 12 frontendtester och produktionsbygget är
 gröna. Före rättningen gav produktionslagret Topptipset-familjen 58
 rollovers; rätt population (inställda exkluderade) ger 5.
+
+### Automatisk V2.2-vakt (Codex, samma dag)
+
+`oddset_v22.health()` jämför aktiva manifestets fyra frysta identiteter mot
+runtime: sammansatt sharp-signalversion, sharp-basversion, V2.2-modellversion
+och featureversion. Därmed blir ett versionsfel synligt i `/api/health`
+**innan första capture**. Vakten larmar också om någon aktuell rad bär
+`*_source_version_changed`, samt om minst fem rader samlats men noll är
+eligible av andra orsaker.
+
+`/api/health.status` blir `degraded`, menyn visar att datastatus kräver
+tillsyn och Idag-vyn skriver den konkreta V2.2-orsaken. Kontrollen är helt
+lokal och rent läsande. V8 verifierades efter driftsättning som `ok` med alla
+fyra versioner lika och 0/0 nystartade rader; nästa riktiga horisontcapture är
+första dataprov.

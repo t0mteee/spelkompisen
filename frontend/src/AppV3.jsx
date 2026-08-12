@@ -334,6 +334,7 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
     .filter((r) => r.sum?.available)
     .sort((a, b) => new Date(b.senaste?.close || 0) - new Date(a.senaste?.close || 0))
   const poolIssues = health?.pools?.issues || []
+  const v22Issues = health?.v22?.issues || []
   // Spelstoppen ligger i spelstoppsordning, inte i produktordning — kortet
   // svarar på "vad stänger härnäst". Grupper utan öppen omgång hamnar sist.
   const stops = [...(pool || [])].sort((a, b) => {
@@ -353,6 +354,14 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
             </span>
           ))}
           {poolIssues.length > 4 && <span>+{poolIssues.length - 4} ytterligare fel</span>}
+        </div>
+      )}
+      {v22Issues.length > 0 && (
+        <div className="v3alert" role="alert">
+          <b>⚠️ V2.2-insamlingen behöver tillsyn</b>
+          {v22Issues.map((issue, i) => (
+            <span key={`${issue.kind}-${i}`}>{issue.message}</span>
+          ))}
         </div>
       )}
       {/* Toppraden har egna kolumnbredder: spelstoppen staplas en per rad och
