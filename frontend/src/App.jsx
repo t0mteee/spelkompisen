@@ -2,6 +2,7 @@ import { Component, Fragment, useCallback, useEffect, useEffectEvent, useRef, us
 import './App.css'
 import { summarizeSourceHealth } from './sourceHealth.js'
 import { payoutMatchesSelection } from './poolSelection.js'
+import { kompaktKr, playRecommendation } from './playRec.js'
 
 // Komponentbibliotek: appskalet bor i AppV3.jsx (laddas av main.jsx) och
 // importerar alla tunga byggstenar, konstanter och helpers härifrån —
@@ -105,7 +106,7 @@ function Legend() {
   return (
     <div className="legendbox">
       <button className="legend-toggle" onClick={() => setOpen(!open)}>
-        ℹ Vad betyder färgerna & symbolerna? {open ? '▲' : '▼'}
+        ℹ️ Vad betyder färgerna & symbolerna? {open ? '▲' : '▼'}
       </button>
       {open && (
         <div className="legend">
@@ -129,7 +130,7 @@ function Legend() {
             {' '}<b className="m-move-down">⇊</b> oddset har stärkts i våra mätningar · ↓ fallande mot startodds.</div>
           <div>RLM (folket och sharp åt olika håll): <b className="m-rlm-go">◆</b> smart pengar —
             folket lämnar tecknet medan sharp köper (dubbelt köpläge) ·
-            {' '}<b className="m-rlm-fade">⚠</b> folket strömmar in medan sharp säljer — undvik/fadea.</div>
+            {' '}<b className="m-rlm-fade">⚠️</b> folket strömmar in medan sharp säljer — undvik/fadea.</div>
           <div><b>Grön ram</b> på en odds-cell = tecknet ligger i din kupong.
             {' '}Grön <b>ton + ×N</b> (radläge) = N av förslagets rader använder tecknet — starkare ton, fler rader.</div>
           <div>Rörelse-flaggor (håll muspekaren för detaljer):
@@ -309,7 +310,7 @@ function OddsCell({ o, derived, picked, onToggle, valueOk, series, rowCount, row
         {o.tags?.includes('rörelse_upp') && <span className="m-move-up" title={`försvagas: ${o.move_from}→${o.move_to}`}>⇈</span>}
         {o.tags?.includes('fallande_odds') && <span title="fallande vs startodds">↓</span>}
         {o.tags?.includes('rlm_go') && <span className="m-rlm-go" title={`Smart pengar (RLM): folket lämnar (${o.streck_move} pp) medan sharp köper (+${o.steam_pp} pp devigad) — dubbelt köpläge`}>◆</span>}
-        {o.tags?.includes('rlm_fade') && <span className="m-rlm-fade" title={`Varning (RLM): folket strömmar in (+${o.streck_move} pp) medan sharp säljer (${o.steam_pp} pp devigad) — undvik/fadea`}>⚠</span>}
+        {o.tags?.includes('rlm_fade') && <span className="m-rlm-fade" title={`Varning (RLM): folket strömmar in (+${o.streck_move} pp) medan sharp säljer (${o.steam_pp} pp devigad) — undvik/fadea`}>⚠️</span>}
       </div>
     </td>
   )
@@ -743,7 +744,7 @@ function OddsetLegend() {
   return (
     <div className="legendbox">
       <button className="legend-toggle" onClick={() => setOpen(!open)}>
-        ℹ Vad betyder siffrorna — och vad är värde? {open ? '▲' : '▼'}
+        ℹ️ Vad betyder siffrorna — och vad är värde? {open ? '▲' : '▼'}
       </button>
       {open && (
         <div className="legend">
@@ -887,7 +888,7 @@ function PowerRankPanel({ leagues }) {
   return (
     <div className="tab-panel powerrank">
       <div className="valhead">
-        <b>🏋 Lagstyrka och xPoäng</b>
+        <b>🏋️ Lagstyrka och xPoäng</b>
         <span className="rchip amber">amber · påverkar inga tips</span>
         <select value={league} onChange={(e) => {
           setLeague(e.target.value); setSeason(''); setData(null); setErr(null)
@@ -1391,7 +1392,7 @@ function OddsetView({ focus = null } = {}) {
         })}
         {showModel && cmp?.model?.[sign] && (
           <div className="m"
-            title={`Egen modell (xG-viktad Poisson-styrkefit; DC-korrektion i prediktionen): ${(md.p[sign] * 100).toFixed(1)}%\nμ ${md.mu[0]}–${md.mu[1]} · T=${md.cal_t || 1}${md.anchored ? ' · totalnivå ankrad mot sharp Ö/U' : ' · OANKRAD (ingen sharp-linje ännu)'}${md.prior ? '\n⚠ Elo-prior: minst ett lag har tunn historik — styrka skattad ur ClubElo' : ''}\nT valdes på samma historiska backtestmaterial; ledgern är oberoende forward-facit.\nAmber-tier: experimentell`}>
+            title={`Egen modell (xG-viktad Poisson-styrkefit; DC-korrektion i prediktionen): ${(md.p[sign] * 100).toFixed(1)}%\nμ ${md.mu[0]}–${md.mu[1]} · T=${md.cal_t || 1}${md.anchored ? ' · totalnivå ankrad mot sharp Ö/U' : ' · OANKRAD (ingen sharp-linje ännu)'}${md.prior ? '\n⚠️ Elo-prior: minst ett lag har tunn historik — styrka skattad ur ClubElo' : ''}\nT valdes på samma historiska backtestmaterial; ledgern är oberoende forward-facit.\nAmber-tier: experimentell`}>
             <ModelCompare cmp={cmp} sign={sign} />
             {mEdge >= 0.05 && <span className="apill"
               title={`Modellen tror ${(md.p[sign] * 100).toFixed(1)}% — SvS betalar ${(m.odds?.svenskaspel?.['1x2']?.[sign] || 0).toFixed(2)} = ${(mEdge * 100).toFixed(1)}% modell-edge.\nAmber = okalibrerad signal, spela inte blint på den.`}>
@@ -1984,13 +1985,13 @@ function OddsetView({ focus = null } = {}) {
           {m.home} – {m.away}{steamBadge(m)}{absBadge(m)}
           {(() => {
             const r = rankPair(m)
-            return r ? <span className="rchip rankchip" title={r.title}>🏋 {r.text}</span> : null
+            return r ? <span className="rchip rankchip" title={r.title}>🏋️ {r.text}</span> : null
           })()}
           {m.research && <span className="rchip" title="Forskningsliga — odds och rörelser visas, men inga spelbara signaler.">🔬</span>}
           {m.data_conflict && (
             <span className="conflictchip"
               title={`${m.data_conflict.message}\n${(m.data_conflict.reasons || []).join('\n')}`}>
-              ⚠ datakrock · inga signaler
+              ⚠️ datakrock · inga signaler
             </span>
           )}
         </td>
@@ -2106,7 +2107,7 @@ function OddsetView({ focus = null } = {}) {
       <div className="oddset-tabs" role="tablist" aria-label="Oddset-vy">
         {[['matcher', '📋 Matcher'], ['live', '⚡ Live'],
           ['varde', '💰 Värdespel'], ['rorelser', '📈 Rörelser'],
-          ['styrka', '🏋 Lagstyrka']].map(([t, label]) => (
+          ['styrka', '🏋️ Lagstyrka']].map(([t, label]) => (
           <button key={t} className={`oddset-tab ${oddsetTab === t ? 'active' : ''}`}
             role="tab" aria-selected={oddsetTab === t}
             onClick={() => pickTab(t)}>{label}</button>
@@ -2926,7 +2927,7 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
                 onClick={markPlayed} disabled={playedStatus === 'sparar'}
                 title="Bokför att DU har lämnat in den här kupongen hos Svenska Spel. Inget spel läggs härifrån — knappen ger facit per kupong och livestatus för reducerade system under omgången.">
                 {playedStatus === true ? '✓ Bokförd som spelad'
-                  : playedStatus === 'sparar' ? 'Sparar…' : '🎟 Markera som spelad'}</button>
+                  : playedStatus === 'sparar' ? 'Sparar…' : '🎟️ Markera som spelad'}</button>
             )}
           </div>
           {egnaUrl ? (
@@ -3235,7 +3236,7 @@ function PlayedPanel({ product = null }) {
     return <p className="hint">{all.length
       ? 'Inga bokförda kuponger för det här spelet.'
       : <>Inga bokförda kuponger än. Bygg ett förslag, lämna in det
-        hos Svenska Spel och tryck <b>🎟 Markera som spelad</b> i kupongen — då följs
+        hos Svenska Spel och tryck <b>🎟️ Markera som spelad</b> i kupongen — då följs
         reducerade system live och får riktigt facit när omgången är klar.</>}</p>
   }
   const forget = async (id) => {
@@ -3589,14 +3590,14 @@ function BombenView({ draw, nonce }) {
         {data.rullpott != null && (data.rullpott > 0
           ? <span className="playrec go"
             title={`Rullpott ${kr(data.rullpott)} ligger kvar i potten från tidigare omgångar — extern subvention är det som kan lyfta Bomben över uttaget (~65 % återbetalning). OBS: Poisson-modellens EV är modellhärledd och ingår inte i CLV-facitet.`}>
-            spelläge: rullpott — spela</span>
+            omgången: rullpott — spela</span>
           : <span className="playrec skip"
             title="Bomben återbetalar ~65 % — utan rullpott äter uttaget edgen; Poisson-modellens EV är modellhärledd och ingår inte i CLV-facitet.">
-            spelläge: avstå</span>)}
+            omgången: avstå</span>)}
         <span>Omsättning <b>{kr(data.turnover)}</b></span>
         <span>{data.match_count} matcher · tippa exakt resultat</span>
         {data.jackpot > 0 && <span className="jackpot">💰 <b>Jackpot {kr(data.jackpot)}</b></span>}
-        {!data.sharp_available && <span className="st-wait">⚠ Pinnacle nere – ingen värdemodell, bara folkets streck</span>}
+        {!data.sharp_available && <span className="st-wait">⚠️ Pinnacle nere – ingen värdemodell, bara folkets streck</span>}
       </div>
       <div className="bomben-intro">
         <span><b>Kvoten</b> visar modellens chans jämfört med folkets. Procentsiffran visar hur troligt resultatet faktiskt är.</span>
@@ -3630,17 +3631,25 @@ function BombenView({ draw, nonce }) {
 // SPELLÄGE (2026-07-26, Samans "förbättra allt"): uttaget är 30–40 %, så
 // VILKA omgångar man spelar styr EV mer än radvalet. Ren syntes av befintliga
 // tal (prognostiserat spelvärde + PH5-domen) — ingen ny signal, inget facit.
+// Etiketten gäller OMGÅNGEN, aldrig kupongen bredvid den. Spelvärdet är
+// payout_ratio (en KONSTANT per produkt: 0,598/0,637/0,700) + jackpot/omsättning,
+// så utan extern subvention är utfallet alltid "avstå" — det är aritmetik, inte
+// en bedömning av raderna. En etikett som bara kan anta ett värde bär noll
+// information, så chipet visar i stället AVSTÅNDET till nästa tröskel: hur stor
+// jackpot som saknas. Prefixet säger "omgången" av samma skäl — den tittar inte
+// på ditt system, din EV eller κ.
 function PlayRec({ payouts, product }) {
-  const sv = payouts.projected_turnover > payouts.turnover
-    ? (payouts.spelvarde_proj || 0)
-    : (payouts.spelvarde || payouts.payout_ratio || 0)
+  const { sv, proj, level, gap } = playRecommendation(payouts)
   const thirteen = product === 'stryktipset' || product === 'europatipset'
-  const [label, cls] = sv >= 1 ? ['spelläge: jackpot — spela', 'go']
-    : sv >= 0.8 ? ['spelläge: tunt — spela smått', 'thin']
-      : ['spelläge: avstå', 'skip']
+  const label = level === 'go' ? 'jackpot — spela' : level === 'thin' ? 'tunt' : 'avstå'
+  const need = gap != null ? kompaktKr(gap) : null
+  // Pillret och avståndet är SKILDA element: poolkorten är 159 px breda på
+  // mobil, så en enda nowrap-rad klipptes mitt i beloppet. Nu wrappar de i
+  // stället till två rader och hela summan går att läsa.
   return (
-    <span className={`playrec ${cls}`} title={`Rekommendation ur prognostiserat spelvärde (${Math.round(sv * 100)} %). Under 80 %: uttaget äter mer än någon uppmätt radvalsfördel — avstå eller spela symboliskt. 80–100 %: tunt; kräver att slå break-even-hurdlen. ≥100 %: jackpot/rullpott subventionerar fältet — det är då poolspel kan bära positiv EV.${thirteen ? ' OBS 13-matchsspel: radvalet har ingen påvisad fördel (PH5 2026-07-26) — spelvärdet är hela caset.' : ' Topptipset-spelen: radvalsfördel uppmätt +7–15 pp mot folk-/favoritrad (PH5, 3 976 omgångar), men vinst kommer i en minoritet av omgångarna — variansen är stor.'}`}>
-      {label}
+    <span className="playrec-wrap" title={`Gäller OMGÅNGEN, inte din kupong — den tittar varken på ditt system, din EV eller κ. Prognostiserat spelvärde ${Math.round(sv * 100)} % = produktens återbetalning (${Math.round((payouts.payout_ratio || 0) * 100)} %, konstant) plus jackpot delat med omsättningen. Utan jackpot kan svaret därför inte bli något annat än avstå.${need ? ` Det krävs ${need} mer i jackpot för att nå ${sv >= 0.8 ? 'spelläge (100 %)' : 'tunt läge (80 %)'} vid ${proj ? 'prognostiserad' : 'nuvarande'} omsättning.` : ''} Under 80 %: uttaget äter mer än någon uppmätt radvalsfördel — avstå eller spela symboliskt. 80–100 %: tunt, spela smått; kräver att slå break-even-hurdlen på ${payouts.hurdle != null ? `+${Math.round(payouts.hurdle * 100)} %` : 'radvalet'} mot fältet. ≥100 %: jackpot/rullpott subventionerar fältet — det är då poolspel kan bära positiv EV.${thirteen ? ' OBS 13-matchsspel: radvalet har ingen påvisad fördel (PH5 2026-07-26) — spelvärdet är hela caset.' : ' Topptipset-spelen: radvalsfördel uppmätt +7–15 pp mot folk-/favoritrad (PH5, 3 976 omgångar), men vinst kommer i en minoritet av omgångarna — variansen är stor.'} Eventuella garantier (t.ex. ensamvinnargaranti) ingår medvetet INTE — villkoren är overifierade mot SvS regler.`}>
+      <span className={`playrec ${level}`}>omgången: {label}</span>
+      {need && <span className="playrec-gap">{level === 'thin' ? 'spela' : 'tunt'} vid +{need}</span>}
     </span>)
 }
 

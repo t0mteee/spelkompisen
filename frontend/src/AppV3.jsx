@@ -17,7 +17,7 @@ import {
 
 const VIEWS = [
   { id: 'idag', label: 'Idag', icon: '☀️' },
-  { id: 'pool', label: 'Poolspel', icon: '🎟' },
+  { id: 'pool', label: 'Poolspel', icon: '🎟️' },
   { id: 'oddset', label: 'Oddset', icon: '⚡' },
   { id: 'historik', label: 'Historik', icon: '🗄' },
   { id: 'labb', label: 'Labb', icon: '🧪' },
@@ -269,7 +269,7 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
     <div className="v3dash">
       {poolIssues.length > 0 && (
         <div className="v3alert" role="alert">
-          <b>⚠ Poolinsamlingen behöver tillsyn</b>
+          <b>⚠️ Poolinsamlingen behöver tillsyn</b>
           {poolIssues.slice(0, 4).map((issue, i) => (
             <span key={`${issue.product}-${issue.kind}-${issue.draw_number || i}`}>
               {issue.product}{issue.draw_number ? ` omg ${issue.draw_number}` : ''}: {issue.message}
@@ -280,7 +280,7 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
       )}
       <div className="v3grid">
         <div className="v3card v3span2">
-          <div className="v3cardhead"><h3>🎟 Nästa spelstopp</h3>
+          <div className="v3cardhead"><h3>🎟️ Nästa spelstopp</h3>
             <span className="v3hint">poolspelen just nu</span></div>
           {!pool && <LoadingState label="Hämtar omgångar…" />}
           <div className="v3stops">
@@ -313,7 +313,7 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
 
         {(played?.coupons || []).some((c) => !c.settled_at) && (
           <div className="v3card">
-            <div className="v3cardhead"><h3>🎟 Dina kuponger</h3>
+            <div className="v3cardhead"><h3>🎟️ Dina kuponger</h3>
               <button className="v3more" onClick={() => openHistorik()}>facit →</button></div>
             {played.coupons.filter((c) => !c.settled_at).slice(0, 4).map((c) => {
               const live = c.live || {}
@@ -868,7 +868,7 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
                     <td>{e.event_number}</td>
                     <td>{e.home && e.away ? `${e.home} – ${e.away}` : e.description}</td>
                     <td className="v3outcome">
-                      {e.cancelled ? '⚠' : e.outcome || '–'}</td>
+                      {e.cancelled ? '⚠️' : e.outcome || '–'}</td>
                     <td>{e.covered.join('')}{e.hit === false
                       ? <span className="v3neg" title="Systemet spelade inte det
                         tecken som gick in — inget av raderna kunde bli rätt här."> ✗</span>
@@ -1115,7 +1115,7 @@ function HistorikV3({ initialProduct, focus }) {
 
       {/* ---------------------------- kuponger ---------------------------- */}
       <div className="v3card">
-        <div className="v3cardhead"><h3>🎟 Dina spelade kuponger</h3>
+        <div className="v3cardhead"><h3>🎟️ Dina spelade kuponger</h3>
           <span className="v3hint">bara kuponger du markerat som spelade</span>
         </div>
         <PlayedPanel product={single ? product : null} />
@@ -1454,7 +1454,7 @@ function HistorikV3({ initialProduct, focus }) {
                           <td>{d.turnover ? kr(d.turnover) : '–'}</td>
                           <td>{top ? `${top.name}: ${top.winners ?? '–'} st` : '–'}
                             {d.top_winners === 0 && <span className="v3roll" title="Ingen vinnare på toppnivån — potten rullar">🎰</span>}
-                            {d.n_cancelled > 0 && <span className="v3cancel" title={`${d.n_cancelled} struken/strukna matcher`}>⚠</span>}</td>
+                            {d.n_cancelled > 0 && <span className="v3cancel" title={`${d.n_cancelled} struken/strukna matcher`}>⚠️</span>}</td>
                           <td>{top?.amount ? kr(top.amount) : '–'}</td>
                           <td className="v3expand">{expanded === d.draw_number ? '▲' : '▼'}</td>
                         </tr>,
@@ -1475,7 +1475,7 @@ function HistorikV3({ initialProduct, focus }) {
                                     <tr key={e.event_number} className={e.cancelled ? 'cancelled' : ''}>
                                       <td>{e.event_number}</td>
                                       <td>{e.home && e.away ? `${e.home} – ${e.away}` : e.description}</td>
-                                      <td className="v3outcome">{e.cancelled ? '⚠ struken' : e.outcome || '–'}</td>
+                                      <td className="v3outcome">{e.cancelled ? '⚠️ struken' : e.outcome || '–'}</td>
                                       <td className="v3hint">
                                         {e.streck?.['1'] != null
                                           ? `folket ${e.streck['1']}/${e.streck['X']}/${e.streck['2']} %` : ''}
@@ -1692,7 +1692,7 @@ const HISTORIK_RESEARCH = [
   { icon: '📐', title: 'pit-v4 (pool-streckmove-v3)', status: 'samlar',
     text: 'Forward samlar, gate ≥40 out-of-time-omgångar per produkt.',
     doc: 'docs/pool-ph4-forward-manifest-v3.json' },
-  { icon: '🎟', title: 'PH5 256/512 rader', date: '2026-07-26', status: 'fals',
+  { icon: '🎟️', title: 'PH5 256/512 rader', date: '2026-07-26', status: 'fals',
     text: 'Värderader ger ingen påvisad fördel på 13-matchsspel ens vid 512 rader.',
     doc: 'docs/ph5-radvalsablation-512rader-2026-07-26.json' },
   { icon: '🔓', title: 'startOdds', date: '2026-07-26', status: 'pass',

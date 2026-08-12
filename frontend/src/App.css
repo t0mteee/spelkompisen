@@ -744,6 +744,11 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 }
 .pool-value { display: inline-flex; gap: 5px; align-items: baseline; flex-wrap: wrap; }
 .pool-value .current-value { color: var(--muted); font-size: 11px; }
+/* Pillret säger domen, .playrec-gap hur långt ifrån omgången ligger. Två
+   element för att poolkorten bara är 159 px breda på mobil — som en enda
+   nowrap-rad klipptes beloppet mitt itu. */
+.playrec-wrap { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 5px; }
+.playrec-gap { font-size: 10px; color: var(--muted); white-space: nowrap; }
 .playrec { border: 1px solid currentColor; border-radius: 10px; padding: 0 8px;
   font-weight: 600; font-size: 11px; white-space: nowrap; }
 .playrec.go { color: #3ddc84; }
