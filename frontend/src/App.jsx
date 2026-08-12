@@ -1779,7 +1779,12 @@ function OddsetView({ focus = null } = {}) {
     { key: 'edge', label: 'Edge', value: (r) => r.v.edge },
     { key: 'kelly', label: '¼-Kelly', value: (r) => kelly(r.v) },
     { key: 'tier', label: 'Nivå', value: (r) => r.v.q ?? 0 },
-    { key: 'anchor', label: 'Andra ankaret', value: (r) => r.v.anchor2?.edge ?? null },
+    /* Kolumnen "Andra ankaret" är borttagen 2026-08-12. Smarkets kopplades
+       bort som andra ankare 2026-08-07 (56 030 priser på 1X2, NOLL på
+       AH/Ö/U/hörnor — den kunde mäta 24 % av flaggorna), så kolumnen stod
+       tom för allt nytt och visade bara historik. Mätningen i sig är orörd:
+       `anchor2_*` skrivs vidare i oddset_value_log och spärren i
+       ANCHOR_SOURCES står kvar — den är en säkerhetsspärr, inte en visning. */
   ]
   const valueSupport = ({ m, mk, sg }) => {
     const support = []
@@ -1812,11 +1817,6 @@ function OddsetView({ focus = null } = {}) {
         <td>{kelly(v)} kr</td>
         <td><span className={`rekpill ${tier.cls}${tier.disputed ? ' disputed' : ''}`}>
           {tier.disputed ? '⚓ ' : ''}{tier.short}</span></td>
-        <td>{v.anchor2?.edge != null
-          ? <span className={v.anchor2.edge >= 0 ? 'pos' : 'neg'}>
-              {v.anchor2.edge >= 0 ? '+' : ''}{(v.anchor2.edge * 100).toFixed(1)} %
-            </span>
-          : '–'}</td>
       </tr>
     )
   }

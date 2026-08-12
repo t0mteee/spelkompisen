@@ -37,6 +37,15 @@ const HIST_PRODUCTS = [
 ]
 const PRODUCT_LABEL = Object.fromEntries(
   [...POOL_GAMES, ...HIST_PRODUCTS].map((p) => [p.id, p.label]))
+/* Topptipset Dagens/Stryk/Extra är SAMMA spel hos Svenska Spel: åtta matcher,
+   samma vinstplan (70 %), bara olika omgångar under olika namn (pid 25/23/24).
+   På facit-korten räknas de därför som EN produkt.
+
+   Detta är enbart en VISNINGSgruppering. Produktslug, settlementidentitet,
+   PH3:s config_key och `benchmarks_for(product)` är oförändrade — en nyckel
+   får aldrig byta betydelse i efterhand, och de tre har egna omgångsserier. */
+const FAMILY = (p) => (String(p || '').startsWith('topptipset') ? 'topptipset' : p)
+const FAMILY_LABEL = { ...PRODUCT_LABEL, topptipset: 'Topptipset' }
 // Under så här många utvärderingsbara observationer visas ingen ROI någonstans
 // i appen — ett par rättade omgångar ger tresiffriga procenttal som är brus.
 const ROI_MIN_N = 10
@@ -113,6 +122,22 @@ function fmtKickoff(iso) {
   if (dygn === 0) return `idag ${tid}`
   if (dygn === 1) return `imorgon ${tid}`
   return `${d.toLocaleDateString('sv-SE', { weekday: 'short', day: 'numeric', month: 'numeric' })} ${tid}`
+}
+
+/* Rörelsen i ODDS i stället för bara procentenheter: "1.92 → 1.68".
+
+   `steam` och `value.fair` mäter SAMMA storhet — Pinnacles devigade
+   1X2-sannolikhet (attach_steam respektive attach_value) — så skiftet kan
+   uttryckas i odds utan någon ny insamling: sannolikheten då är den nu minus
+   pp, och odds är inversen. Det är alltså den DEVIGADE kvoten, inte Pinnacles
+   noterade pris (som ligger under sin marginal). Saknas fair för tecknet visas
+   inget par alls hellre än ett påhittat. */
+const oddsSkift = (m, sg, pp) => {
+  const nu = m.value?.['1x2']?.[sg]?.fair
+  if (nu == null || pp == null) return null
+  const da = nu - pp / 100
+  if (!(nu > 0 && nu < 1) || !(da > 0 && da < 1)) return null
+  return `${(1 / da).toFixed(2)} → ${(1 / nu).toFixed(2)}`
 }
 
 const selLabel3 = (m, mk, sg, line) => {
@@ -288,10 +313,29 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
   const nGreen = primaryGroups.filter((g) => g.status === 'green').length
   // Historikfacit visade arkivantal ("699 omgångar sedan 2013") — ett tal som
   // aldrig ändras. Senast settlade omgången med utdelning gör kortet dagsfärskt.
-  const histRows = HIST_PRODUCTS
-    .map((p) => ({ ...p, sum: hist?.[p.id], senaste: hist?.[p.id]?.draws?.[0] }))
-    .filter((r) => r.sum?.available)
-    .sort((a, b) => new Date(b.senaste?.close || 0) - new Date(a.senaste?.close || 0))
+  // Topptipsets tre slugs slås ihop till en rad: senast settlade omgång i hela
+  // familjen vinner, arkivtotalerna summeras, och djuplänken pekar på den slug
+  // omgången faktiskt tillhör.
+  const histRows = (() => {
+    const fam = new Map()
+    for (const p of HIST_PRODUCTS) {
+      const sum = hist?.[p.id]
+      if (!sum?.available) continue
+      const key = FAMILY(p.id)
+      const cur = fam.get(key)
+        || { key, label: FAMILY_LABEL[key] || p.label, total: 0, id: p.id, senaste: null, variant: null }
+      cur.total += sum.total || 0
+      const senaste = sum.draws?.[0]
+      if (senaste && (!cur.senaste || new Date(senaste.close) > new Date(cur.senaste.close))) {
+        cur.senaste = senaste
+        cur.id = p.id
+        cur.variant = VARIANT[p.id] || null
+      }
+      fam.set(key, cur)
+    }
+    return [...fam.values()]
+      .sort((a, b) => new Date(b.senaste?.close || 0) - new Date(a.senaste?.close || 0))
+  })()
   const poolIssues = health?.pools?.issues || []
   // Spelstoppen ligger i spelstoppsordning, inte i produktordning — kortet
   // svarar på "vad stänger härnäst". Grupper utan öppen omgång hamnar sist.
@@ -340,6 +384,14 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
                     </span>
                     {g.pay?.available && (
                       <span className="v3kpis">
+                        {/* Omsättningen NU, med prognosen som spelvärdet räknas
+                            mot — de skiljer sig kraftigt tidigt i en omgång. */}
+                        <span title={g.pay.projected_turnover > g.pay.turnover
+                          ? `Omsatt hittills. Spelvärdet räknas mot prognostiserad slutomsättning ${kr(g.pay.projected_turnover)} (${g.pay.projection_basis || 'median av tidigare omgångar'}).`
+                          : 'Omsatt hittills — spelvärdet räknas mot denna.'}>
+                          oms <b>{kr(g.pay.turnover)}</b>
+                          {g.pay.projected_turnover > g.pay.turnover
+                            ? ` → ${kr(g.pay.projected_turnover)}` : ''}</span>
                         <span title="Spelvärde vid spelstopp (prognos): total återbetalning inkl. jackpot mot prognostiserad omsättning">
                           spelvärde <b className={(g.pay.spelvarde_proj || g.pay.spelvarde || 0) >= 1 ? 'pos' : ''}>
                             {Math.round(((g.pay.spelvarde_proj ?? g.pay.spelvarde) || 0) * 100)}%</b></span>
@@ -358,6 +410,8 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
           <div className="v3cardhead"><h3>💰 Värdespel</h3>
             <button className="v3more" onClick={() => openOddset('varde')}>alla →</button></div>
           {!signals.length && <span className="v3hint">Inga sharp-ankrade edges ≥ 2 % just nu.</span>}
+          {signals.length > 0 && <span className="v3hint">sorterat på kvalitet (Kelly-andel),
+            inte på rå edge — samma urval som värdekorten i Oddset</span>}
           {signals.slice(0, 5).map(({ m, mk, sg, v }, i) => (
             <div key={i} className="v3row v3feedrow">
               <span className="v3feedtop">
@@ -367,8 +421,13 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
               <span className="v3feedmatch">{m.home} – {m.away}</span>
               <span className="v3hint">
                 {ligaNamn[m.league] || m.league}{m.start ? ` · ${fmtKickoff(m.start)}` : ''}
-                {' · '}{v.book} @ {v.odds?.toFixed(2)}
-                {v.fair != null ? ` · fair ${(v.fair * 100).toFixed(1)} %` : ''}
+                {/* Priset mot det pris edgen FAKTISKT räknas mot: Pinnacle
+                    devigad (1/fair). Pinnacles råa kvot ligger under sin marginal
+                    och är inte den som jämförs — fair-procenten sa samma sak men
+                    i en enhet som inte går att ställa bredvid bokens odds. */}
+                {' · '}{v.book} {v.odds?.toFixed(2)}
+                {v.fair ? ` mot Pinnacle ${(1 / v.fair).toFixed(2)} devigad` : ''}
+                {v.q != null ? ` · kval ${(v.q * 100).toFixed(1)} %` : ''}
                 {v.derived ? ' · härlett pris' : ''}
               </span>
               {/* "bekräftat kvar" får bara stå när det oförändrade bokpriset
@@ -382,22 +441,31 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
           <div className="v3cardhead"><h3>📈 Rörelser</h3>
             <button className="v3more" onClick={() => openOddset('radar')}>radar →</button></div>
           {!movers.length && <span className="v3hint">Inga devigade skift ≥ 1,5 pp senaste dygnet.</span>}
-          {movers.slice(0, 5).map(({ m, sg, pp, h6, h24 }, i) => (
-            <div key={i} className="v3row v3feedrow">
-              <span className="v3feedtop">
-                <b>{selLabel3(m, '1x2', sg)}</b>
-                <span className="v3steam">🔥 +{pp} pp</span>
-              </span>
-              <span className="v3feedmatch">{m.home} – {m.away}{m.research ? ' · 🔬' : ''}</span>
-              <span className="v3hint">
-                {ligaNamn[m.league] || m.league}{m.start ? ` · ${fmtKickoff(m.start)}` : ''}
-                {/* Två fönster: ett skift som bara syns på 24 h är gammalt,
-                    ett som syns på båda pågår just nu. */}
-                {h6 != null ? ` · 6 h ${h6 >= 0 ? '+' : ''}${h6} pp` : ''}
-                {h24 != null ? ` · 24 h ${h24 >= 0 ? '+' : ''}${h24} pp` : ''}
-              </span>
-            </div>
-          ))}
+          {movers.slice(0, 5).map(({ m, sg, pp, h6, h24 }, i) => {
+            // Rubriksiffran är det STÖRSTA av fönstren — oddsparet måste gälla
+            // just det fönstret, annars beskriver de två olika rörelser.
+            const drivande = (h24 != null && pp === h24) ? 24 : 6
+            const andra = drivande === 24 ? h6 : h24
+            const skift = oddsSkift(m, sg, pp)
+            return (
+              <div key={i} className="v3row v3feedrow">
+                <span className="v3feedtop">
+                  <b>{selLabel3(m, '1x2', sg)}</b>
+                  <span className="v3steam">🔥 +{pp} pp</span>
+                </span>
+                <span className="v3feedmatch">{m.home} – {m.away}{m.research ? ' · 🔬' : ''}</span>
+                <span className="v3hint">
+                  {ligaNamn[m.league] || m.league}{m.start ? ` · ${fmtKickoff(m.start)}` : ''}
+                  {skift ? ` · Pinnacle ${skift} på ${drivande} h` : ''}
+                  {/* Det andra fönstret avgör om skiftet PÅGÅR eller är gammalt:
+                      ett dygnsskift utan rörelse senaste sex timmarna är avstannat. */}
+                  {andra != null
+                    ? ` · ${drivande === 24 ? '6' : '24'} h ${andra >= 0 ? '+' : ''}${andra} pp`
+                    : ''}
+                </span>
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -496,13 +564,21 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
             // tio raderna, vilket radbröt dem. Nu står den en gång i foten.
             const perProduct = new Map()
             for (const g of groups.filter((x) => x.primary)) {
-              const cur = perProduct.get(g.product)
-                || { product: g.product, n_frozen: 0, n_evaluable: 0, n_settled: 0, horizons: new Set() }
+              // Topptipsets tre slugs är samma spel och slås ihop till en rad.
+              const key = FAMILY(g.product)
+              const cur = perProduct.get(key)
+                || { product: key, n_frozen: 0, n_evaluable: 0, n_settled: 0,
+                     cost_kr: 0, payout_kr: 0, horizons: new Set() }
               cur.n_frozen += g.n_frozen
               cur.n_evaluable += g.n_evaluable
               cur.n_settled += g.n_settled
+              // ROI aggregeras över KRONOR, aldrig som medel av gruppernas
+              // ROI — en grupp med två omgångar skulle annars väga lika tungt
+              // som en med tjugo.
+              cur.cost_kr += g.cost_kr || 0
+              cur.payout_kr += g.payout_kr || 0
               if (g.horizon_minutes != null) cur.horizons.add(g.horizon_minutes)
-              perProduct.set(g.product, cur)
+              perProduct.set(key, cur)
             }
             // Deterministisk ordning — förut kom raderna i API-ordning och såg
             // slumpmässiga ut. Mest rättat först, produktnamn som tiebreak.
@@ -511,16 +587,23 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
             const horisonter = [...new Set(rows.flatMap((r) => [...r.horizons]))].sort((a, b) => b - a)
             return (
               <>
-                {rows.map((r) => (
-                  <div key={r.product} className="v3row">
-                    <b>{PRODUCT_LABEL[r.product] || r.product}</b>
-                    <span className="v3hint">{r.n_frozen} frysta · {r.n_settled} rättade</span>
-                    {/* ROI döljs under ROI_MIN_N. En rättad omgång gav +898 %,
-                        vilket är brus presenterat som facit. Samma regel som Labb. */}
-                    <span className={r.n_evaluable >= ROI_MIN_N ? 'v3edge' : 'v3hint'}>
-                      {r.n_evaluable >= ROI_MIN_N ? 'ROI i Historik' : `ROI vid ${ROI_MIN_N}`}</span>
-                  </div>
-                ))}
+                {rows.map((r) => {
+                  // ROI döljs under ROI_MIN_N. En rättad omgång gav +898 %,
+                  // vilket är brus presenterat som facit. Samma regel som Labb.
+                  const moget = r.n_evaluable >= ROI_MIN_N && r.cost_kr > 0
+                  const roi = moget ? r.payout_kr / r.cost_kr - 1 : null
+                  return (
+                    <div key={r.product} className="v3row">
+                      <b>{FAMILY_LABEL[r.product] || r.product}</b>
+                      <span className="v3hint">{r.n_frozen} frysta · {r.n_settled} rättade</span>
+                      {roi != null
+                        ? <span className={roi >= 0 ? 'v3edge' : 'v3steam'}
+                          title={`Insats ${kr(r.cost_kr)} · utdelning ${kr(r.payout_kr)} över ${r.n_evaluable} jämförbara frysningar. Kontrafaktiskt system med egen vinnarutspädning — inte spelade pengar.`}>
+                          {roi >= 0 ? '+' : ''}{Math.round(roi * 100)} %</span>
+                        : <span className="v3hint">ROI vid {ROI_MIN_N}</span>}
+                    </div>
+                  )
+                })}
                 {/* Raderna räknar championfamiljen, `frozen`/`settled` HELA
                     benchmarkregistret (utmanare och pensionerade nycklar).
                     Skilj dem åt — annars summerar inte foten till raderna. */}
@@ -540,7 +623,7 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
           {/* Senast SETTLADE omgången med sin toppvinst — det är den som ändras.
               Arkivantalet ("699 omgångar sedan 2013") står kvar i foten. */}
           {histRows.slice(0, 4).map((r) => (
-            <div key={r.id} className="v3row v3histrow" role="button" tabIndex={0}
+            <div key={r.key} className="v3row v3histrow" role="button" tabIndex={0}
               onClick={() => openHistorik(r.id)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -550,18 +633,20 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
               <b>{r.label}{r.senaste ? ` ${r.senaste.draw_number}` : ''}</b>
               {r.senaste ? (
                 <span className="v3hint">
-                  {fmtDay(r.senaste.close)} · oms {kr(r.senaste.turnover)}
+                  {r.variant ? `${r.variant} · ` : ''}{fmtDay(r.senaste.close)} ·
+                  {' '}oms {kr(r.senaste.turnover)}
                   {r.senaste.top_winners != null && r.senaste.tiers?.[0]
                     ? ` · ${r.senaste.top_winners} vinnare på ${r.senaste.tiers[0].correct} rätt`
                     : ''}
                   {r.senaste.top_amount ? ` · ${kr(r.senaste.top_amount)}` : ''}
                 </span>
-              ) : <span className="v3hint">{r.sum.total} omgångar i arkivet</span>}
+              ) : <span className="v3hint">{r.total} omgångar i arkivet</span>}
             </div>
           ))}
           <span className="v3hint">
-            {histRows.reduce((s, r) => s + (r.sum?.total || 0), 0)} settlade omgångar i arkivet —
-            slutstreck, omsättning och full utdelning per omgång, facit och aldrig prematch-input.</span>
+            {histRows.reduce((s, r) => s + (r.total || 0), 0)} settlade omgångar i arkivet —
+            slutstreck, omsättning och full utdelning per omgång, facit och aldrig prematch-input.
+            Topptipset Dagens, Stryk och Extra räknas som ett spel.</span>
         </div>
       </div>
     </div>
