@@ -46,6 +46,12 @@ const PRODUCT_LABEL = Object.fromEntries(
    får aldrig byta betydelse i efterhand, och de tre har egna omgångsserier. */
 const FAMILY = (p) => (String(p || '').startsWith('topptipset') ? 'topptipset' : p)
 const FAMILY_LABEL = { ...PRODUCT_LABEL, topptipset: 'Topptipset' }
+// Väljarens poster: en per familj, i HIST_PRODUCTS ordning. Backend expanderar
+// familjenyckeln via svenskaspel.GAME_GROUPS när `family=1` skickas med.
+const HIST_FAMILIES = HIST_PRODUCTS
+  .filter((p, i, all) => all.findIndex((q) => FAMILY(q.id) === FAMILY(p.id)) === i)
+  .map((p) => ({ id: FAMILY(p.id), label: FAMILY_LABEL[FAMILY(p.id)] || p.label }))
+const IS_FAMILY = (id) => HIST_PRODUCTS.filter((p) => FAMILY(p.id) === id).length > 1
 // Under så här många utvärderingsbara observationer visas ingen ROI någonstans
 // i appen — ett par rättade omgångar ger tresiffriga procenttal som är brus.
 const ROI_MIN_N = 10
@@ -254,8 +260,8 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
           defer(() => guarded(request('/api/pool/played'), setPlayed), 900)
         }
       })
-      Promise.all(HIST_PRODUCTS.map((p) =>
-        request(`/api/pool/history?product=${p.id}&limit=1`)
+      Promise.all(HIST_FAMILIES.map((p) =>
+        request(`/api/pool/history?product=${p.id}&limit=1${IS_FAMILY(p.id) ? '&family=1' : ''}`)
           .then((j) => [p.id, j]).catch(() => [p.id, null])
       )).then((pairs) => {
         if (current()) setHist(Object.fromEntries(pairs))
@@ -313,29 +319,20 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
   const nGreen = primaryGroups.filter((g) => g.status === 'green').length
   // Historikfacit visade arkivantal ("699 omgångar sedan 2013") — ett tal som
   // aldrig ändras. Senast settlade omgången med utdelning gör kortet dagsfärskt.
-  // Topptipsets tre slugs slås ihop till en rad: senast settlade omgång i hela
-  // familjen vinner, arkivtotalerna summeras, och djuplänken pekar på den slug
-  // omgången faktiskt tillhör.
-  const histRows = (() => {
-    const fam = new Map()
-    for (const p of HIST_PRODUCTS) {
+  // Backend slår ihop Topptipsets tre slugs (family=1), så raden är redan
+  // familjens senaste settlade omgång — den bär sin egen produkt för
+  // djuplänken och för variantetiketten.
+  const histRows = HIST_FAMILIES
+    .map((p) => {
       const sum = hist?.[p.id]
-      if (!sum?.available) continue
-      const key = FAMILY(p.id)
-      const cur = fam.get(key)
-        || { key, label: FAMILY_LABEL[key] || p.label, total: 0, id: p.id, senaste: null, variant: null }
-      cur.total += sum.total || 0
-      const senaste = sum.draws?.[0]
-      if (senaste && (!cur.senaste || new Date(senaste.close) > new Date(cur.senaste.close))) {
-        cur.senaste = senaste
-        cur.id = p.id
-        cur.variant = VARIANT[p.id] || null
+      const senaste = sum?.draws?.[0]
+      return {
+        key: p.id, label: p.label, sum, senaste, total: sum?.total || 0,
+        id: senaste?.product || p.id, variant: VARIANT[senaste?.product] || null,
       }
-      fam.set(key, cur)
-    }
-    return [...fam.values()]
-      .sort((a, b) => new Date(b.senaste?.close || 0) - new Date(a.senaste?.close || 0))
-  })()
+    })
+    .filter((r) => r.sum?.available)
+    .sort((a, b) => new Date(b.senaste?.close || 0) - new Date(a.senaste?.close || 0))
   const poolIssues = health?.pools?.issues || []
   // Spelstoppen ligger i spelstoppsordning, inte i produktordning — kortet
   // svarar på "vad stänger härnäst". Grupper utan öppen omgång hamnar sist.
@@ -1220,7 +1217,7 @@ function HistorikV3({ initialProduct, focus }) {
   useEffect(() => {
     if (!single) return undefined
     let current = true
-    get(`/api/pool/history?product=${product}&limit=400`)
+    get(`/api/pool/history?product=${product}&limit=400${IS_FAMILY(product) ? '&family=1' : ''}`)
       .then((value) => { if (current) setData(value) })
       .catch((e) => { if (current) setErr(String(e)) })
     return () => { current = false }
@@ -1238,8 +1235,9 @@ function HistorikV3({ initialProduct, focus }) {
     return () => { current = false }
   }, [product, single])
   useEffect(() => {
-    Promise.all(HIST_PRODUCTS.map((p) => get(`/api/pool/history?product=${p.id}&limit=1`)
-      .then((j) => [p.id, j]).catch(() => [p.id, null])))
+    Promise.all(HIST_FAMILIES.map((p) =>
+      get(`/api/pool/history?product=${p.id}&limit=1${IS_FAMILY(p.id) ? '&family=1' : ''}`)
+        .then((j) => [p.id, j]).catch(() => [p.id, null])))
       .then((pairs) => setOverview(Object.fromEntries(pairs)))
   }, [])
   // djuplänk från Idag-kortet: landa på Systemfacit-panelen
@@ -1252,11 +1250,13 @@ function HistorikV3({ initialProduct, focus }) {
     return () => clearTimeout(t)
   }, [focus, !!systems])  // eslint-disable-line
 
-  const toggle = (n) => {
+  // Raden lämnar sin EGEN produkt: i familjeläget kommer omgångarna från tre
+  // slugs, och `product` är då familjenyckeln — den hittar inte Extra 1856.
+  const toggle = (n, rowProduct) => {
     const next = expanded === n ? null : n
     setExpanded(next)
     if (next != null && !detail[next]) {
-      get(`/api/pool/history?product=${product}&draw=${next}`)
+      get(`/api/pool/history?product=${rowProduct || product}&draw=${next}`)
         .then((j) => setDetail((d) => ({ ...d, [next]: j })))
         .catch(() => { /* raden visar ändå nivåerna */ })
     }
@@ -1265,13 +1265,16 @@ function HistorikV3({ initialProduct, focus }) {
   const draws = data?.draws || []
   const shownDraws = showAllDraws ? draws : draws.slice(0, 20)
   const sparkVals = [...draws].reverse().map((d) => d.turnover)
-  const inScope = (row) => !single || row.product === product
+  // Filtret jämför på FAMILJ: väljs Topptipset ska alla tre slugs med, både i
+  // systemfacit och i omsättningen. Andra spel har sig själva som familj.
+  const inScope = (row) => !single || FAMILY(row.product) === FAMILY(product)
 
   const allGroups = (systems?.groups || []).filter(inScope)
   const activeGroupBase = allGroups.filter((g) => !g.retired)
   const retiredGroupBase = allGroups.filter((g) => g.retired)
   const groupMatches = (g) => (
-    (groupFilter.product === 'alla' || g.product === groupFilter.product)
+    // Alternativen kommer ur HIST_FAMILIES, så jämförelsen sker på familj.
+    (groupFilter.product === 'alla' || FAMILY(g.product) === groupFilter.product)
     && (groupFilter.budget === 'alla' || String(g.budget) === groupFilter.budget)
     && (groupFilter.strategy === 'alla' || g.strategy === groupFilter.strategy)
     && (groupFilter.horizon === 'alla'
@@ -1279,8 +1282,8 @@ function HistorikV3({ initialProduct, focus }) {
   )
   const activeGroups = activeGroupBase.filter(groupMatches)
   const retiredGroups = retiredGroupBase.filter(groupMatches)
-  const groupProducts = HIST_PRODUCTS.filter((p) =>
-    activeGroupBase.some((g) => g.product === p.id))
+  const groupProducts = HIST_FAMILIES.filter((p) =>
+    activeGroupBase.some((g) => FAMILY(g.product) === p.id))
   const groupBudgets = [...new Set(activeGroupBase.map((g) => g.budget))]
     .filter((v) => v != null).sort((a, b) => a - b)
   const groupStrategies = [...new Set(activeGroupBase.map((g) => g.strategy))]
@@ -1300,7 +1303,7 @@ function HistorikV3({ initialProduct, focus }) {
         <nav className="v3subnav" aria-label="Spel">
           <button className={product === 'alla' ? 'on' : ''}
             onClick={() => chooseProduct('alla')}>Alla spel</button>
-          {HIST_PRODUCTS.map((p) => (
+          {HIST_FAMILIES.map((p) => (
             <button key={p.id} className={product === p.id ? 'on' : ''}
               onClick={() => chooseProduct(p.id)}>{p.label}</button>
           ))}
@@ -1334,6 +1337,11 @@ function HistorikV3({ initialProduct, focus }) {
           FDR-korrigering över hela utmanarfamiljen. Utdelningen är en
           kontrafaktisk uppskattning: den publicerade nivån späds med våra egna
           vinnande rader.
+          {' '}<b>Topptipset Dagens, Stryk och Extra står kvar var för sig här</b>,
+          till skillnad från resten av sidan: varje rad ÄR en förregistrerad
+          jämförelse mellan champion och utmanare i just den omgångsserien. Att
+          slå ihop dem vore ett annat statistiskt test än det som registrerades,
+          inte en annan rubrik.
         </span>
 
         {!champRows.length && (
@@ -1577,7 +1585,7 @@ function HistorikV3({ initialProduct, focus }) {
               <thead><tr><th>Spel</th><th>Omgångar</th><th>Median toppvinst</th>
                 <th>Utan toppvinnare</th><th>Medelomsättning</th></tr></thead>
               <tbody>
-                {HIST_PRODUCTS.map((p) => {
+                {HIST_FAMILIES.map((p) => {
                   const o = overview[p.id]
                   return (
                     <tr key={p.id} className="v3histrowline" role="button" tabIndex={0}
@@ -1637,15 +1645,19 @@ function HistorikV3({ initialProduct, focus }) {
                     {shownDraws.map((d) => {
                       const top = d.tiers?.[0]
                       return [
-                        <tr key={d.draw_number} className="v3histrowline"
+                        <tr key={`${d.product || product}-${d.draw_number}`} className="v3histrowline"
                           role="button" tabIndex={0}
-                          onClick={() => toggle(d.draw_number)}
+                          onClick={() => toggle(d.draw_number, d.product)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault(); toggle(d.draw_number)
+                              e.preventDefault(); toggle(d.draw_number, d.product)
                             }
                           }}>
-                          <td>{d.draw_number}</td>
+                          {/* Varianten står ut i familjeläget — annars ser tre
+                              nummerserier ut som hål i en enda serie. */}
+                          <td>{d.draw_number}
+                            {IS_FAMILY(product) && VARIANT[d.product]
+                              && <span className="v3hint"> {VARIANT[d.product]}</span>}</td>
                           <td>{fmtDay(d.close)}</td>
                           <td>{d.turnover ? kr(d.turnover) : '–'}</td>
                           <td>{top ? `${top.name}: ${top.winners ?? '–'} st` : '–'}
@@ -1655,7 +1667,7 @@ function HistorikV3({ initialProduct, focus }) {
                           <td className="v3expand">{expanded === d.draw_number ? '▲' : '▼'}</td>
                         </tr>,
                         expanded === d.draw_number && (
-                          <tr key={`${d.draw_number}-x`} className="v3histdetail"><td colSpan="6">
+                          <tr key={`${d.product || product}-${d.draw_number}-x`} className="v3histdetail"><td colSpan="6">
                             <div className="v3tiers">
                               {(d.tiers || []).map((t) => (
                                 <span key={t.name} className="v3tier">

@@ -828,13 +828,20 @@ function oddsetBestValue(m) {
 }
 // Nivå: OMTVISTAD när andra sharp-ankaret (Smarkets) värderar samma bokodds
 // negativt; annars STARK/EDGE/SVAG på kvalitet q — inte på rå edge.
+/* ⚓-nivån "OMTVISTAD EDGE" är borttagen 2026-08-12. Den byggde på Smarkets
+   som andra sharp-ankare, vilket kopplades bort 2026-08-07: källan hade
+   56 030 priser på 1X2 men NOLL på AH/Ö/U/hörnor och kunde bara mäta 24 % av
+   flaggorna, så markeringen sa mer om täckningshålet än om edgen.
+
+   Mätningen fortsätter i skugga (`anchor2_*` i oddset_value_log) och spärren i
+   ANCHOR_SOURCES står kvar — den är en säkerhetsspärr som hindrar Smarkets
+   från att bli spelbar bok, inte en visning. Skulle ankaret återinföras är det
+   ett nytt beslut med egen förregistrering, inte en återställd etikett. */
 function oddsetValueTier(v) {
   const q = v.q ?? 0
-  const disputed = v.anchor2?.fair != null && v.anchor2.edge <= 0
-  if (disputed) return { cls: 't1', label: 'OMTVISTAD EDGE', short: 'OMTVISTAD', disputed }
-  if (q >= 0.04) return { cls: 't3', label: 'STARK EDGE', short: 'STARK', disputed }
-  if (q >= 0.02) return { cls: 't2', label: 'EDGE', short: 'EDGE', disputed }
-  return { cls: 't1', label: 'SVAG EDGE', short: 'SVAG', disputed }
+  if (q >= 0.04) return { cls: 't3', label: 'STARK EDGE', short: 'STARK' }
+  if (q >= 0.02) return { cls: 't2', label: 'EDGE', short: 'EDGE' }
+  return { cls: 't1', label: 'SVAG EDGE', short: 'SVAG' }
 }
 
 
@@ -1294,11 +1301,10 @@ function OddsetView({ focus = null } = {}) {
   // visas inte som pills (för sköra), men loggas ändå i facitet.
   const edgePill = (v, prefix = '') => {
     if (!v || v.edge < 0.02 || (v.q ?? 0) < 0.0075) return null
-    const disputed = v.anchor2?.fair != null && v.anchor2.edge <= 0
     return (
-      <span className={disputed ? 'epill disputed' : 'epill'}
-        title={`Devigad Pinnacle: ${(v.fair * 100).toFixed(1)}% (fair odds ${(1 / v.fair).toFixed(2)})\nBoken betalar ${v.odds.toFixed(2)} → ${(v.edge * 100).toFixed(1)}% övervärde\nKvalitet (Kelly-andel): ${((v.q ?? 0) * 100).toFixed(1)}% — samma edge är skörare ju högre odds${v.derived ? '\n(P~ = härlett ur handikapp — ta med en nypa salt)' : ''}${disputed ? `\n⚓ Smarkets motsäger signalen: ${(v.anchor2.edge * 100).toFixed(1)}% mot samma bokodds. Tvåankarmätningen är ännu shadow och ändrar inte urvalet.` : ''}`}>
-        {disputed ? '⚓ ' : ''}{prefix && `${prefix} `}+{Math.round(v.edge * 100)}%{v.derived ? '°' : ''}
+      <span className="epill"
+        title={`Devigad Pinnacle: ${(v.fair * 100).toFixed(1)}% (fair odds ${(1 / v.fair).toFixed(2)})\nBoken betalar ${v.odds.toFixed(2)} → ${(v.edge * 100).toFixed(1)}% övervärde\nKvalitet (Kelly-andel): ${((v.q ?? 0) * 100).toFixed(1)}% — samma edge är skörare ju högre odds${v.derived ? '\n(P~ = härlett ur handikapp — ta med en nypa salt)' : ''}`}>
+        {prefix && `${prefix} `}+{Math.round(v.edge * 100)}%{v.derived ? '°' : ''}
       </span>
     )
   }
@@ -1490,15 +1496,14 @@ function OddsetView({ focus = null } = {}) {
     const tier = oddsetValueTier(v)
     return (
       <td className="rek">
-        <span className={`rekpill ${tier.cls}${tier.disputed ? ' disputed' : ''}`}
+        <span className={`rekpill ${tier.cls}`}
           title={[
             `${tier.label} — matchens bästa värdeselektion (samma motor och nivåer som 💰-korten; ren visning, loggar inget).`,
             `Devigad Pinnacle: ${(v.fair * 100).toFixed(1)} % (fair ${(1 / v.fair).toFixed(2)}) — ${BOOK_NAME[v.book] || v.book} betalar ${v.odds.toFixed(2)} = +${(v.edge * 100).toFixed(1)} % övervärde.`,
             `Kvalitet (Kelly-andel): ${((v.q ?? 0) * 100).toFixed(1)} % — nivån sätts på kvalitet, inte rå edge.`,
             v.derived ? '° = sharp-priset är härlett ur handikapp — ta med en nypa salt.' : null,
-            tier.disputed ? `⚓ Smarkets (andra sharp-ankaret) motsäger signalen: ${(v.anchor2.edge * 100).toFixed(1)} % mot samma bokodds — edgen är omtvistad. Tvåankarmätningen är shadow och ändrar inte urvalet.` : null,
           ].filter(Boolean).join('\n')}>
-          {tier.disputed ? '⚓ ' : ''}{tier.short} +{(v.edge * 100).toFixed(1)}%{v.derived ? '°' : ''}
+          {tier.short} +{(v.edge * 100).toFixed(1)}%{v.derived ? '°' : ''}
         </span>
         <span className="reksel">{selLabel(m, mk, sg, v.line)}{v.book !== 'svenskaspel' ? ` · ${BOOK_NAME[v.book] || v.book}` : ''}</span>
       </td>
@@ -1815,8 +1820,7 @@ function OddsetView({ focus = null } = {}) {
         <td><b>{v.odds.toFixed(2)}</b></td>
         <td className="pos"><b>+{(v.edge * 100).toFixed(1)} %</b>{v.derived ? '°' : ''}</td>
         <td>{kelly(v)} kr</td>
-        <td><span className={`rekpill ${tier.cls}${tier.disputed ? ' disputed' : ''}`}>
-          {tier.disputed ? '⚓ ' : ''}{tier.short}</span></td>
+        <td><span className={`rekpill ${tier.cls}`}>{tier.short}</span></td>
       </tr>
     )
   }
@@ -1840,7 +1844,6 @@ function OddsetView({ focus = null } = {}) {
         <div className="tipwhy hint">
           Devigad Pinnacle {(v.fair * 100).toFixed(1)} % · ¼-Kelly <b>{kelly(v)} kr</b>
           {v.held_after_sharp && <span className="heldchip">bekräftat kvar</span>}
-          {tier.disputed && <span className="anchorwarn">⚓ Smarkets {(v.anchor2.edge * 100).toFixed(1)} %</span>}
         </div>
         {support.length > 0 && <div className="tipsupport">
           {support.map(([label, title]) => <span key={label} className="schip" title={title}>{label}</span>)}
@@ -2047,7 +2050,6 @@ function OddsetView({ focus = null } = {}) {
                       <b>{selLabel(m, FLAG_MARKET[r.market] || r.market, r.sign, r.line)}</b>
                       <span>{BOOK_NAME[r.book] || r.book || 'SvS'} @ {r.first_odds}</span>
                       <span className="hint">edge {(r.first_edge * 100).toFixed(1)}% → {(r.best_edge * 100).toFixed(1)}%</span>
-                      {r.anchor2_edge != null && r.anchor2_edge <= 0 && <span className="anchorwarn">⚓</span>}
                       {r.close_ev != null
                         ? <span className={`evpill ${r.close_ev >= 0 ? 'pos' : 'neg'}`}>
                             {r.close_ev >= 0 ? '+' : ''}{(r.close_ev * 100).toFixed(1)}%</span>

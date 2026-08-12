@@ -439,10 +439,27 @@ def _projected_turnover(product: str, current: float,
         store.close()
 
 
+def _history_products(product: str, family: bool) -> list[str]:
+    """Produkterna en historikfråga omfattar.
+
+    `family=1` expanderar via svenskaspel.GAME_GROUPS — samma lista som
+    Poolspel-fliken redan grupperar på, aldrig en parallell. Topptipset
+    Dagens/Stryk/Extra är samma spel (åtta matcher, samma vinstplan), bara
+    olika omgångsserier, och slås ihop till en historik. Produktidentiteten i
+    settlementlagret är oförändrad: varje omgång bär kvar sin egen slug och
+    varje rad i svaret säger vilken den är.
+    """
+    from .svenskaspel import GAME_GROUPS
+    if not family:
+        return [product]
+    return list(GAME_GROUPS.get(product, [product]))
+
+
 @app.get("/api/pool/history")
 def pool_history(product: str = "stryktipset",
                  limit: int = Query(400, ge=1, le=1000),
-                 draw: int | None = None):
+                 draw: int | None = None,
+                 family: bool = False):
     """PH1-settlementlagret (läser bara DB): avgjorda omgångar med utfall,
     slutstreck, slutomsättning och full utdelning per nivå. `final_only`-
     bakfyllda och framåtriktade omgångar — INGA rörelser härifrån (de finns
@@ -477,50 +494,64 @@ def pool_history(product: str = "stryktipset",
                            for e in events],
                 "tiers": [{"name": t[0], "correct": t[1], "winners": t[2],
                            "amount": t[3]} for t in tiers]}}
+        products = _history_products(product, family)
+        marks_p = ",".join("?" * len(products))
         total, first_close, last_close = store.conn.execute(
             "SELECT COUNT(*), MIN(reg_close_time), MAX(reg_close_time) "
-            "FROM pool_draw_settlement WHERE product=?", (product,)).fetchone()
+            f"FROM pool_draw_settlement WHERE product IN ({marks_p})",
+            products).fetchone()
         mean_turnover = store.conn.execute(
             "SELECT AVG(net_sale) FROM pool_draw_settlement "
-            "WHERE product=? AND net_sale>0", (product,)).fetchone()[0]
+            f"WHERE product IN ({marks_p}) AND net_sale>0", products).fetchone()[0]
         top_rows = store.conn.execute(
             "SELECT p.winners, p.amount FROM pool_payout_tier p "
-            "WHERE p.product=? AND p.correct=("
+            f"WHERE p.product IN ({marks_p}) AND p.correct=("
             " SELECT MAX(p2.correct) FROM pool_payout_tier p2 "
             " WHERE p2.product=p.product AND p2.draw_number=p.draw_number)",
-            (product,)).fetchall()
+            products).fetchall()
         paid_top = sorted(
             float(r[1]) for r in top_rows
             if (r[0] or 0) > 0 and r[1] is not None and r[1] > 0)
         median_top = statistics.median(paid_top) if paid_top else None
         rollovers = sum(1 for r in top_rows if r[0] == 0)
+        # Kronologisk ordning, inte draw_number: en familj har tre oberoende
+        # nummerserier (4262 / 1856 / 975) som annars flätas ihop till en
+        # obegriplig lista. Sparkline-etiketten lovar dessutom "äldst → nyast",
+        # vilket bara stämmer om listan är sorterad på tid. Draw_number är
+        # tiebreak — omgångar kan dela stängningstid.
         rows = store.conn.execute(
             "SELECT draw_number, reg_close_time, net_sale, row_price, "
-            "n_cancelled FROM pool_draw_settlement WHERE product=? "
-            "ORDER BY draw_number DESC LIMIT ?", (product, limit)).fetchall()
-        draw_numbers = [r[0] for r in rows]
-        tiers_by_draw: dict[int, list] = {}
-        if draw_numbers:
-            marks = ",".join("?" * len(draw_numbers))
+            f"n_cancelled, product FROM pool_draw_settlement WHERE product IN ({marks_p}) "
+            "ORDER BY reg_close_time DESC, draw_number DESC LIMIT ?",
+            (*products, limit)).fetchall()
+        # Nyckeln är (produkt, omgång) — draw_number ensamt räcker inte när
+        # flera produkter ingår.
+        tiers_by_draw: dict[tuple[str, int], list] = {}
+        if rows:
+            marks = ",".join("?" * len(rows))
             for t in store.conn.execute(
-                    f"SELECT draw_number, tier_name, correct, winners, amount "
-                    f"FROM pool_payout_tier WHERE product=? "
+                    f"SELECT draw_number, tier_name, correct, winners, amount, product "
+                    f"FROM pool_payout_tier WHERE product IN ({marks_p}) "
                     f"AND draw_number IN ({marks})",
-                    (product, *draw_numbers)):
-                tiers_by_draw.setdefault(t[0], []).append(
+                    (*products, *[r[0] for r in rows])):
+                tiers_by_draw.setdefault((t[5], t[0]), []).append(
                     {"name": t[1], "correct": t[2], "winners": t[3],
                      "amount": t[4]})
         draws = []
         for r in rows:
-            tiers = sorted(tiers_by_draw.get(r[0], []),
+            tiers = sorted(tiers_by_draw.get((r[5], r[0]), []),
                            key=lambda t: -(t["correct"] or 0))
             top = tiers[0] if tiers else None
             draws.append({
                 "draw_number": r[0], "close": r[1], "turnover": r[2],
                 "row_price": r[3], "n_cancelled": r[4], "tiers": tiers,
+                # Varje rad bär sin EGEN produkt: detaljuppslaget och
+                # djuplänken måste veta vilken slug omgången tillhör.
+                "product": r[5],
                 "top_winners": top and top["winners"],
                 "top_amount": top and top["amount"]})
-        return {"available": total > 0, "product": product, "total": total,
+        return {"available": total > 0, "product": product,
+                "products": products, "total": total,
                 "first_close": first_close, "last_close": last_close,
                 "sample_size": len(draws),
                 "stats": {
@@ -553,6 +584,8 @@ def pool_systems():
 def pool_strength_shadow_report(product: str | None = None):
     """Pinnacle mot 90/10- och 80/20-styrkeblend; påverkar inga system."""
     from . import pool_strength_shadow
+    # `topptipset` är både en produkt och en familjenyckel, så familjeläget
+    # behöver ingen egen parameter här — produktnamnet är giltigt i sig.
     if product is not None and product not in PRODUCTS:
         raise HTTPException(400, f"okänd poolprodukt: {product}")
     store = Storage()
