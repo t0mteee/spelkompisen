@@ -122,7 +122,9 @@ Ett separat `pool-strength-blend-v1` samlar från 2026-08-10 under
 90/10 Pinnacle/lagstyrka är enda kandidat och 80/20 är diagnostik. En rad
 fryses per match vid h24/h3/m20, även vid bortfall; ingen historisk
 rekonstruktion och inga system ändras. Status visas i **Historik → Poolmodell**
-och API:t är `/api/pool/strength-shadow`. Modellversion, timing, identitet,
+och API:t är `/api/pool/strength-shadow` (som tar `family=1` — en
+familjenyckel är ett giltigt PRODUKTnamn men filtrerar exakt, så Stryk och
+Extra föll tyst bort utan flaggan). Modellversion, timing, identitet,
 blend eller gate ändras aldrig inne i samma manifest/shadowversion.
 
 **Relationen till syskonprojekten:**
@@ -185,7 +187,16 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       förlängning RÄKNAS SOM KLAR** — `final` =
                       `regulation_over()` (slut ELLER förlängning). Osäkerhet om
                       VILKET resultatet är får inte avgöra frågan om matchen är
-                      AVGJORD; den bärs av `sign_provisional`. Ordinarie tid
+                      AVGJORD; den bärs av `sign_provisional`.
+                      **`sign_provisional` HAR TÄNDER (Codex 2026-08-12):**
+                      `_decided()` kräver `final` OCH icke-struken OCH
+                      icke-provisorisk, så ett obelagt förlängningstecken
+                      räknas som ÖPPET i radantal, `n_decided` och
+                      chansmotorn — matchen redovisas som spann i stället för
+                      gissning, och dess prematchpris (som kan stå på 99 %)
+                      används inte för att prissätta ett tecken vars facit inte
+                      är känt. `final` i matchdicten är oförändrad, så UI:t kan
+                      fortfarande säga "förlängning". Ordinarie tid
                       läses i fallande ordning `Fulltime` → `Current` minus
                       `Overtime` → **Flashscores per-match-feed `df_sur`**
                       (`attach_regulation_time`, Samans beslut 2026-08-11: SvS
@@ -239,6 +250,15 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       omgång är inte en misslyckad mätning, den är ingen mätning
                       alls. 56 av 8 324 omgångar migrerade 2026-08-12 efter
                       verifiering mot källan; se `docs/db-atgarder.md`.
+                      **ATT MÄRKA RÄCKER INTE — KONSUMENTERNA MÅSTE EXKLUDERA
+                      (Codex 2026-08-12).** `/api/pool/history` räknar nu
+                      `total`, medelomsättning, median toppvinst och
+                      rollovers på icke-inställda omgångar; `archive_total`
+                      och `cancelled_count` redovisas separat och `draw=<nr>`
+                      når dem fortfarande. SvS publicerar NOLL vinnare på alla
+                      nivåer när en omgång ställs in, så de räknades annars
+                      som rullade potter: Topptipset-familjen visade 58
+                      rollovers mot rätta 5.
                       `live_status` ger dessutom `matches` (liverättningen per
                       match) och `cheer` (hur många rader som lever vid 1/X/2 —
                       "vad ska jag heja på"). `alive` mot golvnivån är
