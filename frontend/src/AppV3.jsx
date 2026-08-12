@@ -11,7 +11,7 @@ import {
   AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel,
   BombenView, OddsetView, Legend, Collection, LoadingState, EmptyState,
   ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS,
-  SYSTEM_BASE, SYSTEM_SVS, VARIANT, kr, fmtClose, PlayRec,
+  SYSTEM_BASE, SYSTEM_SVS, VARIANT, FAMILY, kr, fmtClose, PlayRec,
   PlayedPanel, oddsetBestValue, SortableTable,
 } from './App'
 
@@ -44,7 +44,6 @@ const PRODUCT_LABEL = Object.fromEntries(
    Detta är enbart en VISNINGSgruppering. Produktslug, settlementidentitet,
    PH3:s config_key och `benchmarks_for(product)` är oförändrade — en nyckel
    får aldrig byta betydelse i efterhand, och de tre har egna omgångsserier. */
-const FAMILY = (p) => (String(p || '').startsWith('topptipset') ? 'topptipset' : p)
 const FAMILY_LABEL = { ...PRODUCT_LABEL, topptipset: 'Topptipset' }
 // Väljarens poster: en per familj, i HIST_PRODUCTS ordning. Backend expanderar
 // familjenyckeln via svenskaspel.GAME_GROUPS när `family=1` skickas med.
@@ -1269,7 +1268,38 @@ function HistorikV3({ initialProduct, focus }) {
   // systemfacit och i omsättningen. Andra spel har sig själva som familj.
   const inScope = (row) => !single || FAMILY(row.product) === FAMILY(product)
 
-  const allGroups = (systems?.groups || []).filter(inScope)
+  /* Topptipsets tre slugs kör SAMMA benchmarkfamilj — `benchmarks_for(product)`
+     ger identiska konfigurationer för alla tre — så två rader som skiljer sig
+     bara i produkt är samma konfiguration mätt på fler omgångar. De slås ihop.
+
+     Pengar SUMMERAS och ROI räknas om ur summorna, aldrig som medel av
+     gruppernas ROI: en grupp med två omgångar skulle annars väga lika tungt
+     som en med tjugo. Championrapporten slås INTE ihop — där är varje rad ett
+     förregistrerat test, se noten i kortet. */
+  const mergeFamily = (groups) => {
+    const out = new Map()
+    const antal = new Map()
+    for (const g of groups) {
+      const key = `${FAMILY(g.product)}|${g.config_key}|${g.horizon}`
+      antal.set(key, (antal.get(key) || 0) + 1)
+      const cur = out.get(key)
+      if (!cur) { out.set(key, { ...g, product: FAMILY(g.product) }); continue }
+      for (const f of ['n_frozen', 'n_settled', 'n_timely', 'n_evaluable',
+        'n_unresolvable', 'n_payout_incomplete', 'cost_kr', 'payout_kr']) {
+        cur[f] = (cur[f] || 0) + (g[f] || 0)
+      }
+      if ((g.latest_frozen || '') > (cur.latest_frozen || '')) cur.latest_frozen = g.latest_frozen
+      if ((g.best_correct ?? -1) > (cur.best_correct ?? -1)) cur.best_correct = g.best_correct
+      cur.retired = cur.retired && g.retired
+    }
+    for (const [key, g] of out) {
+      // Bara omräknad ROI där vi faktiskt slog ihop — annars står backendens
+      // egen siffra kvar orörd.
+      if (antal.get(key) > 1) g.roi = g.cost_kr > 0 ? g.payout_kr / g.cost_kr - 1 : null
+    }
+    return [...out.values()]
+  }
+  const allGroups = mergeFamily((systems?.groups || []).filter(inScope))
   const activeGroupBase = allGroups.filter((g) => !g.retired)
   const retiredGroupBase = allGroups.filter((g) => g.retired)
   const groupMatches = (g) => (

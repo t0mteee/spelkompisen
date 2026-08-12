@@ -20,6 +20,7 @@ import json
 import random
 from typing import Optional
 
+from . import pool_settlement
 from .analysis import DrawAnalysis, analyze_draw
 from .builder import build_ev_system
 from .storage import Storage
@@ -266,12 +267,25 @@ def settle_pending(store: Storage, now: Optional[dt.datetime] = None) -> dict:
     now = now or dt.datetime.now(dt.timezone.utc)
     rows = store.conn.execute(
         "SELECT l.product, l.draw_number, l.horizon, l.config_key, "
-        "l.events_order, l.rows_text, l.cost_kr "
+        "l.events_order, l.rows_text, l.cost_kr, s.draw_state "
         "FROM pool_system_ledger l JOIN pool_draw_settlement s "
         "ON s.product=l.product AND s.draw_number=l.draw_number "
         "WHERE l.settled_at IS NULL").fetchall()
-    report = {"settled": 0, "unresolvable": 0}
-    for product, draw_number, horizon, key, events_order, rows_text, cost in rows:
+    report = {"settled": 0, "unresolvable": 0, "cancelled": 0}
+    for (product, draw_number, horizon, key, events_order, rows_text, cost,
+         draw_state) in rows:
+        # En INSTÄLLD omgång spelades aldrig: insatsen betalas tillbaka och
+        # det finns ingenting att ha rätt på. Den är inte "oläsbar" — den är
+        # inte en observation. Skiljs ut så att facitet inte räknar den som
+        # ett misslyckat försök att rätta.
+        if draw_state == pool_settlement.CANCELLED_STATE:
+            store.conn.execute(
+                "UPDATE pool_system_ledger SET settled_at=?, settle_note=? "
+                "WHERE product=? AND draw_number=? AND horizon=? AND config_key=?",
+                (_iso(now), "omgången inställd — ingen insats, inget facit",
+                 product, draw_number, horizon, key))
+            report["cancelled"] += 1
+            continue
         outcomes = dict(store.conn.execute(
             "SELECT event_number, outcome FROM pool_event_settlement "
             "WHERE product=? AND draw_number=?", (product, draw_number)))

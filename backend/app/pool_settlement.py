@@ -25,6 +25,9 @@ from .svenskaspel import SvenskaSpel, _f, _i
 # not_finalized/incomplete_result/error alltid).
 OK = "ok"
 EXISTS = "exists"
+# Skrivs i `pool_draw_settlement.draw_state` för en INSTÄLLD omgång. SvS egen
+# `drawState` säger "Finalized" även då, så flaggan måste komma från resultatet.
+CANCELLED_STATE = "Cancelled"
 NOT_FINALIZED = "not_finalized"
 HTTP_404 = "http_404"
 INCOMPLETE = "incomplete_result"
@@ -65,13 +68,17 @@ def _retry_after(raw: Optional[dict], now: Optional[dt.datetime] = None) -> str:
     spelade väntar bara på att SvS publicerar, och då är rätt kadens minuter.
     Skillnaden läses ur payloaden — inget extra anrop, ingen gissning.
     """
-    from .pool_played import match_finished
+    from .pool_played import match_finished, match_postponed
     now = now or dt.datetime.now(dt.timezone.utc)
     soon = now + dt.timedelta(minutes=RETRY_SOON_MIN)
     latest_end = None
     for ev in ((raw or {}).get("drawEvents") or []):
         match = ev.get("match") or {}
-        if match_finished(match) or ev.get("cancelled"):
+        # En uppskjuten match blir aldrig "färdigspelad" och dess `matchStart`
+        # kan flyttas veckor framåt. Att vänta på den skulle skjuta omprövningen
+        # långt bortom den punkt där SvS stryker matchen och finaliserar
+        # omgången — de övriga matcherna avgör när det sker.
+        if match_finished(match) or ev.get("cancelled") or match_postponed(match):
             continue
         start = _parse_iso(match.get("matchStart"))
         if start is None:
@@ -168,6 +175,15 @@ def settle_draw(store: Storage, svs: SvenskaSpel, product: str,
 
     version = source_version or _git_hash()
     events = raw.get("drawEvents") or []
+    # INSTÄLLD OMGÅNG (uppmätt 2026-08-12 på Topptipset 4259 m.fl.): SvS sätter
+    # `cancelled: true` på RESULTATET, lämnar varje event utan utfall och
+    # publicerar en distribution med noll vinnare och 0,00 kr. Omgångens egen
+    # `drawState` står kvar på "Finalized", så utan den här flaggan lagras en
+    # inställd omgång som en vanlig avgjord omgång vars åtta utfall råkar
+    # saknas — och systemledgern dömer den som "utfall saknas för minst en
+    # match" i stället för "spelades aldrig". Uppmätt 12 av 8 324 omgångar.
+    draw_cancelled = bool(result.get("cancelled"))
+    state = CANCELLED_STATE if draw_cancelled else state
     outcome_by_event = {}
     cancelled_by_event = {}
     for ev in (result.get("events") or []):

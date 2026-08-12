@@ -336,7 +336,7 @@ class SystemLedgerTests(unittest.TestCase):
         self._freeze_fixture()
         self._settlement_fixture(["1"] * 7 + [None], [(8, 10, 500.0)])
         rep = pool_system_ledger.settle_pending(self.store, now=NOW)
-        self.assertEqual({"settled": 0, "unresolvable": 1}, rep)
+        self.assertEqual({"settled": 0, "unresolvable": 1, "cancelled": 0}, rep)
         note = self.store.conn.execute(
             "SELECT settle_note FROM pool_system_ledger").fetchone()[0]
         self.assertIn("saknas", note)

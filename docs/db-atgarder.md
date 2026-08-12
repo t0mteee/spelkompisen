@@ -1327,3 +1327,33 @@ egna backend/frontend hade stoppats.
 Vid rollback ska de först laddas ur innan huvuddatorns jobb startas. Om data
 hunnit skrivas på MacBooken ska en ny SQLite-onlinebackup tas tillbaka före
 rollback så att framåtriktat facit inte tappas.
+
+## 2026-08-12 — inställda omgångar märks som inställda
+
+**Problem.** Svenska Spel sätter `cancelled: true` på omgångens RESULTAT men
+lämnar `drawState` på `Finalized`. Settlementet läste bara `drawState`, så en
+inställd omgång lagrades som en vanlig avgjord omgång vars samtliga utfall
+råkade saknas. Systemledgern dömde den då `utfall saknas för minst en match` —
+alltså ett misslyckat rättningsförsök i stället för "spelades aldrig".
+
+Upptäckt när Topptipset 4259 visade sig ligga bakom differensen 17 frysta mot
+14 rättade i Idag-vyns Systemfacit.
+
+**Omfattning.** 56 av 8 324 settlade omgångar (0,67 %), samtliga Topptipset,
+från 2024-05-08 till 2026-08-10. Varje kandidat hittades lokalt (alla utfall
+NULL, noll strukna matcher) och VERIFIERADES mot SvS resultat-API innan
+skrivning: 56 bekräftade `cancelled: true`, noll avvisade.
+
+**Åtgärd.** `scripts/migrera_installda_omgangar.py --skarp`
+(backup: `data/stryktips-backup-installda-20260812-111648.db`).
+
+- `pool_draw_settlement.draw_state` = `Cancelled` på 56 omgångar.
+- `pool_system_ledger.settle_note` rättad på 9 rader från
+  `utfall saknas för minst en match` till
+  `omgången inställd — ingen insats, inget facit`. `settled_at` rördes inte —
+  raderna ÄR avslutade, det var orsaken som var fel.
+
+**Framåt.** `pool_settlement.settle_draw` skriver nu `CANCELLED_STATE` direkt
+när resultatet är inställt, och `pool_system_ledger.settle_pending` skiljer
+`cancelled` från `unresolvable` i sin rapport. En inställd omgång är inte en
+misslyckad mätning — den är ingen mätning alls.

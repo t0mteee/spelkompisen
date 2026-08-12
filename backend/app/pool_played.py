@@ -60,9 +60,26 @@ FINISHED_STATUS_WORDS = frozenset({"slut", "ended", "finished", "avslutad"})
 # Orden är skyddsnät för de koder vi ännu inte sett — SvS numrerar
 # övertidsperioder, paus i förlängning och straffläggning var för sig, och en
 # okänd kod får inte tyst göra en avgjord match "öppen" igen.
-EXTRA_TIME_STATUS_IDS = frozenset({20, 21, 22, 23, 24, 25})
+# 23 är INTE en övertidskod. Uppmätt 2026-08-12 på Topptipset 4261
+# (D. Tolima–Independiente) betyder statusId 23 **Uppskjuten**. Den gissade
+# serien 20–25 gjorde därmed en match som ALDRIG spelats till en match vars
+# ordinarie tid var färdigspelad: `regulation_over` blev sann, kupongen
+# redovisade matchen som avgjord och tecknet lästes ur ett resultat som inte
+# fanns. Bara 20 ("Första övertidsperioden") är observerad; resten av serien
+# var aldrig belagd och tas bort. Skyddsnätet mot okända övertidskoder ligger
+# i ORDEN nedan, som SvS levererar i klartext bredvid koden.
+EXTRA_TIME_STATUS_IDS = frozenset({20})
 EXTRA_TIME_STATUS_WORDS = ("övertid", "overtid", "förläng", "forlang",
                            "straff", "extra time", "penalt")
+
+# Matcher som aldrig spelas i sin planerade form. SvS stryker dem och lottar
+# fram ett fastställt tecken, men FÖRST vid finalisering — fram till dess är
+# tecknet okänt, inte avgjort. En uppskjuten match får därför varken räknas som
+# klar (då hittar vi på ett tecken) eller hålla settlementets omprövning
+# tillbaka (den blir aldrig "färdigspelad").
+POSTPONED_STATUS_IDS = frozenset({23})
+POSTPONED_STATUS_WORDS = ("uppskjut", "postpon", "inställ", "installd",
+                          "flyttad", "abandon")
 
 
 def _now() -> str:
@@ -174,6 +191,21 @@ def match_finished(match: dict) -> bool:
         or has_fulltime)
 
 
+def match_postponed(match: dict) -> bool:
+    """Är matchen uppskjuten/inställd, alltså aldrig spelad som planerat?
+
+    Skilj den från både "pågår" och "klar". Den kommer att strykas och få ett
+    lottat tecken av SvS, men det tecknet finns inte i payloaden förrän
+    omgången finaliseras — så länge är utfallet OKÄNT och kupongen har den
+    matchen öppen.
+    """
+    status_id = match.get("statusId")
+    word = str(match.get("status") or "").casefold()
+    return bool(
+        (isinstance(status_id, int) and status_id in POSTPONED_STATUS_IDS)
+        or any(needle in word for needle in POSTPONED_STATUS_WORDS))
+
+
 def in_extra_time(match: dict) -> bool:
     """Spelas matchen förlängning eller straffar JUST NU?
 
@@ -190,6 +222,9 @@ def in_extra_time(match: dict) -> bool:
     if isinstance(status_id, int) and status_id in FINISHED_STATUS_IDS:
         return False
     if str(match.get("status") or "").casefold().startswith("slut"):
+        return False
+    # En uppskjuten match spelas inte alls — den kan omöjligen vara i förlängning.
+    if match_postponed(match):
         return False
     word = str(match.get("status") or "").casefold()
     return bool(
@@ -269,6 +304,10 @@ def event_state(draw_event: dict) -> dict:
             # Ordinarie tid är slut men matchen rullar vidare. UI:t ska kunna
             # säga "förlängning" i stället för att visa matchen som öppen.
             "extra_time": extra,
+            # Uppskjuten: matchen spelas inte, men tecknet är ännu inte lottat
+            # av SvS. Kortet ska kunna SÄGA det i stället för att bara låta
+            # matchen stå öppen utan förklaring.
+            "postponed": match_postponed(match),
             "sign_provisional": provisional,
             "status_text": match.get("status") or None,
             "event_number": draw_event.get("eventNumber"),

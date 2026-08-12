@@ -2323,6 +2323,12 @@ function OddsetView({ focus = null } = {}) {
 const VARIANT = {
   topptipset: 'Dagens', topptipsetstryk: 'Stryk', topptipsetextra: 'Extra',
 }
+/* Topptipset Dagens/Stryk/Extra är samma spel — åtta matcher, samma vinstplan,
+   samma benchmarkfamilj — bara olika omgångsserier under olika namn hos
+   Svenska Spel. FAMILY samlar dem i VISNINGEN; produktslug, settlementidentitet
+   och config_key är oförändrade. Bor här och inte i AppV3 eftersom både
+   komponentbiblioteket (PlayedPanel) och appskalet behöver den. */
+const FAMILY = (p) => (String(p || '').startsWith('topptipset') ? 'topptipset' : p)
 // djuplänk till rätt omgång på Svenska Spel (du fyller i/lämnar in själv där)
 const SVS_PID = { topptipset: 25, topptipsetstryk: 23, topptipsetextra: 24 }
 function svsUrl(product, draw) {
@@ -3225,7 +3231,9 @@ function PlayedPanel({ product = null }) {
   }, [load])
   if (!data) return <LoadingState label="Hämtar spelade kuponger…" />
   const all = data.coupons || []
-  const coupons = product ? all.filter((c) => c.product === product) : all
+  // Familjejämförelse: väljs Topptipset ska Dagens, Stryk och Extra alla med.
+  // Varje kupong visar sin variant i etiketten, så inget går förlorat.
+  const coupons = product ? all.filter((c) => FAMILY(c.product) === FAMILY(product)) : all
   const settled = coupons.filter((c) => c.settled_at)
   const spent = settled.reduce((a, c) => a + (c.cost_kr || 0), 0)
   const won = settled.reduce((a, c) => a + (c.payout_kr || 0), 0)
@@ -3754,6 +3762,6 @@ export {
   AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel,
   BombenView, OddsetView, Legend, Collection, LoadingState, EmptyState,
   ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS,
-  SYSTEM_BASE, SYSTEM_SVS, VARIANT, GAMES, kr, fmtClose, fmtFetched, timeAgo,
+  SYSTEM_BASE, SYSTEM_SVS, VARIANT, FAMILY, GAMES, kr, fmtClose, fmtFetched, timeAgo,
   PlayRec, PlayedPanel, oddsetBestValue, SortableTable, useSortedRows,
 }
