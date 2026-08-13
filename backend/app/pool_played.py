@@ -585,11 +585,14 @@ def attach_live_odds(store: Storage, states: list[dict]) -> None:
     running = [s for s in states if s.get("in_progress")]
     if not running:
         return
-    catalogue = kambi.live_events()      # ETT anrop för hela omgången
+    catalogue = kambi.live_events()      # ETT anrop för hela statusvarvet
+    prices_by_event: dict[str, dict] = {}
     for state in running:
         state["probs_basis"] = "live"
         event_id = _kambi_id_for(catalogue, state)
-        prices = kambi.live_1x2(event_id) if event_id else {}
+        if event_id and event_id not in prices_by_event:
+            prices_by_event[event_id] = kambi.live_1x2(event_id)
+        prices = prices_by_event.get(event_id, {})
         if len(prices) == 3:
             state["probs"] = _power_probs({s: 1 / o for s, o in prices.items()})
             continue
@@ -647,7 +650,8 @@ def _coupon_events(coupon: dict, width: int) -> list[int]:
     return events if len(events) == width else list(range(1, width + 1))
 
 
-def live_status(coupon: dict, states: list[dict]) -> dict:
+def live_status(coupon: dict, states: list[dict],
+                include_chance: bool = True) -> dict:
     """Rätt-så-långt per rad + vilka rader som fortfarande kan nå varje nivå.
 
     Det här är svaret på "följa reducerade system live": för varje rad räknas
@@ -700,18 +704,23 @@ def live_status(coupon: dict, states: list[dict]) -> dict:
     # en tabell med streck när kupongen inte längre kunde nå någon vinstnivå,
     # och Saman fick räkna ut det själv ur "bäst 4 rätt" och 5 kvarvarande.
     max_possible = max(possible_hist) if possible_hist else 0
-    return {"n_events": width, "n_decided": decided,
-            "all_decided": bool(width and decided == width),
-            "best_secure": best_secure,
-            "max_possible": max_possible,
-            # Ingen rad kan nå ens den lägsta redovisade vinstnivån.
-            "out_of_contention": bool(levels) and max_possible < min(levels),
-            "secure_dist": dict(sorted(secure_hist.items(), reverse=True)),
-            "alive_per_level": dict(sorted(alive.items(), reverse=True)),
-            **alive_span,
-            "matches": _match_rows(rows, col_states, events, width),
-            "cheer": _cheer_per_match(rows, col_states, width, levels),
-            **_chance_per_level(rows, col_states, width, levels)}
+    out = {"n_events": width, "n_decided": decided,
+           "all_decided": bool(width and decided == width),
+           "best_secure": best_secure,
+           "max_possible": max_possible,
+           # Ingen rad kan nå ens den lägsta redovisade vinstnivån.
+           "out_of_contention": bool(levels) and max_possible < min(levels),
+           "secure_dist": dict(sorted(secure_hist.items(), reverse=True)),
+           "alive_per_level": dict(sorted(alive.items(), reverse=True)),
+           **alive_span,
+           "matches": _match_rows(rows, col_states, events, width),
+           "cheer": _cheer_per_match(rows, col_states, width, levels)}
+    # Idag-kortet visar faktisk matchstatus och levande rader men ingen
+    # oddsbaserad vinstchans. Den dyrare sannolikheten hör till detaljkortet i
+    # Historik och får inte hålla grundläggande livestatus gisslan.
+    if include_chance:
+        out.update(_chance_per_level(rows, col_states, width, levels))
+    return out
 
 
 
@@ -875,9 +884,26 @@ def _hit_probabilities(groups, probs, levels) -> tuple[dict, str]:
     hit = {lvl: 0.0 for lvl in levels}
     items = list(groups.items())
 
+    # Koda varje teckenmönster med två bitmasker; 2 är läget där varken
+    # 1- eller X-biten är satt. Antal rätt blir k minus Hamming-avståndet.
+    # Det ger exakt samma poäng och samma slumpdragningar som den äldre
+    # tecken-för-tecken-loopen, men slipper miljontals Python-jämförelser.
+    compiled = []
+    for pattern, secure in items:
+        ones = sum(1 << i for i, sign in enumerate(pattern) if sign == "1")
+        crosses = sum(1 << i for i, sign in enumerate(pattern) if sign == "X")
+        compiled.append((ones, crosses, secure))
+
+    def score_masks(ones: int, crosses: int) -> int:
+        return max(
+            secure + len(probs)
+            - (((ones ^ row_ones) | (crosses ^ row_crosses)).bit_count())
+            for row_ones, row_crosses, secure in compiled)
+
     def score(outcome: tuple) -> int:
-        return max(secure + sum(1 for i, s in enumerate(pattern) if s == outcome[i])
-                   for pattern, secure in items)
+        ones = sum(1 << i for i, sign in enumerate(outcome) if sign == "1")
+        crosses = sum(1 << i for i, sign in enumerate(outcome) if sign == "X")
+        return score_masks(ones, crosses)
 
     if not probs:
         best = max(groups.values())

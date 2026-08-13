@@ -14,6 +14,7 @@
    sann och kupongen redovisade matchen som avgjord fast det inte fanns något
    resultat att läsa tecknet ur.
 """
+import datetime as dt
 import unittest
 
 from app import pool_played, pool_settlement
@@ -57,7 +58,10 @@ class UppskjutenMatchTests(unittest.TestCase):
             {"eventNumber": 1, "match": {**SLUT, "matchStart": "2026-08-11T20:00:00+02:00"}},
             {"eventNumber": 2, "match": {**UPPSKJUTEN, "matchStart": "2026-09-20T20:00:00+02:00"}},
         ]}
-        naar = pool_settlement._retry_after(raw)
+        # Fast klocka: testet ska bevisa att septembermatchen ignoreras, inte
+        # börja fallera när väggklockan passerar fixture-datumet.
+        now = dt.datetime(2026, 8, 12, 12, tzinfo=dt.timezone.utc)
+        naar = pool_settlement._retry_after(raw, now=now)
 
         self.assertLess(naar, "2026-08-13")
 

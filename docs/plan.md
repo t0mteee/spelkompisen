@@ -1,6 +1,18 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-08-12 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-08-13 — läs detta först i ny session)
+
+**Poolens livestatusprestanda 2026-08-13.** Tre öppna kuponger tog 19,9 s att
+rätta live trots att SvS-resultat, Flashscore och Kambi tillsammans bara tog
+omkring 1,2 s. Resten var oddsbaserad vinstchans som räknades separat för
+varje kupong; två kuponger på Europatipset 2598 hämtade dessutom samma
+omgångsdata två gånger. `/api/pool/played` återanvänder nu källdata per unik
+produkt × omgång och simuleringens radpoäng använder matematiskt identiska
+bitmasker. Idag anropar `?chance=false`: faktisk ställning, avgjorda matcher,
+bästa rad, max möjligt och levande rader kommer utan att vänta på den
+sekundära vinstchansen, som fortsatt finns i Historiks detaljkort. Uppmätt
+snabbväg på kvällens riktiga två omgångar: cirka 1,2 s. Ingen sannolikhet,
+rad, oddsgrund eller settlementregel ändrades.
 
 **Spelfamiljer 2026-08-12.** Topptipset Dagens/Stryk/Extra räknas nu som ETT
 spel överallt där något mäts eller redovisas: historik (`?family=1`),

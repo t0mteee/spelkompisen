@@ -1,5 +1,6 @@
 import datetime as dt
 import json
+import random
 import tempfile
 import unittest
 from pathlib import Path
@@ -328,6 +329,59 @@ class ChancePerLevelTests(unittest.TestCase):
         self.assertEqual("avgjord", live["chance_basis"])
         self.assertEqual(1.0, live["chance_per_level"][2])
 
+    def test_snabb_livestatus_hoppar_bara_over_chansen(self):
+        states = self._states(
+            ("1", True, None),
+            (None, False, {"1": 0.5, "X": 0.3, "2": 0.2}))
+        coupon = {"rows_text": "11\n12", "events_order": "[1,2]"}
+
+        live = pool_played.live_status(coupon, states, include_chance=False)
+
+        self.assertEqual(1, live["n_decided"])
+        self.assertEqual(2, live["alive_per_level"][2])
+        self.assertIn("matches", live)
+        self.assertIn("cheer", live)
+        self.assertNotIn("chance_per_level", live)
+        self.assertNotIn("chance_basis", live)
+
+    def test_bitmask_simulering_ar_identisk_med_referensloopen(self):
+        """Optimeringen ändrar varken slumpföljd eller radpoäng."""
+        groups = {
+            ("1", "X", "2", "1"): 2,
+            ("2", "1", "X", "X"): 1,
+            ("X", "X", "1", "2"): 3,
+        }
+        probs = [
+            {"1": 0.5, "X": 0.3, "2": 0.2},
+            {"1": 0.2, "X": 0.4, "2": 0.4},
+            {"1": 0.6, "X": 0.25, "2": 0.15},
+            {"1": 0.35, "X": 0.3, "2": 0.35},
+        ]
+        levels = [6, 5, 4]
+        samples = 250
+        reference = {level: 0.0 for level in levels}
+        rng = random.Random(20260802)
+        signs = ("1", "X", "2")
+        for _ in range(samples):
+            combo = tuple(rng.choices(
+                signs, weights=[p["1"], p["X"], p["2"]])[0]
+                for p in probs)
+            best = max(
+                secure + sum(1 for i, sign in enumerate(pattern)
+                             if sign == combo[i])
+                for pattern, secure in groups.items())
+            for level in levels:
+                if best >= level:
+                    reference[level] += 1.0 / samples
+
+        with patch.object(pool_played, "CHANCE_EXACT_MAX_COMBOS", 0), \
+             patch.object(pool_played, "CHANCE_SAMPLES", samples):
+            actual, basis = pool_played._hit_probabilities(
+                groups, probs, levels)
+
+        self.assertEqual("simulerad", basis)
+        self.assertEqual(reference, actual)
+
     def test_odds_are_devigged_and_streck_is_the_fallback(self):
         # Bok utan overround (1/odds summerar redan till 1) — då är k = 1 och
         # power-metoden ska lämna sannolikheterna orörda.
@@ -389,6 +443,16 @@ class LiveOddsForRunningMatchTests(unittest.TestCase):
         self.assertLess(state["probs"]["1"], 0.15, "prematch-favoriten ska falla")
         self.assertGreater(state["probs"]["2"], 0.65)
         self.assertAlmostEqual(1.0, sum(state["probs"].values()), places=6)
+
+    def test_samma_liveevent_prissatts_en_gang_for_flera_kuponger(self):
+        states = [self._state(), self._state()]
+        with patch.object(kambi, "live_events", return_value=[CATALOGUE]), \
+             patch.object(kambi, "live_1x2",
+                          return_value={"1": 9.0, "X": 4.5, "2": 1.3}) as price:
+            pool_played.attach_live_odds(self.store, states)
+
+        price.assert_called_once_with("1026062550")
+        self.assertTrue(all(state["probs_basis"] == "live" for state in states))
 
     def test_missing_live_price_clears_instead_of_falling_back(self):
         state = self._state()

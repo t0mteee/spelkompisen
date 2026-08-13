@@ -257,7 +257,9 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
         setPlayed(data)
         if (!data) return
         if ((data.coupons || []).some((coupon) => !coupon.settled_at)) {
-          defer(() => guarded(request('/api/pool/played'), setPlayed), 900)
+          // Idag visar faktisk matchstatus och levande rader, inte den dyrare
+          // oddsbaserade chansen som hör till Historiks detaljkort.
+          guarded(request('/api/pool/played?chance=false'), setPlayed)
         }
       })
       Promise.all(HIST_FAMILIES.map((p) =>

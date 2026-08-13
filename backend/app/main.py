@@ -662,7 +662,7 @@ def pool_played_forget(coupon_id: int):
 
 
 @app.get("/api/pool/played")
-def pool_played_list(live: bool = True):
+def pool_played_list(live: bool = True, chance: bool = True):
     """Spelade kuponger med LIVESTATUS för öppna omgångar.
 
     Livestatusen läses ur SvS egen draw-payload (`match.result` +
@@ -676,30 +676,57 @@ def pool_played_list(live: bool = True):
         coupons = pool_played.all_coupons(store)
         out = [dict(coupon) for coupon in coupons]
         if live:
+            # Flera sparade kuponger kan höra till samma omgång. Draw-data,
+            # ordinarie tid och livepriser är då identiska. Draw-data hämtas
+            # per unik omgång; Flashscore- och Kambi-listorna hämtas en gång
+            # för samtliga öppna omgångar i samma request.
+            states_by_draw: dict[tuple[str, int], list[dict]] = {}
+            errors_by_draw: dict[tuple[str, int], Exception] = {}
+            keys = list(dict.fromkeys(
+                (item["product"], item["draw_number"])
+                for item in out if not item["settled_at"]))
             with SvenskaSpel() as ss:
-                for item in out:
-                    if item["settled_at"]:
-                        continue
+                for key in keys:
                     try:
-                        raw = ss.get_draw_raw(item["product"],
-                                              item["draw_number"])
-                        states = [pool_played.event_state(e)
-                                  for e in (raw.get("drawEvents") or [])]
-                        # Under förlängning bär SvS `Current` förlängningsmålen
-                        # och ordinarie tid är opublicerad — Flashscore har den.
-                        pool_played.attach_regulation_time(states)
-                        # Pågående matcher måste prissättas live — SvS odds i
-                        # payloaden är statiska prematch-odds hela omgången.
-                        pool_played.attach_live_odds(store, states)
-                        item["live"] = pool_played.live_status(item, states)
-                    except Exception as exc:      # noqa: BLE001
-                        item["live_error"] = f"{type(exc).__name__}"
-                        logger.warning(
-                            "Livestatus misslyckades för %s %s",
-                            item["product"], item["draw_number"],
-                            exc_info=True)
+                        raw = ss.get_draw_raw(*key)
+                        states_by_draw[key] = [
+                            pool_played.event_state(e)
+                            for e in (raw.get("drawEvents") or [])]
+                    except Exception as source_exc:  # noqa: BLE001
+                        errors_by_draw[key] = source_exc
+
+            all_states = [state for states in states_by_draw.values()
+                          for state in states]
+            if all_states:
+                try:
+                    # Under förlängning bär SvS `Current` förlängningsmålen;
+                    # Flashscore har ordinarie tid och den riktiga minuten.
+                    pool_played.attach_regulation_time(all_states)
+                    # SvS odds är statiska prematch-odds även när matchen
+                    # pågår; byt dem mot öppna livepriser.
+                    pool_played.attach_live_odds(store, all_states)
+                except Exception as source_exc:  # noqa: BLE001
+                    for key in states_by_draw:
+                        errors_by_draw[key] = source_exc
+
+            for item in out:
+                if item["settled_at"]:
+                    continue
+                key = (item["product"], item["draw_number"])
+                try:
+                    if key in errors_by_draw:
+                        raise errors_by_draw[key]
+                    item["live"] = pool_played.live_status(
+                        item, states_by_draw[key], include_chance=chance)
+                except Exception as exc:      # noqa: BLE001
+                    item["live_error"] = f"{type(exc).__name__}"
+                    logger.warning(
+                        "Livestatus misslyckades för %s %s",
+                        item["product"], item["draw_number"],
+                        exc_info=True)
         return {"coupons": out, "summary": pool_played.summary(store),
-                "live_included": live}
+                "live_included": live,
+                "chance_included": bool(live and chance)}
     finally:
         store.close()
 

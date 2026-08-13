@@ -350,6 +350,12 @@ instruktioner innan miljön ersätts. Radera inte en fungerande venv i onödan.
   gamla datorn ska vara avstängda.
 - Topptipsets UI uppdaterar numera en öppen kupongs livestatus var 60:e sekund
   efter att ett engångsfel tidigare kunde fastna tills omladdning.
+- Idag hämtar spelade kuponger `/api/pool/played?chance=false`: riktig
+  ställning, avgjorda matcher och levande rader visas snabbt, medan den
+  oddsbaserade vinstchansen bara räknas i Historiks detaljkort. Backend delar
+  SvS/Flashscore/Kambi-data mellan kuponger på samma omgång. Ta inte bort
+  `chance=false` från Idag utan ny prestandamätning; den äldre vägen tog 19,9 s
+  med tre öppna kuponger den 13 augusti 2026.
 - Settlement väntar avsiktligt till ungefär senaste avspark + 130 minuter;
   ”väntar” medan sena matcher pågår är inte i sig ett fel.
 - Produktionsarbetskatalogen hade vid flytten lokala, ej committade ändringar
