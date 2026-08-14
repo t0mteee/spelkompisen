@@ -2,7 +2,21 @@
 
 Datum: 2026-08-14. **Förregistrerad före körning.**
 
-**Status:** körkontrakt låst; körning ännu inte startad.
+**Status:** körning pågår sedan 2026-08-14 21:59 CEST.
+
+Körprotokoll (tillagt efter att kontraktet committats):
+
+- fixerad commit: `8698a5b`;
+- serverprocess: PID `8251`, nice `15`, fyra körningar sekventiellt;
+- snapshot: `/tmp/ph5-v3-8698a5b-snapshot.db`, SHA-256
+  `436acdcfd00dbb18d42053450a286b3bd59764c8ed6f5cf69791757393fa7fd7`;
+- verifierad kohort: Stryktipset 216, Europatipset 477;
+- logg: `/tmp/ph5-v3-8698a5b.log`;
+- råresultat: `/tmp/ph5-v3-8698a5b-results/`.
+
+Snapshotens `PRAGMA integrity_check` var `ok`, serverförtestet vid 5 000 rader
+gav noll byggfel/ofullständiga facit och fullt radantal. Resultaten ska inte
+tolkas förrän alla fyra filer är klara och giltighetskraven jämförts.
 
 ## Frågan
 

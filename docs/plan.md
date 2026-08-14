@@ -1,6 +1,18 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-08-13 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-08-14 — läs detta först i ny session)
+
+**PH5 v3:s täthetssvep är låst och körs 2026-08-14.** Den första planen var
+inte giltig: vid 8 192 rader var det binära kontrolluniversumet uttömt,
+kohorten kunde ändras efter armens träffar och den saknade en slumpkontroll ur
+byggarens verkliga kandidater. Den förregistrerade v3-körningen testar i
+stället 4 096 och exakt 5 000 rader för Stryktipset/Europatipset på en fast
+kohort med identifierbara vinstnivåer (216 + 477 omgångar). Promotionsgrinden
+kräver positiv undre 95 %-KI-gräns mot folk-, favorit- och byggarslump separat
+per produkt; Hamming är borttagen ur detta täthetssvep. Fyra sekventiella,
+lågprioriterade körningar är startade från commit `8698a5b` mot en fixerad
+SQLite-snapshot. Kontrakt, kör-id och sökvägar:
+`docs/ph5-tathetssvep-2026-08-14.md`.
 
 **Poolens livestatusprestanda 2026-08-13.** Tre öppna kuponger tog 19,9 s att
 rätta live trots att SvS-resultat, Flashscore och Kambi tillsammans bara tog
