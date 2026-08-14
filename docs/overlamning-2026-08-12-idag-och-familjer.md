@@ -235,3 +235,19 @@ Reacts delegerade lyssnare i den här appen. Att anropa fiberns `onClick` direkt
 (`el[Object.keys(el).find(k => k.startsWith('__reactProps'))].onClick({})`)
 skiljer "handlern är trasig" från "klicket nådde inte fram" — det var skillnaden
 mellan en påhittad bugg och en fungerande knapp här.
+
+### Matchkortet komprimerat, samma dag
+
+AH, Ö/U och Hörnor tog TRE rader var — etikett, bokpris, sharppris. Nu en rad
+var: etiketten är en fast 46 px-kolumn så talen står i linje, resten flyter.
+Uppmätt vid 375 px: medelhöjd per matchkort **355 → 272 px** (−23 %), och
+marknadsraderna gick från ~70 px till 23 px styck.
+
+**Fällan, för nästa gång:** `order` skapar INGA radbrytningar i flexbox, bara
+ordning. Ett försök att lägga rek-chipet ("avstå") bredvid pp-cellen med
+`order: 2; flex: 0 1 auto` gjorde att 1X2-rutorna klättrade upp på samma
+flexrad och `2` föll ner på egen rad igen — exakt regressionen som just
+rättats. Lösningen är att låta det SISTA elementet på raden svälja resten:
+`.movement-cell` har därför `flex: 1 0 auto`. Rek ligger kvar på egen full
+rad; att spara den raden kräver att lagcellen krymper, vilket inte är värt
+risken att lagnamnet bryts illa.

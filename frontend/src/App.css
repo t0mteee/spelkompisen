@@ -1015,7 +1015,10 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
      en egen rad. Nu ligger pp-talet på lagraden till höger, och de tre
      oddsrutorna har raden under för sig själva. */
   .oddset-table .movement-cell {
-    order: 2; flex: 0 0 auto; margin-left: auto; padding: 2px 4px;
+    /* `flex-grow: 1` gör att pp-cellen äter upp resten av lagraden. Det är
+       inte kosmetik: utan den kan 1X2-rutorna klättra upp på samma flexrad
+       och tvinga ner `2` på egen rad igen. */
+    order: 2; flex: 1 0 auto; text-align: right; padding: 2px 4px;
     white-space: nowrap; align-self: baseline;
   }
   .oddset-table .oc { order: 3; flex: 1 1 28%; min-width: 0; overflow: hidden; white-space: normal; border: 1px solid var(--line); border-radius: 7px; padding: 5px; }
@@ -1024,8 +1027,20 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
     content: attr(data-market); display: block; color: var(--muted); font-size: 9px;
     text-transform: uppercase; margin-bottom: 2px;
   }
-  .oddset-table .oc.pair { order: 4; flex: 1 1 100%; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 6px 0 0; }
-  .oddset-table .oc.pair .o, .oddset-table .oc.pair .p { display: block; margin-right: 0; }
+  /* AH, Ö/U och Hörnor tog TRE rader var: etikett, bokpris, sharppris. Nu är
+     de en rad var — etiketten som fast kolumn så talen står i linje under
+     varandra, resten flyter och bryter bara om det verkligen inte ryms. */
+  .oddset-table .oc.pair {
+    order: 4; flex: 1 1 100%; border: 0; border-top: 1px solid var(--line);
+    border-radius: 0; padding: 5px 0 0;
+    display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; row-gap: 1px;
+  }
+  .oddset-table .oc.pair::before {
+    flex: 0 0 46px; margin-bottom: 0; font-size: 9px;
+  }
+  .oddset-table .oc.pair .o, .oddset-table .oc.pair .p { display: inline; margin-right: 0; }
+  /* Sharpraden får inte hamna under etikettkolumnen när den bryter. */
+  .oddset-table .oc.pair .p { flex: 0 1 auto; }
   /* Saknar boken pris är dess rad bara ett "–" ovanför Pinnacles linje — en
      platshållare för något som inte finns, och halva korthöjden när AH, Ö/U
      och Hörnor alla står tomma. Sharpens rad står kvar; bara platshållaren
@@ -1035,6 +1050,9 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   .oddset-table .oc.pair.noprice { display: none; }
   /* Rek som egen rad i matchkortet, direkt under lagen (samma order som .oc
      men före i DOM ⇒ först). Tom cell (träningsmatch/forskning) döljs helt. */
+  /* Rek måste ta HELA raden. Med `flex: auto` la den sig bredvid pp-cellen och
+     drog med sig 1X2-rutorna på samma flexrad, så `2` föll ner igen — order
+     skapar inga radbrytningar i flexbox, bara ordning. */
   .oddset-table .rek { order: 3; flex: 1 1 100%; max-width: none; padding: 0 0 2px; }
   .oddset-table .rek:empty { display: none; }
   .oddset-table .rek .reksel { display: inline; margin: 0 0 0 6px; }
