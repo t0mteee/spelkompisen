@@ -826,6 +826,15 @@ function oddsetBestValue(m) {
   }
   return best
 }
+/* Böcker man faktiskt kan lägga ett spel hos. Skild från ANKARE (Pinnacle,
+   Smarkets), som är prisreferens. Se ANKARE ≠ BOK i CLAUDE.md — men skälet
+   att Pinnacle inte står här är MÄTT, inte principiellt: på matcher där ingen
+   mjuk bok prissatt tar Pinnacle ~11,5 % marginal på 1X2 mot ~5,6 % i övrigt
+   (uppmätt 2026-08-14 på 28 mot 132 matcher), och den uppmätta closing-driften
+   är 0,3–0,6 pp. Betinia ligger kvar i BOOK_NAME för historiken men samlas
+   inte längre. */
+const PLAYABLE_BOOKS = ['svenskaspel', 'expekt', 'ninjacasino']
+
 // Nivå: OMTVISTAD när andra sharp-ankaret (Smarkets) värderar samma bokodds
 // negativt; annars STARK/EDGE/SVAG på kvalitet q — inte på rå edge.
 /* ⚓-nivån "OMTVISTAD EDGE" är borttagen 2026-08-12. Den byggde på Smarkets
@@ -1045,6 +1054,11 @@ function OddsetView({ focus = null } = {}) {
   const [hideStarted, setHideStarted] = useState(() => {
     try { return localStorage.getItem('svs_oddset_hide_started') === '1' } catch { return false }
   })
+  // Matcher utan spelbart bokpris döljs som standard — till skillnad från
+  // startade-filtret, som är av tills man ber om det. Se PLAYABLE_BOOKS.
+  const [hideNoOdds, setHideNoOdds] = useState(() => {
+    try { return localStorage.getItem('svs_oddset_hide_no_odds') !== '0' } catch { return true }
+  })
   const [bank, setBank] = useState(() => {
     try { return Number(localStorage.getItem('svs_oddset_bank')) || 1000 } catch { return 1000 }
   })
@@ -1086,6 +1100,12 @@ function OddsetView({ focus = null } = {}) {
     setHideStarted(!hideStarted)
     try {
       localStorage.setItem('svs_oddset_hide_started', hideStarted ? '0' : '1')
+    } catch { /* ok */ }
+  }
+  const toggleNoOdds = () => {
+    setHideNoOdds(!hideNoOdds)
+    try {
+      localStorage.setItem('svs_oddset_hide_no_odds', hideNoOdds ? '0' : '1')
     } catch { /* ok */ }
   }
 
@@ -1422,14 +1442,21 @@ function OddsetView({ focus = null } = {}) {
     const cmp = m.model?.comparison?.[market]
     const mpBest = mp && Object.entries(mp.edges || {})
       .filter(([, e]) => e >= 0.05).sort((a, b) => b[1] - a[1])[0]
+    // Klasserna styr BARA mobilkortet: `noquote` gömmer bokens "–"-platshållare
+    // när priset saknas (sharpens rad står kvar), `noprice` gömmer hela
+    // marknaden när varken bok eller sharp har något. Desktoptabellen behåller
+    // "–" för kolumnjusteringen — se mobilblocket i App.css.
+    const svsPair = Boolean(svs?.[k1] && svs?.[k2])
+    const pinPair = Boolean(pin?.[k1] && pin?.[k2])
     return (
-      <td className="oc pair" data-market={MARKET_LABEL[market]}>
-        <div className={quoteClass('o', svs)}>
-          {svs?.[k1] && svs?.[k2] ? <>{fmtL(svs.line)} · {svs[k1].toFixed(2)}{arrowAtLine(mvS1, svs.line)} / {svs[k2].toFixed(2)}{arrowAtLine(mvS2, svs.line)}{shiftBadge(mvS1, 'SvS')}{priceStamp(svs)}</> : '–'}
+      <td className={`oc pair${svsPair || pinPair ? '' : ' noprice'}`}
+        data-market={MARKET_LABEL[market]}>
+        <div className={quoteClass(`o${svsPair ? '' : ' noquote'}`, svs)}>
+          {svsPair ? <>{fmtL(svs.line)} · {svs[k1].toFixed(2)}{arrowAtLine(mvS1, svs.line)} / {svs[k2].toFixed(2)}{arrowAtLine(mvS2, svs.line)}{shiftBadge(mvS1, 'SvS')}{priceStamp(svs)}</> : '–'}
           {edgePill(v1?.book === 'svenskaspel' ? v1 : null)
             || edgePill(v2?.book === 'svenskaspel' ? v2 : null)}
         </div>
-        {pin?.[k1] && pin?.[k2] && <div className={quoteClass('p', pin)}>P {fmtL(pin.line)} · {pin[k1].toFixed(2)}{arrowAtLine(mvP1, pin.line)} / {pin[k2].toFixed(2)}{arrowAtLine(mvP2, pin.line)}{shiftBadge(mvP1, 'Pinnacle')}{priceStamp(pin)}</div>}
+        {pinPair && <div className={quoteClass('p', pin)}>P {fmtL(pin.line)} · {pin[k1].toFixed(2)}{arrowAtLine(mvP1, pin.line)} / {pin[k2].toFixed(2)}{arrowAtLine(mvP2, pin.line)}{shiftBadge(mvP1, 'Pinnacle')}{priceStamp(pin)}</div>}
         {showBooks && [['expekt', 'E', 'Expekt'], ['ninjacasino', 'N', 'Ninja/Altenar']].map(([bk, tag, label]) => {
           const bo = m.odds?.[bk]?.[market]
           if (!bo?.[k1] || !bo?.[k2]) return null
@@ -1575,9 +1602,25 @@ function OddsetView({ focus = null } = {}) {
   const listed = onlySignals ? visible.filter(hasSignal) : visible
   const startedCount = listed.filter(
     (m) => m.start && new Date(m.start) < new Date()).length
-  const matchRows = hideStarted
-    ? listed.filter((m) => !m.start || new Date(m.start) >= new Date())
-    : listed
+  // Matchen går att spela bara om en SPELBAR bok har ett pris. Pinnacle och
+  // Smarkets räknas inte, och skälet är mätt och inte principiellt: på de
+  // matcher där ingen mjuk bok prissatt tar Pinnacle ~11,5 % marginal på 1X2
+  // mot ~5,6 % i övrigt (uppmätt 2026-08-14, 28 mot 132 matcher), medan den
+  // uppmätta closing-driften är 0,3–0,6 pp. Värdemotorn kan dessutom per
+  // konstruktion inte hitta edge mot Pinnacle, eftersom `fair` ÄR Pinnacles
+  // devigade pris — edgen blir då minus marginalen.
+  const hasBookPrice = (m) => PLAYABLE_BOOKS.some((bk) => {
+    const per = m.odds?.[bk]
+    if (!per) return false
+    return ['1x2', 'ah', 'ou', 'cor'].some((mk) => {
+      const o = per[mk]
+      return o && ['1', 'X', '2', 'H', 'A', 'O', 'U'].some((k) => o[k])
+    })
+  })
+  const noOddsCount = listed.filter((m) => !hasBookPrice(m)).length
+  const matchRows = listed
+    .filter((m) => !hideStarted || !m.start || new Date(m.start) >= new Date())
+    .filter((m) => !hideNoOdds || hasBookPrice(m))
   const completeMatchList = data.matches.length >= (data.total_matches || data.matches.length)
   const unfilteredInitialList = !completeMatchList && hidden.length === 0
     && !onlySignals && !hideStarted
@@ -2293,6 +2336,13 @@ function OddsetView({ focus = null } = {}) {
               {hideStarted ? 'Visa startade' : 'Dölj startade'}
               {startedCount > 0 ? ` (${startedCount})` : ''}
             </button>
+            <button className={hideNoOdds ? 'lg on' : 'lg'}
+              onClick={toggleNoOdds} aria-pressed={hideNoOdds}
+              disabled={noOddsCount === 0}
+              title={'Matcher som ingen spelbar bok (SvS, Expekt, Ninja/Altenar) har prissatt — mest småskaliga träningsmatcher, plus omgångar där boken ännu inte öppnat.\nDe har Pinnacle-pris, men där tas ungefär dubbel marginal på just dessa matcher (~11,5 % mot ~5,6 %), så priset är sällan spelbart i praktiken.\nDe samlas in och spåras precis som förut — filtret är bara en vy.'}>
+              {hideNoOdds ? 'Visa utan odds' : 'Dölj utan odds'}
+              {noOddsCount > 0 ? ` (${noOddsCount})` : ''}
+            </button>
           </div>
           {matchRows.length > 0
             ? <>
@@ -2309,7 +2359,9 @@ function OddsetView({ focus = null } = {}) {
                 )}
               </>
             : <EmptyState title="Inga matcher att visa"
-                detail={hideStarted && startedCount > 0
+                detail={hideNoOdds && noOddsCount > 0 && listed.length === noOddsCount
+                  ? 'Ingen match i urvalet har ett pris hos en spelbar bok. Visa utan odds för att se dem med enbart Pinnacles pris.'
+                  : hideStarted && startedCount > 0
                   ? 'Alla matcher i urvalet har startat. Visa startade för att ta fram dem igen.'
                   : onlySignals
                   ? 'Inga synliga matcher har en aktuell signal. Stäng av Bara signaler för att se alla.'

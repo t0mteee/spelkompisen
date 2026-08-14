@@ -997,9 +997,14 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   }
   .oddset-table .league-cell { order: 1; margin-left: auto; }
   .oddset-table .league-cell .rchip { margin-left: 0; margin-right: 0; }
-  .oddset-table .teams { order: 2; flex: 1 1 100%; font-size: 15px; }
+  .oddset-table .teams { order: 2; flex: 1 1 auto; min-width: 0; font-size: 15px; }
+  /* Rörelsecellen delade tidigare rad med 1X2-rutorna (båda order: 3). Den åt
+     ~90 px, så bara två av tre 28 %-rutor fick plats och `2` hamnade ensam på
+     en egen rad. Nu ligger pp-talet på lagraden till höger, och de tre
+     oddsrutorna har raden under för sig själva. */
   .oddset-table .movement-cell {
-    order: 3; flex: 0 0 auto; padding: 2px 4px;
+    order: 2; flex: 0 0 auto; margin-left: auto; padding: 2px 4px;
+    white-space: nowrap; align-self: baseline;
   }
   .oddset-table .oc { order: 3; flex: 1 1 28%; min-width: 0; overflow: hidden; white-space: normal; border: 1px solid var(--line); border-radius: 7px; padding: 5px; }
   .oddset-table .oc .o, .oddset-table .oc .p { white-space: normal; overflow-wrap: anywhere; }
@@ -1009,6 +1014,13 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   }
   .oddset-table .oc.pair { order: 4; flex: 1 1 100%; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 6px 0 0; }
   .oddset-table .oc.pair .o, .oddset-table .oc.pair .p { display: block; margin-right: 0; }
+  /* Saknar boken pris är dess rad bara ett "–" ovanför Pinnacles linje — en
+     platshållare för något som inte finns, och halva korthöjden när AH, Ö/U
+     och Hörnor alla står tomma. Sharpens rad står kvar; bara platshållaren
+     försvinner. Desktoptabellen behåller sitt "–" för kolumnjusteringen. */
+  .oddset-table .oc.pair .o.noquote { display: none; }
+  /* Varken bok eller sharp: hela marknaden saknas, då är rubriken meningslös. */
+  .oddset-table .oc.pair.noprice { display: none; }
   /* Rek som egen rad i matchkortet, direkt under lagen (samma order som .oc
      men före i DOM ⇒ först). Tom cell (träningsmatch/forskning) döljs helt. */
   .oddset-table .rek { order: 3; flex: 1 1 100%; max-width: none; padding: 0 0 2px; }

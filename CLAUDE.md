@@ -994,9 +994,20 @@ måste Saman lägga in en Bash-behörighetsregel — se
   den får först mäta 90/10 mot Pinnacle och därefter passera en separat
   system-shadow innan byggaren ens kan övervägas.
   Jämförbara listor använder EN `SortableTable`: rubrikklick på desktop,
-  sortval + samma kortordning på mobil. Matcher-flikens persisterade
-  Dölj/Visa startade-filter får inte filtrera Live eller signalflikarna.
-  Skapa aldrig tabbspecifika kopior.
+  sortval + samma kortordning på mobil. Matcher-fliken har TVÅ persisterade
+  filter — Dölj/Visa startade och **Dölj/Visa utan odds** — och INGET av dem
+  får filtrera Live eller signalflikarna. Skapa aldrig tabbspecifika kopior.
+  **"Utan odds" (2026-08-14) är PÅ som standard** (`svs_oddset_hide_no_odds`,
+  omvänd default mot startade-filtret) och döljer matcher där ingen bok i
+  `PLAYABLE_BOOKS` (`svenskaspel`/`expekt`/`ninjacasino`) har ett pris —
+  28 av 190 vid införandet, mest småskaliga träningsmatcher plus omgångar där
+  boken inte öppnat. Skälet är MÄTT och inte principiellt: på just de
+  matcherna tar Pinnacle ~11,5 % marginal på 1X2 mot ~5,6 % i övrigt, medan
+  uppmätt closing-drift är 0,3–0,6 pp. Värdemotorn kan dessutom aldrig hitta
+  edge mot Pinnacle, eftersom `fair` ÄR Pinnacles devigade pris. Filtret är
+  RENT VISUELLT — insamlingen kör i `com.saman.spelkompisen.snapshot` och
+  `matches_payload()` skriver ingenting; en dold match fortsätter samla
+  priser, prediction-captures och rörelser, och syns kvar under Rörelser.
 - Labb äger validering och fulla loggar. Oddset är beslutsytan; Labb är
   bevisytan. Stora loggar visas stegvis (200 rader) så mobilen inte låser sig.
 - Frånvaro: `oddset_absence_capture` + `oddset_absence_player` är PIT-historiken;

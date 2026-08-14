@@ -175,3 +175,36 @@ tillsyn och Idag-vyn skriver den konkreta V2.2-orsaken. Kontrollen är helt
 lokal och rent läsande. V8 verifierades efter driftsättning som `ok` med alla
 fyra versioner lika och 0/0 nystartade rader; nästa riktiga horisontcapture är
 första dataprov.
+
+## Oddslistan på mobil 2026-08-14
+
+Tre ändringar i Oddset-flikens Matcher-lista, alla i frontend.
+
+**1X2-rutorna ligger tre i bredd.** `.movement-cell` (pp-talet) delade
+`order: 3` med de tre `.oc`-cellerna i mobilkortets flexrad och åt ~90 px, så
+bara två av tre 28 %-rutor fick plats och `2` hamnade ensam på egen rad.
+Pp-talet ligger nu på lagraden (`order: 2`, `margin-left: auto`) och
+oddsrutorna har raden under för sig själva. Verifierat: alla tre `.oc` har
+samma `offsetTop`.
+
+**Bokens `–`-platshållare är borta på mobil.** AH, Ö/U och HÖRNOR ritade alltid
+ut en rad med `–` ovanför Pinnacles linje. `cellPair` sätter nu `noquote` på
+bokraden när priset saknas och `noprice` på hela cellen när varken bok eller
+sharp har något; mobilblocket döljer dem. **Desktoptabellen är oförändrad** —
+där behövs `–` för kolumnjusteringen (verifierat: 19 `.noquote` synliga vid
+1280 px, 0 vid 375 px).
+
+**Nytt filter "Dölj utan odds", PÅ som standard.** Se CLAUDE.md för kontraktet.
+Kort: 28 av 190 matcher saknade pris hos alla spelbara böcker. Samans
+invändning — Pinnacle är ju också en bok man kan spela hos, och CLV-logiken
+säger att man ska spela tidigt — är principiellt rätt, men uppmätt tar
+Pinnacle **11,53 % median 1X2-marginal på just de 28** mot **5,56 % på de
+132** som har bokpris. Det är matcher ingen bok vill prissätta skarpt, och
+edgen skulle behöva överstiga overrounden; uppmätt closing-drift är 0,3–0,6 pp.
+
+Filtret är rent visuellt, och det verifierades i drift snarare än antogs:
+insamlingsvarvet bekräftade priser för Segesta Sisak, Haro Deportivo och
+Alcoyano kl. 08:39:59Z — fem minuter efter att de försvunnit ur listan. De
+syns dessutom kvar under Rörelser med filtret påslaget, vilket är regeln:
+en match utan bokpris kan inte bära en värdeflagga (värde kräver bokpris mot
+sharp) men kan bära en Pinnacle-rörelse.
