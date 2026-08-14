@@ -990,7 +990,11 @@ function PoolV3() {
 //  * Insats och ackumulerat satsat är olika saker och står aldrig i samma
 //    kolumn.
 
-const STRATEGY_LABEL = { säker: 'Säker', medel: 'Medel', tuff: 'Tuff' }
+const STRATEGY_LABEL = {
+  säker: 'Säker', medel: 'Medel', tuff: 'Tuff',
+  byggarslump: 'Slump · samma urval', favoritrad: 'Favoritrader',
+  folkrad: 'Folkrader',
+}
 
 // Horisonten är minuter före spelstopp. Nyckeln (`h3`/`m20`) är ett internt
 // id som aldrig ska nå användaren — brödtexten sa T−3 h medan tabellen sa h3.
@@ -1140,7 +1144,9 @@ function SystemGroupsTable({ id, groups, limit = null }) {
         return (
           <tr key={`${g.product}-${g.config_key}-${g.horizon}`}
             className={g.retired ? 'v3retired' : ''}>
-            <td>{PRODUCT_LABEL[g.product] || g.product}</td>
+            <td>{g.research
+              ? <span title="Research-only: påverkar inte ordinarie system eller promotion">🧪 </span>
+              : null}{PRODUCT_LABEL[g.product] || g.product}</td>
             <td>{g.primary ? '★ ' : ''}{perTest != null ? kr(perTest) : '–'}</td>
             <td>{STRATEGY_LABEL[g.strategy] || g.strategy || '–'}</td>
             <td>{g.value_weight != null ? `${Math.round(g.value_weight * 100)} %` : '–'}</td>
@@ -1168,7 +1174,9 @@ function SystemGroupsTable({ id, groups, limit = null }) {
           <article key={`${g.product}-${g.config_key}-${g.horizon}`}
             className={`v3groupcard${g.retired ? ' v3retired' : ''}`}>
             <div className="v3groupcardhead">
-              <b>{PRODUCT_LABEL[g.product] || g.product}</b>
+              <b>{g.research
+                ? <span title="Research-only: påverkar inte ordinarie system eller promotion">🧪 </span>
+                : null}{PRODUCT_LABEL[g.product] || g.product}</b>
               <strong className={roiCls(g.roi)}>{pctSigned(g.roi)}</strong>
             </div>
             <div className="v3groupcardmeta">
@@ -1455,6 +1463,14 @@ function HistorikV3({ initialProduct, focus }) {
               Sammanlagt visar uträkningen antal tester med facit × kostnad per
               test. Resultaten får inte summeras mellan raderna.
             </div>
+            {activeGroupBase.some((g) => g.research) && (
+              <div className="v3note">
+                <b>🧪 PH5-forward är ett riktigt men simulerat framtidstest.</b>{' '}
+                Raderna frystes före spelstopp och rättas automatiskt, men inga
+                pengar spelades. Researchrader kan inte byta champion eller
+                ändra dina vanliga systemförslag.
+              </div>
+            )}
 
             <div className="v3groupfilters" aria-label="Filtrera testkonfigurationer">
               <label><span>Spel</span>

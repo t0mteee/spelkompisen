@@ -16,13 +16,14 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import itertools
 import json
 import random
 from typing import Optional
 
 from . import pool_settlement
 from .analysis import DrawAnalysis, analyze_draw
-from .builder import build_ev_system
+from .builder import build_ev_system, ev_candidate_signs
 from .storage import Storage
 from .svenskaspel import Draw, family_of
 
@@ -79,6 +80,28 @@ BENCHMARKS = tuple(
     for slug, strategy, weight in RISK_PROFILES
 )
 
+# PH5 FORWARD, RESEARCH-ONLY (förregistrerat 2026-08-15 före omgång 4966).
+#
+# Historiken gav en lovande 5 000-raderssignal men passerade INTE grinden mot
+# folk-/favoritrad. Därför får dessa nycklar samla äkta point-in-time-facit,
+# men de ingår ALDRIG i `benchmarks_for`, championrapporten eller automatisk
+# promotion. Fyra armar med samma radantal gör testet tolkningsbart.
+PH5_FORWARD_START_DRAW = 4966
+PH5_FORWARD_CONFIGS = (
+    {"key": "ph5-v3-b5000-medel", "budget": 5000.0,
+     "strategy": "medel", "value_weight": 0.5,
+     "method": "varderader"},
+    {"key": "ph5-v3-b5000-byggarslump", "budget": 5000.0,
+     "strategy": "byggarslump", "value_weight": 0.5,
+     "method": "byggarslump"},
+    {"key": "ph5-v3-b5000-favoritrad", "budget": 5000.0,
+     "strategy": "favoritrad", "value_weight": 0.0,
+     "method": "favoritrad"},
+    {"key": "ph5-v3-b5000-folkrad", "budget": 5000.0,
+     "strategy": "folkrad", "value_weight": 0.0,
+     "method": "folkrad"},
+)
+
 # BUDGETTAK FÖR 8-MATCHSSPELEN (Samans beslut 2026-08-09).
 #
 # Budgeten är antal rader, och hur mycket en budget "är" beror på hur stort
@@ -112,6 +135,16 @@ def benchmarks_for(product: str) -> tuple[dict, ...]:
     return BENCHMARKS
 
 
+def research_configs_for(product: str,
+                         draw_number: Optional[int] = None) -> tuple[dict, ...]:
+    """PH5:s separata forwardfamilj; aldrig en del av promotionsfamiljen."""
+    if product != "stryktipset":
+        return ()
+    if draw_number is not None and draw_number < PH5_FORWARD_START_DRAW:
+        return ()
+    return PH5_FORWARD_CONFIGS
+
+
 def _parse(ts: Optional[str]) -> Optional[dt.datetime]:
     if not ts:
         return None
@@ -136,6 +169,59 @@ def _frozen(store: Storage, product: str, draw_number: int,
         (product, draw_number, horizon, key)).fetchone() is not None
 
 
+def _ph5_binary_rows(analysis: DrawAnalysis, n_rows: int,
+                     method: str) -> list[list[str]]:
+    """PH5:s folk-/favoritkontroll ur samma binära pool som historiken."""
+    per_match: list[list[str]] = []
+    for match in analysis.matches:
+        ranked = sorted(
+            ("1", "X", "2"),
+            key=lambda sign: -float(
+                match.outcomes[sign].fair_prob
+                if match.outcomes[sign].fair_prob is not None else 1 / 3),
+        )
+        per_match.append(ranked[:2])
+
+    def score(row: tuple[str, ...]) -> float:
+        value = 1.0
+        for match, sign in zip(analysis.matches, row):
+            outcome = match.outcomes[sign]
+            if method == "folkrad":
+                total = sum(match.outcomes[s].streck or 0
+                            for s in ("1", "X", "2")) or 1
+                probability = max((outcome.streck or 0) / total, 0.001)
+            else:
+                probability = float(
+                    outcome.fair_prob
+                    if outcome.fair_prob is not None else 1 / 3)
+            value *= probability
+        return value
+
+    rows = list(itertools.product(*per_match))
+    rows.sort(key=score, reverse=True)
+    return [list(row) for row in rows[:n_rows]]
+
+
+def _ph5_control_rows(analysis: DrawAnalysis, config: dict,
+                      horizon: str) -> list[list[str]]:
+    """Bygg en deterministisk kontroll med samma 5 000-radersbudget."""
+    row_price = analysis.row_price or 1.0
+    target = max(1, int(config["budget"] / row_price))
+    method = config["method"]
+    if method in ("folkrad", "favoritrad"):
+        return _ph5_binary_rows(analysis, target, method)
+    if method != "byggarslump":
+        raise ValueError(f"okänd PH5-kontroll: {method}")
+    signs, _universe = ev_candidate_signs(analysis, value_weight=0.5)
+    pool = list(itertools.product(*(
+        signs[match.event_number] for match in analysis.matches)))
+    seed_text = (f"ph5-forward-v3|{analysis.product}|{analysis.draw_number}|"
+                 f"{horizon}|{config['key']}")
+    seed = int(hashlib.sha256(seed_text.encode()).hexdigest()[:16], 16)
+    rng = random.Random(seed)
+    return [list(row) for row in rng.sample(pool, min(target, len(pool)))]
+
+
 def freeze_due(store: Storage, product: str, draw: Draw,
                sharp: Optional[dict] = None, movement: Optional[dict] = None,
                jackpot: Optional[float] = None,
@@ -156,7 +242,9 @@ def freeze_due(store: Storage, product: str, draw: Draw,
     plan = _prize_plan(product)
     analysis: Optional[DrawAnalysis] = None
     for horizon, minutes, tol in due:
-        for bench in benchmarks_for(product):
+        configs = (*benchmarks_for(product),
+                   *research_configs_for(product, draw.draw_number))
+        for bench in configs:
             if _frozen(store, product, draw.draw_number, horizon, bench["key"]):
                 continue
             if analysis is None:
@@ -167,15 +255,32 @@ def freeze_due(store: Storage, product: str, draw: Draw,
                 if turnover_used > (analysis.turnover or 0.0):
                     analysis.turnover = turnover_used
                 jp = max(0.0, jackpot or 0.0)
-            system = build_ev_system(
-                analysis, bench["strategy"], bench["budget"],
-                row_price=analysis.row_price or 1.0,
-                value_weight=bench["value_weight"], plan=plan, jackpot=jp)
-            if not system.rows:
+            method = bench.get("method", "varderader")
+            if method == "varderader":
+                system = build_ev_system(
+                    analysis, bench["strategy"], bench["budget"],
+                    row_price=analysis.row_price or 1.0,
+                    value_weight=bench["value_weight"], plan=plan, jackpot=jp)
+                rows = system.rows
+                n_rows = system.num_rows
+                cost = system.cost
+                build_note = system.note
+            else:
+                rows = _ph5_control_rows(analysis, bench, horizon)
+                n_rows = len(rows)
+                cost = n_rows * (analysis.row_price or 1.0)
+                build_note = (f"PH5 forward research-only: {method}, "
+                              f"{n_rows} frysta rader")
+            if not rows:
                 continue   # gick inte att bygga — nästa varv försöker igen
+            if "method" in bench:
+                research_target = max(
+                    1, int(bench["budget"] / (analysis.row_price or 1.0)))
+                if n_rows != research_target:
+                    continue   # delsystem får inte se ut som ett giltigt test
             events_order = ",".join(
                 str(match.event_number) for match in analysis.matches)
-            rows_text = "\n".join(",".join(row) for row in system.rows)
+            rows_text = "\n".join(",".join(row) for row in rows)
             covered = sum(
                 1 for match in analysis.matches
                 if any(match.outcomes[s].fair_prob is not None
@@ -192,10 +297,10 @@ def freeze_due(store: Storage, product: str, draw: Draw,
                 (product, draw.draw_number, horizon, bench["key"], _iso(now),
                  lag, int(lag <= tol), code_version, bench["budget"],
                  bench["strategy"], bench["value_weight"],
-                 analysis.row_price or 1.0, system.num_rows, system.cost,
+                 analysis.row_price or 1.0, n_rows, cost,
                  events_order, rows_text,
                  hashlib.sha256(rows_text.encode()).hexdigest()[:16],
-                 covered, turnover_used, basis, jp, jackpot_source, system.note))
+                 covered, turnover_used, basis, jp, jackpot_source, build_note))
             if not store._bulk:  # noqa: SLF001
                 store.conn.commit()
             report["frozen"] += 1
@@ -342,12 +447,18 @@ def _bench(key: str, stored: Optional[dict] = None) -> dict:
     """
     for bench in BENCHMARKS:
         if bench["key"] == key:
-            return {**bench, "retired": False}
+            return {**bench, "retired": False, "research": False,
+                    "promotion_eligible": True, "method": "varderader"}
+    for config in PH5_FORWARD_CONFIGS:
+        if config["key"] == key:
+            return {**config, "primary": False, "retired": False,
+                    "research": True, "promotion_eligible": False}
     stored = stored or {}
     return {"key": key, "budget": stored.get("budget"),
             "strategy": stored.get("strategy"),
             "value_weight": stored.get("value_weight"),
-            "primary": False, "retired": True}
+            "primary": False, "retired": True, "research": False,
+            "promotion_eligible": False, "method": "legacy"}
 
 
 def _paired_draw_roi(store: Storage, products: tuple[str, ...], horizon: str,
@@ -567,12 +678,17 @@ def system_detail(store: Storage, product: str, draw_number: int,
             "streck_at_close": info.get("streck_close"),
         })
     missed = [e for e in events if e["hit"] is False]
+    bench = _bench(config_key, {"budget": budget, "strategy": strategy,
+                                "value_weight": value_weight})
     return {
         "available": True, "product": product, "draw_number": draw_number,
         "horizon": horizon, "horizon_minutes": FREEZE_HORIZONS.get(
             horizon, (None, None))[0],
         "config_key": config_key, "budget": budget, "strategy": strategy,
-        "value_weight": value_weight, "retired": config_key in RETIRED_KEYS,
+        "value_weight": value_weight, "retired": bench["retired"],
+        "research": bench["research"],
+        "promotion_eligible": bench["promotion_eligible"],
+        "method": bench["method"],
         "frozen_at": frozen_at, "timely": bool(timely), "lag_min": lag_min,
         "n_rows": n_rows, "cost_kr": cost_kr,
         "correct_max": correct_max,
@@ -621,7 +737,9 @@ def summary(store: Storage) -> dict:
          n_unresolvable, n_cancelled, n_payout_incomplete, cost, payout, best,
          budget, strategy, value_weight, latest_frozen) = row
         if not any(b["key"] == key for b in benchmarks_for(product)) \
-                and key not in RETIRED_KEYS:
+                and key not in RETIRED_KEYS \
+                and not any(c["key"] == key
+                            for c in research_configs_for(product)):
             # Utanför produktens familj (t.ex. b1024 på ett 8-matchsspel):
             # varvet fryser den inte längre, så den ska inte heller stå kvar
             # i tabellen och se ut som en levande utmanare. Pensionerade
@@ -636,6 +754,9 @@ def summary(store: Storage) -> dict:
             # vilket läste som procent och veckonummer. De är egna fält nu.
             "budget": bench["budget"], "strategy": bench["strategy"],
             "value_weight": bench["value_weight"], "retired": bench["retired"],
+            "research": bench["research"],
+            "promotion_eligible": bench["promotion_eligible"],
+            "method": bench["method"],
             "latest_frozen": latest_frozen,
             "n_frozen": n,
             "n_settled": n_settled, "n_timely": n_timely,
@@ -683,8 +804,12 @@ def summary(store: Storage) -> dict:
             "close": r[15],
             "budget": bench["budget"], "strategy": bench["strategy"],
             "value_weight": bench["value_weight"], "retired": bench["retired"],
+            "research": bench["research"],
+            "promotion_eligible": bench["promotion_eligible"],
+            "method": bench["method"],
         })
     return {"benchmarks": [dict(b) for b in BENCHMARKS],
+            "research_configs": [dict(c) for c in PH5_FORWARD_CONFIGS],
             "champion_key": CHAMPION_KEY,
             "retired_keys": list(RETIRED_KEYS),
             "horizons": {k: {"minutes": v[0], "tolerance_min": v[1]}

@@ -170,9 +170,9 @@ class PoolDatasetTests(unittest.TestCase):
         self.assertEqual(0, rep["built"])
 
 
-def _draw_fixture(close, n_events=8):
+def _draw_fixture(close, n_events=8, product="topptipset"):
     from app.svenskaspel import Draw, Match, Outcome
-    draw = Draw(product="topptipset", draw_number=100, state="Open",
+    draw = Draw(product=product, draw_number=100, state="Open",
                 reg_close_time=close.isoformat(), net_sale=120000.0,
                 row_price=1.0, fetched_at=_iso(NOW), jackpot=0.0)
     for i in range(1, n_events + 1):
@@ -382,6 +382,34 @@ class SystemLedgerTests(unittest.TestCase):
         rep2 = pool_system_ledger.freeze_due(
             self.store, "topptipset", draw, now=NOW, code_version="test")
         self.assertEqual(0, rep2["frozen"])                 # aldrig dubbelfrysning
+
+    def test_ph5_forward_fryser_fyra_5000_raderskontroller_research_only(self):
+        close = NOW + dt.timedelta(minutes=178)
+        draw = _draw_fixture(close, n_events=13, product="stryktipset")
+        draw.draw_number = pool_system_ledger.PH5_FORWARD_START_DRAW
+
+        rep = pool_system_ledger.freeze_due(
+            self.store, "stryktipset", draw, now=NOW, code_version="test")
+
+        ordinary = len(pool_system_ledger.benchmarks_for("stryktipset"))
+        research = pool_system_ledger.research_configs_for(
+            "stryktipset", draw.draw_number)
+        self.assertEqual(ordinary + len(research), rep["frozen"])
+        rows = self.store.conn.execute(
+            "SELECT config_key,n_rows,cost_kr,rows_hash FROM pool_system_ledger "
+            "WHERE config_key LIKE 'ph5-v3-%' ORDER BY config_key").fetchall()
+        self.assertEqual(4, len(rows))
+        self.assertTrue(all((r[1], r[2]) == (5000, 5000.0) for r in rows))
+        self.assertEqual(4, len({r[3] for r in rows}))
+        self.assertEqual(12, len(pool_system_ledger.benchmarks_for("stryktipset")))
+        self.assertEqual((), pool_system_ledger.research_configs_for(
+            "stryktipset", draw.draw_number - 1))
+
+        groups = pool_system_ledger.summary(self.store)["groups"]
+        ph5 = [g for g in groups if g["config_key"].startswith("ph5-v3-")]
+        self.assertEqual(4, len(ph5))
+        self.assertTrue(all(g["research"] for g in ph5))
+        self.assertTrue(all(not g["promotion_eligible"] for g in ph5))
 
     def test_freeze_due_ror_inte_stangd_eller_avlagsen_omgang(self):
         closed = _draw_fixture(NOW - dt.timedelta(minutes=5))

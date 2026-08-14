@@ -1,6 +1,18 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-08-14 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-08-15 — läs detta först i ny session)
+
+**PH5 FORWARD STARTAR PÅ STRYKTIPSET 4966 (2026-08-15, Codex).** Det
+historiska 5 000-raderstestet slog byggarslump tydligt men passerade inte den
+strikta grinden mot folk-/favoritrad. Ingen ordinarie konfiguration promoveras.
+I stället startar ett separat, research-only point-in-time-test: värderader,
+byggarslump, favoritrader och folkrader fryser exakt 5 000 rader vardera vid
+T−3 h och T−20 min. Nycklarna är uteslutna ur championrapport och automatisk
+promotion, ändrar inga vanliga system och lämnar aldrig in spel. Historik-UI
+märker dem 🧪 och poolhälsan larmar separat om någon frysning saknas. Första
+omgång är 4966 med spelstopp 2026-08-15 15:59 CEST; ingen bakfyllning.
+Förregistrering och uppföljning:
+`docs/ph5-forward-stryktipset-2026-08-15.md`.
 
 **PH5 v3:s täthetssvep är låst och körs 2026-08-14.** Den första planen var
 inte giltig: vid 8 192 rader var det binära kontrolluniversumet uttömt,

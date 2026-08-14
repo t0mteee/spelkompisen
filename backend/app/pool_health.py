@@ -14,7 +14,8 @@ from __future__ import annotations
 import datetime as dt
 from typing import Iterable, Optional
 
-from .pool_system_ledger import FREEZE_HORIZONS, benchmarks_for
+from .pool_system_ledger import (FREEZE_HORIZONS, benchmarks_for,
+                                 research_configs_for)
 from .svenskaspel import PRODUCTS
 
 NORMAL_MAX_AGE_MIN = 45
@@ -98,8 +99,11 @@ def report(store, *, now: Optional[dt.datetime] = None,
 
         # Kontrollera även nyss stängda omgångar: båda horisonterna ska vara
         # frysta när deras nominella tid plus ett helt tätvarv har passerat.
-        expected = len(benchmarks_for(product))
+        benchmark_keys = tuple(b["key"] for b in benchmarks_for(product))
         for draw in draws:
+            research_keys = tuple(
+                c["key"] for c in research_configs_for(
+                    product, draw["draw_number"]))
             for horizon, (minutes, timely_tol) in FREEZE_HORIZONS.items():
                 due = draw["close"] - dt.timedelta(minutes=minutes)
                 # h3 ligger utanför tvåtimmars-förtätningen och får därför
@@ -109,14 +113,32 @@ def report(store, *, now: Optional[dt.datetime] = None,
                 grace = max(FREEZE_GRACE_MIN, timely_tol)
                 if now < due + dt.timedelta(minutes=grace):
                     continue
-                count = store.conn.execute(
-                    "SELECT COUNT(DISTINCT config_key) FROM pool_system_ledger "
-                    "WHERE product=? AND draw_number=? AND horizon=?",
-                    (product, draw["draw_number"], horizon)).fetchone()[0]
-                if count < expected:
+                def _count(keys: tuple[str, ...]) -> int:
+                    if not keys:
+                        return 0
+                    marks = ",".join("?" for _ in keys)
+                    return store.conn.execute(
+                        "SELECT COUNT(DISTINCT config_key) FROM pool_system_ledger "
+                        "WHERE product=? AND draw_number=? AND horizon=? "
+                        f"AND config_key IN ({marks})",
+                        (product, draw["draw_number"], horizon, *keys),
+                    ).fetchone()[0]
+
+                count = _count(benchmark_keys)
+                if count < len(benchmark_keys):
                     _issue(issues, "error", product, "freeze_incomplete",
-                           f"{horizon} har {count}/{expected} frysta system",
+                           f"{horizon} har {count}/{len(benchmark_keys)} "
+                           "frysta system",
                            draw["draw_number"])
+                if research_keys:
+                    research_count = _count(research_keys)
+                    if research_count < len(research_keys):
+                        _issue(
+                            issues, "error", product,
+                            "research_freeze_incomplete",
+                            f"{horizon} har {research_count}/{len(research_keys)} "
+                            "frysta PH5-researchsystem",
+                            draw["draw_number"])
 
         # Scanhintet ska aldrig ligga bakom en omgång som redan observerats.
         if not PRODUCTS.get(product, {}).get("listing", True):
