@@ -1,37 +1,39 @@
 """PH5 — slår VÅRT radval baslinjerna? Ablation på final_only-backfillen.
 
 Frågan PH3-ledgern inte kan svara på i tid: poolspel ger ~1 datapunkt per omgång
-och toppvinster är sällsynta, så en ROI-signifikans dröjer i praktiken år (6
-settlade system i dag). Men settlementlagret har 7 754 kompletta omgångar med
-slutstreck, öppningsodds, facit OCH faktiska vinnarantal/utdelningar per nivå.
-Det räcker för att jämföra RADVALSMETODER mot varandra med n i tusental.
+och toppvinster är sällsynta, så en ROI-signifikans dröjer i praktiken år.
+Settlementlagret har däremot hundratals relevanta 13-matchsomgångar med
+slutstreck, öppningsodds, facit OCH identifierbara vinstnivåer. Det räcker för
+att jämföra RADVALSMETODER mot varandra långt innan forward-grinden fylls.
 
 ## Vad detta är och inte är
 
 * **Relativ jämförelse, aldrig en spelbar ROI.** Alla armar ser exakt samma
   information (slutstreck + öppningsodds), så jämförelsen är rättvis — men
   slutstrecket var inte känt när raden hade byggts på riktigt. Absoluta tal är
-  därför en ÖVRE gräns, inte en prognos. PIT-frågan mäts av `pit-v3`, inte här.
+  därför ett optimistiskt icke-PIT-estimat, inte en prognos eller bevisad övre
+  gräns. PIT-frågan mäts av `pit-v3`, inte här.
 * **Kohort `final_only`** — hålls utanför pit-v3-manifestet och får aldrig
   blandas in i det frysta forward-experimentet.
-* Utvärderingen använder `pool_system_ledger.counterfactual_payout`, dvs samma
-  egna vinstutspädning som PH3: omgångar där en nivå hade 0 officiella vinnare
-  ger ofullständigt facit och räknas INTE som noll.
-* Armarna rankar samma kandidatmängd som den riktiga byggaren producerar; vi
-  implementerar aldrig en tredje kopia av EV-logiken (`build_ev_system` och
-  frontendens `evalRows` ska hållas konsistenta — en tredje variant skulle
-  garanterat driva isär).
+* Med `--fixed-payout-cohort` väljs bara omgångar där samtliga vinstnivåer är
+  identifierbara FÖRE armarna byggs. Kohorten kan då inte ändras med budgeten.
+* `byggarslump` dras ur exakt samma kandidatuniversum som produktionsbyggaren.
+  Kandidattecknen kommer från `builder.ev_candidate_signs`, aldrig från en
+  tredje kopia av EV-logiken.
 
 Körning:  .venv/bin/python -B scripts/ph5_radvalsablation.py [--product X]
-                                [--limit N] [--budget KR] [--json FIL]
+              [--limit N] [--budget KR] [--db FIL] [--fixed-payout-cohort]
+              [--skip-hamming] [--bootstrap-iters N] [--json FIL]
 """
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import pathlib
 import random
 import sqlite3
+import subprocess
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
@@ -43,6 +45,7 @@ from app.storage import DEFAULT_DB                        # noqa: E402
 from app.svenskaspel import Draw, Match, Outcome          # noqa: E402
 
 COHORT = "final_only-radval-v2"
+FIXED_COHORT = "final_only-radval-v3-fixed-payout"
 # v1 UNDERKÄNDES av sitt eget förregistrerade sanity-krav (2026-07-25): `slump`
 # skulle ligga klart sämst men låg BÄST i fyra av fem produkter, som mest
 # +45,5 % i Topptipset Stryk med KI [−69,7..+197,7]. Slumpen var inte bättre —
@@ -61,6 +64,7 @@ COHORT = "final_only-radval-v2"
 WINSOR_PP = 2.0        # ±200 procentenheter på den parade differensen
 PRODUCTS = ("stryktipset", "europatipset", "topptipset",
             "topptipsetstryk", "topptipsetextra")
+PRIMARY_BASELINES = ("folkrad", "favoritrad", "byggarslump")
 SIGNS = ("1", "X", "2")
 SEED = 20260725
 
@@ -70,7 +74,17 @@ def prize_plan(product: str) -> dict:
     return PRIZE_PLANS[product]
 
 
-def load(conn: sqlite3.Connection, product: str) -> list[dict]:
+def _tiers_identifiable(tiers: dict[int, tuple], plan: dict) -> bool:
+    """Alla nivåpotter måste kunna räknas oavsett vilken arm som träffar dem."""
+    for correct in plan["splits"]:
+        winners, amount = tiers.get(int(correct), (None, None))
+        if winners is None or winners <= 0 or amount is None:
+            return False
+    return True
+
+
+def load(conn: sqlite3.Connection, product: str, plan: dict,
+         require_identifiable_tiers: bool = False) -> list[dict]:
     """Kompletta omgångar med streck, odds, facit och vinstnivåer."""
     heads = {dn: (net, price, cancelled, close) for dn, net, price, cancelled, close
              in conn.execute(
@@ -95,17 +109,23 @@ def load(conn: sqlite3.Connection, product: str) -> list[dict]:
         evs = events.get(dn) or []
         if not evs or cancelled or any(e[3] for e in evs):
             continue                      # struket/lottat: facit ej jämförbart
+        if require_identifiable_tiers and product in (
+                "stryktipset", "europatipset") and len(evs) != 13:
+            continue                      # v3-frågan gäller exakt 13 matcher
         if not net or net <= 0 or not price or price <= 0:
             continue
         if any(e[2] not in SIGNS for e in evs):
             continue
         if any(e[i] is None for e in evs for i in (4, 5, 6, 7, 8, 9)):
             continue                      # kräver både streck OCH odds
-        if not tiers.get(dn):
+        draw_tiers = tiers.get(dn) or {}
+        if not draw_tiers:
             continue
+        if require_identifiable_tiers and not _tiers_identifiable(draw_tiers, plan):
+            continue                     # fast kohort före något armutfall
         out.append({"draw": dn, "net_sale": float(net), "row_price": float(price),
                     "close": str(close or ""), "events": evs,
-                    "tiers": tiers[dn]})
+                    "tiers": draw_tiers})
     return out
 
 
@@ -160,8 +180,8 @@ def _p_folk(m, sign: str) -> float:
 
 
 def arms(draw: Draw, n_rows: int, rng: random.Random,
-         plan: dict) -> dict[str, list[tuple]]:
-    """De fyra armarna. Samma budget (= samma antal rader) för alla."""
+         plan: dict, include_hamming: bool = True) -> dict[str, object]:
+    """Armar med samma budget; byggarslump delar vår kandidatmängd exakt."""
     ms = draw.matches
 
     def p_row(row, fn):
@@ -170,16 +190,24 @@ def arms(draw: Draw, n_rows: int, rng: random.Random,
             out *= fn(m, sign)
         return out
 
-    out: dict[str, list[tuple]] = {}
+    out: dict[str, object] = {}
 
     # 1. VÅR metod — den riktiga byggaren, exakt samma kod som appen kör.
     analysis = analyze_draw(draw)
     try:
+        candidate_signs, universe = builder.ev_candidate_signs(analysis, 0.5)
         system = builder.build_ev_system(
             analysis, strategy="medel", budget=n_rows * (draw.row_price or 1.0),
             row_price=draw.row_price or 1.0, value_weight=0.5, plan=plan,
             jackpot=0.0)
         out["varderader"] = [tuple(r) for r in (system.rows or [])][:n_rows]
+        builder_pool = list(itertools.product(*(
+            candidate_signs[m.event_number] for m in analysis.matches)))
+        builder_rng = random.Random(
+            f"{SEED}|{draw.product}|{draw.draw_number}|{n_rows}|byggarslump")
+        out["byggarslump"] = builder_rng.sample(
+            builder_pool, min(n_rows, len(builder_pool)))
+        out["_builder_universe_n"] = universe
     except Exception as exc:                      # noqa: BLE001
         out["varderader"] = []
         out["_error"] = f"{type(exc).__name__}: {exc}"[:120]   # type: ignore
@@ -191,10 +219,10 @@ def arms(draw: Draw, n_rows: int, rng: random.Random,
     # 4. Slump bland samma kandidater — golvet.
     pool = _candidate_rows(draw, max(n_rows * 8, 200), lambda r: p_row(r, _p_market))
     out["slump"] = rng.sample(pool, min(n_rows, len(pool)))
-    # 5. Hamming-spridning (förregistrerad 2026-07-28, docs/ph5-hamming-
-    # forregistrering-2026-07-28.md): gles täckning ur SAMMA kandidatpool —
-    # deterministisk girig farthest-point på minsta Hammingavstånd.
-    out["hamming"] = _hamming_spread(pool, n_rows)
+    # 5. Hamming-spridning är historiskt förregistrerad men O(rader × pool).
+    # Täthetssvepet kan välja bort den eftersom den inte ingår i v3-grinden.
+    if include_hamming:
+        out["hamming"] = _hamming_spread(pool, n_rows)
     return out
 
 
@@ -254,34 +282,68 @@ def block_ci(values: list[float], rng: random.Random,
     return round(lo, 4), round(hi, 4)
 
 
+def _code_version() -> str:
+    """Commit som faktiskt kör skriptet; `unknown` utanför en git-kopia."""
+    try:
+        root = pathlib.Path(__file__).resolve().parents[2]
+        return subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            check=True, capture_output=True, text=True, timeout=5,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--product", action="append", choices=PRODUCTS)
     ap.add_argument("--limit", type=int, default=0,
                     help="max antal omgångar per produkt (0 = alla)")
     ap.add_argument("--budget", type=float, default=100.0)
+    ap.add_argument("--db", type=str, default=str(DEFAULT_DB),
+                    help="SQLite-fil; öppnas alltid read-only")
+    ap.add_argument("--fixed-payout-cohort", action="store_true",
+                    help="kräv identifierbara potter på alla nivåer före armbygge")
+    ap.add_argument("--skip-hamming", action="store_true",
+                    help="utelämna den kvadratiska Hamming-armen")
+    ap.add_argument("--bootstrap-iters", type=int, default=1000)
     ap.add_argument("--json", type=str, default="")
     args = ap.parse_args()
 
-    conn = sqlite3.connect(f"file:{DEFAULT_DB}?mode=ro", uri=True)
+    if args.bootstrap_iters < 100:
+        ap.error("--bootstrap-iters måste vara minst 100")
+    db_path = pathlib.Path(args.db).expanduser().resolve()
+    conn = sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
-    report = {"cohort": COHORT, "seed": SEED, "budget": args.budget,
-              "products": {}}
+    report = {
+        "cohort": FIXED_COHORT if args.fixed_payout_cohort else COHORT,
+        "seed": SEED,
+        "budget": args.budget,
+        "code_version": _code_version(),
+        "database": {"path": str(db_path), "size_bytes": db_path.stat().st_size},
+        "fixed_payout_cohort": args.fixed_payout_cohort,
+        "hamming_included": not args.skip_hamming,
+        "bootstrap_iters": args.bootstrap_iters,
+        "primary_baselines": list(PRIMARY_BASELINES),
+        "products": {},
+    }
     for product in (args.product or PRODUCTS):
         plan = prize_plan(product)
-        draws = load(conn, product)
+        draws = load(conn, product, plan, args.fixed_payout_cohort)
         if args.limit:
             draws = draws[-args.limit:]            # senaste = mest relevanta
         rng = random.Random(SEED)
         per_arm: dict[str, list[float]] = {}
         per_draw: list[dict] = []
         hits: dict[str, int] = {}
+        row_shortfalls: dict[str, int] = {}
         used = incomplete = failed = 0
         for row in draws:
             draw, facit = as_draw(product, row)
             n_rows = max(1, int(args.budget / (row["row_price"] or 1.0)))
             cost = n_rows * (row["row_price"] or 1.0)
-            built = arms(draw, n_rows, rng, plan)
+            built = arms(draw, n_rows, rng, plan,
+                         include_hamming=not args.skip_hamming)
             if not built.get("varderader"):
                 failed += 1
                 continue
@@ -290,16 +352,24 @@ def main() -> None:
             if not all(r["complete"] for r in results.values()):
                 incomplete += 1
                 continue
+            for name in ("varderader", *PRIMARY_BASELINES):
+                if results.get(name, {}).get("n_rows") != n_rows:
+                    row_shortfalls[name] = row_shortfalls.get(name, 0) + 1
             used += 1
             for name, res in results.items():
                 per_arm.setdefault(name, []).append(res["roi"])
                 if res["best"] >= max(row["tiers"]):
                     hits[name] = hits.get(name, 0) + 1
-            per_draw.append({"draw": row["draw"],
-                             **{name: res["roi"] for name, res in results.items()}})
+            per_draw.append({
+                "draw": row["draw"],
+                "builder_universe_n": built.get("_builder_universe_n"),
+                "n_rows": {name: res["n_rows"] for name, res in results.items()},
+                **{name: res["roi"] for name, res in results.items()},
+            })
         summary = {}
         for name, rois in sorted(per_arm.items()):
-            lo, hi = block_ci(rois, random.Random(SEED))
+            lo, hi = block_ci(
+                rois, random.Random(SEED), iters=args.bootstrap_iters)
             summary[name] = {
                 "n_draws": len(rois),
                 # BEHÅLLS för spårbarhet men är INTE beslutsunderlag: ROI är
@@ -321,17 +391,25 @@ def main() -> None:
                 continue
             wins = sum(1 for x in diffs if x > 0)
             clipped = [max(-WINSOR_PP, min(WINSOR_PP, x)) for x in diffs]
-            lo, hi = block_ci(clipped, random.Random(SEED))
+            lo90, hi90 = block_ci(
+                clipped, random.Random(SEED), iters=args.bootstrap_iters,
+                alpha=0.10)
+            lo95, hi95 = block_ci(
+                clipped, random.Random(SEED), iters=args.bootstrap_iters,
+                alpha=0.05)
             paired[name] = {
                 "n": len(diffs),
                 "mean_diff_w": round(sum(clipped) / len(clipped), 4),
                 "median_diff": round(sorted(diffs)[len(diffs) // 2], 4),
-                "ci90": [lo, hi],
+                "ci90": [lo90, hi90],
+                "ci95": [lo95, hi95],
+                "passes_ci95": lo95 is not None and lo95 > 0,
                 "win_share": round(wins / len(diffs), 4)}
 
         report["products"][product] = {
             "n_available": len(draws), "n_used": used,
             "n_incomplete_payout": incomplete, "n_build_failed": failed,
+            "primary_row_shortfalls": row_shortfalls,
             "arms": summary, "paired_vs_baselines": paired,
             # rådata så omräkning aldrig kräver en ny 1,5-timmarskörning
             "per_draw_roi": per_draw}
@@ -341,8 +419,8 @@ def main() -> None:
             f"{n} {s['top_tier_hits']}" for n, s in summary.items()))
         print(f"   PARAD differens {ours} − baslinje (winsoriserad ±200 pp):")
         for name, p in paired.items():
-            ci = (f"[{p['ci90'][0]*100:+.1f}..{p['ci90'][1]*100:+.1f}]"
-                  if p["ci90"][0] is not None else "KI –")
+            ci = (f"[{p['ci95'][0]*100:+.1f}..{p['ci95'][1]*100:+.1f}]"
+                  if p["ci95"][0] is not None else "KI –")
             print(f"     vs {name:12s} {p['mean_diff_w']*100:+7.1f} pp {ci:>20s}"
                   f" · median {p['median_diff']*100:+6.1f} pp"
                   f" · vinner {p['win_share']*100:.0f} % av omgångarna")

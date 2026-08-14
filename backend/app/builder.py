@@ -577,6 +577,33 @@ def _row_expected_value(pf: list[float], pk: list[float],
     return total
 
 
+def ev_candidate_signs(analysis: DrawAnalysis,
+                       value_weight: float = 0.5) -> tuple[dict[int, list[str]], int]:
+    """Returnera EV-byggarens kandidattecken och exakta universumstorlek.
+
+    Hjälpfunktionen är den enda källan till kandidatuniversumet. Den används
+    både av produktionsbyggaren och PH5:s kontrollarm, så en ablation inte kan
+    råka jämföra två olika radmängder.
+    """
+    cand: dict[int, list[str]] = {}
+    universe = 1
+    for m in analysis.matches:
+        # Strukna matcher behandlas som vanliga (empirisk grund i _pick-koden
+        # ovan): de avgörs med riktigt resultat och räknas normalt, så de ska
+        # inte äta upp kandidatuniversumet med tvingad helgardering.
+        signs = _signs_by_score(m, value_weight)[:2]
+        cand[m.event_number] = sorted(signs, key=SIGNS.index)
+        universe *= len(signs)
+    for m in sorted(analysis.matches, key=lambda x: x.open_score, reverse=True):
+        if len(cand[m.event_number]) == 3:
+            continue
+        if universe // 2 * 3 > EV_UNIVERSE_CAP:
+            break
+        cand[m.event_number] = list(SIGNS)
+        universe = universe // 2 * 3
+    return cand, universe
+
+
 def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
                     budget: float = 100.0, row_price: float = ROW_PRICE,
                     value_weight: float = 0.5, plan: Optional[dict] = None,
@@ -607,23 +634,9 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
         q = (o.streck / 100.0) if o.streck else p
         return p, max(q, 0.001)
 
-    # kandidattecken: topp-2 enligt teckenpoäng; utöka de öppnaste till 3
-    cand: dict[int, list[str]] = {}
-    universe = 1
-    for m in analysis.matches:
-        # Strukna matcher behandlas som vanliga (empirisk grund i _pick-koden
-        # ovan): de avgörs med riktigt resultat och räknas normalt, så de ska
-        # inte äta upp kandidatuniversumet med tvingad helgardering.
-        signs = _signs_by_score(m, value_weight)[:2]
-        cand[m.event_number] = sorted(signs, key=SIGNS.index)
-        universe *= len(signs)
-    for m in sorted(analysis.matches, key=lambda x: x.open_score, reverse=True):
-        if len(cand[m.event_number]) == 3:
-            continue
-        if universe // 2 * 3 > EV_UNIVERSE_CAP:
-            break
-        cand[m.event_number] = list(SIGNS)
-        universe = universe // 2 * 3
+    # kandidattecken: topp-2 enligt teckenpoäng; utöka de öppnaste till 3.
+    # PH5 använder samma hjälpfunktion för sin byggarslump-kontroll.
+    cand, universe = ev_candidate_signs(analysis, value_weight)
 
     ms = analysis.matches
     pq = {(m.event_number, s): _pq(m, s) for m in ms for s in SIGNS}

@@ -3,10 +3,26 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from app.builder import (_poisson_binomial, _prize_pools,
-                         _row_expected_value, build_ev_system)
+                         _row_expected_value, build_ev_system,
+                         ev_candidate_signs)
 
 
 class PrizePoolTests(unittest.TestCase):
+    def test_ev_candidate_space_expands_to_cap_without_exceeding_it(self) -> None:
+        matches = [SimpleNamespace(event_number=i, open_score=100 - i)
+                   for i in range(13)]
+        analysis = SimpleNamespace(matches=matches)
+
+        with patch("app.builder._signs_by_score", return_value=["1", "X", "2"]):
+            candidates, universe = ev_candidate_signs(analysis, value_weight=0.5)
+
+        # 2^13, därefter fyra öppna matcher × 3/2 = 41 472. En femte
+        # helgardering hade gett 62 208 och ska därför stoppas av 60k-taket.
+        self.assertEqual(41_472, universe)
+        self.assertEqual(4, sum(len(signs) == 3 for signs in candidates.values()))
+        self.assertTrue(all(signs in (["1", "X"], ["1", "X", "2"])
+                            for signs in candidates.values()))
+
     def test_jackpot_is_added_only_to_top_tier(self) -> None:
         plan = {"ratio": 0.65, "splits": {13: 0.40, 12: 0.15, 11: 0.12}}
         pools = _prize_pools(1_000_000, plan, jackpot=250_000)
