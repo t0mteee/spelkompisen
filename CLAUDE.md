@@ -963,7 +963,14 @@ måste Saman lägga in en Bash-behörighetsregel — se
 - Tillstånd sparas i `localStorage` (`svs_state`); bootstrap återställer.
 - Inga `cursor: help`-frågetecken; förklaringar som title-tooltips.
 - Oddset-delen: röd = oddset NER (ökad vinstchans), grön = UPP (vm-konvention).
-- Oddset har FEM persisterade sub-tabbar och en alltid synlig räknarrad.
+- Oddset har FEM persisterade sub-tabbar. Antalen (live/värdespel/rörelser)
+  står PÅ flikarna sedan 2026-08-14 och är därmed alltid synliga; den separata
+  räknarraden upprepade tabbnamnen och åt en hel rad överst på mobil, så den
+  är dold där men står kvar på desktop för live-signalernas "att granska".
+  Verktygsraden (Modell, notiser, Datakällor, Fler odds) ligger bakom ⚙ på
+  mobil — kvar synliga är Bara signaler, hämtningstid och Färska odds.
+  Ligachipsen svepas i sidled med tonad högerkant, så en avklippt liga läses
+  som "det finns mer" och inte som ett renderingsfel.
   **🏋 Lagstyrka (`powerrank-v2`, 2026-08-07)** visar modellens egen powerrank
   per liga: `att`/`def` ur samma `fit_league` som prognoserna använder (aldrig
   en parallell skattning), plus xPts ur matchernas xG och avvikelsen mot

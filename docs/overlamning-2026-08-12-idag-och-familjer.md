@@ -208,3 +208,30 @@ Alcoyano kl. 08:39:59Z — fem minuter efter att de försvunnit ur listan. De
 syns dessutom kvar under Rörelser med filtret påslaget, vilket är regeln:
 en match utan bokpris kan inte bära en värdeflagga (värde kräver bokpris mot
 sharp) men kan bära en Pinnacle-rörelse.
+
+### Oddsettoppen på mobil, samma dag
+
+Fyra rader verktyg plus en räknarrad sköt första matchen under vikningen.
+
+- **Verktygen bakom ⚙.** Modell, notiser, Datakällor och Fler odds ligger nu
+  bakom en `⚙ Verktyg`-knapp på mobil (`.toolsmore` / `.oddset-tools.open`).
+  Kvar synliga: Bara signaler (som enligt sin egen tooltip är snabbkollen på
+  telefon), hämtningstid och Färska odds. Desktop är oförändrad — där finns
+  plats för allt, och ⚙ är dold.
+- **Antalen står på flikarna.** `⚡ Live 0 · 💰 Värdespel 29 · 📈 Rörelser 25`
+  upprepade tabbnamnen i en egen rad som dessutom låg FÖRST på mobil. Antalen
+  flyttade in i etiketterna; räknarraden är dold på mobil men står kvar på
+  desktop, där den bär live-signalernas "att granska".
+- **Tonad kant på ligafiltret.** Chipsen svepas i sidled, och den hårt
+  avklippta ligan såg ut som ett renderingsfel. En maskgradient på högerkanten
+  säger att det finns mer.
+
+Uppmätt vid 375 px: första matchkortet börjar vid y≈570 px i stället för
+y≈1300 px, alltså mer än en halv skärm vunnen. `⚙`-läget är medvetet INTE
+persisterat — det är ett uppslag, inte en inställning.
+
+**Notera vid felsökning:** `element.click()` från injicerad JS når inte alltid
+Reacts delegerade lyssnare i den här appen. Att anropa fiberns `onClick` direkt
+(`el[Object.keys(el).find(k => k.startsWith('__reactProps'))].onClick({})`)
+skiljer "handlern är trasig" från "klicket nådde inte fram" — det var skillnaden
+mellan en påhittad bugg och en fungerande knapp här.

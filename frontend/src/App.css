@@ -496,6 +496,9 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
   background: color-mix(in srgb, var(--green) 8%, var(--panel));
 }
 .oddset-tabcount { margin-left: auto; }
+/* Antalet i flikens etikett: syns alltid, även när räknarraden är dold. */
+.oddset-tab .tabn { opacity: 0.75; font-weight: 800; }
+.oddset-tab.active .tabn { opacity: 1; }
 .tab-panel { min-width: 0; }
 /* Forskningsliga: synlig men inte actionable — dämpad, prickad kant */
 .oddset-bar .lg.research { border-style: dotted; color: var(--muted); }
@@ -957,11 +960,20 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   .oddset-bar { display: block; }
   .league-filter {
     width: 100%; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none;
+    /* Chipsen svepas i sidled. Utan tonad högerkant ser den avklippta ligan
+       ut som ett renderingsfel i stället för "det finns mer åt höger". */
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   }
   .league-filter::-webkit-scrollbar { display: none; }
   .league-filter .lg { flex: 0 0 auto; }
   .oddset-tools { margin: 3px 0 0; gap: 6px; }
   .oddset-tools .odds-fetched { margin-left: auto; }
+  /* Verktygen ligger bakom ⚙ tills man ber om dem. Kvar synliga: Bara
+     signaler, hämtningstid och Färska odds. */
+  .oddset-tools .toolstoggle.mobile-only { display: inline-flex; }
+  .oddset-tools .toolsmore { display: none; }
+  .oddset-tools.open .toolsmore { display: inline-flex; }
   .source-health-list { padding: 7px; }
   .oddset-tabs {
     flex-wrap: wrap; overflow-x: auto; scrollbar-width: none;
@@ -969,9 +981,9 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   }
   .oddset-tabs::-webkit-scrollbar { display: none; }
   .oddset-tab { flex: 0 0 auto; padding: 5px 11px; }
-  .oddset-tabcount {
-    order: -1; flex: 0 0 100%; margin-left: 0; white-space: nowrap;
-  }
+  /* Räknarraden upprepade flikarnas namn och åt en hel rad överst. Antalen
+     står nu i etiketterna (.tabn), så raden är redundant här. */
+  .oddset-tabcount { display: none; }
   .mobile-sortbar.mobile-only { display: flex; }
   .sortcards.mobile-only { display: grid; }
   .tipgrid { grid-template-columns: minmax(0, 1fr); }

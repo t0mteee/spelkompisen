@@ -1062,6 +1062,9 @@ function OddsetView({ focus = null } = {}) {
   const [bank, setBank] = useState(() => {
     try { return Number(localStorage.getItem('svs_oddset_bank')) || 1000 } catch { return 1000 }
   })
+  // Verktygsraden är hopfälld på mobil (⚙). Medvetet INTE persisterad: den är
+  // ett tillfälligt uppslag, inte en inställning som ska överleva sessionen.
+  const [showTools, setShowTools] = useState(false)
   // Sub-tabbar (UI-passet 2026-07-29): sidan delas i Matcher/Live/Värdespel/
   // Rörelser — räknarraden på tabbraden är alltid synlig så tabbarna aldrig
   // döljer brådskande info. Valet persisteras som övriga Oddset-inställningar.
@@ -2122,8 +2125,17 @@ function OddsetView({ focus = null } = {}) {
             </button>
           ))}
         </div>
-        <div className="oddset-tools">
-          <button className={showModel ? 'lg model on' : 'lg model'} onClick={toggleModel}
+        {/* Verktygen bröts till 3–4 rader på mobil och sköt första matchen
+            under vikningen. Färska odds, hämtningstid och "Bara signaler"
+            (snabbkollen på telefon) står kvar; resten ligger bakom ⚙. På
+            desktop finns plats för allt, så där visas raden som förut. */}
+        <div className={`oddset-tools${showTools ? ' open' : ''}`}>
+          <button className="lg toolstoggle mobile-only"
+            onClick={() => setShowTools(!showTools)} aria-expanded={showTools}
+            title="Modell, notiser, datakällor och sidoböcker">
+            ⚙ {showTools ? 'Färre' : 'Verktyg'}
+          </button>
+          <button className={`${showModel ? 'lg model on' : 'lg model'} toolsmore`} onClick={toggleModel}
             title="XG-viktad Poisson-styrkefit per liga med DC-korrektion i prediktionen. Temperatur T valdes på historiska backtestmaterialet; prognosledgern är oberoende forward-facit. Amber-tier tills ledgern godkänt den.">
             🧪 Modell {showModel ? 'på' : 'av'}
           </button>
@@ -2131,15 +2143,15 @@ function OddsetView({ focus = null } = {}) {
             title="Visa bara matcher med någon signal: sharp-värde, steam, linjeflytt eller modellavvikelse. Snabbkollen på mobilen.">
             🎯 Bara signaler
           </button>
-          <button className={showNotices ? 'lg on' : 'lg'} onClick={() => setShowNotices(!showNotices)}
+          <button className={`${showNotices ? 'lg on' : 'lg'} toolsmore`} onClick={() => setShowNotices(!showNotices)}
             title="Historik över triggade larm (värde ≥3 % / steam ≥5 pp) — även de som INTE pushades för att NTFY_TOPIC saknas.">
             🔔 {notices?.length || 0}
           </button>
-          <button className={showSources ? 'lg on' : 'lg'} onClick={() => setShowSources(!showSources)}
+          <button className={`${showSources ? 'lg on' : 'lg'} toolsmore`} onClick={() => setShowSources(!showSources)}
             aria-expanded={showSources}>
             Datakällor {sourceHealth.filter((h) => h.ok).length}/{sourceHealth.length}
           </button>
-          <button className={showBooks ? 'lg on' : 'lg'} onClick={() => setShowBooks(!showBooks)}
+          <button className={`${showBooks ? 'lg on' : 'lg'} toolsmore`} onClick={() => setShowBooks(!showBooks)}
             aria-pressed={showBooks} title="Visa eller dölj spelbara sidoböcker. Ninja/Altenar visas för 1X2, Ö/U och hörnor; Smarkets visas alltid som sharp-ankare.">
             {showBooks ? '− Färre odds' : '+ Fler odds'}
           </button>
@@ -2149,13 +2161,19 @@ function OddsetView({ focus = null } = {}) {
           <button onClick={refresh} disabled={busy}>{busy ? 'Hämtar…' : '↻ Färska odds'}</button>
         </div>
       </div>
+      {/* Antalen står PÅ flikarna i stället för bara i räknarraden under.
+          Raden upprepade tabbarnas namn och kostade en hel rad på mobil, där
+          den dessutom låg först. Informationen är alltid synlig — nu i etiketten
+          — och raden står kvar på desktop för live-signalernas "att granska". */}
       <div className="oddset-tabs" role="tablist" aria-label="Oddset-vy">
-        {[['matcher', '📋 Matcher'], ['live', '⚡ Live'],
-          ['varde', '💰 Värdespel'], ['rorelser', '📈 Rörelser'],
-          ['styrka', '🏋️ Lagstyrka']].map(([t, label]) => (
+        {[['matcher', '📋 Matcher', null], ['live', '⚡ Live', liveRadar?.matches?.length ?? 0],
+          ['varde', '💰 Värdespel', signals.length], ['rorelser', '📈 Rörelser', movers.length],
+          ['styrka', '🏋️ Lagstyrka', null]].map(([t, label, n]) => (
           <button key={t} className={`oddset-tab ${oddsetTab === t ? 'active' : ''}`}
             role="tab" aria-selected={oddsetTab === t}
-            onClick={() => pickTab(t)}>{label}</button>
+            onClick={() => pickTab(t)}>
+            {label}{n != null ? <span className="tabn"> {n}</span> : ''}
+          </button>
         ))}
         <span className="oddset-tabcount hint">
           ⚡ {liveRadar?.matches?.length ?? 0} live{liveRadar?.signal_count ? ` · ${liveRadar.signal_count} att granska` : ''}
