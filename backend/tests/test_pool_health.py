@@ -2,6 +2,7 @@ import datetime as dt
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from app import pool_health, pool_system_ledger
 from app.storage import Storage
@@ -99,6 +100,22 @@ class PoolHealthTests(unittest.TestCase):
         rep = pool_health.report(
             self.store, now=NOW, products=("topptipset",))
         self.assertIn("seed_behind", {i["kind"] for i in rep["issues"]})
+
+    def test_scanankare_under_ratt_raseed_ar_inte_ett_fel(self):
+        self._draw("topptipset", 4267, 8)
+        self._snapshot("topptipset", 4267)
+        self.store.conn.execute(
+            "INSERT INTO draws(product,draw_number,state,reg_close_time) "
+            "VALUES ('topptipset',4275,'Finalized',NULL)")
+        self.store.meta_set("latest_topptipset", "4275")
+        self.assertEqual(4275, self.store.stored_seed("topptipset"))
+
+        # Simulera det avsiktligt lägre scanankaret. Hälsan ska läsa det råa
+        # högstavärdet 4275, inte ankaret 4267.
+        with patch.object(self.store, "seed_hint", return_value=4267):
+            rep = pool_health.report(
+                self.store, now=NOW, products=("topptipset",))
+        self.assertNotIn("seed_behind", {i["kind"] for i in rep["issues"]})
 
     def test_expired_settlement_retry_is_an_error(self):
         self.store.conn.execute(

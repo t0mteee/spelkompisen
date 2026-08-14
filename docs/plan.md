@@ -13,6 +13,9 @@ märker dem 🧪 och poolhälsan larmar separat om någon frysning saknas. Förs
 omgång är 4966 med spelstopp 2026-08-15 15:59 CEST; ingen bakfyllning.
 Förregistrering och uppföljning:
 `docs/ph5-forward-stryktipset-2026-08-15.md`.
+Driftverifieringen rättade samtidigt poolhälsans Topptipslarm: hälsan ska
+jämföra högsta kända omgång via `stored_seed`, inte det avsiktligt lägre
+scanankaret från `seed_hint`.
 
 **PH5 v3:s täthetssvep är låst och körs 2026-08-14.** Den första planen var
 inte giltig: vid 8 192 rader var det binära kontrolluniversumet uttömt,

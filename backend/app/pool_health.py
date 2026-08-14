@@ -142,7 +142,10 @@ def report(store, *, now: Optional[dt.datetime] = None,
 
         # Scanhintet ska aldrig ligga bakom en omgång som redan observerats.
         if not PRODUCTS.get(product, {}).get("listing", True):
-            hint = store.seed_hint(product)
+            # `seed_hint` är numera scanANKARET och sänks avsiktligt till
+            # lägsta öppna omgång. Här ska det RÅA, monotona högstavärdet
+            # jämföras; annars blir ett friskt ankare ett permanent rött larm.
+            hint = store.stored_seed(product)
             observed = store.conn.execute(
                 "SELECT MAX(draw_number) FROM draws WHERE product=?",
                 (product,)).fetchone()[0]
