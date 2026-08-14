@@ -1366,3 +1366,34 @@ skrivning: 56 bekräftade `cancelled: true`, noll avvisade.
 när resultatet är inställt, och `pool_system_ledger.settle_pending` skiljer
 `cancelled` från `unresolvable` i sin rapport. En inställd omgång är inte en
 misslyckad mätning — den är ingen mätning alls.
+
+## 2026-08-14 — scanankaret tappade öppna Topptipset-omgångar
+
+**Problem.** `Storage.seed_hint()` returnerade högsta sedda omgångsnummer, och
+`_scan_draws` börjar `back=8` nummer före det. Svenska Spel publicerade
+Topptipset Dagens längre fram än så: hintet stod på **4275** medan **4264**
+fortfarande var öppen och stängde samma dag — elva nummer. Omgångarna
+**4263–4266 föll under scanfönstret** och blev osynliga för insamlingsvarvet,
+medan appen visade dem som vanligt (appen läser samma listning men användaren
+ser bara det som returneras).
+
+Samma fel som 2026-07-24, då `back` höjdes 4 → 8.
+
+**Följd.** Inga snapshots och NOLL PH3-frysningar för 4263–4266. Upptäckt via
+`/api/health`, som larmade `freeze_incomplete: h3 har 0/9 frysta system` för
+4264 och 4265 — larmet byggt 2026-08-09 för precis den här klassen av tyst
+bortfall fungerade som avsett.
+
+**Åtgärd.** `seed_hint()` är nu scanANKARET: högsta sedda nummer, men aldrig
+högre än lägsta omgång vi själva sett som `Open`, med `SCAN_ANCHOR_MAX_BACK`
+(40) som skydd mot en omgång som fastnat. `stored_seed()` är det råa hintet och
+är det `store_seed()` jämför mot, så ett kort scanresultat inte kan skriva ner
+hintet. Golvet är mätt i stället för gissat och självläker.
+
+Ingen datamigrering: inget felaktigt skrevs, det saknades data.
+
+**Räddat.** Ett manuellt `pool-tick` 24 minuter före spelstopp gav 4264 och
+4265 sina 9 systemfrysningar. De är stämplade `timely=0` eftersom h3-fönstret
+passerat med 156 minuter — de sparas men räknas INTE i facitet. En
+point-in-time-frysning kan inte bakfyllas; h3 för 4263–4266 är permanent
+förlorad och det är den verkliga kostnaden för avbrottet.

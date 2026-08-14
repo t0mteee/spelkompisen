@@ -1269,7 +1269,53 @@ class Storage:
     # tyst få snapshots och systemfrysningar 2026-08-04. Metoderna bor här så
     # att båda vägarna delar EN definition och varvet självt håller hintet
     # färskt även om ingen öppnar appen.
+    # Hur långt under hintet ankaret får dras av en öppen omgång. Bounden finns
+    # bara som skydd mot en omgång som fastnat `Open` i vår tabell utan att
+    # kunna hämtas igen; den ska aldrig vara den bindande gränsen i drift.
+    SCAN_ANCHOR_MAX_BACK = 40
+
     def seed_hint(self, product: str) -> Optional[int]:
+        """Ankare för nummerscanningen (`_scan_draws` börjar `back` nummer före).
+
+        Hintet är HÖGSTA sedda omgång och går bara framåt. När Svenska Spel
+        publicerar långt i förväg växer avståndet mellan högsta publicerade och
+        lägsta ännu ÖPPNA omgång — och då faller de öppna ur scanfönstret.
+
+        Uppmätt 2026-08-14: hintet stod på 4275 medan Topptipset 4264 var öppen
+        och stängde samma dag. Elva nummer, mot `back=8`. Omgångarna 4264–4266
+        blev osynliga för varvet: inga snapshots och NOLL PH3-frysningar, medan
+        appen visade dem som vanligt. Exakt samma fel som 2026-07-24, då `back`
+        höjdes 4 → 8.
+
+        Att höja `back` igen vore att gissa om SvS publiceringstakt — och
+        gissningen har redan slagit fel två gånger. Golvet här är i stället
+        MÄTT: en omgång vi själva sett som öppen får aldrig falla ur fönstret.
+        Det självläker, för så fort omgången hämtas och visar sig avgjord
+        slutar den dra ner ankaret.
+
+        Ligger i `seed_hint` och inte hos anroparna för att API:t och varvet
+        MÅSTE scanna lika. Att de läste olika hint var hela orsaken till det
+        tysta bortfallet 2026-08-04.
+        """
+        hint = self.stored_seed(product)
+        if hint is None:
+            return None
+        row = self.conn.execute(
+            "SELECT MIN(draw_number) FROM draws WHERE product=? AND state='Open'",
+            (product,)).fetchone()
+        lowest_open = row[0] if row and row[0] is not None else None
+        if lowest_open is None:
+            return hint
+        return max(min(hint, int(lowest_open)), hint - self.SCAN_ANCHOR_MAX_BACK)
+
+    def stored_seed(self, product: str) -> Optional[int]:
+        """RÅA hintet: högsta omgångsnummer vi någonsin sett.
+
+        Skild från `seed_hint`, som är scanANKARET och kan ligga lägre. Blandar
+        man ihop dem backar hintet: `store_seed` jämför mot detta värde för att
+        bara flytta framåt, och med ett sänkt ankare som utgångspunkt skulle
+        ett kort scanresultat kunna skriva ner det permanent.
+        """
         value = self.meta_get(f"latest_{product}")
         try:
             return int(value) if value else None
@@ -1318,7 +1364,9 @@ class Storage:
         numbers = [int(n) for n in numbers if n]
         if not numbers:
             return
-        previous = self.seed_hint(product)
+        # RÅA hintet, inte scanankaret — annars kan ett kort scanresultat
+        # skriva ner hintet permanent och göra nästa varv blindare.
+        previous = self.stored_seed(product)
         newest = max(numbers + ([previous] if previous else []))
         if newest != previous:
             self.meta_set(f"latest_{product}", str(newest))

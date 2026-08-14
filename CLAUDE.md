@@ -746,6 +746,21 @@ enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
   visade omgångarna, varvet slutade TYST samla dem 2026-08-04. Stryk och Extra
   låg kvar innanför fönstret och dolde felet. Varvet skriver tillbaka hintet
   själv, och hintet går bara FRAMÅT.
+  **ANKARET ≠ HINTET (2026-08-14).** `seed_hint()` returnerar SCANANKARET:
+  högsta sedda omgång, men aldrig så högt att en omgång vi vet är öppen faller
+  under `_scan_draws` fönster (`back=8` bakåt). `stored_seed()` är det RÅA
+  hintet och är det `store_seed()` jämför mot — annars kan ett kort
+  scanresultat skriva ner hintet permanent. Bakgrund: hintet stod på 4275
+  medan Topptipset 4264 var öppen och stängde samma dag — elva nummer mot
+  `back=8` — så 4264–4266 blev osynliga för varvet: inga snapshots och NOLL
+  PH3-frysningar, medan appen visade dem. Samma fel som 2026-07-24, då `back`
+  höjdes 4 → 8. **Höj inte `back` en tredje gång** — det är en gissning om SvS
+  publiceringstakt som slagit fel två gånger. Golvet är mätt i stället och
+  självläker: en avgjord omgång slutar dra ner ankaret.
+  `SCAN_ANCHOR_MAX_BACK` (40) skyddar bara mot en omgång som fastnat `Open`
+  och aldrig går att hämta igen; den ska aldrig vara bindande i drift.
+  En förlorad h3-frysning går ALDRIG att bakfylla — den sparas som
+  `timely=0` och räknas därmed inte i facitet.
 - Svenska decimaler: "5,50" → 5.50 (`_f` i svenskaspel.py). `svenskaFolket` = streck %,
   `currentNetSale` = omsättning, `drawEvents[].match.participants[].isoCode` = flaggor.
 - `/draws/{nr}/result` ger `distribution` (faktiska vinstnivåer/utdelningar).
