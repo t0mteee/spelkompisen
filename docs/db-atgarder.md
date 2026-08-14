@@ -1397,3 +1397,19 @@ Ingen datamigrering: inget felaktigt skrevs, det saknades data.
 passerat med 156 minuter — de sparas men räknas INTE i facitet. En
 point-in-time-frysning kan inte bakfyllas; h3 för 4263–4266 är permanent
 förlorad och det är den verkliga kostnaden för avbrottet.
+
+**Tillägg samma dag.** Första fixen läkte inte av sig själv som påstått.
+`draws` skrivs bara av `save_snapshot*`, som bara körs för ÖPPNA omgångar, så
+en omgång som stängde utanför scanfönstret behöll `Open` för alltid — 61 sådana
+spökrader fanns i Topptipset och pinnade ankaret på sin bound (49 uppslag per
+varv i stället för 12). Två åtgärder, båda i kod och utan migrering:
+
+1. `sync_draw_states()` skriver tillståndet för ALLA listade omgångar. Efter ett
+   varv rättade sig 4262, 4263 och 4266 till `Finalized`.
+2. Golvet räknar bara omgångar som rimligen är öppna: `state='Open'` OCH
+   spelstopp inom 24 h bakåt. En omgång vars spelstopp passerade för 45 timmar
+   sedan ÄR inte öppen oavsett vad raden säger, så de äldre spökraderna kan
+   inte längre pinna ankaret.
+
+Ankaret gick därmed 4235 (bounden) → **4264** (lägsta verkligt öppna) och
+scanningen från 49 till 20 omgångar.

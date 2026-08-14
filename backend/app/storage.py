@@ -1300,13 +1300,83 @@ class Storage:
         hint = self.stored_seed(product)
         if hint is None:
             return None
-        row = self.conn.execute(
-            "SELECT MIN(draw_number) FROM draws WHERE product=? AND state='Open'",
-            (product,)).fetchone()
-        lowest_open = row[0] if row and row[0] is not None else None
+        lowest_open = self._lowest_live_draw(product)
         if lowest_open is None:
             return hint
-        return max(min(hint, int(lowest_open)), hint - self.SCAN_ANCHOR_MAX_BACK)
+        return max(min(hint, lowest_open), hint - self.SCAN_ANCHOR_MAX_BACK)
+
+    # Hur länge efter spelstopp en omgång får hålla scanfönstret öppet. Täcker
+    # settlementets eftersläpning med marginal; en omgång som stängde för mer
+    # än så länge sedan behöver vi inte scanna för att hitta.
+    SCAN_LIVE_GRACE_H = 24
+
+    def _lowest_live_draw(self, product: str) -> Optional[int]:
+        """Lägsta omgång som RIMLIGEN fortfarande är öppen.
+
+        Inte bara `state='Open'`: en omgång vars spelstopp passerade för länge
+        sedan ÄR inte öppen, oavsett vad vår rad säger. Sådana spökrader
+        uppstår när en omgång stänger medan den ligger utanför scanfönstret —
+        61 av dem fanns i Topptipset 2026-08-14 — och utan tidsvillkoret skulle
+        en enda av dem pinna ankaret på sin bound för alltid.
+
+        Tidsjämförelsen görs i Python: `reg_close_time` bär svensk offset
+        (+01/+02) och strängjämförelse mot en UTC-tid ljuger under sommartid.
+        """
+        grans = (dt.datetime.now(dt.timezone.utc)
+                 - dt.timedelta(hours=self.SCAN_LIVE_GRACE_H))
+        lagsta = None
+        for nummer, close in self.conn.execute(
+                "SELECT draw_number, reg_close_time FROM draws "
+                "WHERE product=? AND state='Open'", (product,)):
+            if close:
+                try:
+                    naar = dt.datetime.fromisoformat(str(close).replace("Z", "+00:00"))
+                except ValueError:
+                    naar = None
+                if naar is not None:
+                    if naar.tzinfo is None:
+                        naar = naar.replace(tzinfo=dt.timezone.utc)
+                    if naar < grans:
+                        continue          # spökrad: stängde för länge sedan
+            if lagsta is None or nummer < lagsta:
+                lagsta = int(nummer)
+        return lagsta
+
+    def sync_draw_states(self, product: str, listed) -> int:
+        """Skriv observerat tillstånd för ALLA listade omgångar, inte bara öppna.
+
+        `save_snapshot*` skriver bara de omgångar varvet hämtar i sin helhet,
+        alltså de ÖPPNA. En omgång som stänger medan den ligger utanför
+        scanfönstret behåller därför `Open` i vår tabell för alltid — Topptipset
+        4262 och 4263 satt kvar som öppna 45 respektive 19 timmar efter
+        spelstopp 2026-08-14.
+
+        Det är inte kosmetiskt: `seed_hint()` golvar scanankaret på lägsta
+        öppna omgång, så en enda sådan spökrad pinnar ankaret permanent och
+        varvet scannar 49 nummer i stället för 12. Listningen bär redan
+        tillståndet, så att skriva det kostar inte ett enda extra anrop — och
+        först med detta blir golvet självläkande på riktigt.
+        """
+        n = 0
+        for d in (listed or []):
+            nummer = d.get("draw_number") if isinstance(d, dict) \
+                else getattr(d, "draw_number", None)
+            state = d.get("state") if isinstance(d, dict) \
+                else getattr(d, "state", None)
+            if not nummer or not state:
+                continue
+            close = d.get("reg_close_time") if isinstance(d, dict) \
+                else getattr(d, "reg_close_time", None)
+            self.conn.execute(
+                "INSERT INTO draws(product, draw_number, state, reg_close_time) "
+                "VALUES(?,?,?,?) ON CONFLICT(product, draw_number) "
+                "DO UPDATE SET state=excluded.state, "
+                "reg_close_time=COALESCE(excluded.reg_close_time, draws.reg_close_time)",
+                (product, int(nummer), state, close))
+            n += 1
+        if n and not self._bulk:
+            self.conn.commit()
+        return n
 
     def stored_seed(self, product: str) -> Optional[int]:
         """RÅA hintet: högsta omgångsnummer vi någonsin sett.

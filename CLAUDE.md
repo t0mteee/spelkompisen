@@ -757,8 +757,14 @@ enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
   höjdes 4 → 8. **Höj inte `back` en tredje gång** — det är en gissning om SvS
   publiceringstakt som slagit fel två gånger. Golvet är mätt i stället och
   självläker: en avgjord omgång slutar dra ner ankaret.
-  `SCAN_ANCHOR_MAX_BACK` (40) skyddar bara mot en omgång som fastnat `Open`
-  och aldrig går att hämta igen; den ska aldrig vara bindande i drift.
+  Golvet räknar bara omgångar som RIMLIGEN är öppna: `state='Open'` OCH
+  spelstopp inom `SCAN_LIVE_GRACE_H` (24 h) bakåt. Utan tidsvillkoret pinnade
+  61 spökrader ankaret på sin bound — rader som stängt medan de låg utanför
+  fönstret och därför aldrig fick sitt tillstånd uppdaterat.
+  `Storage.sync_draw_states()` skriver därför tillståndet för ALLA listade
+  omgångar, inte bara de öppna varvet snapshottar; listningen bär det redan,
+  så det kostar inget extra anrop. `SCAN_ANCHOR_MAX_BACK` (40) är sista
+  skyddet mot en omgång som fastnat med spelstopp i framtiden.
   En förlorad h3-frysning går ALDRIG att bakfylla — den sparas som
   `timely=0` och räknas därmed inte i facitet.
 - Svenska decimaler: "5,50" → 5.50 (`_f` i svenskaspel.py). `svenskaFolket` = streck %,

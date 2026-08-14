@@ -94,6 +94,10 @@ def cmd_snapshot(product: str) -> float | None:
         try:
             listed = ss.list_draws(product, start_hint=store.seed_hint(product))
             store.store_seed(product, listed)
+            # Tillståndet för ALLA listade omgångar, inte bara de öppna vi
+            # snapshottar nedan. Annars fastnar en omgång som stängt utanför
+            # scanfönstret som `Open` och pinnar ankaret för alltid.
+            store.sync_draw_states(product, listed)
             # Dela listningen med API:t. Varvet har ändå betalat scanningen;
             # utan det här gjorde varje appstart om den (1,6 s för topptipset)
             # mitt på kritiska vägen till första skärmen.
