@@ -16,6 +16,9 @@ Förregistrering och uppföljning:
 Driftverifieringen rättade samtidigt poolhälsans Topptipslarm: hälsan ska
 jämföra högsta kända omgång via `stored_seed`, inte det avsiktligt lägre
 scanankaret från `seed_hint`.
+Fullskaligt torrtest mot den riktiga 4966-payloaden gav 16 + 16 frysningar,
+0 dubbletter vid retry och exakt 5 000 rader i alla åtta PH5-system;
+produktions-DB:n rördes inte. Servern kör commit `587ed51` och hälsan är grön.
 
 **PH5 v3:s täthetssvep är låst och körs 2026-08-14.** Den första planen var
 inte giltig: vid 8 192 rader var det binära kontrolluniversumet uttömt,

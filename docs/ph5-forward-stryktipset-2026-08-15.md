@@ -3,7 +3,20 @@
 Datum: 2026-08-15. Skriven före första frysningen och före omgång 4966:s
 spelstopp 2026-08-15 15:59 CEST.
 
-**Status:** kod under införande; ingen forwardrad ännu fryst.
+**Status:** aktiv i drift från commit `587ed51`; ingen verklig forwardrad ännu
+fryst eftersom T−3 h-fönstret öppnar 2026-08-15 12:59 CEST.
+
+Driftkvittot före fönstret kördes mot en SQLite-kopia och den riktiga öppna
+omgång 4966-payloaden:
+
+- T−178 min skapade 16 system: 12 ordinarie + 4 PH5;
+- T−18 min skapade ytterligare 16 system för den andra horisonten;
+- ett identiskt återförsök skapade 0 dubbletter;
+- samtliga åtta PH5-rader hade exakt 5 000 rader, kostnad 5 000 kr,
+  `timely=1` och fyra unika radmängder per horisont;
+- produktionsdatabasen ändrades inte av torrtestet;
+- 712 backendtester och frontendens produktionsbygge var gröna;
+- `/api/health` var `ok` efter driftsättning.
 
 ## Enkelt uttryckt
 
