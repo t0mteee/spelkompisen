@@ -178,6 +178,10 @@ h2 { font-size: 11.5px; color: var(--muted); text-transform: uppercase;
 /* PH5-ärligheten för 13-matchsspelen — diskret hjälptextstil i byggpanelen */
 .build-honesty { color: var(--muted); font-size: 12px; margin: 6px 0 10px; }
 .system-head { margin-bottom: 8px; }
+.system-variant { display: inline-block; margin-right: 7px; padding: 2px 8px;
+  border: 1px solid rgba(61,220,132,.55); border-radius: 999px;
+  color: var(--green); background: rgba(46,139,87,.12); font-size: 11px;
+  font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
 .system-head .rows { color: var(--green); font-weight: 600; }
 .system-head .note { color: var(--muted); display: block; margin-top: 4px; }
 .system-head .useb { margin-left: 10px; vertical-align: middle; }

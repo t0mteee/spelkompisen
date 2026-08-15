@@ -684,8 +684,11 @@ function PoolV3() {
   const [budget, setBudget] = useState(saved.budget || 256)
   const [sysType, setSysType] = useState(saved.sysType || 'ev')
   const [valueWeight, setValueWeight] = useState(saved.valueWeight ?? 50)
+  const [complementaryMode, setComplementaryMode] = useState(
+    saved.sysType === 'ev' && saved.complementaryMode === true)
   const [picks, setPicks] = useState(saved.picks || {})
   const [pickRows, setPickRows] = useState(saved.pickRows || null)
+  const [couponVariant, setCouponVariant] = useState(saved.couponVariant || null)
   const [selected, setSelected] = useState(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(null)
@@ -726,7 +729,7 @@ function PoolV3() {
     const selectionSequence = beginRequest(loadSequence)
     setLoading(true); setErr(null); setSys(null); setAnalysis(null)
     setMovement(null); setPayouts(null)
-    if (!restore) { setPicks({}); setPickRows(null) }
+    if (!restore) { setPicks({}); setPickRows(null); setCouponVariant(null) }
     try {
       const d = await get(`/api/draws?product=${g}`)
       if (!requestIsCurrent(loadSequence, selectionSequence)) return
@@ -740,7 +743,7 @@ function PoolV3() {
       const restored = restore && list.find((x) => x.product === saved.product && x.draw_number === saved.draw)
       const chosen = restored || list[0]
       if (!chosen) { setLoading(false); setErr('Inga öppna omgångar just nu.'); return }
-      if (restore && !restored) { setPicks({}); setPickRows(null) }
+      if (restore && !restored) { setPicks({}); setPickRows(null); setCouponVariant(null) }
       setProduct(chosen.product); setDraw(chosen.draw_number)
       if (g !== 'bomben') await loadAnalysis(chosen.product, chosen.draw_number)
       else setLoading(false)
@@ -757,6 +760,7 @@ function PoolV3() {
     beginRequest(loadSequence)
     setProduct(slug); setDraw(dn); setSys(null); setAnalysis(null)
     setMovement(null); setPayouts(null); setPicks({}); setPickRows(null)
+    setCouponVariant(null)
     if (game !== 'bomben') loadAnalysis(slug, dn)
   }
 
@@ -777,13 +781,16 @@ function PoolV3() {
     try {
       localStorage.setItem('svs_state', JSON.stringify({
         group: game, product, draw, picks, strategy, budget, sysType, valueWeight,
+        complementaryMode, couponVariant,
         pickRows: pickRows && pickRows.length <= 2048 ? pickRows : null,
       }))
     } catch { /* ok */ }
-  }, [game, product, draw, picks, pickRows, strategy, budget, sysType, valueWeight])
+  }, [game, product, draw, picks, pickRows, strategy, budget, sysType, valueWeight,
+    complementaryMode, couponVariant])
 
   const toggleSign = (ev, sign) => {
     setPickRows(null)
+    setCouponVariant(null)
     setPicks((prev) => {
       const cur = prev[ev] || []
       const next = cur.includes(sign) ? cur.filter((s) => s !== sign) : [...cur, sign]
@@ -792,13 +799,15 @@ function PoolV3() {
       return copy
     })
   }
-  const clearCoupon = () => { setPicks({}); setPickRows(null) }
-  const useSystem = () => {
-    if (!analysis || !sys?.picks) return
+  const clearCoupon = () => { setPicks({}); setPickRows(null); setCouponVariant(null) }
+  const useSystem = (chosenSystem, variantLabel) => {
+    if (!analysis || !chosenSystem?.picks) return
     const p = {}
-    sys.picks.forEach((pk) => { p[pk.event_number] = pk.signs })
-    setPickRows(sys.rows && sys.rows.length ? sys.rows.map((r) => [...r]) : null)
+    chosenSystem.picks.forEach((pk) => { p[pk.event_number] = pk.signs })
+    setPickRows(chosenSystem.rows && chosenSystem.rows.length
+      ? chosenSystem.rows.map((r) => [...r]) : null)
     setPicks(p)
+    setCouponVariant(variantLabel)
     // scrollIntoView får även flytta sidan horisontellt. När den breda
     // kupongtabellen nyss mountats ser det på mobil ut som att sidan zoomar.
     // Vänta tills layouten satt sig och flytta bara Y-led.
@@ -836,8 +845,9 @@ function PoolV3() {
       const vw = valueWeight / 100
       const jp = currentPayouts?.jackpot != null
         ? `&jackpot=${encodeURIComponent(currentPayouts.jackpot)}` : ''
+      const pair = complementaryMode && sysType === 'ev' ? '&complementary=true' : ''
       const built = await getDetail(
-        `/api/system?product=${product}&draw=${draw}&strategy=${encodeURIComponent(strategy)}&budget=${budget}&value_weight=${vw}&${q}${jp}`,
+        `/api/system?product=${product}&draw=${draw}&strategy=${encodeURIComponent(strategy)}&budget=${budget}&value_weight=${vw}&${q}${jp}${pair}`,
         'System')
       if (requestIsCurrent(loadSequence, selectionSequence)) setSys(built)
     } catch (e) {
@@ -924,10 +934,23 @@ function PoolV3() {
                   <input type="range" min="0" max={BUDGET_STOPS.length - 1} step="1" value={budgetIdx}
                     onChange={(e) => setBudget(BUDGET_STOPS[Number(e.target.value)])} />
                 </label>
-                <select value={sysType} onChange={(e) => setSysType(e.target.value)}>
+                <select value={sysType} onChange={(e) => {
+                  const next = e.target.value
+                  setSysType(next)
+                  if (next !== 'ev') setComplementaryMode(false)
+                  setSys(null)
+                }}>
                   {systemTypes.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
                 </select>
-                <button className="primary" onClick={loadSystem}>Föreslå rad</button>
+                <label className={`complementary-toggle ${complementaryMode ? 'active' : ''}`}
+                  title="Skapar Kupong A och en lika stor Kupong B som spikar andra matcher. Varje kupong kostar hela den valda insatsen.">
+                  <input type="checkbox" checked={complementaryMode} disabled={sysType !== 'ev'}
+                    onChange={(e) => { setComplementaryMode(e.target.checked); setSys(null) }} />
+                  Två kompletterande kuponger
+                </label>
+                <button className="primary" onClick={loadSystem}>
+                  {complementaryMode && sysType === 'ev' ? 'Föreslå två kuponger' : 'Föreslå rad'}
+                </button>
               </div>
               <div className="evscale">
                 <span>Träffbart</span>
@@ -936,13 +959,54 @@ function PoolV3() {
                 <span>Max EV</span>
                 <span className="evval">{valueWeight}%</span>
               </div>
-              <SystemView key={`${product}:${draw}`} sys={sys}
+              <SystemView key={`${product}:${draw}:a`} sys={sys}
                 matches={analysis?.matches} payouts={currentPayouts}
-                onRecalc={loadSystem} onUse={useSystem} />
+                onRecalc={loadSystem}
+                label={sys?.complementary ? 'Kupong A' : null}
+                actionLabel={sys?.complementary ? '⬇ Lägg A i kupongen' : undefined}
+                onUse={() => useSystem(
+                  sys, sys?.complementary ? 'Kupong A' : 'Förslag')} />
+              {sys?.complementary?.available && sys.complementary.system && (
+                <>
+                  <div className="complementary-summary">
+                    <div className="complementary-title">
+                      <strong>Två kuponger som faller på olika spikar</strong>
+                      <span>{kr(sys.complementary.cost_each)} per kupong ·{' '}
+                        {kr(sys.complementary.total_cost)} om båda spelas</span>
+                    </div>
+                    <div className="complementary-grid">
+                      <div><span>Kupong A spikar</span><b>{sys.complementary.primary_spikes
+                        .map((p) => `${p.event_number} ${p.sign}`).join(' · ')}</b></div>
+                      <div><span>Kupong B spikar</span><b>{sys.complementary.alternative_spikes
+                        .map((p) => `${p.event_number} ${p.sign}`).join(' · ')}</b></div>
+                      <div><span>Exakta rader gemensamma</span><b>
+                        {sys.complementary.row_overlap} av {sys.num_rows} ({Math.round(
+                          sys.complementary.row_overlap_pct * 100)} %)</b></div>
+                      <div title="Byggarens interna träffchans × EV-rankning. Det är inte en vinstsannolikhet.">
+                        <span>B:s rankningskvalitet</span><b>{Math.round(
+                          sys.complementary.quality_ratio * 100)} % av A</b></div>
+                    </div>
+                    <p>A:s spikmatcher är garderade i minst {Math.round(
+                      sys.complementary.guard_share * 100)} % av B-raderna. Spelar du båda
+                      kostar det dubbelt; de är två fullstora alternativ, inte en delad budget.</p>
+                  </div>
+                  <SystemView key={`${product}:${draw}:b`} sys={sys.complementary.system}
+                    matches={analysis?.matches} payouts={currentPayouts}
+                    label="Kupong B" actionLabel="⬇ Lägg B i kupongen"
+                    showHonesty={false}
+                    onUse={() => useSystem(sys.complementary.system, 'Kupong B')} />
+                </>
+              )}
+              {sys?.complementary && !sys.complementary.available && (
+                <div className="complementary-warning">
+                  <b>Kupong A är klar, men ett säkert B-alternativ saknas.</b>
+                  <span>{sys.complementary.reason}</span>
+                </div>
+              )}
             </section>
 
             <section id="kupong">
-              <h2>Din kupong — granska &amp; lämna in</h2>
+              <h2>Din kupong{couponVariant ? ` · ${couponVariant}` : ''} — granska &amp; lämna in</h2>
               {/* Byggarens inställningar följer med till bokföringen. Utan dem
                   gick det inte att i efterhand se VILKET slags förslag en
                   spelad kupong byggde på — alla rader före 2026-08-05 har
@@ -951,7 +1015,10 @@ function PoolV3() {
                 picks={picks} pickRows={pickRows}
                 payouts={currentPayouts} product={product} draw={draw} onClear={clearCoupon}
                 buildConfig={{ strategy, budget, value_weight: valueWeight / 100,
-                  source: sys ? 'byggare' : 'manuell' }} />
+                  source: couponVariant === 'Kupong A' ? 'byggare-komplement-a'
+                    : couponVariant === 'Kupong B' ? 'byggare-komplement-b'
+                      : couponVariant === 'Förslag' ? 'byggare' : 'manuell',
+                  label: couponVariant }} />
             </section>
           </div>
 

@@ -604,19 +604,25 @@ def ev_candidate_signs(analysis: DrawAnalysis,
     return cand, universe
 
 
-def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
-                    budget: float = 100.0, row_price: float = ROW_PRICE,
-                    value_weight: float = 0.5, plan: Optional[dict] = None,
-                    jackpot: float = 0.0) -> System:
-    """Ranka konkreta rader efter EV **balanserat mot träffchans** och ta de
-    bästa som ryms i budgeten.
+@dataclass
+class _EVRankedRows:
+    """Internt rankningsunderlag som kan materialiseras till ett system.
 
-    Ren EV-maximering väljer skrällrader som nästan aldrig går in — matematiskt
-    rätt på oändlig sikt men ospelbart för 100–500 kr-insatser. Därför rankas
-    raderna på score = P(rad)^k × EV(rad), där k styrs av EV-reglaget
-    (value_weight): 1.0 → k=0 (ren EV, gamla beteendet), 0.5 → k=1 (balans,
-    ≈ maximera P×EV ~ log-tillväxt), 0.0 → k=2 (träffsäkra värderader).
-    EV rapporteras alltid ärligt oavsett ranking."""
+    Standardvägen fullrankar toppurvalet precis som tidigare. Dubbelvägen kan
+    dessutom skapa ett bredare B-underlag utan att ändra A:s radval.
+    """
+
+    rows: list[tuple[float, float, tuple[str, ...]]]
+    target: int
+    universe: int
+    exponent: float
+    turnover: float
+
+
+def _rank_ev_rows(analysis: DrawAnalysis, budget: float, row_price: float,
+                  value_weight: float, plan: Optional[dict],
+                  jackpot: float, *, refine_all: bool = False) -> _EVRankedRows:
+    """Ranka EV-kandidater en gång; används av både enkel- och dubbelkupong."""
     turnover = analysis.turnover or 0.0
     if not plan or turnover <= 0:
         raise ValueError("EV-rankning kräver aktuell omsättning och vinstplan.")
@@ -660,7 +666,8 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
 
     # steg 2: full EV (alla vinstnivåer) för de bästa kandidaterna;
     # välj på balans-score, rapportera ärlig EV
-    refine = scored[:max(EV_REFINE_CAP, min(len(scored), target * 2))]
+    refine = (scored if refine_all else
+              scored[:max(EV_REFINE_CAP, min(len(scored), target * 2))])
     full: list[tuple[float, float, tuple]] = []   # (score, ev_total, rad)
     for _, p_row, _, row in refine:
         pf = _poisson_binomial([pq[(m.event_number, s)][0] for m, s in zip(ms, row)])
@@ -669,7 +676,21 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
             pf, pk, pools, field, getattr(analysis, "product", None))
         full.append(((p_row ** k) * ev_total, ev_total, row))
     full.sort(key=lambda t: t[0], reverse=True)
-    chosen = full[:target]
+
+    return _EVRankedRows(
+        rows=full, target=target, universe=universe, exponent=k,
+        turnover=turnover,
+    )
+
+
+def _ev_system_from_rows(analysis: DrawAnalysis, strategy: str, budget: float,
+                         row_price: float, jackpot: float,
+                         ranked: _EVRankedRows,
+                         chosen: list[tuple[float, float, tuple[str, ...]]],
+                         complementary: bool = False) -> System:
+    """Materialisera ett system från redan rankade konkreta rader."""
+    ms = analysis.matches
+    k = ranked.exponent
 
     rows = [list(r) for _, _, r in chosen]
     ev_sum = sum(e for _, e, _ in chosen)
@@ -688,22 +709,285 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
 
     profile = ("max EV (skrälltungt)" if k < 0.4
                else "balans EV × träffchans" if k < 1.4 else "träffsäkra värderader")
+    complement_note = (
+        " Kupong B använder andra spikmatcher och garderingar på Kupong A:s spikar."
+        if complementary else "")
     return System(
         strategy=strategy, system_type="värderader", budget=budget,
         row_price=row_price, num_rows=len(rows), cost=round(cost, 2),
         picks=picks, rows=rows,
-        rule=f"Så valdes raderna: alla {universe} möjliga rader rankades på "
-             f"träffchans^{k:.1f} × EV — läge: {profile} (styrs av reglaget). "
-             f"EV = radens sannolikhet × förväntad utdelning (utdelningen stiger ju färre "
-             f"andra som spelat raden). Bort åker folkrader (många delar potten) och, "
-             f"utom i max EV-läget, rena skrällbomber."
-             + (f" Jackpot {jackpot:,.0f} kr ingår i toppnivåns radval."
-                if jackpot > 0 else "").replace(",", " "),
+        rule=(f"Så valdes raderna: alla {ranked.universe} möjliga rader rankades på "
+              f"träffchans^{k:.1f} × EV — läge: {profile} (styrs av reglaget). "
+              f"EV = radens sannolikhet × förväntad utdelning (utdelningen stiger ju färre "
+              f"andra som spelat raden). Bort åker folkrader (många delar potten) och, "
+              f"utom i max EV-läget, rena skrällbomber."
+              + (f" Jackpot {jackpot:,.0f} kr ingår i toppnivåns radval."
+                 if jackpot > 0 else "") + complement_note).replace(",", " "),
         note=f"Förv. utdelning ≈ {ev_sum:.0f} kr mot {cost:.0f} kr insats "
-             f"(EV {ev_sum - cost:+.0f} kr) vid {turnover:,.0f} kr omsättning "
+             f"(EV {ev_sum - cost:+.0f} kr) vid {ranked.turnover:,.0f} kr omsättning "
              f"och nuvarande streck.".replace(",", " "),
         jackpot=max(0.0, jackpot),
     )
+
+
+def _spike_details(chosen: list[tuple[float, float, tuple[str, ...]]],
+                   matches: list[MatchAnalysis]) -> list[dict]:
+    if not chosen:
+        return []
+    details = []
+    for index, match in enumerate(matches):
+        signs = {row[index] for _, _, row in chosen}
+        if len(signs) == 1:
+            details.append({
+                "event_number": match.event_number,
+                "description": match.description,
+                "sign": next(iter(signs)),
+            })
+    return details
+
+
+def _guarded_alternative(
+        ranked_rows: list[tuple[float, float, tuple[str, ...]]],
+        primary_rows: list[tuple[float, float, tuple[str, ...]]],
+        forced_spikes: tuple[tuple[int, str], ...],
+        primary_spikes: tuple[tuple[int, str], ...],
+        target: int, quality_floor: float, guard_share: float,
+) -> Optional[tuple[list[tuple[float, float, tuple[str, ...]]], float, int]]:
+    """Välj B-rader under spik-, garderings- och kvalitetsvillkor.
+
+    Minst `guard_share` av B-raderna måste avvika från A:s tecken på VARJE
+    A-spik. Det räcker alltså inte att smyga in en enda kosmetisk reservrad.
+    Därefter byts överlappande exakta rader bort så långt 90 %-golvet tillåter.
+    """
+    eligible = [item for item in ranked_rows
+                if all(item[2][index] == sign for index, sign in forced_spikes)]
+    if len(eligible) < target:
+        return None
+
+    quota = max(1, int(target * guard_share + 0.999999))
+    selected: list[tuple[float, float, tuple[str, ...]]] = []
+    selected_rows: set[tuple[str, ...]] = set()
+    guarded = {index: 0 for index, _ in primary_spikes}
+
+    # Börja med rader som samtidigt garderar så många av A:s spikar som möjligt.
+    while any(count < quota for count in guarded.values()):
+        best = None
+        best_key = None
+        for item in eligible:
+            row = item[2]
+            if row in selected_rows:
+                continue
+            helps = sum(
+                guarded[index] < quota and row[index] != sign
+                for index, sign in primary_spikes)
+            if not helps:
+                continue
+            key = (helps, item[0])
+            if best_key is None or key > best_key:
+                best, best_key = item, key
+        if best is None or len(selected) >= target:
+            return None
+        selected.append(best)
+        selected_rows.add(best[2])
+        for index, sign in primary_spikes:
+            if best[2][index] != sign:
+                guarded[index] += 1
+
+    for item in eligible:
+        if len(selected) >= target:
+            break
+        if item[2] not in selected_rows:
+            selected.append(item)
+            selected_rows.add(item[2])
+    if len(selected) != target:
+        return None
+
+    primary_score = sum(item[0] for item in primary_rows)
+    floor_score = primary_score * quality_floor
+    selected_score = sum(item[0] for item in selected)
+    if primary_score <= 0 or selected_score < floor_score:
+        return None
+
+    # Minska exakt radöverlapp utan att bryta garderingskvoter eller kvalitetsgolv.
+    primary_set = {item[2] for item in primary_rows}
+    replacements = [item for item in eligible
+                    if item[2] not in selected_rows and item[2] not in primary_set]
+    replacements.sort(key=lambda item: item[0], reverse=True)
+    overlapping = sorted(
+        (item for item in selected if item[2] in primary_set),
+        key=lambda item: item[0])
+    for old in overlapping:
+        for pos, new in enumerate(replacements):
+            next_score = selected_score - old[0] + new[0]
+            if next_score < floor_score:
+                continue
+            keeps_guards = all(
+                guarded[index]
+                - int(old[2][index] != sign)
+                + int(new[2][index] != sign) >= quota
+                for index, sign in primary_spikes)
+            if not keeps_guards:
+                continue
+            selected.remove(old)
+            selected.append(new)
+            selected_rows.remove(old[2])
+            selected_rows.add(new[2])
+            for index, sign in primary_spikes:
+                guarded[index] += (int(new[2][index] != sign)
+                                   - int(old[2][index] != sign))
+            selected_score = next_score
+            replacements.pop(pos)
+            break
+
+    selected.sort(key=lambda item: item[0], reverse=True)
+    overlap = sum(item[2] in primary_set for item in selected)
+    return selected, selected_score / primary_score, overlap
+
+
+def build_complementary_ev_systems(
+        analysis: DrawAnalysis, strategy: str = "medel",
+        budget: float = 100.0, row_price: float = ROW_PRICE,
+        value_weight: float = 0.5, plan: Optional[dict] = None,
+        jackpot: float = 0.0, quality_floor: float = 0.90,
+        guard_share: float = 0.10,
+) -> tuple[System, Optional[System], dict]:
+    """Bygg A samt en deterministisk B med andra bärande spikmatcher.
+
+    A är byte-för-byte samma system som `build_ev_system`. B får samma antal
+    rader, strategi, värdevikt och budget. Den blir tillgänglig bara om alla
+    A-spikar kan garderas, minst en annan match kan spikas och rankningssumman
+    behåller det fasta kvalitetsgolvet i detta frivilliga UI-läge.
+    """
+    ranked = _rank_ev_rows(
+        analysis, budget, row_price, value_weight, plan, jackpot)
+    primary_rows = ranked.rows[:ranked.target]
+    primary = _ev_system_from_rows(
+        analysis, strategy, budget, row_price, jackpot, ranked, primary_rows)
+    primary_details = _spike_details(primary_rows, analysis.matches)
+    metadata = {
+        "available": False,
+        "quality_floor": quality_floor,
+        "guard_share": guard_share,
+        "primary_spikes": primary_details,
+        "alternative_spikes": [],
+        "row_overlap": None,
+        "row_overlap_pct": None,
+        "quality_ratio": None,
+        "cost_each": primary.cost,
+        "total_cost": round(primary.cost * 2, 2),
+    }
+    if not primary_details:
+        metadata["reason"] = (
+            "Kupong A har inga spikar vid den valda insatsen, så det finns "
+            "inga bärande spikmatcher att sprida från.")
+        return primary, None, metadata
+
+    # Standardbyggaren fullrankar medvetet bara de bästa grovkandidaterna.
+    # Det räcker för A men kan sålla bort just de rader B behöver för att både
+    # byta spikmatcher och gardera A:s spikar. I dubbelkupongsläget fullrankar
+    # vi därför hela det redan begränsade kandidatuniversumet. A ovan byggs
+    # fortfarande från standardunderlaget och förblir exakt oförändrad.
+    alternative_ranked = _rank_ev_rows(
+        analysis, budget, row_price, value_weight, plan, jackpot,
+        refine_all=True)
+
+    event_index = {m.event_number: index
+                   for index, m in enumerate(analysis.matches)}
+    primary_spikes = tuple(
+        (event_index[item["event_number"]], item["sign"])
+        for item in primary_details)
+    primary_indexes = {index for index, _ in primary_spikes}
+    target = len(primary_rows)
+
+    # Kandidaterna måste själva vara rimliga förstaval och rymma exakt samma
+    # antal rader när de låses. Högst åtta behövs för en snabb, stabil sökning.
+    candidates = []
+    for index, match in enumerate(analysis.matches):
+        if index in primary_indexes:
+            continue
+        sign = _signs_by_score(match, value_weight)[0]
+        outcome = match.outcomes[sign]
+        probability = (outcome.sharp_prob if outcome.sharp_prob is not None
+                       else outcome.fair_prob) or 0.0
+        if probability < 0.40:
+            continue
+        if sum(item[2][index] == sign
+               for item in alternative_ranked.rows) < target:
+            continue
+        candidates.append((match.spik_score + probability * 100, index, sign))
+    candidates.sort(reverse=True)
+    candidates = candidates[:8]
+    if not candidates:
+        metadata["reason"] = (
+            "Ingen annan match är tillräckligt stark för att bära en ny spik "
+            "med samma insats.")
+        return primary, None, metadata
+
+    best = None
+    wanted = min(len(primary_spikes), len(candidates))
+    for count in range(wanted, 0, -1):
+        for combo in itertools.combinations(candidates, count):
+            forced = tuple((index, sign) for _, index, sign in combo)
+            result = _guarded_alternative(
+                alternative_ranked.rows, primary_rows, forced,
+                primary_spikes, target, quality_floor, guard_share)
+            if result is None:
+                continue
+            chosen, quality_ratio, overlap = result
+            alternative_details = _spike_details(chosen, analysis.matches)
+            alt_events = {item["event_number"] for item in alternative_details}
+            primary_events = {item["event_number"] for item in primary_details}
+            if not alternative_details or alt_events & primary_events:
+                continue
+            # För samma antal alternativa spikar: mindre radöverlapp först,
+            # därefter högre kvalitet. Vi provar färre spikar endast om ingen
+            # lösning på den här nivån klarar golvet.
+            key = (-overlap, quality_ratio)
+            if best is None or key > best[0]:
+                best = (key, chosen, quality_ratio, overlap, alternative_details)
+        if best is not None:
+            break
+
+    if best is None:
+        metadata["reason"] = (
+            "Det gick inte att byta spikmatcher utan att underskrida "
+            f"kvalitetsgolvet {quality_floor:.0%}. Prova en annan insats eller strategi.")
+        return primary, None, metadata
+
+    _, chosen, quality_ratio, overlap, alternative_details = best
+    alternative = _ev_system_from_rows(
+        analysis, strategy, budget, row_price, jackpot, alternative_ranked,
+        chosen, complementary=True)
+    metadata.update({
+        "available": True,
+        "alternative_spikes": alternative_details,
+        "row_overlap": overlap,
+        "row_overlap_pct": round(overlap / target, 4) if target else 0.0,
+        "quality_ratio": round(quality_ratio, 4),
+        "guarded_primary_spikes": primary_details,
+        "reason": None,
+    })
+    return primary, alternative, metadata
+
+
+def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
+                    budget: float = 100.0, row_price: float = ROW_PRICE,
+                    value_weight: float = 0.5, plan: Optional[dict] = None,
+                    jackpot: float = 0.0) -> System:
+    """Ranka konkreta rader efter EV **balanserat mot träffchans** och ta de
+    bästa som ryms i budgeten.
+
+    Ren EV-maximering väljer skrällrader som nästan aldrig går in — matematiskt
+    rätt på oändlig sikt men ospelbart för 100–500 kr-insatser. Därför rankas
+    raderna på score = P(rad)^k × EV(rad), där k styrs av EV-reglaget
+    (value_weight): 1.0 → k=0 (ren EV, gamla beteendet), 0.5 → k=1 (balans,
+    ≈ maximera P×EV ~ log-tillväxt), 0.0 → k=2 (träffsäkra värderader).
+    EV rapporteras alltid ärligt oavsett ranking."""
+    ranked = _rank_ev_rows(
+        analysis, budget, row_price, value_weight, plan, jackpot)
+    return _ev_system_from_rows(
+        analysis, strategy, budget, row_price, jackpot, ranked,
+        ranked.rows[:ranked.target])
 
 
 # ---------- färgreducering (villkorsreducering med min/max per färg) ----------

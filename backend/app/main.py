@@ -28,7 +28,8 @@ from . import steam as steam_mod
 from .analysis import analyze_draw, analysis_to_dict
 from .builder import (build_math_system, build_reduced_system,
                       build_guarantee_system, build_svs_rsystem,
-                      build_ev_system, build_color_system, SVS_R12,
+                      build_ev_system, build_complementary_ev_systems,
+                      build_color_system, SVS_R12,
                       kappa_for, system_to_dict)
 from .collector import collector
 from .pool_mc import materialize_system_rows, simulate_pool_portfolio
@@ -801,11 +802,16 @@ def system(product: str = "stryktipset",
            colors: str = "",
            bounds: str = "",
            jackpot: float | None = Query(None, ge=0),
-           value_weight: float = 0.5):
+           value_weight: float = 0.5,
+           complementary: bool = False):
     """value_weight 0..1 = EV-/värdeskala: 0 = lågoddsare/favoriter (hög träffchans),
     högre = mer värde/skräll (lägre chans, högre EV). sv_rsystem ger SvS R-system.
-    ev=true rankar konkreta rader efter popularitetsjusterad EV (poolspels-optimal)."""
+    ev=true rankar konkreta rader efter popularitetsjusterad EV (poolspels-optimal).
+    complementary=true bygger dessutom en lika stor Kupong B med andra spikmatcher."""
     a = _analyze(product, draw)
+    if complementary and not ev:
+        raise HTTPException(
+            400, "Kompletterande kuponger stöds för Värderader (EV × träffchans).")
     vw = max(0.0, min(1.0, value_weight))
     plan = PRIZE_PLANS.get(product)
     jp = jackpot
@@ -836,12 +842,21 @@ def system(product: str = "stryktipset",
             turnover_basis = "projected"
     if (ev or color) and valuation_turnover > (a.turnover or 0.0):
         a.turnover = valuation_turnover
+    complementary_system = None
+    complementary_meta = None
     try:
         if sv_rsystem and sv_rsystem in SVS_R12:
             s = build_svs_rsystem(a, sv_rsystem, strategy, value_weight=vw)
         elif ev:
-            s = build_ev_system(a, strategy, budget, row_price=a.row_price or 1.0,
-                                value_weight=vw, plan=plan, jackpot=jp)
+            if complementary:
+                s, complementary_system, complementary_meta = (
+                    build_complementary_ev_systems(
+                        a, strategy, budget, row_price=a.row_price or 1.0,
+                        value_weight=vw, plan=plan, jackpot=jp))
+            else:
+                s = build_ev_system(
+                    a, strategy, budget, row_price=a.row_price or 1.0,
+                    value_weight=vw, plan=plan, jackpot=jp)
         elif color:
             # manuella overrides: colors="1:X:b,5:2:g" (b=blå, g=gul), bounds="0-2,0-1"
             co = None
@@ -874,15 +889,18 @@ def system(product: str = "stryktipset",
             s = build_math_system(a, strategy, budget, value_weight=vw)
     except ValueError as e:
         raise HTTPException(400, str(e))
-    if plan and valuation_turnover > 0:
-        concrete_rows = materialize_system_rows(s)
+
+    def attach_portfolio(system):
+        if not plan or valuation_turnover <= 0 or system is None:
+            return
+        concrete_rows = materialize_system_rows(system)
         if concrete_rows is None:
-            s.portfolio_mc = {
+            system.portfolio_mc = {
                 "available": False,
                 "reason": "Systemet är större än portföljsimuleringens 5 000-radersgräns.",
             }
         else:
-            s.portfolio_mc = simulate_pool_portfolio(
+            system.portfolio_mc = simulate_pool_portfolio(
                 a, concrete_rows, plan, turnover=valuation_turnover,
                 row_price=a.row_price or 1.0, jackpot=jp,
                 turnover_basis=turnover_basis,
@@ -891,7 +909,21 @@ def system(product: str = "stryktipset",
                 kappa_by_tier={int(c): kappa_for(product, int(c))
                                for c in plan["splits"]},
             )
-    return system_to_dict(s)
+
+    attach_portfolio(s)
+    attach_portfolio(complementary_system)
+    response = system_to_dict(s)
+    if complementary:
+        complementary_meta = complementary_meta or {
+            "available": False,
+            "reason": "Den kompletterande kupongen kunde inte byggas.",
+        }
+        response["complementary"] = {
+            **complementary_meta,
+            "system": (system_to_dict(complementary_system)
+                       if complementary_system is not None else None),
+        }
+    return response
 
 
 @app.get("/api/rsystems")

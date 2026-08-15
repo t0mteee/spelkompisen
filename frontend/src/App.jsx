@@ -555,11 +555,12 @@ function ColorLab({ sys, onRecalc }) {
   )
 }
 
-function SystemView({ sys, matches, payouts, onRecalc, onUse }) {
+function SystemView({ sys, matches, payouts, onRecalc, onUse, label = null,
+  actionLabel = '⬇ Lägg i kupongen', showHonesty = true }) {
   const [mfCopied, setMfCopied] = useState(false)
   // Ärlig byggartext för 13-matchsspelen (PH5-radvalsablationen) — bara text,
   // ingen logikändring. Produkt ur payouts; 13 matcher = Stryk/Europa som fallback.
-  const honest13 = (payouts?.product
+  const honest13 = showHonesty && (payouts?.product
     ? payouts.product === 'stryktipset' || payouts.product === 'europatipset'
     : matches?.length === 13) && (
     <p className="hint build-honesty">
@@ -586,9 +587,10 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse }) {
     <div className="system">
       {honest13}
       <div className="system-head">
+        {label && <span className="system-variant">{label}</span>}
         <strong>{sys.system_type}</strong> · {sys.strategy} ·
         <span className="rows"> {sys.num_rows} rader = {sys.cost} kr</span>
-        <button className="primary useb" onClick={onUse}>⬇ Lägg i kupongen</button>
+        <button className="primary useb" onClick={onUse}>{actionLabel}</button>
         <span className="note"> {sys.note}</span>
       </div>
       {sys.rule && <div className="rule">{sys.rule}</div>}
@@ -2881,7 +2883,7 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
           strategy: buildConfig?.strategy ?? null,
           budget: buildConfig?.budget ?? null,
           value_weight: buildConfig?.value_weight ?? null,
-          label: `${product} ${draw}`,
+          label: `${product} ${draw}${buildConfig?.label ? ` · ${buildConfig.label}` : ''}`,
         }),
       })
       setPlayed({ rows: submittedRows, status: res.ok })

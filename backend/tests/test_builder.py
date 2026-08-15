@@ -4,10 +4,36 @@ from unittest.mock import patch
 
 from app.builder import (_poisson_binomial, _prize_pools,
                          _row_expected_value, build_ev_system,
+                         build_complementary_ev_systems,
                          ev_candidate_signs)
 
 
 class PrizePoolTests(unittest.TestCase):
+    @staticmethod
+    def _eight_match_analysis():
+        probabilities = [
+            (0.70, 0.20, 0.10), (0.62, 0.24, 0.14),
+            (0.56, 0.27, 0.17), (0.52, 0.28, 0.20),
+            (0.48, 0.30, 0.22), (0.45, 0.31, 0.24),
+            (0.43, 0.32, 0.25), (0.41, 0.33, 0.26),
+        ]
+        matches = []
+        for event_number, probs in enumerate(probabilities, 1):
+            outcomes = {
+                sign: SimpleNamespace(
+                    fair_prob=probability, sharp_prob=probability,
+                    streck=probability * 100, tags=[], value=0)
+                for sign, probability in zip(("1", "X", "2"), probs)
+            }
+            matches.append(SimpleNamespace(
+                event_number=event_number, cancelled=False,
+                outcomes=outcomes, open_score=30 + event_number * 5,
+                favourite="1", favourite_prob=probs[0],
+                spik_score=probs[0] * 100, best_value_sign=None,
+                description=f"Lag {event_number} A – Lag {event_number} B"))
+        return SimpleNamespace(
+            turnover=100_000.0, matches=matches, product="topptipset")
+
     def test_ev_candidate_space_expands_to_cap_without_exceeding_it(self) -> None:
         matches = [SimpleNamespace(event_number=i, open_score=100 - i)
                    for i in range(13)]
@@ -55,6 +81,56 @@ class PrizePoolTests(unittest.TestCase):
         prize_pools.assert_called_once_with(1_000.0, plan, 500)
         self.assertEqual(500, system.jackpot)
         self.assertIn("Jackpot 500 kr ingår", system.rule)
+
+    def test_complementary_system_keeps_primary_unchanged_and_changes_spikes(self) -> None:
+        analysis = self._eight_match_analysis()
+        plan = {"ratio": 0.70, "splits": {8: 1.0}}
+
+        ordinary = build_ev_system(
+            analysis, budget=16, row_price=1, value_weight=0.5, plan=plan)
+        primary, alternative, metadata = build_complementary_ev_systems(
+            analysis, budget=16, row_price=1, value_weight=0.5, plan=plan)
+
+        self.assertEqual(ordinary.rows, primary.rows)
+        self.assertIsNotNone(alternative)
+        self.assertTrue(metadata["available"])
+        self.assertEqual(primary.num_rows, alternative.num_rows)
+        self.assertEqual(primary.cost, alternative.cost)
+        primary_spikes = {p.event_number for p in primary.picks if len(p.signs) == 1}
+        alternative_spikes = {
+            p.event_number for p in alternative.picks if len(p.signs) == 1}
+        self.assertTrue(primary_spikes)
+        self.assertTrue(alternative_spikes)
+        self.assertFalse(primary_spikes & alternative_spikes)
+        self.assertGreaterEqual(metadata["quality_ratio"], 0.90)
+        self.assertLess(metadata["row_overlap"], primary.num_rows)
+
+        # A:s spikar ska vara meningsfullt garderade i B, inte bara få en
+        # kosmetisk ensam reservrad.
+        event_indexes = {
+            match.event_number: index
+            for index, match in enumerate(analysis.matches)
+        }
+        for pick in primary.picks:
+            if len(pick.signs) != 1:
+                continue
+            index = event_indexes[pick.event_number]
+            alternatives = sum(
+                row[index] != pick.signs[0] for row in alternative.rows)
+            self.assertGreaterEqual(alternatives, 2)  # 10 % av 16, avrundat uppåt
+
+    def test_complementary_system_is_deterministic(self) -> None:
+        analysis = self._eight_match_analysis()
+        plan = {"ratio": 0.70, "splits": {8: 1.0}}
+
+        first = build_complementary_ev_systems(
+            analysis, budget=16, row_price=1, value_weight=0.5, plan=plan)
+        second = build_complementary_ev_systems(
+            analysis, budget=16, row_price=1, value_weight=0.5, plan=plan)
+
+        self.assertEqual(first[0].rows, second[0].rows)
+        self.assertEqual(first[1].rows, second[1].rows)
+        self.assertEqual(first[2], second[2])
 
     def test_poisson_binomial_is_normalized_and_exact(self) -> None:
         distribution = _poisson_binomial([0.6, 0.25])
