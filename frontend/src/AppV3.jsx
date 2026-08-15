@@ -943,7 +943,7 @@ function PoolV3() {
                   {systemTypes.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
                 </select>
                 <label className={`complementary-toggle ${complementaryMode ? 'active' : ''}`}
-                  title="Skapar Kupong A och en lika stor Kupong B som spikar andra matcher. Varje kupong kostar hela den valda insatsen.">
+                  title="Bygger två lika stora kuponger tillsammans. De får skilda ankare, högst 10 % identiska rader och tonar ned varandras ankartecken. Varje kupong kostar hela den valda insatsen.">
                   <input type="checkbox" checked={complementaryMode} disabled={sysType !== 'ev'}
                     onChange={(e) => { setComplementaryMode(e.target.checked); setSys(null) }} />
                   Två kompletterande kuponger
@@ -975,20 +975,23 @@ function PoolV3() {
                         {kr(sys.complementary.total_cost)} om båda spelas</span>
                     </div>
                     <div className="complementary-grid">
-                      <div><span>Kupong A spikar</span><b>{sys.complementary.primary_spikes
+                      <div><span>Kupong A ankare</span><b>{sys.complementary.primary_spikes
                         .map((p) => `${p.event_number} ${p.sign}`).join(' · ')}</b></div>
-                      <div><span>Kupong B spikar</span><b>{sys.complementary.alternative_spikes
+                      <div><span>Kupong B ankare</span><b>{sys.complementary.alternative_spikes
                         .map((p) => `${p.event_number} ${p.sign}`).join(' · ')}</b></div>
                       <div><span>Exakta rader gemensamma</span><b>
                         {sys.complementary.row_overlap} av {sys.num_rows} ({Math.round(
                           sys.complementary.row_overlap_pct * 100)} %)</b></div>
-                      <div title="Byggarens interna träffchans × EV-rankning. Det är inte en vinstsannolikhet.">
-                        <span>B:s rankningskvalitet</span><b>{Math.round(
-                          sys.complementary.quality_ratio * 100)} % av A</b></div>
+                      <div title="Byggarens interna träffchans × EV-rankning jämfört med det vanliga singelförslaget. Det är inte vinstsannolikhet.">
+                        <span>Kvalitet mot singelförslaget</span><b>
+                          A {Math.round(sys.complementary.primary_quality_ratio * 100)} % · B{' '}
+                          {Math.round(sys.complementary.alternative_quality_ratio * 100)} %</b></div>
                     </div>
-                    <p>A:s spikmatcher är garderade i minst {Math.round(
-                      sys.complementary.guard_share * 100)} % av B-raderna. Spelar du båda
-                      kostar det dubbelt; de är två fullstora alternativ, inte en delad budget.</p>
+                    <p>A och B byggs tillsammans. Varje kupong garderar den andras ankare i minst{' '}
+                      {Math.round(sys.complementary.guard_share * 100)} % av raderna och högst{' '}
+                      {Math.round(sys.complementary.max_overlap_share * 100)} % av de exakta
+                      raderna får vara gemensamma. Spelar du båda kostar det dubbelt; stäng av
+                      valet om du vill ha byggarens vanliga singelförslag.</p>
                   </div>
                   <SystemView key={`${product}:${draw}:b`} sys={sys.complementary.system}
                     matches={analysis?.matches} payouts={currentPayouts}

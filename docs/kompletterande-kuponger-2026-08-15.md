@@ -1,65 +1,91 @@
 # Kompletterande kuponger — 2026-08-15
 
-## Vad användaren får
+## Aktuellt kontrakt (v2)
 
 Poolbyggaren har ett frivilligt läge **Två kompletterande kuponger** för
-Värderader. Samma strategi, reglage och insats används för båda förslagen:
+Värderader. Samma strategi, reglage och insats används för båda förslagen,
+men A och B optimeras tillsammans som två olika scenarier:
 
-- **Kupong A** är exakt det förslag som den vanliga byggaren skulle ha lämnat.
-- **Kupong B** spikar andra matcher än A och garderar varje A-spik i minst
-  10 procent av sina rader.
-- B har lika många rader och samma kostnad som A.
-- UI:t visar spikarna, exakt radöverlapp, B:s interna rankningskvalitet och
-  både kostnad per kupong och total kostnad om båda spelas.
-- A och B kan var för sig läggas i kupongen. Historiken märker vilken variant
-  som valdes.
+- varje kupong får egna spikankare på andra matcher än den andra kupongen;
+- varje kupong får använda den andras ankartecken på högst 50 procent av
+  raderna;
+- högst 10 procent av de exakta raderna får finnas i båda kupongerna;
+- vardera kupongen måste behålla minst 75 procent av det vanliga
+  singelförslagets interna `träffchans^k × EV`-summa;
+- A och B har samma radantal och kostnad, och kan läggas i kupongen var för sig.
 
-Det är alltså två fullstora spelalternativ, inte två delar av samma budget.
-Läget är avstängt som standard och lägger aldrig in eller lämnar in något
-automatiskt.
+På 13-matchsspel med högst 512 rader försöker byggaren ge två ankare per
+kupong. På åttamatchsspel och tätare system används minst ett ankare per
+kupong. Om den striktare varianten inte går provar den färre ankare, men aldrig
+gemensamma ankarmatcher eller ett lägre kvalitetsgolv.
 
-## Säkerhetsregler
+Detta är två fullstora spelalternativ, inte två delar av samma budget. En vald
+insats på 256 kr betyder 256 + 256 kr om båda spelas. Läget är avstängt som
+standard och lägger aldrig in eller lämnar in något automatiskt. Vill
+användaren ha byggarens ordinarie system stängs dubbelkupongsläget av.
 
-B visas bara när byggaren kan uppfylla samtliga villkor:
+Kvalitetsprocenten är ett relativt byggarmått, inte vinstsannolikhet eller
+historiskt bevisad avkastning. Det lägre golvet än i v1 är avsiktligt: en andra
+kupong som tvingas till 90 procent blev i praktiken en nästan identisk kopia
+och gav därför ingen meningsfull riskspridning.
 
-1. A har minst en spik.
-2. B får minst en spik på en annan match och inga av A:s spikmatcher får vara
-   spikar i B.
-3. Det valda B-tecknet har minst 40 procents sharp-/fair-sannolikhet.
-4. B behåller minst 90 procent av A:s sammanlagda interna
-   `träffchans^k × EV`-poäng.
-5. Varje A-spik garderas i minst 10 procent av B-raderna.
+## Varför v1 ersattes samma dag
 
-Om detta inte går visas A oförändrad tillsammans med en tydlig förklaring;
-byggaren sänker inte kvalitetsgolvet i tysthet. Kvalitetsprocenten är ett
-relativt byggarmått, inte vinstsannolikhet eller historiskt bevisad avkastning.
+Det första produktionsförsöket behöll A exakt som singelförslaget och krävde
+90 procents kvalitet av B, men garderade A:s spikar i bara 10 procent av
+B-raderna. Samans sparade Stryktips 4966, kupong-id 27 och 28, visade felet:
+
+- 146 av 256 exakta rader var gemensamma, alltså 57,0 procent;
+- A:s spikar i match 4 och 9 följdes fortfarande i 230 av 256 B-rader;
+- B:s bärande favoriter följdes redan i 89–93 procent av A-raderna;
+- flera övriga matcher skilde bara 0–8 procentenheter i teckenvikt.
+
+Topptipset Stryk 976 visade det andra felet. Singelförslagets 256 rader hade
+ingen helt fast match, varpå v1 gav upp med texten att A saknade spikar. V2
+kräver inte längre att singelförslaget råkar ha en spik: den skapar A:s och
+B:s ankare själv ur samma rankade universum.
 
 ## Teknisk utformning
 
 `GET /api/system` accepterar `complementary=true` tillsammans med `ev=true`.
-Det vanliga svaret ligger kvar på toppnivån som Kupong A. Fältet
-`complementary` innehåller metadata och, när reglerna klaras, ett separat
-system för Kupong B. Befintliga anrop utan flaggan är oförändrade.
+Svaret på toppnivån är Kupong A; `complementary.system` är Kupong B och
+metadatafältet redovisar ankare, faktisk radöverlapp, båda kvalitetskvoterna,
+korstaket och kostnaderna. Befintliga anrop utan flaggan är oförändrade.
 
-Standardbyggaren fullrankar ett begränsat toppurval. I dubbelkupongsläget
-byggs A först med exakt denna gamla väg. Bara sökningen efter B fullrankar hela
-det redan begränsade kandidatuniversumet (högst 60 000 rader), eftersom de
-garderingsrader som krävs annars kan ha sorterats bort för tidigt.
+Standardbyggaren fullrankar ett begränsat toppurval precis som förut.
+Dubbelkupongsläget fullrankar hela det redan begränsade kandidatuniversumet
+(högst 60 000 rader), söker disjunkta ankargrupper och väljer de bästa raderna
+under korstaken. Därefter byts exakta dubblettrader bort så långt
+75-procentsgolvet medger. Sökningen är deterministisk.
 
-Ingen databas eller modellversion ändrades. Funktionen påverkar bara ett
-frivilligt radval i pool-UI:t.
+Ingen databas eller ordinarie modellversion ändrades. De redan sparade
+kupongerna 27 och 28 ska självklart ligga kvar som faktiskt spelad historik;
+de skrivs inte om i efterhand.
 
-## Verifiering
+## Acceptanstester
 
-- Kupong A jämförs rad för rad med den ordinarie byggaren.
-- B måste vara deterministisk, hålla samma kostnad och radantal, ha andra
-  spikmatcher, klara 90-procentsgolvet och gardera varje A-spik enligt kvoten.
-- Backendens fulla testsvit, frontendens enhetstester och produktionsbygget
-  ska vara gröna före drift.
-- Riktigt torrtest på Stryktipset 4966 vid 256 kr: A spikade match 4 och 9,
-  B spikade match 5, kvalitet 90,0 procent, 50,4 procent exakt radöverlapp och
-  cirka 1,3 sekunders lokal byggtid före portföljsimuleringen.
+- Enkelbyggaren ska ge exakt samma rader före och efter ett dubbelanrop.
+- En 256-raders Topptipsbas utan spikar ska ändå ge två kuponger.
+- A och B ska ha disjunkta ankarmatcher, samma radantal och samma kostnad.
+- Den andra kupongens ankartecken får finnas på högst hälften av raderna.
+- Exakt radöverlapp får vara högst 10 procent.
+- Båda kvalitetskvoterna ska vara minst 75 procent av singelförslaget.
+- Upprepade anrop med samma data ska ge identiska rader och metadata.
+- Backendens fulla testsvit, frontendtesterna, produktionsbygget och riktiga
+  torrtest mot både Stryktips 4966 och Topptipset Stryk 976 ska vara gröna före
+  drift.
 
-Vid 128 kr hade A fem spikar och ingen annan match klarade ankarkravet. Det är
-ett avsiktligt, ärligt tomläge: användaren kan höja insatsen eller ändra
-strategin, men får inget konstgjort B-förslag.
+## Slutverifiering av v2
+
+Med respektive omgångs riktiga analysdata och 256 kr gav den nya byggaren:
+
+- **Stryktipset 4966:** två ankare per sida, 84,4/85,5 procents relativ
+  kvalitet, 0 exakta dubblettrader och 2,1 sekunders lokal byggtid före
+  portföljsimulering. Den andra kupongen använde varje A-ankare på exakt 128
+  av 256 rader; A använde B-ankarna på 102 respektive 104 rader.
+- **Topptipset Stryk 976:** ankare 4–1 mot 2–2, 82,4/83,3 procents relativ
+  kvalitet, 0 exakta dubblettrader och 0,23 sekunders lokal byggtid. Detta är
+  samma underlag där v1 inte kunde skapa B alls.
+
+Verifiering före commit: 714 backendtester, 12 frontendtester,
+produktionsbygge och syntax-/diffkontroll gröna.

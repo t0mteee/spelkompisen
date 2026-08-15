@@ -710,7 +710,7 @@ def _ev_system_from_rows(analysis: DrawAnalysis, strategy: str, budget: float,
     profile = ("max EV (skrälltungt)" if k < 0.4
                else "balans EV × träffchans" if k < 1.4 else "träffsäkra värderader")
     complement_note = (
-        " Kupong B använder andra spikmatcher och garderingar på Kupong A:s spikar."
+        " Kupongen är en av två gemensamt optimerade varianter med skilda spikmatcher."
         if complementary else "")
     return System(
         strategy=strategy, system_type="värderader", budget=budget,
@@ -746,225 +746,341 @@ def _spike_details(chosen: list[tuple[float, float, tuple[str, ...]]],
     return details
 
 
-def _guarded_alternative(
-        ranked_rows: list[tuple[float, float, tuple[str, ...]]],
-        primary_rows: list[tuple[float, float, tuple[str, ...]]],
-        forced_spikes: tuple[tuple[int, str], ...],
-        primary_spikes: tuple[tuple[int, str], ...],
-        target: int, quality_floor: float, guard_share: float,
-) -> Optional[tuple[list[tuple[float, float, tuple[str, ...]]], float, int]]:
-    """Välj B-rader under spik-, garderings- och kvalitetsvillkor.
-
-    Minst `guard_share` av B-raderna måste avvika från A:s tecken på VARJE
-    A-spik. Det räcker alltså inte att smyga in en enda kosmetisk reservrad.
-    Därefter byts överlappande exakta rader bort så långt 90 %-golvet tillåter.
-    """
-    eligible = [item for item in ranked_rows
-                if all(item[2][index] == sign for index, sign in forced_spikes)]
-    if len(eligible) < target:
-        return None
-
-    quota = max(1, int(target * guard_share + 0.999999))
-    selected: list[tuple[float, float, tuple[str, ...]]] = []
-    selected_rows: set[tuple[str, ...]] = set()
-    guarded = {index: 0 for index, _ in primary_spikes}
-
-    # Börja med rader som samtidigt garderar så många av A:s spikar som möjligt.
-    while any(count < quota for count in guarded.values()):
-        best = None
-        best_key = None
-        for item in eligible:
-            row = item[2]
-            if row in selected_rows:
-                continue
-            helps = sum(
-                guarded[index] < quota and row[index] != sign
-                for index, sign in primary_spikes)
-            if not helps:
-                continue
-            key = (helps, item[0])
-            if best_key is None or key > best_key:
-                best, best_key = item, key
-        if best is None or len(selected) >= target:
-            return None
-        selected.append(best)
-        selected_rows.add(best[2])
-        for index, sign in primary_spikes:
-            if best[2][index] != sign:
-                guarded[index] += 1
-
+def _select_capped_rows(
+        eligible: list[tuple[float, float, tuple[str, ...]]], target: int,
+        caps: dict[tuple[int, str], int],
+) -> Optional[list[tuple[float, float, tuple[str, ...]]]]:
+    """Ta de bästa raderna utan att överskrida teckentaken i `caps`."""
+    counts = {key: 0 for key in caps}
+    selected = []
     for item in eligible:
-        if len(selected) >= target:
-            break
-        if item[2] not in selected_rows:
-            selected.append(item)
-            selected_rows.add(item[2])
-    if len(selected) != target:
-        return None
+        row = item[2]
+        if any(row[index] == sign and counts[(index, sign)] >= cap
+               for (index, sign), cap in caps.items()):
+            continue
+        selected.append(item)
+        for index, sign in caps:
+            if row[index] == sign:
+                counts[(index, sign)] += 1
+        if len(selected) == target:
+            return selected
+    return None
 
-    primary_score = sum(item[0] for item in primary_rows)
-    floor_score = primary_score * quality_floor
-    selected_score = sum(item[0] for item in selected)
-    if primary_score <= 0 or selected_score < floor_score:
-        return None
 
-    # Minska exakt radöverlapp utan att bryta garderingskvoter eller kvalitetsgolv.
-    primary_set = {item[2] for item in primary_rows}
-    replacements = [item for item in eligible
-                    if item[2] not in selected_rows and item[2] not in primary_set]
-    replacements.sort(key=lambda item: item[0], reverse=True)
+def _diversify_selected_rows(
+        selected: list[tuple[float, float, tuple[str, ...]]],
+        other: list[tuple[float, float, tuple[str, ...]]],
+        eligible: list[tuple[float, float, tuple[str, ...]]],
+        caps: dict[tuple[int, str], int], floor_score: float,
+) -> tuple[list[tuple[float, float, tuple[str, ...]]], float]:
+    """Byt bort exakta dubblettrader så långt kvalitetsgolvet tillåter.
+
+    Högst två korstak används i praktiken. Kandidater grupperas därför efter
+    sin takmask så varje byte kan hittas utan en dyr helskanning per rad.
+    """
+    chosen = list(selected)
+    chosen_set = {item[2] for item in chosen}
+    other_set = {item[2] for item in other}
+    score = sum(item[0] for item in chosen)
+    cap_keys = tuple(caps)
+    counts = {
+        key: sum(item[2][key[0]] == key[1] for item in chosen)
+        for key in cap_keys
+    }
+
+    buckets: dict[int, list[tuple[float, float, tuple[str, ...]]]] = {}
+    for item in eligible:
+        if item[2] in chosen_set or item[2] in other_set:
+            continue
+        mask = sum((1 << pos) for pos, (index, sign) in enumerate(cap_keys)
+                   if item[2][index] == sign)
+        buckets.setdefault(mask, []).append(item)
+    positions = {mask: 0 for mask in buckets}
+
     overlapping = sorted(
-        (item for item in selected if item[2] in primary_set),
+        (item for item in chosen if item[2] in other_set),
         key=lambda item: item[0])
     for old in overlapping:
-        for pos, new in enumerate(replacements):
-            next_score = selected_score - old[0] + new[0]
-            if next_score < floor_score:
+        after = {
+            key: counts[key] - int(old[2][key[0]] == key[1])
+            for key in cap_keys
+        }
+        best = None
+        best_mask = None
+        for mask, items in buckets.items():
+            pos = positions[mask]
+            if pos >= len(items):
                 continue
-            keeps_guards = all(
-                guarded[index]
-                - int(old[2][index] != sign)
-                + int(new[2][index] != sign) >= quota
-                for index, sign in primary_spikes)
-            if not keeps_guards:
+            if any(after[key] + int(bool(mask & (1 << bit))) > caps[key]
+                   for bit, key in enumerate(cap_keys)):
                 continue
-            selected.remove(old)
-            selected.append(new)
-            selected_rows.remove(old[2])
-            selected_rows.add(new[2])
-            for index, sign in primary_spikes:
-                guarded[index] += (int(new[2][index] != sign)
-                                   - int(old[2][index] != sign))
-            selected_score = next_score
-            replacements.pop(pos)
-            break
+            candidate = items[pos]
+            if best is None or candidate[0] > best[0]:
+                best, best_mask = candidate, mask
+        if best is None:
+            continue
+        next_score = score - old[0] + best[0]
+        if next_score < floor_score:
+            continue
+        chosen.remove(old)
+        chosen.append(best)
+        chosen_set.remove(old[2])
+        chosen_set.add(best[2])
+        for bit, key in enumerate(cap_keys):
+            counts[key] = after[key] + int(bool(best_mask & (1 << bit)))
+        positions[best_mask] += 1
+        score = next_score
 
-    selected.sort(key=lambda item: item[0], reverse=True)
-    overlap = sum(item[2] in primary_set for item in selected)
-    return selected, selected_score / primary_score, overlap
+    chosen.sort(key=lambda item: item[0], reverse=True)
+    return chosen, score
+
+
+def _best_diversified_pair(
+        primary: list[tuple[float, float, tuple[str, ...]]],
+        alternative: list[tuple[float, float, tuple[str, ...]]],
+        primary_eligible: list[tuple[float, float, tuple[str, ...]]],
+        alternative_eligible: list[tuple[float, float, tuple[str, ...]]],
+        primary_caps: dict[tuple[int, str], int],
+        alternative_caps: dict[tuple[int, str], int], floor_score: float,
+) -> tuple[list[tuple[float, float, tuple[str, ...]]],
+           list[tuple[float, float, tuple[str, ...]]], float, float, int]:
+    """Prova att avdubblera A, B och båda ordningsföljderna."""
+    options = []
+
+    a1, a1_score = _diversify_selected_rows(
+        primary, alternative, primary_eligible, primary_caps, floor_score)
+    options.append((a1, alternative, a1_score,
+                    sum(item[0] for item in alternative)))
+    b1, b1_score = _diversify_selected_rows(
+        alternative, primary, alternative_eligible, alternative_caps,
+        floor_score)
+    options.append((primary, b1, sum(item[0] for item in primary), b1_score))
+
+    b2, b2_score = _diversify_selected_rows(
+        alternative, a1, alternative_eligible, alternative_caps, floor_score)
+    options.append((a1, b2, a1_score, b2_score))
+    a2, a2_score = _diversify_selected_rows(
+        primary, b1, primary_eligible, primary_caps, floor_score)
+    options.append((a2, b1, a2_score, b1_score))
+
+    def _key(option):
+        a_rows, b_rows, a_score, b_score = option
+        overlap = len({item[2] for item in a_rows}
+                      & {item[2] for item in b_rows})
+        return (-overlap, min(a_score, b_score), a_score + b_score)
+
+    chosen = max(options, key=_key)
+    a_rows, b_rows, a_score, b_score = chosen
+    overlap = len({item[2] for item in a_rows} & {item[2] for item in b_rows})
+    return a_rows, b_rows, a_score, b_score, overlap
 
 
 def build_complementary_ev_systems(
         analysis: DrawAnalysis, strategy: str = "medel",
         budget: float = 100.0, row_price: float = ROW_PRICE,
         value_weight: float = 0.5, plan: Optional[dict] = None,
-        jackpot: float = 0.0, quality_floor: float = 0.90,
-        guard_share: float = 0.10,
+        jackpot: float = 0.0, quality_floor: float = 0.75,
+        cross_anchor_share: float = 0.50,
+        max_overlap_share: float = 0.10,
 ) -> tuple[System, Optional[System], dict]:
-    """Bygg A samt en deterministisk B med andra bärande spikmatcher.
+    """Bygg två portföljvarianter med ömsesidigt skilda spikmatcher.
 
-    A är byte-för-byte samma system som `build_ev_system`. B får samma antal
-    rader, strategi, värdevikt och budget. Den blir tillgänglig bara om alla
-    A-spikar kan garderas, minst en annan match kan spikas och rankningssumman
-    behåller det fasta kvalitetsgolvet i detta frivilliga UI-läge.
+    Enkelbyggaren är oförändrad. I det frivilliga dubbelläget byggs däremot A
+    och B tillsammans: vardera spikar egna matcher och får använda den andra
+    kupongens spiktecken på högst hälften av raderna. Exakta radkopior tas bort
+    så långt det fasta kvalitetsgolvet tillåter.
     """
-    ranked = _rank_ev_rows(
+    baseline_ranked = _rank_ev_rows(
         analysis, budget, row_price, value_weight, plan, jackpot)
-    primary_rows = ranked.rows[:ranked.target]
-    primary = _ev_system_from_rows(
-        analysis, strategy, budget, row_price, jackpot, ranked, primary_rows)
-    primary_details = _spike_details(primary_rows, analysis.matches)
+    baseline_rows = baseline_ranked.rows[:baseline_ranked.target]
+    baseline = _ev_system_from_rows(
+        analysis, strategy, budget, row_price, jackpot, baseline_ranked,
+        baseline_rows)
+    baseline_score = sum(item[0] for item in baseline_rows)
     metadata = {
         "available": False,
         "quality_floor": quality_floor,
-        "guard_share": guard_share,
-        "primary_spikes": primary_details,
+        "cross_anchor_share": cross_anchor_share,
+        "guard_share": 1.0 - cross_anchor_share,
+        "max_overlap_share": max_overlap_share,
+        "primary_spikes": _spike_details(baseline_rows, analysis.matches),
         "alternative_spikes": [],
         "row_overlap": None,
         "row_overlap_pct": None,
+        "primary_quality_ratio": None,
+        "alternative_quality_ratio": None,
         "quality_ratio": None,
-        "cost_each": primary.cost,
-        "total_cost": round(primary.cost * 2, 2),
+        "cost_each": baseline.cost,
+        "total_cost": round(baseline.cost * 2, 2),
     }
-    if not primary_details:
+    if baseline_score <= 0 or not baseline_rows:
         metadata["reason"] = (
-            "Kupong A har inga spikar vid den valda insatsen, så det finns "
-            "inga bärande spikmatcher att sprida från.")
-        return primary, None, metadata
+            "Kupongen saknar ett användbart rankningsunderlag för två varianter.")
+        return baseline, None, metadata
 
-    # Standardbyggaren fullrankar medvetet bara de bästa grovkandidaterna.
-    # Det räcker för A men kan sålla bort just de rader B behöver för att både
-    # byta spikmatcher och gardera A:s spikar. I dubbelkupongsläget fullrankar
-    # vi därför hela det redan begränsade kandidatuniversumet. A ovan byggs
-    # fortfarande från standardunderlaget och förblir exakt oförändrad.
-    alternative_ranked = _rank_ev_rows(
+    pair_ranked = _rank_ev_rows(
         analysis, budget, row_price, value_weight, plan, jackpot,
         refine_all=True)
+    target = len(baseline_rows)
+    floor_score = baseline_score * quality_floor
+    cap = int(target * cross_anchor_share)
 
-    event_index = {m.event_number: index
-                   for index, m in enumerate(analysis.matches)}
-    primary_spikes = tuple(
-        (event_index[item["event_number"]], item["sign"])
-        for item in primary_details)
-    primary_indexes = {index for index, _ in primary_spikes}
-    target = len(primary_rows)
-
-    # Kandidaterna måste själva vara rimliga förstaval och rymma exakt samma
-    # antal rader när de låses. Högst åtta behövs för en snabb, stabil sökning.
-    candidates = []
+    # Välj ett möjligt ankare per match. Tecknet får vara marknadsfavoriten
+    # eller byggarens värdetecken; det som ger bäst target-stort system vinner.
+    candidates: list[tuple[float, float, int, str]] = []
     for index, match in enumerate(analysis.matches):
-        if index in primary_indexes:
-            continue
-        sign = _signs_by_score(match, value_weight)[0]
-        outcome = match.outcomes[sign]
-        probability = (outcome.sharp_prob if outcome.sharp_prob is not None
-                       else outcome.fair_prob) or 0.0
-        if probability < 0.40:
-            continue
-        if sum(item[2][index] == sign
-               for item in alternative_ranked.rows) < target:
-            continue
-        candidates.append((match.spik_score + probability * 100, index, sign))
-    candidates.sort(reverse=True)
-    candidates = candidates[:8]
-    if not candidates:
-        metadata["reason"] = (
-            "Ingen annan match är tillräckligt stark för att bära en ny spik "
-            "med samma insats.")
-        return primary, None, metadata
-
-    best = None
-    wanted = min(len(primary_spikes), len(candidates))
-    for count in range(wanted, 0, -1):
-        for combo in itertools.combinations(candidates, count):
-            forced = tuple((index, sign) for _, index, sign in combo)
-            result = _guarded_alternative(
-                alternative_ranked.rows, primary_rows, forced,
-                primary_spikes, target, quality_floor, guard_share)
-            if result is None:
+        probability_sign = max(
+            SIGNS, key=lambda sign: (
+                match.outcomes[sign].sharp_prob
+                if match.outcomes[sign].sharp_prob is not None
+                else match.outcomes[sign].fair_prob) or 0.0)
+        signs = dict.fromkeys(
+            (probability_sign, _signs_by_score(match, value_weight)[0]))
+        best = None
+        for sign in signs:
+            outcome = match.outcomes[sign]
+            probability = (outcome.sharp_prob
+                           if outcome.sharp_prob is not None
+                           else outcome.fair_prob) or 0.0
+            if probability < 0.35:
                 continue
-            chosen, quality_ratio, overlap = result
-            alternative_details = _spike_details(chosen, analysis.matches)
-            alt_events = {item["event_number"] for item in alternative_details}
-            primary_events = {item["event_number"] for item in primary_details}
-            if not alternative_details or alt_events & primary_events:
+            eligible = [item for item in pair_ranked.rows
+                        if item[2][index] == sign]
+            if len(eligible) < target:
                 continue
-            # För samma antal alternativa spikar: mindre radöverlapp först,
-            # därefter högre kvalitet. Vi provar färre spikar endast om ingen
-            # lösning på den här nivån klarar golvet.
-            key = (-overlap, quality_ratio)
-            if best is None or key > best[0]:
-                best = (key, chosen, quality_ratio, overlap, alternative_details)
+            anchored_score = sum(item[0] for item in eligible[:target])
+            candidate = (anchored_score, probability, index, sign)
+            if best is None or candidate > best:
+                best = candidate
         if best is not None:
+            candidates.append(best)
+    candidates.sort(reverse=True)
+    candidates = candidates[:9]
+    if len(candidates) < 2:
+        metadata["reason"] = (
+            "Det finns inte två tillräckligt starka matcher att fördela som "
+            "separata spikankare vid den valda insatsen.")
+        return baseline, None, metadata
+
+    desired_anchors = 2 if len(analysis.matches) >= 12 and target <= 512 else 1
+    best_pair = None
+    for anchor_count in range(desired_anchors, 0, -1):
+        groups = []
+        for combo in itertools.combinations(candidates, anchor_count):
+            indexes = {item[2] for item in combo}
+            if len(indexes) != anchor_count:
+                continue
+            fixed = tuple(sorted((item[2], item[3]) for item in combo))
+            eligible = [item for item in pair_ranked.rows
+                        if all(item[2][index] == sign
+                               for index, sign in fixed)]
+            if len(eligible) < target:
+                continue
+            if sum(item[0] for item in eligible[:target]) < floor_score:
+                continue
+            groups.append((fixed, eligible))
+
+        preliminary = []
+        for left, right in itertools.combinations(groups, 2):
+            left_fixed, left_eligible = left
+            right_fixed, right_eligible = right
+            if ({index for index, _ in left_fixed}
+                    & {index for index, _ in right_fixed}):
+                continue
+            left_caps = {key: cap for key in right_fixed}
+            right_caps = {key: cap for key in left_fixed}
+            left_rows = _select_capped_rows(
+                left_eligible, target, left_caps)
+            right_rows = _select_capped_rows(
+                right_eligible, target, right_caps)
+            if left_rows is None or right_rows is None:
+                continue
+            left_score = sum(item[0] for item in left_rows)
+            right_score = sum(item[0] for item in right_rows)
+            if min(left_score, right_score) < floor_score:
+                continue
+            left_events = {
+                item["event_number"]
+                for item in _spike_details(left_rows, analysis.matches)}
+            right_events = {
+                item["event_number"]
+                for item in _spike_details(right_rows, analysis.matches)}
+            if left_events & right_events:
+                continue
+            overlap = len({item[2] for item in left_rows}
+                          & {item[2] for item in right_rows})
+            preliminary.append((
+                (-overlap, min(left_score, right_score),
+                 left_score + right_score),
+                left_rows, right_rows, left_eligible, right_eligible,
+                left_caps, right_caps, left_fixed, right_fixed,
+            ))
+
+        # Avdubblering är dyrare än urvalet. Prova de 24 mest lovande paren;
+        # det räcker för stabilitet men håller mobilens väntetid rimlig.
+        preliminary.sort(key=lambda item: item[0], reverse=True)
+        for item in preliminary[:24]:
+            (_, left_rows, right_rows, left_eligible, right_eligible,
+             left_caps, right_caps, left_fixed, right_fixed) = item
+            result = _best_diversified_pair(
+                left_rows, right_rows, left_eligible, right_eligible,
+                left_caps, right_caps, floor_score)
+            a_rows, b_rows, a_score, b_score, overlap = result
+            if overlap > int(target * max_overlap_share):
+                continue
+            a_details = _spike_details(a_rows, analysis.matches)
+            b_details = _spike_details(b_rows, analysis.matches)
+            if ({detail["event_number"] for detail in a_details}
+                    & {detail["event_number"] for detail in b_details}):
+                continue
+            key = (-overlap, min(a_score, b_score), a_score + b_score)
+            if best_pair is None or key > best_pair[0]:
+                best_pair = (key, a_rows, b_rows, a_score, b_score,
+                             overlap, a_details, b_details, anchor_count,
+                             left_fixed, right_fixed)
+        if best_pair is not None:
             break
 
-    if best is None:
+    if best_pair is None:
         metadata["reason"] = (
-            "Det gick inte att byta spikmatcher utan att underskrida "
+            "Det gick inte att skapa två tydligt skilda kuponger över det fasta "
             f"kvalitetsgolvet {quality_floor:.0%}. Prova en annan insats eller strategi.")
-        return primary, None, metadata
+        return baseline, None, metadata
 
-    _, chosen, quality_ratio, overlap, alternative_details = best
+    (_, primary_rows, alternative_rows, primary_score, alternative_score,
+     overlap, primary_details, alternative_details, anchor_count,
+     primary_fixed, alternative_fixed) = best_pair
+
+    def anchor_details(fixed):
+        return [{
+            "event_number": analysis.matches[index].event_number,
+            "description": analysis.matches[index].description,
+            "sign": sign,
+        } for index, sign in fixed]
+
+    primary_anchors = anchor_details(primary_fixed)
+    alternative_anchors = anchor_details(alternative_fixed)
+    primary = _ev_system_from_rows(
+        analysis, strategy, budget, row_price, jackpot, pair_ranked,
+        primary_rows, complementary=True)
     alternative = _ev_system_from_rows(
-        analysis, strategy, budget, row_price, jackpot, alternative_ranked,
-        chosen, complementary=True)
+        analysis, strategy, budget, row_price, jackpot, pair_ranked,
+        alternative_rows, complementary=True)
+    primary_quality = primary_score / baseline_score
+    alternative_quality = alternative_score / baseline_score
     metadata.update({
         "available": True,
-        "alternative_spikes": alternative_details,
+        "primary_spikes": primary_anchors,
+        "alternative_spikes": alternative_anchors,
+        "primary_all_spikes": primary_details,
+        "alternative_all_spikes": alternative_details,
         "row_overlap": overlap,
         "row_overlap_pct": round(overlap / target, 4) if target else 0.0,
-        "quality_ratio": round(quality_ratio, 4),
-        "guarded_primary_spikes": primary_details,
+        "primary_quality_ratio": round(primary_quality, 4),
+        "alternative_quality_ratio": round(alternative_quality, 4),
+        "quality_ratio": round(alternative_quality, 4),
+        "anchor_count_each": anchor_count,
+        "baseline_changed": True,
         "reason": None,
     })
     return primary, alternative, metadata

@@ -82,16 +82,24 @@ class PrizePoolTests(unittest.TestCase):
         self.assertEqual(500, system.jackpot)
         self.assertIn("Jackpot 500 kr ingår", system.rule)
 
-    def test_complementary_system_keeps_primary_unchanged_and_changes_spikes(self) -> None:
+    def test_complementary_system_builds_two_genuinely_different_anchors(self) -> None:
         analysis = self._eight_match_analysis()
         plan = {"ratio": 0.70, "splits": {8: 1.0}}
 
-        ordinary = build_ev_system(
-            analysis, budget=16, row_price=1, value_weight=0.5, plan=plan)
+        ordinary_before = build_ev_system(
+            analysis, budget=256, row_price=1, value_weight=0.5, plan=plan)
+        # Regressionen som syntes på Topptipset: basförslaget saknar spikar
+        # vid 256 rader, men parbyggaren ska ändå skapa egna ankare.
+        self.assertFalse(any(len(pick.signs) == 1
+                             for pick in ordinary_before.picks))
         primary, alternative, metadata = build_complementary_ev_systems(
-            analysis, budget=16, row_price=1, value_weight=0.5, plan=plan)
+            analysis, budget=256, row_price=1, value_weight=0.5, plan=plan)
+        ordinary_after = build_ev_system(
+            analysis, budget=256, row_price=1, value_weight=0.5, plan=plan)
 
-        self.assertEqual(ordinary.rows, primary.rows)
+        # Det frivilliga parläget får ändra A, men den vanliga enkelbyggaren
+        # ska förbli byte-för-byte oförändrad före och efter anropet.
+        self.assertEqual(ordinary_before.rows, ordinary_after.rows)
         self.assertIsNotNone(alternative)
         self.assertTrue(metadata["available"])
         self.assertEqual(primary.num_rows, alternative.num_rows)
@@ -102,31 +110,33 @@ class PrizePoolTests(unittest.TestCase):
         self.assertTrue(primary_spikes)
         self.assertTrue(alternative_spikes)
         self.assertFalse(primary_spikes & alternative_spikes)
-        self.assertGreaterEqual(metadata["quality_ratio"], 0.90)
-        self.assertLess(metadata["row_overlap"], primary.num_rows)
+        self.assertGreaterEqual(metadata["primary_quality_ratio"], 0.75)
+        self.assertGreaterEqual(metadata["alternative_quality_ratio"], 0.75)
+        self.assertLessEqual(metadata["row_overlap_pct"], 0.10)
 
-        # A:s spikar ska vara meningsfullt garderade i B, inte bara få en
-        # kosmetisk ensam reservrad.
+        # Varje kupong får använda den andras ankartecken på högst hälften av
+        # raderna. Detta låser regressionen där 90 % följde samma favoriter.
         event_indexes = {
             match.event_number: index
             for index, match in enumerate(analysis.matches)
         }
-        for pick in primary.picks:
-            if len(pick.signs) != 1:
-                continue
-            index = event_indexes[pick.event_number]
-            alternatives = sum(
-                row[index] != pick.signs[0] for row in alternative.rows)
-            self.assertGreaterEqual(alternatives, 2)  # 10 % av 16, avrundat uppåt
+        for anchor in metadata["primary_spikes"]:
+            index = event_indexes[anchor["event_number"]]
+            same = sum(row[index] == anchor["sign"] for row in alternative.rows)
+            self.assertLessEqual(same, primary.num_rows // 2)
+        for anchor in metadata["alternative_spikes"]:
+            index = event_indexes[anchor["event_number"]]
+            same = sum(row[index] == anchor["sign"] for row in primary.rows)
+            self.assertLessEqual(same, primary.num_rows // 2)
 
     def test_complementary_system_is_deterministic(self) -> None:
         analysis = self._eight_match_analysis()
         plan = {"ratio": 0.70, "splits": {8: 1.0}}
 
         first = build_complementary_ev_systems(
-            analysis, budget=16, row_price=1, value_weight=0.5, plan=plan)
+            analysis, budget=256, row_price=1, value_weight=0.5, plan=plan)
         second = build_complementary_ev_systems(
-            analysis, budget=16, row_price=1, value_weight=0.5, plan=plan)
+            analysis, budget=256, row_price=1, value_weight=0.5, plan=plan)
 
         self.assertEqual(first[0].rows, second[0].rows)
         self.assertEqual(first[1].rows, second[1].rows)

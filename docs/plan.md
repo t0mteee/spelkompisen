@@ -3,15 +3,17 @@
 ## STATUS-SAMMANFATTNING (2026-08-15 — läs detta först i ny session)
 
 **TVÅ KOMPLETTERANDE KUPONGER I POOLBYGGAREN (2026-08-15, Codex).**
-Värderader har nu ett frivilligt dubbelkupongsläge: A är exakt den ordinarie
-byggarens system, medan B kostar lika mycket men spikar andra matcher och
-garderar varje A-spik i minst 10 procent av raderna. B visas bara om dess
-interna `träffchans^k × EV`-summa håller minst 90 procent av A; annars visas A
-och ett ärligt tomläge. UI:t visar spikar, exakt radöverlapp, relativ kvalitet,
-kostnad per kupong och total dubbel insats samt märker A/B i spelhistoriken.
-Funktionen är avstängd som standard, ändrar inte PH5 eller någon modell och
-lägger aldrig spel automatiskt. Kontrakt, begränsningar och torrtest mot
-Stryktipset 4966: `docs/kompletterande-kuponger-2026-08-15.md`.
+Värderader har ett frivilligt dubbelkupongsläge där A och B byggs gemensamt
+med disjunkta spikankare. V1 ersattes samma dag efter att de faktiskt sparade
+Stryktipskupongerna 27/28 visade 57 procent exakta dubblettrader och bara 10
+procents kosmetisk gardering; Topptipset Stryk 976 gav dessutom upp när
+singelförslaget saknade spik. V2 kräver högst 10 procent radöverlapp, minst 50
+procent gardering av den andra kupongens ankare och minst 75 procent av
+singelförslagets interna kvalitet för båda systemen. Den skapar egna ankare
+även när singelförslaget saknar spik. UI:t visar båda kvaliteterna, ankare,
+överlapp samt kostnad per kupong och totalt. Läget är avstängt som standard,
+ändrar inte enkelbyggaren/PH5/modeller och lägger aldrig spel automatiskt.
+Evidens och kontrakt: `docs/kompletterande-kuponger-2026-08-15.md`.
 
 **PH5 FORWARD STARTAR PÅ STRYKTIPSET 4966 (2026-08-15, Codex).** Det
 historiska 5 000-raderstestet slog byggarslump tydligt men passerade inte den
