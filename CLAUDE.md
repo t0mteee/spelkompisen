@@ -44,6 +44,9 @@ ett nytt manifest — en aliasändring i en liga som ingår i V2.2:s FIT_POOLS
 datagenererande process. Äldre manifest blandas aldrig in. Det är inte en
 tränad modell och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
+`docs/overlamning-2026-08-16-dubbelkuponger.md` — dubbelkupongernas skarpa
+v2-kontrakt efter verkligt A/B-spel, Topptips utan basspik och det förenklade
+mobilflödet. Därefter
 `docs/overlamning-2026-08-12-idag-och-familjer.md` — spelfamiljer (Topptipset
 är ETT spel överallt där något mäts eller visas), inställd omgång vs uppskjuten
 match, ombyggd Idag-vy, spelläge-etiketten och borttaget andra ankare i UI.

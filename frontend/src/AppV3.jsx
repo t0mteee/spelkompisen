@@ -663,6 +663,55 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
 
 /* =============================== Poolspel ================================= */
 
+function ComplementaryChooser({ primary, meta, onUsePrimary, onUseAlternative }) {
+  const alternative = meta.system
+  const anchors = (items) => items.map((anchor) => (
+    <div className="complementary-anchor" key={`${anchor.event_number}:${anchor.sign}`}>
+      <b>Match {anchor.event_number}: {anchor.sign}</b>
+      <span>{anchor.description}</span>
+    </div>
+  ))
+  const overlapPct = Math.round(meta.row_overlap_pct * 100)
+  return (
+    <div className="complementary-summary">
+      <div className="complementary-title">
+        <div>
+          <strong>Välj scenario A eller B</strong>
+          <span>Två separata kuponger som bygger på olika matcher</span>
+        </div>
+        <b>{kr(meta.cost_each)} vardera · {kr(meta.total_cost)} för båda</b>
+      </div>
+      <div className="complementary-options">
+        <article className="complementary-option option-a">
+          <header><em>A</em><div><strong>Kupong A</strong>
+            <span>{primary.num_rows} rader · {kr(primary.cost)}</span></div></header>
+          <small>Bygger främst på</small>
+          {anchors(meta.primary_spikes)}
+          <button className="primary" onClick={onUsePrimary}>Använd kupong A</button>
+        </article>
+        <article className="complementary-option option-b">
+          <header><em>B</em><div><strong>Kupong B</strong>
+            <span>{alternative.num_rows} rader · {kr(alternative.cost)}</span></div></header>
+          <small>Bygger främst på</small>
+          {anchors(meta.alternative_spikes)}
+          <button className="primary" onClick={onUseAlternative}>Använd kupong B</button>
+        </article>
+      </div>
+      <div className="complementary-result">
+        <b>{overlapPct === 0 ? 'Inga identiska rader' : `${overlapPct} % identiska rader`}</b>
+        <span>Varje kupong garderar minst hälften av den andras ankartecken.</span>
+      </div>
+      <details className="complementary-tech">
+        <summary>Visa teknisk jämförelse</summary>
+        <p>{meta.row_overlap} av {primary.num_rows} rader är exakt lika. Modellstyrka mot
+          singelförslaget: A {Math.round(meta.primary_quality_ratio * 100)} % och B{' '}
+          {Math.round(meta.alternative_quality_ratio * 100)} %. Detta är ett internt
+          rankningsmått, inte vinstsannolikhet.</p>
+      </details>
+    </div>
+  )
+}
+
 function PoolV3() {
   // Läs localStorage exakt en gång vid mount. Lat useState-init i stället för
   // useRef(...).current, som annars läses under render.
@@ -959,52 +1008,46 @@ function PoolV3() {
                 <span>Max EV</span>
                 <span className="evval">{valueWeight}%</span>
               </div>
-              <SystemView key={`${product}:${draw}:a`} sys={sys}
-                matches={analysis?.matches} payouts={currentPayouts}
-                onRecalc={loadSystem}
-                label={sys?.complementary ? 'Kupong A' : null}
-                actionLabel={sys?.complementary ? '⬇ Lägg A i kupongen' : undefined}
-                onUse={() => useSystem(
-                  sys, sys?.complementary ? 'Kupong A' : 'Förslag')} />
               {sys?.complementary?.available && sys.complementary.system && (
                 <>
-                  <div className="complementary-summary">
-                    <div className="complementary-title">
-                      <strong>Två kuponger som faller på olika spikar</strong>
-                      <span>{kr(sys.complementary.cost_each)} per kupong ·{' '}
-                        {kr(sys.complementary.total_cost)} om båda spelas</span>
-                    </div>
-                    <div className="complementary-grid">
-                      <div><span>Kupong A ankare</span><b>{sys.complementary.primary_spikes
-                        .map((p) => `${p.event_number} ${p.sign}`).join(' · ')}</b></div>
-                      <div><span>Kupong B ankare</span><b>{sys.complementary.alternative_spikes
-                        .map((p) => `${p.event_number} ${p.sign}`).join(' · ')}</b></div>
-                      <div><span>Exakta rader gemensamma</span><b>
-                        {sys.complementary.row_overlap} av {sys.num_rows} ({Math.round(
-                          sys.complementary.row_overlap_pct * 100)} %)</b></div>
-                      <div title="Byggarens interna träffchans × EV-rankning jämfört med det vanliga singelförslaget. Det är inte vinstsannolikhet.">
-                        <span>Kvalitet mot singelförslaget</span><b>
-                          A {Math.round(sys.complementary.primary_quality_ratio * 100)} % · B{' '}
-                          {Math.round(sys.complementary.alternative_quality_ratio * 100)} %</b></div>
-                    </div>
-                    <p>A och B byggs tillsammans. Varje kupong garderar den andras ankare i minst{' '}
-                      {Math.round(sys.complementary.guard_share * 100)} % av raderna och högst{' '}
-                      {Math.round(sys.complementary.max_overlap_share * 100)} % av de exakta
-                      raderna får vara gemensamma. Spelar du båda kostar det dubbelt; stäng av
-                      valet om du vill ha byggarens vanliga singelförslag.</p>
-                  </div>
-                  <SystemView key={`${product}:${draw}:b`} sys={sys.complementary.system}
-                    matches={analysis?.matches} payouts={currentPayouts}
-                    label="Kupong B" actionLabel="⬇ Lägg B i kupongen"
-                    showHonesty={false}
-                    onUse={() => useSystem(sys.complementary.system, 'Kupong B')} />
+                  <ComplementaryChooser primary={sys} meta={sys.complementary}
+                    onUsePrimary={() => useSystem(sys, 'Kupong A')}
+                    onUseAlternative={() => useSystem(sys.complementary.system, 'Kupong B')} />
+                  <details className="complementary-details">
+                    <summary><b>Fördjupning kupong A</b><span>simulering och teckenfördelning</span></summary>
+                    <SystemView key={`${product}:${draw}:a`} sys={sys}
+                      matches={analysis?.matches} payouts={currentPayouts}
+                      onRecalc={loadSystem} label="Kupong A"
+                      actionLabel="⬇ Lägg A i kupongen"
+                      onUse={() => useSystem(sys, 'Kupong A')} />
+                  </details>
+                  <details className="complementary-details">
+                    <summary><b>Fördjupning kupong B</b><span>simulering och teckenfördelning</span></summary>
+                    <SystemView key={`${product}:${draw}:b`} sys={sys.complementary.system}
+                      matches={analysis?.matches} payouts={currentPayouts}
+                      label="Kupong B" actionLabel="⬇ Lägg B i kupongen"
+                      showHonesty={false}
+                      onUse={() => useSystem(sys.complementary.system, 'Kupong B')} />
+                  </details>
                 </>
               )}
               {sys?.complementary && !sys.complementary.available && (
-                <div className="complementary-warning">
-                  <b>Kupong A är klar, men ett säkert B-alternativ saknas.</b>
-                  <span>{sys.complementary.reason}</span>
-                </div>
+                <>
+                  <SystemView key={`${product}:${draw}:a`} sys={sys}
+                    matches={analysis?.matches} payouts={currentPayouts}
+                    onRecalc={loadSystem} label="Singelförslag"
+                    onUse={() => useSystem(sys, 'Förslag')} />
+                  <div className="complementary-warning">
+                    <b>Två tillräckligt olika kuponger kunde inte skapas.</b>
+                    <span>{sys.complementary.reason}</span>
+                  </div>
+                </>
+              )}
+              {sys && !sys.complementary && (
+                <SystemView key={`${product}:${draw}:single`} sys={sys}
+                  matches={analysis?.matches} payouts={currentPayouts}
+                  onRecalc={loadSystem}
+                  onUse={() => useSystem(sys, 'Förslag')} />
               )}
             </section>
 
