@@ -2915,14 +2915,15 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
     downloadText(egnaFilename, egnaRaderText(product, draw, rows))
     return true
   }
-  const continueAtSvs = () => {
-    if (!egnaUrl || !downloadEgna()) return
-    // En webbplats får inte fylla en filruta på en annan domän. Öppna därför
-    // SvS i samma uttryckliga användarklick och gör filen lätt att hitta.
-    // Användaren väljer fil, granskar och betalar alltid själv där.
-    const svsTab = window.open(egnaUrl, '_blank')
-    if (svsTab) svsTab.opener = null
-    setSvsHandoff({ status: svsTab ? 'opened' : 'blocked', pickRows, picks })
+  const continueAtSvs = (event) => {
+    if (!egnaUrl || !downloadEgna()) {
+      event.preventDefault()
+      return
+    }
+    // Länken öppnar SvS som ett vanligt användarklick (inte som en popup),
+    // samtidigt som rätt fil skapas. Användaren väljer fil, granskar och
+    // betalar alltid själv där.
+    setSvsHandoff({ status: 'prepared', pickRows, picks })
   }
   const effTurnover = turnover != null ? turnover : (payouts?.turnover || 0)
   const s = couponStats(matches, picks, payouts, redOn ? minDiv : 0, turnover, jackpot, pickRows)
@@ -3020,10 +3021,11 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
           )}
           <div className="svs-row">
             {egnaUrl ? (
-              <button className="svs-handoff" onClick={continueAtSvs}
+              <a className="svs-handoff" href={egnaUrl} target="_blank" rel="noreferrer"
+                onClick={continueAtSvs}
                 title="Skapar rätt Egna rader-fil och öppnar Svenska Spels uppladdning. Du väljer filen, granskar och betalar själv där.">
                 🎟 Fortsätt hos Svenska Spel
-              </button>
+              </a>
             ) : (
               <a className="svs-link" href={svsUrl(product, draw)} target="_blank" rel="noreferrer">▶ Öppna omgången på Svenska Spel ↗</a>
             )}
@@ -3042,15 +3044,10 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
             )}
           </div>
           {svsHandoffStatus && (
-            <div className={`svs-ready ${svsHandoffStatus === 'blocked' ? 'warn' : ''}`}>
+            <div className="svs-ready">
               <b>Filen är klar:</b> <code>{egnaFilename}</code>
               <span>På Svenska Spel: tryck <b>Ladda upp</b> och välj den senaste filen.
                 Granska sedan spelet och betala själv.</span>
-              {svsHandoffStatus === 'blocked' && (
-                <a className="extlink" href={egnaUrl} target="_blank" rel="noreferrer">
-                  Öppna uppladdningen — webbläsaren stoppade den nya fliken ↗
-                </a>
-              )}
             </div>
           )}
           {egnaUrl ? (

@@ -70,7 +70,8 @@ Kupongen har därför ett så kort och ärligt flöde som går att bygga i mobil
    uppladdningssida i samma användarklick.
 2. UI:t skriver ut filnamnet; på SvS väljer användaren **Ladda upp** och den
    senaste filen, granskar och betalar.
-3. **Bara filen** finns kvar som reserv om popup eller ny flik blockeras.
+3. Knappen är en riktig extern länk, inte en programmerisk popup; det fungerar
+   stabilare i mobilwebbläsare. **Bara filen** finns kvar som reserv.
 4. Spelkompisen skickar aldrig in eller betalar ett spel och bokför inte
    kupongen som spelad förrän användaren uttryckligen trycker på den separata
    bokföringsknappen efteråt.
