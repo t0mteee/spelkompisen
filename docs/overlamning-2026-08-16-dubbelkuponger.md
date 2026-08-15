@@ -57,6 +57,28 @@ Mobilflödet är därför ombyggt:
 På mobil staplas A och B; på större skärm visas de i två kolumner. Det vanliga
 singelförslaget använder fortsatt gamla `SystemView` utan extra steg.
 
+## Överlämning till Svenska Spel
+
+Svenska Spels officiella **Externa systemspel** är en inloggningsskyddad
+filuppladdning. Det finns ingen offentlig direktimport, och webbläsarens
+säkerhetsmodell förbjuder Spelkompisen att fylla en filruta på
+`svenskaspel.se` från vår egen domän.
+
+Kupongen har därför ett så kort och ärligt flöde som går att bygga i mobilen:
+
+1. **Fortsätt hos Svenska Spel** skapar rätt Egna rader-fil och öppnar rätt
+   uppladdningssida i samma användarklick.
+2. UI:t skriver ut filnamnet; på SvS väljer användaren **Ladda upp** och den
+   senaste filen, granskar och betalar.
+3. **Bara filen** finns kvar som reserv om popup eller ny flik blockeras.
+4. Spelkompisen skickar aldrig in eller betalar ett spel och bokför inte
+   kupongen som spelad förrän användaren uttryckligen trycker på den separata
+   bokföringsknappen efteråt.
+
+Försök inte kringgå detta via privata SvS-endpoints, sessionscookies eller
+lagrade inloggningar. Det vore skört, skulle blanda autentisering med vår
+server och bryta projektregeln att aldrig lägga spel automatiskt.
+
 ## Kod och verifiering
 
 - Backend: `backend/app/builder.py`, `backend/app/main.py`.

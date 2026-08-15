@@ -2496,6 +2496,10 @@ function downloadText(filename, text) {
   document.body.appendChild(a); a.click(); a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
+function egnaRaderFilename(product, draw) {
+  const safeProduct = String(product || 'poolspel').replace(/[^a-z0-9_-]/gi, '-')
+  return `svs_${safeProduct}_omg${draw}_egnarader.txt`
+}
 const pct = (v) => (v == null ? '–' : (v * 100 < 0.1 ? (v * 100).toFixed(3) : (v * 100).toFixed(v < 0.1 ? 2 : 1)) + ' %')
 
 /* Räkna kupongens nyckeltal från analysens fair-sannolikheter.
@@ -2829,6 +2833,7 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
   const [turnover, setTurnover] = useState(null)   // null = använd live-omsättning
   const [jackpotOverride, setJackpotOverride] = useState(null)
   const [copied, setCopied] = useState(false)
+  const [svsHandoff, setSvsHandoff] = useState(null)
   const [bankroll, setBankroll] = useState(() => {
     try { return Number(localStorage.getItem('svs_bankroll')) || 5000 } catch { return 5000 }
   })
@@ -2898,10 +2903,26 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
   const couponGroups = matches.map((m) => picks[m.event_number] || [])
   const nRows = rowMode ? pickRows.length
     : couponGroups.reduce((a, g) => a * (g.length || 1), 1)
+  const egnaFilename = egnaRaderFilename(product, draw)
+  const svsHandoffStatus = svsHandoff?.pickRows === pickRows && svsHandoff?.picks === picks
+    ? svsHandoff.status : null
   const downloadEgna = () => {
-    if (nRows > 50000) { alert(`Systemet är för stort (${nRows} rader) för filexport.`); return }
+    if (nRows > 50000) {
+      alert(`Systemet är för stort (${nRows} rader) för filexport.`)
+      return false
+    }
     const rows = rowMode ? pickRows : cartesianRows(couponGroups)
-    downloadText(`${product}_omg${draw}_egnarader.txt`, egnaRaderText(product, draw, rows))
+    downloadText(egnaFilename, egnaRaderText(product, draw, rows))
+    return true
+  }
+  const continueAtSvs = () => {
+    if (!egnaUrl || !downloadEgna()) return
+    // En webbplats får inte fylla en filruta på en annan domän. Öppna därför
+    // SvS i samma uttryckliga användarklick och gör filen lätt att hitta.
+    // Användaren väljer fil, granskar och betalar alltid själv där.
+    const svsTab = window.open(egnaUrl, '_blank')
+    if (svsTab) svsTab.opener = null
+    setSvsHandoff({ status: svsTab ? 'opened' : 'blocked', pickRows, picks })
   }
   const effTurnover = turnover != null ? turnover : (payouts?.turnover || 0)
   const s = couponStats(matches, picks, payouts, redOn ? minDiv : 0, turnover, jackpot, pickRows)
@@ -2998,8 +3019,18 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
               turnover={effTurnover} jackpot={jackpot} />
           )}
           <div className="svs-row">
-            <a className="svs-link" href={svsUrl(product, draw)} target="_blank" rel="noreferrer">▶ Öppna omgången på Svenska Spel ↗</a>
-            {egnaUrl && <button onClick={downloadEgna} title={`Laddar ner ${nRows} rader som .txt i Svenska Spels Egna rader-format`}>⬇ Egna rader-fil ({nRows} rad{nRows === 1 ? '' : 'er'})</button>}
+            {egnaUrl ? (
+              <button className="svs-handoff" onClick={continueAtSvs}
+                title="Skapar rätt Egna rader-fil och öppnar Svenska Spels uppladdning. Du väljer filen, granskar och betalar själv där.">
+                🎟 Fortsätt hos Svenska Spel
+              </button>
+            ) : (
+              <a className="svs-link" href={svsUrl(product, draw)} target="_blank" rel="noreferrer">▶ Öppna omgången på Svenska Spel ↗</a>
+            )}
+            {egnaUrl && <button onClick={downloadEgna}
+              title={`Laddar bara ner ${nRows} rader som .txt i Svenska Spels Egna rader-format`}>
+              ⬇ Bara filen ({nRows} rad{nRows === 1 ? '' : 'er'})
+            </button>}
             <button onClick={copyCoupon} title={rowMode ? 'Kopierar alla rader, en per rad' : 'Kopierar valda tecken per match'}>
               {copied ? '✓ Kopierad' : rowMode ? `Kopiera ${nRows} rader` : 'Kopiera kupong'}</button>
             {rowMode && pickRows.length > 0 && (
@@ -3010,10 +3041,23 @@ function CouponPanel({ matches, picks, pickRows, payouts, product, draw, onClear
                   : playedStatus === 'sparar' ? 'Sparar…' : '🎟️ Markera som spelad'}</button>
             )}
           </div>
+          {svsHandoffStatus && (
+            <div className={`svs-ready ${svsHandoffStatus === 'blocked' ? 'warn' : ''}`}>
+              <b>Filen är klar:</b> <code>{egnaFilename}</code>
+              <span>På Svenska Spel: tryck <b>Ladda upp</b> och välj den senaste filen.
+                Granska sedan spelet och betala själv.</span>
+              {svsHandoffStatus === 'blocked' && (
+                <a className="extlink" href={egnaUrl} target="_blank" rel="noreferrer">
+                  Öppna uppladdningen — webbläsaren stoppade den nya fliken ↗
+                </a>
+              )}
+            </div>
+          )}
           {egnaUrl ? (
-            <p className="hint">Ladda ner filen och ladda upp den hos{' '}
+            <p className="hint"><b>Fortast:</b> knappen ovan skapar filen och öppnar{' '}
               <a className="extlink" href={egnaUrl} target="_blank" rel="noreferrer">Svenska Spel · Externa systemspel ↗</a>
-              {' '}(Egna rader). Du väljer omgång och betalar själv där — av säkerhetsskäl lämnas inga spel automatiskt.</p>
+              {' '}i samma tryck. Svenska Spel kräver fortfarande att du väljer filen och
+              bekräftar betalningen; inget spel lämnas automatiskt.</p>
           ) : (
             <p className="hint">Egna rader-filuppladdning stödjer inte {product}. Öppna omgången, klistra in{' '}
               <button className="linkbtn" onClick={copyCoupon}>{copied ? '✓ kopierad' : 'kopierad kupong'}</button> och fyll i själv.</p>

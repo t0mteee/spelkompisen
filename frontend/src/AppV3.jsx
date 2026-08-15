@@ -849,7 +849,7 @@ function PoolV3() {
     })
   }
   const clearCoupon = () => { setPicks({}); setPickRows(null); setCouponVariant(null) }
-  const useSystem = (chosenSystem, variantLabel) => {
+  const selectSystem = (chosenSystem, variantLabel) => {
     if (!analysis || !chosenSystem?.picks) return
     const p = {}
     chosenSystem.picks.forEach((pk) => { p[pk.event_number] = pk.signs })
@@ -1011,15 +1011,15 @@ function PoolV3() {
               {sys?.complementary?.available && sys.complementary.system && (
                 <>
                   <ComplementaryChooser primary={sys} meta={sys.complementary}
-                    onUsePrimary={() => useSystem(sys, 'Kupong A')}
-                    onUseAlternative={() => useSystem(sys.complementary.system, 'Kupong B')} />
+                    onUsePrimary={() => selectSystem(sys, 'Kupong A')}
+                    onUseAlternative={() => selectSystem(sys.complementary.system, 'Kupong B')} />
                   <details className="complementary-details">
                     <summary><b>Fördjupning kupong A</b><span>simulering och teckenfördelning</span></summary>
                     <SystemView key={`${product}:${draw}:a`} sys={sys}
                       matches={analysis?.matches} payouts={currentPayouts}
                       onRecalc={loadSystem} label="Kupong A"
                       actionLabel="⬇ Lägg A i kupongen"
-                      onUse={() => useSystem(sys, 'Kupong A')} />
+                      onUse={() => selectSystem(sys, 'Kupong A')} />
                   </details>
                   <details className="complementary-details">
                     <summary><b>Fördjupning kupong B</b><span>simulering och teckenfördelning</span></summary>
@@ -1027,7 +1027,7 @@ function PoolV3() {
                       matches={analysis?.matches} payouts={currentPayouts}
                       label="Kupong B" actionLabel="⬇ Lägg B i kupongen"
                       showHonesty={false}
-                      onUse={() => useSystem(sys.complementary.system, 'Kupong B')} />
+                      onUse={() => selectSystem(sys.complementary.system, 'Kupong B')} />
                   </details>
                 </>
               )}
@@ -1036,7 +1036,7 @@ function PoolV3() {
                   <SystemView key={`${product}:${draw}:a`} sys={sys}
                     matches={analysis?.matches} payouts={currentPayouts}
                     onRecalc={loadSystem} label="Singelförslag"
-                    onUse={() => useSystem(sys, 'Förslag')} />
+                    onUse={() => selectSystem(sys, 'Förslag')} />
                   <div className="complementary-warning">
                     <b>Två tillräckligt olika kuponger kunde inte skapas.</b>
                     <span>{sys.complementary.reason}</span>
@@ -1047,7 +1047,7 @@ function PoolV3() {
                 <SystemView key={`${product}:${draw}:single`} sys={sys}
                   matches={analysis?.matches} payouts={currentPayouts}
                   onRecalc={loadSystem}
-                  onUse={() => useSystem(sys, 'Förslag')} />
+                  onUse={() => selectSystem(sys, 'Förslag')} />
               )}
             </section>
 

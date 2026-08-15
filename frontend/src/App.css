@@ -88,6 +88,18 @@ h2 { font-size: 11.5px; color: var(--muted); text-transform: uppercase;
 .svs-link { display: inline-block; background: var(--green); color: #0b0e12; font-weight: 700;
   text-decoration: none; padding: 8px 14px; border-radius: 7px; }
 .svs-link:hover { filter: brightness(1.1); }
+.svs-handoff { background: var(--green); border-color: var(--green); color: #0b0e12;
+  font-weight: 800; }
+.svs-handoff:hover { filter: brightness(1.1); color: #0b0e12; }
+.svs-ready { display: grid; grid-template-columns: auto 1fr; align-items: baseline;
+  gap: 4px 8px; margin-top: 10px; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid rgba(61,220,132,.45); background: rgba(61,220,132,.08);
+  color: var(--muted); font-size: 12px; }
+.svs-ready > b { color: var(--green); }
+.svs-ready code { color: var(--text); overflow-wrap: anywhere; }
+.svs-ready span, .svs-ready a { grid-column: 1 / -1; }
+.svs-ready.warn { border-color: rgba(224,133,59,.5); background: rgba(224,133,59,.08); }
+.svs-ready.warn > b { color: var(--orange); }
 .extlink { color: #4aa3df; }
 .linkbtn { background: none; border: none; color: #4aa3df; padding: 0; cursor: pointer; text-decoration: underline; font: inherit; }
 .linkbtn:hover { border: none; filter: brightness(1.15); }
@@ -473,7 +485,10 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
   .coupon-actions, .reducer { flex-wrap: wrap; }
   .kpi { flex: 1 1 40%; }
   .svs-row { flex-direction: column; align-items: stretch; }
-  .svs-link { text-align: center; }
+  .svs-link, .svs-handoff { text-align: center; }
+  .svs-row > button, .svs-row > a { min-height: 42px; }
+  .svs-ready { grid-template-columns: 1fr; }
+  .svs-ready span, .svs-ready a { grid-column: auto; }
 }
 
 /* ---------- Oddset-fliken (enskilda matcher) ---------- */
