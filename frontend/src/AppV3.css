@@ -471,6 +471,56 @@
 /* En missad match kapar takresultatet — den ska hittas på en halv sekund. */
 .v3histtable tr.v3sysmiss td { background: color-mix(in srgb, #e06b6b 14%, transparent); }
 .v3streckhit { font-weight: 800; color: var(--v3acc); }
+.v3groupopen { align-self: flex-start; margin-top: 7px; }
+
+/* En 5 000-raderstest får aldrig försöka rendera alla rader samtidigt på
+   mobilen. Detail-API:t är lazy och gränssnittet bläddrar 100 i taget. */
+.v3systemrows {
+  margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line);
+}
+.v3systemrows h4 { margin: 0 0 3px; }
+.v3systemrowshead {
+  display: flex; align-items: end; justify-content: space-between; gap: 12px;
+  margin-bottom: 8px;
+}
+.v3rowfind { display: grid; gap: 3px; min-width: 135px; font-size: 11px; color: var(--muted); }
+.v3rowfind input { width: 100%; }
+.v3systemfacitline, .v3systemdist {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 7px 0;
+}
+.v3systemfacitline > span {
+  display: grid; place-items: center; width: 24px; height: 24px;
+  border: 1px solid var(--line); border-radius: 5px; background: var(--panel);
+  font-weight: 800;
+}
+.v3systemdist > span {
+  padding: 3px 7px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel); font-size: 11px;
+}
+.v3systemrowlist { display: grid; gap: 3px; margin-top: 9px; }
+.v3systemrow {
+  display: grid; grid-template-columns: 48px minmax(300px, 1fr) 52px 75px;
+  align-items: center; gap: 7px; min-width: 520px; padding: 4px 6px;
+  border: 1px solid var(--line); border-radius: 5px; background: var(--panel);
+  font-size: 11px;
+}
+.v3systemrowindex { color: var(--muted); font-variant-numeric: tabular-nums; }
+.v3systemsigns { display: grid; gap: 2px; }
+.v3systemsigns span {
+  display: grid; place-items: center; min-height: 22px; border-radius: 3px;
+  font-weight: 800;
+}
+.v3systemsigns .hit {
+  color: var(--green); background: color-mix(in srgb, var(--green) 13%, transparent);
+}
+.v3systemsigns .miss {
+  color: #e06b6b; background: color-mix(in srgb, #e06b6b 13%, transparent);
+}
+.v3rowpager {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin-top: 9px; font-size: 11px;
+}
+.v3rowpager button:disabled { opacity: 0.4; cursor: default; }
 
 /* ---------- mobil ---------- */
 @media (max-width: 760px) {
@@ -505,6 +555,10 @@
   .v3histkpis { grid-template-columns: 1fr 1fr; }
   .v3groupfilters { grid-template-columns: 1fr 1fr; }
   .v3filterreset { grid-column: 1 / -1; }
+  .v3systemrowshead { align-items: stretch; flex-direction: column; }
+  .v3rowfind { min-width: 0; }
+  .v3systemrowlist { overflow-x: auto; padding-bottom: 4px; }
+  .v3rowpager { justify-content: space-between; }
   .v3radar-rules { grid-template-columns: 1fr; }
   .v3radar-logrow { grid-template-columns: 1fr; gap: 5px; }
   .v3radar-logrow > div + div { padding-top: 4px; }

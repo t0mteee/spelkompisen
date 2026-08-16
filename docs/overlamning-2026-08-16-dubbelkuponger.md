@@ -103,6 +103,27 @@ de potentiellt 5 000 × 13 tecknen hämtas bara när detaljvyn öppnas. Återinf
 inte raderna i listsvaret — det skulle göra Historik långsammare för varje ny
 testkupong.
 
+### PH5:s automatiska 5 000-raderstester
+
+De bokförda kupongerna ovan och Autopools testsystem är två skilda datalager.
+Den första detaljvyn omfattade därför inte PH5-forward, trots att användaren
+med "testkupongerna" framför allt avsåg de automatiskt frysta 5 000-raders-
+systemen. Det är korrigerat.
+
+Under **Historik → Autopool → Aktiva testkonfigurationer** kan en grupp nu
+öppna **Visa senaste testet**. Filtrera **Kostnad/test = 5 000 kr** för PH5.
+Det finns inte en enda 5 000-kupong utan fyra låsta metoder vid två horisonter
+(180 och 20 minuter): värderader, byggarslump, favoritrad och folkrad.
+
+`GET /api/pool/systems` skickar bara senaste omgångsidentiteten per grupp.
+`GET /api/pool/systems/detail` hämtar först vid klick de exakta raderna och
+returnerar officiellt facit, omräknad fördelning, audit mot sparad summering
+och varje rad sorterad bäst först. UI:t renderar 100 rader per sida och har
+direktsökning på ursprungligt radnummer; att lägga 5 000 rader samtidigt i
+mobilens DOM är förbjudet av prestandaskäl. Grönt/rött gäller tecken mot facit.
+Radutdelningen är kontrafaktiskt utspädd mot observerad nivåtpottsproxy och
+ska aldrig beskrivas som mottagna pengar.
+
 ## Kod och verifiering
 
 - Backend: `backend/app/builder.py`, `backend/app/main.py`.

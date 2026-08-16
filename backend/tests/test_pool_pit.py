@@ -474,6 +474,8 @@ class SystemLedgerTests(unittest.TestCase):
         self.assertEqual(1, group["n_evaluable"])
         self.assertTrue(group["primary"])
         self.assertEqual("2026-07-24T10:00:00Z", group["latest_frozen"])
+        self.assertEqual("topptipset", group["latest_product"])
+        self.assertEqual(100, group["latest_draw_number"])
         self.assertAlmostEqual((5000 / 11) / 2.0 - 1, group["roi"], places=1)
 
     def test_recent_far_spelstopp_fran_oppen_draw_fore_settlement(self):
@@ -616,6 +618,13 @@ class SystemDetailTests(unittest.TestCase):
         self.assertFalse(second["hit"])
         self.assertEqual(["1", "X"], second["covered"])
         self.assertEqual({"1": 30, "X": 30, "2": 40}, second["streck_at_close"])
+        self.assertEqual("12", d["facit"])
+        self.assertTrue(d["facit_complete"])
+        self.assertEqual([
+            {"index": 1, "signs": "11", "correct": 1, "payout_kr": 0.0},
+            {"index": 2, "signs": "1X", "correct": 1, "payout_kr": 0.0},
+        ], d["rows"])
+        self.assertEqual({1: 2}, d["calculated_dist"])
 
     def test_streck_at_freeze_uses_last_change_before_the_freeze(self):
         """`snapshots` är en förändringsserie — inte en tidsstämpelträff.

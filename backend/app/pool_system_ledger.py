@@ -657,10 +657,12 @@ def system_detail(store: Storage, product: str, draw_number: int,
     at_freeze = _streck_at(store, product, draw_number, frozen_at)
 
     events = []
+    ordered_outcomes = []
     for index, event_number in enumerate(order):
         covered = sorted({r[index] for r in rows if index < len(r)})
         info = facit.get(event_number, {})
         outcome = info.get("outcome")
+        ordered_outcomes.append(outcome)
         frozen_signs = at_freeze.get(event_number, {})
         events.append({
             "event_number": event_number,
@@ -678,6 +680,38 @@ def system_detail(store: Storage, product: str, draw_number: int,
             "streck_at_close": info.get("streck_close"),
         })
     missed = [e for e in events if e["hit"] is False]
+    facit_complete = bool(order) and all(
+        outcome in ("1", "X", "2") for outcome in ordered_outcomes)
+    stored_dist = json.loads(correct_dist) if correct_dist else None
+    row_results = []
+    calculated_dist: dict[int, int] = {}
+    tiers = {int(r[0]): (r[1], r[2]) for r in store.conn.execute(
+        "SELECT correct, winners, amount FROM pool_payout_tier "
+        "WHERE product=? AND draw_number=? AND correct IS NOT NULL",
+        (product, draw_number))}
+    if facit_complete:
+        for index, signs in enumerate(rows, 1):
+            correct = sum(sign == outcome for sign, outcome in zip(
+                signs, ordered_outcomes))
+            calculated_dist[correct] = calculated_dist.get(correct, 0) + 1
+            row_results.append({
+                "index": index,
+                "signs": "".join(signs),
+                "correct": correct,
+            })
+        # Payouten är kontrafaktisk: lägg till systemets egna vinnande rader i
+        # nämnaren på samma sätt som `counterfactual_payout`. Då summerar
+        # radbeloppen till detaljens systemutdelning (avrundningsöre undantaget).
+        for result in row_results:
+            winners, amount = tiers.get(result["correct"], (None, None))
+            own_winners = calculated_dist.get(result["correct"], 0)
+            if winners is not None and winners > 0 and amount is not None \
+                    and own_winners > 0:
+                result["payout_kr"] = round(
+                    winners * amount / (winners + own_winners), 2)
+            else:
+                result["payout_kr"] = 0.0
+        row_results.sort(key=lambda result: (-result["correct"], result["index"]))
     bench = _bench(config_key, {"budget": budget, "strategy": strategy,
                                 "value_weight": value_weight})
     return {
@@ -692,7 +726,7 @@ def system_detail(store: Storage, product: str, draw_number: int,
         "frozen_at": frozen_at, "timely": bool(timely), "lag_min": lag_min,
         "n_rows": n_rows, "cost_kr": cost_kr,
         "correct_max": correct_max,
-        "correct_dist": json.loads(correct_dist) if correct_dist else None,
+        "correct_dist": stored_dist,
         "payout_kr": payout_kr,
         "payout_complete": (bool(payout_complete)
                             if payout_complete is not None else None),
@@ -701,6 +735,17 @@ def system_detail(store: Storage, product: str, draw_number: int,
         "events": events,
         "n_missed": len(missed),
         "missed_events": [e["event_number"] for e in missed],
+        # Exakta rader hämtas bara när användaren öppnar EN frysning. Lägg
+        # aldrig detta i `/api/pool/systems`: 5 000 × 13 tecken per arm gör
+        # annars hela Historik tung på mobil.
+        "facit_complete": facit_complete,
+        "facit": "".join(ordered_outcomes) if facit_complete else None,
+        "rows": row_results,
+        "calculated_dist": calculated_dist if facit_complete else None,
+        "audit_matches_stored": (
+            {int(key): int(value) for key, value in (stored_dist or {}).items()}
+            == calculated_dist if facit_complete and stored_dist is not None
+            else None),
     }
 
 
@@ -711,6 +756,15 @@ def summary(store: Storage) -> dict:
     kontrafaktisk utdelning. Sena/ofullständiga rader redovisas diagnostiskt.
     """
     out = []
+    latest_by_group = {}
+    for product, key, horizon, draw_number, frozen_at in store.conn.execute(
+            "SELECT product, config_key, horizon, draw_number, frozen_at "
+            "FROM pool_system_ledger ORDER BY frozen_at DESC"):
+        latest_by_group.setdefault(
+            (product, key, horizon),
+            {"latest_product": product,
+             "latest_draw_number": int(draw_number),
+             "latest_frozen": frozen_at})
     for row in store.conn.execute(
             "SELECT product, config_key, horizon, COUNT(*) n, "
             "SUM(CASE WHEN settled_at IS NOT NULL AND correct_max IS NOT NULL "
@@ -747,6 +801,7 @@ def summary(store: Storage) -> dict:
             continue
         bench = _bench(key, {"budget": budget, "strategy": strategy,
                              "value_weight": value_weight})
+        latest = latest_by_group.get((product, key, horizon), {})
         out.append({
             "product": product, "config_key": key, "horizon": horizon,
             "horizon_minutes": FREEZE_HORIZONS.get(horizon, (None, None))[0],
@@ -758,6 +813,10 @@ def summary(store: Storage) -> dict:
             "promotion_eligible": bench["promotion_eligible"],
             "method": bench["method"],
             "latest_frozen": latest_frozen,
+            # Gör gruppsummeringen öppningsbar utan att skicka dess tunga
+            # rows_text. Själva raderna hämtas först via detail-endpointen.
+            "latest_product": latest.get("latest_product", product),
+            "latest_draw_number": latest.get("latest_draw_number"),
             "n_frozen": n,
             "n_settled": n_settled, "n_timely": n_timely,
             "n_evaluable": n_evaluable, "n_unresolvable": n_unresolvable,

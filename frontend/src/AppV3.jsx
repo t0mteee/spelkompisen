@@ -1138,6 +1138,8 @@ function BuildBadge({ row }) {
 function SystemDetail({ product, draw, horizon, config, onClose }) {
   const [d, setD] = useState(null)
   const [err, setErr] = useState(null)
+  const [rowPage, setRowPage] = useState(0)
+  const [rowNumber, setRowNumber] = useState('')
   useEffect(() => {
     let current = true
     get(`/api/pool/systems/detail?product=${product}&draw=${draw}`
@@ -1152,8 +1154,19 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
     const diff = b - a
     return <span className={diff > 0 ? 'v3neg' : 'v3pos'}> ({diff > 0 ? '+' : ''}{diff})</span>
   }
+  const pageSize = 100
+  const rows = d?.rows || []
+  const searchedRow = rowNumber === '' ? null
+    : rows.find((row) => row.index === Number(rowNumber))
+  const shownRows = rowNumber === ''
+    ? rows.slice(rowPage * pageSize, (rowPage + 1) * pageSize)
+    : searchedRow ? [searchedRow] : []
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize))
+  const distribution = Object.entries(d?.correct_dist || {})
+    .map(([correct, count]) => [Number(correct), Number(count)])
+    .sort((a, b) => b[0] - a[0])
   return (
-    <div className="v3sysdetail">
+    <div className="v3sysdetail" id="hist-system-detail">
       <div className="v3sysdetailhead">
         <b>{PRODUCT_LABEL[product] || product} · omgång {draw} · {config}</b>
         <button className="v3more" onClick={onClose}>stäng ✕</button>
@@ -1211,6 +1224,72 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
             rad kunde bli rätt där, vilket kapar hela systemets takresultat.
             Strecksiffran är folkets procent vid frysningen; talet inom parentes är
             rörelsen fram till spelstopp.</span>
+          {rows.length > 0 && (
+            <section className="v3systemrows" aria-label="Testsystemets exakta rader">
+              <div className="v3systemrowshead">
+                <div>
+                  <h4>Exakta rader mot facit</h4>
+                  <span className="v3hint">Det här testet består av {rows.length.toLocaleString('sv-SE')}
+                    {' '}separata rader, inte en enda rad. De är sorterade med bäst
+                    resultat först; # är platsen i den sparade testfilen.</span>
+                </div>
+                <label className="v3rowfind">
+                  <span>Hitta radnummer</span>
+                  <input type="number" min="1" max={rows.length}
+                    value={rowNumber} placeholder={`1–${rows.length}`}
+                    onChange={(event) => setRowNumber(event.target.value)} />
+                </label>
+              </div>
+              <div className="v3systemfacitline">
+                <b>Facit</b>
+                {(d.facit || '').split('').map((sign, index) => (
+                  <span key={index}>{sign}</span>
+                ))}
+              </div>
+              <div className="v3systemdist">
+                {distribution.map(([correct, count]) => (
+                  <span key={correct}>{count.toLocaleString('sv-SE')} {count === 1 ? 'rad' : 'rader'}
+                    {' '}med <b>{correct} rätt</b></span>
+                ))}
+              </div>
+              {d.audit_matches_stored === false && (
+                <div className="v3note v3neg"><b>Kontrollvarning:</b> de omräknade
+                  raderna stämmer inte med den sparade summeringen.</div>
+              )}
+              <div className="v3systemrowlist">
+                {shownRows.map((row) => (
+                  <div className="v3systemrow" key={row.index}>
+                    <span className="v3systemrowindex">#{row.index}</span>
+                    <div className="v3systemsigns" aria-label={`Rad ${row.index}: ${row.signs}`}
+                      style={{ gridTemplateColumns: `repeat(${d.events.length}, minmax(19px, 1fr))` }}>
+                      {row.signs.split('').map((sign, index) => (
+                        <span key={index}
+                          className={d.facit?.[index] === sign ? 'hit' : 'miss'}>{sign}</span>
+                      ))}
+                    </div>
+                    <b>{row.correct}/{d.events.length}</b>
+                    {row.payout_kr > 0
+                      ? <span className="v3pos">+{kr(row.payout_kr)}</span>
+                      : <span className="v3hint">0 kr</span>}
+                  </div>
+                ))}
+                {rowNumber !== '' && !searchedRow && (
+                  <EmptyState title={`Rad #${rowNumber} finns inte`}
+                    detail={`Ange ett nummer mellan 1 och ${rows.length}.`} />
+                )}
+              </div>
+              {rowNumber === '' && pageCount > 1 && (
+                <div className="v3rowpager">
+                  <button disabled={rowPage === 0}
+                    onClick={() => setRowPage((page) => Math.max(0, page - 1))}>← Föregående</button>
+                  <span>Rader {rowPage * pageSize + 1}–{Math.min((rowPage + 1) * pageSize, rows.length)}
+                    {' '}av {rows.length.toLocaleString('sv-SE')}</span>
+                  <button disabled={rowPage >= pageCount - 1}
+                    onClick={() => setRowPage((page) => Math.min(pageCount - 1, page + 1))}>Nästa →</button>
+                </div>
+              )}
+            </section>
+          )}
         </>
       )}
     </div>
@@ -1220,7 +1299,7 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
 /* En grupp är en simulerad konfiguration över flera omgångar, inte en spelad
    kupong. Håll därför kostnad/utdelning explicit kontrafaktiska i både rubrik
    och tooltip; annars läser den ackumulerade ROI-nämnaren som verkliga pengar. */
-function SystemGroupsTable({ id, groups, limit = null }) {
+function SystemGroupsTable({ id, groups, limit = null, onOpenLatest = null }) {
   return (
     <SortableTable id={id} className="v3histtable"
       wrapperClassName="v3histtablewrap"
@@ -1251,6 +1330,7 @@ function SystemGroupsTable({ id, groups, limit = null }) {
           title: 'Kontrafaktiskt uppskattad utdelning. Detta är inte mottagna pengar.' },
         { key: 'roi', label: 'Simulerad ROI' },
         { key: 'best_correct', label: 'Bäst' },
+        { key: 'open_latest', label: 'Rader', value: () => '' },
       ]}
       renderRow={(g) => {
         const perTest = g.cost_per_draw_kr ?? g.budget
@@ -1278,6 +1358,10 @@ function SystemGroupsTable({ id, groups, limit = null }) {
             <td>{g.n_evaluable ? kr(g.payout_kr) : '–'}</td>
             <td className={roiCls(g.roi)}>{pctSigned(g.roi)}</td>
             <td>{g.best_correct ?? '–'}</td>
+            <td>{g.latest_draw_number != null && onOpenLatest
+              ? <button className="v3more" onClick={() => onOpenLatest(g)}>
+                  Visa senaste testet</button>
+              : '–'}</td>
           </tr>
         )
       }}
@@ -1311,6 +1395,10 @@ function SystemGroupsTable({ id, groups, limit = null }) {
               <span>senast {g.latest_frozen ? fmtDay(g.latest_frozen) : '–'}</span>
               <span>bäst {g.best_correct ?? '–'} rätt</span>
             </div>
+            {g.latest_draw_number != null && onOpenLatest && (
+              <button className="v3more v3groupopen" onClick={() => onOpenLatest(g)}>
+                Visa senaste testets rader och facit</button>
+            )}
           </article>
         )
       }} />
@@ -1399,6 +1487,20 @@ function HistorikV3({ initialProduct, focus }) {
     }
   }
 
+  const showSystemDetail = (row) => {
+    setOpenSystem(row)
+    // Detaljen ligger efter grupptabellen. Flytta användaren dit även när
+    // testet öppnas från en grupp högt upp på sidan.
+    setTimeout(() => document.getElementById('hist-system-detail')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+  }
+  const showLatestGroupTest = (group) => showSystemDetail({
+    product: group.latest_product || group.product,
+    draw_number: group.latest_draw_number,
+    horizon: group.horizon,
+    config_key: group.config_key,
+  })
+
   const draws = data?.draws || []
   const shownDraws = showAllDraws ? draws : draws.slice(0, 20)
   const sparkVals = [...draws].reverse().map((d) => d.turnover)
@@ -1426,7 +1528,11 @@ function HistorikV3({ initialProduct, focus }) {
         'n_unresolvable', 'n_cancelled', 'n_payout_incomplete', 'cost_kr', 'payout_kr']) {
         cur[f] = (cur[f] || 0) + (g[f] || 0)
       }
-      if ((g.latest_frozen || '') > (cur.latest_frozen || '')) cur.latest_frozen = g.latest_frozen
+      if ((g.latest_frozen || '') > (cur.latest_frozen || '')) {
+        cur.latest_frozen = g.latest_frozen
+        cur.latest_product = g.latest_product
+        cur.latest_draw_number = g.latest_draw_number
+      }
       if ((g.best_correct ?? -1) > (cur.best_correct ?? -1)) cur.best_correct = g.best_correct
       cur.retired = cur.retired && g.retired
     }
@@ -1632,7 +1738,8 @@ function HistorikV3({ initialProduct, focus }) {
               konfigurationen sparades. Klicka kolumnen för äldst eller nyast.</span>
             {activeGroups.length > 0
               ? <SystemGroupsTable id="hist-systemgroups-v5" groups={activeGroups}
-                  limit={showAllGroups ? null : 20} />
+                  limit={showAllGroups ? null : 20}
+                  onOpenLatest={showLatestGroupTest} />
               : <EmptyState title="Inga testkonfigurationer matchar filtren"
                   detail="Ändra eller rensa filtren för att visa fler grupper." />}
             {activeGroups.length > 20 && (
@@ -1663,7 +1770,7 @@ function HistorikV3({ initialProduct, focus }) {
               jämförbar bara med sig själv.</span>
             {retiredGroups.length > 0
               ? <SystemGroupsTable id="hist-systemgroups-retired-v2"
-                  groups={retiredGroups} />
+                  groups={retiredGroups} onOpenLatest={showLatestGroupTest} />
               : <EmptyState title="Inga pensionerade grupper matchar filtren"
                   detail="Rensa filtren för att se hela den äldre matrisen." />}
           </>
@@ -1680,10 +1787,10 @@ function HistorikV3({ initialProduct, focus }) {
                 <tbody>
                   {recent.slice(0, showAllFreezes ? recent.length : 20).map((r, i) => (
                     <tr key={i} className="v3histrowline" role="button" tabIndex={0}
-                      onClick={() => setOpenSystem(r)}
+                      onClick={() => showSystemDetail(r)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault(); setOpenSystem(r)
+                          e.preventDefault(); showSystemDetail(r)
                         }
                       }}>
                       <td>{PRODUCT_LABEL[r.product] || r.product}</td>
