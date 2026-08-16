@@ -2,6 +2,18 @@
 
 ## STATUS-SAMMANFATTNING (2026-08-16 — läs detta först i ny session)
 
+**POOLFRYSNINGEN TÅL SHARP-ONLY-VÄRDE (2026-08-16, Codex).** Topptipset
+4274 missade både h3 och m20 trots att snapshots och styrke-shadow samlades.
+Orsaken var inte modellen eller källan: två matcher hade giltigt
+`value_sharp` men saknade SvS-oddsbaserat `value`. Analysen valde korrekt
+sharp-värdetecknet, men byggarens rena förklaringstext försökte formatera det
+tomma SvS-fältet och fällde hela PH3-varvet. Byggaren använder nu samma
+sharp-först-fallback som analysen och alla valfria poängfält formateras
+defensivt. Missade frysningar före ett framtida spelstopp är fortsatt röda
+driftfel; efter spelstopp klassas de som historiska bortfall och visas
+hopfällda, eftersom de inte längre går att reparera utan att förfalska
+point-in-time-kohorten. 4274 har avsiktligt inte bakfyllts.
+
 **TVÅ KOMPLETTERANDE KUPONGER I POOLBYGGAREN (2026-08-15, Codex).**
 Värderader har ett frivilligt dubbelkupongsläge där A och B byggs gemensamt
 med disjunkta spikankare. V1 ersattes samma dag efter att de faktiskt sparade

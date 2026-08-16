@@ -146,6 +146,34 @@ v2 bedömas både per kupong och som A+B-portfölj: kostnad, utdelning, bästa
 träff, om något av ankarscenarierna bar utfallet och hur ofta båda föll på
 samma icke-ankrade favorit.
 
+## Tillägg 2026-08-16 — Topptipset 4274 och poolhälsan
+
+Topptipset 4274 gav det återkommande larmet `h3 0/9` och `m20 0/9`.
+Serverloggen visar att poolvarven körde i tid och att både snapshots,
+sharp-capture och lagstyrke-shadow sparades. En presentationstext i
+`builder._reason` kraschade däremot varje ordinarie systemfrysning med
+`unsupported format string passed to NoneType.__format__`.
+
+Match 2, Braga–Gil Vicente, hade `best_value_sign=1`, `value_sharp=9.5` och
+`value=None`. Det är ett giltigt sharp-only-läge: analysen väljer
+`value_sharp` före `value`. Förklaringstexten läste felaktigt alltid `value`.
+Den följer nu analysens sharp-först-regel, och saknade `spik_score`,
+`open_score` eller båda värdefälten kan inte längre fälla systembyggaren.
+Felraden i poolloggen innehåller dessutom undantagstyp för snabbare diagnos.
+
+Poolhälsan skiljer nu på två lägen:
+
+- en frysning som saknas medan omgången fortfarande är öppen är ett rött,
+  åtgärdbart driftfel;
+- när spelstopp passerat är samma lucka ett historiskt bortfall och visas
+  diskret, hopfälld utan att hålla hela tjänsten röd.
+
+4274 får inte bakfyllas. `freeze_due` bygger endast från en färsk, öppen
+omgång och PH3 är ett point-in-time-experiment; ett system byggt efter facit
+skulle vara falsk evidens. Regressionstesterna återskapar sharp-only-matchen,
+saknade förklaringsfält och övergången från aktuellt fel till historiskt
+bortfall.
+
 ## Tillägg 2026-08-16 — 75 procent är riktmärke, inte längre ett stopp
 
 Europatipset 2599 för 256 kr återskapade exakt varningen i mobilbilden. V2:s

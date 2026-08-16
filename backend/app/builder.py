@@ -140,11 +140,23 @@ def _role(count: int) -> str:
 def _reason(m: MatchAnalysis, count: int) -> str:
     if count == 1:
         p = f"{m.favourite_prob*100:.0f}%" if m.favourite_prob else "?"
-        return f"spik {m.favourite} ({p}), spik-score {m.spik_score:.0f}"
-    base = f"öppen-score {m.open_score:.0f}"
+        score = (f"{m.spik_score:.0f}"
+                 if isinstance(m.spik_score, (int, float)) else "?")
+        return f"spik {m.favourite} ({p}), spik-score {score}"
+    score = (f"{m.open_score:.0f}"
+             if isinstance(m.open_score, (int, float)) else "?")
+    base = f"öppen-score {score}"
     if m.best_value_sign:
-        v = m.outcomes[m.best_value_sign].value
-        base += f", värdetecken {m.best_value_sign} (+{v:.0f})"
+        outcome = m.outcomes.get(m.best_value_sign)
+        # Analysen väljer sharp-värdet när det finns och faller annars tillbaka
+        # till SvS-oddset. Förklaringstexten måste följa exakt samma regel.
+        # Topptipset 4274 hade giltigt sharp-värde men saknade SvS-odds på två
+        # matcher; den gamla direkta `.value`-formateringen fällde då hela PH3.
+        v = getattr(outcome, "value_sharp", None)
+        if v is None:
+            v = getattr(outcome, "value", None)
+        if isinstance(v, (int, float)):
+            base += f", värdetecken {m.best_value_sign} ({v:+.0f})"
     return base
 
 

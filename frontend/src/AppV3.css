@@ -117,6 +117,14 @@
   color: var(--text); font-size: 12px;
 }
 .v3alert b { color: #e88a91; }
+.v3notice {
+  margin-bottom: 12px; padding: 9px 12px; border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--orange) 42%, var(--line));
+  background: color-mix(in srgb, var(--orange) 6%, var(--panel));
+  color: var(--muted); font-size: 11px;
+}
+.v3notice summary { cursor: pointer; color: var(--text); font-weight: 600; }
+.v3notice span { display: block; margin-top: 7px; }
 .v3grid {
   display: grid; gap: 12px;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));

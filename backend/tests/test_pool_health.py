@@ -93,6 +93,20 @@ class PoolHealthTests(unittest.TestCase):
         self.assertNotIn("freeze_incomplete", {i["kind"] for i in before["issues"]})
         self.assertIn("freeze_incomplete", {i["kind"] for i in after["issues"]})
 
+    def test_missed_freeze_after_close_is_history_not_current_outage(self):
+        self._draw("topptipset", 4274, hours=-1)
+        self.store.meta_set("latest_topptipset", "4274")
+
+        rep = pool_health.report(
+            self.store, now=NOW, products=("topptipset",))
+
+        freezes = [i for i in rep["issues"]
+                   if i["kind"] == "freeze_incomplete"]
+        self.assertEqual("ok", rep["status"])
+        self.assertTrue(freezes)
+        self.assertTrue(all(i["level"] == "warning" for i in freezes))
+        self.assertTrue(all("missades" in i["message"] for i in freezes))
+
     def test_scanhint_must_not_lag_observed_draw(self):
         self._draw("topptipset", 4300, 8)
         self._snapshot("topptipset", 4300)

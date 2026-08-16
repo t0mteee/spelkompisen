@@ -4,12 +4,34 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from app.builder import (_poisson_binomial, _prize_pools,
-                         _row_expected_value, build_ev_system,
+                         _reason, _row_expected_value, build_ev_system,
                          build_complementary_ev_systems,
                          ev_candidate_signs)
 
 
 class PrizePoolTests(unittest.TestCase):
+    def test_reason_uses_the_same_sharp_value_as_analysis(self) -> None:
+        outcomes = {
+            "1": SimpleNamespace(value=None, value_sharp=9.5),
+            "X": SimpleNamespace(value=None, value_sharp=-4.5),
+            "2": SimpleNamespace(value=None, value_sharp=-5.0),
+        }
+        match = SimpleNamespace(
+            favourite="1", favourite_prob=0.44, spik_score=30,
+            open_score=48, best_value_sign="1", outcomes=outcomes)
+
+        self.assertEqual(
+            "öppen-score 48, värdetecken 1 (+10)", _reason(match, 2))
+
+    def test_missing_reason_numbers_cannot_stop_system_building(self) -> None:
+        match = SimpleNamespace(
+            favourite="1", favourite_prob=None, spik_score=None,
+            open_score=None, best_value_sign="1",
+            outcomes={"1": SimpleNamespace(value=None, value_sharp=None)})
+
+        self.assertEqual("spik 1 (?), spik-score ?", _reason(match, 1))
+        self.assertEqual("öppen-score ?", _reason(match, 2))
+
     @staticmethod
     def _eight_match_analysis():
         probabilities = [

@@ -126,18 +126,30 @@ def report(store, *, now: Optional[dt.datetime] = None,
 
                 count = _count(benchmark_keys)
                 if count < len(benchmark_keys):
-                    _issue(issues, "error", product, "freeze_incomplete",
-                           f"{horizon} har {count}/{len(benchmark_keys)} "
-                           "frysta system",
+                    closed = draw["close"] <= now
+                    level = "warning" if closed else "error"
+                    message = (f"{horizon} missades: {count}/{len(benchmark_keys)} "
+                               "system frystes före spelstopp"
+                               if closed else
+                               f"{horizon} har {count}/{len(benchmark_keys)} "
+                               "frysta system")
+                    _issue(issues, level, product, "freeze_incomplete", message,
                            draw["draw_number"])
                 if research_keys:
                     research_count = _count(research_keys)
                     if research_count < len(research_keys):
-                        _issue(
-                            issues, "error", product,
-                            "research_freeze_incomplete",
+                        closed = draw["close"] <= now
+                        level = "warning" if closed else "error"
+                        message = (
+                            f"{horizon} missades: {research_count}/"
+                            f"{len(research_keys)} PH5-researchsystem frystes "
+                            "före spelstopp" if closed else
                             f"{horizon} har {research_count}/{len(research_keys)} "
-                            "frysta PH5-researchsystem",
+                            "frysta PH5-researchsystem")
+                        _issue(
+                            issues, level, product,
+                            "research_freeze_incomplete",
+                            message,
                             draw["draw_number"])
 
         # Scanhintet ska aldrig ligga bakom en omgång som redan observerats.
@@ -197,11 +209,18 @@ def format_report(payload: dict) -> str:
                      if row.get("next_draw") else "ingen öppen omgång")
         out.append(f"  {row['product']:18} {next_text} · snapshot {latest}")
     issues = payload.get("issues") or []
+    errors = [issue for issue in issues if issue.get("level") == "error"]
+    warnings = [issue for issue in issues if issue.get("level") == "warning"]
     if not issues:
         out += ["", "  ✓ inga änd-till-änd-luckor upptäckta"]
-    else:
+    if errors:
         out += ["", "  FEL:"]
-        for issue in issues:
+        for issue in errors:
             draw = f" omg {issue['draw_number']}" if issue.get("draw_number") else ""
             out.append(f"    ✗ {issue['product']}{draw}: {issue['message']}")
+    if warnings:
+        out += ["", "  HISTORISKA BORTFALL:"]
+        for issue in warnings:
+            draw = f" omg {issue['draw_number']}" if issue.get("draw_number") else ""
+            out.append(f"    ! {issue['product']}{draw}: {issue['message']}")
     return "\n".join(out)

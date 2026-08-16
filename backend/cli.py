@@ -264,7 +264,8 @@ def _pool_pit_freeze(store: Storage, ss: SvenskaSpel, product: str, draw,
             print(f"{product} omg {draw.draw_number}: "
                   f"{rep['frozen']} systemfrysning(ar) (PH3).")
     except Exception as e:  # noqa: BLE001
-        print(f"{product}: systemfrysning hoppade över ({e})")
+        print(f"{product}: systemfrysning hoppade över "
+              f"({type(e).__name__}: {e})")
 
 
 # förtätning: när spelstopp närmar sig är sena oddsrörelser guld — snapshotta
