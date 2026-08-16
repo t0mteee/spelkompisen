@@ -33,7 +33,8 @@ from .analysis import DrawAnalysis, MatchAnalysis
 SIGNS = ("1", "X", "2")
 ROW_PRICE = 1.0  # Stryktipset: 1 kr/rad
 COMPLEMENTARY_PREFERRED_QUALITY = 0.75
-COMPLEMENTARY_MIN_QUALITY = 0.60
+COMPLEMENTARY_FALLBACK_QUALITY = 0.60
+COMPLEMENTARY_MIN_QUALITY = 0.55
 
 
 @dataclass
@@ -905,6 +906,7 @@ def build_complementary_ev_systems(
         "available": False,
         "quality_floor": quality_floor,
         "preferred_quality_floor": COMPLEMENTARY_PREFERRED_QUALITY,
+        "fallback_quality_floor": COMPLEMENTARY_FALLBACK_QUALITY,
         "below_preferred_quality": False,
         "cross_anchor_share": cross_anchor_share,
         "guard_share": 1.0 - cross_anchor_share,
@@ -1050,13 +1052,20 @@ def build_complementary_ev_systems(
                 break
         return best
 
-    # Behåll 75 procent när det går. Bara om ingen sådan portfölj finns görs
-    # ett andra, tydligt märkt försök ner till det hårda minimigolvet.
-    preferred_floor = max(
-        quality_floor, COMPLEMENTARY_PREFERRED_QUALITY)
-    best_pair = find_pair(preferred_floor)
-    if best_pair is None and quality_floor < preferred_floor:
-        best_pair = find_pair(quality_floor)
+    # Behåll 75 procent när det går. Den vanliga fallbacken är 60 procent;
+    # 55 är bara sista skyddsnätet för snapshots precis på gränsen. De tre
+    # separata stegen gör sökningen monoton trots 24-parstaket: en bredare
+    # kandidatlista får aldrig tränga undan ett redan funnet starkare par.
+    search_floors = (
+        max(quality_floor, COMPLEMENTARY_PREFERRED_QUALITY),
+        max(quality_floor, COMPLEMENTARY_FALLBACK_QUALITY),
+        quality_floor,
+    )
+    best_pair = None
+    for floor_ratio in dict.fromkeys(search_floors):
+        best_pair = find_pair(floor_ratio)
+        if best_pair is not None:
+            break
 
     if best_pair is None:
         metadata["reason"] = (

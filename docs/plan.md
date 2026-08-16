@@ -11,8 +11,9 @@ singelförslaget saknade spik. V2 kräver högst 10 procent radöverlapp, minst 
 procent gardering av den andra kupongens ankare och har 75 procent som
 föredraget kvalitetsriktmärke för båda systemen. Europatipset 2599 visade att
 ett fast 75-procentskrav fortfarande kunde ge upp trots att två verkligt olika
-kuponger fanns. Byggaren försöker därför först nå 75 procent och får därefter
-gå ner till ett hårt minimum på 60 procent. Avsteget visas öppet i UI:t med
+kuponger fanns. Byggaren försöker därför först nå 75 procent, därefter 60 och
+har 55 procent som sista hårda minimum för snapshots precis på gränsen.
+Avsteget visas öppet i UI:t med
 båda värdena; måttet är intern `träffchans^k × EV`, aldrig vinstchans. Den
 skapar egna ankare även när singelförslaget saknar spik. UI:t visar båda
 kvaliteterna, ankare,

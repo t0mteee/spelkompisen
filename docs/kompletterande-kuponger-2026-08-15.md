@@ -12,16 +12,16 @@ men A och B optimeras tillsammans som två olika scenarier:
 - högst 10 procent av de exakta raderna får finnas i båda kupongerna;
 - byggaren försöker först låta båda behålla minst 75 procent av det vanliga
   singelförslagets interna `träffchans^k × EV`-summa;
-- om det är omöjligt får den göra ett andra försök ner till det hårda
-  minimigolvet 60 procent. UI:t visar då en tydlig varning med A:s och B:s
-  faktiska värden;
+- om det är omöjligt gör den först ett försök på 60 procent och därefter, för
+  snapshots precis på gränsen, ett sista försök vid det hårda minimigolvet 55
+  procent. UI:t visar då en tydlig varning med A:s och B:s faktiska värden;
 - A och B har samma radantal och kostnad, och kan läggas i kupongen var för sig.
 
 På 13-matchsspel med högst 512 rader försöker byggaren ge två ankare per
 kupong. På åttamatchsspel och tätare system används minst ett ankare per
-kupong. Om den striktare varianten inte går provar den färre ankare. Först
-därefter provas 60-procentsgolvet, fortfarande utan gemensamma ankarmatcher
-eller mer än 10 procents radöverlapp.
+kupong. Om den striktare varianten inte går provar den färre ankare. Därefter
+provas 60 och sist 55 procent, fortfarande utan gemensamma ankarmatcher eller
+mer än 10 procents radöverlapp.
 
 Detta är två fullstora spelalternativ, inte två delar av samma budget. En vald
 insats på 256 kr betyder 256 + 256 kr om båda spelas. Läget är avstängt som
@@ -56,16 +56,19 @@ B:s ankare själv ur samma rankade universum.
 `GET /api/system` accepterar `complementary=true` tillsammans med `ev=true`.
 Svaret på toppnivån är Kupong A; `complementary.system` är Kupong B och
 metadatafältet redovisar ankare, faktisk radöverlapp, båda kvalitetskvoterna,
-75-procentsriktmärket, 60-procentsgolvet, avstegsflaggan, korstaket och
-kostnaderna. Befintliga anrop utan flaggan är oförändrade.
+75-procentsriktmärket, 60-procentsfallbacken, 55-procentsgolvet,
+avstegsflaggan, korstaket och kostnaderna. Befintliga anrop utan flaggan är
+oförändrade.
 
 Standardbyggaren fullrankar ett begränsat toppurval precis som förut.
 Dubbelkupongsläget fullrankar hela det redan begränsade kandidatuniversumet
 (högst 60 000 rader), söker disjunkta ankargrupper och väljer de bästa raderna
 under korstaken. Därefter byts exakta dubblettrader bort så långt den aktuella
-söknivån medger. Sökningen är deterministisk och körs i två steg: först 75,
-sedan vid behov 60 procent. Det gör att en vanlig omgång inte tappar kvalitet
-bara för att fallbacken finns.
+söknivån medger. Sökningen är deterministisk och körs i tre steg: först 75,
+sedan 60 och sist vid behov 55 procent. Det gör att en vanlig omgång inte
+tappar kvalitet bara för att fallbacken finns. De separata stegen är också
+viktiga eftersom sökningen tidsbegränsas till de 24 bästa preliminära paren:
+ett bredare, lägre golv får inte tränga undan ett redan funnet starkare par.
 
 Ingen databas eller ordinarie modellversion ändrades. De redan sparade
 kupongerna 27 och 28 ska självklart ligga kvar som faktiskt spelad historik;
@@ -81,6 +84,8 @@ de skrivs inte om i efterhand.
 - Båda kvalitetskvoterna ska vara minst 75 procent när riktmärket går att nå.
 - En koncentrerad omgång som inte når riktmärket ska ändå kunna ge två
   kuponger över 60 procent och då sätta `below_preferred_quality=true`.
+- Ett separat gränsfall ska visa att sista 55-procentssteget fungerar när 60
+  inte går; ingen kupong får understiga 55 procent.
 - Upprepade anrop med samma data ska ge identiska rader och metadata.
 - Backendens fulla testsvit, frontendtesterna, produktionsbygget och riktiga
   torrtest mot både Stryktips 4966 och Topptipset Stryk 976 ska vara gröna före
@@ -110,7 +115,8 @@ två disjunkta ankarscenarier inte kunde hålla det fasta 75-procentskravet.
 
 Regressionstestet använder omgångens sparade sannolikheter, streck, rörelser
 och omsättning. Det kräver 256 + 256 rader, disjunkta ankare, högst 10 procents
-överlapp, minst 60 procent för båda och en synlig avstegsflagga. Den vanliga
+överlapp, minst 60 procent för båda och en synlig avstegsflagga. Ett skärpt
+favoritfall kräver dessutom att sista 55-procentssteget fungerar. Den vanliga
 åttamatchsregressionen måste fortsatt nå minst 75 procent och får inte flaggas.
-Verifiering efter ändringen: 718 backendtester, 12 frontendtester, lint och
+Verifiering efter ändringen: 719 backendtester, 12 frontendtester, lint och
 produktionsbygge gröna.

@@ -1,4 +1,5 @@
 import unittest
+from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -234,7 +235,8 @@ class PrizePoolTests(unittest.TestCase):
 
         self.assertTrue(metadata["available"])
         self.assertIsNotNone(alternative)
-        self.assertEqual(0.60, metadata["quality_floor"])
+        self.assertEqual(0.55, metadata["quality_floor"])
+        self.assertEqual(0.60, metadata["fallback_quality_floor"])
         self.assertEqual(0.75, metadata["preferred_quality_floor"])
         self.assertTrue(metadata["below_preferred_quality"])
         self.assertGreaterEqual(metadata["primary_quality_ratio"], 0.60)
@@ -243,6 +245,33 @@ class PrizePoolTests(unittest.TestCase):
         self.assertLess(metadata["alternative_quality_ratio"], 0.75)
         self.assertEqual(primary.num_rows, alternative.num_rows)
         self.assertLessEqual(metadata["row_overlap_pct"], 0.10)
+
+    def test_complementary_system_has_last_visible_safety_net(self) -> None:
+        analysis = deepcopy(self._concentrated_thirteen_match_analysis())
+        # Fyra 68-procentsfavoriter ger inget giltigt par vid 60 procent, men
+        # ett fortfarande tydligt skilt par precis över det hårda 55-golvet.
+        for index, favourite in ((1, "2"), (5, "2"), (7, "1"), (11, "2")):
+            probs = ({"1": .68, "X": .1856, "2": .1344}
+                     if favourite == "1"
+                     else {"1": .144, "X": .176, "2": .68})
+            for sign, probability in probs.items():
+                analysis.matches[index].outcomes[sign].fair_prob = probability
+                analysis.matches[index].outcomes[sign].sharp_prob = probability
+        plan = {
+            "ratio": 0.65,
+            "splits": {13: 0.39, 12: 0.22, 11: 0.12, 10: 0.25},
+        }
+
+        _, alternative, metadata = build_complementary_ev_systems(
+            analysis, budget=256, row_price=1, value_weight=0.5, plan=plan)
+
+        self.assertTrue(metadata["available"])
+        self.assertIsNotNone(alternative)
+        self.assertTrue(metadata["below_preferred_quality"])
+        self.assertGreaterEqual(metadata["primary_quality_ratio"], 0.55)
+        self.assertGreaterEqual(metadata["alternative_quality_ratio"], 0.55)
+        self.assertLess(min(metadata["primary_quality_ratio"],
+                            metadata["alternative_quality_ratio"]), 0.60)
 
     def test_poisson_binomial_is_normalized_and_exact(self) -> None:
         distribution = _poisson_binomial([0.6, 0.25])

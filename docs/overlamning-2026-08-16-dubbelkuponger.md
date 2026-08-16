@@ -27,8 +27,8 @@ Commit `2c6e39b` ersatte v1 med en gemensam portföljbyggare:
 - Högst 10 procent av de exakta raderna får överlappa.
 - Byggaren försöker först hålla minst 75 procent av singelförslagets interna
   `träffchans^k × EV`-summa för båda.
-- Om 75 procent är omöjligt får den gå ner till ett hårt minimum på 60
-  procent. UI:t visar då kompromissen och båda faktiska värdena öppet.
+- Om 75 procent är omöjligt provar den 60 procent och sist ett hårt minimum
+  på 55 procent. UI:t visar då kompromissen och båda faktiska värdena öppet.
 - På 13 matcher och högst 512 rader försöker byggaren ge två ankare per sida;
   Topptipset får minst ett per sida även om singelförslaget saknar spik.
 - Anrop utan `complementary=true` och den vanliga enkelbyggaren är exakt
@@ -151,14 +151,16 @@ samma icke-ankrade favorit.
 Europatipset 2599 för 256 kr återskapade exakt varningen i mobilbilden. V2:s
 olikhetskrav fungerade, men det fasta 75-procentsgolvet gjorde att hela
 funktionen gav upp på en starkt favoritkoncentrerad omgång. Det är nu en
-tvåstegssökning: 75 procent provas alltid först, och endast om inget giltigt
-par finns provas 60 procent. Ankarmatcherna är fortfarande disjunkta,
+trestegssökning: 75 procent provas alltid först, därefter 60 och endast om
+inget giltigt par finns provas det hårda 55-procentsgolvet. Ankarmatcherna är
+fortfarande disjunkta,
 korstaket 50 procent och radöverlappet högst 10 procent.
 
-Metadata bär `preferred_quality_floor=0.75`, `quality_floor=0.60` och
-`below_preferred_quality`. Avstegsvarningen ligger synlig direkt under
+Metadata bär `preferred_quality_floor=0.75`, `fallback_quality_floor=0.60`,
+`quality_floor=0.55` och `below_preferred_quality`. Avstegsvarningen ligger
+synlig direkt under
 olikhetssummeringen, inte gömd i den tekniska jämförelsen. Ett nytt
 regressionstest bygger på den riktiga 2599-kupongens frysta analysvärden.
 Ändringen rör inte enkelbyggaren, PH5, databasen eller Oddset-modellens
-signalversion. Verifiering: 718 backendtester, 12 frontendtester, lint och
+signalversion. Verifiering: 719 backendtester, 12 frontendtester, lint och
 produktionsbygge gröna.
