@@ -3340,8 +3340,8 @@ function PlayedCouponDetail({ coupon, onClose }) {
   const distribution = Object.entries(detail?.correct_dist || {})
     .map(([correct, count]) => [Number(correct), Number(count)])
     .sort((a, b) => b[0] - a[0])
-  const eventName = (event) => event.description
-    || [event.home, event.away].filter(Boolean).join(' – ')
+  const eventName = (event) => [event.home, event.away].filter(Boolean).join(' – ')
+    || event.description
     || `Match ${event.column}`
   return (
     <div className="played-detail-backdrop" onMouseDown={onClose}>
