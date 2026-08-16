@@ -1168,7 +1168,10 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
   return (
     <div className="v3sysdetail" id="hist-system-detail">
       <div className="v3sysdetailhead">
-        <b>{PRODUCT_LABEL[product] || product} · omgång {draw} · {config}</b>
+        <b>{PRODUCT_LABEL[product] || product} · omgång {draw} · {d
+          ? `${d.research ? '🧪 PH5-test · ' : ''}${STRATEGY_LABEL[d.strategy]
+            || d.strategy || 'testsystem'}`
+          : 'testsystem'}</b>
         <button className="v3more" onClick={onClose}>stäng ✕</button>
       </div>
       {err && <ErrorState message={err} />}
@@ -1177,7 +1180,7 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
       {d?.available && (
         <>
           <div className="v3sysdetailmeta">
-            <span>{d.n_rows} rader · {kr(d.cost_kr)}</span>
+            <span>{d.n_rows.toLocaleString('sv-SE')} rader · {kr(d.cost_kr)}</span>
             <span>fryst {horizonLabel(d)} före stopp{d.timely ? '' : ' (sen)'}</span>
             <span>bäst <b>{d.correct_max ?? '–'}</b> rätt</span>
             {d.n_missed > 0 && (
@@ -1349,7 +1352,8 @@ function SystemGroupsTable({ id, groups, limit = null, onOpenLatest = null }) {
               ? <span className="v3hint"> ({g.n_frozen - g.n_timely} sena)</span> : ''}
               {g.n_cancelled
                 ? <span className="v3hint"> ({g.n_cancelled} inställda)</span> : ''}</td>
-            <td>{g.n_evaluable ? `${g.n_evaluable} tester` : '–'}
+            <td>{g.n_evaluable
+              ? `${g.n_evaluable} ${g.n_evaluable === 1 ? 'test' : 'tester'}` : '–'}
               {g.n_payout_incomplete
                 ? <span className="v3hint"> ({g.n_payout_incomplete} okänd utd.)</span> : ''}</td>
             <td className="v3costformula">{g.n_evaluable
@@ -1385,11 +1389,11 @@ function SystemGroupsTable({ id, groups, limit = null, onOpenLatest = null }) {
             </div>
             <div className="v3groupcardformula">
               {g.n_evaluable
-                ? <>{g.n_evaluable} tester × {kr(perTest)} = <b>{kr(g.cost_kr)}</b></>
+                ? <>{g.n_evaluable} {g.n_evaluable === 1 ? 'test' : 'tester'} × {kr(perTest)} = <b>{kr(g.cost_kr)}</b></>
                 : 'Inga tester med komplett facit ännu'}
             </div>
             <div className="v3groupcardfoot">
-              <span>{g.n_frozen} sparade tester</span>
+              <span>{g.n_frozen} {g.n_frozen === 1 ? 'sparat test' : 'sparade tester'}</span>
               {g.n_cancelled ? <span>{g.n_cancelled} inställda</span> : null}
               <span>sim. utdelning {g.n_evaluable ? kr(g.payout_kr) : '–'}</span>
               <span>senast {g.latest_frozen ? fmtDay(g.latest_frozen) : '–'}</span>
