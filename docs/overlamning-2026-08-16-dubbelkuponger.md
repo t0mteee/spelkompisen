@@ -168,6 +168,10 @@ Poolhälsan skiljer nu på två lägen:
 - när spelstopp passerat är samma lucka ett historiskt bortfall och visas
   diskret, hopfälld utan att hålla hela tjänsten röd.
 
+Historiknotisen använder vanliga tidsord (`3 timmar` och `20 minuter`) och en
+punkt per bortfall. Rubriken säger uttryckligen att dagens insamling fungerar;
+återinför inte råa `h3/m20`-koder eller sammanhängande felsträngar i Idag-vyn.
+
 4274 får inte bakfyllas. `freeze_due` bygger endast från en färsk, öppen
 omgång och PH3 är ett point-in-time-experiment; ett system byggt efter facit
 skulle vara falsk evidens. Regressionstesterna återskapar sharp-only-matchen,

@@ -362,12 +362,15 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
       )}
       {poolWarnings.length > 0 && (
         <details className="v3notice">
-          <summary>Poolhistorik: tidigare frysningar saknas</summary>
-          {poolWarnings.map((issue, i) => (
-            <span key={`${issue.product}-${issue.kind}-${issue.draw_number || i}`}>
-              {issue.product}{issue.draw_number ? ` omg ${issue.draw_number}` : ''}: {issue.message}
-            </span>
-          ))}
+          <summary>Historisk testdata saknas – dagens insamling fungerar</summary>
+          <ul>
+            {poolWarnings.map((issue, i) => (
+              <li key={`${issue.product}-${issue.kind}-${issue.draw_number || i}`}>
+                <b>{issue.product}{issue.draw_number ? ` omg ${issue.draw_number}` : ''}</b>
+                <span>{issue.message}</span>
+              </li>
+            ))}
+          </ul>
         </details>
       )}
       {v22Issues.length > 0 && (

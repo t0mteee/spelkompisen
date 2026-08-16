@@ -124,7 +124,11 @@
   color: var(--muted); font-size: 11px;
 }
 .v3notice summary { cursor: pointer; color: var(--text); font-weight: 600; }
-.v3notice span { display: block; margin-top: 7px; }
+.v3notice ul { display: grid; gap: 8px; margin: 9px 0 1px; padding-left: 18px; }
+.v3notice li { padding-left: 2px; }
+.v3notice li b, .v3notice li span { display: block; }
+.v3notice li b { color: var(--text); font-size: 11px; }
+.v3notice li span { margin-top: 2px; }
 .v3grid {
   display: grid; gap: 12px;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));

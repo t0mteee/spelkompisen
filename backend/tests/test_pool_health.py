@@ -105,7 +105,10 @@ class PoolHealthTests(unittest.TestCase):
         self.assertEqual("ok", rep["status"])
         self.assertTrue(freezes)
         self.assertTrue(all(i["level"] == "warning" for i in freezes))
-        self.assertTrue(all("missades" in i["message"] for i in freezes))
+        self.assertEqual(
+            ["3 timmar före spelstopp: 0 av 9 testsystem sparades",
+             "20 minuter före spelstopp: 0 av 9 testsystem sparades"],
+            [i["message"] for i in freezes])
 
     def test_scanhint_must_not_lag_observed_draw(self):
         self._draw("topptipset", 4300, 8)

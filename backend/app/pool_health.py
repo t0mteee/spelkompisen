@@ -106,6 +106,8 @@ def report(store, *, now: Optional[dt.datetime] = None,
                     product, draw["draw_number"]))
             for horizon, (minutes, timely_tol) in FREEZE_HORIZONS.items():
                 due = draw["close"] - dt.timedelta(minutes=minutes)
+                horizon_label = ("3 timmar" if horizon == "h3" else
+                                 "20 minuter" if horizon == "m20" else horizon)
                 # h3 ligger utanför tvåtimmars-förtätningen och får därför
                 # komma vid nästa 30-minutersbasvarv. Den gamla fasta
                 # 15-minutersgränsen gav ett falskt rött fönster innan ett
@@ -128,8 +130,8 @@ def report(store, *, now: Optional[dt.datetime] = None,
                 if count < len(benchmark_keys):
                     closed = draw["close"] <= now
                     level = "warning" if closed else "error"
-                    message = (f"{horizon} missades: {count}/{len(benchmark_keys)} "
-                               "system frystes före spelstopp"
+                    message = (f"{horizon_label} före spelstopp: {count} av "
+                               f"{len(benchmark_keys)} testsystem sparades"
                                if closed else
                                f"{horizon} har {count}/{len(benchmark_keys)} "
                                "frysta system")
@@ -141,9 +143,9 @@ def report(store, *, now: Optional[dt.datetime] = None,
                         closed = draw["close"] <= now
                         level = "warning" if closed else "error"
                         message = (
-                            f"{horizon} missades: {research_count}/"
-                            f"{len(research_keys)} PH5-researchsystem frystes "
-                            "före spelstopp" if closed else
+                            f"{horizon_label} före spelstopp: {research_count} "
+                            f"av {len(research_keys)} PH5-testsystem sparades"
+                            if closed else
                             f"{horizon} har {research_count}/{len(research_keys)} "
                             "frysta PH5-researchsystem")
                         _issue(
