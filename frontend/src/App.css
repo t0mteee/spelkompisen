@@ -1113,6 +1113,85 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 .playeddivider { margin: 14px 0 4px; font-size: 11px; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--muted); }
 .playeddone { opacity: 0.75; }
+.played-kind { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
+.played-done-card { display: grid; gap: 10px; padding: 12px; border-radius: 9px;
+  background: var(--panel2); border: 1px solid var(--line); }
+.played-done-card header { display: flex; justify-content: space-between; gap: 10px; }
+.played-done-card header div { display: grid; gap: 2px; }
+.played-done-card header span { color: var(--muted); font-size: 11px; }
+.played-done-card header strong { font-size: 15px; }
+.played-done-card > div { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.played-done-card > div span { display: grid; gap: 1px; color: var(--muted); font-size: 10px; }
+.played-done-card > div b { color: var(--text); font-size: 13px; }
+.played-done-card > button { width: 100%; min-height: 40px; }
+
+/* Avgjord kupong: en enda detaljdialog används av både desktop-tabellen och
+   mobilkorten. Raderna hämtas först när dialogen öppnas. */
+.played-detail-backdrop { position: fixed; inset: 0; z-index: 2000;
+  display: grid; place-items: center; padding: 18px; background: rgba(3,6,9,.78);
+  backdrop-filter: blur(3px); }
+.played-detail { width: min(980px, 100%); max-height: calc(100dvh - 36px);
+  overflow: auto; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--panel); box-shadow: 0 24px 80px rgba(0,0,0,.55); }
+.played-detail-head { position: sticky; top: 0; z-index: 2; display: flex;
+  align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.played-detail-head > div { display: grid; gap: 2px; }
+.played-detail-head span { color: var(--green); font-size: 10px; font-weight: 800;
+  letter-spacing: .07em; text-transform: uppercase; }
+.played-detail-head h3 { margin: 0; font-size: 17px; }
+.played-detail-head p { margin: 0; color: var(--muted); font-size: 11px; }
+.played-detail-head > button { min-width: 38px; min-height: 38px; }
+.played-detail-body { display: grid; gap: 18px; padding: 14px 16px 20px; }
+.played-detail-body section { display: grid; gap: 8px; }
+.played-detail-body h4 { margin: 0; font-size: 12px; }
+.played-detail-kpis { display: flex; flex-wrap: wrap; gap: 8px; }
+.played-detail-kpis span { min-width: 120px; padding: 8px 10px; border-radius: 7px;
+  background: var(--panel2); color: var(--muted); font-size: 10px; }
+.played-detail-kpis b { display: block; color: var(--text); font-size: 15px; }
+.played-detail-warning { margin: 0; padding: 9px 10px; border-radius: 7px;
+  border: 1px solid rgba(224,133,59,.55); color: var(--orange); }
+.played-facit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 6px; }
+.played-facit-match { display: grid; grid-template-columns: 20px minmax(0,1fr) 28px;
+  align-items: center; gap: 6px; padding: 7px 8px; border-radius: 7px;
+  background: var(--panel2); }
+.played-facit-match > span { color: var(--muted); font-size: 10px; }
+.played-facit-match > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 11px; }
+.played-facit-match > em { display: grid; place-items: center; min-height: 24px;
+  border: 1px solid var(--line); border-radius: 5px; color: var(--muted);
+  font-style: normal; font-weight: 900; }
+.played-facit-match > em.known { border-color: var(--green); color: var(--green); }
+.played-facit-match > small { grid-column: 2 / -1; color: var(--muted); font-size: 9px; }
+.played-dist { display: flex; flex-wrap: wrap; gap: 6px; }
+.played-dist span { padding: 5px 8px; border-radius: 999px; border: 1px solid var(--line);
+  color: var(--muted); font-size: 10px; }
+.played-dist b { color: var(--text); }
+.played-rows-head { display: flex; justify-content: space-between; gap: 12px;
+  align-items: end; }
+.played-rows-head > div { display: grid; gap: 2px; }
+.played-rows-head p { margin: 0; color: var(--muted); font-size: 10px; }
+.played-rows-head > b { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.played-row-results { display: grid; gap: 5px; }
+.played-row-result { display: grid; grid-template-columns: 40px minmax(0,1fr) 48px 64px;
+  align-items: center; gap: 7px; padding: 6px 8px; border-radius: 7px;
+  border: 1px solid var(--line); background: rgba(8,12,17,.35); }
+.played-row-result.prize { border-color: rgba(61,220,132,.5); }
+.played-row-number { color: var(--muted); font-size: 10px; }
+.played-row-signs { display: grid; grid-template-columns: repeat(var(--played-cols), minmax(18px, 1fr));
+  gap: 3px; }
+.played-row-signs span { display: grid; place-items: center; min-height: 23px;
+  border-radius: 4px; border: 1px solid var(--line); color: var(--muted);
+  font-size: 10px; font-weight: 800; }
+.played-row-signs span.hit { background: rgba(61,220,132,.13); border-color: var(--green);
+  color: var(--green); }
+.played-row-signs span.miss { background: rgba(224,86,86,.08); border-color: rgba(224,86,86,.35);
+  color: #dc7777; }
+.played-row-result > b { text-align: right; font-size: 11px; }
+.played-row-result > em { color: var(--green); font-size: 10px; font-style: normal;
+  text-align: right; }
+.played-show-all { width: 100%; min-height: 40px; margin-top: 4px; }
 
 /* Liverättningen */
 .liverattning { width: 100%; margin: 4px 0 10px; }
@@ -1146,6 +1225,20 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   .playedcard-sum { gap: 10px; }
   .playedlevels { width: 100%; min-width: 0; }
   .playedlevels td, .playedlevels th { padding-right: 8px; }
+  .played-detail-backdrop { padding: 0; place-items: stretch; }
+  .played-detail { width: 100%; max-height: 100dvh; border: none; border-radius: 0; }
+  .played-detail-head { padding: 12px; }
+  .played-detail-head h3 { font-size: 15px; }
+  .played-detail-body { padding: 12px 10px 24px; gap: 16px; }
+  .played-detail-kpis { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .played-detail-kpis span { min-width: 0; padding: 7px; }
+  .played-detail-kpis b { font-size: 13px; }
+  .played-facit-grid { grid-template-columns: 1fr; }
+  .played-row-result { grid-template-columns: 32px minmax(0,1fr) 42px; gap: 5px;
+    padding: 6px; }
+  .played-row-result > em { grid-column: 2 / -1; }
+  .played-row-signs { gap: 2px; }
+  .played-row-signs span { min-height: 21px; font-size: 9px; }
   /* Fem kolumner får inte plats på 375 px — "Mina rader" och "Heja på" föll
      utanför vyn, alltså exakt de två som gör kortet användbart. Raden staplas
      därför i två våningar i stället för att scrolla i sidled. */

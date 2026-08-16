@@ -3088,6 +3088,18 @@ function couponDate(c) {
     weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
   })
 }
+function couponKindLabel(c) {
+  if (c?.build_kind === 'byggare-komplement-a') return 'Kupong A'
+  if (c?.build_kind === 'byggare-komplement-b') return 'Kupong B'
+  const suffix = String(c?.label || '').split('·').map((part) => part.trim()).at(-1)
+  if (suffix && suffix !== c.label && !/^omgång\s/i.test(suffix)) return suffix
+  if (c?.build_kind === 'byggare') return 'Förslag'
+  return c?.build_kind || null
+}
+function couponTitle(c) {
+  const kind = couponKindLabel(c)
+  return `${couponLabel(c)}${kind ? ` · ${kind}` : ''}`
+}
 
 /* Liverättningen: matcherna i kupongordning med ställning, mitt tecken och —
    för de som är kvar — vilket resultat som håller flest rader vid liv.
@@ -3297,11 +3309,137 @@ function PlayedLiveCard({ c, onForget }) {
   )
 }
 
+/* Ett avgjort systems exakta rader mot settlementkanonens facit. Hämtas
+   först när användaren öppnar kupongen: 5 000-raderstester ska inte göra den
+   vanliga Historik-vyn tung. */
+function PlayedCouponDetail({ coupon, onClose }) {
+  const [detail, setDetail] = useState(null)
+  const [error, setError] = useState(null)
+  const [showAll, setShowAll] = useState(false)
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch(`/api/pool/played/${coupon.id}`, {
+      cache: 'no-store', signal: controller.signal,
+    }).then(async (response) => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      return response.json()
+    }).then(setDetail).catch((reason) => {
+      if (reason?.name !== 'AbortError') setError(reason?.message || 'Okänt fel')
+    })
+    return () => controller.abort()
+  }, [coupon.id])
+  useEffect(() => {
+    const closeOnEscape = (event) => { if (event.key === 'Escape') onClose() }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [onClose])
+
+  const events = detail?.events || []
+  const rows = detail?.rows || []
+  const shownRows = showAll ? rows : rows.slice(0, 30)
+  const distribution = Object.entries(detail?.correct_dist || {})
+    .map(([correct, count]) => [Number(correct), Number(count)])
+    .sort((a, b) => b[0] - a[0])
+  const eventName = (event) => event.description
+    || [event.home, event.away].filter(Boolean).join(' – ')
+    || `Match ${event.column}`
+  return (
+    <div className="played-detail-backdrop" onMouseDown={onClose}>
+      <section className="played-detail" role="dialog" aria-modal="true"
+        aria-labelledby="played-detail-title" onMouseDown={(event) => event.stopPropagation()}>
+        <header className="played-detail-head">
+          <div>
+            <span>Rättad testkupong</span>
+            <h3 id="played-detail-title">{couponTitle(coupon)}</h3>
+            <p>{couponDate(coupon)} · {coupon.n_rows} rader · {kr(coupon.cost_kr)}</p>
+          </div>
+          <button onClick={onClose} aria-label="Stäng kupongdetaljen">✕</button>
+        </header>
+        {error && <ErrorState message={`Kupongen kunde inte hämtas: ${error}`} />}
+        {!detail && !error && <LoadingState label="Hämtar rader och facit…" />}
+        {detail && (
+          <div className="played-detail-body">
+            <div className="played-detail-kpis">
+              <span><b>{coupon.correct_max}</b> bäst rätt</span>
+              <span><b>{coupon.payout_complete ? kr(coupon.payout_kr) : 'ofullständigt'}</b> utdelning</span>
+              <span><b className={coupon.roi == null ? '' : coupon.roi >= 0 ? 'pos' : 'neg'}>
+                {coupon.roi == null ? '–' : `${coupon.roi >= 0 ? '+' : ''}${Math.round(coupon.roi * 100)} %`}
+              </b> ROI</span>
+            </div>
+            {!detail.audit_matches_stored && (
+              <p className="played-detail-warning">Varning: den omräknade
+                radfördelningen avviker från det sparade facitet.</p>
+            )}
+            <section>
+              <h4>Officiellt facit, match för match</h4>
+              <div className="played-facit-grid">
+                {events.map((event) => (
+                  <div key={event.column} className="played-facit-match">
+                    <span>{event.column}</span>
+                    <b>{eventName(event)}</b>
+                    <em className={event.outcome ? 'known' : ''}>{event.outcome || '?'}</em>
+                    {event.cancelled && <small>struken · fastställt tecken</small>}
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section>
+              <h4>Så fördelades raderna</h4>
+              <div className="played-dist">
+                {distribution.map(([correct, count]) => (
+                  <span key={correct}><b>{count}</b> {count === 1 ? 'rad' : 'rader'} med {correct} rätt</span>
+                ))}
+              </div>
+            </section>
+            <section>
+              <div className="played-rows-head">
+                <div><h4>Raderna, bäst först</h4>
+                  <p>Grönt tecken är rätt, rött är fel. # är radens plats i den sparade filen.</p></div>
+                <b>{showAll ? rows.length : Math.min(30, rows.length)} av {rows.length}</b>
+              </div>
+              <div className="played-row-results">
+                {shownRows.map((row) => (
+                  <div className={`played-row-result${row.payout_kr > 0 ? ' prize' : ''}`}
+                    key={row.index}>
+                    <span className="played-row-number">#{row.index}</span>
+                    <div className="played-row-signs"
+                      style={{ '--played-cols': Math.max(1, events.length) }}>
+                      {[...row.signs].map((sign, index) => {
+                        const outcome = events[index]?.outcome
+                        return <span key={index}
+                          className={!outcome ? '' : sign === outcome ? 'hit' : 'miss'}
+                          title={`${eventName(events[index] || { column: index + 1 })}: ${sign}, facit ${outcome || '?'}`}>
+                          {sign}
+                        </span>
+                      })}
+                    </div>
+                    <b>{row.correct == null ? '–' : `${row.correct}/${events.length}`}</b>
+                    {row.payout_kr > 0
+                      ? <em>+{kr(row.payout_kr)}</em>
+                      : row.prize_level && row.payout_kr == null
+                        ? <em>belopp saknas</em> : null}
+                  </div>
+                ))}
+              </div>
+              {rows.length > 30 && (
+                <button className="played-show-all" onClick={() => setShowAll((value) => !value)}>
+                  {showAll ? 'Visa bara de 30 bästa' : `Visa samtliga ${rows.length} rader`}
+                </button>
+              )}
+            </section>
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
+
 // `product` = null visar alla spel; annars filtreras allt till ett. Summeringen
 // räknas om på det filtrerade urvalet — en ROI som gäller alla spel får inte
 // stå kvar som rubrik när tabellen bara visar ett.
 function PlayedPanel({ product = null }) {
   const [data, setData] = useState(null)
+  const [detailCoupon, setDetailCoupon] = useState(null)
   const load = useCallback(() => {
     const stamp = Date.now()
     fetch(`/api/pool/played?live=false&_t=${stamp}`, { cache: 'no-store' })
@@ -3407,10 +3545,12 @@ function PlayedPanel({ product = null }) {
               { key: 'correct_max', label: 'Bäst rätt' },
               { key: 'payout_kr', label: 'Utdelning' },
               { key: 'roi', label: 'ROI' },
+              { key: 'detail', label: '', sortable: false },
             ]}
             renderRow={(c) => (
               <tr key={c.id}>
-                <td>{PRODUCT_LABEL[c.product] || c.product}</td>
+                <td><b>{PRODUCT_LABEL[c.product] || c.product}</b>
+                  {couponKindLabel(c) && <span className="played-kind">{couponKindLabel(c)}</span>}</td>
                 <td>{c.draw_number}</td>
                 <td>{couponDate(c)}</td>
                 <td>{c.budget != null
@@ -3432,9 +3572,26 @@ function PlayedPanel({ product = null }) {
                 <td className={c.roi == null ? '' : c.roi >= 0 ? 'pos' : 'neg'}>
                   {c.roi == null ? '–'
                     : `${c.roi >= 0 ? '+' : ''}${Math.round(c.roi * 100)} %`}</td>
+                <td><button onClick={() => setDetailCoupon(c)}>Visa kupong</button></td>
               </tr>
+            )}
+            renderCard={(c) => (
+              <article className="played-done-card" key={c.id}>
+                <header><div><b>{couponTitle(c)}</b><span>{couponDate(c)}</span></div>
+                  <strong className={c.roi == null ? '' : c.roi >= 0 ? 'pos' : 'neg'}>
+                    {c.roi == null ? '–'
+                      : `${c.roi >= 0 ? '+' : ''}${Math.round(c.roi * 100)} %`}</strong></header>
+                <div><span><b>{c.n_rows}</b> rader</span><span><b>{kr(c.cost_kr)}</b> kostnad</span>
+                  <span><b>{c.correct_max}</b> bäst rätt</span>
+                  <span><b>{c.payout_complete ? kr(c.payout_kr) : 'ofullständig'}</b> utdelning</span></div>
+                <button onClick={() => setDetailCoupon(c)}>Visa rader och facit</button>
+              </article>
             )} />
         </>
+      )}
+      {detailCoupon && (
+        <PlayedCouponDetail key={detailCoupon.id} coupon={detailCoupon}
+          onClose={() => setDetailCoupon(null)} />
       )}
     </div>
   )

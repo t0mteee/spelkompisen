@@ -1132,6 +1132,98 @@ def all_coupons(store: Storage, limit: int = 100) -> list[dict]:
         (int(limit),))]
 
 
+def coupon_detail(store: Storage, coupon_id: int) -> Optional[dict]:
+    """Exakta sparade rader mot officiellt facit, bara för detaljvyn.
+
+    Databasen bär `rows_text`, men matchnamn och officiella utfall hör hemma i
+    settlementlagret. Slå ihop dem först när en kupong öppnas så att Historik
+    inte blir tyngre för varje sparad kupong.
+    """
+    raw = store.conn.execute(
+        "SELECT c.*, COALESCE(s.reg_close_time, d.reg_close_time) AS draw_close "
+        "FROM pool_played_coupon c "
+        "LEFT JOIN pool_draw_settlement s "
+        "ON s.product=c.product AND s.draw_number=c.draw_number "
+        "LEFT JOIN draws d "
+        "ON d.product=c.product AND d.draw_number=c.draw_number "
+        "WHERE c.id=?", (int(coupon_id),)).fetchone()
+    if raw is None:
+        return None
+    coupon = dict(raw)
+    rows = [row for row in (coupon.get("rows_text") or "").split("\n") if row]
+    width = len(rows[0]) if rows else 0
+    events_order = _coupon_events(coupon, width)
+
+    event_rows = {int(row["event_number"]): dict(row) for row in store.conn.execute(
+        "SELECT event_number, description, home, away, match_start, outcome, "
+        "cancelled FROM pool_event_settlement WHERE product=? AND draw_number=?",
+        (coupon["product"], coupon["draw_number"]))}
+    events = []
+    outcomes = []
+    for col, event_number in enumerate(events_order, start=1):
+        event = event_rows.get(event_number, {})
+        outcome = event.get("outcome") if event.get("outcome") in SIGNS else None
+        outcomes.append(outcome)
+        events.append({
+            "column": col, "event_number": event_number,
+            "description": event.get("description"),
+            "home": event.get("home"), "away": event.get("away"),
+            "match_start": event.get("match_start"), "outcome": outcome,
+            "cancelled": bool(event.get("cancelled")),
+        })
+
+    tiers = {}
+    for tier in store.conn.execute(
+            "SELECT tier_name, correct, winners, amount FROM pool_payout_tier "
+            "WHERE product=? AND draw_number=? AND correct IS NOT NULL",
+            (coupon["product"], coupon["draw_number"])):
+        item = dict(tier)
+        correct = int(item["correct"])
+        tiers[correct] = {
+            "name": item.get("tier_name"), "correct": correct,
+            "winners": item.get("winners"), "amount": item.get("amount"),
+        }
+
+    facit_complete = bool(width and len(outcomes) == width
+                          and all(outcome in SIGNS for outcome in outcomes))
+    row_results = []
+    computed_dist: dict[int, int] = {}
+    for index, row in enumerate(rows, start=1):
+        correct = (sum(sign == outcome for sign, outcome in zip(row, outcomes))
+                   if facit_complete else None)
+        if correct is not None:
+            computed_dist[correct] = computed_dist.get(correct, 0) + 1
+        tier = tiers.get(correct) if correct is not None else None
+        amount = tier.get("amount") if tier else 0.0
+        row_results.append({
+            "index": index, "signs": row, "correct": correct,
+            # `None` betyder publicerad nivå utan belopp; 0 betyder ingen
+            # vinstnivå. Samma distinktion som i settle().
+            "payout_kr": float(amount) if amount is not None else None,
+            "prize_level": bool(tier),
+        })
+    row_results.sort(key=lambda item: (
+        -(item["correct"] if item["correct"] is not None else -1), item["index"]))
+
+    stored_dist = {}
+    try:
+        stored_dist = {int(k): int(v) for k, v in json.loads(
+            coupon.get("correct_dist") or "{}").items()}
+    except (TypeError, ValueError, AttributeError):
+        pass
+    public_coupon = {key: value for key, value in coupon.items()
+                     if key not in {"rows_text", "events_order"}}
+    return {
+        "coupon": public_coupon, "events": events, "rows": row_results,
+        "correct_dist": computed_dist if facit_complete else stored_dist,
+        "tiers": [tiers[key] for key in sorted(tiers, reverse=True)],
+        "facit_complete": facit_complete,
+        "facit": "".join(outcome or "?" for outcome in outcomes),
+        "audit_matches_stored": (not facit_complete or not stored_dist
+                                  or computed_dist == stored_dist),
+    }
+
+
 def summary(store: Storage) -> dict:
     """Ärligt sammandrag: bara kompletta facit ingår i ROI."""
     rows = [r for r in all_coupons(store, 1000)]

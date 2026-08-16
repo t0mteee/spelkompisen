@@ -662,6 +662,20 @@ def pool_played_forget(coupon_id: int):
         store.close()
 
 
+@app.get("/api/pool/played/{coupon_id}")
+def pool_played_detail(coupon_id: int):
+    """En sparad kupongs exakta rader mot settlementlagrets officiella facit."""
+    from . import pool_played
+    store = Storage()
+    try:
+        detail = pool_played.coupon_detail(store, coupon_id)
+        if detail is None:
+            raise HTTPException(status_code=404, detail="kupongen finns inte")
+        return detail
+    finally:
+        store.close()
+
+
 @app.get("/api/pool/played")
 def pool_played_list(live: bool = True, chance: bool = True):
     """Spelade kuponger med LIVESTATUS för öppna omgångar.
@@ -725,6 +739,13 @@ def pool_played_list(live: bool = True, chance: bool = True):
                         "Livestatus misslyckades för %s %s",
                         item["product"], item["draw_number"],
                         exc_info=True)
+        # Exakta rader kan vara 5 000 × 13 tecken per kupong. De behövs bara
+        # internt ovan och i den nya detaljendpointen — aldrig i summerings-
+        # listan. Historikens första svar förblir därför litet även när många
+        # testkuponger har sparats.
+        for item in out:
+            item.pop("rows_text", None)
+            item.pop("events_order", None)
         return {"coupons": out, "summary": pool_played.summary(store),
                 "live_included": live,
                 "chance_included": bool(live and chance)}

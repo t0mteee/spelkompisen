@@ -80,6 +80,29 @@ Försök inte kringgå detta via privata SvS-endpoints, sessionscookies eller
 lagrade inloggningar. Det vore skört, skulle blanda autentisering med vår
 server och bryta projektregeln att aldrig lägga spel automatiskt.
 
+## Rättade testkuponger i Historik
+
+Avgjorda bokförda kuponger är inte längre bara summeringsrader. **Historik →
+Spelade kuponger → Visa kupong** öppnar en detaljvy med:
+
+- officiellt facittecken och matchnamn i kupongens sparade eventordning;
+- antal rader per rättnivå;
+- de exakta sparade raderna, sorterade bäst först, med grönt/rött per tecken;
+- publicerad utdelning per vinnande rad och möjlighet att visa samtliga rader.
+
+Kupong A/B identifieras via de beständiga `build_kind`-värdena
+`byggare-komplement-a/b`, inte genom att tolka ordningen i listan. Det nya
+läs-API:t är `GET /api/pool/played/{id}` och gör en eventNumber-join mellan
+`pool_played_coupon` och den officiella settlementkanonen. Det omräknade
+facitet jämförs dessutom med kupongens sparade `correct_dist`; avvikelse visas
+som en varning och får aldrig döljas.
+
+Listan `GET /api/pool/played` skickar inte längre `rows_text` eller
+`events_order` till klienten. Livestatus räknas färdigt i backend först, och
+de potentiellt 5 000 × 13 tecknen hämtas bara när detaljvyn öppnas. Återinför
+inte raderna i listsvaret — det skulle göra Historik långsammare för varje ny
+testkupong.
+
 ## Kod och verifiering
 
 - Backend: `backend/app/builder.py`, `backend/app/main.py`.

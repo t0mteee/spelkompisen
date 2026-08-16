@@ -217,6 +217,42 @@ class SettleTests(unittest.TestCase):
         self.assertEqual(2, res["correct_max"])
         self.assertEqual(100.0, res["payout_kr"])
 
+    def test_kupongdetalj_visar_rader_matchnamn_och_officiellt_facit(self):
+        kupong = self._spelad(rows=("21", "22"), events_order=[2, 1])
+        for number, outcome, home, away in (
+                (1, "1", "Hemma ett", "Borta ett"),
+                (2, "2", "Hemma två", "Borta två")):
+            self.store.conn.execute(
+                "INSERT INTO pool_event_settlement (product, draw_number, "
+                "event_number, description, home, away, outcome, cancelled) "
+                "VALUES (?,?,?,?,?,?,?,0)",
+                ("topptipset", 4302, number, f"{home} – {away}",
+                 home, away, outcome))
+        self.store.conn.execute(
+            "INSERT INTO pool_payout_tier (product, draw_number, tier_name, "
+            "correct, winners, amount) VALUES (?,?,?,?,?,?)",
+            ("topptipset", 4302, "2 rätt", 2, 10, 100.0))
+        self.store.conn.commit()
+        pool_played.settle(self.store, kupong, tiers={2: (10, 100.0)})
+
+        detail = pool_played.coupon_detail(self.store, kupong["id"])
+
+        self.assertEqual("21", detail["facit"])
+        self.assertTrue(detail["facit_complete"])
+        self.assertTrue(detail["audit_matches_stored"])
+        self.assertEqual([2, 1], [event["event_number"]
+                                 for event in detail["events"]])
+        self.assertEqual("Hemma två", detail["events"][0]["home"])
+        self.assertEqual({2: 1, 1: 1}, detail["correct_dist"])
+        self.assertEqual(
+            {"index": 1, "signs": "21", "correct": 2,
+             "payout_kr": 100.0, "prize_level": True},
+            detail["rows"][0])
+        self.assertNotIn("rows_text", detail["coupon"])
+
+    def test_kupongdetalj_for_okand_id_saknas(self):
+        self.assertIsNone(pool_played.coupon_detail(self.store, 9999))
+
     def test_struken_match_med_faststallt_tecken_raknas_som_tecknet(self):
         # SvS fastställer tecknet för strukna matcher — det gäller, inte
         # "rätt för alla rader".
