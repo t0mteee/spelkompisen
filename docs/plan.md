@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-08-15 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-08-16 — läs detta först i ny session)
 
 **TVÅ KOMPLETTERANDE KUPONGER I POOLBYGGAREN (2026-08-15, Codex).**
 Värderader har ett frivilligt dubbelkupongsläge där A och B byggs gemensamt
@@ -8,9 +8,14 @@ med disjunkta spikankare. V1 ersattes samma dag efter att de faktiskt sparade
 Stryktipskupongerna 27/28 visade 57 procent exakta dubblettrader och bara 10
 procents kosmetisk gardering; Topptipset Stryk 976 gav dessutom upp när
 singelförslaget saknade spik. V2 kräver högst 10 procent radöverlapp, minst 50
-procent gardering av den andra kupongens ankare och minst 75 procent av
-singelförslagets interna kvalitet för båda systemen. Den skapar egna ankare
-även när singelförslaget saknar spik. UI:t visar båda kvaliteterna, ankare,
+procent gardering av den andra kupongens ankare och har 75 procent som
+föredraget kvalitetsriktmärke för båda systemen. Europatipset 2599 visade att
+ett fast 75-procentskrav fortfarande kunde ge upp trots att två verkligt olika
+kuponger fanns. Byggaren försöker därför först nå 75 procent och får därefter
+gå ner till ett hårt minimum på 60 procent. Avsteget visas öppet i UI:t med
+båda värdena; måttet är intern `träffchans^k × EV`, aldrig vinstchans. Den
+skapar egna ankare även när singelförslaget saknar spik. UI:t visar båda
+kvaliteterna, ankare,
 överlapp samt kostnad per kupong och totalt. Läget är avstängt som standard,
 ändrar inte enkelbyggaren/PH5/modeller och lägger aldrig spel automatiskt.
 Evidens och kontrakt: `docs/kompletterande-kuponger-2026-08-15.md`.

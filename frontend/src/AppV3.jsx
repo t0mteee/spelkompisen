@@ -701,6 +701,16 @@ function ComplementaryChooser({ primary, meta, onUsePrimary, onUseAlternative })
         <b>{overlapPct === 0 ? 'Inga identiska rader' : `${overlapPct} % identiska rader`}</b>
         <span>Varje kupong garderar minst hälften av den andras ankartecken.</span>
       </div>
+      {meta.below_preferred_quality && (
+        <div className="complementary-tradeoff">
+          <b>Större riskspridning kostar modellstyrka den här omgången</b>
+          <span>Riktmärket är {Math.round(meta.preferred_quality_floor * 100)} %. A når{' '}
+            {Math.round(meta.primary_quality_ratio * 100)} % och B{' '}
+            {Math.round(meta.alternative_quality_ratio * 100)} %, men båda håller det hårda
+            minimigolvet {Math.round(meta.quality_floor * 100)} %. Procenten är ett internt
+            jämförelsemått, inte vinstchans.</span>
+        </div>
+      )}
       <details className="complementary-tech">
         <summary>Visa teknisk jämförelse</summary>
         <p>{meta.row_overlap} av {primary.num_rows} rader är exakt lika. Modellstyrka mot

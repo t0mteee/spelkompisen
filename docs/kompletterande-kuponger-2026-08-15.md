@@ -10,14 +10,18 @@ men A och B optimeras tillsammans som två olika scenarier:
 - varje kupong får använda den andras ankartecken på högst 50 procent av
   raderna;
 - högst 10 procent av de exakta raderna får finnas i båda kupongerna;
-- vardera kupongen måste behålla minst 75 procent av det vanliga
+- byggaren försöker först låta båda behålla minst 75 procent av det vanliga
   singelförslagets interna `träffchans^k × EV`-summa;
+- om det är omöjligt får den göra ett andra försök ner till det hårda
+  minimigolvet 60 procent. UI:t visar då en tydlig varning med A:s och B:s
+  faktiska värden;
 - A och B har samma radantal och kostnad, och kan läggas i kupongen var för sig.
 
 På 13-matchsspel med högst 512 rader försöker byggaren ge två ankare per
 kupong. På åttamatchsspel och tätare system används minst ett ankare per
-kupong. Om den striktare varianten inte går provar den färre ankare, men aldrig
-gemensamma ankarmatcher eller ett lägre kvalitetsgolv.
+kupong. Om den striktare varianten inte går provar den färre ankare. Först
+därefter provas 60-procentsgolvet, fortfarande utan gemensamma ankarmatcher
+eller mer än 10 procents radöverlapp.
 
 Detta är två fullstora spelalternativ, inte två delar av samma budget. En vald
 insats på 256 kr betyder 256 + 256 kr om båda spelas. Läget är avstängt som
@@ -25,9 +29,11 @@ standard och lägger aldrig in eller lämnar in något automatiskt. Vill
 användaren ha byggarens ordinarie system stängs dubbelkupongsläget av.
 
 Kvalitetsprocenten är ett relativt byggarmått, inte vinstsannolikhet eller
-historiskt bevisad avkastning. Det lägre golvet än i v1 är avsiktligt: en andra
-kupong som tvingas till 90 procent blev i praktiken en nästan identisk kopia
-och gav därför ingen meningsfull riskspridning.
+historiskt bevisad avkastning. Riktmärket och minimigolvet är avsiktligt lägre
+än v1:s 90 procent: en andra kupong som tvingades dit blev i praktiken en
+nästan identisk kopia och gav därför ingen meningsfull riskspridning. En
+kupong under 75 procent får aldrig presenteras som ett normalt 75-procentsfall;
+kompromissen ska ligga synlig ovanför den tekniska fördjupningen.
 
 ## Varför v1 ersattes samma dag
 
@@ -50,13 +56,16 @@ B:s ankare själv ur samma rankade universum.
 `GET /api/system` accepterar `complementary=true` tillsammans med `ev=true`.
 Svaret på toppnivån är Kupong A; `complementary.system` är Kupong B och
 metadatafältet redovisar ankare, faktisk radöverlapp, båda kvalitetskvoterna,
-korstaket och kostnaderna. Befintliga anrop utan flaggan är oförändrade.
+75-procentsriktmärket, 60-procentsgolvet, avstegsflaggan, korstaket och
+kostnaderna. Befintliga anrop utan flaggan är oförändrade.
 
 Standardbyggaren fullrankar ett begränsat toppurval precis som förut.
 Dubbelkupongsläget fullrankar hela det redan begränsade kandidatuniversumet
 (högst 60 000 rader), söker disjunkta ankargrupper och väljer de bästa raderna
-under korstaken. Därefter byts exakta dubblettrader bort så långt
-75-procentsgolvet medger. Sökningen är deterministisk.
+under korstaken. Därefter byts exakta dubblettrader bort så långt den aktuella
+söknivån medger. Sökningen är deterministisk och körs i två steg: först 75,
+sedan vid behov 60 procent. Det gör att en vanlig omgång inte tappar kvalitet
+bara för att fallbacken finns.
 
 Ingen databas eller ordinarie modellversion ändrades. De redan sparade
 kupongerna 27 och 28 ska självklart ligga kvar som faktiskt spelad historik;
@@ -69,7 +78,9 @@ de skrivs inte om i efterhand.
 - A och B ska ha disjunkta ankarmatcher, samma radantal och samma kostnad.
 - Den andra kupongens ankartecken får finnas på högst hälften av raderna.
 - Exakt radöverlapp får vara högst 10 procent.
-- Båda kvalitetskvoterna ska vara minst 75 procent av singelförslaget.
+- Båda kvalitetskvoterna ska vara minst 75 procent när riktmärket går att nå.
+- En koncentrerad omgång som inte når riktmärket ska ändå kunna ge två
+  kuponger över 60 procent och då sätta `below_preferred_quality=true`.
 - Upprepade anrop med samma data ska ge identiska rader och metadata.
 - Backendens fulla testsvit, frontendtesterna, produktionsbygget och riktiga
   torrtest mot både Stryktips 4966 och Topptipset Stryk 976 ska vara gröna före
@@ -89,3 +100,17 @@ Med respektive omgångs riktiga analysdata och 256 kr gav den nya byggaren:
 
 Verifiering före commit: 714 backendtester, 12 frontendtester,
 produktionsbygge och syntax-/diffkontroll gröna.
+
+## Regressionen från Europatipset 2599
+
+Den 16 augusti visade den riktiga 256-kronorsomgången Europatipset 2599
+varningen "Två tillräckligt olika kuponger kunde inte skapas". Detta var inte
+v1-felet med nästan identiska rader: omgången var så favoritkoncentrerad att
+två disjunkta ankarscenarier inte kunde hålla det fasta 75-procentskravet.
+
+Regressionstestet använder omgångens sparade sannolikheter, streck, rörelser
+och omsättning. Det kräver 256 + 256 rader, disjunkta ankare, högst 10 procents
+överlapp, minst 60 procent för båda och en synlig avstegsflagga. Den vanliga
+åttamatchsregressionen måste fortsatt nå minst 75 procent och får inte flaggas.
+Verifiering efter ändringen: 718 backendtester, 12 frontendtester, lint och
+produktionsbygge gröna.

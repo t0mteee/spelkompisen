@@ -32,6 +32,8 @@ from .analysis import DrawAnalysis, MatchAnalysis
 
 SIGNS = ("1", "X", "2")
 ROW_PRICE = 1.0  # Stryktipset: 1 kr/rad
+COMPLEMENTARY_PREFERRED_QUALITY = 0.75
+COMPLEMENTARY_MIN_QUALITY = 0.60
 
 
 @dataclass
@@ -879,7 +881,8 @@ def build_complementary_ev_systems(
         analysis: DrawAnalysis, strategy: str = "medel",
         budget: float = 100.0, row_price: float = ROW_PRICE,
         value_weight: float = 0.5, plan: Optional[dict] = None,
-        jackpot: float = 0.0, quality_floor: float = 0.75,
+        jackpot: float = 0.0,
+        quality_floor: float = COMPLEMENTARY_MIN_QUALITY,
         cross_anchor_share: float = 0.50,
         max_overlap_share: float = 0.10,
 ) -> tuple[System, Optional[System], dict]:
@@ -888,7 +891,8 @@ def build_complementary_ev_systems(
     Enkelbyggaren är oförändrad. I det frivilliga dubbelläget byggs däremot A
     och B tillsammans: vardera spikar egna matcher och får använda den andra
     kupongens spiktecken på högst hälften av raderna. Exakta radkopior tas bort
-    så långt det fasta kvalitetsgolvet tillåter.
+    så långt det hårda kvalitetsgolvet tillåter. 75 procent är fortsatt det
+    föredragna riktmärket; lägre resultat märks öppet i metadata och UI.
     """
     baseline_ranked = _rank_ev_rows(
         analysis, budget, row_price, value_weight, plan, jackpot)
@@ -900,6 +904,8 @@ def build_complementary_ev_systems(
     metadata = {
         "available": False,
         "quality_floor": quality_floor,
+        "preferred_quality_floor": COMPLEMENTARY_PREFERRED_QUALITY,
+        "below_preferred_quality": False,
         "cross_anchor_share": cross_anchor_share,
         "guard_share": 1.0 - cross_anchor_share,
         "max_overlap_share": max_overlap_share,
@@ -922,7 +928,6 @@ def build_complementary_ev_systems(
         analysis, budget, row_price, value_weight, plan, jackpot,
         refine_all=True)
     target = len(baseline_rows)
-    floor_score = baseline_score * quality_floor
     cap = int(target * cross_anchor_share)
 
     # Välj ett möjligt ankare per match. Tecknet får vara marknadsfavoriten
@@ -963,88 +968,100 @@ def build_complementary_ev_systems(
         return baseline, None, metadata
 
     desired_anchors = 2 if len(analysis.matches) >= 12 and target <= 512 else 1
-    best_pair = None
-    for anchor_count in range(desired_anchors, 0, -1):
-        groups = []
-        for combo in itertools.combinations(candidates, anchor_count):
-            indexes = {item[2] for item in combo}
-            if len(indexes) != anchor_count:
-                continue
-            fixed = tuple(sorted((item[2], item[3]) for item in combo))
-            eligible = [item for item in pair_ranked.rows
-                        if all(item[2][index] == sign
-                               for index, sign in fixed)]
-            if len(eligible) < target:
-                continue
-            if sum(item[0] for item in eligible[:target]) < floor_score:
-                continue
-            groups.append((fixed, eligible))
 
-        preliminary = []
-        for left, right in itertools.combinations(groups, 2):
-            left_fixed, left_eligible = left
-            right_fixed, right_eligible = right
-            if ({index for index, _ in left_fixed}
-                    & {index for index, _ in right_fixed}):
-                continue
-            left_caps = {key: cap for key in right_fixed}
-            right_caps = {key: cap for key in left_fixed}
-            left_rows = _select_capped_rows(
-                left_eligible, target, left_caps)
-            right_rows = _select_capped_rows(
-                right_eligible, target, right_caps)
-            if left_rows is None or right_rows is None:
-                continue
-            left_score = sum(item[0] for item in left_rows)
-            right_score = sum(item[0] for item in right_rows)
-            if min(left_score, right_score) < floor_score:
-                continue
-            left_events = {
-                item["event_number"]
-                for item in _spike_details(left_rows, analysis.matches)}
-            right_events = {
-                item["event_number"]
-                for item in _spike_details(right_rows, analysis.matches)}
-            if left_events & right_events:
-                continue
-            overlap = len({item[2] for item in left_rows}
-                          & {item[2] for item in right_rows})
-            preliminary.append((
-                (-overlap, min(left_score, right_score),
-                 left_score + right_score),
-                left_rows, right_rows, left_eligible, right_eligible,
-                left_caps, right_caps, left_fixed, right_fixed,
-            ))
+    def find_pair(floor_ratio: float):
+        floor_score = baseline_score * floor_ratio
+        best = None
+        for anchor_count in range(desired_anchors, 0, -1):
+            groups = []
+            for combo in itertools.combinations(candidates, anchor_count):
+                indexes = {item[2] for item in combo}
+                if len(indexes) != anchor_count:
+                    continue
+                fixed = tuple(sorted((item[2], item[3]) for item in combo))
+                eligible = [item for item in pair_ranked.rows
+                            if all(item[2][index] == sign
+                                   for index, sign in fixed)]
+                if len(eligible) < target:
+                    continue
+                if sum(item[0] for item in eligible[:target]) < floor_score:
+                    continue
+                groups.append((fixed, eligible))
 
-        # Avdubblering är dyrare än urvalet. Prova de 24 mest lovande paren;
-        # det räcker för stabilitet men håller mobilens väntetid rimlig.
-        preliminary.sort(key=lambda item: item[0], reverse=True)
-        for item in preliminary[:24]:
-            (_, left_rows, right_rows, left_eligible, right_eligible,
-             left_caps, right_caps, left_fixed, right_fixed) = item
-            result = _best_diversified_pair(
-                left_rows, right_rows, left_eligible, right_eligible,
-                left_caps, right_caps, floor_score)
-            a_rows, b_rows, a_score, b_score, overlap = result
-            if overlap > int(target * max_overlap_share):
-                continue
-            a_details = _spike_details(a_rows, analysis.matches)
-            b_details = _spike_details(b_rows, analysis.matches)
-            if ({detail["event_number"] for detail in a_details}
-                    & {detail["event_number"] for detail in b_details}):
-                continue
-            key = (-overlap, min(a_score, b_score), a_score + b_score)
-            if best_pair is None or key > best_pair[0]:
-                best_pair = (key, a_rows, b_rows, a_score, b_score,
-                             overlap, a_details, b_details, anchor_count,
-                             left_fixed, right_fixed)
-        if best_pair is not None:
-            break
+            preliminary = []
+            for left, right in itertools.combinations(groups, 2):
+                left_fixed, left_eligible = left
+                right_fixed, right_eligible = right
+                if ({index for index, _ in left_fixed}
+                        & {index for index, _ in right_fixed}):
+                    continue
+                left_caps = {key: cap for key in right_fixed}
+                right_caps = {key: cap for key in left_fixed}
+                left_rows = _select_capped_rows(
+                    left_eligible, target, left_caps)
+                right_rows = _select_capped_rows(
+                    right_eligible, target, right_caps)
+                if left_rows is None or right_rows is None:
+                    continue
+                left_score = sum(item[0] for item in left_rows)
+                right_score = sum(item[0] for item in right_rows)
+                if min(left_score, right_score) < floor_score:
+                    continue
+                left_events = {
+                    item["event_number"]
+                    for item in _spike_details(left_rows, analysis.matches)}
+                right_events = {
+                    item["event_number"]
+                    for item in _spike_details(right_rows, analysis.matches)}
+                if left_events & right_events:
+                    continue
+                overlap = len({item[2] for item in left_rows}
+                              & {item[2] for item in right_rows})
+                preliminary.append((
+                    (-overlap, min(left_score, right_score),
+                     left_score + right_score),
+                    left_rows, right_rows, left_eligible, right_eligible,
+                    left_caps, right_caps, left_fixed, right_fixed,
+                ))
+
+            # Avdubblering är dyrare än urvalet. Prova de 24 mest lovande
+            # paren; det räcker för stabilitet men håller väntetiden rimlig.
+            preliminary.sort(key=lambda item: item[0], reverse=True)
+            for item in preliminary[:24]:
+                (_, left_rows, right_rows, left_eligible, right_eligible,
+                 left_caps, right_caps, left_fixed, right_fixed) = item
+                result = _best_diversified_pair(
+                    left_rows, right_rows, left_eligible, right_eligible,
+                    left_caps, right_caps, floor_score)
+                a_rows, b_rows, a_score, b_score, overlap = result
+                if overlap > int(target * max_overlap_share):
+                    continue
+                a_details = _spike_details(a_rows, analysis.matches)
+                b_details = _spike_details(b_rows, analysis.matches)
+                if ({detail["event_number"] for detail in a_details}
+                        & {detail["event_number"] for detail in b_details}):
+                    continue
+                key = (-overlap, min(a_score, b_score), a_score + b_score)
+                if best is None or key > best[0]:
+                    best = (key, a_rows, b_rows, a_score, b_score,
+                            overlap, a_details, b_details, anchor_count,
+                            left_fixed, right_fixed)
+            if best is not None:
+                break
+        return best
+
+    # Behåll 75 procent när det går. Bara om ingen sådan portfölj finns görs
+    # ett andra, tydligt märkt försök ner till det hårda minimigolvet.
+    preferred_floor = max(
+        quality_floor, COMPLEMENTARY_PREFERRED_QUALITY)
+    best_pair = find_pair(preferred_floor)
+    if best_pair is None and quality_floor < preferred_floor:
+        best_pair = find_pair(quality_floor)
 
     if best_pair is None:
         metadata["reason"] = (
-            "Det gick inte att skapa två tydligt skilda kuponger över det fasta "
-            f"kvalitetsgolvet {quality_floor:.0%}. Prova en annan insats eller strategi.")
+            "Det gick inte att skapa två tydligt skilda kuponger över "
+            f"minimikravet {quality_floor:.0%}. Prova en annan insats eller strategi.")
         return baseline, None, metadata
 
     (_, primary_rows, alternative_rows, primary_score, alternative_score,
@@ -1079,6 +1096,9 @@ def build_complementary_ev_systems(
         "primary_quality_ratio": round(primary_quality, 4),
         "alternative_quality_ratio": round(alternative_quality, 4),
         "quality_ratio": round(alternative_quality, 4),
+        "below_preferred_quality": (
+            min(primary_quality, alternative_quality)
+            < COMPLEMENTARY_PREFERRED_QUALITY),
         "anchor_count_each": anchor_count,
         "baseline_changed": True,
         "reason": None,

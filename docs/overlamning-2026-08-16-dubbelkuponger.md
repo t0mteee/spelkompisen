@@ -25,8 +25,10 @@ Commit `2c6e39b` ersatte v1 med en gemensam portföljbyggare:
 - Kupongerna har disjunkta spikankare.
 - Den andra kupongens ankartecken får finnas på högst 50 procent av raderna.
 - Högst 10 procent av de exakta raderna får överlappa.
-- Båda håller minst 75 procent av singelförslagets interna
-  `träffchans^k × EV`-summa.
+- Byggaren försöker först hålla minst 75 procent av singelförslagets interna
+  `träffchans^k × EV`-summa för båda.
+- Om 75 procent är omöjligt får den gå ner till ett hårt minimum på 60
+  procent. UI:t visar då kompromissen och båda faktiska värdena öppet.
 - På 13 matcher och högst 512 rader försöker byggaren ge två ankare per sida;
   Topptipset får minst ett per sida även om singelförslaget saknar spik.
 - Anrop utan `complementary=true` och den vanliga enkelbyggaren är exakt
@@ -143,3 +145,20 @@ historiken. Dra inga slutsatser från enstaka kuponger. När kohorten räcker b�
 v2 bedömas både per kupong och som A+B-portfölj: kostnad, utdelning, bästa
 träff, om något av ankarscenarierna bar utfallet och hur ofta båda föll på
 samma icke-ankrade favorit.
+
+## Tillägg 2026-08-16 — 75 procent är riktmärke, inte längre ett stopp
+
+Europatipset 2599 för 256 kr återskapade exakt varningen i mobilbilden. V2:s
+olikhetskrav fungerade, men det fasta 75-procentsgolvet gjorde att hela
+funktionen gav upp på en starkt favoritkoncentrerad omgång. Det är nu en
+tvåstegssökning: 75 procent provas alltid först, och endast om inget giltigt
+par finns provas 60 procent. Ankarmatcherna är fortfarande disjunkta,
+korstaket 50 procent och radöverlappet högst 10 procent.
+
+Metadata bär `preferred_quality_floor=0.75`, `quality_floor=0.60` och
+`below_preferred_quality`. Avstegsvarningen ligger synlig direkt under
+olikhetssummeringen, inte gömd i den tekniska jämförelsen. Ett nytt
+regressionstest bygger på den riktiga 2599-kupongens frysta analysvärden.
+Ändringen rör inte enkelbyggaren, PH5, databasen eller Oddset-modellens
+signalversion. Verifiering: 718 backendtester, 12 frontendtester, lint och
+produktionsbygge gröna.

@@ -34,6 +34,85 @@ class PrizePoolTests(unittest.TestCase):
         return SimpleNamespace(
             turnover=100_000.0, matches=matches, product="topptipset")
 
+    @staticmethod
+    def _concentrated_thirteen_match_analysis():
+        """Omgången som visade att 75-procentskravet kunde ge upp helt."""
+        rows = [
+            (80.1, "2", .3817, 23.8, "2", (.3344, .2839, .3817),
+             (.3367, .2850, .3783), (39, 31, 30),
+             (("stigande_odds", "rörelse_upp"), (),
+              ("värdestreck", "fallande_odds", "sharp_värde", "rörelse_ner"))),
+            (0.0, "2", .5819, 47.9, None, (.1945, .2236, .5819),
+             (.2035, .2302, .5663), (16, 19, 65),
+             (("stigande_odds",), ("stigande_odds", "rörelse_upp"), ())),
+            (35.6, "2", .4752, 27.8, "1", (.2660, .2588, .4752),
+             (.2729, .2659, .4613), (21, 26, 53),
+             (("stigande_odds", "sharp_värde", "rörelse_upp"),
+              ("stigande_odds",), ("fallande_odds",))),
+            (39.1, "1", .4679, 17.9, "2", (.4679, .2901, .2420),
+             (.4513, .2962, .2525), (63, 24, 13),
+             ((), (), ("värdestreck", "sharp_värde"))),
+            (58.7, "1", .4267, 7.0, None, (.4267, .2588, .3145),
+             (.4134, .2605, .3261), (45, 26, 29),
+             (("rörelse_upp",), (), ())),
+            (0.0, "2", .5523, 56.1, None, (.2078, .2399, .5523),
+             (.1900, .2328, .5771), (18, 21, 61),
+             (("stigande_odds", "rörelse_upp"), ("rörelse_upp",),
+              ("fallande_odds", "rörelse_ner"))),
+            (61.3, "2", .4212, 13.6, None, (.3142, .2646, .4212),
+             (.2879, .2711, .4410), (25, 26, 49),
+             (("värdestreck", "stigande_odds", "rörelse_upp", "rlm_fade"),
+              (), ("fallande_odds",))),
+            (0.0, "1", .6782, 79.2, "2", (.6782, .1860, .1359),
+             (.6693, .1846, .1461), (83, 11, 6),
+             (("favorit",), ("värdestreck", "sharp_värde"),
+              ("värdestreck", "sharp_värde"))),
+            (76.1, "2", .3902, 0.0, None, (.3149, .2949, .3902),
+             (.2978, .2913, .4110), (25, 30, 45),
+             (("värdestreck", "rörelse_upp"), ("rlm_go",), ())),
+            (91.5, "1", .3579, 0.0, None, (.3579, .2908, .3512),
+             (.3448, .2931, .3621), (38, 29, 33),
+             (("rörelse_upp",), (), ())),
+            (3.2, "2", .5433, 37.7, "1", (.2312, .2255, .5433),
+             (.2502, .2430, .5068), (19, 19, 62),
+             (("sharp_värde",), ("rörelse_ner", "rlm_go"),
+              ("rörelse_upp", "rlm_fade"))),
+            (0.0, "2", .5895, 49.9, "1", (.1867, .2239, .5895),
+             (.2066, .2238, .5696), (11, 19, 70),
+             (("värdestreck", "sharp_värde"),
+              ("stigande_odds", "rörelse_upp"), ())),
+            (45.6, "1", .4542, 30.3, None, (.4542, .2553, .2904),
+             (.4866, .2356, .2778), (57, 21, 22),
+             (("fallande_odds", "rörelse_ner"),
+              ("stigande_odds", "rörelse_upp"),
+              ("värdestreck", "stigande_odds", "rörelse_upp"))),
+        ]
+        descriptions = [
+            "Arsenal – Man City", "Lens – Paris SG", "Racing – Villarreal",
+            "Espanyol – Levante", "GAIS – Malmö", "Kalmar – Hammarby",
+            "Burnley – West Ham", "Ajax – Heerenveen", "Raal La L – Gent",
+            "Mechelen – Standard", "Lyngby – Midtjylland",
+            "Randers – FC Köpenhamn", "Molde – Tromsö",
+        ]
+        matches = []
+        for event_number, (row, description) in enumerate(zip(rows, descriptions), 1):
+            (open_score, favourite, favourite_prob, spik_score, best_value_sign,
+             fair, sharp, streck, tags) = row
+            outcomes = {
+                sign: SimpleNamespace(
+                    fair_prob=fair[index], sharp_prob=sharp[index],
+                    streck=streck[index], tags=list(tags[index]), value=0)
+                for index, sign in enumerate(("1", "X", "2"))
+            }
+            matches.append(SimpleNamespace(
+                event_number=event_number, cancelled=False,
+                outcomes=outcomes, open_score=open_score,
+                favourite=favourite, favourite_prob=favourite_prob,
+                spik_score=spik_score, best_value_sign=best_value_sign,
+                description=description))
+        return SimpleNamespace(
+            turnover=5_090_169.0, matches=matches, product="europatipset")
+
     def test_ev_candidate_space_expands_to_cap_without_exceeding_it(self) -> None:
         matches = [SimpleNamespace(event_number=i, open_score=100 - i)
                    for i in range(13)]
@@ -113,6 +192,7 @@ class PrizePoolTests(unittest.TestCase):
         self.assertGreaterEqual(metadata["primary_quality_ratio"], 0.75)
         self.assertGreaterEqual(metadata["alternative_quality_ratio"], 0.75)
         self.assertLessEqual(metadata["row_overlap_pct"], 0.10)
+        self.assertFalse(metadata["below_preferred_quality"])
 
         # Varje kupong får använda den andras ankartecken på högst hälften av
         # raderna. Detta låser regressionen där 90 % följde samma favoriter.
@@ -141,6 +221,28 @@ class PrizePoolTests(unittest.TestCase):
         self.assertEqual(first[0].rows, second[0].rows)
         self.assertEqual(first[1].rows, second[1].rows)
         self.assertEqual(first[2], second[2])
+
+    def test_complementary_system_uses_visible_minimum_on_concentrated_draw(self) -> None:
+        analysis = self._concentrated_thirteen_match_analysis()
+        plan = {
+            "ratio": 0.65,
+            "splits": {13: 0.39, 12: 0.22, 11: 0.12, 10: 0.25},
+        }
+
+        primary, alternative, metadata = build_complementary_ev_systems(
+            analysis, budget=256, row_price=1, value_weight=0.5, plan=plan)
+
+        self.assertTrue(metadata["available"])
+        self.assertIsNotNone(alternative)
+        self.assertEqual(0.60, metadata["quality_floor"])
+        self.assertEqual(0.75, metadata["preferred_quality_floor"])
+        self.assertTrue(metadata["below_preferred_quality"])
+        self.assertGreaterEqual(metadata["primary_quality_ratio"], 0.60)
+        self.assertGreaterEqual(metadata["alternative_quality_ratio"], 0.60)
+        self.assertLess(metadata["primary_quality_ratio"], 0.75)
+        self.assertLess(metadata["alternative_quality_ratio"], 0.75)
+        self.assertEqual(primary.num_rows, alternative.num_rows)
+        self.assertLessEqual(metadata["row_overlap_pct"], 0.10)
 
     def test_poisson_binomial_is_normalized_and_exact(self) -> None:
         distribution = _poisson_binomial([0.6, 0.25])

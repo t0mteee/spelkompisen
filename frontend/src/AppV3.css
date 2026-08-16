@@ -89,6 +89,11 @@
   margin-top: 10px; padding: 9px 10px; border-radius: 8px; background: rgba(46,139,87,.1); }
 .complementary-result b { color: var(--green); font-size: 12px; }
 .complementary-result span { color: var(--muted); font-size: 11px; }
+.complementary-tradeoff { display: grid; gap: 4px; margin-top: 9px; padding: 9px 10px;
+  border: 1px solid rgba(224,133,59,.5); border-radius: 8px;
+  background: rgba(224,133,59,.08); }
+.complementary-tradeoff b { color: var(--orange); font-size: 12px; }
+.complementary-tradeoff span { color: var(--text); font-size: 11px; line-height: 1.45; }
 .complementary-tech { margin-top: 8px; color: var(--muted); font-size: 11px; }
 .complementary-tech summary { cursor: pointer; color: var(--muted); }
 .complementary-tech p { margin: 7px 0 0; line-height: 1.45; }
