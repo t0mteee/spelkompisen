@@ -170,3 +170,16 @@ En förklaring anger att nivårutorna är separata diagnostiska nivåtester,
 medan Blindtestspel bara använder matchens första aktiva signal. Den
 upprepade rubriken `Testspel` på varje spelrad är ersatt av den informativa
 nivån och signaltypen, exempelvis `Följer · xG`.
+
+### Driftkvitto för uppföljningen
+
+Commit `dda866b` driftsattes 2026-08-17. Det ordinarie pool-/radarjobbet
+rättade Häcken-raden 21:21:53Z med `result_source=flashscore` och
+`result_key=allsvenskan|2026-08-17|hacken|halmstad`: slutresultat 1–0,
+noll mål efter signalen och Över 1,5 @ 1,38 som `loss`, −1,00 enhet.
+
+Produktions-API:t visar efter rättningen 39 av 39 prissatta blindtestspel med
+facit. Stark-rutan visar samtidigt 28 matcher som nådde nivån, 13
+diagnostiska nivåtest med odds och facit, men 0 spel i huvudblindtestet.
+Backend, frontend och snapshot kör; pooljobbet är aktivt och väntar mellan
+sina schemalagda körningar. `/api/health` svarar `ok` utan anmärkningar.
