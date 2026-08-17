@@ -460,3 +460,24 @@ på ett system som fortfarande byggs om varje vecka. Vill man ha ett facit måst
 radarn frysas: inga ändringar i trösklar, providers, identitet, källurval eller
 prisväg under mätperioden. Annars kommer räknaren fortsätta nollställas strax
 innan den betyder något.
+
+### Två mobilfel till i Oddset-listan
+
+Hittade vid en systematisk svepning av alla fem vyer på 390 px (mät mot
+`documentElement.clientWidth`, inte `innerWidth` — den senare räknar in
+scrollbredden och döljer precis det man letar efter):
+
+1. **Hela sidan gick att dra i sidled, 36 px.** `.teams` ärvde
+   `white-space: nowrap`, så lagnamn + badges + 🏋️-rankchip blev en obrytbar
+   rad; chipet slutade på x=426 med en sida som är 390. Ligachipsen och
+   navigeringen såg likadant ut i mätningen men är inneslutna i egna
+   `overflow-x: auto`-behållare och är alltså avsiktliga. Fixat med
+   `white-space: normal` på just `.teams`; de tre 1X2-rutorna ligger kvar på
+   samma rad (verifierat: identisk `offsetTop`).
+2. **`.epill` bröts mitt itu.** `+3%` delades mellan `+3` och `%`, alltså en
+   grön pill i två stycken, och gjorde den 1X2-rutan 84 px hög mot grannarnas
+   63. `white-space: nowrap` på pillen; alla rader mäter nu 63/63/63.
+
+Metodnot för nästa gång: leta efter element som spiller över OCH saknar en
+ancestor med `overflow-x: auto|scroll|hidden`. Utan det villkoret drunknar de
+verkliga felen i avsiktligt svepbara listor.

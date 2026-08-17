@@ -578,8 +578,14 @@ footer { color: var(--muted); margin-top: 24px; border-top: 1px solid var(--line
 .mv { font-size: 10.5px; font-weight: 700; margin-left: 4px; }
 .mv.down { color: #e06b6b; }   /* oddset NER = ökad vinstchans */
 .mv.up { color: var(--green); }
+/* `white-space: nowrap` — en pill får aldrig brytas mitt itu. Uppmätt på
+   390 px: `+3%` bröts mellan `+3` och `%`, vilket gav en tvåradig pill med
+   grön bakgrund i två stycken och gjorde just den 1X2-rutan 84 px hög mot
+   grannarnas 63. Talet är kort; kan det inte få plats ska rutan vara för
+   smal, inte pillen sönderbruten. */
 .epill { background: var(--green); color: #0b0e12; font-size: 10px; font-weight: 700;
-  border-radius: 999px; padding: 1px 6px; margin-left: 5px; vertical-align: 1px; }
+  border-radius: 999px; padding: 1px 6px; margin-left: 5px; vertical-align: 1px;
+  white-space: nowrap; }
 .oddset-table .oc .m { color: #e0853b; font-size: 11px; }
 .modelcompare { display: flex; flex-wrap: wrap; gap: 1px 5px; white-space: normal;
   max-width: 175px; line-height: 1.25; }
@@ -999,7 +1005,18 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   }
   .oddset-table .league-cell { order: 1; margin-left: auto; }
   .oddset-table .league-cell .rchip { margin-left: 0; margin-right: 0; }
-  .oddset-table .teams { order: 2; flex: 1 1 auto; min-width: 0; font-size: 15px; }
+  /* `white-space: normal` — INTE kosmetik. Cellen ärvde nowrap, så lagnamnen
+     plus badges plus 🏋️-rankchipet blev EN obrytbar rad. Uppmätt 2026-08-18
+     på 390 px: chipet slutade på x=426 medan sidan är 390, alltså 36 px
+     horisontell scroll på HELA sidan — den där sidleds-glidningen man får när
+     man bläddrar vertikalt. De tre 1X2-rutorna ligger kvar på samma rad
+     (verifierat: identisk offsetTop), så den tidigare inställda layouten
+     påverkas inte. */
+  .oddset-table .teams {
+    order: 2; flex: 1 1 auto; min-width: 0; font-size: 15px;
+    white-space: normal;
+  }
+  .oddset-table .teams .rchip { margin-left: 4px; }
   /* Rörelsecellen delade tidigare rad med 1X2-rutorna (båda order: 3). Den åt
      ~90 px, så bara två av tre 28 %-rutor fick plats och `2` hamnade ensam på
      en egen rad. Nu ligger pp-talet på lagraden till höger, och de tre
