@@ -268,3 +268,17 @@ De 13 identitetsluckorna observerades 9–17 augusti, samtliga före commit
 Spel saknade odds. De får inte bakfyllas; förbättringen mäts på nya signaler.
 UI:t använder därför formuleringen **utan säkert låst pris** och skriver ut
 orsaksfördelningen direkt i respektive nivåtabellrad.
+
+### Drift- och browserkvitto 2026-08-18
+
+Commit `7c09d76` pushades till `main` och driftsattes på MacBook-servern.
+Serverns backendtester för området (42), samtliga frontendtester (12), lint
+och produktionsbygge passerade. `/api/health` svarade `ok` efter omstart och
+servern var ren mot `origin/main`.
+
+Den driftsatta sidan verifierades dessutom i browsern mot riktig
+produktionsdata. Val av Stark växlade visningen till Alla signaler och gav 28
+journalrader. Prisfiltret Saknas gav 15 rader. Klick på rubriken
+Signalögonblick ändrade både ordning och sortpil, den exakta fördelningen
+13 utan säker matchkoppling + 1 suspenderad marknad + 1 källfel visades, och
+inga console-varningar eller fel registrerades.
