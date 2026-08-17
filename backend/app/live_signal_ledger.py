@@ -26,6 +26,14 @@ BLIND_MIN_DAYS = 60
 BOOTSTRAP_ITERS = 2000
 PINNACLE_LIVE_MAX_AGE_S = 90
 
+# ANKARE ≠ BOK, även live. Pinnacle går att spela hos, men den är projektets
+# fair-value-ankare och har klart lägst marginal — den vinner därför nästan
+# varje prisjämförelse. En ROI mätt på Pinnacles pris är därför inte "vad en
+# bok gav mig" utan "vad fair value gav mig". Källan mäts och redovisas fullt
+# ut, men märks som ospelbar i per-källa-facitet så att den inte läses som ett
+# bokresultat. Samma princip som `ANCHOR_SOURCES` i oddset_value.
+PLAYABLE_LIVE_SOURCES = frozenset({"svenskaspel", "ninja"})
+
 
 def _now() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
@@ -741,6 +749,64 @@ def _ci90(profits: list[float]) -> Optional[list[float]]:
             round(means[min(len(means) - 1, int(0.95 * len(means)))], 4)]
 
 
+def _source_roi(settled: list[dict]) -> dict:
+    """Kontrafaktisk Över-ROI PER ODDSKÄLLA — diagnostik, aldrig grind.
+
+    Alla källor prissätter exakt den lina signalen bokförde, så den enda
+    skillnaden mellan raderna är priset. Då blir "vad hade jag tjänat om jag
+    alltid spelat hos X" en ren jämförelse och inte tre olika spel.
+
+    Två tal måste läsas ihop. `n_priced` är täckningen: en källa som listar
+    hälften av matcherna kan ha bäst ROI utan att vara ett bättre val, och
+    urvalet är dessutom inte slumpmässigt — en bok som stänger marknaden när
+    den är osäker lämnar just de matcherna ur sin egen serie. `n_best` säger
+    hur ofta källan faktiskt vann prisjämförelsen.
+
+    Pinnacle redovisas som EGEN rad och inte som en bok bland andra: den är
+    projektets ankare, har lägst marginal och vinner därför nästan alltid
+    "bäst odds". Att låta den bära huvudsiffran vore att mäta ROI mot ett pris
+    som ligger på fair value (ANKARE ≠ BOK).
+    """
+    per: dict[str, dict] = {}
+    for row in settled:
+        home, away = row.get("final_home_score"), row.get("final_away_score")
+        if home is None or away is None:
+            continue
+        goals = int(home) + int(away)
+        for quote in row.get("odds_quotes") or []:
+            source = str(quote.get("source") or "unknown")
+            item = per.setdefault(
+                source, {"n_asked": 0, "n_priced": 0, "n_best": 0,
+                         "profits": [], "odds": []})
+            item["n_asked"] += 1
+            if int(quote.get("selected") or 0):
+                item["n_best"] += 1
+            if quote.get("status") != "captured":
+                continue
+            _, profit = _over_profit(
+                goals, quote.get("line"), quote.get("over_odds"))
+            if profit is None:
+                continue
+            item["n_priced"] += 1
+            item["profits"].append(profit)
+            item["odds"].append(float(quote["over_odds"]))
+    out = {}
+    for source, item in sorted(per.items()):
+        profits = item["profits"]
+        out[source] = {
+            "n_asked": item["n_asked"],
+            "n_priced": item["n_priced"],
+            "n_best": item["n_best"],
+            "playable": source in PLAYABLE_LIVE_SOURCES,
+            "roi_over": (round(sum(profits) / len(profits), 4)
+                         if profits else None),
+            "roi_ci90": _ci90(profits),
+            "avg_over_odds": (round(sum(item["odds"]) / len(item["odds"]), 3)
+                              if item["odds"] else None),
+        }
+    return out
+
+
 def _summary(rows: list[dict]) -> dict:
     settled = [row for row in rows if row.get("settled_at")]
     priced_signals = [row for row in rows
@@ -775,6 +841,7 @@ def _summary(rows: list[dict]) -> dict:
             source: dict(sorted(counts.items()))
             for source, counts in sorted(quote_source_counts.items())
         },
+        "source_roi": _source_roi(settled),
         "roi_over": round(sum(profits) / len(profits), 4) if profits else None,
         "roi_ci90": _ci90(profits),
         "over_positive_rate": (round(sum(value > 0 for value in profits)

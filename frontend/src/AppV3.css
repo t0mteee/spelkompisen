@@ -603,4 +603,47 @@
   .v3radar-explainer { grid-template-columns: 1fr; gap: 5px; }
   .v3radar-filters { grid-template-columns: 1fr 1fr; }
   .v3radar-filters button { grid-column: 1 / -1; width: 100%; }
+
+  /* LABBTABELLER PÅ MOBIL (2026-08-18). Varje tabell hade en handskriven
+     min-width på 680–980 px i en behållare på 320–340 px, alltså 2–3 gångers
+     sidoscroll. Mätt på 390 px föll radetiketten ur bild så fort man scrollade
+     till värdet — man kunde aldrig se BÅDE vilken rad och vilket tal, vilket
+     är hela poängen med en tabell.
+
+     Två regler räcker och desktop rörs inte:
+     1. släpp min-width och låt texten radbrytas — 680–900 px blir 338–531 px,
+        och de smalaste tabellerna får plats utan scroll alls;
+     2. lås första kolumnen med `position: sticky` för de tabeller som ändå är
+        för breda (6–7 kolumner får aldrig plats på 340 px). Etiketten står då
+        kvar medan värdena scrollas förbi. */
+  .v3labb .logtable,
+  .v3evidence .logtable,
+  .v3labb-summarytable .logtable,
+  .v3radar-tablewrap .logtable,
+  .v3labb .v3radar-rulestable,
+  .v3labb .v3radar-maintable,
+  .v3labb .v3radar-leveltable,
+  .v3labb .v3radar-logtable { min-width: 0 !important; }
+  .v3labb .logtable th,
+  .v3labb .logtable td { white-space: normal; }
+  .v3labb .logtable td.v3wrapcell,
+  .v3labb .v3radar-rulestable td:nth-child(3),
+  .v3labb .v3radar-leveltable td:last-child,
+  .v3labb .v3radar-logtable td:nth-child(1),
+  .v3labb .v3radar-logtable td:nth-child(3) { min-width: 0; }
+
+  .v3labb .logtable th:first-child,
+  .v3labb .logtable td:first-child {
+    position: sticky; left: 0; z-index: 2;
+    background: var(--panel2);
+    box-shadow: 1px 0 0 var(--line);
+  }
+  /* Radfärgningen i signalloggen ligger på <tr> och skulle annars hamna BAKOM
+     den låsta cellens egen bakgrund. */
+  .v3labb .v3radar-logtable tr.testbet.won td:first-child {
+    background: color-mix(in srgb, var(--green) 5%, var(--panel2));
+  }
+  .v3labb .v3radar-logtable tr.testbet.lost td:first-child {
+    background: color-mix(in srgb, #e06c75 5%, var(--panel2));
+  }
 }

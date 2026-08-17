@@ -1009,5 +1009,92 @@ class BlindGateTests(unittest.TestCase):
         self.assertEqual("later_signal", rows["strong"]["test_bet_exclusion"])
 
 
+class SourceRoiTests(unittest.TestCase):
+    """ROI per oddskälla på exakt samma lina — diagnostik, aldrig grind."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self._tmp.name) / "test.db")
+
+    def tearDown(self):
+        self.store.close()
+        self._tmp.cleanup()
+
+    def _signal(self, key: str, quotes: list[dict], *, goals=(2, 1)):
+        at = iso(NOW - dt.timedelta(days=len(key)))
+        best = next((q for q in quotes if q.get("selected")), None)
+        self.store.live_signal_save({
+            "match_key": key, "provider": "sofascore",
+            "provider_event_id": abs(hash(key)) % 100000, "captured_at": at,
+            "capture_version": live_radar.CAPTURE_VERSION,
+            "signal_version": live_radar.RADAR_VERSION,
+            "league": "allsvenskan", "home": f"Hem {key}", "away": f"Borta {key}",
+            "signal_level": "watch", "signal_type": "xg",
+            "ou_line": best["line"] if best else None,
+            "over_odds": best["over_odds"] if best else None,
+            "odds_source": best["source"] if best else None,
+            "odds_status": "captured" if best else "no_eligible_quote",
+            "recorded_at": at,
+        }, quotes=[{"provider_event_id": None, "observed_at": at,
+                    "checked_at": at, "under_odds": None, **q} for q in quotes])
+        signal_id = next(row["id"] for row in self.store.live_signal_rows()
+                         if row["match_key"] == key)
+        self.store.live_signal_result_save({
+            "signal_id": signal_id, "settled_at": iso(NOW),
+            "final_home_score": goals[0], "final_away_score": goals[1],
+            "goals_after_signal": sum(goals), "over_result": "win",
+            "over_profit": (best["over_odds"] - 1.0) if best else None,
+        })
+
+    def test_roi_per_kalla_raknas_pa_samma_lina(self):
+        # 3 mål mot lina 2,5 ⇒ Över vinner: vinsten ÄR prisskillnaden.
+        self._signal("a", [
+            {"source": "pinnacle", "status": "captured", "line": 2.5,
+             "over_odds": 2.10, "selected": 1},
+            {"source": "svenskaspel", "status": "captured", "line": 2.5,
+             "over_odds": 1.90, "selected": 0},
+            {"source": "ninja", "status": "no_match", "line": None,
+             "over_odds": None, "selected": 0},
+        ])
+        per = live_signal_ledger.facit(self.store)["blind_gate"]["source_roi"]
+
+        self.assertAlmostEqual(1.10, per["pinnacle"]["roi_over"], places=4)
+        self.assertAlmostEqual(0.90, per["svenskaspel"]["roi_over"], places=4)
+        # Källan som inte listade matchen får INGEN ROI-rad, men syns i asked.
+        self.assertIsNone(per["ninja"]["roi_over"])
+        self.assertEqual(1, per["ninja"]["n_asked"])
+        self.assertEqual(0, per["ninja"]["n_priced"])
+
+    def test_ankaret_markeras_som_ospelbart(self):
+        self._signal("b", [
+            {"source": "pinnacle", "status": "captured", "line": 2.5,
+             "over_odds": 2.10, "selected": 1},
+            {"source": "svenskaspel", "status": "captured", "line": 2.5,
+             "over_odds": 1.90, "selected": 0},
+        ])
+        per = live_signal_ledger.facit(self.store)["blind_gate"]["source_roi"]
+        self.assertFalse(per["pinnacle"]["playable"])
+        self.assertTrue(per["svenskaspel"]["playable"])
+        # n_best svarar på "vinner ankaret alltid prisjämförelsen?"
+        self.assertEqual(1, per["pinnacle"]["n_best"])
+        self.assertEqual(0, per["svenskaspel"]["n_best"])
+
+    def test_osettlad_signal_bidrar_inte(self):
+        self.store.live_signal_save({
+            "match_key": "c", "provider": "sofascore", "provider_event_id": 42,
+            "captured_at": iso(NOW), "capture_version": live_radar.CAPTURE_VERSION,
+            "signal_version": live_radar.RADAR_VERSION, "league": "allsvenskan",
+            "home": "Hem", "away": "Borta", "signal_level": "watch",
+            "signal_type": "xg", "ou_line": 2.5, "over_odds": 2.0,
+            "odds_source": "svenskaspel", "odds_status": "captured",
+            "recorded_at": iso(NOW),
+        }, quotes=[{"source": "svenskaspel", "provider_event_id": None,
+                    "observed_at": iso(NOW), "checked_at": iso(NOW),
+                    "status": "captured", "line": 2.5, "over_odds": 2.0,
+                    "under_odds": 1.8, "selected": 1}])
+        per = live_signal_ledger.facit(self.store)["blind_gate"]["source_roi"]
+        self.assertEqual({}, per)
+
+
 if __name__ == "__main__":
     unittest.main()

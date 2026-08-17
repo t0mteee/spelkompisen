@@ -352,3 +352,49 @@ journalrader. Prisfiltret Saknas gav 15 rader. Klick på rubriken
 Signalögonblick ändrade både ordning och sortpil, den exakta fördelningen
 13 utan säker matchkoppling + 1 suspenderad marknad + 1 källfel visades, och
 inga console-varningar eller fel registrerades.
+
+## Tillägg 2026-08-18 — ROI per oddskälla, och Labbtabellerna på mobil
+
+### `source_roi`: vad varje källa hade gett på samma lina
+
+`_summary()` returnerar nu `source_roi` bredvid `quote_source_counts`. Räkningen
+är kontrafaktisk och helt lokal: alla källor prissätter exakt den lina signalen
+bokförde, så `_over_profit(slutmål, quote.line, quote.over_odds)` per källa är en
+ren prisjämförelse och inte tre olika spel. Per källa redovisas `n_asked`,
+`n_priced`, `n_best`, `avg_over_odds`, `roi_over` och `roi_ci90`.
+
+**Det är diagnostik och grindar ingenting.** Blindgaten läser oförändrat
+`roi_over`/`roi_ci90` på det valda bästa priset. Ett nytt fält i
+summeringsdicten ändrar ingen selektion och kräver därför ingen ny
+signalversion.
+
+**Pinnacle är ankare, inte bok — även live.** `PLAYABLE_LIVE_SOURCES` är
+`{svenskaspel, ninja}` och raden märks `playable: false` för Pinnacle. Skälet är
+inte principiellt utan mekaniskt: Pinnacle har klart lägst marginal på live-Ö/U
+och vinner därför nästan varje "högsta Över-odds"-jämförelse. En ROI mätt på
+dess pris är "vad fair value gav mig", inte vad en bok gav. `n_best` finns just
+för att göra den snedvridningen synlig i stället för att argumentera om den.
+
+Läs alltid ROI och `n_priced` ihop. Bortfallet är inte slumpmässigt — en bok som
+stänger marknaden när den är osäker lämnar just de matcherna ur sin egen serie,
+så en tunn källa kan visa bäst ROI utan att vara ett bättre val.
+
+### Labbtabellerna fick plats på mobil
+
+Elva tabeller hade handskrivna `min-width` på 680–980 px i behållare på
+320–340 px. Mätt på 390 px betydde det 2–3 gångers sidoscroll, och radetiketten
+föll ur bild så fort man scrollade till värdet — man kunde aldrig se BÅDE vilken
+rad och vilket tal.
+
+Två regler i `@media (max-width: 760px)`, desktop helt orört (verifierat vid
+1280 px: `min-width` 680–900 px kvar, `position: static`, `white-space: nowrap`):
+
+1. `min-width: 0` och radbrytande text — tabellerna gick från 680–980 px till
+   338–551 px, och signalregeltabellen får nu plats helt utan scroll;
+2. `position: sticky` på första kolumnen för de som ändå är för breda — 6–7
+   kolumner får aldrig plats på 340 px, men etiketten står kvar medan värdena
+   scrollas förbi. Radfärgningen i signalloggen flyttades till den låsta cellen,
+   annars hade den hamnat bakom cellens egen bakgrund.
+
+Lägg inte tillbaka `min-width` på mobil. Vill man ha mer plats är nästa steg att
+faktiskt korta kolumnerna, inte att scrolla längre.

@@ -2878,6 +2878,47 @@ function LabbV3() {
             {' '}{gate?.required_priced_settled ?? 200} prissatta och avgjorda matcher,
             {' '}{gate?.required_span_days ?? 60} dagar och en positiv undre 90 %-KI-gräns.</span>
 
+          {!!Object.keys(gate?.source_roi || {}).length && (
+            <>
+              <h4 className="v3tabletitle">Per oddskälla · om vi alltid spelat hos en enda</h4>
+              <span className="v3hint">Alla källor prissätter exakt den lina signalen
+                bokförde, så det enda som skiljer raderna är priset. Läs ROI och
+                täckning ihop: en källa som bara listar hälften av matcherna kan ha
+                bäst ROI utan att vara ett bättre val, och bortfallet är inte
+                slumpmässigt — en bok som stänger marknaden när den är osäker lämnar
+                just de matcherna ur sin egen serie.</span>
+              <div className="v3evidence-table v3radar-tablewrap">
+                <table className="logtable">
+                  <thead><tr><th>Källa</th><th>Pris på samma lina</th>
+                    <th>Vann prisjämförelsen</th><th>Snittodds</th>
+                    <th>Över-ROI</th><th>90 % KI</th></tr></thead>
+                  <tbody>{Object.entries(gate.source_roi)
+                    .sort(([, a], [, b]) => (b.n_priced || 0) - (a.n_priced || 0))
+                    .map(([source, s]) => (
+                      <tr key={source}>
+                        <td><b>{radarSource(source)}</b>
+                          <small>{s.playable ? 'spelbar bok'
+                            : 'ankare — inte ett bokresultat'}</small></td>
+                        <td><b>{s.n_priced}</b> av {s.n_asked}</td>
+                        <td>{s.n_best}</td>
+                        <td>{s.avg_over_odds ?? '–'}</td>
+                        <td className={s.n_priced >= ROI_MIN_N ? evCls(s.roi_over) : ''}>
+                          {s.n_priced >= ROI_MIN_N ? evPct(s.roi_over) : '–'}
+                          <small>{s.n_priced >= ROI_MIN_N
+                            ? `${s.n_priced} spel · preliminärt`
+                            : `visas från ${ROI_MIN_N} spel`}</small></td>
+                        <td>{s.n_priced >= ROI_MIN_N ? ciStr(s.roi_ci90) : '–'}</td>
+                      </tr>
+                    ))}</tbody>
+                </table>
+              </div>
+              <span className="v3hint"><b>Pinnacle är ankare, inte bok.</b> Den har
+                lägst marginal och vinner därför nästan varje prisjämförelse. En ROI
+                mätt på dess pris är “vad fair value gav mig”, inte vad en bok gav —
+                den raden får aldrig läsas som ett bokresultat och grindar ingenting.</span>
+            </>
+          )}
+
           {radar && !radar.signal_ledger?.groups?.length && (
             <div className="v3note">
               Inga signaler i den här kohorten ännu. Det är väntat direkt efter
