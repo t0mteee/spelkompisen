@@ -18,6 +18,8 @@ Prisprocessen ändrar ROI-facitet och startar därför rent som
 Signaltrösklar, notiser och systemförslag är oförändrade. Migration och backup
 finns i `backend/scripts/migrera_live_signal_quotes.py`; full metod och
 överlämning finns i `docs/overlamning-2026-08-17-live-blindtest.md`.
+Driftsatt som commit `1836e33`: backup/migration, 742 backendtester, 12
+frontendtester, källprov och browserkontroll är gröna.
 
 **LIVEBLINDTESTET VISAR ENBART FAKTISKA TESTSPEL SOM STANDARD
 (2026-08-17, Codex).** Signaljournalen blandade tidigare första blindbeslut,

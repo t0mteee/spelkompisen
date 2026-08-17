@@ -280,6 +280,28 @@ per nivå. Pinnacle-stale, annan lina, suspension, saknad match och källfel
 skiljs uttryckligen. Före drift passerade 742 backendtester, 12 frontendtester,
 lint och produktionsbygge.
 
+### Driftkvitto för tre-källorspriset
+
+Commit `1836e33` pushades till `main` och driftsattes på MacBook-servern.
+Spelkompisens skrivande jobb pausades under migrationen; backupen
+`stryktips-2026-08-18-fore-live-signal-quotes.db` skapades innan tabellen.
+Migrationen gav 11 kolumner, 0 startrader, `integrity_check=ok` och 0 FK-fel.
+Efteråt passerade serverns 742 backendtester, 12 frontendtester, lint och
+produktionsbygge (`index-Csmm-kZr.js`). Alla jobb startades igen och hälsan
+var grön för pool och v2.2.
+
+Ett skrivfritt produktionsprov efter start gav 26 SvS-liveevent, 4 öppna
+Ninja-totaler och 6 Pinnacle-livematcher (5 öppna, 1 suspenderad). Pinnacles
+prisobjekt var då 615 sekunder gammalt och blev därför korrekt `stale`; Ninja
+hade `Age=0`. API:t visade den rena aktiva v10-kohorten med 0 rader och v9:s
+72 matcher som orörd historik.
+
+Browserkontrollen mot den driftsatta Labb-sidan visade v10, förklaringen
+SvS + Ninja + Pinnacle, samma-linje-regeln och det ärliga tomläget för den nya
+kohorten. Inga console-fel eller varningar registrerades. Vid 390 px viewport
+var dokumentbredden 375 px mot 390 px viewport, alltså ingen horisontell
+sidöverrinning.
+
 Den första livekontrollen avslöjade också att radartabellerna hann rendera
 fallbackvärdet `0/200` innan det verkliga API-svaret kom. Labb visar därför nu
 `Hämtar radar-facit…` tills svaret finns och ett riktigt felmeddelande om

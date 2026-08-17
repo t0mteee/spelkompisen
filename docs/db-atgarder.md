@@ -10,17 +10,22 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ## 2026-08-18 — fler-källors livepris per radarsignal
 
-**Planerad additiv migration:**
-`backend/scripts/migrera_live_signal_quotes.py`. Innan ny insamlingskod
-startas i produktion skapar skriptet en konsistent SQLite-backup i
+**Additiv migration körd i produktion:**
+`backend/scripts/migrera_live_signal_quotes.py`. Spelkompisens backend-,
+frontend- och insamlingsjobb pausades före `git pull`; inga andra projekt
+berördes. Skriptet skapade en konsistent SQLite-backup i
 `data/backups/stryktips-2026-08-18-fore-live-signal-quotes.db`, därefter den
 tomma append-only-tabellen `oddset_live_signal_quote`. Tabellen sparar en rad
 per signal och tillfrågad källa; historiska priser bakfylls inte.
 
 Migrationen validerar exakt schema, primärnyckeln `(signal_id, source)`,
 främmande nyckel till `oddset_live_signal`, `PRAGMA integrity_check` och
-`foreign_key_check`. Produktionsutfall och radantal fylls i efter skarp
-körning innan arbetspaketet markeras klart.
+`foreign_key_check`. Produktionsutfall: backup skapad, tabell skapad med 11
+kolumner och 0 start-rader, `integrity_check=ok`, 0 foreign-key-fel. Efter
+migrationen passerade 742 backendtester, 12 frontendtester, lint och bygge;
+samtliga pausade Spelkompisen-jobb startades igen och `/api/health` svarade
+`ok`. Tabellen var fortsatt 0 rader direkt efter drift, som väntat före v10:s
+första nya signal — ingen historik rekonstruerades.
 
 ---
 
