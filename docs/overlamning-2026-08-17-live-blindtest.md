@@ -231,3 +231,8 @@ tabellerna: huvudtest 72 signalmatcher, 39 låsta priser och 39 facit; Följer-x
 blindtestspel och 61 dolda observationer. Vid 390 px viewport var dokumentets
 bredd mindre än viewporten och varje bred tabell scrollade i sin egen ram;
 inga console-varningar eller fel registrerades.
+
+Den första livekontrollen avslöjade också att radartabellerna hann rendera
+fallbackvärdet `0/200` innan det verkliga API-svaret kom. Labb visar därför nu
+`Hämtar radar-facit…` tills svaret finns och ett riktigt felmeddelande om
+anropet misslyckas; noll kan inte längre blinka som ett falskt facit.

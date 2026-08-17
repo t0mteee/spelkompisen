@@ -2224,6 +2224,7 @@ function LabbV3() {
   const [clv, setClv] = useState(null)
   const [ledger, setLedger] = useState(null)
   const [radar, setRadar] = useState(null)
+  const [radarErr, setRadarErr] = useState(null)
   const [err, setErr] = useState(null)
   // Ombyggt 2026-08-05 (docs/labb-ui-nulage-2026-08-05.md): öppet läge visar
   // bara AKTIVA versioner — 26 av 26 synliga CLV-rader var historiska hashar
@@ -2242,7 +2243,9 @@ function LabbV3() {
     // engångsläsning — mätserierna rör sig på varv-/veckoskala, ingen poll
     get('/api/oddset/clv').then(setClv).catch((e) => { setClv(null); setErr(String(e)) })
     get('/api/oddset/predictions').then(setLedger).catch(() => setLedger(null))
-    get('/api/oddset/radar-facit').then(setRadar).catch(() => setRadar(null))
+    get('/api/oddset/radar-facit').then(setRadar).catch((e) => {
+      setRadar(null); setRadarErr(String(e))
+    })
   }, [])
 
   const evPct = (v) => v == null ? '–' : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)} %`
@@ -2712,6 +2715,9 @@ function LabbV3() {
             <LabbPill s={radar?.signal_ledger?.blind_gate?.status === 'pass'
               ? 'pass' : radar?.signal_ledger?.blind_gate?.status === 'no_support'
                 ? 'fals' : 'samlar'} /></div>
+          {!radar && !radarErr && <LoadingState label="Hämtar radar-facit…" />}
+          {radarErr && !radar && <ErrorState message={radarErr} />}
+          {radar && <>
           {radar?.signal_version && (
             <span className="v3hint">Kohort <code>{radar.signal_version}</code>
               {radar.signal_version_started_at
@@ -2916,6 +2922,7 @@ function LabbV3() {
           )}
           <span className="v3hint">Shadow: detta påverkar inga tips, Kelly, notiser eller
             systemförslag. Metod: <code>docs/live-radar-2026-07-25.md</code>.</span>
+          </>}
         </div>
 
         {/* PH3-systemledgern togs bort härifrån 2026-08-05. Den visade samma
