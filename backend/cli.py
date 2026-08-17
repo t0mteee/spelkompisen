@@ -473,7 +473,7 @@ def _live_pass(store) -> tuple[dict, dict]:
               f"({type(e).__name__}: {str(e)[:60]})")
     try:
         from app.live_signal_ledger import settle_signals
-        signal_settle = settle_signals(store)
+        signal_settle = settle_signals(store, refresh_recent=True)
         if signal_settle["settled"]:
             print(f"radar-ledger: {signal_settle['settled']} signaler fick "
                   "slutresultat")

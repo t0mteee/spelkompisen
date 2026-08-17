@@ -87,6 +87,98 @@ class TeamMatchTests(unittest.TestCase):
             cands, "allsvenskan", "Hammarby", "AIK"))
 
 
+class RefreshLiveResultTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self._tmp.name) / "test.db")
+        self.start = NOW - dt.timedelta(hours=3)
+
+    def tearDown(self):
+        self.store.close()
+        self._tmp.cleanup()
+
+    def _signal(self, **over):
+        row = {
+            "match_key": "pin:hacken", "provider": "flashscore",
+            "provider_event_id": "vRkjOT13", "league": "allsvenskan",
+            "home": "Hacken", "away": "Halmstad",
+            "start_at": self.start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "captured_at": (NOW - dt.timedelta(hours=1)).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"), "minute": 69,
+        }
+        row.update(over)
+        return row
+
+    def _finished(self, **over):
+        row = {
+            "flashscore_id": "vRkjOT13", "league": "allsvenskan",
+            "home": "Hacken", "away": "Halmstad",
+            "start_ts": int(self.start.timestamp()),
+            "stage": "3", "home_score": 1, "away_score": 0,
+        }
+        row.update(over)
+        return row
+
+    def _run(self, signals=None, rows=None):
+        signals = signals or [self._signal()]
+        rows = rows if rows is not None else [self._finished()]
+
+        def day(_self, offset, status):
+            self.assertEqual(flashscore.STATUS_FINISHED, status)
+            return (rows if offset == -1 else [], NOW)
+
+        with patch.object(flashscore.Flashscore, "day", day):
+            return flashscore_data.refresh_recent_results(
+                self.store, signals, now=NOW, force=True)
+
+    def test_saves_explicit_flashscore_finish_for_signal(self):
+        report = self._run()
+
+        self.assertEqual(1, report["matched"])
+        self.assertEqual(1, report["saved"])
+        row = self.store.oddset_results("allsvenskan")[0]
+        self.assertEqual((1, 0), (row["hg"], row["ag"]))
+        self.assertEqual("flashscore", row["source"])
+
+    def test_flashscore_signal_requires_the_same_provider_id(self):
+        report = self._run(rows=[self._finished(flashscore_id="OTHER")])
+
+        self.assertEqual(0, report["matched"])
+        self.assertEqual([], self.store.oddset_results("allsvenskan"))
+
+    def test_extra_time_or_penalty_stage_waits_for_safer_facit(self):
+        report = self._run(rows=[self._finished(stage="16")])
+
+        self.assertEqual(0, report["matched"])
+        self.assertEqual([], self.store.oddset_results("allsvenskan"))
+
+    def test_reserve_provider_requires_unique_team_and_start_match(self):
+        signal = self._signal(provider="fotmob", provider_event_id="123")
+        rows = [self._finished(), self._finished(
+            flashscore_id="LATE", start_ts=int(
+                (self.start + dt.timedelta(hours=4)).timestamp()))]
+
+        report = self._run(signals=[signal], rows=rows)
+
+        self.assertEqual(1, report["matched"])
+        self.assertEqual(1, report["saved"])
+
+    def test_recent_filter_ignores_still_live_and_old_signals(self):
+        signals = [
+            self._signal(match_key="live", start_at=(
+                NOW - dt.timedelta(minutes=95)).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ")),
+            self._signal(match_key="old", start_at=(
+                NOW - dt.timedelta(hours=37)).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ")),
+            self._signal(match_key="ready"),
+        ]
+
+        recent = flashscore_data._recent_signals(signals, NOW)
+
+        self.assertEqual(["ready"], [row["match_key"] for row in recent])
+
+
 class RefreshXgTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()

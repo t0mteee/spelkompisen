@@ -39,6 +39,12 @@ XG_LOOKBACK_DAYS = 5
 # Frånvaro publiceras nära avspark; samma fönster som Sofascore-vägen använde.
 ABSENCE_WINDOW_H = 48
 FS_TTL_H = 2
+# Snabbfacit för livejournalen. Det stora statistikjobbet kan vänta; ett
+# uttryckligt Flashscore-slut ska däremot kunna rätta ett testspel inom nästa
+# tiominutersfönster utan att fråga en annan provider.
+LIVE_RESULT_TTL_H = 10 / 60
+LIVE_RESULT_MIN_AGE_MIN = 100
+LIVE_RESULT_MAX_AGE_H = 36
 
 
 def _now() -> dt.datetime:
@@ -160,6 +166,137 @@ def _find_scheduled(candidates: list[dict], match: dict) -> Optional[dict]:
         if abs((source_start - start).total_seconds()) <= 6 * 3600:
             hits.append(found)
     return hits[0] if len(hits) == 1 else None
+
+
+def _signal_start(signal: dict) -> Optional[dt.datetime]:
+    try:
+        if signal.get("start_at"):
+            value = dt.datetime.fromisoformat(
+                str(signal["start_at"]).replace("Z", "+00:00"))
+        else:
+            captured = dt.datetime.fromisoformat(
+                str(signal["captured_at"]).replace("Z", "+00:00"))
+            value = captured - dt.timedelta(
+                minutes=int(signal.get("minute") or 0))
+        return value if value.tzinfo else value.replace(tzinfo=dt.timezone.utc)
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return None
+
+
+def _recent_signals(signals: list[dict], now: dt.datetime) -> list[dict]:
+    """Signaler vars match rimligen är slut men fortfarande är färsk."""
+    out = []
+    for signal in signals:
+        start = _signal_start(signal)
+        if start is None:
+            continue
+        age = now - start
+        if (dt.timedelta(minutes=LIVE_RESULT_MIN_AGE_MIN) <= age <=
+                dt.timedelta(hours=LIVE_RESULT_MAX_AGE_H)):
+            out.append(signal)
+    return out
+
+
+def _finished_signal(candidates: list[dict], signal: dict) -> Optional[dict]:
+    """Entydigt Flashscore-slut för en signal, annars ingenting.
+
+    Flashscore-id:t är starkaste identiteten. Även då krävs samma liga,
+    samma två lag och rimlig avspark så att en skadad journalrad inte kan
+    smitta facitet. För signaler från reservprovidern krävs i stället en unik
+    lag- och tidsmatchning.
+    """
+    reference = _signal_start(signal)
+    if reference is None:
+        return None
+    hits = []
+    for candidate in candidates:
+        if (candidate.get("league") != signal.get("league") or
+                str(candidate.get("stage")) != "3" or
+                candidate.get("home_score") is None or
+                candidate.get("away_score") is None or
+                not candidate.get("start_ts")):
+            continue
+        if (not _same(candidate.get("home") or "", signal.get("home") or "")
+                or not _same(candidate.get("away") or "",
+                             signal.get("away") or "")):
+            continue
+        source_start = dt.datetime.fromtimestamp(
+            candidate["start_ts"], dt.timezone.utc)
+        if abs((source_start - reference).total_seconds()) > 90 * 60:
+            continue
+        direct_id = (signal.get("provider") == "flashscore" and
+                     str(candidate.get("flashscore_id")) ==
+                     str(signal.get("provider_event_id")))
+        if signal.get("provider") == "flashscore" and not direct_id:
+            continue
+        hits.append(candidate)
+    return hits[0] if len(hits) == 1 else None
+
+
+def refresh_recent_results(store: Storage, signals: list[dict], *,
+                           now: Optional[dt.datetime] = None,
+                           force: bool = False) -> dict:
+    """Rätta färska signalmatcher enbart mot Flashscores färdigfeed."""
+    from .oddset_data import _mark, _stale
+    now = now or _now()
+    recent = _recent_signals(signals, now)
+    # Ett enda resultat per fysisk match räcker även om Följer senare blev
+    # Stark. Bevara första journalidentiteten deterministiskt.
+    unique = {}
+    for signal in recent:
+        unique.setdefault(signal["match_key"], signal)
+    report = {"eligible": len(unique), "feeds": 0, "matched": 0,
+              "saved": 0, "errors": []}
+    if not unique:
+        return report
+    key = "oddset_live_result_fs_at"
+    if not force and not _stale(store, key, LIVE_RESULT_TTL_H):
+        report["status"] = "cache"
+        return report
+
+    offsets = set()
+    for signal in unique.values():
+        start = _signal_start(signal)
+        base = (start.date() - now.date()).days
+        # Flashscores svenska dagsgräns kan lägga kvällsmatchen i föregående
+        # offset redan samma UTC-dygn (Häcken–Halmstad: -1, inte 0).
+        offsets.update(offset for offset in (base - 1, base, base + 1)
+                       if -2 <= offset <= 0)
+    candidates = []
+    try:
+        with flashscore.Flashscore() as api:
+            for offset in sorted(offsets):
+                try:
+                    rows, _observed_at = api.day(
+                        offset, flashscore.STATUS_FINISHED)
+                    candidates.extend(rows)
+                    report["feeds"] += 1
+                except Exception as exc:  # noqa: BLE001 — nästa offset ändå
+                    report["errors"].append(
+                        f"dag {offset}: {type(exc).__name__}")
+        with store.bulk():
+            for signal in unique.values():
+                found = _finished_signal(candidates, signal)
+                if not found:
+                    continue
+                report["matched"] += 1
+                start = dt.datetime.fromtimestamp(
+                    found["start_ts"], dt.timezone.utc)
+                store.oddset_save_result({
+                    "league": signal["league"],
+                    "date": start.date().isoformat(),
+                    "home": norm_team(found["home"]),
+                    "away": norm_team(found["away"]),
+                    "home_raw": found["home"], "away_raw": found["away"],
+                    "hg": int(found["home_score"]),
+                    "ag": int(found["away_score"]),
+                    "source": "flashscore",
+                })
+                report["saved"] += 1
+    finally:
+        # Transportfel throttlas också; tvåminutersloopen ska inte hamra.
+        _mark(store, key)
+    return report
 
 
 def refresh_xg(store: Storage, force: bool = False) -> dict:

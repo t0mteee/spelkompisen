@@ -15,7 +15,7 @@ import datetime as dt
 import random
 from typing import Optional
 
-from . import kambi, live_radar, live_settlement, oddset_data
+from . import flashscore_data, kambi, live_radar, live_settlement, oddset_data
 from .oddset import _team_sim
 from .storage import Storage
 
@@ -479,14 +479,19 @@ def _later_after_decision(signal: dict, later: list[dict]) -> list[dict]:
 
 
 def settle_signals(store: Storage, *,
-                   now: Optional[dt.datetime] = None) -> dict:
+                   now: Optional[dt.datetime] = None,
+                   refresh_recent: bool = False) -> dict:
     """Settla öppna signaler mot observerat slutresultat, append-once."""
     fixed = now
     now = now or _now()
     report = {"settled": 0, "waiting_result": 0,
-              "ambiguous_or_invalid": 0}
+              "ambiguous_or_invalid": 0, "recent_results": {}}
+    signals = store.live_unsettled_signals()
+    if refresh_recent:
+        report["recent_results"] = flashscore_data.refresh_recent_results(
+            store, signals, now=now)
     by_league: dict[str, list[dict]] = {}
-    for signal in store.live_unsettled_signals():
+    for signal in signals:
         league = signal["league"]
         if league not in by_league:
             by_league[league] = oddset_data.merged_results(store, league)
@@ -597,6 +602,7 @@ def _version_facit(rows: list[dict]) -> dict:
     for row in rows:
         first_by_match.setdefault(row["match_key"], row)
     first = list(first_by_match.values())
+    first_ids = {row["id"] for row in first}
     blind = _summary(first)
     ci = blind.get("roi_ci90")
     enough = (blind["n_priced_settled"] >= BLIND_MIN_PRICED and
@@ -616,7 +622,15 @@ def _version_facit(rows: list[dict]) -> dict:
         selected = [row for row in rows
                     if row["signal_type"] == kind
                     and row["signal_level"] == level]
+        level_bets = [row for row in selected
+                      if row["id"] in first_ids
+                      and row.get("odds_status") == "captured"
+                      and row.get("ou_line") is not None
+                      and row.get("over_odds") is not None]
         groups.append({"signal_type": kind, "signal_level": level,
+                       "n_test_bets": len(level_bets),
+                       "n_test_bets_settled": sum(
+                           bool(row.get("settled_at")) for row in level_bets),
                        **_summary(selected)})
     return {
         "forward_only_since": rows[0]["captured_at"] if rows else None,

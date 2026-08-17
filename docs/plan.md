@@ -15,6 +15,16 @@ kortnamn (`Odense`/`Odense Boldklub` m.fl.) endast vid exakt datum, ett strikt
 matchande motståndarlag och unik kandidat. Gamla odds bakfylls aldrig; inga
 signaltrösklar eller radarversioner ändrades. Full överlämning:
 `docs/overlamning-2026-08-17-live-blindtest.md`.
+Efter Häcken–Halmstad 17/8 kompletterades settlementet med en riktad
+slutresultatkontroll: en nyligen avslutad signalmatch behöver inte längre
+vänta på den långsammare resultatinsamlingen. Snabbvägen använder enbart
+Flashscores uttryckliga färdigfeed, högst var tionde minut. Flashscore-id, lag,
+liga och avspark måste stämma; bara ordinarie slutstadium godtas och
+förlängning/straff faller stängt. Nivårutorna skiljer nu också mellan antal
+matcher som nådde en nivå, antal med odds och antal avgjorda; de förklarar att
+Följer→Stark kan vara samma match och visar separat hur många som faktiskt
+blev spel i huvudblindtestet. Den upprepade etiketten `Testspel` är borttagen
+från varje journalrad.
 
 **POOLFRYSNINGEN TÅL SHARP-ONLY-VÄRDE (2026-08-16, Codex).** Topptipset
 4274 missade både h3 och m20 trots att snapshots och styrke-shadow samlades.

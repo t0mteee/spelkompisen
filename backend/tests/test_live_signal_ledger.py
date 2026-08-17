@@ -715,6 +715,26 @@ class SettlementGuardTests(unittest.TestCase):
         self.assertEqual(0, report["settled"])
         self.assertEqual(1, report["waiting_result"])
 
+    def test_recent_signal_can_refresh_result_before_settlement(self):
+        self._signal(start_at=iso(NOW - dt.timedelta(hours=5, minutes=30)))
+
+        def save_result(store, signals, *, now):
+            self.assertEqual(1, len(signals))
+            self.assertEqual("allsvenskan", signals[0]["league"])
+            self.assertEqual(NOW, now)
+            self._result(1, 0)
+            return {"eligible": 1, "matched": 1, "saved": 1}
+
+        with patch.object(live_signal_ledger.flashscore_data,
+                          "refresh_recent_results",
+                          side_effect=save_result) as refresh:
+            report = live_signal_ledger.settle_signals(
+                self.store, now=NOW, refresh_recent=True)
+
+        refresh.assert_called_once()
+        self.assertEqual(1, report["settled"])
+        self.assertEqual(1, report["recent_results"]["saved"])
+
     def test_borrowed_journal_clock_and_score_are_the_settlement_moment(self):
         event_id = "SKg88Q3T"
         first_at = NOW - dt.timedelta(hours=5)
@@ -844,6 +864,10 @@ class BlindGateTests(unittest.TestCase):
         levels = {(g["signal_level"], g["n_signals"])
                   for g in report["groups"]}
         self.assertIn(("strong", 1), levels)
+        strong = next(g for g in report["groups"]
+                      if g["signal_level"] == "strong")
+        self.assertEqual(0, strong["n_test_bets"])
+        self.assertEqual(0, strong["n_test_bets_settled"])
         rows = {row["signal_level"]: row for row in report["rows"]
                 if row["match_key"] == "m0"}
         self.assertTrue(rows["watch"]["test_bet"])

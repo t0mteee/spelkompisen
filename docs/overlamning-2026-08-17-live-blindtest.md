@@ -132,3 +132,41 @@ De historiska facitreparationerna ändrar inte vilka rader som räknas som
 spel. De gör bara redan observerade resultat tillgängliga för rader som
 tidigare fastnade på namnvarianter. Gamla saknade liveodds har inte
 rekonstruerats eller bakfyllts.
+
+## Uppföljning: snabbare facit och tydligare nivåer
+
+Häcken–Halmstad 17/8 blottade en separat fördröjning. Flashscore och FotMob
+följde matchen till 91–92:a minuten och 1–0, men en sista livebild är inte
+bevis på slutresultat. Flashscores egen färdigfeed hade däremot samma event-id
+`vRkjOT13` med status `AB=3`, ordinarie slutstadium `AC=3` och 1–0. På det
+svenska dagsflödet låg kvällsmatchen redan i offset −1 trots samma UTC-dygn;
+snabbkontrollen läser därför även angränsande Flashscore-dygn.
+
+`settle_signals(..., refresh_recent=True)` identifierar nu bara öppna
+signalrader vars matchstart ligger 100 minuter–36 timmar bakåt. Bara
+Flashscores färdigfeed läses, högst en gång per tio minuter. För en
+Flashscore-signal måste provider-id, liga, båda lagen och avsparken stämma.
+En reservproviders signal kräver en unik lag- och tidsmatchning mot
+Flashscore. Bara `AC=3` accepteras; förlängnings- och straffstadier lämnas
+öppna tills ett säkert normaltidsfacit finns. Sofascore används inte i denna
+snabbväg och sista liveraden används aldrig som facit. Häcken-spelet var Över
+1,5 @ 1,38 vid 1–0 i minut 69 och ska därför rättas som förlust mot
+Flashscores bekräftade 1–0.
+
+Nivåsumman hade också en korrekt men lätt misstolkad nämnare. `Stark 13/13`
+betydde 13 avgjorda av 13 Stark-ögonblick med pris, inte att bara 13 matcher
+nådde Stark. I datat hade 28 matcher nått nivån; nästan alla var senare
+eskaleringar efter Följer. Av de 28 var 27 senare signaler; den enda match där
+Stark var första signal saknade livepris. Stark-gruppen hade därför noll spel
+i huvudblindtestet trots 13 prissatta, diagnostiska Stark-ögonblick. UI:t
+visar nu separat:
+
+- antal matcher som nådde nivån;
+- antal nivåögonblick med odds;
+- hur många av dessa som är avgjorda.
+- hur många som faktiskt blev spel i huvudblindtestet och fick facit där.
+
+En förklaring anger att nivårutorna är separata diagnostiska nivåtester,
+medan Blindtestspel bara använder matchens första aktiva signal. Den
+upprepade rubriken `Testspel` på varje spelrad är ersatt av den informativa
+nivån och signaltypen, exempelvis `Följer · xG`.

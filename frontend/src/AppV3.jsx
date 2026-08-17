@@ -2754,20 +2754,28 @@ function LabbV3() {
             </div>
           )}
           {!!radar?.signal_ledger?.groups?.length && (
-            <div className="v3radar-groups">
-              {radar.signal_ledger.groups.map((g) => (
-                <div key={`${g.signal_type}-${g.signal_level}`}>
-                  <b>{radarLevel(g.signal_level)} · {radarType(g.signal_type)}</b>
-                  <span>{g.n_priced_settled}/{g.n_priced_signals} prissatta
-                    signaler avgjorda · {g.n_signals} signaler totalt</span>
-                  <span>mål ≤15 min {rate(g.goal_15min_rate)}</span>
-                  <span>snitt mål efter {g.avg_goals_after ?? '–'}</span>
-                  <span>Över-ROI {g.n_priced_settled >= ROI_MIN_N
-                    ? <b className={evCls(g.roi_over)}>{evPct(g.roi_over)}</b>
-                    : <span className="v3hint">för tidigt (n={g.n_priced_settled})</span>}</span>
-                </div>
-              ))}
-            </div>
+            <>
+              <span className="v3hint">Nivårutorna analyserar varje nivå för sig.
+                Samma match kan först nå Följer och senare Stark. Blindtestlistan
+                nedan räknar däremot bara matchens första signal som möjligt spel.</span>
+              <div className="v3radar-groups">
+                {radar.signal_ledger.groups.map((g) => (
+                  <div key={`${g.signal_type}-${g.signal_level}`}>
+                    <b>{radarLevel(g.signal_level)} · {radarType(g.signal_type)}</b>
+                    <span><b>{g.n_matches}</b> matcher nådde nivån</span>
+                    <span>Nivåtest med odds: <b>{g.n_priced_signals}</b>
+                      {' '}· facit klart: <b>{g.n_priced_settled}</b></span>
+                    <span>I huvudblindtestet: <b>{g.n_test_bets}</b> spel
+                      {' '}· facit klart: <b>{g.n_test_bets_settled}</b></span>
+                    <span>mål ≤15 min {rate(g.goal_15min_rate)}</span>
+                    <span>snitt mål efter {g.avg_goals_after ?? '–'}</span>
+                    <span>Nivåtestets Över-ROI {g.n_priced_settled >= ROI_MIN_N
+                      ? <b className={evCls(g.roi_over)}>{evPct(g.roi_over)}</b>
+                      : <span className="v3hint">för tidigt (n={g.n_priced_settled})</span>}</span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
 
           <details className="v3radar-old">
@@ -2813,8 +2821,7 @@ function LabbV3() {
                         <span>{radarTime(row.captured_at)} · {row.minute ?? '–'}′ ·{' '}
                           {row.home_score ?? '–'}–{row.away_score ?? '–'}</span></div>
                       <div>{row.test_bet
-                        ? <><b>Testspel</b><span>Signalnivå {radarLevel(row.signal_level)}
-                          {' '}· {radarType(row.signal_type)}</span></>
+                        ? <><b>{radarLevel(row.signal_level)} · {radarType(row.signal_type)}</b></>
                         : <><b>Ej spelad</b><span>{row.blind_entry
                           ? radarOddsStatus(row)
                           : 'senare signal – blindtestet använder bara den första'}</span></>}
