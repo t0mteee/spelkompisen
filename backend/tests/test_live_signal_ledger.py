@@ -192,6 +192,43 @@ class LiveSignalLedgerTests(unittest.TestCase):
         self.assertEqual(1, len(report["rows"]))
         self.assertEqual("watch", report["rows"][0]["signal_level"])
         self.assertEqual(-0.5, report["rows"][0]["over_profit"])
+        self.assertTrue(report["rows"][0]["blind_entry"])
+        self.assertTrue(report["rows"][0]["test_bet"])
+        self.assertIsNone(report["rows"][0]["test_bet_exclusion"])
+
+    def test_result_matching_repairs_one_name_only_with_strict_context(self):
+        signal = {
+            "captured_at": iso(NOW), "start_at": iso(NOW),
+            "home": "Silkeborg", "away": "Odense",
+        }
+        result = {
+            "date": NOW.date().isoformat(), "home": "silkeborg",
+            "away": "odense boldklub", "hg": 1, "ag": 0,
+        }
+
+        found = live_signal_ledger._result_for(signal, [result])
+
+        self.assertIsNotNone(found)
+        self.assertEqual(result, found[0])
+        self.assertFalse(found[1])
+
+    def test_contextual_result_matching_stays_closed_when_ambiguous(self):
+        signal = {
+            "captured_at": iso(NOW), "start_at": iso(NOW),
+            "home": "Silkeborg", "away": "Odense",
+        }
+        results = [
+            {"date": NOW.date().isoformat(), "home": "silkeborg",
+             "away": "odense boldklub", "hg": 1, "ag": 0},
+            {"date": NOW.date().isoformat(), "home": "silkeborg",
+             "away": "odense city", "hg": 2, "ag": 0},
+        ]
+
+        self.assertIsNone(live_signal_ledger._result_for(signal, results))
+
+    def test_contextual_result_matching_honours_known_rejected_clubs(self):
+        self.assertFalse(
+            live_signal_ledger._context_same_team("Egersund", "Haugesund"))
 
     def test_facit_keeps_older_signal_versions_out_of_current_gate(self):
         def save(version, match_key, event_id, minutes_ago):
@@ -374,6 +411,40 @@ class LiveSignalOddsStatusTests(unittest.TestCase):
         self.assertEqual(iso(NOW - dt.timedelta(seconds=300)),
                          row["odds_observed_at"])
         self.assertEqual("flashscore", row["clock_source"])
+
+    def test_live_kambi_list_recovers_price_without_prematch_canonical(self):
+        self.store.conn.execute("DELETE FROM oddset_matches")
+        self.store.conn.commit()
+        market = {"ou": {"line": 2.5, "O": 2.08, "U": 1.74}}
+        events = [{"id": "9090", "home": "Hammarby", "away": "AIK",
+                   "group": "Allsvenskan"}]
+        with patch.object(live_signal_ledger.kambi, "live_events",
+                          return_value=events) as live_events, \
+                patch.object(live_signal_ledger.kambi, "live_total",
+                             return_value=market) as live_total:
+            report = live_signal_ledger.capture_signals(self.store, now=NOW)
+
+        self.assertEqual(1, report["priced"])
+        self.assertEqual("captured", self.store.live_signal_rows()[0]["odds_status"])
+        live_events.assert_called_once_with(timeout=8.0)
+        live_total.assert_called_once_with("9090", timeout=8.0, strict=True)
+
+    def test_ambiguous_live_kambi_list_never_guesses_an_odds_event(self):
+        self.store.conn.execute("DELETE FROM oddset_matches")
+        self.store.conn.commit()
+        events = [
+            {"id": "9090", "home": "Hammarby", "away": "AIK"},
+            {"id": "9091", "home": "Hammarby IF", "away": "AIK"},
+        ]
+        with patch.object(live_signal_ledger.kambi, "live_events",
+                          return_value=events), \
+                patch.object(live_signal_ledger.kambi, "live_total") as live_total:
+            report = live_signal_ledger.capture_signals(self.store, now=NOW)
+
+        self.assertEqual(0, report["priced"])
+        self.assertEqual("no_canonical_match",
+                         self.store.live_signal_rows()[0]["odds_status"])
+        live_total.assert_not_called()
 
 
 class MatchKeyLockTests(unittest.TestCase):
@@ -773,6 +844,11 @@ class BlindGateTests(unittest.TestCase):
         levels = {(g["signal_level"], g["n_signals"])
                   for g in report["groups"]}
         self.assertIn(("strong", 1), levels)
+        rows = {row["signal_level"]: row for row in report["rows"]
+                if row["match_key"] == "m0"}
+        self.assertTrue(rows["watch"]["test_bet"])
+        self.assertFalse(rows["strong"]["test_bet"])
+        self.assertEqual("later_signal", rows["strong"]["test_bet_exclusion"])
 
 
 if __name__ == "__main__":

@@ -1,6 +1,20 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-08-16 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-08-17 — läs detta först i ny session)
+
+**LIVEBLINDTESTET VISAR ENBART FAKTISKA TESTSPEL SOM STANDARD
+(2026-08-17, Codex).** Signaljournalen blandade tidigare första blindbeslut,
+senare Stark-eskaleringar, signaler utan odds och riktiga testspel. Backend
+märker nu explicit `blind_entry` och `test_bet`; UI:t visar bara prissatta
+förstbeslut från start, med grönt ✓, rött ✕, väntande facit och odds från
+beslutsögonblicket. Ej spelade signaler finns kvar bakom en toggle med konkret
+orsak. `Följer` förklaras som första aktiva testsignal, inte passiv bevakning.
+Oddstäckningen förbättras framåt genom en entydig direktkoppling till Kambis
+pågående lista när prematchkanonen saknas. Facit kan nu läka observerade
+kortnamn (`Odense`/`Odense Boldklub` m.fl.) endast vid exakt datum, ett strikt
+matchande motståndarlag och unik kandidat. Gamla odds bakfylls aldrig; inga
+signaltrösklar eller radarversioner ändrades. Full överlämning:
+`docs/overlamning-2026-08-17-live-blindtest.md`.
 
 **POOLFRYSNINGEN TÅL SHARP-ONLY-VÄRDE (2026-08-16, Codex).** Topptipset
 4274 missade både h3 och m20 trots att snapshots och styrke-shadow samlades.

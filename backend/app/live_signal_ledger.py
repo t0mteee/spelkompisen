@@ -16,6 +16,7 @@ import random
 from typing import Optional
 
 from . import kambi, live_radar, live_settlement, oddset_data
+from .oddset import _team_sim
 from .storage import Storage
 
 BLIND_MIN_PRICED = 200
@@ -69,6 +70,81 @@ def _canonical_match(store: Storage, row: dict) -> Optional[dict]:
     if len(matches) > 1 and matches[0][0] == matches[1][0]:
         return None
     return matches[0][1]
+
+
+# Bekräftade resultatnamn som är semantiskt samma klubb men inte kan lösas av
+# en generell prefixregel. Tabellen används BARA när motståndaren redan
+# matchar strikt, datumet är exakt och exakt en resultatrad återstår.
+_RESULT_TEAM_ALIASES = {
+    "hearts": "heart of midlothian",
+}
+_RESULT_TEAM_REJECTED = {
+    frozenset({"egersund", "haugesund"}),
+}
+
+
+def _context_same_team(a: str, b: str) -> bool:
+    """Svag lagjämförelse som aldrig får stå ensam som matchbevis."""
+    if live_radar._same_team(a, b):
+        return True
+    x, y = live_radar.live_norm_team(a), live_radar.live_norm_team(b)
+    x = _RESULT_TEAM_ALIASES.get(x, x)
+    y = _RESULT_TEAM_ALIASES.get(y, y)
+    if (frozenset({x, y}) in live_radar.LIVE_TEAM_REJECTED
+            or frozenset({x, y}) in _RESULT_TEAM_REJECTED):
+        return False
+    if live_radar._squad(x) != live_radar._squad(y):
+        return False
+    return (live_radar._same_team_in_context(x, y)
+            or _team_sim(x, y) >= 0.75)
+
+
+def _match_orientation(home: str, away: str, other_home: str,
+                       other_away: str, *, allow_context: bool) -> Optional[bool]:
+    """Returnera False för rak, True för speglad och None för ingen länk.
+
+    Kontextregeln kräver alltid att den ANDRA sidan matchar strikt. Därmed kan
+    ett kortnamn som `Odense` länkas till `Odense Boldklub`, men aldrig två
+    ungefärliga lag samtidigt.
+    """
+    home_direct = live_radar._same_team(home, other_home)
+    away_direct = live_radar._same_team(away, other_away)
+    if home_direct and away_direct:
+        return False
+    home_mirror = live_radar._same_team(home, other_away)
+    away_mirror = live_radar._same_team(away, other_home)
+    if home_mirror and away_mirror:
+        return True
+    if not allow_context:
+        return None
+    if ((home_direct and _context_same_team(away, other_away))
+            or (away_direct and _context_same_team(home, other_home))):
+        return False
+    if ((home_mirror and _context_same_team(away, other_home))
+            or (away_mirror and _context_same_team(home, other_away))):
+        return True
+    return None
+
+
+def _live_kambi_match(match: dict, events: list[dict]) -> Optional[dict]:
+    """Koppla ett pågående radarkort direkt till Kambis pågående lista.
+
+    Prematchkanonen täcker inte alla forskningsligor och träningsmatcher.
+    Båda kandidaterna är däremot bevisat live i samma anropsögonblick. Två
+    lag krävs, och en kontextlänk kräver en strikt sida; tvetydighet ger inget
+    pris. Detta förbättrar framtida täckning utan att bakfylla gamla odds.
+    """
+    candidates = []
+    for event in events:
+        mirrored = _match_orientation(
+            match.get("home") or "", match.get("away") or "",
+            event.get("home") or "", event.get("away") or "",
+            allow_context=True)
+        if mirrored is not None:
+            candidates.append(event)
+    if len(candidates) != 1:
+        return None
+    return {"kambi_id": str(candidates[0]["id"])}
 
 
 def _selected_source(match: dict) -> tuple[str, dict, str]:
@@ -230,6 +306,7 @@ def capture_signals(store: Storage, *,
     fixed = now
     now = now or _now()
     report = {"candidates": 0, "saved": 0, "priced": 0, "errors": []}
+    live_kambi_events: Optional[list[dict]] = None
     for match in live_radar.payload(store, now=now).get("matches") or []:
         signal = match.get("signal") or {}
         level, kind = signal.get("level"), signal.get("kind")
@@ -255,7 +332,15 @@ def capture_signals(store: Storage, *,
                              else str(match["event_id"])))
             if store.live_signal_exists(match_key, cohort, kind, level):
                 continue
-            odds = _live_total(canonical)
+            odds_match = canonical
+            if not (odds_match or {}).get("kambi_id"):
+                # Ett enda Kambi-listanrop per radarvarv, även om flera nya
+                # signaler saknar prematchkoppling eller SvS-id.
+                if live_kambi_events is None:
+                    live_kambi_events = kambi.live_events(timeout=8.0)
+                odds_match = (_live_kambi_match(match, live_kambi_events)
+                              or odds_match)
+            odds = _live_total(odds_match)
             saved = store.live_signal_save({
                 "match_key": match_key,
                 "match_id": canonical["id"] if canonical else None,
@@ -316,14 +401,15 @@ def _result_for(signal: dict, results: list[dict]) -> Optional[tuple[dict, bool]
         # får varken krascha settlingspasset eller matchas — hoppa över den.
         if result.get("hg") is None or result.get("ag") is None:
             continue
-        direct = (live_radar._same_team(result.get("home"), signal.get("home"))
-                  and live_radar._same_team(
-                      result.get("away"), signal.get("away")))
-        mirrored = (live_radar._same_team(result.get("home"), signal.get("away"))
-                    and live_radar._same_team(
-                        result.get("away"), signal.get("home")))
-        if direct or mirrored:
-            candidates.append((distance, result, bool(mirrored and not direct)))
+        mirrored = _match_orientation(
+            signal.get("home") or "", signal.get("away") or "",
+            result.get("home") or "", result.get("away") or "",
+            # Utan exakta avsparkar får den svagare namnregeln bara användas
+            # samma kalenderdag. ±1 dygn behålls enbart för två strikt
+            # matchande lag (UTC-/lokaldatumsfallet).
+            allow_context=distance == 0)
+        if mirrored is not None:
+            candidates.append((distance, result, mirrored))
     candidates.sort(key=lambda item: (item[0], item[1]["date"],
                                       item[1].get("home") or ""))
     if not candidates:
@@ -471,6 +557,10 @@ def _ci90(profits: list[float]) -> Optional[list[float]]:
 
 def _summary(rows: list[dict]) -> dict:
     settled = [row for row in rows if row.get("settled_at")]
+    priced_signals = [row for row in rows
+                      if row.get("odds_status") == "captured"
+                      and row.get("ou_line") is not None
+                      and row.get("over_odds") is not None]
     priced = [row for row in settled if row.get("over_profit") is not None]
     profits = [float(row["over_profit"]) for row in priced]
     goal15 = [int(row["outcome_15min"]) for row in settled
@@ -484,6 +574,7 @@ def _summary(rows: list[dict]) -> dict:
         "n_signals": len(rows),
         "n_matches": len({row["match_key"] for row in rows}),
         "n_settled": len(settled),
+        "n_priced_signals": len(priced_signals),
         "n_priced_settled": len(priced),
         "roi_over": round(sum(profits) / len(profits), 4) if profits else None,
         "roi_ci90": _ci90(profits),
@@ -553,13 +644,33 @@ def facit(store: Storage, limit: int = 200) -> dict:
                            if row["signal_version"] == version])}
         for version in old_versions
     ]
+    # Märk exakt vilka rader som utgör blindtestets låtsasspel. Första aktiva
+    # signalen per fysisk match är det förregistrerade beslutet. En senare
+    # Stark-rad är diagnostik även om den råkar ha odds; en första signal utan
+    # observerat pris är heller inget spel och får aldrig visas som vinst/förlust.
+    annotated = []
+    seen_matches = set()
+    for row in rows:
+        blind_entry = row["match_key"] not in seen_matches
+        seen_matches.add(row["match_key"])
+        priced = (row.get("odds_status") == "captured"
+                  and row.get("ou_line") is not None
+                  and row.get("over_odds") is not None)
+        annotated.append({
+            **row,
+            "blind_entry": blind_entry,
+            "test_bet": bool(blind_entry and priced),
+            "test_bet_exclusion": (None if blind_entry and priced else
+                                   "later_signal" if not blind_entry else
+                                   "no_live_price"),
+        })
     return {
         "mode": "shadow", "signal_version": current,
         "all_versions_n_signals": len(all_rows),
         **_version_facit(rows),
         "historical_versions": historical,
         "transitional_n_signals": len(transitional),
-        "rows": list(reversed(rows[-max(1, int(limit)):])),
+        "rows": list(reversed(annotated[-max(1, int(limit)):])),
         "thresholds": {
             "xg_watch": {
                 "minute": "15–78, minst 12 minuter kvar",

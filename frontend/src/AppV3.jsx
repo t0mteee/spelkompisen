@@ -2236,6 +2236,7 @@ function LabbV3() {
   const [logLimit, setLogLimit] = useState(200)
   const [logLeague, setLogLeague] = useState('alla')
   const [logStatus, setLogStatus] = useState('alla')
+  const [showUnplayedRadar, setShowUnplayedRadar] = useState(false)
 
   useEffect(() => {
     // engångsläsning — mätserierna rör sig på varv-/veckoskala, ingen poll
@@ -2255,8 +2256,8 @@ function LabbV3() {
       day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
     }) : '–'
   const radarOddsStatus = (row) => ({
-    no_canonical_match: 'matchen saknade oddskoppling',
-    no_svenskaspel_id: 'SvS-id saknades',
+    no_canonical_match: 'ingen säker koppling till Svenska Spels livemarknad',
+    no_svenskaspel_id: 'matchen saknade id hos Svenska Spel',
     not_offered: 'Ö/U erbjöds inte just då',
     suspended: 'Ö/U var suspenderat vid signalen',
   }[row.odds_status] || (row.odds_status?.startsWith('source_error')
@@ -2265,6 +2266,19 @@ function LabbV3() {
     win: 'vinst', half_win: 'halvvinst', push: 'återbetald',
     half_loss: 'halvförlust', loss: 'förlust',
   }[v] || v)
+  const radarOutcome = (row) => {
+    if (!row.settled_at) return { icon: '⏳', label: 'Inväntar facit', cls: 'pending' }
+    if (row.over_result === 'win' || row.over_result === 'half_win') {
+      return { icon: '✓', label: radarOverResult(row.over_result), cls: 'won' }
+    }
+    if (row.over_result === 'loss' || row.over_result === 'half_loss') {
+      return { icon: '✕', label: radarOverResult(row.over_result), cls: 'lost' }
+    }
+    if (row.over_result === 'push') {
+      return { icon: '↔', label: radarOverResult(row.over_result), cls: 'push' }
+    }
+    return { icon: '–', label: 'saknar spelbart facit', cls: 'pending' }
+  }
 
   const dShort = (ts) => ts ? new Date(ts).toLocaleDateString('sv-SE', {
     day: 'numeric', month: 'short',
@@ -2303,6 +2317,10 @@ function LabbV3() {
   // "Över-ROI −100 %" i rött, vilket läses som facit i stället för brus.
   const gate = radar?.signal_ledger?.blind_gate
   const gateN = gate?.n_priced_settled ?? 0
+  const radarRows = radar?.signal_ledger?.rows || []
+  const radarTestBets = radarRows.filter((row) => row.test_bet)
+  const radarNotPlayed = radarRows.filter((row) => !row.test_bet)
+  const radarVisibleRows = showUnplayedRadar ? radarRows : radarTestBets
   const ledgerTiming = Object.values(ledger?.capture_quality || {}).reduce(
     (sum, h) => ({ n: sum.n + (h.n || 0), timely: sum.timely + (h.n_timely || 0) }),
     { n: 0, timely: 0 })
@@ -2683,26 +2701,29 @@ function LabbV3() {
           )}
 
           <div className="v3radar-rules" aria-label="Radarns signalregler">
-            <div><b>Följer · xG</b>
+            <div><b>Testsignal · xG</b>
               <span>{radar?.signal_ledger?.thresholds?.xg_watch?.minute
                 || 'Minut 15–78, minst 12 minuter kvar'}</span>
               <span>{radar?.signal_ledger?.thresholds?.xg_watch?.rule
                 || 'Lagets xG−mål ≥ 0,65 eller matchens xG−mål ≥ 1,00'}</span></div>
-            <div className="strong"><b>Stark · xG</b>
+            <div className="strong"><b>Stark testsignal · xG</b>
               <span>{radar?.signal_ledger?.thresholds?.xg_strong?.minute
                 || 'Samma tidsfönster som Följer'}</span>
               <span>{radar?.signal_ledger?.thresholds?.xg_strong?.rule
                 || 'Lagets xG−mål ≥ 1,15 eller matchens xG−mål ≥ 1,65'}</span></div>
-            <div><b>Följer · skott</b>
+            <div><b>Testsignal · skott</b>
               <span>{radar?.signal_ledger?.thresholds?.proxy_watch?.minute
                 || 'Minut 20–78, minst 12 minuter kvar'}</span>
               <span>{radar?.signal_ledger?.thresholds?.proxy_watch?.rule
                 || 'Stora chanser−mål ≥ 1,5, eller skott på mål−mål ≥ 5 och minst 8 skott i box'}</span></div>
           </div>
-          <span className="v3hint">Det finns två aktiva nivåer: <b>Följer</b> och <b>Stark</b>.
-            Informationsläget före Följer är ingen signal. Skottmåttet har ingen Stark-nivå
-            i den aktuella {radar?.signal_version || 'radarversionen'}.
-            Första gången en nivå nås sparas; samma nivå varannan minut räknas inte som nya spel.</span>
+          <span className="v3hint"><b>Så läses testet:</b> När den första
+            Följer-nivån nås fattas blindbeslutet. Finns ett öppet liveodds
+            räknas det som ett testspel på Över; saknas pris blir det bara en
+            signalobservation. Om matchen först upptäcks på Stark kan det vara
+            blindbeslutet; en Stark-eskalering efter Följer sparas för analys
+            men är aldrig ett andra spel. Informationsläget före Följer är
+            ingen signal.</span>
 
           <div className="v3radar-gate">
             <b>Blindtest: första aktiva signalen per match</b>
@@ -2737,12 +2758,13 @@ function LabbV3() {
               {radar.signal_ledger.groups.map((g) => (
                 <div key={`${g.signal_type}-${g.signal_level}`}>
                   <b>{radarLevel(g.signal_level)} · {radarType(g.signal_type)}</b>
-                  <span>{g.n_settled}/{g.n_signals} avgjorda</span>
+                  <span>{g.n_priced_settled}/{g.n_priced_signals} prissatta
+                    signaler avgjorda · {g.n_signals} signaler totalt</span>
                   <span>mål ≤15 min {rate(g.goal_15min_rate)}</span>
                   <span>snitt mål efter {g.avg_goals_after ?? '–'}</span>
-                  <span>Över-ROI {g.n_settled >= ROI_MIN_N
+                  <span>Över-ROI {g.n_priced_settled >= ROI_MIN_N
                     ? <b className={evCls(g.roi_over)}>{evPct(g.roi_over)}</b>
-                    : <span className="v3hint">för tidigt (n={g.n_settled})</span>}</span>
+                    : <span className="v3hint">för tidigt (n={g.n_priced_settled})</span>}</span>
                 </div>
               ))}
             </div>
@@ -2771,28 +2793,49 @@ function LabbV3() {
             })}
           </details>
 
-          {!!radar?.signal_ledger?.rows?.length && (
+          {!!radarRows.length && (
             <details className="v3radar-log" open>
-              <summary>Signaljournal · senaste {radar.signal_ledger.rows.length}</summary>
+              <summary>Blindtestspel · {radarTestBets.length} med observerat odds</summary>
+              {!!radarNotPlayed.length && (
+                <label className="v3radar-logfilter">
+                  <input type="checkbox" checked={showUnplayedRadar}
+                    onChange={(e) => setShowUnplayedRadar(e.target.checked)} />
+                  Visa även signaler som inte blev spel ({radarNotPlayed.length})
+                </label>
+              )}
               <div className="v3radar-logrows">
-                {radar.signal_ledger.rows.map((row) => (
-                  <div className="v3radar-logrow" key={row.id}>
-                    <div><b>{row.home} – {row.away}</b>
-                      <span>{radarTime(row.captured_at)} · {row.minute ?? '–'}′ ·{' '}
-                        {row.home_score ?? '–'}–{row.away_score ?? '–'}</span></div>
-                    <div><b className={row.signal_level === 'strong' ? 'v3neg' : ''}>
-                      {radarLevel(row.signal_level)} · {radarType(row.signal_type)}</b>
-                      <span>{row.reason}</span></div>
-                    <div><b>Live Ö/U</b>
-                      <span>{row.odds_status === 'captured'
-                        ? `Ö ${row.ou_line} @ ${Number(row.over_odds).toFixed(2)} · U @ ${Number(row.under_odds).toFixed(2)} · läst ${radarTime(row.odds_observed_at)}`
-                        : radarOddsStatus(row)}</span></div>
-                    <div><b>Facit</b>
-                      <span>{row.settled_at
-                        ? `${row.final_home_score}–${row.final_away_score} · ${row.goals_after_signal} mål efter · Över ${row.over_result ? radarOverResult(row.over_result) : 'ej prissatt'}${row.over_profit == null ? '' : ` (${row.over_profit >= 0 ? '+' : ''}${row.over_profit.toFixed(2)} u)`}`
-                        : 'väntar på slutresultat'}</span></div>
-                  </div>
-                ))}
+                {radarVisibleRows.map((row) => {
+                  const outcome = radarOutcome(row)
+                  return (
+                    <div className={`v3radar-logrow ${row.test_bet
+                      ? `testbet ${outcome.cls}` : 'notplayed'}`} key={row.id}>
+                      <div><b>{row.home} – {row.away}</b>
+                        <span>{radarTime(row.captured_at)} · {row.minute ?? '–'}′ ·{' '}
+                          {row.home_score ?? '–'}–{row.away_score ?? '–'}</span></div>
+                      <div>{row.test_bet
+                        ? <><b>Testspel</b><span>Signalnivå {radarLevel(row.signal_level)}
+                          {' '}· {radarType(row.signal_type)}</span></>
+                        : <><b>Ej spelad</b><span>{row.blind_entry
+                          ? radarOddsStatus(row)
+                          : 'senare signal – blindtestet använder bara den första'}</span></>}
+                        <span>{row.reason}</span></div>
+                      <div><b>Odds vid beslutet</b>
+                        <span>{row.odds_status === 'captured'
+                          ? `Ö ${row.ou_line} @ ${Number(row.over_odds).toFixed(2)} · U @ ${Number(row.under_odds).toFixed(2)} · läst ${radarTime(row.odds_observed_at)}`
+                          : radarOddsStatus(row)}</span></div>
+                      <div className="v3radar-result">
+                        {row.test_bet
+                          ? <><b className={outcome.cls}><i>{outcome.icon}</i>{outcome.label}</b>
+                            <span>{row.settled_at
+                              ? `${row.final_home_score}–${row.final_away_score} · ${row.goals_after_signal} mål efter signalen${row.over_profit == null ? '' : ` · ${row.over_profit >= 0 ? '+' : ''}${row.over_profit.toFixed(2)} u`}`
+                              : 'Matchen är ännu inte rättad'}</span></>
+                          : <><b>Observationsfacit</b><span>{row.settled_at
+                            ? `${row.final_home_score}–${row.final_away_score} · räknas inte i Över-ROI`
+                            : 'väntar på slutresultat'}</span></>}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </details>
           )}
