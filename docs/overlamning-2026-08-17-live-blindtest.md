@@ -398,3 +398,65 @@ Två regler i `@media (max-width: 760px)`, desktop helt orört (verifierat vid
 
 Lägg inte tillbaka `min-width` på mobil. Vill man ha mer plats är nästa steg att
 faktiskt korta kolumnerna, inte att scrolla längre.
+
+### Pinnacles livepris kom ur fel cache
+
+`soccer_live_totals()` läste `/sports/29/matchups/live` och
+`/sports/29/markets/live/straight`. **Båda bär samma `max-age=905` som
+prematch-bulken** (uppmätt 2026-08-18: age 791 s respektive 47 s i ett och
+samma anropsblock). Vid en slumpmässig tidpunkt i cachecykeln är åldern ungefär
+likformig över 0–905 s, i snitt ~450 s, medan `PINNACLE_LIVE_MAX_AGE_S` är 90.
+Pinnacle diskvalificerades alltså som `stale` i ungefär nio fall av tio och var
+i praktiken en tom kolumn.
+
+`Pinnacle.refresh_live_total(matchup_ids)` hämtar därför priset per matchup
+(`/matchups/{id}/markets/straight`, `max-age=419`) för de matcher som faktiskt
+bär en signal. Identiteten kommer fortfarande ur bulken — lagnamn ändras inte —
+men priset gör det inte.
+
+Uppmätt i drift, fyra samtidiga livematcher: bulken 340 s för alla fyra,
+per-matchup 82, 181, 233 och 391 s. På Vélez Sarsfield–Defensa y Justicia
+skilde sig inte bara åldern utan **linan**: bulk Ö2,5 @ 1,89 mot färsk
+Ö2,25 @ 1,78. Bulkpriset var alltså inte ett gammalt pris på rätt lina utan ett
+pris på en lina marknaden lämnat.
+
+Det är en förbättring, inte en lösning — medianåldern ligger fortfarande över
+tröskeln. **Sänk inte `PINNACLE_LIVE_MAX_AGE_S` för att få mer data att
+kvalificera sig**; det vore att flytta bevisribban i stället för att förbättra
+mätningen.
+
+`Cache-Control: no-cache` prövades och gör ingenting: samma matchup gav
+49/49/49 s och 224/224/224 s med och utan headern. De enda nollorna kom när vår
+egen miss populerade cachen. Lägg inte tillbaka den.
+
+v10:s deklaration utökades med detta samma dygn i stället för att bumpa till
+v11. Det är försvarbart bara därför att v10 hade **exakt noll rader** när
+ändringen gjordes — ingen observation kom ur den gamla koden inne i v10:s
+fönster. Hade en enda funnits hade det krävt en ny version.
+
+### Kohorten hinner aldrig fylla grinden
+
+Blindgaten kräver 200 prissatta och avgjorda matcher samt 60 dagar. Så här
+stora har kohorterna faktiskt blivit:
+
+| version | prissatta + avgjorda |
+|---|---:|
+| v2 | 1 |
+| v3 | 2 |
+| v4 | 10 |
+| v5 | 3 |
+| v6 | 4 |
+| v7 | 8 |
+| v8 | 1 |
+| v9 | 39 |
+| v10 | 0 (startad i dag) |
+
+Tio versioner på sjutton dagar. Den största kohorten någonsin är 39 av 200, och
+v9 — den bästa — samlade 39 på cirka åtta dygn, alltså ~5 per dygn. 200 skulle
+ta ungefär 40 dygn utan avbrott, men versionen har i snitt bytts varannan dag.
+
+**Kohortregeln är rätt och ska inte mjukas upp.** Problemet är att den tillämpas
+på ett system som fortfarande byggs om varje vecka. Vill man ha ett facit måste
+radarn frysas: inga ändringar i trösklar, providers, identitet, källurval eller
+prisväg under mätperioden. Annars kommer räknaren fortsätta nollställas strax
+innan den betyder något.

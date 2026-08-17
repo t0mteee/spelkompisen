@@ -73,5 +73,71 @@ class AltenarLiveTotalTests(unittest.TestCase):
         self.assertIsNone(rows[1]["ou"])
 
 
+class PinnacleLiveRefreshTests(unittest.TestCase):
+    """Per-matchup-vägen förbi bulkens 905-sekunderscache."""
+
+    def _client(self, responses: dict, ages: dict):
+        pin = Pinnacle.__new__(Pinnacle)
+        pin.last_age_s = 0
+        self.calls = []
+
+        def get(path):
+            self.calls.append(path)
+            for key, payload in responses.items():
+                if key in path:
+                    pin.last_age_s = ages.get(key, 0)
+                    if isinstance(payload, Exception):
+                        raise payload
+                    return payload
+            raise AssertionError(f"oväntad väg: {path}")
+
+        pin._get = get
+        return pin
+
+    def test_farskt_pris_hamtas_per_matchup(self):
+        markets = [
+            {"matchupId": 12, "period": 0, "type": "total", "status": "open",
+             "prices": [{"designation": "over", "points": 2.25, "price": -128},
+                        {"designation": "under", "points": 2.25, "price": 105}]},
+        ]
+        pin = self._client({"/matchups/12/": markets}, {"/matchups/12/": 23})
+        fresh = pin.refresh_live_total(["12"])
+
+        self.assertEqual("captured", fresh["status"])
+        self.assertEqual(23, fresh["age_s"])
+        self.assertEqual(2.25, fresh["ou"]["line"])
+
+    def test_suspenderad_marknad_skiljs_fran_ingen_marknad(self):
+        stangd = [{"matchupId": 12, "period": 0, "type": "total",
+                   "status": "suspended", "prices": []}]
+        pin = self._client({"/matchups/12/": stangd}, {"/matchups/12/": 5})
+        self.assertEqual("suspended", pin.refresh_live_total(["12"])["status"])
+
+        # Tomt svar är INGEN observation — anroparen ska behålla bulkraden
+        # i stället för att skriva "inte erbjuden" på en halv mätning.
+        pin = self._client({"/matchups/12/": []}, {"/matchups/12/": 5})
+        self.assertIsNone(pin.refresh_live_total(["12"]))
+
+    def test_fel_pa_ett_barn_provar_nasta(self):
+        markets = [
+            {"matchupId": 13, "period": 0, "type": "total", "status": "open",
+             "prices": [{"designation": "over", "points": 3.0, "price": 100},
+                        {"designation": "under", "points": 3.0, "price": -120}]},
+        ]
+        pin = self._client(
+            {"/matchups/12/": RuntimeError("500"), "/matchups/13/": markets},
+            {"/matchups/13/": 8})
+        fresh = pin.refresh_live_total(["12", "13"])
+
+        self.assertEqual("captured", fresh["status"])
+        self.assertEqual(3.0, fresh["ou"]["line"])
+        self.assertEqual(2, len(self.calls))
+
+    def test_utan_matchup_id_gors_inget_anrop(self):
+        pin = self._client({}, {})
+        self.assertIsNone(pin.refresh_live_total([]))
+        self.assertEqual([], self.calls)
+
+
 if __name__ == "__main__":
     unittest.main()

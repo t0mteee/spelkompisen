@@ -50,6 +50,46 @@ def american_to_decimal(a: Optional[float]) -> Optional[float]:
     return round(1 + a / 100, 2) if a > 0 else round(1 + 100 / (-a), 2)
 
 
+def _totals_by_child(markets: list[dict]) -> tuple[dict[int, list[dict]], set[int]]:
+    """Öppna helmatchs-totaler per matchup-id, plus vilka som ÖVER HUVUD TAGET
+    hade en totalmarknad.
+
+    Skillnaden bär statusen: en matchup som saknas i `seen_total` har ingen
+    totalmarknad (`not_offered`), medan en som finns där men saknar öppna
+    priser är suspenderad. Delas av bulkvägen och per-matchup-vägen så att de
+    två aldrig kan tolka samma payload olika.
+    """
+    by_child: dict[int, list[dict]] = {}
+    seen_total: set[int] = set()
+    for market in markets:
+        if market.get("period") != 0 or market.get("type") != "total":
+            continue
+        child_id = market.get("matchupId")
+        if child_id is None:
+            continue
+        seen_total.add(child_id)
+        if str(market.get("status") or "open").lower() != "open":
+            continue
+        sides: dict[float, dict] = {}
+        for price in market.get("prices") or []:
+            side = price.get("designation")
+            if side not in {"over", "under"}:
+                continue
+            try:
+                line = float(price["points"])
+                decimal = american_to_decimal(price.get("price"))
+            except (KeyError, TypeError, ValueError):
+                continue
+            if decimal is not None:
+                sides.setdefault(line, {})[side] = decimal
+        for line, pair in sides.items():
+            if pair.get("over") and pair.get("under"):
+                by_child.setdefault(child_id, []).append({
+                    "line": line, "O": pair["over"], "U": pair["under"],
+                })
+    return by_child, seen_total
+
+
 class Pinnacle:
     def __init__(self, timeout: float = 30.0):
         self._client = httpx.Client(timeout=timeout, headers=HEADERS)
@@ -75,6 +115,11 @@ class Pinnacle:
         # datacenter-/VPN-IP:n — det är IP-baserat, headers/TLS hjälper EJ.
         # Vi retryar inte 403 (lönlöst) utan låter den bubbla → sharp_service
         # fångar, loggar block i meta och degraderar.
+        #
+        # `Cache-Control: no-cache` PRÖVADES 2026-08-18 och gör INGENTING:
+        # samma matchup gav 49/49/49 s och 224/224/224 s med och utan headern.
+        # De enda nollorna kom när VÅR egen miss populerade cachen. Lägg inte
+        # tillbaka den i tron att den ger ett färskare pris.
         last = None
         for attempt in range(3):
             try:
@@ -154,6 +199,62 @@ class Pinnacle:
                         "away_xg": round(xg[1], 3) if xg else None})
         return out
 
+    def refresh_live_total(self, matchup_ids: list[str]) -> Optional[dict]:
+        """Hämta EN matchs live-totaler direkt, förbi bulkens CDN-fönster.
+
+        UPPMÄTT 2026-08-18. Bulkvägarna `/matchups/live` och
+        `/markets/live/straight` bär samma `max-age=905` som prematch-bulken.
+        Observerade åldrar i ett enda anropsblock: 791 s respektive 47 s. Vid
+        en slumpmässig tidpunkt i cachecykeln är åldern ungefär likformig över
+        0–905 s, alltså i snitt ~450 s — och `PINNACLE_LIVE_MAX_AGE_S` är 90.
+        Bulkpriset diskvalificerades därför som för gammalt i ungefär nio fall
+        av tio, vilket gjorde Pinnacle till en nästan tom kolumn i live-facitet.
+
+        Per-matchup-vägen är en annan och kortare cache: `max-age=419`, och vid
+        miss saknas `age`-headern helt (mätt på tre av fyra live-matcher; den
+        fjärde var i själva verket prematch och kom ur 905-cachen). Ett förnyat
+        anrop 20 s senare gav `age=20` — räknaren tickade alltså från VÅR
+        hämtning, svaret kom färskt från origin.
+
+        Uppmätt effekt i drift samma dag, fyra samtidiga livematcher: bulken
+        340 s för alla fyra (alltså `stale` rakt igenom), per-matchup 82, 181,
+        233 och 391 s. På Vélez Sarsfield–Defensa y Justicia skilde sig inte
+        bara åldern utan LINAN: bulken bar Ö2,5 @ 1,89 medan den färska var
+        Ö2,25 @ 1,78. Bulkpriset var alltså inte ett gammalt pris på rätt lina
+        utan ett pris på en lina som marknaden lämnat.
+
+        Det här är en förbättring, inte en lösning: medianåldern ligger
+        fortfarande över `PINNACLE_LIVE_MAX_AGE_S`. Att sänka kravet i stället
+        vore att flytta bevisribban för att få mer data att kvalificera sig.
+
+        Anropet görs bara för matcher som faktiskt bär en signal (~11 per dygn),
+        så kostnaden är några 8 kB-svar per varv. Returnerar None när inget
+        anrop lyckades; anroparen behåller då bulkobservationen.
+        """
+        for matchup_id in matchup_ids:
+            try:
+                markets = self._get(f"/matchups/{matchup_id}/markets/straight")
+            except Exception:  # noqa: BLE001 — en död matchup får inte fälla varvet
+                continue
+            age_s = self.last_age_s
+            by_child, seen_total = _totals_by_child(markets)
+            offers_by_line: dict[float, dict] = {}
+            for offers in by_child.values():
+                for offer in offers:
+                    offers_by_line.setdefault(float(offer["line"]), offer)
+            offers = sorted(offers_by_line.values(), key=lambda x: x["line"])
+            main = min(offers, key=lambda x: abs(x["O"] - 2.0) + abs(x["U"] - 2.0),
+                       default=None)
+            if not offers and not seen_total:
+                # Marknaden fanns inte alls i svaret — pröva nästa barn-id
+                # hellre än att skriva "inte erbjuden" på en halv observation.
+                continue
+            return {
+                "status": "captured" if main else "suspended",
+                "ou": main, "offers": offers, "age_s": age_s,
+            }
+        return None
+
     def soccer_live_totals(self) -> list[dict]:
         """Pågående fotbollsmatcher och öppna live-totaler.
 
@@ -170,34 +271,7 @@ class Pinnacle:
         markets = self._get(f"/sports/{SOCCER}/markets/live/straight")
         market_age_s = self.last_age_s
 
-        by_child: dict[int, list[dict]] = {}
-        seen_total: set[int] = set()
-        for market in markets:
-            if market.get("period") != 0 or market.get("type") != "total":
-                continue
-            child_id = market.get("matchupId")
-            if child_id is None:
-                continue
-            seen_total.add(child_id)
-            if str(market.get("status") or "open").lower() != "open":
-                continue
-            sides: dict[float, dict] = {}
-            for price in market.get("prices") or []:
-                side = price.get("designation")
-                if side not in {"over", "under"}:
-                    continue
-                try:
-                    line = float(price["points"])
-                    decimal = american_to_decimal(price.get("price"))
-                except (KeyError, TypeError, ValueError):
-                    continue
-                if decimal is not None:
-                    sides.setdefault(line, {})[side] = decimal
-            for line, pair in sides.items():
-                if pair.get("over") and pair.get("under"):
-                    by_child.setdefault(child_id, []).append({
-                        "line": line, "O": pair["over"], "U": pair["under"],
-                    })
+        by_child, seen_total = _totals_by_child(markets)
 
         grouped: dict[str, list[dict]] = {}
         for matchup in matchups:

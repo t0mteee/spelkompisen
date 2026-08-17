@@ -241,6 +241,23 @@ def _source_quote(source: str, *, checked_at: str, status: str,
     }
 
 
+def _refresh_pinnacle(event: dict) -> Optional[dict]:
+    """Färskt Pinnacle-pris för EN redan identifierad livematch.
+
+    Identiteten kommer ur bulken (den duger — lagnamn ändras inte), men priset
+    hämtas om per matchup-id. Fel isoleras: misslyckas det behåller anroparen
+    bulkobservationen, som i värsta fall bara märks `stale` som förut.
+    """
+    ids = [str(i) for i in (event.get("matchup_ids") or []) if i]
+    if not ids:
+        return None
+    try:
+        with pinnacle.Pinnacle(timeout=6.0) as client:
+            return client.refresh_live_total(ids)
+    except Exception:  # noqa: BLE001 — aldrig fälla signalen på en oddskälla
+        return None
+
+
 class _LivePriceCollector:
     """Ett bulk-anrop per källa och radarvarv, sedan lokala matchningar.
 
@@ -311,15 +328,26 @@ class _LivePriceCollector:
             return _source_quote(source, checked_at=catalogue["checked_at"],
                                  status=match_status,
                                  age_s=catalogue["age_s"])
+        checked_at = catalogue["checked_at"]
         age_s = int(event.get("age_s", catalogue["age_s"]) or 0)
-        observed_at = _iso(_at(catalogue["checked_at"])
-                           - dt.timedelta(seconds=age_s))
         status = event.get("status") or "not_offered"
-        if source == "pinnacle" and status == "captured" \
-                and age_s > PINNACLE_LIVE_MAX_AGE_S:
-            status = "stale"
+        if source == "pinnacle":
+            # Bulkens live-pris ligger i samma 905-sekunderscache som
+            # prematch och var därför för gammalt i de flesta signalögonblick.
+            # Matchen är redan identifierad ur bulken; priset hämtas om direkt
+            # på matchup-id. Endast matcher med signal berörs.
+            fresh = _refresh_pinnacle(event)
+            if fresh is not None:
+                checked_at = _iso(_now())
+                age_s = int(fresh.get("age_s") or 0)
+                status = fresh.get("status") or "not_offered"
+                event = {**event, "ou": fresh.get("ou"),
+                         "offers": fresh.get("offers") or []}
+            if status == "captured" and age_s > PINNACLE_LIVE_MAX_AGE_S:
+                status = "stale"
+        observed_at = _iso(_at(checked_at) - dt.timedelta(seconds=age_s))
         return _source_quote(
-            source, checked_at=catalogue["checked_at"], status=status,
+            source, checked_at=checked_at, status=status,
             event_id=event.get("id"), observed_at=observed_at, age_s=age_s,
             total=event.get("ou"), offers=event.get("offers") or [])
 

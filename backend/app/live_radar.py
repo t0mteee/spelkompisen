@@ -75,6 +75,15 @@ RADAR_V9_STARTED_AT = "2026-08-09T18:00:00Z"
 # Över-pris på exakt samma lina bland SvS, Ninja/Altenar och en tillräckligt
 # färsk Pinnacle-observation. Varje källsvar sparas separat. Signaltrösklarna
 # är oförändrade, men ROI-processen är ny och får därför en ren kohort.
+#
+# DEKLARATIONEN UTÖKAD SAMMA DYGN, före första observationen: Pinnacles pris
+# hämtas per matchup (`refresh_live_total`) i stället för ur bulkens
+# 905-sekunderscache. Bulkens live-pris mättes till 280–340 s, alltså över
+# `PINNACLE_LIVE_MAX_AGE_S` i praktiskt taget varje signalögonblick, och i ett
+# fall bar den dessutom en lina marknaden redan lämnat. Att ändra texten i
+# efterhand är försvarbart HÄR och bara här: v10 hade exakt noll rader när
+# ändringen gjordes, så ingen observation producerades av den gamla koden inne
+# i v10:s fönster. Hade en enda rad funnits hade det krävt v11.
 RADAR_VERSION_STARTED_AT = "2026-08-18T00:00:00Z"
 
 # OBSERVERADE växlingar — när koden faktiskt bytte.
