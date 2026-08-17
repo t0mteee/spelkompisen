@@ -25,6 +25,16 @@ matcher som nådde en nivå, antal med odds och antal avgjorda; de förklarar at
 Följer→Stark kan vara samma match och visar separat hur många som faktiskt
 blev spel i huvudblindtestet. Den upprepade etiketten `Testspel` är borttagen
 från varje journalrad.
+Labb-UI:t har därefter gjorts om till en sammanhängande tabellrapport. Radarens
+huvudblindtest ligger i en egen tabell och visar hela kedjan signalmatcher →
+pris låst → facit. En separat nivåtabell beskriver de kontrafaktiska reglerna
+”alltid spela vid Följer” respektive ”alltid vänta till Stark”; samma match får
+förekomma i båda dessa jämförelser men aldrig två gånger i huvudtestet.
+Över-ROI märks `preliminärt` tills den formella 200 matcher/60 dagar-grinden
+är passerad. Signalreglerna anger exakt när priset låses och matchjournalen är
+en riktig tabell med signalögonblick, beslut, låst liveodds och facit. Även
+Sharp-facit, modell-close, aktiva valideringsgrupper och övriga forskningsspår
+använder nu samma lodräta tabellspråk i stället för blandade kortstorlekar.
 
 **POOLFRYSNINGEN TÅL SHARP-ONLY-VÄRDE (2026-08-16, Codex).** Topptipset
 4274 missade både h3 och m20 trots att snapshots och styrke-shadow samlades.

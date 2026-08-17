@@ -242,8 +242,9 @@
 .v3recent > summary { cursor: pointer; list-style: revert; padding: 4px 0; }
 
 /* ---------- Labb (bevisytan — mätningar och skuggspår) ---------- */
-/* Korten återanvänder .v3grid/.v3card: auto-fit ≥300px på bred skärm och
-   1 kolumn ≤760px via mobilblocket längst ned — ingen sidscroll. */
+/* Labb är en lodrät rapportyta. Varje avsnitt använder samma tabellspråk i
+   stället för att växla mellan små kort, liggande boxar och listor. */
+.v3labb .v3grid { grid-template-columns: minmax(0, 1fr); }
 .v3labbtitle { margin: 2px 0 4px; font-size: 14px; letter-spacing: 0.2px; }
 /* synlig statuslegend — tooltips räcker inte när pillarna är själva språket */
 .v3labblegend { display: block; margin: 0 0 12px; max-width: 900px; }
@@ -302,6 +303,13 @@
   padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top;
   white-space: nowrap;
 }
+.v3labb .logtable td small {
+  display: block; margin-top: 2px; color: var(--muted); font-size: 10px;
+  font-weight: 400; line-height: 1.3;
+}
+.v3labb .logtable .v3labbpill { display: inline-block; margin-left: 0; }
+.v3labb .logtable td.v3wrapcell { min-width: 260px; white-space: normal; }
+.v3labb-summarytable .logtable { min-width: 680px; }
 .v3labb .logtable tr:last-child td { border-bottom: 0; }
 .v3labb .historical-version { opacity: .58; }
 .v3labb .ledgerstatus { font-weight: 700; }
@@ -322,35 +330,23 @@
 }
 .v3histresearchhead b { color: var(--text); font-size: 12px; }
 
-/* Live-radarns framåtriktade signaljournal. Ett brett kort gör regler,
-   beslutspunkt, livepris och facit läsbara tillsammans utan tabellscroll. */
+/* Live-radarns framåtriktade signaljournal. Samma tabellspråk används för
+   regler, huvudtest, nivåjämförelse och enskilda matcher. */
 .v3radar-facit { grid-column: 1 / -1; }
-.v3radar-rules {
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
-}
-.v3radar-rules > div {
-  display: flex; flex-direction: column; gap: 3px; padding: 9px 10px;
-  background: var(--panel2); border: 1px solid var(--line); border-radius: 9px;
-  color: var(--muted); font-size: 11px;
-}
-.v3radar-rules > div b { color: #dca85e; font-size: 12px; }
-.v3radar-rules > div.strong b { color: #e06b6b; }
-.v3radar-gate {
-  display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 16px;
-  padding: 9px 10px; border: 1px solid var(--v3acc-dim); border-radius: 9px;
+.v3tabletitle { margin: 6px 0 0; color: var(--text); font-size: 12px; }
+.v3radar-tablewrap .logtable { min-width: 760px; }
+.v3radar-rulestable { min-width: 900px !important; }
+.v3radar-rulestable td:nth-child(3) { min-width: 310px; white-space: normal; }
+.v3radar-rulestable tr.strong td:first-child { color: #e88a91; }
+.v3radar-explainer {
+  display: grid; grid-template-columns: minmax(180px, .7fr) repeat(3, minmax(0, 1fr));
+  gap: 8px 16px; padding: 9px 10px; border-left: 3px solid var(--v3acc);
   background: color-mix(in srgb, var(--v3acc) 5%, var(--panel2));
-  color: var(--muted); font-size: 11.5px;
+  color: var(--muted); font-size: 11px; line-height: 1.4;
 }
-.v3radar-gate > b { color: var(--text); }
-.v3radar-groups {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px;
-}
-.v3radar-groups > div {
-  display: flex; flex-direction: column; gap: 2px; padding: 8px 10px;
-  border: 1px solid var(--line); border-radius: 9px; font-size: 11px;
-  color: var(--muted);
-}
-.v3radar-groups > div > b { color: var(--text); }
+.v3radar-explainer b { color: var(--text); }
+.v3radar-maintable, .v3radar-leveltable { min-width: 900px !important; }
+.v3radar-leveltable td:last-child { min-width: 135px; }
 .v3radar-old > summary,
 .v3radar-log > summary {
   cursor: pointer; color: var(--v3acc); font-size: 11.5px; font-weight: 700;
@@ -360,27 +356,20 @@
   display: flex; align-items: center; gap: 7px; width: fit-content;
   margin: 4px 0 7px; color: var(--muted); font-size: 11px; cursor: pointer;
 }
-.v3radar-logrows { display: flex; flex-direction: column; }
-.v3radar-logrow {
-  display: grid; grid-template-columns: 1.05fr 1.15fr .9fr .9fr; gap: 10px;
-  padding: 9px 8px; border-bottom: 1px solid var(--line);
-  border-left: 3px solid transparent;
-}
-.v3radar-logrow.testbet.won {
-  border-left-color: var(--green);
+.v3radar-logtable { min-width: 980px !important; }
+.v3radar-logtable td:nth-child(1) { min-width: 155px; }
+.v3radar-logtable td:nth-child(3) { min-width: 230px; white-space: normal; }
+.v3radar-logtable tr.testbet.won {
   background: color-mix(in srgb, var(--green) 5%, transparent);
 }
-.v3radar-logrow.testbet.lost {
-  border-left-color: #e06c75;
+.v3radar-logtable tr.testbet.lost {
   background: color-mix(in srgb, #e06c75 5%, transparent);
 }
-.v3radar-logrow.testbet.push { border-left-color: #dca85e; }
-.v3radar-logrow.testbet.pending { border-left-color: #dca85e; }
-.v3radar-logrow.notplayed { opacity: .68; }
-.v3radar-logrow:last-child { border-bottom: 0; }
-.v3radar-logrow > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.v3radar-logrow b { font-size: 11.5px; }
-.v3radar-logrow span { color: var(--muted); font-size: 10.5px; overflow-wrap: anywhere; }
+.v3radar-logtable tr.testbet.won td:first-child { box-shadow: inset 3px 0 var(--green); }
+.v3radar-logtable tr.testbet.lost td:first-child { box-shadow: inset 3px 0 #e06c75; }
+.v3radar-logtable tr.testbet.push td:first-child,
+.v3radar-logtable tr.testbet.pending td:first-child { box-shadow: inset 3px 0 #dca85e; }
+.v3radar-logtable tr.notplayed { opacity: .62; }
 .v3radar-result b { display: flex; align-items: center; gap: 5px; }
 .v3radar-result b.won { color: var(--green); }
 .v3radar-result b.lost { color: #e88a91; }
@@ -597,7 +586,5 @@
   .v3rowfind { min-width: 0; }
   .v3systemrowlist { overflow-x: auto; padding-bottom: 4px; }
   .v3rowpager { justify-content: space-between; }
-  .v3radar-rules { grid-template-columns: 1fr; }
-  .v3radar-logrow { grid-template-columns: 1fr; gap: 5px; }
-  .v3radar-logrow > div + div { padding-top: 4px; }
+  .v3radar-explainer { grid-template-columns: 1fr; gap: 5px; }
 }

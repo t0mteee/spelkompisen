@@ -84,19 +84,19 @@ det är inte en rekonstruktion av signal eller odds.
 
 ## UI-kontrakt
 
-Signaljournalen heter nu **Blindtestspel** och visar som standard enbart
-`test_bet=true`:
+Tabellen **Matchjournal** visar som standard enbart `test_bet=true`:
 
 - grönt ✓ för vinst/halvvinst;
 - rött ✕ för förlust/halvförlust;
 - ↔ för återbetalning och ⏳ när facit väntar;
 - slutresultat, mål efter signalen och enhetsresultat på samma rad;
-- `Odds vid beslutet` i stället för en lös Live Ö/U-kolumn.
+- signalögonblick och ställning, beslut, låst liveodds och facit i fasta
+  kolumner.
 
 Övriga signaler är dolda bakom **Visa även signaler som inte blev spel**.
 Där anges uttryckligen om orsaken var saknat pris eller att raden var en
-senare eskalering. Reglerna ovanför journalen använder ordet Testsignal och
-förklarar Följer/Stark-flödet i vanlig svenska.
+senare eskalering. Signalregeltabellen anger tröskel, tidsfönster och exakt
+när livepriset låses för Följer respektive Stark.
 
 ## Metod och version
 
@@ -158,16 +158,16 @@ betydde 13 avgjorda av 13 Stark-ögonblick med pris, inte att bara 13 matcher
 nådde Stark. I datat hade 28 matcher nått nivån; nästan alla var senare
 eskaleringar efter Följer. Av de 28 var 27 senare signaler; den enda match där
 Stark var första signal saknade livepris. Stark-gruppen hade därför noll spel
-i huvudblindtestet trots 13 prissatta, diagnostiska Stark-ögonblick. UI:t
-visar nu separat:
+i huvudblindtestet trots 13 prissatta, diagnostiska Stark-ögonblick. Den första
+UI-korrigeringen visade därför separat:
 
 - antal matcher som nådde nivån;
 - antal nivåögonblick med odds;
 - hur många av dessa som är avgjorda.
 - hur många som faktiskt blev spel i huvudblindtestet och fick facit där.
 
-En förklaring anger att nivårutorna är separata diagnostiska nivåtester,
-medan Blindtestspel bara använder matchens första aktiva signal. Den
+Förklaringen angav att nivåerna var separata diagnostiska nivåtester, medan
+huvudtestet bara använder matchens första aktiva signal. Den
 upprepade rubriken `Testspel` på varje spelrad är ersatt av den informativa
 nivån och signaltypen, exempelvis `Följer · xG`.
 
@@ -183,3 +183,37 @@ facit. Stark-rutan visar samtidigt 28 matcher som nådde nivån, 13
 diagnostiska nivåtest med odds och facit, men 0 spel i huvudblindtestet.
 Backend, frontend och snapshot kör; pooljobbet är aktivt och väntar mellan
 sina schemalagda körningar. `/api/health` svarar `ok` utan anmärkningar.
+
+## Labb-tabeller och låstidens semantik
+
+Den tidigare sammanfattningen blandade tre olika populationer i samma
+nivåbox: alla matcher som nått tröskeln, de som hade ett öppet livepris just
+då och de som faktiskt blev förstbeslut i huvudblindtestet. Detta var
+matematiskt korrekt men svårt att läsa; exempelvis såg `Stark 13/13` ut som
+att bara 13 matcher hade facit trots att 28 matcher nått Stark.
+
+Labb visar nu två tydligt åtskilda tabeller:
+
+1. **Huvudblindtest** använder matchens första aktiva signal oavsett nivå och
+   signaltyp. Högst ett spel per fysisk match kan räknas. Tabellen visar antal
+   signalmatcher, hur många som hade ett öppet pris i beslutsögonblicket, hur
+   många prissatta som har facit, ROI/KI och kvarvarande 200/60-krav.
+2. **Nivåjämförelse** ställer separata väntestrategier mot varandra: spela när
+   Följer först nås, eller ignorera Följer och vänta tills Stark först nås.
+   Samma match kan därför finnas i både Följer- och Stark-raden. Raderna får
+   inte summeras och Stark-raden är inte ett andra spel i huvudblindtestet.
+
+`odds_observed_at` är låst append-only när respektive nivå först registreras.
+Priset uppdateras inte senare. Om marknaden är stängd, saknas eller inte kan
+kopplas säkert i det ögonblicket blir det ingen insats, och inget historiskt
+pris bakfylls. Matchjournalens tabell visar signalögonblicket, om raden blev
+huvudtestets beslut, exakt låst lina/pris och slutligt facit. Ej spelade
+observationer är fortsatt dolda som standard men kan visas med toggle.
+
+Hela Labb-ytan använder samtidigt en lodrät rapportstruktur. Sharp-facit,
+modell mot close, aktiva valideringsgrupper, radarregler, nivåfacit,
+matchjournal och övriga forskningsspår är tabeller med horisontell scroll på
+smala skärmar. Små ROI-underlag kan visas för öppenhet men märks uttryckligen
+`preliminärt`; endast den förregistrerade grinden kan ge stöd för blind
+ryggning. Ändringen är ren presentation: kohort, signaltrösklar,
+resultatsettlement och ROI-beräkningar är oförändrade.

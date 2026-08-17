@@ -2321,6 +2321,15 @@ function LabbV3() {
   const radarTestBets = radarRows.filter((row) => row.test_bet)
   const radarNotPlayed = radarRows.filter((row) => !row.test_bet)
   const radarVisibleRows = showUnplayedRadar ? radarRows : radarTestBets
+  const radarGroupOrder = { 'xg-watch': 0, 'xg-strong': 1, 'proxy-watch': 2 }
+  const radarGroups = [...(radar?.signal_ledger?.groups || [])].sort((a, b) =>
+    (radarGroupOrder[`${a.signal_type}-${a.signal_level}`] ?? 99)
+    - (radarGroupOrder[`${b.signal_type}-${b.signal_level}`] ?? 99))
+  const radarRoi = (g) => g.n_priced_settled >= ROI_MIN_N
+    ? evPct(g.roi_over) : '–'
+  const radarRoiNote = (g) => g.n_priced_settled >= ROI_MIN_N
+    ? `${g.n_priced_settled} spel · preliminärt`
+    : `${g.n_priced_settled} spel · för få för ROI`
   const ledgerTiming = Object.values(ledger?.capture_quality || {}).reduce(
     (sum, h) => ({ n: sum.n + (h.n || 0), timely: sum.timely + (h.n_timely || 0) }),
     { n: 0, timely: 0 })
@@ -2377,41 +2386,49 @@ function LabbV3() {
         {/* Sammanslaget 2026-08-05: Signal-facit + Utfalls-facit läste samma
             API och utfallskortet hade 1 datarad i ett grid-sträckt 1800px-kort.
             Öppet läge = aktiva versionen; historiska versioner bakom toggle. */}
-        <div className="v3card">
+        <div className="v3card v3wide">
           <div className="v3cardhead"><h3>💰 Sharp-facit (CLV och utfall)</h3>
             <LabbPill s={activePrimaryClv.some((g) => g.green_ready) ? 'pass' : 'samlar'} /></div>
           {!clv && !err && <LoadingState label="Hämtar facit…" />}
           {clv && (
             <>
-              <div className="v3row">
-                <b>Aktiv version</b>
-                <span className="v3hint"><code>{activeSharp || '–'}</code></span>
-                {!activePrimaryClv.length && <span>inga stängda flaggor ännu</span>}
+              <span className="v3hint">Aktiv version: <code>{activeSharp || '–'}</code>
+                {!activePrimaryClv.length && ' · inga stängda flaggor ännu'}</span>
+              <div className="v3evidence-table v3labb-summarytable">
+                <table className="logtable">
+                  <thead><tr><th>Mätning</th><th>Underlag</th><th>Resultat</th>
+                    <th>Osäkerhet / träff</th></tr></thead>
+                  <tbody>
+                    {activePrimaryClv.map((g) => (
+                      <tr key={`${g.league}-${g.version}`}>
+                        <td><b>{LABB_LEAGUE[g.league] || g.league}</b>
+                          <small>Aktiv version</small></td>
+                        <td>{g.n_resolved} av {g.n} stängda</td>
+                        <td className={evCls(g.avg_close_ev)}>{evPct(g.avg_close_ev)} Close-EV</td>
+                        <td>90 % KI {ciStr(g.ci)}</td>
+                      </tr>
+                    ))}
+                    {clv.sharp && (
+                      <tr>
+                        <td><b>Alla versioner</b><small>Samlat sedan start</small></td>
+                        <td>{clv.sharp.n_resolved} av {clv.sharp.n} stängda</td>
+                        <td className={evCls(clv.sharp.avg_close_ev)}>
+                          {evPct(clv.sharp.avg_close_ev)} Close-EV</td>
+                        <td>90 % KI {ciStr(clv.sharp.ci)}</td>
+                      </tr>
+                    )}
+                    {clv.sharp?.n_outcomes > 0 && (
+                      <tr title="Resultatbaserad ROI till first-odds på settlade 1X2-flaggor, alla versioner. Display — grönt beslutas av close-EV-grinden.">
+                        <td><b>Faktiska 1X2-utfall</b><small>Visas bara som kontroll</small></td>
+                        <td>{clv.sharp.n_outcomes} avgjorda</td>
+                        <td className={evCls(clv.sharp.result_roi)}>
+                          {evPct(clv.sharp.result_roi)} ROI</td>
+                        <td>{rate(clv.sharp.hit_rate)} träff</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
-              {activePrimaryClv.map((g) => (
-                <div key={`${g.league}-${g.version}`} className="v3row">
-                  <b>{LABB_LEAGUE[g.league] || g.league}</b>
-                  <span>{g.n_resolved}/{g.n} stängda</span>
-                  <span className={evCls(g.avg_close_ev)}>{evPct(g.avg_close_ev)}</span>
-                  <span className="v3hint">KI {ciStr(g.ci)}</span>
-                </div>
-              ))}
-              {clv.sharp && (
-                <div className="v3row">
-                  <b>Alla versioner sedan start</b>
-                  <span>{clv.sharp.n_resolved}/{clv.sharp.n} stängda</span>
-                  <span className={evCls(clv.sharp.avg_close_ev)}>{evPct(clv.sharp.avg_close_ev)}</span>
-                  <span className="v3hint">KI {ciStr(clv.sharp.ci)}</span>
-                </div>
-              )}
-              {clv.sharp?.n_outcomes > 0 && (
-                <div className="v3row" title="Resultatbaserad ROI till first-odds på settlade 1X2-flaggor, alla versioner. Display — grönt beslutas av close-EV-grinden.">
-                  <b>1X2-utfall (display)</b>
-                  <span>{clv.sharp.n_outcomes} settlade</span>
-                  <span className={evCls(clv.sharp.result_roi)}>{evPct(clv.sharp.result_roi)} ROI</span>
-                  <span className="v3hint">träff {rate(clv.sharp.hit_rate)}</span>
-                </div>
-              )}
               {historicPrimaryClv.length > 0 && (
                 <button className="v3evidence-toggle"
                   onClick={() => setShowClvHistory(!showClvHistory)}
@@ -2470,27 +2487,29 @@ function LabbV3() {
                   prediktioner även oflaggade · M = modellens snittfel, P =
                   Pinnacles, i procentenheter — lägre är bättre</span>
               </div>
-              <div className="model-close-grid">
-                {modelCloseCurrent.map((g) => (
-                  <div className={`model-close-card ${g.status}`}
-                    key={`${g.market}-${g.version}`}
-                    title={`Parad log-score mot Pinnacle vid samma horisont. Positivt KI helt över noll krävs.\nVersion ${g.version}`}>
-                    <div><b>{LABB_MARKET[g.market] || g.market}</b>
-                      <span className={`model-close-status ${g.status}`}>
-                        {modelCloseLabel(g.status)}</span></div>
-                    <div className="model-close-mae">
-                      M <b>{g.model_mae_pp?.toFixed(2) ?? '–'} pp</b>
-                      {' '}· P <b>{g.sharp_mae_pp?.toFixed(2) ?? '–'} pp</b>
-                    </div>
-                    <div className="v3hint">{g.n_cases} fall · {g.n_matches} matcher ·
-                      {' '}{g.span_days} {dayWord(g.span_days)} · <code>{g.version}</code></div>
-                    {g.logscore_gain_ci && (
-                      <div className="v3hint">log-score Δ {g.logscore_gain >= 0 ? '+' : ''}
-                        {g.logscore_gain.toFixed(4)} · KI [{g.logscore_gain_ci[0].toFixed(4)}
-                        ..{g.logscore_gain_ci[1].toFixed(4)}]</div>
-                    )}
-                  </div>
-                ))}
+              <div className="v3evidence-table">
+                <table className="logtable">
+                  <thead><tr><th>Marknad</th><th>Status</th><th>Modellfel</th>
+                    <th>Pinnacle-fel</th><th>Underlag</th><th>log-score Δ</th></tr></thead>
+                  <tbody>{modelCloseCurrent.map((g) => (
+                    <tr key={`${g.market}-${g.version}`}
+                      title={`Parad log-score mot Pinnacle vid samma horisont. Positivt KI helt över noll krävs.\nVersion ${g.version}`}>
+                      <td><b>{LABB_MARKET[g.market] || g.market}</b>
+                        <small><code>{g.version}</code></small></td>
+                      <td><span className={`model-close-status ${g.status}`}>
+                        {modelCloseLabel(g.status)}</span></td>
+                      <td>{g.model_mae_pp?.toFixed(2) ?? '–'} pp</td>
+                      <td>{g.sharp_mae_pp?.toFixed(2) ?? '–'} pp</td>
+                      <td>{g.n_cases} fall · {g.n_matches} matcher ·
+                        {' '}{g.span_days} {dayWord(g.span_days)}</td>
+                      <td>{g.logscore_gain != null
+                        ? <>{g.logscore_gain >= 0 ? '+' : ''}{g.logscore_gain.toFixed(4)}
+                          {g.logscore_gain_ci && <small>90 % KI [{g.logscore_gain_ci[0].toFixed(4)}
+                            ..{g.logscore_gain_ci[1].toFixed(4)}]</small>}</>
+                        : '–'}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
               </div>
               {modelCloseOld.length > 0 && (
                 <button className="v3evidence-toggle"
@@ -2527,27 +2546,28 @@ function LabbV3() {
             </div>
           )}
           {activePrimaryGroups.length > 0 && (
-            <div className="validation-grid">
-              {activePrimaryGroups.map((g) => (
-                <div className={`validation-card ${g.status}`}
-                  key={`${g.league}-${g.market}-${g.version}`}
-                  title="Kandidat kräver mängdkraven och positiv undre 90 %-KI-gräns. Datumet uppskattar bara mängd och tid.">
-                  <div className="validation-head">
-                    <b>{LABB_LEAGUE[g.league] || g.league} ·
+            <div className="v3evidence-table">
+              <table className="logtable">
+                <thead><tr><th>Aktiv signalgrupp</th><th>Status</th><th>Stängda</th>
+                  <th>Matcher</th><th>Dagar</th><th>Nästa kontrollpunkt</th>
+                  <th>90 % KI</th></tr></thead>
+                <tbody>{activePrimaryGroups.map((g) => (
+                  <tr key={`${g.league}-${g.market}-${g.version}`}
+                    title="Kandidat kräver mängdkraven och positiv undre 90 %-KI-gräns. Datumet uppskattar bara mängd och tid.">
+                    <td><b>{LABB_LEAGUE[g.league] || g.league} ·
                       {' '}{LABB_MARKET[g.market] || g.market}</b>
-                    <span className={`ledgerstatus ${g.status}`}>{statusLabel(g.status)}</span>
-                  </div>
-                  <div className="validation-progress">
-                    <span><b>{g.n_resolved}</b>/{candidateReq.n_resolved} stängda</span>
-                    <span><b>{g.n_matches}</b>/{candidateReq.n_matches} matcher</span>
-                    <span><b>{g.span_days}</b>/{candidateReq.span_days} dagar</span>
-                  </div>
-                  <div className="validation-eta">{candidateText(g)}</div>
-                  <div className="validation-ci">90 % KI {g.ci
-                    ? `[${(g.ci[0] * 100).toFixed(1)}..${(g.ci[1] * 100).toFixed(1)}]`
-                    : '–'}{!g.ci_stable && g.ci ? ' · instabilt' : ''}</div>
-                </div>
-              ))}
+                      <small><code>{g.version}</code></small></td>
+                    <td className={`ledgerstatus ${g.status}`}>{statusLabel(g.status)}</td>
+                    <td>{g.n_resolved}/{candidateReq.n_resolved}</td>
+                    <td>{g.n_matches}/{candidateReq.n_matches}</td>
+                    <td>{g.span_days}/{candidateReq.span_days}</td>
+                    <td>{candidateText(g)}</td>
+                    <td>{g.ci
+                      ? `[${(g.ci[0] * 100).toFixed(1)}..${(g.ci[1] * 100).toFixed(1)}]`
+                      : '–'}{!g.ci_stable && g.ci ? ' · instabilt' : ''}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
             </div>
           )}
           {ledger && (
@@ -2700,50 +2720,72 @@ function LabbV3() {
               äldre kohorter ligger kvar i journalen.</span>
           )}
 
-          <div className="v3radar-rules" aria-label="Radarns signalregler">
-            <div><b>Testsignal · xG</b>
-              <span>{radar?.signal_ledger?.thresholds?.xg_watch?.minute
-                || 'Minut 15–78, minst 12 minuter kvar'}</span>
-              <span>{radar?.signal_ledger?.thresholds?.xg_watch?.rule
-                || 'Lagets xG−mål ≥ 0,65 eller matchens xG−mål ≥ 1,00'}</span></div>
-            <div className="strong"><b>Stark testsignal · xG</b>
-              <span>{radar?.signal_ledger?.thresholds?.xg_strong?.minute
-                || 'Samma tidsfönster som Följer'}</span>
-              <span>{radar?.signal_ledger?.thresholds?.xg_strong?.rule
-                || 'Lagets xG−mål ≥ 1,15 eller matchens xG−mål ≥ 1,65'}</span></div>
-            <div><b>Testsignal · skott</b>
-              <span>{radar?.signal_ledger?.thresholds?.proxy_watch?.minute
-                || 'Minut 20–78, minst 12 minuter kvar'}</span>
-              <span>{radar?.signal_ledger?.thresholds?.proxy_watch?.rule
-                || 'Stora chanser−mål ≥ 1,5, eller skott på mål−mål ≥ 5 och minst 8 skott i box'}</span></div>
+          <h4 className="v3tabletitle">Signalregler</h4>
+          <div className="v3evidence-table v3radar-tablewrap">
+            <table className="logtable v3radar-rulestable" aria-label="Radarns signalregler">
+              <thead><tr><th>Nivå</th><th>Tidsfönster</th><th>Krav</th>
+                <th>När priset låses</th></tr></thead>
+              <tbody>
+                <tr><td><b>Följer · xG</b></td>
+                  <td>{radar?.signal_ledger?.thresholds?.xg_watch?.minute
+                    || 'Minut 15–78, minst 12 minuter kvar'}</td>
+                  <td>{radar?.signal_ledger?.thresholds?.xg_watch?.rule
+                    || 'Lagets xG−mål ≥ 0,65 eller matchens xG−mål ≥ 1,00'}</td>
+                  <td>Första gången Följer-xG nås</td></tr>
+                <tr className="strong"><td><b>Stark · xG</b></td>
+                  <td>{radar?.signal_ledger?.thresholds?.xg_strong?.minute
+                    || 'Samma tidsfönster som Följer'}</td>
+                  <td>{radar?.signal_ledger?.thresholds?.xg_strong?.rule
+                    || 'Lagets xG−mål ≥ 1,15 eller matchens xG−mål ≥ 1,65'}</td>
+                  <td>Första gången Stark-xG nås</td></tr>
+                <tr><td><b>Följer · skott</b></td>
+                  <td>{radar?.signal_ledger?.thresholds?.proxy_watch?.minute
+                    || 'Minut 20–78, minst 12 minuter kvar'}</td>
+                  <td>{radar?.signal_ledger?.thresholds?.proxy_watch?.rule
+                    || 'Stora chanser−mål ≥ 1,5, eller skott på mål−mål ≥ 5 och minst 8 skott i box'}</td>
+                  <td>Första gången Följer-skott nås</td></tr>
+              </tbody>
+            </table>
           </div>
-          <span className="v3hint"><b>Så läses testet:</b> När den första
-            Följer-nivån nås fattas blindbeslutet. Finns ett öppet liveodds
-            räknas det som ett testspel på Över; saknas pris blir det bara en
-            signalobservation. Om matchen först upptäcks på Stark kan det vara
-            blindbeslutet; en Stark-eskalering efter Följer sparas för analys
-            men är aldrig ett andra spel. Informationsläget före Följer är
-            ingen signal.</span>
 
-          <div className="v3radar-gate">
-            <b>Blindtest: första aktiva signalen per match</b>
-            <span>{gateN} av{' '}
-              {gate?.required_priced_settled ?? 200} oddssatta och avgjorda</span>
-            <span>{gate?.span_days ?? 0} av{' '}
-              {gate?.required_span_days ?? 60} dagar</span>
-            {gateN >= ROI_MIN_N ? (
-              <span>Över-ROI <b className={evCls(gate?.roi_over)}>
-                {evPct(gate?.roi_over)}</b>{' '}
-                KI90 {ciStr(gate?.roi_ci90)}</span>
-            ) : (
-              <span className="v3hint"
-                title={`ROI och KI visas först vid ${ROI_MIN_N} oddssatta och avgjorda signalmatcher — enstaka utfall är brus, inte facit.`}>
-                Över-ROI: för tidigt att mäta (n={gateN})</span>
-            )}
+          <div className="v3radar-explainer">
+            <b>En match kan gå från Följer till Stark.</b>
+            <span>Huvudblindtestet använder bara matchens allra första aktiva
+              signal och kan därför aldrig innehålla två spel på samma match.</span>
+            <span>Nivåjämförelsen längre ned gör en annan kontroll: den visar
+              vilket resultat man hade fått om man alltid väntat på just den
+              nivån. Där kan samma match finnas både i Följer- och Stark-raden.</span>
+            <span>Liveoddset läses och låses i signalögonblicket. Saknas ett
+              öppet pris då blir raden ingen insats, och priset bakfylls aldrig.</span>
           </div>
-          <span className="v3hint">Ingen rekommendation om att rygga blint före minst 200
-            framåtriktade signalmatcher med observerat livepris, minst 60 dagar och positiv
-            undre 90 %-KI-gräns. Saknat livepris räknas öppet som saknat — det bakfylls aldrig.</span>
+
+          <h4 className="v3tabletitle">Huvudblindtest · högst ett spel per match</h4>
+          <div className="v3evidence-table v3radar-tablewrap">
+            <table className="logtable v3radar-maintable">
+              <thead><tr><th>Beslutsregel</th><th>Matcher med signal</th>
+                <th>Pris låst</th><th>Facit klart</th><th>Över-ROI</th>
+                <th>90 % KI</th><th>Testkrav</th></tr></thead>
+              <tbody><tr>
+                <td><b>Matchens första aktiva signal</b>
+                  <small>Följer eller Stark, oavsett signaltyp</small></td>
+                <td>{gate?.n_matches ?? 0}</td>
+                <td><b>{gate?.n_priced_signals ?? 0}</b>
+                  <small>öppet odds i beslutet</small></td>
+                <td><b>{gateN}</b>
+                  <small>av {gate?.n_priced_signals ?? 0} prissatta</small></td>
+                <td className={gateN >= ROI_MIN_N ? evCls(gate?.roi_over) : ''}>
+                  {gateN >= ROI_MIN_N ? evPct(gate?.roi_over) : '–'}
+                  <small>{gateN >= ROI_MIN_N ? `${gateN} spel · preliminärt`
+                    : `visas från ${ROI_MIN_N} spel`}</small></td>
+                <td>{gateN >= ROI_MIN_N ? ciStr(gate?.roi_ci90) : '–'}</td>
+                <td>{gateN}/{gate?.required_priced_settled ?? 200} spel
+                  <small>{gate?.span_days ?? 0}/{gate?.required_span_days ?? 60} dagar</small></td>
+              </tr></tbody>
+            </table>
+          </div>
+          <span className="v3hint">Resultatet är inte godkänt för blind ryggning före minst
+            {' '}{gate?.required_priced_settled ?? 200} prissatta och avgjorda matcher,
+            {' '}{gate?.required_span_days ?? 60} dagar och en positiv undre 90 %-KI-gräns.</span>
 
           {radar && !radar.signal_ledger?.groups?.length && (
             <div className="v3note">
@@ -2753,28 +2795,42 @@ function LabbV3() {
               journalen och blandas aldrig in.
             </div>
           )}
-          {!!radar?.signal_ledger?.groups?.length && (
+          {!!radarGroups.length && (
             <>
-              <span className="v3hint">Nivårutorna analyserar varje nivå för sig.
-                Samma match kan först nå Följer och senare Stark. Blindtestlistan
-                nedan räknar däremot bara matchens första signal som möjligt spel.</span>
-              <div className="v3radar-groups">
-                {radar.signal_ledger.groups.map((g) => (
-                  <div key={`${g.signal_type}-${g.signal_level}`}>
-                    <b>{radarLevel(g.signal_level)} · {radarType(g.signal_type)}</b>
-                    <span><b>{g.n_matches}</b> matcher nådde nivån</span>
-                    <span>Nivåtest med odds: <b>{g.n_priced_signals}</b>
-                      {' '}· facit klart: <b>{g.n_priced_settled}</b></span>
-                    <span>I huvudblindtestet: <b>{g.n_test_bets}</b> spel
-                      {' '}· facit klart: <b>{g.n_test_bets_settled}</b></span>
-                    <span>mål ≤15 min {rate(g.goal_15min_rate)}</span>
-                    <span>snitt mål efter {g.avg_goals_after ?? '–'}</span>
-                    <span>Nivåtestets Över-ROI {g.n_priced_settled >= ROI_MIN_N
-                      ? <b className={evCls(g.roi_over)}>{evPct(g.roi_over)}</b>
-                      : <span className="v3hint">för tidigt (n={g.n_priced_settled})</span>}</span>
-                  </div>
-                ))}
+              <h4 className="v3tabletitle">Nivåjämförelse · om vi alltid väntat på…</h4>
+              <span className="v3hint">Det här är tre separata jämförelseregler,
+                inte extra spel i huvudtestet. Summera därför inte raderna. “Pris
+                låst” betyder att Över/Under var öppet exakt när nivån först nåddes.</span>
+              <div className="v3evidence-table v3radar-tablewrap">
+                <table className="logtable v3radar-leveltable">
+                  <thead><tr><th>Vänta till</th><th>Matcher som nådde nivån</th>
+                    <th>Pris låst då</th><th>Facit på prissatta</th>
+                    <th>Mål inom 15 min</th><th>Snitt mål efter</th>
+                    <th>Simulerad Över-ROI</th></tr></thead>
+                  <tbody>{radarGroups.map((g) => (
+                    <tr key={`${g.signal_type}-${g.signal_level}`}>
+                      <td><b>{radarLevel(g.signal_level)} · {radarType(g.signal_type)}</b>
+                        <small>{g.signal_level === 'strong'
+                          ? 'ignorera tidigare Följer och vänta' : 'första gången nivån nås'}</small></td>
+                      <td><b>{g.n_matches}</b></td>
+                      <td><b>{g.n_priced_signals}</b> av {g.n_matches}
+                        <small>{g.n_matches - g.n_priced_signals} utan öppet pris</small></td>
+                      <td><b>{g.n_priced_settled}</b> av {g.n_priced_signals}</td>
+                      <td>{rate(g.goal_15min_rate)}
+                        <small>{g.n_goal_15min ?? 0} avgjorda observationer</small></td>
+                      <td>{g.avg_goals_after ?? '–'}</td>
+                      <td className={g.n_priced_settled >= ROI_MIN_N
+                        ? evCls(g.roi_over) : ''}>{radarRoi(g)}
+                        <small>{radarRoiNote(g)}</small></td>
+                    </tr>
+                  ))}</tbody>
+                </table>
               </div>
+              <span className="v3hint"><b>Så räknas nivå-ROI:</b> en låtsasenhet
+                placeras på Över till priset som låstes när nivån nåddes. Nettot
+                delas med antalet prissatta och avgjorda matcher i just den raden.
+                Exempelvis +4,5 % betyder +0,045 enhet per satsad enhet i snitt —
+                inte att underlaget är stort nog för en rekommendation.</span>
             </>
           )}
 
@@ -2783,27 +2839,32 @@ function LabbV3() {
             <span className="v3hint">Detta jämför varje källas egna ögonblick och
               lånar inte klocka eller ställning från en annan källa. Signaljournalen
               ovan är facitet för det som faktiskt visades.</span>
-            {['xg', 'proxy'].map((k) => {
-              const g = radar?.groups?.[k]
-              const a = g?.outcomes?.outcome_15min
-              return (
-                <div key={k} className="v3row">
-                  <b>{k === 'xg' ? 'xG' : 'Skottbaserad'}</b>
-                  {!g && <span className="v3hint">väntar på settlade ögonblick</span>}
-                  {g && <>
-                    <span>{g.n_signal_moments} ögonblick i {g.n_signal_matches} matcher</span>
-                    <span>mål ≤15 min {a?.n_resolved
-                      ? <>{a.hits}/{a.n_resolved} = <b>{rate(a.rate)}</b> mot bas {rate(a.base_rate)}</>
-                      : '–'}</span>
-                  </>}
-                </div>
-              )
-            })}
+            <div className="v3evidence-table v3radar-tablewrap">
+              <table className="logtable">
+                <thead><tr><th>Källa till signal</th><th>Ögonblick</th>
+                  <th>Matcher</th><th>Mål inom 15 min</th><th>Basnivå</th></tr></thead>
+                <tbody>{['xg', 'proxy'].map((k) => {
+                  const g = radar?.groups?.[k]
+                  const a = g?.outcomes?.outcome_15min
+                  return (
+                    <tr key={k}>
+                      <td><b>{k === 'xg' ? 'xG' : 'Skottbaserad'}</b></td>
+                      <td>{g?.n_signal_moments ?? '–'}</td>
+                      <td>{g?.n_signal_matches ?? '–'}</td>
+                      <td>{a?.n_resolved ? `${a.hits}/${a.n_resolved} = ${rate(a.rate)}` : '–'}</td>
+                      <td>{a?.n_resolved ? rate(a.base_rate) : '–'}</td>
+                    </tr>
+                  )
+                })}</tbody>
+              </table>
+            </div>
           </details>
 
           {!!radarRows.length && (
             <details className="v3radar-log" open>
-              <summary>Blindtestspel · {radarTestBets.length} med observerat odds</summary>
+              <summary>Matchjournal · {gate?.n_priced_signals ?? radarTestBets.length}
+                {' '}blindtestspel{(gate?.n_priced_signals ?? radarTestBets.length)
+                  !== radarTestBets.length ? ` · visar ${radarTestBets.length}` : ''}</summary>
               {!!radarNotPlayed.length && (
                 <label className="v3radar-logfilter">
                   <input type="checkbox" checked={showUnplayedRadar}
@@ -2811,38 +2872,45 @@ function LabbV3() {
                   Visa även signaler som inte blev spel ({radarNotPlayed.length})
                 </label>
               )}
-              <div className="v3radar-logrows">
-                {radarVisibleRows.map((row) => {
-                  const outcome = radarOutcome(row)
-                  return (
-                    <div className={`v3radar-logrow ${row.test_bet
-                      ? `testbet ${outcome.cls}` : 'notplayed'}`} key={row.id}>
-                      <div><b>{row.home} – {row.away}</b>
-                        <span>{radarTime(row.captured_at)} · {row.minute ?? '–'}′ ·{' '}
-                          {row.home_score ?? '–'}–{row.away_score ?? '–'}</span></div>
-                      <div>{row.test_bet
-                        ? <><b>{radarLevel(row.signal_level)} · {radarType(row.signal_type)}</b></>
-                        : <><b>Ej spelad</b><span>{row.blind_entry
-                          ? radarOddsStatus(row)
-                          : 'senare signal – blindtestet använder bara den första'}</span></>}
-                        <span>{row.reason}</span></div>
-                      <div><b>Odds vid beslutet</b>
-                        <span>{row.odds_status === 'captured'
-                          ? `Ö ${row.ou_line} @ ${Number(row.over_odds).toFixed(2)} · U @ ${Number(row.under_odds).toFixed(2)} · läst ${radarTime(row.odds_observed_at)}`
-                          : radarOddsStatus(row)}</span></div>
-                      <div className="v3radar-result">
-                        {row.test_bet
-                          ? <><b className={outcome.cls}><i>{outcome.icon}</i>{outcome.label}</b>
-                            <span>{row.settled_at
-                              ? `${row.final_home_score}–${row.final_away_score} · ${row.goals_after_signal} mål efter signalen${row.over_profit == null ? '' : ` · ${row.over_profit >= 0 ? '+' : ''}${row.over_profit.toFixed(2)} u`}`
-                              : 'Matchen är ännu inte rättad'}</span></>
-                          : <><b>Observationsfacit</b><span>{row.settled_at
-                            ? `${row.final_home_score}–${row.final_away_score} · räknas inte i Över-ROI`
-                            : 'väntar på slutresultat'}</span></>}
-                      </div>
-                    </div>
-                  )
-                })}
+              <div className="v3evidence-table v3radar-tablewrap">
+                <table className="logtable v3radar-logtable">
+                  <thead><tr><th>Match</th><th>Signalögonblick</th><th>Beslut</th>
+                    <th>Låst liveodds</th><th>Facit</th></tr></thead>
+                  <tbody>{radarVisibleRows.map((row) => {
+                    const outcome = radarOutcome(row)
+                    return (
+                      <tr className={row.test_bet
+                        ? `testbet ${outcome.cls}` : 'notplayed'} key={row.id}>
+                        <td><b>{row.home} – {row.away}</b></td>
+                        <td>{radarTime(row.captured_at)}
+                          <small>{row.minute ?? '–'}′ · ställning{' '}
+                            {row.home_score ?? '–'}–{row.away_score ?? '–'}</small></td>
+                        <td>{row.test_bet
+                          ? <><b>{radarLevel(row.signal_level)} · {radarType(row.signal_type)}</b>
+                            <small>första signalen · räknas i huvudtestet</small></>
+                          : <><b>Ingen insats</b><small>{row.blind_entry
+                            ? radarOddsStatus(row)
+                            : 'senare signal – första signalen äger huvudtestet'}</small></>}
+                          <small>{row.reason}</small></td>
+                        <td>{row.odds_status === 'captured'
+                          ? <><b>Ö {row.ou_line} @ {Number(row.over_odds).toFixed(2)}</b>
+                            <small>U @ {Number(row.under_odds).toFixed(2)}</small>
+                            <small>låst {radarTime(row.odds_observed_at)}</small></>
+                          : <span className="v3hint">{radarOddsStatus(row)}</span>}</td>
+                        <td className="v3radar-result">
+                          {row.test_bet
+                            ? <><b className={outcome.cls}><i>{outcome.icon}</i>{outcome.label}</b>
+                              <small>{row.settled_at
+                                ? `${row.final_home_score}–${row.final_away_score} · ${row.goals_after_signal} mål efter signalen${row.over_profit == null ? '' : ` · ${row.over_profit >= 0 ? '+' : ''}${row.over_profit.toFixed(2)} u`}`
+                                : 'Matchen är ännu inte rättad'}</small></>
+                            : <><b>Observation</b><small>{row.settled_at
+                              ? `${row.final_home_score}–${row.final_away_score} · ingår inte i ROI`
+                              : 'väntar på slutresultat'}</small></>}
+                        </td>
+                      </tr>
+                    )
+                  })}</tbody>
+                </table>
               </div>
             </details>
           )}
@@ -2855,13 +2923,24 @@ function LabbV3() {
             pool, inte odds. Historik äger den nu, med champion-jämförelse och
             klick-in mot facit. */}
 
-        {LABB_RESEARCH.map((c) => (
-          <div key={c.title} className="v3card">
-            <div className="v3cardhead"><h3>{c.icon} {c.title}</h3><LabbPill s={c.status} /></div>
-            <div className="v3row"><span>{c.text}</span></div>
-            <span className="v3hint">{c.date ? `${c.date} · ` : ''}<code>{c.doc}</code></span>
+        <div className="v3card v3wide">
+          <div className="v3cardhead"><h3>🔬 Övriga forskningsspår</h3>
+            <span className="v3hint">samlad status</span></div>
+          <div className="v3evidence-table v3labb-summarytable">
+            <table className="logtable">
+              <thead><tr><th>Spår</th><th>Status</th><th>Slutsats / läge</th>
+                <th>Dokumentation</th></tr></thead>
+              <tbody>{LABB_RESEARCH.map((c) => (
+                <tr key={c.title}>
+                  <td><b>{c.icon} {c.title}</b>{c.date && <small>{c.date}</small>}</td>
+                  <td><LabbPill s={c.status} /></td>
+                  <td className="v3wrapcell">{c.text}</td>
+                  <td><code>{c.doc}</code></td>
+                </tr>
+              ))}</tbody>
+            </table>
           </div>
-        ))}
+        </div>
       </div>
     </div>
   )
