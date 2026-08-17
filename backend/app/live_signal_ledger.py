@@ -16,13 +16,15 @@ import random
 from collections import Counter
 from typing import Optional
 
-from . import flashscore_data, kambi, live_radar, live_settlement, oddset_data
+from . import (altenar, flashscore_data, kambi, live_radar, live_settlement,
+               oddset_data, pinnacle)
 from .oddset import _team_sim
 from .storage import Storage
 
 BLIND_MIN_PRICED = 200
 BLIND_MIN_DAYS = 60
 BOOTSTRAP_ITERS = 2000
+PINNACLE_LIVE_MAX_AGE_S = 90
 
 
 def _now() -> dt.datetime:
@@ -201,6 +203,189 @@ def _live_total(match: Optional[dict]) -> dict:
     }
 
 
+def _unique_live_event(match: dict, events: list[dict]) -> tuple[Optional[dict], str]:
+    """Entydig tvåsidig lagmatchning för en oddsproviders livelista."""
+    candidates = [
+        event for event in events
+        if _match_orientation(
+            match.get("home") or "", match.get("away") or "",
+            event.get("home") or "", event.get("away") or "",
+            allow_context=True) is not None
+    ]
+    if len(candidates) == 1:
+        return candidates[0], "captured"
+    return None, "ambiguous_match" if candidates else "no_match"
+
+
+def _source_quote(source: str, *, checked_at: str, status: str,
+                  event_id=None, observed_at=None, age_s=None,
+                  total: Optional[dict] = None,
+                  offers: Optional[list[dict]] = None) -> dict:
+    return {
+        "source": source,
+        "provider_event_id": str(event_id) if event_id is not None else None,
+        "checked_at": checked_at,
+        "observed_at": observed_at,
+        "status": status,
+        "age_s": age_s,
+        "main": total,
+        "offers": offers if offers is not None else ([total] if total else []),
+    }
+
+
+class _LivePriceCollector:
+    """Ett bulk-anrop per källa och radarvarv, sedan lokala matchningar.
+
+    Alla tre källor frågas även när den första ger pris. Det är nödvändigt för
+    att `bäst odds` ska vara ett observerat val och för att coverage ska kunna
+    följas per källa. Fel isoleras per provider och får aldrig fälla signalen.
+    """
+
+    def __init__(self):
+        self._catalogues: dict[str, dict] = {}
+
+    def _catalogue(self, source: str) -> dict:
+        if source in self._catalogues:
+            return self._catalogues[source]
+        try:
+            if source == "svenskaspel":
+                rows = kambi.live_events(timeout=8.0)
+                age_s = max(0, int(kambi.last_age_s or 0))
+            elif source == "ninja":
+                rows = altenar.live_events(
+                    integration="ninjacasinose", timeout=8.0, strict=True)
+                age_s = max(0, int(altenar.last_age_s or 0))
+            elif source == "pinnacle":
+                with pinnacle.Pinnacle(timeout=8.0) as client:
+                    rows = client.soccer_live_totals()
+                    age_s = max(0, int(client.last_age_s or 0))
+            else:  # pragma: no cover — intern konstant skyddar
+                raise ValueError(source)
+            result = {"rows": rows, "age_s": age_s,
+                      "checked_at": _iso(_now()), "error": None}
+        except Exception as exc:  # noqa: BLE001 — fel isoleras per oddsprovider
+            result = {"rows": [], "age_s": None, "checked_at": _iso(_now()),
+                      "error": f"source_error:{type(exc).__name__}"}
+        self._catalogues[source] = result
+        return result
+
+    def _kambi(self, match: dict, canonical: Optional[dict]) -> dict:
+        catalogue = self._catalogue("svenskaspel")
+        checked_at = catalogue["checked_at"]
+        if catalogue["error"]:
+            return _source_quote("svenskaspel", checked_at=checked_at,
+                                 status=catalogue["error"])
+        odds_match = canonical
+        if not (odds_match or {}).get("kambi_id"):
+            odds_match = _live_kambi_match(match, catalogue["rows"]) or odds_match
+        event_id = (odds_match or {}).get("kambi_id")
+        if not event_id:
+            return _source_quote("svenskaspel", checked_at=checked_at,
+                                 status="no_match")
+        result = _live_total(odds_match)
+        status = result.get("odds_status") or "not_offered"
+        total = None
+        if status == "captured":
+            total = {"line": result["ou_line"], "O": result["over_odds"],
+                     "U": result["under_odds"]}
+        return _source_quote(
+            "svenskaspel", checked_at=_iso(_now()), status=status,
+            event_id=event_id, observed_at=result.get("odds_observed_at"),
+            age_s=max(0, int(kambi.last_age_s or 0)), total=total)
+
+    def _listed(self, source: str, match: dict) -> dict:
+        catalogue = self._catalogue(source)
+        if catalogue["error"]:
+            return _source_quote(source, checked_at=catalogue["checked_at"],
+                                 status=catalogue["error"])
+        event, match_status = _unique_live_event(match, catalogue["rows"])
+        if not event:
+            return _source_quote(source, checked_at=catalogue["checked_at"],
+                                 status=match_status,
+                                 age_s=catalogue["age_s"])
+        age_s = int(event.get("age_s", catalogue["age_s"]) or 0)
+        observed_at = _iso(_at(catalogue["checked_at"])
+                           - dt.timedelta(seconds=age_s))
+        status = event.get("status") or "not_offered"
+        if source == "pinnacle" and status == "captured" \
+                and age_s > PINNACLE_LIVE_MAX_AGE_S:
+            status = "stale"
+        return _source_quote(
+            source, checked_at=catalogue["checked_at"], status=status,
+            event_id=event.get("id"), observed_at=observed_at, age_s=age_s,
+            total=event.get("ou"), offers=event.get("offers") or [])
+
+    def observe(self, match: dict, canonical: Optional[dict]) -> list[dict]:
+        # Ordningen är fast men urvalet nedan är oberoende av anropsordningen.
+        return [self._kambi(match, canonical),
+                self._listed("ninja", match),
+                self._listed("pinnacle", match)]
+
+
+def _choose_live_price(observations: list[dict]) -> tuple[dict, list[dict]]:
+    """Välj högsta Över-odds på exakt samma, förregistrerade huvudlina.
+
+    Pinnacles färska huvudlina definierar spelet när den finns; annars behålls
+    Kambi som kontinuitetsankare och Ninja är sista reserv. Att jämföra 2.20
+    på Ö3.5 med 1.90 på Ö2.5 vore inte `bäst odds` utan två olika spel.
+    Därför jämförs böcker endast på samma lina; Pinnacles alternativlinor gör
+    att den ändå ofta kan delta när en mjuk boks huvudlina väljs.
+    """
+    priority = {"pinnacle": 0, "svenskaspel": 1, "ninja": 2}
+    eligible = [obs for obs in observations
+                if obs.get("status") == "captured" and obs.get("main")]
+    anchor = min(eligible, key=lambda obs: priority[obs["source"]], default=None)
+    checked_at = max((obs.get("checked_at") for obs in observations
+                      if obs.get("checked_at")), default=_iso(_now()))
+    quotes = []
+    candidates = []
+    canonical_line = float(anchor["main"]["line"]) if anchor else None
+    for observation in observations:
+        status = observation.get("status") or "unknown"
+        offer = observation.get("main")
+        if status == "captured" and canonical_line is not None:
+            offer = next((candidate for candidate in observation.get("offers") or []
+                          if abs(float(candidate["line"]) - canonical_line) < 1e-9),
+                         None)
+            if offer is None:
+                offer = observation.get("main")
+                status = "line_mismatch"
+        quote = {
+            "source": observation["source"],
+            "provider_event_id": observation.get("provider_event_id"),
+            "observed_at": observation.get("observed_at"),
+            "checked_at": observation.get("checked_at") or checked_at,
+            "status": status,
+            "line": float(offer["line"]) if offer else None,
+            "over_odds": float(offer["O"]) if offer else None,
+            "under_odds": float(offer["U"]) if offer else None,
+            "selected": 0,
+            "age_s": observation.get("age_s"),
+        }
+        quotes.append(quote)
+        if status == "captured" and quote["over_odds"] is not None:
+            candidates.append(quote)
+
+    if not candidates:
+        statuses = {quote["status"] for quote in quotes}
+        overall = ("all_sources_failed" if statuses and all(
+            status.startswith("source_error") for status in statuses)
+            else "no_eligible_quote")
+        return {"odds_status": overall}, quotes
+
+    best = max(candidates, key=lambda quote: (
+        quote["over_odds"], -priority.get(quote["source"], 99)))
+    best["selected"] = 1
+    return {
+        "odds_source": best["source"],
+        "odds_observed_at": best["observed_at"],
+        "ou_line": best["line"],
+        "over_odds": best["over_odds"],
+        "under_odds": best["under_odds"],
+        "odds_status": "captured",
+    }, quotes
+
+
 def _locked_key(store: Storage, match: dict,
                 now: dt.datetime, cohort: str) -> Optional[str]:
     """Stabil journalnyckel: samma fysiska match får ALDRIG två nycklar.
@@ -307,7 +492,7 @@ def capture_signals(store: Storage, *,
     fixed = now
     now = now or _now()
     report = {"candidates": 0, "saved": 0, "priced": 0, "errors": []}
-    live_kambi_events: Optional[list[dict]] = None
+    price_collector: Optional[_LivePriceCollector] = None
     for match in live_radar.payload(store, now=now).get("matches") or []:
         signal = match.get("signal") or {}
         level, kind = signal.get("level"), signal.get("kind")
@@ -333,15 +518,10 @@ def capture_signals(store: Storage, *,
                              else str(match["event_id"])))
             if store.live_signal_exists(match_key, cohort, kind, level):
                 continue
-            odds_match = canonical
-            if not (odds_match or {}).get("kambi_id"):
-                # Ett enda Kambi-listanrop per radarvarv, även om flera nya
-                # signaler saknar prematchkoppling eller SvS-id.
-                if live_kambi_events is None:
-                    live_kambi_events = kambi.live_events(timeout=8.0)
-                odds_match = (_live_kambi_match(match, live_kambi_events)
-                              or odds_match)
-            odds = _live_total(odds_match)
+            if price_collector is None:
+                price_collector = _LivePriceCollector()
+            observations = price_collector.observe(match, canonical)
+            odds, quotes = _choose_live_price(observations)
             saved = store.live_signal_save({
                 "match_key": match_key,
                 "match_id": canonical["id"] if canonical else None,
@@ -378,7 +558,7 @@ def capture_signals(store: Storage, *,
                 # per kandidat, EFTER oddsanropet — aldrig varvstartens klocka
                 # (observationstidsregeln p.3; Kambi-anrop kan ta 8 s styck)
                 "recorded_at": _iso(fixed or _now()),
-            })
+            }, quotes=quotes)
         except Exception as exc:  # noqa: BLE001 — logga nästa kandidat vidare
             report["errors"].append(
                 f"{match.get('event_id')}:{kind}:{level}:{type(exc).__name__}")
@@ -578,6 +758,12 @@ def _summary(rows: list[dict]) -> dict:
     dates = [_at(row["captured_at"]) for row in priced]
     odds_status_counts = Counter(
         str(row.get("odds_status") or "unknown") for row in rows)
+    quote_source_counts: dict[str, dict[str, int]] = {}
+    for row in rows:
+        for quote in row.get("odds_quotes") or []:
+            counts = quote_source_counts.setdefault(quote["source"], {})
+            status = str(quote.get("status") or "unknown")
+            counts[status] = counts.get(status, 0) + 1
     return {
         "n_signals": len(rows),
         "n_matches": len({row["match_key"] for row in rows}),
@@ -585,6 +771,10 @@ def _summary(rows: list[dict]) -> dict:
         "n_priced_signals": len(priced_signals),
         "n_priced_settled": len(priced),
         "odds_status_counts": dict(sorted(odds_status_counts.items())),
+        "quote_source_counts": {
+            source: dict(sorted(counts.items()))
+            for source, counts in sorted(quote_source_counts.items())
+        },
         "roi_over": round(sum(profits) / len(profits), 4) if profits else None,
         "roi_ci90": _ci90(profits),
         "over_positive_rate": (round(sum(value > 0 for value in profits)

@@ -2,6 +2,23 @@
 
 ## STATUS-SAMMANFATTNING (2026-08-18 — läs detta först i ny session)
 
+**LIVEBLINDTEST V10 LÅSER BÄSTA FÄRSKA ÖVERPRIS FRÅN TRE KÄLLOR
+(2026-08-18, Codex).** Varje ny Följer-/Stark-observation frågar Svenska
+Spel/Kambi, Ninja/Altenar och Pinnacles separata liveflöde. Spelets lina
+definieras av en färsk Pinnacle-huvudlina när den finns, annars Kambi och sist
+Ninja. Högsta Över-odds väljs därefter bara mellan exakt samma linje; ett
+högre odds på en svårare lina får aldrig vinna. Varje källas pris, status,
+event-id, observationstid, cacheålder och vald/inte vald sparas append-only.
+Pinnacle-provet på servern visade riktiga öppna live-totaler men CDN-ålder upp
+till 15 minuter; därför får bara Pinnacle ≤90 sekunder påverka ROI. Äldre svar
+loggas som `stale`. Altenars separata `GetLiveEvents` var verifierat öppet med
+`max-age=3` och skiljer öppet pris från `oddStatus=7` (suspenderat).
+Prisprocessen ändrar ROI-facitet och startar därför rent som
+`chance-gap-shadow-v10` från 2026-08-18 00:00Z; v9 ligger kvar orörd historik.
+Signaltrösklar, notiser och systemförslag är oförändrade. Migration och backup
+finns i `backend/scripts/migrera_live_signal_quotes.py`; full metod och
+överlämning finns i `docs/overlamning-2026-08-17-live-blindtest.md`.
+
 **LIVEBLINDTESTET VISAR ENBART FAKTISKA TESTSPEL SOM STANDARD
 (2026-08-17, Codex).** Signaljournalen blandade tidigare första blindbeslut,
 senare Stark-eskaleringar, signaler utan odds och riktiga testspel. Backend
@@ -12,8 +29,8 @@ orsak. `Följer` förklaras som första aktiva testsignal, inte passiv bevakning
 Oddstäckningen förbättras framåt genom en entydig direktkoppling till Kambis
 pågående lista när prematchkanonen saknas. Facit kan nu läka observerade
 kortnamn (`Odense`/`Odense Boldklub` m.fl.) endast vid exakt datum, ett strikt
-matchande motståndarlag och unik kandidat. Gamla odds bakfylls aldrig; inga
-signaltrösklar eller radarversioner ändrades. Full överlämning:
+matchande motståndarlag och unik kandidat. Gamla odds bakfylls aldrig; vid
+just den korrigeringen ändrades inga signaltrösklar eller radarversioner. Full överlämning:
 `docs/overlamning-2026-08-17-live-blindtest.md`.
 Efter Häcken–Halmstad 17/8 kompletterades settlementet med en riktad
 slutresultatkontroll: en nyligen avslutad signalmatch behöver inte längre

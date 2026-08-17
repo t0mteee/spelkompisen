@@ -798,6 +798,27 @@ CREATE TABLE IF NOT EXISTS oddset_live_signal (
 CREATE INDEX IF NOT EXISTS idx_live_signal_recent
     ON oddset_live_signal (captured_at DESC, signal_type, signal_level);
 
+-- Varje källa som faktiskt frågades i signalögonblicket. Huvudraden ovan
+-- bär det valda bästa priset; denna append-only-tabell bevarar jämförelsen,
+-- inklusive saknad match, suspension, källfel, stale cache och annan lina.
+CREATE TABLE IF NOT EXISTS oddset_live_signal_quote (
+    signal_id          INTEGER NOT NULL,
+    source             TEXT NOT NULL,       -- svenskaspel | pinnacle | ninja
+    provider_event_id  TEXT,
+    observed_at        TEXT,
+    checked_at         TEXT NOT NULL,
+    status             TEXT NOT NULL,
+    line               REAL,
+    over_odds          REAL,
+    under_odds         REAL,
+    selected           INTEGER NOT NULL DEFAULT 0,
+    age_s              INTEGER,
+    PRIMARY KEY (signal_id, source),
+    FOREIGN KEY (signal_id) REFERENCES oddset_live_signal(id)
+);
+CREATE INDEX IF NOT EXISTS idx_live_signal_quote_source
+    ON oddset_live_signal_quote (source, status, checked_at);
+
 -- Append-once-resultat för signalraden. Det separata lagret gör att
 -- signalögonblicket aldrig behöver uppdateras i efterhand och att vi kan skilja
 -- "inget resultat ännu" från ett verkligt nollutfall.
@@ -2321,6 +2342,11 @@ class Storage:
         "under_odds", "odds_status", "recorded_at", "clock_source",
         "clock_observed_at",
     )
+    LIVE_SIGNAL_QUOTE_COLUMNS = (
+        "signal_id", "source", "provider_event_id", "observed_at",
+        "checked_at", "status", "line", "over_odds", "under_odds",
+        "selected", "age_s",
+    )
 
     def live_signal_locked_key(self, signal_version: str,
                                identities: list[tuple[str, str]]
@@ -2360,18 +2386,39 @@ class Storage:
             (match_key, signal_version, signal_type, signal_level)).fetchone() \
             is not None
 
-    def live_signal_save(self, row: dict) -> int:
-        """Append-once per match × signaltyp × nivå × signalversion."""
+    def live_signal_save(self, row: dict, quotes: Optional[list[dict]] = None) -> int:
+        """Append-once signal + dess källjämförelse i en transaktion."""
         cols = self.LIVE_SIGNAL_COLUMNS
         if row.get("provider_event_id") is None:
             raise ValueError("live-signal saknar provider-event-id")
         values = {**row, "provider_event_id": str(row["provider_event_id"])}
-        cur = self.conn.execute(
-            f"INSERT OR IGNORE INTO oddset_live_signal({','.join(cols)}) "
-            f"VALUES({','.join('?' for _ in cols)})",
-            tuple(values.get(key) for key in cols))
-        self._commit()
+        with self.bulk():
+            cur = self.conn.execute(
+                f"INSERT OR IGNORE INTO oddset_live_signal({','.join(cols)}) "
+                f"VALUES({','.join('?' for _ in cols)})",
+                tuple(values.get(key) for key in cols))
+            if cur.rowcount:
+                signal_id = int(cur.lastrowid)
+                qcols = self.LIVE_SIGNAL_QUOTE_COLUMNS
+                for quote in quotes or []:
+                    qvalues = {**quote, "signal_id": signal_id}
+                    self.conn.execute(
+                        f"INSERT INTO oddset_live_signal_quote({','.join(qcols)}) "
+                        f"VALUES({','.join('?' for _ in qcols)})",
+                        tuple(qvalues.get(key) for key in qcols))
         return cur.rowcount
+
+    def live_signal_quotes(self, signal_ids: Optional[list[int]] = None
+                           ) -> list[dict]:
+        query = "SELECT * FROM oddset_live_signal_quote"
+        args: list = []
+        if signal_ids is not None:
+            if not signal_ids:
+                return []
+            query += f" WHERE signal_id IN ({','.join('?' for _ in signal_ids)})"
+            args.extend(int(signal_id) for signal_id in signal_ids)
+        query += " ORDER BY signal_id,source"
+        return [dict(row) for row in self.conn.execute(query, args)]
 
     def live_signal_rows(self, limit: Optional[int] = None) -> list[dict]:
         query = "SELECT * FROM oddset_live_signal ORDER BY captured_at,id"
@@ -2411,13 +2458,19 @@ class Storage:
             "SELECT * FROM oddset_live_signal_result ORDER BY signal_id")]
 
     def live_signal_facit_rows(self) -> list[dict]:
-        return [dict(row) for row in self.conn.execute(
+        rows = [dict(row) for row in self.conn.execute(
             "SELECT s.*,r.settled_at,r.final_home_score,r.final_away_score,"
             "r.goals_after_signal,r.outcome_15min,r.outcome_more_before_ft,"
             "r.censored_15min,r.censored_ft,r.over_result,r.over_profit,"
             "r.result_source,r.result_key FROM oddset_live_signal s "
             "LEFT JOIN oddset_live_signal_result r ON r.signal_id=s.id "
             "ORDER BY s.captured_at,s.id")]
+        quotes_by_signal: dict[int, list[dict]] = {}
+        for quote in self.live_signal_quotes([row["id"] for row in rows]):
+            quotes_by_signal.setdefault(quote["signal_id"], []).append(quote)
+        for row in rows:
+            row["odds_quotes"] = quotes_by_signal.get(row["id"], [])
+        return rows
 
     def oddset_movement(self, ids: list[str]) -> dict[str, dict]:
         """Rörelse (first/last/min/max/n + punktserie) för alla givna matcher i en

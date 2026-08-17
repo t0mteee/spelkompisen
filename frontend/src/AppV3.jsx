@@ -2266,8 +2266,32 @@ function LabbV3() {
     no_svenskaspel_id: 'matchen saknade id hos Svenska Spel',
     not_offered: 'Ö/U erbjöds inte just då',
     suspended: 'Ö/U var suspenderat vid signalen',
+    no_eligible_quote: 'ingen källa hade ett färskt öppet pris på vald lina',
+    all_sources_failed: 'samtliga oddskällor fick tekniskt fel',
   }[row.odds_status] || (row.odds_status?.startsWith('source_error')
     ? 'oddsfel vid signalen' : 'liveodds saknas'))
+  const radarSource = (source) => ({
+    svenskaspel: 'SvS', ninja: 'Ninja', pinnacle: 'Pinnacle',
+  }[source] || source || 'okänd källa')
+  const radarQuoteStatus = (quote) => {
+    if (quote.status === 'captured') {
+      return `${radarSource(quote.source)} · Ö ${quote.line} @ ${Number(
+        quote.over_odds).toFixed(2)}${quote.selected ? ' · ✓ bäst' : ''}`
+    }
+    if (quote.status === 'line_mismatch') {
+      return `${radarSource(quote.source)} · annan lina (${quote.line})`
+    }
+    if (quote.status === 'stale') {
+      return `${radarSource(quote.source)} · för gammal cache${quote.age_s != null
+        ? ` (${Math.round(quote.age_s)} s)` : ''}`
+    }
+    const reason = ({
+      no_match: 'ingen säker matchkoppling', ambiguous_match: 'tvetydig match',
+      suspended: 'suspenderad', not_offered: 'Ö/U saknades',
+    }[quote.status] || (quote.status?.startsWith('source_error')
+      ? 'källfel' : quote.status || 'saknas'))
+    return `${radarSource(quote.source)} · ${reason}`
+  }
   const radarOverResult = (v) => ({
     win: 'vinst', half_win: 'halvvinst', push: 'återbetald',
     half_loss: 'halvförlust', loss: 'förlust',
@@ -2358,12 +2382,21 @@ function LabbV3() {
       [counts.no_svenskaspel_id, 'utan SvS-id'],
       [counts.not_offered, 'utan erbjuden Ö/U'],
       [counts.suspended, 'suspenderad marknad'],
+      [counts.no_eligible_quote, 'utan färskt öppet pris på vald lina'],
+      [counts.all_sources_failed, 'där alla oddskällor fick fel'],
       [sourceErrors, 'källfel'],
       [counts.unknown, 'okänd prisstatus'],
     ].filter(([count]) => count > 0)
       .map(([count, label]) => `${count} ${label}`)
     return parts.length ? parts.join(' · ') : 'ingen förklaring rapporterad'
   }
+  const radarSourceCoverage = (g) => Object.entries(g.quote_source_counts || {})
+    .map(([source, counts]) => {
+      const checked = Object.values(counts).reduce((sum, n) => sum + n, 0)
+      const captured = counts.captured || 0
+      const stale = counts.stale || 0
+      return `${radarSource(source)} ${captured}/${checked}${stale ? ` (${stale} stale)` : ''}`
+    }).join(' · ')
   const ledgerTiming = Object.values(ledger?.capture_quality || {}).reduce(
     (sum, h) => ({ n: sum.n + (h.n || 0), timely: sum.timely + (h.n_timely || 0) }),
     { n: 0, timely: 0 })
@@ -2407,7 +2440,7 @@ function LabbV3() {
     { key: 'level', label: 'Vänta till', defaultDir: 'asc',
       value: (g) => radarGroupOrder[`${g.signal_type}-${g.signal_level}`] ?? 99 },
     { key: 'n_matches', label: 'Matcher som nådde nivån' },
-    { key: 'n_priced_signals', label: 'Pris säkert låst' },
+    { key: 'n_priced_signals', label: 'Bästa pris låst' },
     { key: 'n_priced_settled', label: 'Facit på prissatta' },
     { key: 'goal_15min_rate', label: 'Mål inom 15 min' },
     { key: 'avg_goals_after', label: 'Snitt mål efter' },
@@ -2811,8 +2844,10 @@ function LabbV3() {
             <span>Nivåjämförelsen längre ned gör en annan kontroll: den visar
               vilket resultat man hade fått om man alltid väntat på just den
               nivån. Där kan samma match finnas både i Följer- och Stark-raden.</span>
-            <span>Liveoddset läses och låses i signalögonblicket. Saknas ett
-              öppet pris då blir raden ingen insats, och priset bakfylls aldrig.</span>
+            <span>SvS, Ninja och Pinnacle frågas i signalögonblicket. Högsta
+              öppna Över-odds låses på exakt samma lina. En gammal
+              Pinnacle-cache får aldrig vinna. Saknas ett färskt pris blir
+              raden ingen insats och priset bakfylls aldrig.</span>
           </div>
 
           <h4 className="v3tabletitle">Huvudblindtest · högst ett spel per match</h4>
@@ -2855,9 +2890,9 @@ function LabbV3() {
             <>
               <h4 className="v3tabletitle">Nivåjämförelse · om vi alltid väntat på…</h4>
               <span className="v3hint">Det här är tre separata jämförelseregler,
-                inte extra spel i huvudtestet. Summera därför inte raderna. “Pris
-                säkert låst” betyder att rätt match kunde kopplas entydigt och
-                att Över/Under var öppet exakt när nivån först nåddes.</span>
+                inte extra spel i huvudtestet. Summera därför inte raderna. “Bästa
+                pris låst” betyder högsta öppna Över-odds på samma lina bland
+                de färska priser som faktiskt observerades när nivån nåddes.</span>
               <SortableTable id="labb-radar-levels" columns={radarLevelCols}
                 rows={radarGroups} defaultSort={{ key: 'level', dir: 'asc' }}
                 className="logtable v3radar-leveltable"
@@ -2869,7 +2904,9 @@ function LabbV3() {
                           ? 'ignorera tidigare Följer och vänta' : 'första gången nivån nås'}</small></td>
                       <td><b>{g.n_matches}</b></td>
                       <td><b>{g.n_priced_signals}</b> av {g.n_matches}
-                        <small>{g.n_matches - g.n_priced_signals} utan säkert låst pris</small>
+                        <small>{g.n_matches - g.n_priced_signals} utan färskt öppet pris</small>
+                        {!!radarSourceCoverage(g) &&
+                          <small>Källtäckning: {radarSourceCoverage(g)}</small>}
                         {g.n_matches > g.n_priced_signals &&
                           <small>{radarMissingBreakdown(g)}</small>}</td>
                       <td><b>{g.n_priced_settled}</b> av {g.n_priced_signals}</td>
@@ -3000,8 +3037,14 @@ function LabbV3() {
                         <td>{row.odds_status === 'captured'
                           ? <><b>Ö {row.ou_line} @ {Number(row.over_odds).toFixed(2)}</b>
                             <small>U @ {Number(row.under_odds).toFixed(2)}</small>
+                            <small>{radarSource(row.odds_source)} · bäst på samma lina</small>
                             <small>låst {radarTime(row.odds_observed_at)}</small></>
-                          : <span className="v3hint">{radarOddsStatus(row)}</span>}</td>
+                          : <span className="v3hint">{radarOddsStatus(row)}</span>}
+                          {!!row.odds_quotes?.length && row.odds_quotes.map((quote) => (
+                            <small key={`${row.id}-${quote.source}`}>
+                              {radarQuoteStatus(quote)}
+                            </small>
+                          ))}</td>
                         <td className="v3radar-result">
                           {row.test_bet
                             ? <><b className={outcome.cls}><i>{outcome.icon}</i>{outcome.label}</b>

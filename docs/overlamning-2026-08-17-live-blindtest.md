@@ -232,6 +232,54 @@ blindtestspel och 61 dolda observationer. Vid 390 px viewport var dokumentets
 bredd mindre än viewporten och varje bred tabell scrollade i sin egen ram;
 inga console-varningar eller fel registrerades.
 
+## Uppföljning 2026-08-18: bästa livepris från tre oberoende flöden
+
+ROI-ledgern använde tidigare enbart Svenska Spels Kambi-huvudlina. Det gav
+två metodproblem: ett sämre SvS-pris kunde underskatta ett realistiskt
+spelutfall, och ett Kambi-/identitetsfel gjorde raden helt oddslös trots att
+en annan bok hade marknaden öppen.
+
+Från `chance-gap-shadow-v10` frågas tre källor vid varje ny signalnivå:
+
+- `svenskaspel`: Kambis live-lista + eventets live-total;
+- `ninja`: Altenars separata `GetLiveEvents`, upptäckt via sportmenyns
+  aktuella fotbollsligor med `hasLiveEvents`;
+- `pinnacle`: Arcadias separata `/matchups/live` och
+  `/markets/live/straight`, grupperade på fysisk parent-match så
+  `live_delay`/`danger_zone` aldrig blir dubbletter.
+
+Linan väljs först: färsk Pinnacle-huvudlina, annars Kambi, annars Ninja.
+Därefter vinner högsta öppna Över-odds på **exakt samma lina**. Pinnacles
+alternativlinor får jämföras med en mjuk boks huvudlina, men olika linor får
+aldrig jämföras som om de vore samma spel. Vid lika odds är den fasta
+källprioriteten deterministisk.
+
+Serverprovet hittade 13 pågående Pinnacle-matchups och 30 live-totalrader.
+Priserna var verkliga men bulk-CDN:n svarade med upp till cirka 15 minuters
+`Age`; vanlig `Cache-Control: no-cache` ändrade inte åldern. Ett Pinnacle-pris
+är därför ROI-spelbart endast vid `Age <= 90` sekunder. Äldre svar sparas som
+`stale` och kan följas diagnostiskt men får varken definiera linan eller vinna
+priset. Ninja/Altenar svarade från en separat liveväg med `max-age=3` och
+markerar suspenderade utfall med `oddStatus=7`, som aldrig blir spelbara.
+
+Nya `oddset_live_signal_quote` sparar en rad per signal × tillfrågad källa:
+provider-event-id, observerad/kontrollerad tid, status, lina, Ö/U-pris,
+cacheålder och vilket pris som valdes. Signalen och de tre källraderna skrivs
+i samma transaktion. Huvudraden bär fortsatt det valda priset så settlement
+och Asian-Över-ROI använder bäst realistiskt pris utan en historisk
+rekonstruktion. Gamla priser bakfylls aldrig.
+
+Schemaändringen ägs av det idempotenta skriptet
+`backend/scripts/migrera_live_signal_quotes.py`, som tar SQLite-onlinebackup
+före mutation och validerar schema, PK, FK, integrity och foreign keys. Den
+nya prisprocessen får inte blandas med v9:s Kambi-only-ROI, därför börjar v10
+rent 2026-08-18 00:00Z. Trösklarna och själva signalpopulationen är oförändrade.
+
+Labb visar vald källa, `✓ bäst`, alla tre källornas pris/status och källtäckning
+per nivå. Pinnacle-stale, annan lina, suspension, saknad match och källfel
+skiljs uttryckligen. Före drift passerade 742 backendtester, 12 frontendtester,
+lint och produktionsbygge.
+
 Den första livekontrollen avslöjade också att radartabellerna hann rendera
 fallbackvärdet `0/200` innan det verkliga API-svaret kom. Labb visar därför nu
 `Hämtar radar-facit…` tills svaret finns och ett riktigt felmeddelande om

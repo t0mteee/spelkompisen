@@ -196,3 +196,102 @@ def league_events(champ_id: int, integration: str = "betinia",
                 row["ou"] = ou
             out.append(row)
     return out
+
+
+def _live_rows(data: dict) -> list[dict]:
+    """Normalisera GetLiveEvents utan att göra suspenderade odds spelbara."""
+    markets = {m.get("id"): m for m in data.get("markets") or []}
+    odds_by_id = {o.get("id"): o for o in data.get("odds") or []}
+    out = []
+    for event in data.get("events") or []:
+        if event.get("status") != 1 or event.get("sportId") != SOCCER:
+            continue
+        name = event.get("name") or ""
+        sep = " vs. " if " vs. " in name else " vs " if " vs " in name else None
+        if not sep:
+            continue
+        home, away = (part.strip() for part in name.split(sep, 1))
+        total_market = next((markets.get(mid) for mid in event.get("marketIds") or []
+                             if (markets.get(mid) or {}).get("typeId") == 18), None)
+        status, total = "not_offered", None
+        if total_market:
+            sides = {}
+            suspended = False
+            for odd_id in total_market.get("oddIds") or []:
+                odd = odds_by_id.get(odd_id) or {}
+                side = {12: "O", 13: "U"}.get(odd.get("typeId"))
+                if not side:
+                    continue
+                if odd.get("oddStatus") not in (None, 0) or not odd.get("price"):
+                    suspended = True
+                    continue
+                try:
+                    sides[side] = round(float(odd["price"]), 4)
+                except (TypeError, ValueError):
+                    continue
+            try:
+                line = float(total_market.get("sv"))
+            except (TypeError, ValueError):
+                line = None
+            if line is not None and sides.get("O") and sides.get("U"):
+                total, status = {**sides, "line": line}, "captured"
+            elif suspended:
+                status = "suspended"
+        out.append({
+            "id": str(event.get("id")), "home": home, "away": away,
+            "start": event.get("startDate"), "status": status,
+            "ou": total, "offers": [total] if total else [],
+        })
+    return out
+
+
+def live_events(integration: str = "ninjacasinose", timeout: float = 12.0,
+                strict: bool = False) -> list[dict]:
+    """Alla pågående fotbollsmatcher hos en Altenar-operatör.
+
+    Sportmenyn talar om exakt vilka fotbollsligor som har liveevent. Bara de
+    ligorna frågas via den separata GetLiveEvents-vägen (CDN max-age 3 s i
+    drift), så vi behöver varken gissa champ-id:n eller dra hela utbudet.
+    """
+    global last_age_s
+    try:
+        client = httpx.Client(timeout=timeout, headers=HEADERS)
+        menu_response = client.get(
+            f"{BASE}/GetSportMenu", params=_params(integration))
+        menu_response.raise_for_status()
+        menu = menu_response.json()
+        soccer = next((sport for sport in menu.get("sports") or []
+                       if sport.get("id") == SOCCER), {})
+        soccer_categories = set(soccer.get("catIds") or [])
+        soccer_champs = {
+            champ_id
+            for category in menu.get("categories") or []
+            if category.get("id") in soccer_categories
+            for champ_id in category.get("champIds") or []
+        }
+        live_champs = [
+            int(champ["id"])
+            for champ in menu.get("champs") or []
+            if champ.get("hasLiveEvents") and champ.get("id") in soccer_champs
+        ]
+        rows = []
+        ages = [_age_s(menu_response)]
+        for champ_id in live_champs:
+            response = client.get(
+                f"{BASE}/GetLiveEvents",
+                params={**_params(integration), "champIds": champ_id,
+                        "sportId": SOCCER, "eventCount": "50"})
+            response.raise_for_status()
+            ages.append(_age_s(response))
+            rows.extend(_live_rows(response.json()))
+        client.close()
+        last_age_s = max(ages, default=0)
+        return rows
+    except Exception:  # noqa: BLE001
+        try:
+            client.close()
+        except (NameError, UnboundLocalError):
+            pass
+        if strict:
+            raise
+        return []

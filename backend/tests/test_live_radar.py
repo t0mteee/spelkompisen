@@ -150,8 +150,8 @@ class LiveRadarTests(unittest.TestCase):
             self.assertNotIn(league, live_radar.SOFA_UT)
             self.assertEqual(0, live_radar.LEAGUE_PRIORITY[league])
 
-    def test_v9_och_alla_synliga_ligor_har_liveprioritet(self):
-        self.assertEqual("chance-gap-shadow-v9", live_radar.RADAR_VERSION)
+    def test_v10_och_alla_synliga_ligor_har_liveprioritet(self):
+        self.assertEqual("chance-gap-shadow-v10", live_radar.RADAR_VERSION)
         # Passerade gränser är frysta — en ändring skulle märka om historiska
         # captures och tyst blanda ihop kohorterna.
         self.assertEqual("2026-08-01T08:00:00Z",
@@ -167,6 +167,8 @@ class LiveRadarTests(unittest.TestCase):
         self.assertEqual("2026-08-09T17:15:00Z",
                          live_radar.RADAR_V8_STARTED_AT)
         self.assertEqual("2026-08-09T18:00:00Z",
+                         live_radar.RADAR_V9_STARTED_AT)
+        self.assertEqual("2026-08-18T00:00:00Z",
                          live_radar.RADAR_VERSION_STARTED_AT)
         for key in ("bestadeild", "premier_league", "serie_a", "la_liga",
                     "bundesliga", "danish_superliga", "belgian_pro_league",

@@ -8,6 +8,22 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-08-18 — fler-källors livepris per radarsignal
+
+**Planerad additiv migration:**
+`backend/scripts/migrera_live_signal_quotes.py`. Innan ny insamlingskod
+startas i produktion skapar skriptet en konsistent SQLite-backup i
+`data/backups/stryktips-2026-08-18-fore-live-signal-quotes.db`, därefter den
+tomma append-only-tabellen `oddset_live_signal_quote`. Tabellen sparar en rad
+per signal och tillfrågad källa; historiska priser bakfylls inte.
+
+Migrationen validerar exakt schema, primärnyckeln `(signal_id, source)`,
+främmande nyckel till `oddset_live_signal`, `PRAGMA integrity_check` och
+`foreign_key_check`. Produktionsutfall och radantal fylls i efter skarp
+körning innan arbetspaketet markeras klart.
+
+---
+
 ## 2026-08-10 — poolens lagstyrke-shadow (additiv, tom forwardtabell)
 
 **Backup:** `data/backups/stryktips-2026-08-10-fore-pool-strength-shadow.db`

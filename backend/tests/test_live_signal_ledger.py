@@ -15,7 +15,7 @@ from app.storage import Storage
 # dagens kod, som stämplar raden med aktuell `radar_version`; en fixtur daterad
 # före fönstret blir därför korrekt `transitional` och faller ur blindkohorten.
 # Datumet ska följa med vid nästa kohortstart.
-NOW = dt.datetime(2026, 8, 10, 18, 30, tzinfo=dt.timezone.utc)
+NOW = dt.datetime(2026, 8, 18, 18, 30, tzinfo=dt.timezone.utc)
 
 
 def iso(when: dt.datetime) -> str:
@@ -57,6 +57,15 @@ def capture(at: dt.datetime, minute: int, *, xg_home: float,
 
 class LiveSignalLedgerTests(unittest.TestCase):
     def setUp(self):
+        self._source_patchers = [
+            patch.object(live_signal_ledger.kambi, "live_events", return_value=[]),
+            patch.object(live_signal_ledger.altenar, "live_events", return_value=[]),
+            patch.object(live_signal_ledger.pinnacle.Pinnacle,
+                         "soccer_live_totals", return_value=[]),
+        ]
+        for patcher in self._source_patchers:
+            patcher.start()
+            self.addCleanup(patcher.stop)
         self._tmp = tempfile.TemporaryDirectory()
         self.store = Storage(Path(self._tmp.name) / "test.db")
         self.store.oddset_upsert_match({
@@ -106,6 +115,35 @@ class LiveSignalLedgerTests(unittest.TestCase):
         self.assertEqual(2.08, row["over_odds"])
         self.assertEqual("captured", row["odds_status"])
         self.assertEqual("pin:991", row["match_id"])
+
+    def test_signal_locks_best_same_line_price_and_saves_all_sources(self):
+        self.store.live_flashscore_save(capture(NOW, 30, xg_home=0.8))
+        kambi_market = {"ou": {"line": 2.5, "O": 1.98, "U": 1.82}}
+        ninja_rows = [{
+            "id": "n1", "home": "Hammarby", "away": "AIK",
+            "status": "captured", "ou": {"line": 2.5, "O": 2.08, "U": 1.72},
+            "offers": [{"line": 2.5, "O": 2.08, "U": 1.72}],
+        }]
+        pinnacle_rows = [{
+            "id": "p1", "home": "Hammarby IF", "away": "AIK",
+            "status": "captured", "age_s": 20,
+            "ou": {"line": 2.5, "O": 2.02, "U": 1.78},
+            "offers": [{"line": 2.5, "O": 2.02, "U": 1.78}],
+        }]
+        with patch.object(live_signal_ledger.kambi, "live_total",
+                          return_value=kambi_market), \
+                patch.object(live_signal_ledger.altenar, "live_events",
+                             return_value=ninja_rows), \
+                patch.object(live_signal_ledger.pinnacle.Pinnacle,
+                             "soccer_live_totals", return_value=pinnacle_rows):
+            report = live_signal_ledger.capture_signals(self.store, now=NOW)
+
+        self.assertEqual(1, report["priced"])
+        row = self.store.live_signal_facit_rows()[0]
+        self.assertEqual("ninja", row["odds_source"])
+        self.assertEqual(2.08, row["over_odds"])
+        self.assertEqual(3, len(row["odds_quotes"]))
+        self.assertEqual(1, sum(q["selected"] for q in row["odds_quotes"]))
 
     def test_level_escalation_is_a_new_decision_but_repeated_level_is_not(self):
         self.store.live_flashscore_save(capture(
@@ -377,11 +415,67 @@ class KambiLiveTotalTests(unittest.TestCase):
             self.assertEqual({}, kambi.live_total("7722", strict=True))
 
 
+class BestLivePriceTests(unittest.TestCase):
+    @staticmethod
+    def _obs(source, line, over, under, *, status="captured", offers=None):
+        total = {"line": line, "O": over, "U": under}
+        return {
+            "source": source, "provider_event_id": source,
+            "checked_at": iso(NOW), "observed_at": iso(NOW), "age_s": 0,
+            "status": status, "main": total,
+            "offers": offers if offers is not None else [total],
+        }
+
+    def test_highest_over_price_wins_on_exact_same_line(self):
+        selected, quotes = live_signal_ledger._choose_live_price([
+            self._obs("svenskaspel", 2.5, 1.95, 1.85),
+            self._obs("ninja", 2.5, 2.08, 1.72),
+            self._obs("pinnacle", 2.5, 2.02, 1.78),
+        ])
+        self.assertEqual("ninja", selected["odds_source"])
+        self.assertEqual(2.08, selected["over_odds"])
+        self.assertEqual(1, sum(q["selected"] for q in quotes))
+
+    def test_different_line_is_never_called_better_odds(self):
+        # Pinnacle definierar linan 2.5. Ninjas högre pris gäller Ö3.5 och är
+        # ett annat spel, så det får inte vinna prisjämförelsen.
+        selected, quotes = live_signal_ledger._choose_live_price([
+            self._obs("svenskaspel", 2.5, 1.95, 1.85),
+            self._obs("ninja", 3.5, 2.40, 1.45),
+            self._obs("pinnacle", 2.5, 2.02, 1.78),
+        ])
+        self.assertEqual("pinnacle", selected["odds_source"])
+        ninja = next(q for q in quotes if q["source"] == "ninja")
+        self.assertEqual("line_mismatch", ninja["status"])
+        self.assertFalse(ninja["selected"])
+
+    def test_pinnacle_alt_line_can_beat_kambi_on_kambis_line(self):
+        # Stale Pinnacle får inte ankra. Om den i stället vore färsk och hade
+        # 2.5 som alternativ skulle den jämföras på exakt 2.5.
+        pin = self._obs("pinnacle", 3.0, 2.05, 1.75, status="stale",
+                        offers=[{"line": 2.5, "O": 2.12, "U": 1.68}])
+        selected, quotes = live_signal_ledger._choose_live_price([
+            self._obs("svenskaspel", 2.5, 2.00, 1.80), pin,
+            self._obs("ninja", 2.5, 2.06, 1.74),
+        ])
+        self.assertEqual("ninja", selected["odds_source"])
+        self.assertEqual("stale", next(q for q in quotes
+                                        if q["source"] == "pinnacle")["status"])
+
 class LiveSignalOddsStatusTests(unittest.TestCase):
     """Oddsbokföringens felgrenar — statusfördelningen är driftkontrollens
     underlag och får aldrig ljuga om vad som faktiskt observerades."""
 
     def setUp(self):
+        self._source_patchers = [
+            patch.object(live_signal_ledger.kambi, "live_events", return_value=[]),
+            patch.object(live_signal_ledger.altenar, "live_events", return_value=[]),
+            patch.object(live_signal_ledger.pinnacle.Pinnacle,
+                         "soccer_live_totals", return_value=[]),
+        ]
+        for patcher in self._source_patchers:
+            patcher.start()
+            self.addCleanup(patcher.stop)
         self._tmp = tempfile.TemporaryDirectory()
         self.store = Storage(Path(self._tmp.name) / "test.db")
         self.store.oddset_upsert_match({
@@ -404,22 +498,32 @@ class LiveSignalOddsStatusTests(unittest.TestCase):
 
     def test_suspended_market_gets_its_own_status(self):
         row = self._capture_with({"reason": "suspended"})
-        self.assertEqual("suspended", row["odds_status"])
-        self.assertIsNotNone(row["odds_observed_at"])
+        self.assertEqual("no_eligible_quote", row["odds_status"])
         self.assertIsNone(row["over_odds"])
+        quotes = self.store.live_signal_quotes()
+        svs = next(q for q in quotes if q["source"] == "svenskaspel")
+        self.assertEqual("suspended", svs["status"])
+        self.assertIsNotNone(svs["observed_at"])
 
     def test_missing_market_is_not_offered(self):
         row = self._capture_with({})
-        self.assertEqual("not_offered", row["odds_status"])
+        self.assertEqual("no_eligible_quote", row["odds_status"])
+        svs = next(q for q in self.store.live_signal_quotes()
+                   if q["source"] == "svenskaspel")
+        self.assertEqual("not_offered", svs["status"])
 
     def test_source_error_is_never_an_absence_observation(self):
         with patch.object(live_signal_ledger.kambi, "live_total",
                           side_effect=TimeoutError("boom")):
             live_signal_ledger.capture_signals(self.store, now=NOW)
         row = self.store.live_signal_rows()[0]
-        self.assertEqual("source_error:TimeoutError", row["odds_status"])
+        self.assertEqual("no_eligible_quote", row["odds_status"])
         # ett fel är ingen observation — ingen observationstid får fabriceras
         self.assertIsNone(row["odds_observed_at"])
+        svs = next(q for q in self.store.live_signal_quotes()
+                   if q["source"] == "svenskaspel")
+        self.assertEqual("source_error:TimeoutError", svs["status"])
+        self.assertIsNone(svs["observed_at"])
 
     def test_odds_observed_at_subtracts_http_age(self):
         market = {"ou": {"line": 2.5, "O": 2.08, "U": 1.74}}
@@ -463,7 +567,7 @@ class LiveSignalOddsStatusTests(unittest.TestCase):
             report = live_signal_ledger.capture_signals(self.store, now=NOW)
 
         self.assertEqual(0, report["priced"])
-        self.assertEqual("no_canonical_match",
+        self.assertEqual("no_eligible_quote",
                          self.store.live_signal_rows()[0]["odds_status"])
         live_total.assert_not_called()
 
@@ -472,6 +576,15 @@ class MatchKeyLockTests(unittest.TestCase):
     """Nyckellåset: samma fysiska match får aldrig två journalnycklar."""
 
     def setUp(self):
+        self._source_patchers = [
+            patch.object(live_signal_ledger.kambi, "live_events", return_value=[]),
+            patch.object(live_signal_ledger.altenar, "live_events", return_value=[]),
+            patch.object(live_signal_ledger.pinnacle.Pinnacle,
+                         "soccer_live_totals", return_value=[]),
+        ]
+        for patcher in self._source_patchers:
+            patcher.start()
+            self.addCleanup(patcher.stop)
         self._tmp = tempfile.TemporaryDirectory()
         self.store = Storage(Path(self._tmp.name) / "test.db")
 

@@ -27,6 +27,12 @@ Ninja/Altenar visas under `+ Fler odds` för 1X2, Ö/U och hörnor och får vara
 spelbar mjuk bok i sharp-värdemotorn. UI får bara säga `bekräftat kvar` när
 det oförändrade bokpriset återobserverats efter Pinnacles senaste prisändring;
 vanlig färskhet eller ett gammalt cachepris räcker inte.
+Liveblindtestets ROI-pris är separat från prematchvärdemotorn. Från
+`chance-gap-shadow-v10` frågas SvS/Kambi, Ninja/Altenar och Pinnacles
+live-endpoints vid första Följer/Stark. Pinnacle får bara påverka spelet vid
+HTTP Age ≤90 s. Linan väljs först (färsk Pinnacle, annars Kambi, annars Ninja)
+och högsta Över-odds väljs sedan enbart på exakt samma lina. Samtliga
+källobservationer sparas i `oddset_live_signal_quote`; priser bakfylls aldrig.
 Den underkända V2.1 är fortsatt vilande. Ett separat V2.2-experiment samlar
 Allsvenskan + Premier League/Serie A/La Liga/Bundesliga med WP9c
 i isolerad sharp-identitetskontroll. **Aktuellt fryst kontrakt är manifest v7**

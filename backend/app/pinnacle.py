@@ -154,6 +154,95 @@ class Pinnacle:
                         "away_xg": round(xg[1], 3) if xg else None})
         return out
 
+    def soccer_live_totals(self) -> list[dict]:
+        """Pågående fotbollsmatcher och öppna live-totaler.
+
+        Arcadia har separata livevägar. Varje fysisk match kan där förekomma
+        som två barn (`live_delay` och `danger_zone`) under samma parent-id.
+        Vi grupperar därför på parent-id och föredrar `live_delay`; annars
+        skulle samma match bli två kandidater och identitetsvakten korrekt
+        stoppa båda. Alla öppna linor behålls så att live-ledgern kan jämföra
+        exakt samma lina mellan böcker i stället för att jämföra olika risk.
+        `last_age_s` avser marknadssvaret, alltså själva prisets CDN-ålder.
+        """
+        self.reset_cache_age()
+        matchups = self._get(f"/sports/{SOCCER}/matchups/live")
+        markets = self._get(f"/sports/{SOCCER}/markets/live/straight")
+        market_age_s = self.last_age_s
+
+        by_child: dict[int, list[dict]] = {}
+        seen_total: set[int] = set()
+        for market in markets:
+            if market.get("period") != 0 or market.get("type") != "total":
+                continue
+            child_id = market.get("matchupId")
+            if child_id is None:
+                continue
+            seen_total.add(child_id)
+            if str(market.get("status") or "open").lower() != "open":
+                continue
+            sides: dict[float, dict] = {}
+            for price in market.get("prices") or []:
+                side = price.get("designation")
+                if side not in {"over", "under"}:
+                    continue
+                try:
+                    line = float(price["points"])
+                    decimal = american_to_decimal(price.get("price"))
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if decimal is not None:
+                    sides.setdefault(line, {})[side] = decimal
+            for line, pair in sides.items():
+                if pair.get("over") and pair.get("under"):
+                    by_child.setdefault(child_id, []).append({
+                        "line": line, "O": pair["over"], "U": pair["under"],
+                    })
+
+        grouped: dict[str, list[dict]] = {}
+        for matchup in matchups:
+            if matchup.get("status") != "started" or matchup.get("type") != "matchup":
+                continue
+            parent = matchup.get("parent") or {}
+            parent_id = str(matchup.get("parentId") or parent.get("id")
+                            or matchup.get("id"))
+            grouped.setdefault(parent_id, []).append(matchup)
+
+        out = []
+        for parent_id, children in grouped.items():
+            children.sort(key=lambda item: item.get("liveMode") != "live_delay")
+            base = children[0]
+            parent = base.get("parent") or {}
+            participants = parent.get("participants") or base.get("participants") or []
+            names = {p.get("alignment"): p.get("name") for p in participants}
+            if not names.get("home") or not names.get("away"):
+                continue
+
+            # För varje lina används den föredragna live-mode-raden. Samma
+            # provider får aldrig artificiellt konkurrera med sig själv.
+            offers_by_line: dict[float, dict] = {}
+            for child in children:
+                for offer in by_child.get(child.get("id"), []):
+                    offers_by_line.setdefault(float(offer["line"]), offer)
+            offers = sorted(offers_by_line.values(), key=lambda x: x["line"])
+            main = min(
+                offers,
+                key=lambda x: abs(x["O"] - 2.0) + abs(x["U"] - 2.0),
+                default=None,
+            )
+            had_total = any(child.get("id") in seen_total for child in children)
+            out.append({
+                "id": parent_id,
+                "matchup_ids": [str(child.get("id")) for child in children],
+                "home": names["home"], "away": names["away"],
+                "start": parent.get("startTime") or base.get("startTime"),
+                "status": "captured" if main else (
+                    "suspended" if had_total else "not_offered"),
+                "ou": main, "offers": offers, "age_s": market_age_s,
+            })
+        self.last_age_s = market_age_s
+        return out
+
     def match(self, home: str, away: str, home_iso: Optional[str],
               away_iso: Optional[str], index: list[dict],
               match_start: Optional[str] = None) -> Optional[dict]:

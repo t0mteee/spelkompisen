@@ -3,8 +3,8 @@
 Radarn är informationsstöd, inte en spelmodell. Den läser separata,
 kumulativa serier från Flashscore, FotMob och Sofascore och visar en försiktig
 xG- eller proxyflagga. Modulen läser inga liveodds; den separata
-``live_signal_ledger`` observerar Kambi-priset när en synlig signal först
-uppstår. Inga automatiska spel/notiser skapas.
+``live_signal_ledger`` observerar Kambi, Ninja och Pinnacle när en synlig
+signal först uppstår. Inga automatiska spel/notiser skapas.
 """
 from __future__ import annotations
 
@@ -41,7 +41,8 @@ RADAR_V6_VERSION = "chance-gap-shadow-v6"
 RADAR_V7_VERSION = "chance-gap-shadow-v7"
 RADAR_V8_VERSION = "chance-gap-shadow-v8"
 RADAR_V9_VERSION = "chance-gap-shadow-v9"
-RADAR_VERSION = RADAR_V9_VERSION
+RADAR_V10_VERSION = "chance-gap-shadow-v10"
+RADAR_VERSION = RADAR_V10_VERSION
 
 # En observation som inte bevisligen hör till någon kohort. Se `cohort_for`.
 RADAR_TRANSITIONAL = "transitional"
@@ -69,7 +70,12 @@ RADAR_V8_STARTED_AT = "2026-08-09T17:15:00Z"
 # v9 (2026-08-09): Bolivias División Profesional läggs till. Island är ingen
 # scopeändring — Besta deild fanns redan i hela kedjan och verifierades på
 # nytt. Endast populationen ändras; trösklar/providers/identitet är frysta.
-RADAR_VERSION_STARTED_AT = "2026-08-09T18:00:00Z"
+RADAR_V9_STARTED_AT = "2026-08-09T18:00:00Z"
+# v10 (2026-08-18): ROI-priset byter från enbart SvS/Kambi till högsta öppna
+# Över-pris på exakt samma lina bland SvS, Ninja/Altenar och en tillräckligt
+# färsk Pinnacle-observation. Varje källsvar sparas separat. Signaltrösklarna
+# är oförändrade, men ROI-processen är ny och får därför en ren kohort.
+RADAR_VERSION_STARTED_AT = "2026-08-18T00:00:00Z"
 
 # OBSERVERADE växlingar — när koden faktiskt bytte.
 #
@@ -929,7 +935,8 @@ def previous_capture(earlier: list[dict],
 def declared_version_at(observed_at: str) -> str:
     """Vilken kohort som DEKLARERAT äger observationsögonblicket."""
     observed = _parse_iso(observed_at)
-    for version, start in ((RADAR_V9_VERSION, RADAR_VERSION_STARTED_AT),
+    for version, start in ((RADAR_V10_VERSION, RADAR_VERSION_STARTED_AT),
+                           (RADAR_V9_VERSION, RADAR_V9_STARTED_AT),
                            (RADAR_V8_VERSION, RADAR_V8_STARTED_AT),
                            (RADAR_V7_VERSION, RADAR_V7_STARTED_AT),
                            (RADAR_V6_VERSION, RADAR_V6_STARTED_AT),
