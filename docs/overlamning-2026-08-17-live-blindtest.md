@@ -217,3 +217,17 @@ smala skärmar. Små ROI-underlag kan visas för öppenhet men märks uttrycklig
 `preliminärt`; endast den förregistrerade grinden kan ge stöd för blind
 ryggning. Ändringen är ren presentation: kohort, signaltrösklar,
 resultatsettlement och ROI-beräkningar är oförändrade.
+
+### Driftkvitto för Labb-tabellerna
+
+Commit `fee77c0` pushades till `main` och driftsattes 2026-08-17 på
+MacBook-servern. Serverbygget gav bunten `index-DW7N7YBb.js`; samtliga 12
+frontendtester passerade och `/api/health` svarade `ok` för både pool och
+v2.2 efter omstart av enbart frontendtjänsten.
+
+Browserkontrollen mot den driftsatta appen visade de riktiga nämnarna i de nya
+tabellerna: huvudtest 72 signalmatcher, 39 låsta priser och 39 facit; Följer-xG
+66/35/35; Stark-xG 28/13/13; Följer-skott 6/4/4. Matchjournalen visade 39
+blindtestspel och 61 dolda observationer. Vid 390 px viewport var dokumentets
+bredd mindre än viewporten och varje bred tabell scrollade i sin egen ram;
+inga console-varningar eller fel registrerades.
