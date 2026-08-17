@@ -2,7 +2,9 @@
 
 Datum: 2026-08-14. **Förregistrerad före körning.**
 
-**Status:** körning pågår sedan 2026-08-14 21:59 CEST.
+**Status:** KLAR. Alla fyra körningar avslutade 2026-08-14 22:36 → 2026-08-15
+01:58 CEST. Resultatet är avläst mot beslutsregeln 2026-08-17; se
+**Utfall** längst ned.
 
 Körprotokoll (tillagt efter att kontraktet committats):
 
@@ -174,3 +176,49 @@ PH5_PYTHON=/Users/saman/spelkompisen/backend/.venv/bin/python \
 JSON-filer och logg kopieras in i `docs/` först när samtliga körningar är
 klara och kontrollerade. Startcommit, snapshot-hash, process-id och sökvägar
 läggs då under statusraden ovan.
+
+Råresultaten ligger sedan 2026-08-17 i repot som
+`docs/ph5-tathetssvep-{stryktipset,europatipset}-{4096,5000}.json`. De låg
+dessförinnan enbart i `/tmp`, som töms vid omstart — evidensen för en
+förregistrerad körning får inte bo på en flyktig plats.
+
+## Utfall (avläst 2026-08-17)
+
+**Giltighetskravet (regel 1) är uppfyllt i alla fyra körningar:** identisk fast
+kohort i båda budgetarna per produkt (Stryktipset 216, Europatipset 477, exakt
+samma omgångs-ID), `n_incomplete_payout = 0`, `n_build_failed = 0` och fullt
+radantal i samtliga primära armar.
+
+Undre 95 %-KI-gräns för `varderader − kontroll` (winsoriserad ROI-differens):
+
+| Produkt | Budget | folkrad | favoritrad | byggarslump | Passerar |
+|---|---:|---:|---:|---:|:--|
+| Stryktipset | 4 096 | −0,0705 | −0,0680 | +0,0109 | **nej** |
+| Stryktipset | 5 000 | −0,0504 | −0,0478 | +0,0506 | **nej** |
+| Europatipset | 4 096 | **+0,0113** | **+0,0148** | **+0,1217** | **JA** |
+| Europatipset | 5 000 | +0,0306 | +0,0345 | +0,1460 | ja |
+
+**Stryktipset:** ingen budget passerar. Regel 4 gäller — ingen ny nyckel, och
+nästa experiment ska ändra rankningen, inte köpa fler rader.
+
+**Europatipset:** båda budgetarna passerar mot alla tre kontrollerna. Regel 3
+väljer då **4 096**, den lägsta testade budgeten — inte 5 000, trots att
+punktskattningen är högre där. Robusthetskontroll: de tio bästa omgångarna bär
+ungefär halva fördelen, men 5 %-trimmat medel (+0,0865) ligger något ÖVER det
+otrimmade (+0,0811), så resultatet vilar inte på en enstaka jackpotomgång.
+Winsoriseringen klipper dessutom 31 omgångar uppåt mot 16 nedåt, alltså åt det
+konservativa hållet.
+
+**Två varningar att bära med sig:**
+
+1. `folkrad` och `favoritrad` är nästan identiska armar (samma vinstandel
+   0,4277, medeldifferens 0,081 mot 0,085). "Slå tre kontroller" är i praktiken
+   "slå två".
+2. På Stryktipset pekar det winsoriserade och det RÅA medelvärdet åt olika
+   håll: mot `byggarslump` är winsoriserat +0,135 men rått −1,176. Skillnaden
+   är en enda omgång (4906), där en slumpmängd fick ROI +380. Winsoriseringen
+   är förregistrerad och därmed estimandet, men den klipper bort exakt den
+   händelse man köper 5 000 rader för. Formuleringen "slog byggarslump
+   tydligt" i `docs/ph5-forward-stryktipset-2026-08-15.md` ska läsas med det i
+   minnet — den historiska ablationen kan inte avgöra saken åt något håll, och
+   det är i sig ett argument för att samla forward-data.

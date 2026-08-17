@@ -731,13 +731,17 @@ def _ev_system_from_rows(analysis: DrawAnalysis, strategy: str, budget: float,
         strategy=strategy, system_type="värderader", budget=budget,
         row_price=row_price, num_rows=len(rows), cost=round(cost, 2),
         picks=picks, rows=rows,
+        # `.replace(",", " ")` byter tusentalsavgränsare mot mellanslag och får
+        # DÄRFÖR bara röra jackpotbeloppet. Låter man den svepa hela strängen
+        # försvinner de vanliga kommatecknen i brödtexten ("och, utom i max
+        # EV-läget," → "och  utom i max EV-läget ").
         rule=(f"Så valdes raderna: alla {ranked.universe} möjliga rader rankades på "
               f"träffchans^{k:.1f} × EV — läge: {profile} (styrs av reglaget). "
               f"EV = radens sannolikhet × förväntad utdelning (utdelningen stiger ju färre "
               f"andra som spelat raden). Bort åker folkrader (många delar potten) och, "
               f"utom i max EV-läget, rena skrällbomber."
               + (f" Jackpot {jackpot:,.0f} kr ingår i toppnivåns radval."
-                 if jackpot > 0 else "") + complement_note).replace(",", " "),
+                 if jackpot > 0 else "").replace(",", " ") + complement_note),
         note=f"Förv. utdelning ≈ {ev_sum:.0f} kr mot {cost:.0f} kr insats "
              f"(EV {ev_sum - cost:+.0f} kr) vid {ranked.turnover:,.0f} kr omsättning "
              f"och nuvarande streck.".replace(",", " "),

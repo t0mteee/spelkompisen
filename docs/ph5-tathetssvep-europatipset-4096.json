@@ -1,0 +1,7770 @@
+{
+ "cohort": "final_only-radval-v3-fixed-payout",
+ "seed": 20260725,
+ "budget": 4096.0,
+ "code_version": "8698a5bed40b9752a9dc319260eb2212dcb0111b",
+ "database": {
+  "path": "/private/tmp/ph5-v3-8698a5b-snapshot.db",
+  "size_bytes": 274960384
+ },
+ "fixed_payout_cohort": true,
+ "hamming_included": false,
+ "bootstrap_iters": 2000,
+ "primary_baselines": [
+  "folkrad",
+  "favoritrad",
+  "byggarslump"
+ ],
+ "products": {
+  "europatipset": {
+   "n_available": 477,
+   "n_used": 477,
+   "n_incomplete_payout": 0,
+   "n_build_failed": 0,
+   "primary_row_shortfalls": {},
+   "arms": {
+    "byggarslump": {
+     "n_draws": 477,
+     "mean_roi_unpaired": -0.7027,
+     "ci90_unpaired": [
+      -0.7959,
+      -0.5969
+     ],
+     "top_tier_hits": 5
+    },
+    "favoritrad": {
+     "n_draws": 477,
+     "mean_roi_unpaired": -0.5283,
+     "ci90_unpaired": [
+      -0.702,
+      -0.3179
+     ],
+     "top_tier_hits": 15
+    },
+    "folkrad": {
+     "n_draws": 477,
+     "mean_roi_unpaired": -0.5282,
+     "ci90_unpaired": [
+      -0.6997,
+      -0.3199
+     ],
+     "top_tier_hits": 15
+    },
+    "slump": {
+     "n_draws": 477,
+     "mean_roi_unpaired": -0.7022,
+     "ci90_unpaired": [
+      -0.8044,
+      -0.572
+     ],
+     "top_tier_hits": 6
+    },
+    "varderader": {
+     "n_draws": 477,
+     "mean_roi_unpaired": -0.1278,
+     "ci90_unpaired": [
+      -0.3728,
+      0.159
+     ],
+     "top_tier_hits": 30
+    }
+   },
+   "paired_vs_baselines": {
+    "byggarslump": {
+     "n": 477,
+     "mean_diff_w": 0.1757,
+     "median_diff": 0.0156,
+     "ci90": [
+      0.1304,
+      0.2207
+     ],
+     "ci95": [
+      0.1217,
+      0.2283
+     ],
+     "passes_ci95": true,
+     "win_share": 0.5472
+    },
+    "favoritrad": {
+     "n": 477,
+     "mean_diff_w": 0.0846,
+     "median_diff": 0.0,
+     "ci90": [
+      0.0242,
+      0.1445
+     ],
+     "ci95": [
+      0.0148,
+      0.156
+     ],
+     "passes_ci95": true,
+     "win_share": 0.4277
+    },
+    "folkrad": {
+     "n": 477,
+     "mean_diff_w": 0.0811,
+     "median_diff": 0.0,
+     "ci90": [
+      0.0199,
+      0.1415
+     ],
+     "ci95": [
+      0.0113,
+      0.1526
+     ],
+     "passes_ci95": true,
+     "win_share": 0.4277
+    },
+    "slump": {
+     "n": 477,
+     "mean_diff_w": 0.1548,
+     "median_diff": 0.0071,
+     "ci90": [
+      0.0986,
+      0.21
+     ],
+     "ci95": [
+      0.0908,
+      0.2208
+     ],
+     "passes_ci95": true,
+     "win_share": 0.5073
+    }
+   },
+   "per_draw_roi": [
+    {
+     "draw": 2051,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 19.18998291015625,
+     "byggarslump": 15.509504394531248,
+     "folkrad": 0.39636962890624994,
+     "favoritrad": 0.46789306640624995,
+     "slump": -0.26960449218750004
+    },
+    {
+     "draw": 2052,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.6130834960937499,
+     "byggarslump": -0.61232421875,
+     "folkrad": -0.6115478515625,
+     "favoritrad": -0.6115478515625,
+     "slump": -0.77936767578125
+    },
+    {
+     "draw": 2054,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.73740478515625,
+     "byggarslump": 0.007727050781249911,
+     "folkrad": -0.74911376953125,
+     "favoritrad": -0.753505859375,
+     "slump": -0.8645263671875
+    },
+    {
+     "draw": 2055,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2056,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.8159619140625,
+     "byggarslump": -0.96777587890625,
+     "folkrad": -0.7071362304687501,
+     "favoritrad": -0.7071362304687501,
+     "slump": -0.82669677734375
+    },
+    {
+     "draw": 2059,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.63990234375,
+     "folkrad": -0.8401611328125,
+     "favoritrad": -0.90407958984375,
+     "slump": -0.90407958984375
+    },
+    {
+     "draw": 2060,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": 0.18314941406250007,
+     "favoritrad": 0.32549072265625,
+     "slump": -0.17753662109375
+    },
+    {
+     "draw": 2061,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.78672119140625,
+     "byggarslump": -0.9297021484375,
+     "folkrad": -0.95313232421875,
+     "favoritrad": -0.95313232421875,
+     "slump": -0.982421875
+    },
+    {
+     "draw": 2062,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.91090087890625,
+     "byggarslump": -0.97265869140625,
+     "folkrad": -0.9550830078125,
+     "favoritrad": -0.9550830078125,
+     "slump": -0.9775390625
+    },
+    {
+     "draw": 2063,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.90335693359375,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2064,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.98046875,
+     "byggarslump": -0.99609375,
+     "folkrad": -0.7813330078125,
+     "favoritrad": -0.78913818359375,
+     "slump": -0.89845458984375
+    },
+    {
+     "draw": 2065,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.008967285156250004,
+     "byggarslump": -0.39666748046875,
+     "folkrad": -0.96289794921875,
+     "favoritrad": -0.96289794921875,
+     "slump": -0.986083984375
+    },
+    {
+     "draw": 2066,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.25223388671875,
+     "byggarslump": -0.9775439453125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2067,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.8004150390625,
+     "byggarslump": -0.98340087890625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2068,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.64678955078125,
+     "byggarslump": -0.96485107421875,
+     "folkrad": -0.9765673828125,
+     "favoritrad": -0.9765673828125,
+     "slump": -0.98242431640625
+    },
+    {
+     "draw": 2069,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.95020263671875,
+     "byggarslump": -0.50819091796875,
+     "folkrad": -0.95020263671875,
+     "favoritrad": -0.95020263671875,
+     "slump": -0.97510009765625
+    },
+    {
+     "draw": 2070,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.69494384765625,
+     "byggarslump": -0.9450732421875,
+     "folkrad": 46.63148193359375,
+     "favoritrad": 48.3817919921875,
+     "slump": 3.55091552734375
+    },
+    {
+     "draw": 2071,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.941904296875,
+     "byggarslump": -1.0,
+     "folkrad": 3.3533398437499997,
+     "favoritrad": 3.3533398437499997,
+     "slump": 3.1502587890625
+    },
+    {
+     "draw": 2072,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.6800366210937501,
+     "favoritrad": -0.6800366210937501,
+     "slump": -0.8719091796875
+    },
+    {
+     "draw": 2073,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.37185791015625,
+     "byggarslump": -0.17780517578125,
+     "folkrad": -0.61141845703125,
+     "favoritrad": -0.5963305664062499,
+     "slump": -0.853603515625
+    },
+    {
+     "draw": 2074,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2075,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.84331298828125,
+     "byggarslump": -0.9912109375,
+     "folkrad": -0.86087890625,
+     "favoritrad": -0.86087890625,
+     "slump": -0.9692431640625
+    },
+    {
+     "draw": 2076,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.58341552734375,
+     "byggarslump": -0.8633496093749999,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2077,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.95899658203125,
+     "byggarslump": -0.98828125,
+     "folkrad": -0.671396484375,
+     "favoritrad": -0.671396484375,
+     "slump": -0.8270654296875
+    },
+    {
+     "draw": 2078,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": 0.5968090820312499,
+     "favoritrad": 0.40166992187499995,
+     "slump": -0.5159472656249999
+    },
+    {
+     "draw": 2079,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2080,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.2880615234375,
+     "favoritrad": -0.52751220703125,
+     "slump": -0.15927001953124997
+    },
+    {
+     "draw": 2081,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.69661865234375,
+     "byggarslump": -0.98608642578125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2082,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.985361328125,
+     "byggarslump": -0.61997314453125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2083,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.77361083984375,
+     "byggarslump": -0.62353515625,
+     "folkrad": -0.94288818359375,
+     "favoritrad": -0.923857421875,
+     "slump": -0.9714404296875
+    },
+    {
+     "draw": 2084,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.947275390625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2085,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.70304443359375,
+     "byggarslump": 0.20379882812500005,
+     "folkrad": -0.71803955078125,
+     "favoritrad": -0.71803955078125,
+     "slump": -0.8692041015625
+    },
+    {
+     "draw": 2086,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9287255859375,
+     "byggarslump": -0.72822509765625,
+     "folkrad": -0.87529052734375,
+     "favoritrad": -0.87529052734375,
+     "slump": -0.9643603515625
+    },
+    {
+     "draw": 2087,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.4994140625,
+     "byggarslump": -0.9502197265625,
+     "folkrad": -0.44978271484375,
+     "favoritrad": -0.44978271484375,
+     "slump": -0.74119873046875
+    },
+    {
+     "draw": 2089,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": 0.9852197265625,
+     "favoritrad": 0.9852197265625,
+     "slump": 0.6838671875
+    },
+    {
+     "draw": 2090,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.7376440429687501,
+     "byggarslump": -0.91944580078125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2091,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.947763671875,
+     "byggarslump": -0.97387939453125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2093,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2094,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.95020263671875,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2095,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.91335205078125,
+     "favoritrad": -0.87870361328125,
+     "slump": -0.94800537109375
+    },
+    {
+     "draw": 2096,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.982666015625,
+     "byggarslump": -0.982666015625,
+     "folkrad": -0.89602294921875,
+     "favoritrad": -0.89602294921875,
+     "slump": -0.94800537109375
+    },
+    {
+     "draw": 2097,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.4621923828125001,
+     "byggarslump": -0.700927734375,
+     "folkrad": -0.93166015625,
+     "favoritrad": -0.93166015625,
+     "slump": -0.95728271484375
+    },
+    {
+     "draw": 2098,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.32515136718750004,
+     "byggarslump": -0.8823486328125,
+     "folkrad": -0.96875244140625,
+     "favoritrad": -0.96875244140625,
+     "slump": -0.984375
+    },
+    {
+     "draw": 2099,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 4.91644775390625,
+     "byggarslump": -0.6828881835937499,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2100,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.91871337890625,
+     "byggarslump": -0.9255444335937499,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2101,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.9463037109375,
+     "favoritrad": -0.9463037109375,
+     "slump": -0.9463037109375
+    },
+    {
+     "draw": 2102,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.97314697265625,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2103,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.98535400390625,
+     "byggarslump": -1.0,
+     "folkrad": -0.9804736328125,
+     "favoritrad": -0.9804736328125,
+     "slump": -0.98535400390625
+    },
+    {
+     "draw": 2104,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.97656494140625,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2105,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 17.87103271484375,
+     "byggarslump": -0.7584228515625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2106,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.88869384765625,
+     "favoritrad": -0.97217041015625,
+     "slump": -0.91651611328125
+    },
+    {
+     "draw": 2107,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.79402099609375,
+     "favoritrad": -0.8123193359375,
+     "slump": -0.90431396484375
+    },
+    {
+     "draw": 2108,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": 1.0985620117187498,
+     "favoritrad": 1.0837255859375001,
+     "slump": -0.29508056640625
+    },
+    {
+     "draw": 2109,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2110,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2111,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.94728759765625,
+     "byggarslump": -0.98681884765625,
+     "folkrad": 0.009824218749999947,
+     "favoritrad": 0.022941894531250062,
+     "slump": -0.2136181640625
+    },
+    {
+     "draw": 2112,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.8965234375,
+     "byggarslump": -0.948251953125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2113,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2115,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.5833471679687501,
+     "byggarslump": -0.7284130859375,
+     "folkrad": 1.58390380859375,
+     "favoritrad": 1.658447265625,
+     "slump": 0.46321533203125
+    },
+    {
+     "draw": 2117,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.97876220703125,
+     "byggarslump": -1.0,
+     "folkrad": -0.6384350585937499,
+     "favoritrad": -0.6384350585937499,
+     "slump": -0.799892578125
+    },
+    {
+     "draw": 2118,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9531298828125,
+     "byggarslump": -0.98828125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2119,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.84576904296875,
+     "byggarslump": -0.97363525390625,
+     "folkrad": 0.61111572265625,
+     "favoritrad": 0.6067358398437499,
+     "slump": -0.06664794921874995
+    },
+    {
+     "draw": 2120,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.931650390625,
+     "byggarslump": -0.88040283203125,
+     "folkrad": -0.11059814453125005,
+     "favoritrad": -0.19633056640625002,
+     "slump": -0.40094482421875
+    },
+    {
+     "draw": 2122,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.97363525390625,
+     "folkrad": -0.6047705078125001,
+     "favoritrad": -0.73645263671875,
+     "slump": -0.267841796875
+    },
+    {
+     "draw": 2127,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.79109130859375,
+     "byggarslump": -0.984375,
+     "folkrad": -0.96875244140625,
+     "favoritrad": -0.96875244140625,
+     "slump": -0.984375
+    },
+    {
+     "draw": 2128,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2132,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.58388427734375,
+     "favoritrad": -0.63921142578125,
+     "slump": -0.63921142578125
+    },
+    {
+     "draw": 2133,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 3.8626318359375,
+     "byggarslump": -0.62506103515625,
+     "folkrad": -0.4121044921875,
+     "favoritrad": -0.32519287109374995,
+     "slump": -0.68721923828125
+    },
+    {
+     "draw": 2134,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2135,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.45988769531249996,
+     "byggarslump": -0.86600341796875,
+     "folkrad": -0.30901123046875,
+     "favoritrad": -0.2027734375,
+     "slump": -0.53423583984375
+    },
+    {
+     "draw": 2136,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2137,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.98681640625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2139,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.45406738281250003,
+     "byggarslump": 0.7026513671875001,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2141,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.71668701171875,
+     "byggarslump": -0.897724609375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2142,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.70721435546875,
+     "favoritrad": -0.70721435546875,
+     "slump": -0.8730810546875
+    },
+    {
+     "draw": 2144,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.92580078125,
+     "favoritrad": -0.92580078125,
+     "slump": -1.0
+    },
+    {
+     "draw": 2145,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.10370605468750005,
+     "byggarslump": -0.81425537109375,
+     "folkrad": -0.96875244140625,
+     "favoritrad": -0.96875244140625,
+     "slump": -0.98828125
+    },
+    {
+     "draw": 2146,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.95509521484375,
+     "favoritrad": -0.95509521484375,
+     "slump": -0.966318359375
+    },
+    {
+     "draw": 2147,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9658251953125,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2148,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.5259033203125,
+     "byggarslump": -0.2990576171875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2149,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 4.1931494140625,
+     "byggarslump": -0.89803955078125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2150,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.98144775390625,
+     "byggarslump": -0.995361328125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2151,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.90090087890625,
+     "byggarslump": -1.0,
+     "folkrad": -0.90090087890625,
+     "favoritrad": -0.90090087890625,
+     "slump": -0.9504443359375
+    },
+    {
+     "draw": 2152,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.15008789062500005,
+     "byggarslump": -0.5711401367187501,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2153,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.985595703125,
+     "byggarslump": -0.985595703125,
+     "folkrad": -0.8847900390625,
+     "favoritrad": -0.8847900390625,
+     "slump": -0.9423876953125
+    },
+    {
+     "draw": 2154,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.91457275390625,
+     "byggarslump": -0.96070068359375,
+     "folkrad": 0.77508544921875,
+     "favoritrad": 0.75832275390625,
+     "slump": -4.638671875001332e-05
+    },
+    {
+     "draw": 2155,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 5.7602001953125,
+     "byggarslump": 1.3477709960937498,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2156,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 42.456650390625,
+     "byggarslump": 0.5999511718749999,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2157,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2158,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.9438623046875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2159,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.942392578125,
+     "byggarslump": -0.97119384765625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2160,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.82527587890625,
+     "byggarslump": -0.9355615234375,
+     "folkrad": -0.9355615234375,
+     "favoritrad": -0.9355615234375,
+     "slump": -0.9677783203125
+    },
+    {
+     "draw": 2161,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.7557177734375,
+     "byggarslump": -0.87209228515625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2162,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.3132568359375,
+     "byggarslump": -0.963876953125,
+     "folkrad": -0.36725830078125,
+     "favoritrad": -0.36725830078125,
+     "slump": -0.6563183593749999
+    },
+    {
+     "draw": 2163,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.41312744140625,
+     "byggarslump": -0.63057861328125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2166,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2167,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2169,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.99365234375,
+     "byggarslump": -0.99365234375,
+     "folkrad": -0.94922607421875,
+     "favoritrad": -0.94922607421875,
+     "slump": -0.97461181640625
+    },
+    {
+     "draw": 2170,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.7840869140625,
+     "byggarslump": -0.9384912109375,
+     "folkrad": -0.92970703125,
+     "favoritrad": -0.92970703125,
+     "slump": -0.9648486328125
+    },
+    {
+     "draw": 2171,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.725595703125,
+     "byggarslump": -0.92677490234375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2172,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.94728271484375,
+     "byggarslump": -1.0,
+     "folkrad": -0.5448193359375,
+     "favoritrad": -0.5010546874999999,
+     "slump": -0.759033203125
+    },
+    {
+     "draw": 2173,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.9697314453125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2174,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.228037109375,
+     "byggarslump": 5.17951416015625,
+     "folkrad": -0.9785205078125,
+     "favoritrad": -0.9785205078125,
+     "slump": -0.98926025390625
+    },
+    {
+     "draw": 2175,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.48939697265625004,
+     "byggarslump": -0.89261962890625,
+     "folkrad": -0.65616455078125,
+     "favoritrad": -0.65616455078125,
+     "slump": -0.79993896484375
+    },
+    {
+     "draw": 2176,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.98047119140625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2177,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2179,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9921875,
+     "byggarslump": -0.96875732421875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2181,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.96265380859375,
+     "byggarslump": -0.8426171875,
+     "folkrad": -0.90044189453125,
+     "favoritrad": -0.912880859375,
+     "slump": -0.912880859375
+    },
+    {
+     "draw": 2182,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2183,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.75970947265625,
+     "byggarslump": -0.92434326171875,
+     "folkrad": -0.8940966796875001,
+     "favoritrad": -0.8940966796875001,
+     "slump": -0.92434326171875
+    },
+    {
+     "draw": 2185,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.7791845703125,
+     "byggarslump": -0.34783691406249995,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2186,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9536181640625,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2187,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.94263916015625,
+     "byggarslump": -0.96997314453125,
+     "folkrad": -0.9687548828125,
+     "favoritrad": -0.9687548828125,
+     "slump": -0.98437744140625
+    },
+    {
+     "draw": 2188,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2189,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.92165283203125,
+     "byggarslump": -0.9687548828125,
+     "folkrad": 0.16752929687499996,
+     "favoritrad": 0.21079345703124996,
+     "slump": -0.05607666015625001
+    },
+    {
+     "draw": 2191,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.7913623046875,
+     "byggarslump": -0.92823974609375,
+     "folkrad": -0.5948681640625,
+     "favoritrad": -0.46474365234375004,
+     "slump": -0.6480322265625
+    },
+    {
+     "draw": 2192,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.990966796875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2193,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.95899658203125,
+     "byggarslump": -0.98974609375,
+     "folkrad": -0.29813720703125,
+     "favoritrad": -0.29813720703125,
+     "slump": -0.918017578125
+    },
+    {
+     "draw": 2194,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.64958740234375,
+     "byggarslump": 2.9232568359375,
+     "folkrad": -0.880400390625,
+     "favoritrad": -0.880400390625,
+     "slump": -0.928232421875
+    },
+    {
+     "draw": 2198,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.94873779296875,
+     "byggarslump": -0.8718701171875,
+     "folkrad": -0.20574462890625,
+     "favoritrad": -0.3468017578125,
+     "slump": -0.20574462890625
+    },
+    {
+     "draw": 2199,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.87920166015625,
+     "byggarslump": -0.9853515625,
+     "folkrad": 0.767626953125,
+     "favoritrad": 0.7421337890624999,
+     "slump": -0.6013720703125001
+    },
+    {
+     "draw": 2200,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.6789892578125001,
+     "favoritrad": -0.68459228515625,
+     "slump": -0.86186767578125
+    },
+    {
+     "draw": 2201,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2202,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2203,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.72,
+     "byggarslump": -0.44019287109375005,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2204,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.42434814453125,
+     "byggarslump": 0.15769287109374996,
+     "folkrad": -0.9511767578125,
+     "favoritrad": -0.9511767578125,
+     "slump": -0.981689453125
+    },
+    {
+     "draw": 2205,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.3899169921875,
+     "byggarslump": -0.9385107421875,
+     "folkrad": -0.9589990234375,
+     "favoritrad": -0.9589990234375,
+     "slump": -0.969248046875
+    },
+    {
+     "draw": 2206,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2207,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.758935546875,
+     "byggarslump": -0.98169189453125,
+     "folkrad": 4.56708251953125,
+     "favoritrad": 4.5743798828125,
+     "slump": -0.44948486328125004
+    },
+    {
+     "draw": 2208,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.89845947265625,
+     "favoritrad": -0.91114990234375,
+     "slump": -0.96191650390625
+    },
+    {
+     "draw": 2209,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.7972338867187501,
+     "byggarslump": -0.95899169921875,
+     "folkrad": 0.69985107421875,
+     "favoritrad": 0.76886962890625,
+     "slump": 0.45893554687500004
+    },
+    {
+     "draw": 2210,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 19.23674072265625,
+     "byggarslump": -0.30183105468750004,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2211,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.9228759765625,
+     "favoritrad": -0.9228759765625,
+     "slump": -0.96143310546875
+    },
+    {
+     "draw": 2212,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.97070556640625,
+     "byggarslump": -1.0,
+     "folkrad": -0.88283935546875,
+     "favoritrad": -0.88283935546875,
+     "slump": -0.88283935546875
+    },
+    {
+     "draw": 2213,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.895537109375,
+     "byggarslump": -0.948740234375,
+     "folkrad": -0.94141845703125,
+     "favoritrad": -0.94141845703125,
+     "slump": -0.97802978515625
+    },
+    {
+     "draw": 2214,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2216,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.77400146484375,
+     "byggarslump": -0.980224609375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2217,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.25302734375,
+     "byggarslump": -0.84061767578125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2218,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2219,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2220,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.96582763671875,
+     "byggarslump": -0.98291259765625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2221,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.9677783203125,
+     "folkrad": -0.91409912109375,
+     "favoritrad": -0.91409912109375,
+     "slump": -0.9892578125
+    },
+    {
+     "draw": 2224,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2225,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.42876953124999995,
+     "byggarslump": 0.45203369140624994,
+     "folkrad": -0.46158203124999997,
+     "favoritrad": -0.43970458984375005,
+     "slump": -0.76098876953125
+    },
+    {
+     "draw": 2226,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.97071044921875,
+     "favoritrad": -0.97071044921875,
+     "slump": -0.99267578125
+    },
+    {
+     "draw": 2227,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2228,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.98022705078125,
+     "byggarslump": -0.993408203125,
+     "folkrad": -0.94727783203125,
+     "favoritrad": -0.94727783203125,
+     "slump": -0.98022705078125
+    },
+    {
+     "draw": 2229,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9582568359375,
+     "byggarslump": -1.0,
+     "folkrad": 0.45484375,
+     "favoritrad": 0.5074023437499999,
+     "slump": 0.5904174804687501
+    },
+    {
+     "draw": 2231,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.96679931640625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2233,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.98779296875,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2236,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2237,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.8696630859375,
+     "byggarslump": -0.9131005859375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2238,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.5295751953125001,
+     "byggarslump": -0.85822509765625,
+     "folkrad": -0.96094482421875,
+     "favoritrad": -0.96094482421875,
+     "slump": -0.9707080078125
+    },
+    {
+     "draw": 2239,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2240,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.87064453125,
+     "byggarslump": -0.9619189453125,
+     "folkrad": 1.127177734375,
+     "favoritrad": 1.1082080078124998,
+     "slump": 0.12359863281250005
+    },
+    {
+     "draw": 2241,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.92482177734375,
+     "byggarslump": -0.9624072265625,
+     "folkrad": -0.92482177734375,
+     "favoritrad": -0.92482177734375,
+     "slump": -0.92482177734375
+    },
+    {
+     "draw": 2242,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9062841796875,
+     "byggarslump": -0.95313232421875,
+     "folkrad": -0.9062841796875,
+     "favoritrad": -0.9062841796875,
+     "slump": -0.9062841796875
+    },
+    {
+     "draw": 2243,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.86502685546875,
+     "byggarslump": -0.819384765625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2244,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.8306958007812499,
+     "byggarslump": -0.7023828125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2245,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.48177490234375,
+     "byggarslump": -0.8308447265625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2246,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.99267578125,
+     "byggarslump": -0.989013671875,
+     "folkrad": -0.8006494140625,
+     "favoritrad": -0.8006494140625,
+     "slump": -0.8979833984375
+    },
+    {
+     "draw": 2247,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2248,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": 0.19070556640625003,
+     "favoritrad": 0.19070556640625003,
+     "slump": -0.8658056640625
+    },
+    {
+     "draw": 2249,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 3.4198022460937496,
+     "byggarslump": 3.2136425781250004,
+     "folkrad": -0.537412109375,
+     "favoritrad": -0.54521240234375,
+     "slump": -0.7569189453125
+    },
+    {
+     "draw": 2250,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.767783203125,
+     "byggarslump": -0.88969482421875,
+     "folkrad": 2.3618310546875,
+     "favoritrad": 2.338525390625,
+     "slump": 1.80381591796875
+    },
+    {
+     "draw": 2251,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 23.23900390625,
+     "byggarslump": -0.93972412109375,
+     "folkrad": -0.98144775390625,
+     "favoritrad": -0.98144775390625,
+     "slump": -0.99072265625
+    },
+    {
+     "draw": 2253,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.929697265625,
+     "byggarslump": -0.8828369140625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2254,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2255,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.96411376953125,
+     "folkrad": 0.2073974609375,
+     "favoritrad": 0.06442626953125008,
+     "slump": 0.2788427734375001
+    },
+    {
+     "draw": 2256,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.96192138671875,
+     "byggarslump": -0.9682666015625,
+     "folkrad": 24.4058203125,
+     "favoritrad": 23.22796875,
+     "slump": 3.9936474609375
+    },
+    {
+     "draw": 2257,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.6838623046875,
+     "byggarslump": 0.4251757812500001,
+     "folkrad": -0.92091552734375,
+     "favoritrad": -0.92091552734375,
+     "slump": -0.88138671875
+    },
+    {
+     "draw": 2258,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.9692431640625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2259,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 1.3934765625,
+     "byggarslump": -0.8477246093749999,
+     "folkrad": -0.89846923828125,
+     "favoritrad": -0.89846923828125,
+     "slump": -0.89846923828125
+    },
+    {
+     "draw": 2260,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.96972900390625,
+     "byggarslump": -0.97729736328125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2261,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.92969970703125,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2262,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9145751953125,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2263,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 28.448251953125,
+     "byggarslump": 0.0916186523437501,
+     "folkrad": -0.94531982421875,
+     "favoritrad": -0.94531982421875,
+     "slump": -0.95898681640625
+    },
+    {
+     "draw": 2264,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.38752197265625,
+     "byggarslump": -0.55452392578125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2265,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.04196777343749991,
+     "byggarslump": -0.6345703125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2266,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.97900634765625,
+     "byggarslump": -1.0,
+     "folkrad": -0.97900634765625,
+     "favoritrad": -0.97900634765625,
+     "slump": -1.0
+    },
+    {
+     "draw": 2267,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.78109130859375,
+     "byggarslump": -0.92066650390625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2268,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.98583984375,
+     "byggarslump": -0.9345849609375,
+     "folkrad": -0.94337646484375,
+     "favoritrad": -0.94337646484375,
+     "slump": -0.9716845703125
+    },
+    {
+     "draw": 2269,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.7916259765625,
+     "byggarslump": -0.8221508789062499,
+     "folkrad": -0.65584228515625,
+     "favoritrad": -0.65584228515625,
+     "slump": -0.7916259765625
+    },
+    {
+     "draw": 2270,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.80296142578125,
+     "favoritrad": -0.90142333984375,
+     "slump": -0.80296142578125
+    },
+    {
+     "draw": 2271,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2272,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.91801513671875,
+     "byggarslump": -1.0,
+     "folkrad": -0.91801513671875,
+     "favoritrad": -0.91801513671875,
+     "slump": -0.95899658203125
+    },
+    {
+     "draw": 2273,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.13284423828125003,
+     "byggarslump": -0.51893310546875,
+     "folkrad": 0.45708984374999995,
+     "favoritrad": 0.5495166015624999,
+     "slump": -0.15622314453124997
+    },
+    {
+     "draw": 2276,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.766279296875,
+     "byggarslump": -0.9121337890625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2277,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.7363110351562501,
+     "byggarslump": -0.65294921875,
+     "folkrad": 0.1970068359374999,
+     "favoritrad": 0.15688232421875004,
+     "slump": -0.09705566406249999
+    },
+    {
+     "draw": 2278,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 2.22889892578125,
+     "byggarslump": -0.80437744140625,
+     "folkrad": -0.7897607421875,
+     "favoritrad": -0.7897607421875,
+     "slump": -0.8838574218749999
+    },
+    {
+     "draw": 2279,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9621630859375,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2280,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9511865234375,
+     "byggarslump": -0.8780224609375,
+     "folkrad": -0.37422607421875,
+     "favoritrad": -0.52857421875,
+     "slump": -0.25288085937500004
+    },
+    {
+     "draw": 2281,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.85799560546875,
+     "favoritrad": -0.9053125,
+     "slump": -0.9053125
+    },
+    {
+     "draw": 2282,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 1.3590551757812501,
+     "byggarslump": -0.5916308593749999,
+     "folkrad": 2.307392578125,
+     "favoritrad": 2.6966650390625,
+     "slump": -0.013137207031249987
+    },
+    {
+     "draw": 2283,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.5553076171875,
+     "byggarslump": -0.8116357421875,
+     "folkrad": 2.9951513671875,
+     "favoritrad": 5.11818115234375,
+     "slump": 0.87361572265625
+    },
+    {
+     "draw": 2284,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2285,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.96045654296875,
+     "byggarslump": -0.993408203125,
+     "folkrad": 1.42757568359375,
+     "favoritrad": 1.4472265625,
+     "slump": 1.0510156249999998
+    },
+    {
+     "draw": 2286,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.7049658203125,
+     "byggarslump": -0.9790087890625,
+     "folkrad": -0.95802978515625,
+     "favoritrad": -0.95802978515625,
+     "slump": -0.98950439453125
+    },
+    {
+     "draw": 2287,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.94141845703125,
+     "byggarslump": -0.99267578125,
+     "folkrad": -0.5907568359375,
+     "favoritrad": -0.58344970703125,
+     "slump": -0.84089111328125
+    },
+    {
+     "draw": 2288,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.8350634765625,
+     "byggarslump": -0.9736376953125,
+     "folkrad": -0.9472802734375,
+     "favoritrad": -0.9472802734375,
+     "slump": -0.9736376953125
+    },
+    {
+     "draw": 2289,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9641162109375,
+     "byggarslump": -0.9282421875,
+     "folkrad": 3.0552001953124996,
+     "favoritrad": 0.08449707031250009,
+     "slump": 0.45572998046875
+    },
+    {
+     "draw": 2290,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.88874267578125,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2291,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.87797119140625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2292,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.75271484375,
+     "byggarslump": -0.92702880859375,
+     "folkrad": -0.77609375,
+     "favoritrad": -0.77609375,
+     "slump": -0.89579833984375
+    },
+    {
+     "draw": 2293,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.97510009765625,
+     "byggarslump": -0.9833984375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2294,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.97705322265625,
+     "byggarslump": -0.9197119140625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2295,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.8223388671875,
+     "favoritrad": -0.77794921875,
+     "slump": -0.7335644531250001
+    },
+    {
+     "draw": 2296,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.96094482421875,
+     "byggarslump": -0.94142333984375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2297,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.79792236328125,
+     "byggarslump": -0.9853515625,
+     "folkrad": -0.7832861328125,
+     "favoritrad": -0.7832861328125,
+     "slump": -0.8843017578125
+    },
+    {
+     "draw": 2298,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.9023828125,
+     "favoritrad": -0.9023828125,
+     "slump": -0.951181640625
+    },
+    {
+     "draw": 2299,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.8028173828125,
+     "byggarslump": -0.987548828125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2300,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 3.6021313476562504,
+     "byggarslump": -0.8514013671875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2301,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.96582275390625,
+     "byggarslump": -0.9951171875,
+     "folkrad": 0.7852197265625,
+     "favoritrad": 0.74846435546875,
+     "slump": -0.02098876953124995
+    },
+    {
+     "draw": 2302,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2303,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.5842724609375001,
+     "favoritrad": -0.5579443359375,
+     "slump": -0.69473388671875
+    },
+    {
+     "draw": 2304,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.93361328125,
+     "byggarslump": -0.9668017578125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2305,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.84305419921875,
+     "byggarslump": -0.979248046875,
+     "folkrad": -0.96679931640625,
+     "favoritrad": -0.96679931640625,
+     "slump": -0.995849609375
+    },
+    {
+     "draw": 2306,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2307,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.95971923828125,
+     "byggarslump": -0.95971923828125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2309,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.4484912109375,
+     "byggarslump": -0.5155126953125,
+     "folkrad": -0.5956079101562499,
+     "favoritrad": -0.5956079101562499,
+     "slump": -0.8038037109375
+    },
+    {
+     "draw": 2310,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.98535400390625,
+     "byggarslump": -0.9951171875,
+     "folkrad": -0.6893408203125,
+     "favoritrad": -0.6893408203125,
+     "slump": -0.93656982421875
+    },
+    {
+     "draw": 2312,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.7707080078125,
+     "byggarslump": -0.98828369140625,
+     "folkrad": -0.98437744140625,
+     "favoritrad": -0.98437744140625,
+     "slump": -0.9921875
+    },
+    {
+     "draw": 2313,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2314,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.984375,
+     "byggarslump": -0.99609375,
+     "folkrad": -0.96875244140625,
+     "favoritrad": -0.96875244140625,
+     "slump": -0.984375
+    },
+    {
+     "draw": 2315,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.41497070312499995,
+     "favoritrad": -0.40597412109375,
+     "slump": -0.71170654296875
+    },
+    {
+     "draw": 2317,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.97998291015625,
+     "favoritrad": -0.97998291015625,
+     "slump": -0.989990234375
+    },
+    {
+     "draw": 2318,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2320,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.98828125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2321,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.5221826171874999,
+     "byggarslump": -0.82168701171875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2322,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2323,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.344755859375,
+     "byggarslump": -0.64044189453125,
+     "folkrad": -0.92384765625,
+     "favoritrad": -0.89847412109375,
+     "slump": -0.9619189453125
+    },
+    {
+     "draw": 2324,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.39111328125,
+     "favoritrad": -0.49886474609375,
+     "slump": -0.5125195312499999
+    },
+    {
+     "draw": 2325,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.84381591796875,
+     "byggarslump": -0.993408203125,
+     "folkrad": 1.3465454101562502,
+     "favoritrad": 1.221318359375,
+     "slump": 0.29061767578125
+    },
+    {
+     "draw": 2326,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2328,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.97461181640625,
+     "favoritrad": -0.97461181640625,
+     "slump": -0.9873046875
+    },
+    {
+     "draw": 2329,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.76138427734375,
+     "byggarslump": -0.98169189453125,
+     "folkrad": -0.98535400390625,
+     "favoritrad": -0.98535400390625,
+     "slump": -0.996337890625
+    },
+    {
+     "draw": 2330,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.981689453125,
+     "byggarslump": -0.9267724609375,
+     "folkrad": -0.981689453125,
+     "favoritrad": -1.0,
+     "slump": -0.90846923828125
+    },
+    {
+     "draw": 2331,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9575244140625,
+     "byggarslump": -0.9575244140625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2332,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.8779736328125,
+     "byggarslump": -0.9084716796875,
+     "folkrad": 1.0583618164062498,
+     "favoritrad": 1.0583618164062498,
+     "slump": 7.23270751953125
+    },
+    {
+     "draw": 2333,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.95997802734375,
+     "byggarslump": -0.989990234375,
+     "folkrad": -0.95997802734375,
+     "favoritrad": -0.95997802734375,
+     "slump": -0.989990234375
+    },
+    {
+     "draw": 2336,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 1.4116064453125001,
+     "byggarslump": 1.17832275390625,
+     "folkrad": -0.64014892578125,
+     "favoritrad": -0.59481201171875,
+     "slump": -0.8135546875
+    },
+    {
+     "draw": 2337,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.89655029296875,
+     "byggarslump": -1.0,
+     "folkrad": -0.89655029296875,
+     "favoritrad": -0.89655029296875,
+     "slump": -1.0
+    },
+    {
+     "draw": 2338,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9873046875,
+     "byggarslump": -1.0,
+     "folkrad": -0.94922607421875,
+     "favoritrad": -0.94922607421875,
+     "slump": -0.97461181640625
+    },
+    {
+     "draw": 2339,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.98388916015625,
+     "byggarslump": -0.99462890625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2340,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.983642578125,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2342,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.54619384765625,
+     "favoritrad": -0.50328369140625,
+     "slump": -0.6810546875
+    },
+    {
+     "draw": 2343,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2344,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2346,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2347,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.91654052734375,
+     "byggarslump": -1.0,
+     "folkrad": -0.91654052734375,
+     "favoritrad": -0.91654052734375,
+     "slump": -0.95826171875
+    },
+    {
+     "draw": 2348,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.83524658203125,
+     "byggarslump": -0.96338134765625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2349,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.7290283203125,
+     "byggarslump": -0.91970947265625,
+     "folkrad": 1.30909912109375,
+     "favoritrad": 2.31246826171875,
+     "slump": 1.1952172851562501
+    },
+    {
+     "draw": 2350,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.91578369140625,
+     "byggarslump": -0.9814453125,
+     "folkrad": -0.75594970703125,
+     "favoritrad": -0.7652197265625,
+     "slump": -0.8601416015625
+    },
+    {
+     "draw": 2351,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9116650390625,
+     "byggarslump": -1.0,
+     "folkrad": -0.9116650390625,
+     "favoritrad": -0.9116650390625,
+     "slump": -1.0
+    },
+    {
+     "draw": 2353,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9497216796875,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2354,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9687548828125,
+     "byggarslump": -0.984375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2355,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.95460205078125,
+     "byggarslump": -0.88655029296875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2356,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9560595703125,
+     "byggarslump": -0.96704345703125,
+     "folkrad": -0.41808837890624995,
+     "favoritrad": -0.41808837890624995,
+     "slump": -0.64041259765625
+    },
+    {
+     "draw": 2357,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2358,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.76962158203125,
+     "byggarslump": -0.95361572265625,
+     "folkrad": -0.9570361328125,
+     "favoritrad": -0.9570361328125,
+     "slump": -0.96777587890625
+    },
+    {
+     "draw": 2361,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.68802978515625,
+     "byggarslump": -0.79796875,
+     "folkrad": -0.6758496093749999,
+     "favoritrad": -0.6819384765625001,
+     "slump": -0.816015625
+    },
+    {
+     "draw": 2362,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.6101513671875001,
+     "byggarslump": -0.7674755859375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2363,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.97217529296875,
+     "byggarslump": -1.0,
+     "folkrad": -0.962900390625,
+     "favoritrad": -0.962900390625,
+     "slump": -0.97217529296875
+    },
+    {
+     "draw": 2364,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2365,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.54716796875,
+     "byggarslump": -0.9619189453125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2366,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.85479248046875,
+     "byggarslump": -0.06290039062499997,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2367,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.94630615234375,
+     "byggarslump": -0.9731494140625,
+     "folkrad": -0.91947021484375,
+     "favoritrad": -0.89264404296875,
+     "slump": -0.94630615234375
+    },
+    {
+     "draw": 2368,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2369,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.87677001953125,
+     "favoritrad": -0.8275146484375,
+     "slump": -0.87677001953125
+    },
+    {
+     "draw": 2370,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 2.45986083984375,
+     "byggarslump": -0.6849609375,
+     "folkrad": -0.98437744140625,
+     "favoritrad": -0.98437744140625,
+     "slump": -0.99609375
+    },
+    {
+     "draw": 2371,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.35557861328124996,
+     "byggarslump": -0.7351611328125001,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2372,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.7523681640625,
+     "folkrad": -0.852138671875,
+     "favoritrad": -0.87677001953125,
+     "slump": -0.90140625
+    },
+    {
+     "draw": 2373,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.63938232421875,
+     "byggarslump": -0.6933642578125,
+     "folkrad": -0.63935302734375,
+     "favoritrad": -0.6303564453125,
+     "slump": -0.68435791015625
+    },
+    {
+     "draw": 2374,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.54161376953125,
+     "byggarslump": -0.40583740234375,
+     "folkrad": -0.23504638671875,
+     "favoritrad": -0.35809814453125,
+     "slump": -0.35568359375
+    },
+    {
+     "draw": 2375,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2376,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.7643994140625,
+     "favoritrad": -0.63470947265625,
+     "slump": -0.41413574218750004
+    },
+    {
+     "draw": 2377,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.92677001953125,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2378,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.99560546875,
+     "byggarslump": -0.99560546875,
+     "folkrad": 0.18672851562500004,
+     "favoritrad": 0.043496093749999964,
+     "slump": -0.03133789062500003
+    },
+    {
+     "draw": 2380,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.870712890625,
+     "byggarslump": -1.0,
+     "folkrad": 0.05419677734374995,
+     "favoritrad": 0.35228271484374996,
+     "slump": -0.17696533203124998
+    },
+    {
+     "draw": 2381,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.97071044921875,
+     "byggarslump": -0.9609521484375,
+     "folkrad": -0.74338623046875,
+     "favoritrad": -0.74338623046875,
+     "slump": -0.7872607421875
+    },
+    {
+     "draw": 2383,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.91116943359375,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2384,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.90289794921875,
+     "byggarslump": -1.0,
+     "folkrad": -0.90289794921875,
+     "favoritrad": -0.90289794921875,
+     "slump": -0.90289794921875
+    },
+    {
+     "draw": 2385,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 24.8171337890625,
+     "byggarslump": -0.17569580078125002,
+     "folkrad": -0.6658398437499999,
+     "favoritrad": -0.653173828125,
+     "slump": -0.792109375
+    },
+    {
+     "draw": 2386,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.509990234375,
+     "favoritrad": -0.5204296875000001,
+     "slump": -0.66620361328125
+    },
+    {
+     "draw": 2388,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9873046875,
+     "byggarslump": -1.0,
+     "folkrad": -0.7823486328125,
+     "favoritrad": -0.7823486328125,
+     "slump": -0.8267431640625
+    },
+    {
+     "draw": 2389,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.41287353515625,
+     "byggarslump": -0.9099804687499999,
+     "folkrad": -0.36300292968750003,
+     "favoritrad": -0.36300292968750003,
+     "slump": -0.6911962890625001
+    },
+    {
+     "draw": 2390,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.958994140625,
+     "byggarslump": -1.0,
+     "folkrad": -0.958994140625,
+     "favoritrad": -0.958994140625,
+     "slump": -1.0
+    },
+    {
+     "draw": 2391,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2392,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2393,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 6.178779296875,
+     "byggarslump": -0.50453857421875,
+     "folkrad": -0.97266357421875,
+     "favoritrad": -0.97266357421875,
+     "slump": -0.9794970703125
+    },
+    {
+     "draw": 2394,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": 0.08557373046875005,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2395,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9011572265625,
+     "byggarslump": -0.92092041015625,
+     "folkrad": -0.21779785156249998,
+     "favoritrad": -0.257197265625,
+     "slump": -0.17840820312500005
+    },
+    {
+     "draw": 2396,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.87970458984375,
+     "byggarslump": -0.933623046875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2397,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.278349609375,
+     "byggarslump": -0.86917236328125,
+     "folkrad": -0.9062744140625,
+     "favoritrad": -0.9062744140625,
+     "slump": -0.9297021484375
+    },
+    {
+     "draw": 2398,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": 0.15807861328124995,
+     "favoritrad": 0.29313964843749996,
+     "slump": 0.48046875
+    },
+    {
+     "draw": 2399,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.91798828125,
+     "favoritrad": -0.91798828125,
+     "slump": -0.9794921875
+    },
+    {
+     "draw": 2400,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.93849609375,
+     "byggarslump": -0.9912109375,
+     "folkrad": -0.92971435546875,
+     "favoritrad": -0.92971435546875,
+     "slump": -0.96485107421875
+    },
+    {
+     "draw": 2401,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2403,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.781826171875,
+     "byggarslump": -0.99267578125,
+     "folkrad": 5.477744140625,
+     "favoritrad": 5.48504638671875,
+     "slump": -0.35483154296874997
+    },
+    {
+     "draw": 2404,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.60598876953125,
+     "favoritrad": -0.6118310546875,
+     "slump": -0.8028637695312499
+    },
+    {
+     "draw": 2405,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9545947265625,
+     "byggarslump": -0.98486328125,
+     "folkrad": 1.5285693359375,
+     "favoritrad": 1.5134912109375,
+     "slump": -0.11904785156249997
+    },
+    {
+     "draw": 2406,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.965830078125,
+     "favoritrad": -0.965830078125,
+     "slump": -0.9743701171875
+    },
+    {
+     "draw": 2407,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.7559619140625,
+     "favoritrad": -0.761572265625,
+     "slump": -0.81768310546875
+    },
+    {
+     "draw": 2409,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.6523779296875001,
+     "favoritrad": -0.88406494140625,
+     "slump": 27.49044677734375
+    },
+    {
+     "draw": 2411,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.95313232421875,
+     "favoritrad": -0.95313232421875,
+     "slump": -0.9648486328125
+    },
+    {
+     "draw": 2412,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9760791015625,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2413,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9853515625,
+     "byggarslump": -1.0,
+     "folkrad": -0.9853515625,
+     "favoritrad": -0.9853515625,
+     "slump": -0.99267578125
+    },
+    {
+     "draw": 2414,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.72489013671875,
+     "byggarslump": -1.0,
+     "folkrad": -0.98242431640625,
+     "favoritrad": -0.98242431640625,
+     "slump": -0.9912109375
+    },
+    {
+     "draw": 2415,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2416,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.84798095703125,
+     "byggarslump": -0.97754150390625,
+     "folkrad": -0.955087890625,
+     "favoritrad": -0.955087890625,
+     "slump": -0.9663134765625
+    },
+    {
+     "draw": 2417,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2418,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.30666748046875003,
+     "byggarslump": -0.30666748046875003,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2421,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.96973388671875,
+     "favoritrad": -0.96973388671875,
+     "slump": -0.98486572265625
+    },
+    {
+     "draw": 2422,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.15194335937500003,
+     "byggarslump": 7.63796630859375,
+     "folkrad": 0.10120361328124994,
+     "favoritrad": -0.1038818359375,
+     "slump": -0.3520556640625
+    },
+    {
+     "draw": 2423,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.01141357421875,
+     "favoritrad": -0.01141357421875,
+     "slump": -0.9140869140625
+    },
+    {
+     "draw": 2426,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.98535400390625,
+     "byggarslump": -1.0,
+     "folkrad": -0.98535400390625,
+     "favoritrad": -0.98535400390625,
+     "slump": -0.996337890625
+    },
+    {
+     "draw": 2427,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.8045068359375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2428,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.8479931640625,
+     "byggarslump": -0.97364013671875,
+     "folkrad": -0.98242431640625,
+     "favoritrad": -0.98242431640625,
+     "slump": -0.98681884765625
+    },
+    {
+     "draw": 2429,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.63619873046875,
+     "byggarslump": 0.19256347656249995,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2430,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.22480468750000004,
+     "byggarslump": 0.3754931640625001,
+     "folkrad": 13.83223876953125,
+     "favoritrad": 13.7279248046875,
+     "slump": 12.1518212890625
+    },
+    {
+     "draw": 2431,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.98974609375,
+     "byggarslump": -0.98974609375,
+     "folkrad": -0.7335278320312499,
+     "favoritrad": -0.76426025390625,
+     "slump": -0.8411083984375
+    },
+    {
+     "draw": 2432,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.46687500000000004,
+     "byggarslump": -0.45347900390624996,
+     "folkrad": -0.54896240234375,
+     "favoritrad": -0.34966064453125,
+     "slump": -0.6646142578125
+    },
+    {
+     "draw": 2433,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.96582275390625,
+     "byggarslump": -0.9589892578125,
+     "folkrad": -0.66134521484375,
+     "favoritrad": -0.68865478515625,
+     "slump": -0.8316015625
+    },
+    {
+     "draw": 2434,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.69421630859375,
+     "byggarslump": -0.990234375,
+     "folkrad": -0.69421630859375,
+     "favoritrad": -0.69421630859375,
+     "slump": -0.95119873046875
+    },
+    {
+     "draw": 2435,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 5.13368896484375,
+     "byggarslump": -0.75939697265625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2436,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.95557373046875,
+     "favoritrad": -0.95557373046875,
+     "slump": -1.0
+    },
+    {
+     "draw": 2437,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.935556640625,
+     "byggarslump": -0.991943359375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2438,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.9648486328125,
+     "favoritrad": -0.9648486328125,
+     "slump": -0.98242431640625
+    },
+    {
+     "draw": 2440,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.78865966796875,
+     "byggarslump": -0.981689453125,
+     "folkrad": 0.0982519531249999,
+     "favoritrad": 0.10921386718750004,
+     "slump": -0.4049365234375
+    },
+    {
+     "draw": 2441,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.8791845703125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2442,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.47133544921875004,
+     "byggarslump": -0.923134765625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2443,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.928251953125,
+     "byggarslump": -0.958994140625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2444,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.1464477539062501,
+     "byggarslump": -0.7545556640625,
+     "folkrad": -0.95313232421875,
+     "favoritrad": -0.95313232421875,
+     "slump": -0.9589892578125
+    },
+    {
+     "draw": 2445,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.557568359375,
+     "byggarslump": -0.98876953125,
+     "folkrad": -0.95509033203125,
+     "favoritrad": -0.95509033203125,
+     "slump": -0.98876953125
+    },
+    {
+     "draw": 2446,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.52647705078125,
+     "byggarslump": -0.72578857421875,
+     "folkrad": -0.5854321289062501,
+     "favoritrad": -0.6010205078124999,
+     "slump": -0.851650390625
+    },
+    {
+     "draw": 2447,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 1.3241650390625002,
+     "byggarslump": -0.9292138671875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2448,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.507861328125,
+     "byggarslump": -0.9931640625,
+     "folkrad": -0.9726611328125,
+     "favoritrad": -0.9726611328125,
+     "slump": -0.986328125
+    },
+    {
+     "draw": 2449,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.6515673828124999,
+     "favoritrad": -0.6976586914062499,
+     "slump": -0.83232177734375
+    },
+    {
+     "draw": 2450,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 2.2973583984375,
+     "byggarslump": -0.71049560546875,
+     "folkrad": 2.6331396484375,
+     "favoritrad": 2.829970703125,
+     "slump": 1.1417944335937502
+    },
+    {
+     "draw": 2451,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.54774169921875,
+     "byggarslump": -0.06768554687499995,
+     "folkrad": -0.9257958984375,
+     "favoritrad": -0.9257958984375,
+     "slump": -0.9536181640625
+    },
+    {
+     "draw": 2452,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.946298828125,
+     "byggarslump": -0.946298828125,
+     "folkrad": -0.946298828125,
+     "favoritrad": -0.946298828125,
+     "slump": -1.0
+    },
+    {
+     "draw": 2453,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.3247216796875,
+     "byggarslump": 0.09325439453125006,
+     "folkrad": -0.756455078125,
+     "favoritrad": -0.7608447265625,
+     "slump": -0.85355224609375
+    },
+    {
+     "draw": 2454,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 2.18952392578125,
+     "byggarslump": 0.4616333007812501,
+     "folkrad": -0.8477783203125,
+     "favoritrad": -0.7717578125,
+     "slump": -0.8858105468749999
+    },
+    {
+     "draw": 2455,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.77503662109375,
+     "favoritrad": -0.7618701171875,
+     "slump": -0.85894287109375
+    },
+    {
+     "draw": 2456,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.17984375000000008,
+     "byggarslump": -0.3751513671875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2457,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2458,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.03733642578125007,
+     "byggarslump": -0.84771240234375,
+     "folkrad": -0.947275390625,
+     "favoritrad": -0.947275390625,
+     "slump": -0.97363525390625
+    },
+    {
+     "draw": 2459,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.39275390624999995,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2460,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2461,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.7042504882812499,
+     "favoritrad": -0.7105908203125,
+     "slump": -0.85306884765625
+    },
+    {
+     "draw": 2462,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.9170263671875,
+     "favoritrad": -0.9170263671875,
+     "slump": -0.7927001953125
+    },
+    {
+     "draw": 2463,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.97217041015625,
+     "byggarslump": -0.995361328125,
+     "folkrad": -0.96289306640625,
+     "favoritrad": -0.96289306640625,
+     "slump": -0.9814453125
+    },
+    {
+     "draw": 2464,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.71001708984375,
+     "byggarslump": -0.6817968750000001,
+     "folkrad": -0.96289794921875,
+     "favoritrad": -0.96289794921875,
+     "slump": -0.97680908203125
+    },
+    {
+     "draw": 2465,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.0950170898437499,
+     "byggarslump": -0.5694653320312499,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2466,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 6.4030224609375,
+     "byggarslump": -0.8323486328125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2467,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.89382568359375,
+     "byggarslump": -0.96460205078125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2468,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.97802978515625,
+     "byggarslump": -1.0,
+     "folkrad": -0.9707080078125,
+     "favoritrad": -0.9707080078125,
+     "slump": -0.98169189453125
+    },
+    {
+     "draw": 2469,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.6728247070312501,
+     "byggarslump": 1.68990478515625,
+     "folkrad": -0.50828125,
+     "favoritrad": -0.6187109375,
+     "slump": -0.45419921875
+    },
+    {
+     "draw": 2470,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.96680908203125,
+     "byggarslump": -1.0,
+     "folkrad": -0.46796386718750005,
+     "favoritrad": -0.46796386718750005,
+     "slump": -0.91707275390625
+    },
+    {
+     "draw": 2471,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9599658203125,
+     "byggarslump": -0.94995849609375,
+     "folkrad": -0.4938818359375,
+     "favoritrad": -0.5338476562500001,
+     "slump": -0.7408642578125
+    },
+    {
+     "draw": 2472,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9726611328125,
+     "byggarslump": -0.79029541015625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2473,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.31514404296875,
+     "byggarslump": -0.480458984375,
+     "folkrad": -0.845810546875,
+     "favoritrad": -0.86507080078125,
+     "slump": -0.98071533203125
+    },
+    {
+     "draw": 2474,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9692431640625,
+     "byggarslump": -0.9692431640625,
+     "folkrad": 1.7022363281250001,
+     "favoritrad": 1.4985083007812499,
+     "slump": 1.4271044921875
+    },
+    {
+     "draw": 2475,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2476,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.25456787109375,
+     "byggarslump": -0.87045654296875,
+     "folkrad": -0.88484130859375,
+     "favoritrad": -0.88484130859375,
+     "slump": -0.9280078125
+    },
+    {
+     "draw": 2477,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.71657470703125,
+     "byggarslump": -0.96192138671875,
+     "folkrad": -0.66442626953125,
+     "favoritrad": -0.66442626953125,
+     "slump": -0.7877490234375
+    },
+    {
+     "draw": 2478,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.95412841796875,
+     "favoritrad": -0.95412841796875,
+     "slump": -0.97705810546875
+    },
+    {
+     "draw": 2480,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.95557861328125,
+     "byggarslump": -1.0,
+     "folkrad": -0.13020019531250004,
+     "favoritrad": -0.22800292968750002,
+     "slump": 0.002099609375000089
+    },
+    {
+     "draw": 2481,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.963388671875,
+     "byggarslump": -1.0,
+     "folkrad": -0.255263671875,
+     "favoritrad": -0.255263671875,
+     "slump": -0.90850341796875
+    },
+    {
+     "draw": 2482,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9404541015625,
+     "byggarslump": -1.0,
+     "folkrad": -0.9404541015625,
+     "favoritrad": -0.9404541015625,
+     "slump": -0.9702197265625
+    },
+    {
+     "draw": 2483,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.98095947265625,
+     "byggarslump": -0.94288330078125,
+     "folkrad": -0.92385009765625,
+     "favoritrad": -0.92385009765625,
+     "slump": -0.94288330078125
+    },
+    {
+     "draw": 2484,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.484033203125,
+     "byggarslump": -0.8088330078125,
+     "folkrad": -0.5757788085937501,
+     "favoritrad": -0.5757788085937501,
+     "slump": -0.74210205078125
+    },
+    {
+     "draw": 2485,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.86505615234375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2486,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2487,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 2.879892578125,
+     "byggarslump": 2.3738525390625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2489,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.7774951171875,
+     "byggarslump": -0.94263916015625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2490,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.930693359375,
+     "favoritrad": -0.8960644531249999,
+     "slump": -0.826845703125
+    },
+    {
+     "draw": 2491,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2492,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2493,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.992919921875,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2494,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": 1.75622314453125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -0.89702880859375
+    },
+    {
+     "draw": 2495,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.08025390624999995,
+     "byggarslump": -0.7448095703125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2496,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.93337646484375,
+     "byggarslump": -0.97778564453125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2497,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.96924072265625,
+     "byggarslump": -0.14083984375000003,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2498,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.99609375,
+     "folkrad": -0.9687548828125,
+     "favoritrad": -0.9687548828125,
+     "slump": -0.98047119140625
+    },
+    {
+     "draw": 2499,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2500,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.94728271484375,
+     "byggarslump": -0.929716796875,
+     "folkrad": -0.5428295898437501,
+     "favoritrad": -0.55158447265625,
+     "slump": -0.73612548828125
+    },
+    {
+     "draw": 2501,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.703642578125,
+     "byggarslump": -0.5674853515625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2502,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.7248803710937499,
+     "byggarslump": -0.9921875,
+     "folkrad": -0.98437744140625,
+     "favoritrad": -0.98437744140625,
+     "slump": -0.98828369140625
+    },
+    {
+     "draw": 2503,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.6138720703125,
+     "byggarslump": -0.945087890625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2504,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 9.30732421875,
+     "byggarslump": -0.5445166015625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2505,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.746689453125,
+     "byggarslump": -0.986083984375,
+     "folkrad": -0.746689453125,
+     "favoritrad": -0.7420556640625,
+     "slump": -0.85013671875
+    },
+    {
+     "draw": 2506,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 1.9232519531249999,
+     "byggarslump": -0.8602221679687501,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2508,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2509,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.96680419921875,
+     "favoritrad": -0.96680419921875,
+     "slump": -0.97510009765625
+    },
+    {
+     "draw": 2510,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.94019775390625,
+     "byggarslump": -0.8962646484375,
+     "folkrad": -0.45402099609375,
+     "favoritrad": -0.5336840820312501,
+     "slump": -0.7848193359375
+    },
+    {
+     "draw": 2511,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2512,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.96387451171875,
+     "byggarslump": -0.8375390625,
+     "folkrad": -0.90970947265625,
+     "favoritrad": -0.9458154296875,
+     "slump": -0.96387451171875
+    },
+    {
+     "draw": 2513,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.94654296875,
+     "byggarslump": -1.0,
+     "folkrad": -0.25167480468750003,
+     "favoritrad": -0.06789062499999998,
+     "slump": -0.63756103515625
+    },
+    {
+     "draw": 2514,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.9712866210937501,
+     "byggarslump": -0.9107128906249999,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2515,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.984619140625,
+     "byggarslump": -1.0,
+     "folkrad": -0.87698974609375,
+     "favoritrad": -0.87698974609375,
+     "slump": -0.9231103515625
+    },
+    {
+     "draw": 2516,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2517,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.89455322265625,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2518,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9780322265625,
+     "byggarslump": -0.99267578125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2519,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.11265380859374996,
+     "favoritrad": -0.09219970703125002,
+     "slump": -0.4013720703125
+    },
+    {
+     "draw": 2520,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.18310546875,
+     "byggarslump": -0.73630615234375,
+     "folkrad": -0.630322265625,
+     "favoritrad": -0.63714111328125,
+     "slump": -0.8287060546875
+    },
+    {
+     "draw": 2521,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.94287841796875,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2522,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.6556884765625,
+     "byggarslump": -0.9609521484375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2523,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.98340087890625,
+     "byggarslump": -1.0,
+     "folkrad": -0.98340087890625,
+     "favoritrad": -0.98340087890625,
+     "slump": -0.995849609375
+    },
+    {
+     "draw": 2525,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.96093994140625,
+     "byggarslump": -0.9921875,
+     "folkrad": -0.937509765625,
+     "favoritrad": -0.937509765625,
+     "slump": -0.96875244140625
+    },
+    {
+     "draw": 2526,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.86873046875,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2527,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9516650390625,
+     "byggarslump": -0.9377490234375,
+     "folkrad": -0.6142431640625,
+     "favoritrad": -0.6383837890624999,
+     "slump": -0.754736328125
+    },
+    {
+     "draw": 2528,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.71017578125,
+     "byggarslump": -0.56584716796875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2529,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.8345458984375,
+     "byggarslump": -0.25662841796875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2530,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.70212646484375,
+     "byggarslump": -0.5003369140625,
+     "folkrad": -0.39241455078125,
+     "favoritrad": -0.41773681640625004,
+     "slump": -0.6579760742187499
+    },
+    {
+     "draw": 2531,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.7710693359375,
+     "byggarslump": -0.9912109375,
+     "folkrad": -0.96484619140625,
+     "favoritrad": -0.96484619140625,
+     "slump": -0.98681640625
+    },
+    {
+     "draw": 2532,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 1.0302783203125,
+     "byggarslump": 0.32836669921874995,
+     "folkrad": -0.57515380859375,
+     "favoritrad": -0.47468261718750004,
+     "slump": -0.665478515625
+    },
+    {
+     "draw": 2533,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.907275390625,
+     "byggarslump": -0.9721728515625,
+     "folkrad": -0.96289794921875,
+     "favoritrad": -0.96289794921875,
+     "slump": -0.98144775390625
+    },
+    {
+     "draw": 2534,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.974814453125,
+     "byggarslump": 19.3312255859375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2535,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -0.99072265625,
+     "folkrad": -0.92579833984375,
+     "favoritrad": -0.92579833984375,
+     "slump": -0.944345703125
+    },
+    {
+     "draw": 2536,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.72846435546875,
+     "favoritrad": -1.0,
+     "slump": 0.99076416015625
+    },
+    {
+     "draw": 2537,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.3132055664062501,
+     "byggarslump": -0.7374462890625,
+     "folkrad": -0.658203125,
+     "favoritrad": -0.652109375,
+     "slump": -0.8489306640625001
+    },
+    {
+     "draw": 2538,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9243359375,
+     "byggarslump": -0.837705078125,
+     "folkrad": -0.89407958984375,
+     "favoritrad": -0.90920654296875,
+     "slump": -0.93946533203125
+    },
+    {
+     "draw": 2539,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2540,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.9360595703125,
+     "favoritrad": -0.9360595703125,
+     "slump": -0.9360595703125
+    },
+    {
+     "draw": 2541,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.94629638671875,
+     "byggarslump": 1.059912109375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2542,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 2.67923095703125,
+     "byggarslump": -0.87167724609375,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2543,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2544,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2545,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9707080078125,
+     "byggarslump": -1.0,
+     "folkrad": -0.9707080078125,
+     "favoritrad": -0.9707080078125,
+     "slump": -0.9853515625
+    },
+    {
+     "draw": 2547,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 4.16816650390625,
+     "byggarslump": 0.9087353515625001,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2548,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.54708740234375,
+     "byggarslump": -0.6656323242187501,
+     "folkrad": -0.9433740234375,
+     "favoritrad": -0.9433740234375,
+     "slump": -0.97876220703125
+    },
+    {
+     "draw": 2549,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.87700439453125,
+     "favoritrad": -0.87700439453125,
+     "slump": -0.87700439453125
+    },
+    {
+     "draw": 2551,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.97851806640625,
+     "byggarslump": -1.0,
+     "folkrad": -0.97851806640625,
+     "favoritrad": -0.97851806640625,
+     "slump": -0.98388916015625
+    },
+    {
+     "draw": 2552,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.80729736328125,
+     "byggarslump": -0.6918408203124999,
+     "folkrad": 0.14825439453125,
+     "favoritrad": 0.33954101562500005,
+     "slump": -0.005017089843750044
+    },
+    {
+     "draw": 2553,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.6576708984374999,
+     "favoritrad": -0.66986328125,
+     "slump": -0.87014892578125
+    },
+    {
+     "draw": 2554,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.947275390625,
+     "byggarslump": -0.97363525390625,
+     "folkrad": -0.9077490234375,
+     "favoritrad": -0.8945751953125,
+     "slump": -0.93409912109375
+    },
+    {
+     "draw": 2555,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.9550830078125,
+     "favoritrad": -0.9550830078125,
+     "slump": -0.994384765625
+    },
+    {
+     "draw": 2556,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.9707080078125,
+     "favoritrad": -0.9707080078125,
+     "slump": -0.98169189453125
+    },
+    {
+     "draw": 2557,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.021245117187499996,
+     "favoritrad": -0.1107177734375,
+     "slump": 0.4184326171874999
+    },
+    {
+     "draw": 2558,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.98535400390625,
+     "byggarslump": -1.0,
+     "folkrad": -0.78242431640625,
+     "favoritrad": -0.78242431640625,
+     "slump": -0.902138671875
+    },
+    {
+     "draw": 2559,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.17061767578124998,
+     "byggarslump": -0.913349609375,
+     "folkrad": -0.86137451171875,
+     "favoritrad": -0.86137451171875,
+     "slump": -0.94800537109375
+    },
+    {
+     "draw": 2560,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.642392578125,
+     "byggarslump": -0.83747802734375,
+     "folkrad": -0.95703857421875,
+     "favoritrad": -0.95703857421875,
+     "slump": -0.97314697265625
+    },
+    {
+     "draw": 2561,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 7.43299072265625,
+     "byggarslump": -0.94900390625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2562,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.58082275390625,
+     "byggarslump": -0.61468505859375,
+     "folkrad": -0.31026123046875,
+     "favoritrad": -0.37784423828125,
+     "slump": 0.006147460937500071
+    },
+    {
+     "draw": 2563,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.87529296875,
+     "byggarslump": 1.2433813476562499,
+     "folkrad": -0.9109130859375,
+     "favoritrad": -0.92872802734375,
+     "slump": -0.9109130859375
+    },
+    {
+     "draw": 2564,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9597265625,
+     "byggarslump": -1.0,
+     "folkrad": -0.90606201171875,
+     "favoritrad": -0.8926513671875,
+     "slump": -0.91947509765625
+    },
+    {
+     "draw": 2565,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.97290283203125,
+     "byggarslump": -0.9548388671875,
+     "folkrad": -0.502431640625,
+     "favoritrad": -0.5745654296875,
+     "slump": -0.68988037109375
+    },
+    {
+     "draw": 2566,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.8371118164062501,
+     "byggarslump": 0.3700805664062501,
+     "folkrad": -0.92971435546875,
+     "favoritrad": -0.92971435546875,
+     "slump": -0.956064453125
+    },
+    {
+     "draw": 2567,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 8.584716796875,
+     "byggarslump": -0.84917236328125,
+     "folkrad": -0.98535400390625,
+     "favoritrad": -0.98535400390625,
+     "slump": -0.99267578125
+    },
+    {
+     "draw": 2568,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2569,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2570,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.959482421875,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2571,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.4967382812500001,
+     "byggarslump": -0.7620556640625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2572,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.5000537109375001,
+     "byggarslump": -0.970712890625,
+     "folkrad": -0.970712890625,
+     "favoritrad": -0.970712890625,
+     "slump": -0.9780322265625
+    },
+    {
+     "draw": 2573,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.45243164062499996,
+     "byggarslump": -0.66573486328125,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2574,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.5822021484375,
+     "byggarslump": -0.03237792968749997,
+     "folkrad": -0.66058837890625,
+     "favoritrad": -0.66058837890625,
+     "slump": -0.791416015625
+    },
+    {
+     "draw": 2575,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2577,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.9668017578125,
+     "favoritrad": -0.9668017578125,
+     "slump": -0.9833984375
+    },
+    {
+     "draw": 2578,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.9585107421875,
+     "byggarslump": -0.98340087890625,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2579,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.20456298828124997,
+     "byggarslump": -0.64311279296875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2580,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.92825439453125,
+     "byggarslump": -0.907763671875,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2582,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.90772705078125,
+     "byggarslump": -0.9436083984375,
+     "folkrad": -0.79936279296875,
+     "favoritrad": -0.79936279296875,
+     "slump": -0.906259765625
+    },
+    {
+     "draw": 2583,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.9814453125,
+     "favoritrad": -0.9814453125,
+     "slump": -0.9814453125
+    },
+    {
+     "draw": 2584,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -0.96777587890625,
+     "favoritrad": -0.96777587890625,
+     "slump": -0.98388671875
+    },
+    {
+     "draw": 2585,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.98681640625,
+     "byggarslump": -1.0,
+     "folkrad": -0.98242431640625,
+     "favoritrad": -0.98242431640625,
+     "slump": -0.9912109375
+    },
+    {
+     "draw": 2586,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.44615966796875006,
+     "byggarslump": -0.982666015625,
+     "folkrad": 0.4288476562500001,
+     "favoritrad": 0.4288476562500001,
+     "slump": 0.29029541015625004
+    },
+    {
+     "draw": 2587,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.04769775390624997,
+     "byggarslump": -0.8770214843749999,
+     "folkrad": -0.8923876953125001,
+     "favoritrad": -0.8770214843749999,
+     "slump": -0.92312255859375
+    },
+    {
+     "draw": 2588,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 2.84347900390625,
+     "byggarslump": -0.8166015625,
+     "folkrad": -0.74255126953125,
+     "favoritrad": -0.74255126953125,
+     "slump": -0.861923828125
+    },
+    {
+     "draw": 2589,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 0.09791748046874993,
+     "byggarslump": -0.14382812499999997,
+     "folkrad": -0.96973388671875,
+     "favoritrad": -0.96973388671875,
+     "slump": -1.0
+    },
+    {
+     "draw": 2590,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": 14.6729150390625,
+     "byggarslump": -0.42767822265625,
+     "folkrad": -0.96973876953125,
+     "favoritrad": -0.96973876953125,
+     "slump": -0.98486572265625
+    },
+    {
+     "draw": 2591,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.7431469726562501,
+     "byggarslump": -0.8162890625,
+     "folkrad": -0.7248779296875,
+     "favoritrad": -0.7248779296875,
+     "slump": -0.84921630859375
+    },
+    {
+     "draw": 2593,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.7034374999999999,
+     "byggarslump": -0.7972949218750001,
+     "folkrad": -0.96583251953125,
+     "favoritrad": -0.96583251953125,
+     "slump": -0.991455078125
+    },
+    {
+     "draw": 2594,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.97364013671875,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2595,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.33187744140625,
+     "byggarslump": -0.6801318359374999,
+     "folkrad": -0.91994873046875,
+     "favoritrad": -0.91994873046875,
+     "slump": -0.9499609375
+    },
+    {
+     "draw": 2596,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -1.0,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    },
+    {
+     "draw": 2597,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 4096,
+      "byggarslump": 4096,
+      "folkrad": 4096,
+      "favoritrad": 4096,
+      "slump": 4096
+     },
+     "varderader": -0.948740234375,
+     "byggarslump": -1.0,
+     "folkrad": -1.0,
+     "favoritrad": -1.0,
+     "slump": -1.0
+    }
+   ]
+  }
+ }
+}
