@@ -110,3 +110,25 @@ kohort.
 Regressionerna täcker direkt Kambi-livekoppling, tvetydighetsstopp,
 kontextuell men entydig resultatlänk, tvetydigt facitstopp och de explicita
 `test_bet`-markeringarna för första signal kontra Stark-eskalering.
+
+## Driftkvitto 2026-08-17
+
+Commit `59c6e29` är pushad till `main` och driftsatt på servern. Backend,
+frontend, snapshotinsamling och poolinsamling kör och `/api/health` svarar
+`ok` utan pool- eller v2.2-anmärkningar.
+
+En settlement-körning mot en separat databaskopia rättade 36 äldre
+observationer innan produktionsjobbet fick köra. Efter ordinarie
+produktionssettlement visar `chance-gap-shadow-v9`:
+
+- 72 första aktiva signaler, varav 58 har facit;
+- 39 riktiga blindtestspel med observerat liveodds;
+- 38 av de 39 spelen har facit: 17 vinster och 21 förluster;
+- 61 övriga journalrader i API-fönstret är inte spel och döljs som standard;
+- ROI är tills vidare −24,1 %, men kohorten är fortsatt `collecting` eftersom
+  beslutskravet är minst 200 prissatta facit över minst 60 dagar.
+
+De historiska facitreparationerna ändrar inte vilka rader som räknas som
+spel. De gör bara redan observerade resultat tillgängliga för rader som
+tidigare fastnade på namnvarianter. Gamla saknade liveodds har inte
+rekonstruerats eller bakfyllts.
