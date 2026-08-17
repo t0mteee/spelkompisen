@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-08-17 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-08-18 — läs detta först i ny session)
 
 **LIVEBLINDTESTET VISAR ENBART FAKTISKA TESTSPEL SOM STANDARD
 (2026-08-17, Codex).** Signaljournalen blandade tidigare första blindbeslut,
@@ -35,6 +35,15 @@ förekomma i båda dessa jämförelser men aldrig två gånger i huvudtestet.
 en riktig tabell med signalögonblick, beslut, låst liveodds och facit. Även
 Sharp-facit, modell-close, aktiva valideringsgrupper och övriga forskningsspår
 använder nu samma lodräta tabellspråk i stället för blandade kortstorlekar.
+Matchjournalen har nu separata filter för blindtest/alla/ej spelade, Följer/
+Stark, xG/skott och låst/saknat livepris. Stark-valet öppnar automatiskt alla
+observationer eftersom de 28 Stark-raderna nästan uteslutande är senare
+eskaleringar, inte extra blindtestspel. Både nivåtabellen och matchjournalen
+sorteras via kolumnrubrikerna (egen sortväljare på mobil). API:t redovisar
+dessutom prisstatus per nivå. Stark-gruppens 15 rader utan säkert låst pris är
+13 osäkra matchkopplingar, en suspenderad marknad och ett källfel. Samtliga 13
+kopplingsluckor observerades före den direkta Kambi-livekopplingen driftsattes
+17/8; historiska priser bakfylls fortsatt aldrig.
 
 **POOLFRYSNINGEN TÅL SHARP-ONLY-VÄRDE (2026-08-16, Codex).** Topptipset
 4274 missade både h3 och m20 trots att snapshots och styrke-shadow samlades.

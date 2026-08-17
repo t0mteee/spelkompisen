@@ -236,3 +236,35 @@ Den första livekontrollen avslöjade också att radartabellerna hann rendera
 fallbackvärdet `0/200` innan det verkliga API-svaret kom. Labb visar därför nu
 `Hämtar radar-facit…` tills svaret finns och ett riktigt felmeddelande om
 anropet misslyckas; noll kan inte längre blinka som ett falskt facit.
+
+## Uppföljning 2026-08-18: Stark-filter och prisorsaker
+
+Matchjournalens standardfilter är fortsatt **Blindtestspel**, enligt den
+tidigare UI-regeln att ej spelade observationer ska vara dolda från start.
+Det är därför standardlistan nästan bara visar Följer: 27 av 28 Stark-rader är
+eskaleringar efter att matchen redan fått sitt enda blindbeslut, och den enda
+Stark-raden som var förstbeslut saknade pris. Stark-raderna var alltså sparade
+men låg bakom visningen av ej spelade observationer.
+
+Journalen har nu fyra oberoende filter: visning (blindtest/alla/ej spelade),
+nivå (alla/Följer/Stark), signaltyp (alla/xG/skott) och livepris (alla/låst/
+saknas). Val av Stark växlar automatiskt från Blindtestspel till Alla signaler
+så det aldrig ger en oförklarad tom lista. Både journalen och nivåjämförelsen
+använder `SortableTable`: rubrikerna sorterar på desktop och mobil visar den
+delade sortväljaren ovanför tabellen.
+
+Backendens nivåsummering exponerar nu `odds_status_counts`, eftersom ”15 utan
+pris” dolde flera helt olika orsaker. Produktionskohortens Stark-xG är:
+
+- 13 `captured` — säkert kopplad match och öppet Ö/U-pris;
+- 13 `no_canonical_match` — inget pris fick knytas till matchen utan att
+  identiteten gissades;
+- 1 `suspended` — rätt livemarknad fanns men var stängd i signalögonblicket;
+- 1 `source_error:HTTPStatusError` — källan svarade med HTTP-fel.
+
+De 13 identitetsluckorna observerades 9–17 augusti, samtliga före commit
+`59c6e29` och den entydiga direkta Kambi-livekopplingen driftsattes 17/8 cirka
+22:54 CEST. De är därför historiskt mätbortfall, inte belägg för att Svenska
+Spel saknade odds. De får inte bakfyllas; förbättringen mäts på nya signaler.
+UI:t använder därför formuleringen **utan säkert låst pris** och skriver ut
+orsaksfördelningen direkt i respektive nivåtabellrad.

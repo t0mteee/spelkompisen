@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import datetime as dt
 import random
+from collections import Counter
 from typing import Optional
 
 from . import flashscore_data, kambi, live_radar, live_settlement, oddset_data
@@ -575,12 +576,15 @@ def _summary(rows: list[dict]) -> dict:
     goals = [int(row["goals_after_signal"]) for row in settled
              if row.get("goals_after_signal") is not None]
     dates = [_at(row["captured_at"]) for row in priced]
+    odds_status_counts = Counter(
+        str(row.get("odds_status") or "unknown") for row in rows)
     return {
         "n_signals": len(rows),
         "n_matches": len({row["match_key"] for row in rows}),
         "n_settled": len(settled),
         "n_priced_signals": len(priced_signals),
         "n_priced_settled": len(priced),
+        "odds_status_counts": dict(sorted(odds_status_counts.items())),
         "roi_over": round(sum(profits) / len(profits), 4) if profits else None,
         "roi_ci90": _ci90(profits),
         "over_positive_rate": (round(sum(value > 0 for value in profits)

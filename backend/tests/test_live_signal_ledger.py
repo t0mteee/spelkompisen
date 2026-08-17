@@ -195,6 +195,27 @@ class LiveSignalLedgerTests(unittest.TestCase):
         self.assertTrue(report["rows"][0]["blind_entry"])
         self.assertTrue(report["rows"][0]["test_bet"])
         self.assertIsNone(report["rows"][0]["test_bet_exclusion"])
+        self.assertEqual(
+            {"captured": 1}, report["blind_gate"]["odds_status_counts"])
+
+    def test_summary_exposes_each_reason_for_missing_live_price(self):
+        rows = [
+            {"match_key": f"m{i}", "captured_at": iso(NOW),
+             "odds_status": status}
+            for i, status in enumerate((
+                "captured", "no_canonical_match", "suspended",
+                "source_error:HTTPStatusError"))
+        ]
+
+        summary = live_signal_ledger._summary(rows)
+
+        self.assertEqual(4, summary["n_matches"])
+        self.assertEqual({
+            "captured": 1,
+            "no_canonical_match": 1,
+            "source_error:HTTPStatusError": 1,
+            "suspended": 1,
+        }, summary["odds_status_counts"])
 
     def test_result_matching_repairs_one_name_only_with_strict_context(self):
         signal = {

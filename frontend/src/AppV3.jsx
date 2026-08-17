@@ -2237,7 +2237,10 @@ function LabbV3() {
   const [logLimit, setLogLimit] = useState(200)
   const [logLeague, setLogLeague] = useState('alla')
   const [logStatus, setLogStatus] = useState('alla')
-  const [showUnplayedRadar, setShowUnplayedRadar] = useState(false)
+  const [radarViewFilter, setRadarViewFilter] = useState('played')
+  const [radarLevelFilter, setRadarLevelFilter] = useState('alla')
+  const [radarTypeFilter, setRadarTypeFilter] = useState('alla')
+  const [radarOddsFilter, setRadarOddsFilter] = useState('alla')
 
   useEffect(() => {
     // engångsläsning — mätserierna rör sig på varv-/veckoskala, ingen poll
@@ -2323,16 +2326,44 @@ function LabbV3() {
   const radarRows = radar?.signal_ledger?.rows || []
   const radarTestBets = radarRows.filter((row) => row.test_bet)
   const radarNotPlayed = radarRows.filter((row) => !row.test_bet)
-  const radarVisibleRows = showUnplayedRadar ? radarRows : radarTestBets
+  const radarVisibleRows = radarRows.filter((row) => {
+    if (radarViewFilter === 'played' && !row.test_bet) return false
+    if (radarViewFilter === 'not_played' && row.test_bet) return false
+    if (radarLevelFilter !== 'alla' && row.signal_level !== radarLevelFilter) return false
+    if (radarTypeFilter !== 'alla' && row.signal_type !== radarTypeFilter) return false
+    if (radarOddsFilter === 'captured' && row.odds_status !== 'captured') return false
+    if (radarOddsFilter === 'missing' && row.odds_status === 'captured') return false
+    return true
+  })
+  const radarFiltersActive = radarViewFilter !== 'played'
+    || radarLevelFilter !== 'alla' || radarTypeFilter !== 'alla'
+    || radarOddsFilter !== 'alla'
   const radarGroupOrder = { 'xg-watch': 0, 'xg-strong': 1, 'proxy-watch': 2 }
   const radarGroups = [...(radar?.signal_ledger?.groups || [])].sort((a, b) =>
     (radarGroupOrder[`${a.signal_type}-${a.signal_level}`] ?? 99)
     - (radarGroupOrder[`${b.signal_type}-${b.signal_level}`] ?? 99))
+  const radarTotalSignals = radarGroups.reduce(
+    (sum, group) => sum + (group.n_signals || 0), 0)
   const radarRoi = (g) => g.n_priced_settled >= ROI_MIN_N
     ? evPct(g.roi_over) : '–'
   const radarRoiNote = (g) => g.n_priced_settled >= ROI_MIN_N
     ? `${g.n_priced_settled} spel · preliminärt`
     : `${g.n_priced_settled} spel · för få för ROI`
+  const radarMissingBreakdown = (g) => {
+    const counts = g.odds_status_counts || {}
+    const sourceErrors = Object.entries(counts).reduce(
+      (sum, [status, count]) => sum + (status.startsWith('source_error') ? count : 0), 0)
+    const parts = [
+      [counts.no_canonical_match, 'utan säker matchkoppling'],
+      [counts.no_svenskaspel_id, 'utan SvS-id'],
+      [counts.not_offered, 'utan erbjuden Ö/U'],
+      [counts.suspended, 'suspenderad marknad'],
+      [sourceErrors, 'källfel'],
+      [counts.unknown, 'okänd prisstatus'],
+    ].filter(([count]) => count > 0)
+      .map(([count, label]) => `${count} ${label}`)
+    return parts.length ? parts.join(' · ') : 'ingen förklaring rapporterad'
+  }
   const ledgerTiming = Object.values(ledger?.capture_quality || {}).reduce(
     (sum, h) => ({ n: sum.n + (h.n || 0), timely: sum.timely + (h.n_timely || 0) }),
     { n: 0, timely: 0 })
@@ -2371,6 +2402,25 @@ function LabbV3() {
     { key: 'n_resolved', label: 'Stängda' },
     { key: 'avg_close_ev', label: 'Close-EV' },
     { key: 'ci', label: '90 % KI', sortable: false },
+  ]
+  const radarLevelCols = [
+    { key: 'level', label: 'Vänta till', defaultDir: 'asc',
+      value: (g) => radarGroupOrder[`${g.signal_type}-${g.signal_level}`] ?? 99 },
+    { key: 'n_matches', label: 'Matcher som nådde nivån' },
+    { key: 'n_priced_signals', label: 'Pris säkert låst' },
+    { key: 'n_priced_settled', label: 'Facit på prissatta' },
+    { key: 'goal_15min_rate', label: 'Mål inom 15 min' },
+    { key: 'avg_goals_after', label: 'Snitt mål efter' },
+    { key: 'roi_over', label: 'Simulerad Över-ROI' },
+  ]
+  const radarJournalCols = [
+    { key: 'match', label: 'Match', defaultDir: 'asc',
+      value: (row) => `${row.home} ${row.away}` },
+    { key: 'captured_at', label: 'Signalögonblick', defaultDir: 'desc' },
+    { key: 'decision', label: 'Beslut',
+      value: (row) => `${row.test_bet ? 2 : row.blind_entry ? 1 : 0}-${row.signal_level}-${row.signal_type}` },
+    { key: 'over_odds', label: 'Låst liveodds' },
+    { key: 'over_profit', label: 'Facit' },
   ]
 
   return (
@@ -2806,21 +2856,22 @@ function LabbV3() {
               <h4 className="v3tabletitle">Nivåjämförelse · om vi alltid väntat på…</h4>
               <span className="v3hint">Det här är tre separata jämförelseregler,
                 inte extra spel i huvudtestet. Summera därför inte raderna. “Pris
-                låst” betyder att Över/Under var öppet exakt när nivån först nåddes.</span>
-              <div className="v3evidence-table v3radar-tablewrap">
-                <table className="logtable v3radar-leveltable">
-                  <thead><tr><th>Vänta till</th><th>Matcher som nådde nivån</th>
-                    <th>Pris låst då</th><th>Facit på prissatta</th>
-                    <th>Mål inom 15 min</th><th>Snitt mål efter</th>
-                    <th>Simulerad Över-ROI</th></tr></thead>
-                  <tbody>{radarGroups.map((g) => (
+                säkert låst” betyder att rätt match kunde kopplas entydigt och
+                att Över/Under var öppet exakt när nivån först nåddes.</span>
+              <SortableTable id="labb-radar-levels" columns={radarLevelCols}
+                rows={radarGroups} defaultSort={{ key: 'level', dir: 'asc' }}
+                className="logtable v3radar-leveltable"
+                wrapperClassName="v3evidence-table v3radar-tablewrap"
+                renderRow={(g) => (
                     <tr key={`${g.signal_type}-${g.signal_level}`}>
                       <td><b>{radarLevel(g.signal_level)} · {radarType(g.signal_type)}</b>
                         <small>{g.signal_level === 'strong'
                           ? 'ignorera tidigare Följer och vänta' : 'första gången nivån nås'}</small></td>
                       <td><b>{g.n_matches}</b></td>
                       <td><b>{g.n_priced_signals}</b> av {g.n_matches}
-                        <small>{g.n_matches - g.n_priced_signals} utan öppet pris</small></td>
+                        <small>{g.n_matches - g.n_priced_signals} utan säkert låst pris</small>
+                        {g.n_matches > g.n_priced_signals &&
+                          <small>{radarMissingBreakdown(g)}</small>}</td>
                       <td><b>{g.n_priced_settled}</b> av {g.n_priced_signals}</td>
                       <td>{rate(g.goal_15min_rate)}
                         <small>{g.n_goal_15min ?? 0} avgjorda observationer</small></td>
@@ -2829,9 +2880,7 @@ function LabbV3() {
                         ? evCls(g.roi_over) : ''}>{radarRoi(g)}
                         <small>{radarRoiNote(g)}</small></td>
                     </tr>
-                  ))}</tbody>
-                </table>
-              </div>
+                )} />
               <span className="v3hint"><b>Så räknas nivå-ROI:</b> en låtsasenhet
                 placeras på Över till priset som låstes när nivån nåddes. Nettot
                 delas med antalet prissatta och avgjorda matcher i just den raden.
@@ -2868,21 +2917,71 @@ function LabbV3() {
 
           {!!radarRows.length && (
             <details className="v3radar-log" open>
-              <summary>Matchjournal · {gate?.n_priced_signals ?? radarTestBets.length}
-                {' '}blindtestspel{(gate?.n_priced_signals ?? radarTestBets.length)
-                  !== radarTestBets.length ? ` · visar ${radarTestBets.length}` : ''}</summary>
-              {!!radarNotPlayed.length && (
-                <label className="v3radar-logfilter">
-                  <input type="checkbox" checked={showUnplayedRadar}
-                    onChange={(e) => setShowUnplayedRadar(e.target.checked)} />
-                  Visa även signaler som inte blev spel ({radarNotPlayed.length})
+              <summary>Matchjournal · {radarTotalSignals} signaler ·
+                {' '}{gate?.n_priced_signals ?? radarTestBets.length} blindtestspel</summary>
+              <div className="v3radar-filters" aria-label="Filtrera matchjournalen">
+                <label>Visning
+                  <select value={radarViewFilter}
+                    onChange={(e) => {
+                      const view = e.target.value
+                      setRadarViewFilter(view)
+                      if (view === 'played' && radarLevelFilter === 'strong') {
+                        setRadarLevelFilter('alla')
+                      }
+                    }}>
+                    <option value="played">Blindtestspel ({radarTestBets.length})</option>
+                    <option value="all">Alla signaler ({radarRows.length})</option>
+                    <option value="not_played">Ej spelade ({radarNotPlayed.length})</option>
+                  </select>
                 </label>
+                <label>Nivå
+                  <select value={radarLevelFilter} onChange={(e) => {
+                    const level = e.target.value
+                    setRadarLevelFilter(level)
+                    if (level === 'strong' && radarViewFilter === 'played') {
+                      setRadarViewFilter('all')
+                    }
+                  }}>
+                    <option value="alla">Alla nivåer</option>
+                    <option value="watch">Följer</option>
+                    <option value="strong">Stark</option>
+                  </select>
+                </label>
+                <label>Signaltyp
+                  <select value={radarTypeFilter}
+                    onChange={(e) => setRadarTypeFilter(e.target.value)}>
+                    <option value="alla">Alla typer</option>
+                    <option value="xg">xG</option>
+                    <option value="proxy">Skottbaserad</option>
+                  </select>
+                </label>
+                <label>Livepris
+                  <select value={radarOddsFilter}
+                    onChange={(e) => setRadarOddsFilter(e.target.value)}>
+                    <option value="alla">Med och utan pris</option>
+                    <option value="captured">Pris låst</option>
+                    <option value="missing">Pris saknas</option>
+                  </select>
+                </label>
+                <button type="button" disabled={!radarFiltersActive} onClick={() => {
+                  setRadarViewFilter('played'); setRadarLevelFilter('alla')
+                  setRadarTypeFilter('alla'); setRadarOddsFilter('alla')
+                }}>Återställ</button>
+              </div>
+              <span className="v3hint">Visar <b>{radarVisibleRows.length}</b> av
+                {' '}{radarRows.length} journalrader. Väljer du Stark öppnas
+                automatiskt alla signaler, eftersom Stark-raderna är senare
+                observationer och inte extra spel i huvudblindtestet.</span>
+              {!radarVisibleRows.length && (
+                <div className="v3note">Inga journalrader matchar de valda filtren.</div>
               )}
-              <div className="v3evidence-table v3radar-tablewrap">
-                <table className="logtable v3radar-logtable">
-                  <thead><tr><th>Match</th><th>Signalögonblick</th><th>Beslut</th>
-                    <th>Låst liveodds</th><th>Facit</th></tr></thead>
-                  <tbody>{radarVisibleRows.map((row) => {
+              {!!radarVisibleRows.length && (
+                <SortableTable id="labb-radar-journal" columns={radarJournalCols}
+                  rows={radarVisibleRows}
+                  defaultSort={{ key: 'captured_at', dir: 'desc' }}
+                  className="logtable v3radar-logtable"
+                  wrapperClassName="v3evidence-table v3radar-tablewrap"
+                  renderRow={(row) => {
                     const outcome = radarOutcome(row)
                     return (
                       <tr className={row.test_bet
@@ -2915,9 +3014,8 @@ function LabbV3() {
                         </td>
                       </tr>
                     )
-                  })}</tbody>
-                </table>
-              </div>
+                  }} />
+              )}
             </details>
           )}
           <span className="v3hint">Shadow: detta påverkar inga tips, Kelly, notiser eller
