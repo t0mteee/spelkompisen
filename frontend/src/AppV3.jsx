@@ -1132,6 +1132,10 @@ const STRATEGY_LABEL = {
   säker: 'Säker', medel: 'Medel', tuff: 'Tuff',
   byggarslump: 'Slump · samma urval', favoritrad: 'Favoritrader',
   folkrad: 'Folkrader',
+  // `maxev` är samma byggare som medel med balansknappen i botten
+  // (värdevikt 1,0 ⇒ k = 0, ren EV utan träffchansdämpning). Etiketten
+  // säger vad knappen GÖR, eftersom "maxev" annars läses som en egen metod.
+  maxev: 'Ren EV · utan dämpning',
 }
 
 // Horisonten är minuter före spelstopp. Nyckeln (`h3`/`m20`) är ett internt
