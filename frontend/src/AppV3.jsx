@@ -2870,13 +2870,19 @@ function LabbV3() {
                     : `visas från ${ROI_MIN_N} spel`}</small></td>
                 <td>{gateN >= ROI_MIN_N ? ciStr(gate?.roi_ci90) : '–'}</td>
                 <td>{gateN}/{gate?.required_priced_settled ?? 200} spel
-                  <small>{gate?.span_days ?? 0}/{gate?.required_span_days ?? 60} dagar</small></td>
+                  <small>{gate?.n_match_days ?? 0}/{gate?.required_match_days ?? 20} matchdygn
+                    {' · '}{gate?.span_days ?? 0}/{gate?.required_span_days ?? 30} dygns spann</small></td>
               </tr></tbody>
             </table>
           </div>
           <span className="v3hint">Resultatet är inte godkänt för blind ryggning före minst
             {' '}{gate?.required_priced_settled ?? 200} prissatta och avgjorda matcher,
-            {' '}{gate?.required_span_days ?? 60} dagar och en positiv undre 90 %-KI-gräns.</span>
+            {' '}{gate?.required_match_days ?? 20} distinkta matchdygn,
+            {' '}{gate?.required_span_days ?? 30} dygns spann och en positiv undre
+            90 %-KI-gräns. Matchantalet är den statistiska styrkan; dygnskraven finns
+            bara för att de matcherna inte ska komma från ett enda tillfälle —
+            spann ensamt mätte avståndet mellan första och sista observationen,
+            inte spridningen.</span>
 
           {!!Object.keys(gate?.source_roi || {}).length && (
             <>
