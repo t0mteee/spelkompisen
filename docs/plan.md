@@ -99,13 +99,18 @@ Evidens och kontrakt: `docs/kompletterande-kuponger-2026-08-15.md`.
 historiska 5 000-raderstestet slog byggarslump tydligt men passerade inte den
 strikta grinden mot folk-/favoritrad. Ingen ordinarie konfiguration promoveras.
 I stället startar ett separat, research-only point-in-time-test: värderader,
-byggarslump, favoritrader och folkrader fryser exakt 5 000 rader vardera vid
-T−3 h och T−20 min. Nycklarna är uteslutna ur championrapport och automatisk
-promotion, ändrar inga vanliga system och lämnar aldrig in spel. Historik-UI
+byggarslump, favoritrader och maxev fryser exakt 5 000 rader vardera vid
+T−3 h och T−20 min (`folkrad` var fjärde arm till 2026-08-18 men delade
+91,5 % av sina rader med favoritraden och ersattes därför). Nycklarna är
+uteslutna ur championrapport och automatisk promotion, ändrar inga vanliga
+system och lämnar aldrig in spel. Historik-UI
 märker dem 🧪 och poolhälsan larmar separat om någon frysning saknas. Första
-omgång är 4966 med spelstopp 2026-08-15 15:59 CEST; ingen bakfyllning.
+omgång är Stryktipset 4966 med spelstopp 2026-08-15 15:59 CEST och —
+sedan 2026-08-18, efter att täthetssvepet visade att det var EUROPATIPSET som
+passerade grinden — Europatipset 2600 med spelstopp 2026-08-20 18:59 CEST.
+Två separata serier som aldrig delar underlag; ingen bakfyllning.
 Förregistrering och uppföljning:
-`docs/ph5-forward-stryktipset-2026-08-15.md`.
+`docs/ph5-forward-2026-08-15.md`.
 Driftverifieringen rättade samtidigt poolhälsans Topptipslarm: hälsan ska
 jämföra högsta kända omgång via `stored_seed`, inte det avsiktligt lägre
 scanankaret från `seed_hint`.

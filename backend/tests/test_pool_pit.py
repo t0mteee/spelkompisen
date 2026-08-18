@@ -411,6 +411,56 @@ class SystemLedgerTests(unittest.TestCase):
         self.assertTrue(all(g["research"] for g in ph5))
         self.assertTrue(all(not g["promotion_eligible"] for g in ph5))
 
+    def test_ph5_forward_galler_europatipset_fran_egen_startomgang(self):
+        start = pool_system_ledger.PH5_FORWARD_START_DRAW_BY_PRODUCT[
+            "europatipset"]
+        close = NOW + dt.timedelta(minutes=178)
+        draw = _draw_fixture(close, n_events=13, product="europatipset")
+        draw.draw_number = start
+
+        rep = pool_system_ledger.freeze_due(
+            self.store, "europatipset", draw, now=NOW, code_version="test")
+
+        ordinary = len(pool_system_ledger.benchmarks_for("europatipset"))
+        self.assertEqual(ordinary + 4, rep["frozen"])
+        rows = self.store.conn.execute(
+            "SELECT config_key,n_rows,rows_hash FROM pool_system_ledger "
+            "WHERE config_key LIKE 'ph5-v3-%' ORDER BY config_key").fetchall()
+        self.assertEqual(
+            ["ph5-v3-b5000-byggarslump", "ph5-v3-b5000-favoritrad",
+             "ph5-v3-b5000-maxev", "ph5-v3-b5000-medel"], [r[0] for r in rows])
+        self.assertTrue(all(r[1] == 5000 for r in rows))
+        self.assertEqual(4, len({r[2] for r in rows}))   # fyra olika radmängder
+        # Serien får inte bakfyllas: en tidigare omgång ger ingen forwardfamilj.
+        self.assertEqual((), pool_system_ledger.research_configs_for(
+            "europatipset", start - 1))
+        # Och den gäller ENBART de två utpekade produkterna.
+        self.assertEqual((), pool_system_ledger.research_configs_for(
+            "topptipset", start))
+
+    def test_avslutad_ph5_arm_redovisas_men_ar_inte_promotionsbar(self):
+        retired = pool_system_ledger.PH5_RETIRED_CONFIGS[0]["key"]
+        self.assertNotIn(
+            retired, [c["key"] for c in pool_system_ledger.PH5_FORWARD_CONFIGS])
+        self.store.conn.execute(
+            "INSERT INTO pool_system_ledger (product,draw_number,horizon,"
+            "config_key,frozen_at,lag_min,timely,code_version,budget,strategy,"
+            "value_weight,row_price,n_rows,cost_kr,events_order,rows_text,"
+            "rows_hash,n_events_covered) VALUES "
+            "('stryktipset',4966,'h3',?,'2026-08-15T12:00:00Z',2,1,'test',"
+            "5000.0,'folkrad',0.0,1.0,5000,5000.0,'1','1','h',13)",
+            (retired,))
+        self.store.conn.commit()
+
+        groups = {g["config_key"]: g
+                  for g in pool_system_ledger.summary(self.store)["groups"]}
+
+        self.assertIn(retired, groups)              # tystnar inte
+        self.assertTrue(groups[retired]["retired"])
+        self.assertTrue(groups[retired]["research"])
+        self.assertFalse(groups[retired]["promotion_eligible"])
+        self.assertEqual("folkrad", groups[retired]["method"])
+
     def test_freeze_due_ror_inte_stangd_eller_avlagsen_omgang(self):
         closed = _draw_fixture(NOW - dt.timedelta(minutes=5))
         distant = _draw_fixture(NOW + dt.timedelta(hours=30))

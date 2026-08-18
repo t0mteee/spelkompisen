@@ -87,6 +87,56 @@ BENCHMARKS = tuple(
 # men de ingår ALDRIG i `benchmarks_for`, championrapporten eller automatisk
 # promotion. Fyra armar med samma radantal gör testet tolkningsbart.
 PH5_FORWARD_START_DRAW = 4966
+
+# EUROPATIPSET KOM MED 2026-08-18 (Samans beslut). Det var dessutom den
+# produkt som PASSERADE den historiska grinden — mot folk-, favorit- OCH
+# byggarslump på BÅDA budgetarna — medan Stryktipset föll. Att bara följa
+# Stryktipset framåt var alltså att samla data på den svagare hypotesen.
+#
+# Kör hen på 5 000 som Stryktipset, inte på 4 096. Skälet är praktiskt: det är
+# beloppet som faktiskt övervägs, och nycklarna är research-only och kan aldrig
+# promoveras, så budgetvalet är inte ett urval på data i den mening
+# beslutsregeln förbjuder. Men det betyder också att ett FRAMTIDA
+# promotionsargument för Europatipset inte kan luta sig mot den här serien:
+# förregistreringen pekade ut 4 096 som lägsta passerande budget, och den
+# frågan får en egen grind.
+PH5_FORWARD_PRODUCTS = ("stryktipset", "europatipset")
+PH5_FORWARD_START_DRAW_BY_PRODUCT = {
+    "stryktipset": 4966,
+    # Europatipsets serie börjar på 2600, som är öppen med spelstopp
+    # 2026-08-20 18:59 CEST och ännu inte har en enda frysning. Båda
+    # horisonterna ligger alltså i framtiden — det är en äkta point-in-time-
+    # start, inte bakfyllning. Ett system byggt efter facit vore falsk evidens.
+    "europatipset": 2600,
+}
+
+# FOLKRAD ÄR AVSLUTAD 2026-08-18 — den var en dubblett, inte en kontroll.
+#
+# Uppmätt på omgång 4966: `favoritrad` och `folkrad` delade 4 576 av 5 000
+# exakta rader vid h3 (91,5 %) och 4 503 av 5 000 vid m20 (90,1 %). Båda gav
+# dessutom identiskt facit, 9 respektive 8 rätt. Det är väntat — poolfolkets
+# streck ligger nära marknadens sannolikhet på teckennivå — men det betyder
+# att "slå tre kontroller" i praktiken var "slå två". Till jämförelse delade
+# `varderader` bara 1–2 % av raderna med dem och 12 % med byggarslump.
+#
+# Att blanda ihop dem till en kombinerad arm hade inte hjälpt: en blandning av
+# två 91-procentigt identiska rankningar är samma rankning igen. Slotten går
+# därför till `maxev`, som testar något ingen annan arm gör — byggarens EGEN
+# balansknapp. Ordinarie medel kör `träffchans^1 × EV`; maxev kör ren EV utan
+# träffchansdämpning (`value_weight=1.0`, k=0). Skiljer de sig i facit vet vi
+# att knappen bär vikt; gör de inte det är den ett reglage utan verkan.
+#
+# De frysta folkrad-raderna från 4966 ligger kvar (append-once) och redovisas
+# som en avslutad arm. De får inte blandas in i maxev-serien. Nyckeln står
+# därför kvar i `PH5_RETIRED_CONFIGS`: översikten filtrerar bort config_key:er
+# som inte hör till någon känd familj (för att en b1024-rad på ett 8-matchsspel
+# inte ska se ut som en levande utmanare), och utan den här listan hade
+# folkraden tystnat i stället för att redovisas som avslutad.
+PH5_RETIRED_CONFIGS = (
+    {"key": "ph5-v3-b5000-folkrad", "budget": 5000.0,
+     "strategy": "folkrad", "value_weight": 0.0,
+     "method": "folkrad"},
+)
 PH5_FORWARD_CONFIGS = (
     {"key": "ph5-v3-b5000-medel", "budget": 5000.0,
      "strategy": "medel", "value_weight": 0.5,
@@ -97,9 +147,9 @@ PH5_FORWARD_CONFIGS = (
     {"key": "ph5-v3-b5000-favoritrad", "budget": 5000.0,
      "strategy": "favoritrad", "value_weight": 0.0,
      "method": "favoritrad"},
-    {"key": "ph5-v3-b5000-folkrad", "budget": 5000.0,
-     "strategy": "folkrad", "value_weight": 0.0,
-     "method": "folkrad"},
+    {"key": "ph5-v3-b5000-maxev", "budget": 5000.0,
+     "strategy": "maxev", "value_weight": 1.0,
+     "method": "maxev"},
 )
 
 # BUDGETTAK FÖR 8-MATCHSSPELEN (Samans beslut 2026-08-09).
@@ -138,9 +188,11 @@ def benchmarks_for(product: str) -> tuple[dict, ...]:
 def research_configs_for(product: str,
                          draw_number: Optional[int] = None) -> tuple[dict, ...]:
     """PH5:s separata forwardfamilj; aldrig en del av promotionsfamiljen."""
-    if product != "stryktipset":
+    if product not in PH5_FORWARD_PRODUCTS:
         return ()
-    if draw_number is not None and draw_number < PH5_FORWARD_START_DRAW:
+    start = PH5_FORWARD_START_DRAW_BY_PRODUCT.get(
+        product, PH5_FORWARD_START_DRAW)
+    if draw_number is not None and draw_number < start:
         return ()
     return PH5_FORWARD_CONFIGS
 
@@ -210,6 +262,16 @@ def _ph5_control_rows(analysis: DrawAnalysis, config: dict,
     method = config["method"]
     if method in ("folkrad", "favoritrad"):
         return _ph5_binary_rows(analysis, target, method)
+    if method == "maxev":
+        # Samma byggare, enda skillnaden är balansknappen: k = 2·(1−vw), så
+        # vw=1.0 ger k=0 och alltså ren EV utan träffchansdämpning. Den delar
+        # kandidatuniversum och vinstplan med ordinarie medel, vilket är hela
+        # poängen — skillnaden i facit ÄR knappens effekt.
+        system = build_ev_system(
+            analysis, "maxev", config["budget"], row_price=row_price,
+            value_weight=1.0, plan=_prize_plan(analysis.product),
+            jackpot=0.0)
+        return [list(row) for row in system.rows]
     if method != "byggarslump":
         raise ValueError(f"okänd PH5-kontroll: {method}")
     signs, _universe = ev_candidate_signs(analysis, value_weight=0.5)
@@ -452,6 +514,10 @@ def _bench(key: str, stored: Optional[dict] = None) -> dict:
     for config in PH5_FORWARD_CONFIGS:
         if config["key"] == key:
             return {**config, "primary": False, "retired": False,
+                    "research": True, "promotion_eligible": False}
+    for config in PH5_RETIRED_CONFIGS:
+        if config["key"] == key:
+            return {**config, "primary": False, "retired": True,
                     "research": True, "promotion_eligible": False}
     stored = stored or {}
     return {"key": key, "budget": stored.get("budget"),
@@ -793,7 +859,8 @@ def summary(store: Storage) -> dict:
         if not any(b["key"] == key for b in benchmarks_for(product)) \
                 and key not in RETIRED_KEYS \
                 and not any(c["key"] == key
-                            for c in research_configs_for(product)):
+                            for c in research_configs_for(product)) \
+                and not any(c["key"] == key for c in PH5_RETIRED_CONFIGS):
             # Utanför produktens familj (t.ex. b1024 på ett 8-matchsspel):
             # varvet fryser den inte längre, så den ska inte heller stå kvar
             # i tabellen och se ut som en levande utmanare. Pensionerade

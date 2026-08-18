@@ -219,6 +219,6 @@ konservativa hållet.
    är en enda omgång (4906), där en slumpmängd fick ROI +380. Winsoriseringen
    är förregistrerad och därmed estimandet, men den klipper bort exakt den
    händelse man köper 5 000 rader för. Formuleringen "slog byggarslump
-   tydligt" i `docs/ph5-forward-stryktipset-2026-08-15.md` ska läsas med det i
+   tydligt" i `docs/ph5-forward-2026-08-15.md` ska läsas med det i
    minnet — den historiska ablationen kan inte avgöra saken åt något håll, och
    det är i sig ett argument för att samla forward-data.
