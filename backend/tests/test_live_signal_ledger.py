@@ -953,7 +953,8 @@ class BlindGateTests(unittest.TestCase):
 
     def test_gate_passes_on_positive_lower_ci(self):
         with patch.object(live_signal_ledger, "BLIND_MIN_PRICED", 3), \
-                patch.object(live_signal_ledger, "BLIND_MIN_DAYS", 1):
+                patch.object(live_signal_ledger, "BLIND_MIN_DAYS", 1), \
+                patch.object(live_signal_ledger, "BLIND_MIN_MATCHDAYS", 1):
             self._seed([1.0, 1.0, 1.0, 1.0])
             gate = live_signal_ledger.facit(self.store)["blind_gate"]
         self.assertEqual("pass", gate["status"])
@@ -961,14 +962,16 @@ class BlindGateTests(unittest.TestCase):
 
     def test_gate_withholds_support_on_negative_roi(self):
         with patch.object(live_signal_ledger, "BLIND_MIN_PRICED", 3), \
-                patch.object(live_signal_ledger, "BLIND_MIN_DAYS", 1):
+                patch.object(live_signal_ledger, "BLIND_MIN_DAYS", 1), \
+                patch.object(live_signal_ledger, "BLIND_MIN_MATCHDAYS", 1):
             self._seed([-1.0, -1.0, -1.0, -1.0])
             gate = live_signal_ledger.facit(self.store)["blind_gate"]
         self.assertEqual("no_support", gate["status"])
 
     def test_escalation_never_doubles_the_blind_cohort(self):
         with patch.object(live_signal_ledger, "BLIND_MIN_PRICED", 3), \
-                patch.object(live_signal_ledger, "BLIND_MIN_DAYS", 1):
+                patch.object(live_signal_ledger, "BLIND_MIN_DAYS", 1), \
+                patch.object(live_signal_ledger, "BLIND_MIN_MATCHDAYS", 1):
             self._seed([1.0, 1.0, 1.0])
             # Stark-eskalering på match m0, också prissatt och settlad —
             # den får synas i nivågrupperna men ALDRIG i blindkohorten.
@@ -1094,6 +1097,81 @@ class SourceRoiTests(unittest.TestCase):
                     "under_odds": 1.8, "selected": 1}])
         per = live_signal_ledger.facit(self.store)["blind_gate"]["source_roi"]
         self.assertEqual({}, per)
+
+
+class CanonicalMatchTests(unittest.TestCase):
+    """Livekort→Oddset-identitet: ett lag räcker, men aldrig vid tvetydighet."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self._tmp.name) / "test.db")
+
+    def tearDown(self):
+        self.store.close()
+        self._tmp.cleanup()
+
+    def _oddset(self, mid, home, away, *, minutes=0, league="belgian_pro_league"):
+        self.store.oddset_upsert_match({
+            "id": mid, "league": league, "home": home, "away": away,
+            "start": iso(NOW + dt.timedelta(minutes=minutes)),
+            "pinnacle_id": mid.split(":")[-1], "kambi_id": "9" + mid.split(":")[-1],
+        })
+
+    def _live(self, home, away, *, league="belgian_pro_league", minutes=0):
+        return {"league": league, "home": home, "away": away,
+                "start_at": iso(NOW + dt.timedelta(minutes=minutes)),
+                "captured_at": iso(NOW)}
+
+    def test_ett_lag_racker_nar_avspark_och_liga_ar_samma(self):
+        # Uppmätt fall: `Charleroi` mot Oddsets `Sporting de Charleroi`.
+        self._oddset("pin:501", "Lommel SK", "Sporting de Charleroi", minutes=3)
+        hit = live_signal_ledger._canonical_match(
+            self.store, self._live("Lommel SK", "Charleroi"))
+        self.assertIsNotNone(hit)
+        self.assertEqual("pin:501", hit["id"])
+
+    def test_bada_lagen_strikt_gar_fore(self):
+        self._oddset("pin:502", "KRC Genk", "Westerlo", minutes=5)
+        self._oddset("pin:503", "Genk", "Westerlo", minutes=1)
+        hit = live_signal_ledger._canonical_match(
+            self.store, self._live("Genk", "Westerlo"))
+        self.assertEqual("pin:503", hit["id"], "strikt träff ska vinna")
+
+    def test_tva_ensidiga_kandidater_ger_ingen_lankning(self):
+        # Westerlo förekommer i TVÅ Oddset-rader i samma liga och samma
+        # tidsfönster (dubblett eller flyttad match). Livekortet delar då ett
+        # lag med båda. Att välja den närmaste i tid vore en gissning, så
+        # steg 3 ska avstå helt.
+        self._oddset("pin:504", "Club Brugge", "Westerlo")
+        self._oddset("pin:505", "Westerlo", "Anderlecht", minutes=1)
+        self.assertIsNone(live_signal_ledger._canonical_match(
+            self.store, self._live("Genk", "Westerlo")))
+
+    def test_truppmarkor_lankas_aldrig_med_ett_lag(self):
+        # `Inter` mot `Como` och `Inter U23` mot `Como` är två matcher.
+        self._oddset("pin:506", "Inter U23", "Como")
+        self.assertIsNone(live_signal_ledger._canonical_match(
+            self.store, self._live("Inter", "Como")))
+
+    def test_fel_liga_lankas_aldrig(self):
+        self._oddset("pin:507", "Lommel SK", "Sporting de Charleroi",
+                     league="danish_superliga")
+        self.assertIsNone(live_signal_ledger._canonical_match(
+            self.store, self._live("Lommel SK", "Charleroi")))
+
+    def test_for_stor_avsparksskillnad_lankas_aldrig_pa_ett_lag(self):
+        # Ett lag räcker BARA inom LINK_START_TOLERANCE_MIN — annars kan det
+        # vara nästa omgångs match mot en annan motståndare.
+        self._oddset("pin:508", "Lommel SK", "Sporting de Charleroi",
+                     minutes=live_radar.LINK_START_TOLERANCE_MIN + 20)
+        self.assertIsNone(live_signal_ledger._canonical_match(
+            self.store, self._live("Lommel SK", "Charleroi")))
+
+    def test_speglad_orientering_lankas(self):
+        self._oddset("pin:509", "Sporting de Charleroi", "Lommel SK", minutes=2)
+        hit = live_signal_ledger._canonical_match(
+            self.store, self._live("Lommel SK", "Charleroi"))
+        self.assertEqual("pin:509", hit["id"])
 
 
 if __name__ == "__main__":

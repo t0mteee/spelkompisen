@@ -22,7 +22,23 @@ from .oddset import _team_sim
 from .storage import Storage
 
 BLIND_MIN_PRICED = 200
-BLIND_MIN_DAYS = 60
+
+# TIDSKRAVET ÄR OMVÄGT 2026-08-18 (Samans beslut, fattat när v10 hade noll
+# rader — alltså utan att kunna se vad det gör med ett pågående resultat).
+#
+# Det gamla kravet var 60 dygns SPANN. Två problem: (1) med den takt kohorten
+# faktiskt fylls binder det långt efter matchkravet och skjuter beslutet
+# månader framåt utan att tillföra bevis; (2) spann mäter avståndet mellan
+# första och sista observationen, inte spridningen — 200 signaler på tre dygn
+# med 60 dygn emellan hade passerat.
+#
+# Kravet delas därför i två som var för sig är svagare men tillsammans mäter
+# det spannet försökte proxa för: att signalerna inte är EN klunga. Distinkta
+# dygn är det direkta måttet på klustring; spannet blir kvar som ett grovt
+# säsongsskydd (en Över-signal mätt enbart i augusti behöver inte hålla i
+# november).
+BLIND_MIN_DAYS = 30
+BLIND_MIN_MATCHDAYS = 20
 BOOTSTRAP_ITERS = 2000
 PINNACLE_LIVE_MAX_AGE_S = 90
 
@@ -49,38 +65,94 @@ def _at(value: str) -> dt.datetime:
 
 
 def _canonical_match(store: Storage, row: dict) -> Optional[dict]:
-    """Konservativ livekort→Oddset-identitet för Kambi-id:t.
+    """Livekort→Oddset-identitet i tre steg, precis som provider↔provider.
 
-    Samma liga, samma två lag och högst tre timmars startskillnad. Tvetydig
-    topplacering ger ingen match och därmed inget odds — vi gissar aldrig.
+    Steg 1 är oförändrat: samma liga, BÅDA lagen strikt, högst tre timmars
+    startskillnad. Det som är nytt är att ett misslyckande där inte längre är
+    slutet.
+
+    UPPMÄTT 2026-08-18: 66 av 187 signaler (35 %) föll på `no_canonical_match`.
+    I 64 av dem FANNS Oddset-matchen, hade `kambi_id` och började inom några
+    minuter — det som fällde dem var att ETT lagnamn stavades annorlunda:
+    `Dep. A Coruna`/`Dep. La Coruña`, `Charleroi`/`Sporting de Charleroi`,
+    `Nordsjaelland`/`FC Nordsjälland`, `Genk`/`KRC Genk`, `LA Galaxy`/
+    `Los Angeles Galaxy`. Motståndaren matchade exakt i varje fall. Noll av de
+    64 var tvetydiga.
+
+    Steg 3 vilar därför på samma bevis som `live_radar._one_side_candidates`:
+    **ett lag spelar en match i taget.** Delar två rader liga och avspark inom
+    `LINK_START_TOLERANCE_MIN`, och är ett av lagen samma, kan de omöjligen
+    vara olika matcher. Truppmarkörer (U23/B/dam) måste stämma på BÅDA sidor —
+    `Inter` mot `Como` och `Inter U23` mot `Como` är två skilda matcher.
+
+    Varje steg kräver EXAKT en kandidat. Två kandidater är ett avslag, aldrig
+    en gissning: hellre inget pris än ett pris på fel match.
     """
     anchor = _at(row.get("start_at") or row["captured_at"])
-    candidates = store.oddset_matches(
-        _iso(anchor - dt.timedelta(hours=3)),
-        _iso(anchor + dt.timedelta(hours=3)))
-    matches: list[tuple[float, dict]] = []
-    for candidate in candidates:
-        if candidate.get("league") != row.get("league"):
-            continue
-        direct = (live_radar._same_team(candidate.get("home"), row.get("home"))
-                  and live_radar._same_team(
-                      candidate.get("away"), row.get("away")))
-        mirrored = (live_radar._same_team(candidate.get("home"), row.get("away"))
-                    and live_radar._same_team(
-                        candidate.get("away"), row.get("home")))
-        if not direct and not mirrored:
-            continue
+    candidates = [
+        candidate for candidate in store.oddset_matches(
+            _iso(anchor - dt.timedelta(hours=3)),
+            _iso(anchor + dt.timedelta(hours=3)))
+        if candidate.get("league") == row.get("league")
+    ]
+
+    def _delta(candidate: dict) -> float:
         try:
-            delta = abs((_at(candidate["start"]) - anchor).total_seconds())
+            return abs((_at(candidate["start"]) - anchor).total_seconds())
         except (KeyError, TypeError, ValueError):
-            delta = 3 * 3600
-        matches.append((delta, candidate))
-    matches.sort(key=lambda item: (item[0], item[1]["id"]))
-    if not matches:
+            return 3 * 3600
+
+    def _pick(hits: list[dict]) -> Optional[dict]:
+        """Exakt en kandidat, annars ingen. Vid lika avstånd: avslag."""
+        if len(hits) == 1:
+            return hits[0]
+        if len(hits) > 1:
+            ordered = sorted(hits, key=lambda c: (_delta(c), c["id"]))
+            if _delta(ordered[0]) < _delta(ordered[1]):
+                return ordered[0]
         return None
-    if len(matches) > 1 and matches[0][0] == matches[1][0]:
-        return None
-    return matches[0][1]
+
+    def _both(same) -> list[dict]:
+        out = []
+        for candidate in candidates:
+            direct = (same(candidate.get("home"), row.get("home"))
+                      and same(candidate.get("away"), row.get("away")))
+            mirrored = (same(candidate.get("home"), row.get("away"))
+                        and same(candidate.get("away"), row.get("home")))
+            if direct or mirrored:
+                out.append(candidate)
+        return out
+
+    # Steg 1–2: båda lagen, först strikt och sedan i kontext.
+    for same in (live_radar._same_team, live_radar._same_team_in_context):
+        hit = _pick(_both(same))
+        if hit is not None:
+            return hit
+
+    # Steg 3: ETT lag räcker — men bara med samma avspark och samma trupp.
+    def _squads_agree(left: str, right: str) -> bool:
+        return live_radar._squad(live_radar.live_norm_team(left or "")) == \
+            live_radar._squad(live_radar.live_norm_team(right or ""))
+
+    same = live_radar._same_team_in_context
+    one_side = []
+    for candidate in candidates:
+        if _delta(candidate) > live_radar.LINK_START_TOLERANCE_MIN * 60:
+            continue
+        home, away = candidate.get("home"), candidate.get("away")
+        direct = ((same(home, row.get("home")) or same(away, row.get("away")))
+                  and _squads_agree(home, row.get("home"))
+                  and _squads_agree(away, row.get("away")))
+        mirrored = ((same(home, row.get("away")) or same(away, row.get("home")))
+                    and _squads_agree(home, row.get("away"))
+                    and _squads_agree(away, row.get("home")))
+        if direct or mirrored:
+            one_side.append(candidate)
+    # Steg 3 tar INTE den närmaste av flera. `_pick` får välja på avspark när
+    # båda lagen bevisats, men med bara ett lag är "närmast i tid" en gissning:
+    # två rader som delar ett lag är antingen ett datafel eller två olika
+    # matcher, och ingendera får bli ett pris.
+    return one_side[0] if len(one_side) == 1 else None
 
 
 # Bekräftade resultatnamn som är semantiskt samma klubb men inte kan lösas av
@@ -882,6 +954,9 @@ def _summary(rows: list[dict]) -> dict:
         "avg_goals_after": (round(sum(goals) / len(goals), 3)
                             if goals else None),
         "span_days": ((max(dates) - min(dates)).days if len(dates) >= 2 else 0),
+        # Distinkta dygn, inte spann: 200 spel på tre dygn är tre dygns bevis
+        # hur långt isär de än ligger.
+        "n_match_days": len({moment.date() for moment in dates}),
     }
 
 
@@ -895,11 +970,13 @@ def _version_facit(rows: list[dict]) -> dict:
     blind = _summary(first)
     ci = blind.get("roi_ci90")
     enough = (blind["n_priced_settled"] >= BLIND_MIN_PRICED and
-              blind["span_days"] >= BLIND_MIN_DAYS)
+              blind["span_days"] >= BLIND_MIN_DAYS and
+              blind["n_match_days"] >= BLIND_MIN_MATCHDAYS)
     blind_gate = {
         **blind,
         "required_priced_settled": BLIND_MIN_PRICED,
         "required_span_days": BLIND_MIN_DAYS,
+        "required_match_days": BLIND_MIN_MATCHDAYS,
         "status": ("collecting" if not enough else
                    "pass" if ci and ci[0] > 0 else "no_support"),
         "unit": "första aktiva signalen per match",

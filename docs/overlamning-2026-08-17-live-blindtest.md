@@ -481,3 +481,76 @@ scrollbredden och döljer precis det man letar efter):
 Metodnot för nästa gång: leta efter element som spiller över OCH saknar en
 ancestor med `overflow-x: auto|scroll|hidden`. Utan det villkoret drunknar de
 verkliga felen i avsiktligt svepbara listor.
+
+## Tillägg 2026-08-18 (kväll) — identiteten var buggen, inte oddsen
+
+Samans iakttagelse: det är fel beteende att vi signalerar matcher utan
+liveodds, eftersom odds finns i 99 % av fallen. Och: prematch-kopplingen borde
+gå att återanvända när matchen väl är live.
+
+Båda stämde. **Uppmätt: 66 av 187 signaler (35 %) föll på
+`no_canonical_match`. I 64 av dem FANNS Oddset-matchen, hade `kambi_id` och
+började inom några minuter.** Det som fällde dem var att ETT lagnamn stavades
+annorlunda hos livekällan:
+
+| livekort | Oddset |
+|---|---|
+| `Dep. A Coruna` | `Dep. La Coruña` |
+| `Charleroi` | `Sporting de Charleroi` |
+| `Nordsjaelland` | `FC Nordsjälland` |
+| `Genk` | `KRC Genk` |
+| `Club Brugge KV` | `Club Brugge` |
+| `LA Galaxy` | `Los Angeles Galaxy` |
+| `IBV Vestmannaeyjar` | `ÍB Vestmennaeyjar` |
+
+Motståndaren matchade exakt i varje fall. **Noll av de 64 var tvetydiga.**
+
+`_canonical_match` har därför samma trestegsstege som provider↔provider-länken
+redan använder, och lånar `live_radar`s hjälpfunktioner i stället för att
+skriva en parallell:
+
+1. båda lagen strikt (oförändrat, går alltid först);
+2. båda lagen i kontext;
+3. **ETT lag räcker** — men bara inom `LINK_START_TOLERANCE_MIN` och med
+   samma truppmarkör på båda sidor. Beviset är att ett lag spelar en match i
+   taget: delar två rader liga och avspark, och är ett lag samma, kan de
+   omöjligen vara olika matcher.
+
+Steg 3 tar **inte** den närmaste av flera kandidater. `_pick` får välja på
+avspark när båda lagen är bevisade, men med bara ett lag är "närmast i tid" en
+gissning. Två kandidater ⇒ inget pris. Låst av
+`CanonicalMatchTests` (ett lag räcker, strikt går före, tvetydighet avslås,
+truppmarkör avslås, fel liga avslås, för stor avsparksskillnad avslås,
+spegelvänd orientering länkas).
+
+Ommätt efter ändringen: **64 av 66 länkas nu, alla 64 med `kambi_id`.** De två
+kvarvarande hade ingen Oddset-match alls i fönstret.
+
+Notera vad detta INTE är: signalerna slutar inte sparas när priset saknas. Att
+utesluta oprissatta signaler ur journalen vore selektionsbias — en bok som
+stänger marknaden när den är osäker skulle då tysta just de matcherna ur sin
+egen serie. De räknas fortsatt i täckningen och bara de prissatta ingår i ROI.
+Journalen har redan ett prisfilter i UI:t för den som bara vill se de spelbara.
+
+## Tillägg 2026-08-18 (kväll) — tidskravet i grinden
+
+Samans beslut: antalet matcher ska väga tyngre än antalet dagar. Fattat när
+v10 hade **noll rader**, alltså utan att kunna se vad ändringen gör med ett
+pågående resultat — vilket är enda tillfället en grind får röras.
+
+Gamla kravet var 60 dygns SPANN. Två problem:
+
+1. med den takt kohorten faktiskt fylls binder det långt efter matchkravet och
+   skjuter beslutet månader framåt utan att tillföra bevis;
+2. **spann mäter avståndet mellan första och sista observationen, inte
+   spridningen.** 200 signaler på tre dygn med 60 dygn emellan hade passerat.
+   Kravet gjorde alltså inte det man trodde att det gjorde.
+
+Kravet är därför delat i två som tillsammans mäter det spannet försökte proxa
+för: `BLIND_MIN_DAYS = 30` (grovt säsongsskydd — en Över-signal mätt enbart i
+augusti behöver inte hålla i november) och nya
+`BLIND_MIN_MATCHDAYS = 20` distinkta dygn (det direkta måttet på klustring).
+`n_match_days` och `required_match_days` ligger i summeringen.
+
+Matchkravet 200 är OFÖRÄNDRAT. Det är den statistiska styrkan; dagarna är bara
+ett skydd mot att de 200 kommer från ett enda tillfälle.
