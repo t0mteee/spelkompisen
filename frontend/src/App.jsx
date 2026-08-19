@@ -3183,6 +3183,107 @@ function LiveScorecard({ live }) {
   )
 }
 
+/* VILKA rader som lever. Nivåtabellen säger "2 rader kvar till 8 rätt" men
+   pekar inte ut någon av dem — på en kupong med hundratals rader är det inte
+   handlingsbart. Här står radnumret, hur många rätt raden har säkrat och,
+   det som faktiskt betyder något, vilket tecken den behöver i varje match som
+   ÄR KVAR.
+
+   Listan hänger på en VALD NIVÅ, inte på "kan nå något". Topptipset har åtta
+   matcher men bara 8 rätt delar potten, så "lever mot golvnivån" var 184 av
+   256 rader och sa ingenting. Nivåknapparna bär `alive_per_level`, som är
+   räknad på hela kupongen och därför sann även när radlistan är kapad.
+
+   En struken match och ett obelagt förlängningstecken räknas som kvarvarande,
+   så raden visas med det tecken den BEHÖVER — aldrig med ett tecken vi gissat
+   åt Svenska Spel. */
+function AliveRowsTable({ live }) {
+  const [open, setOpen] = useState(false)
+  const [level, setLevel] = useState(null)
+  const rows = live?.alive_rows || []
+  const cols = live?.alive_rows_open_cols || []
+  const perLevel = live?.alive_per_level || {}
+  const levels = Object.keys(perLevel).map(Number)
+    .filter((l) => perLevel[l] > 0).sort((a, b) => b - a)
+  if (!rows.length || !cols.length || !levels.length) return null
+  const shownLevel = level != null && perLevel[level] ? level : levels[0]
+  const held = rows.filter((r) => r.possible >= shownLevel)
+  const truth = perLevel[shownLevel]
+  const byCol = Object.fromEntries((live.matches || []).map((m) => [m.col, m]))
+  const label = (col) => {
+    const m = byCol[col]
+    if (!m) return `M${col}`
+    return m.home || (m.description || '').split(/\s+[–-]\s+/)[0] || `M${col}`
+  }
+  const full = (col) => {
+    const m = byCol[col]
+    return m ? (m.description || [m.home, m.away].filter(Boolean).join(' – ')) : `Match ${col}`
+  }
+  return (
+    <div className="aliverows">
+      <button className="linkbtn" onClick={() => setOpen(!open)}
+        title="Radnummer, säkrade rätt och vilket tecken varje överlevande rad behöver i matcherna som är kvar.">
+        {open ? 'Dölj vilka rader' : 'Visa vilka rader'}
+      </button>
+      {open && (
+        <>
+          <div className="aliverows-levels">
+            {levels.map((l) => (
+              <button key={l} type="button"
+                className={l === shownLevel ? 'on' : ''}
+                onClick={() => setLevel(l)}
+                title={`${perLevel[l]} rader kan fortfarande nå ${l} rätt`}>
+                {l} rätt<i>{perLevel[l]}</i>
+              </button>
+            ))}
+          </div>
+          <div className="tablewrap">
+            <table className="grid compact aliverows-table">
+              <thead>
+                <tr>
+                  <th title="Radens nummer i kupongen, i samma ordning som filen du lämnade in.">rad</th>
+                  <th title="Rätt som redan står fast.">rätt nu</th>
+                  {/* `max` är `rätt nu` plus antalet kvarvarande matcher —
+                      samma konstant för varje rad. Bekvämt på desktop, men
+                      det är den kolumn som får stryka på foten när tre
+                      matchkolumner ska rymmas på 375 px. */}
+                  <th className="ar-max"
+                    title="Bästa antal rätt raden fortfarande kan nå.">max</th>
+                  {cols.map((col) => (
+                    <th key={col} title={full(col)}>
+                      {/* Matchnumret binder kolumnen till liverättningen
+                          ovanför. Lagnamnet kortas på mobil, numret aldrig. */}
+                      <i>{col}</i><span>{label(col)}</span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {held.map((r) => (
+                  <tr key={r.n}>
+                    <td className="hint">{r.n}</td>
+                    <td><b>{r.secure}</b></td>
+                    <td className="ar-max">{r.possible}</td>
+                    {r.open.map((o) => (
+                      <td key={o.col} className="ar-sign">{o.sign}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {/* Radlistan är kapad; nivåräknaren är det inte. Säg vilket tal som
+              är hela sanningen i stället för att låta tabellhöjden ljuga. */}
+          {truth > held.length && (
+            <p className="hint">Visar {held.length} av {truth} rader som kan nå
+              {' '}{shownLevel} rätt — de med flest säkrade rätt.</p>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 /* Ett pågående system i siffror: hur långt raderna kommit och vad oddsen på
    de kvarvarande matcherna säger om chansen per vinstnivå. Sannolikheterna
    räknas i backend över HELA utfallsrummet — raderna delar ju matcher, så en
@@ -3279,6 +3380,7 @@ function PlayedLiveCard({ c, onForget }) {
               })}
             </tbody>
           </table>}
+          {!live.out_of_contention && <AliveRowsTable live={live} />}
           <p className="hint">
             {live.chance_note ? `Ingen chans visas: ${live.chance_note}.`
               : live.chance_unpriced?.length
@@ -3449,11 +3551,24 @@ function PlayedPanel({ product = null }) {
       })
       .then((local) => {
         const hasOpen = (local.coupons || []).some((coupon) => !coupon.settled_at)
-        setData({
-          ...local,
-          coupons: (local.coupons || []).map((coupon) => (
-            !coupon.settled_at && hasOpen ? { ...coupon, live_pending: true } : coupon
-          )),
+        // BEHÅLL föregående livestatus medan den nya hämtas. Utan det blir
+        // `live` odefinierad i ~en halv sekund var 60:e sekund, och hela
+        // kortkroppen UNMOUNTAS — vilket nollställer allt öppet tillstånd i
+        // den. Radlistan man just slagit upp slog alltså igen av sig själv en
+        // gång i minuten. Den visade statusen är en verklig observation som
+        // är högst en minut gammal, och `live_pending` säger redan att en ny
+        // är på väg; att blanka den var varken färskare eller ärligare.
+        setData((current) => {
+          const previous = Object.fromEntries(
+            (current?.coupons || []).filter((c) => c.live).map((c) => [c.id, c.live]))
+          return {
+            ...local,
+            coupons: (local.coupons || []).map((coupon) => (
+              !coupon.settled_at && hasOpen
+                ? { ...coupon, live_pending: true, live: previous[coupon.id] }
+                : coupon
+            )),
+          }
         })
         if (hasOpen) {
           fetch(`/api/pool/played?_t=${stamp}`, { cache: 'no-store' })

@@ -3,6 +3,7 @@ import json
 import random
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 from unittest.mock import patch
 
@@ -170,6 +171,91 @@ class LiveStatusTests(unittest.TestCase):
         self.assertEqual(2, proven["n_decided"])
         self.assertTrue(proven["all_decided"])
         self.assertEqual(1, proven["alive_per_level"][2])
+
+
+class AliveRowsTests(unittest.TestCase):
+    """VILKA rader som lever — aggregatet ensamt går inte att agera på."""
+
+    def _tretton(self, decided_signs, rows):
+        """13 matcher där de tre sista är oavgjorda."""
+        states = []
+        for i, sign in enumerate(decided_signs, start=1):
+            score = {"1": ("1", "0"), "X": ("1", "1"), "2": ("0", "1")}[sign]
+            states.append(pool_played.event_state(_event(*score, number=i)))
+        for i in range(len(decided_signs) + 1, 14):
+            states.append(pool_played.event_state(
+                _event("0", "0", status_id=6, number=i)))
+        return {"rows_text": "\n".join(rows), "cost_kr": float(len(rows))}, states
+
+    def test_visar_radnummer_sakra_ratt_och_vad_raden_behover(self):
+        facit = "1111111111"                      # matcherna 1–10 slutade 1
+        rader = ["1111111111" + "1X2",            # 10 säkra, kan nå 13
+                 "1111111111" + "XX1",            # 10 säkra, kan nå 13
+                 "111111111X" + "122",            # 9 säkra, kan nå 12
+                 "11111111XX" + "222"]            # 8 säkra, kan nå 11
+        coupon, states = self._tretton(facit, rader)
+
+        live = pool_played.live_status(coupon, states, include_chance=False)
+
+        self.assertEqual(2, live["alive_per_level"][13])
+        self.assertEqual(3, live["alive_per_level"][12])
+        # Samma tal som förut — men nu går de att peka ut.
+        self.assertEqual([11, 12, 13], live["alive_rows_open_cols"])
+        self.assertEqual(4, live["alive_rows_total"])
+        rows = live["alive_rows"]
+        self.assertEqual([1, 2, 3, 4], [r["n"] for r in rows])   # säkra fallande
+        self.assertEqual([10, 10, 9, 8], [r["secure"] for r in rows])
+        self.assertEqual([13, 13, 12, 11], [r["possible"] for r in rows])
+        self.assertEqual([{"col": 11, "sign": "1"},
+                          {"col": 12, "sign": "X"},
+                          {"col": 13, "sign": "2"}], rows[0]["open"])
+        self.assertEqual("XX1", "".join(o["sign"] for o in rows[1]["open"]))
+
+    def test_dod_rad_listas_inte(self):
+        # Golvnivån på ett 13-matchsspel är 10 rätt. En rad med 6 säkra och
+        # 3 öppna kan som mest nå 9 och ska alltså inte stå i listan.
+        facit = "1111111111"
+        rader = ["1111111111" + "111",            # lever
+                 "1111112222" + "111"]            # 6 säkra ⇒ max 9
+        coupon, states = self._tretton(facit, rader)
+
+        live = pool_played.live_status(coupon, states, include_chance=False)
+
+        self.assertEqual([1], [r["n"] for r in live["alive_rows"]])
+        self.assertEqual(1, live["alive_rows_total"])
+
+    def test_listan_kapas_men_totalen_ar_sann(self):
+        facit = "1111111111"
+        rader = ["1111111111" + a + b + c
+                 for a in "1X2" for b in "1X2" for c in "1X2"]   # 27 rader
+        coupon, states = self._tretton(facit, rader)
+
+        live = pool_played.live_status(coupon, states, include_chance=False)
+        self.assertEqual(27, live["alive_rows_total"])
+
+        with unittest.mock.patch.object(pool_played, "ALIVE_ROWS_MAX", 5):
+            kapad = pool_played.live_status(coupon, states, include_chance=False)
+        self.assertEqual(5, len(kapad["alive_rows"]))
+        self.assertEqual(27, kapad["alive_rows_total"])   # totalen ljuger inte
+
+    def test_struken_och_obelagd_forlangning_visas_som_oppna_kolumner(self):
+        # Båda är öppna enligt _decided, så raden ska redovisas med det tecken
+        # den BEHÖVER — aldrig med ett tecken vi gissat åt Svenska Spel.
+        struken = pool_played.event_state(
+            _event(None, None, cancelled=True, number=1))
+        provisorisk = {"event_number": 2, "final": True, "cancelled": False,
+                       "sign": "1", "sign_provisional": True,
+                       "extra_time": True}
+        klar = pool_played.event_state(_event("1", "0", number=3))
+        coupon = {"rows_text": "2X1\n111", "cost_kr": 2.0}
+
+        live = pool_played.live_status(coupon, [struken, provisorisk, klar],
+                                       include_chance=False)
+
+        self.assertEqual([1, 2], live["alive_rows_open_cols"])
+        self.assertEqual("2X", "".join(
+            o["sign"] for o in live["alive_rows"][0]["open"]))
+        self.assertTrue(all(r["secure"] == 1 for r in live["alive_rows"]))
 
 
 class SettleTests(unittest.TestCase):

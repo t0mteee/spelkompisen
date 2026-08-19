@@ -554,3 +554,80 @@ augusti behöver inte hålla i november) och nya
 
 Matchkravet 200 är OFÖRÄNDRAT. Det är den statistiska styrkan; dagarna är bara
 ett skydd mot att de 200 kommer från ett enda tillfälle.
+
+## Tillägg 2026-08-19: liverättningen visar VILKA rader som lever
+
+Nivåtabellen sa "2 rader kvar till 8 rätt" utan att peka ut någon av dem. På en
+256-raderskupong är det inte handlingsbart — Saman kunde se antalet sjunka men
+inte vilka rader det gällde, alltså inte heller vad han skulle heja på utöver
+`cheer`s per-match-svar.
+
+### Nytt i `pool_played.live_status`
+
+`_alive_rows` returnerar tre fält:
+
+- `alive_rows` — per överlevande rad: `n` (radnummer i kupongen, samma ordning
+  som filen som lämnades in), `row`, `secure`, `possible` och `open` (tecknet
+  raden behöver i varje kolumn som ännu inte är avgjord);
+- `alive_rows_total` — hur många som lever mot LÄGSTA redovisade nivå;
+- `alive_rows_open_cols` — de kvarvarande kolumnerna, i kupongordning.
+
+Listan är sorterad på säkrade rätt fallande och kapad vid `ALIVE_ROWS_MAX`
+(40). Kapningen är säker för det som betyder något: alla rader har lika många
+öppna kolumner, så `possible = secure + n_öppna` och sortering på `secure` är
+identisk med sortering på `possible` — de rader som kan nå TOPPNIVÅN ligger
+alltid först och faller aldrig utanför kapet.
+
+Öppna kolumner är exakt `_decided()`s komplement, så en struken match och ett
+obelagt förlängningstecken räknas som kvarvarande. Raden visas därmed med det
+tecken den BEHÖVER, aldrig med ett tecken vi gissat åt Svenska Spel.
+
+### UI: listan hänger på en VALD nivå, inte på "kan nå något"
+
+`AliveRowsTable` i `App.jsx` har nivåknappar som bär `alive_per_level`. Det är
+nödvändigt, inte kosmetiskt: Topptipset har åtta matcher men bara 8 rätt delar
+potten, medan nivåtabellen börjar på `width − 3` = 5. "Lever mot golvnivån" var
+därför 184 av 256 rader och sa ingenting. Med nivåval visar knappen `8 rätt 2`
+exakt de två rader som fortfarande jagar potten.
+
+Räknaren på knappen kommer från `alive_per_level`, som är räknad på HELA
+kupongen och alltså sann även när radlistan är kapad. Är den kapad står det
+"Visar 40 av 184" — tabellhöjden får aldrig läsas som totalen.
+
+Mobil (uppmätt vid 375 px): tabellen var 330 px i en 297 px behållare, så den
+TREDJE kvarvarande matchen hamnade utanför — exakt den man behöver.
+`max`-kolumnen (45 px) döljs därför på mobil; den är `rätt nu` plus antalet
+kvarvarande matcher och alltså helt härledbar. Rubriken bär matchnumret, som
+binder kolumnen till liverättningen strax ovanför, och lagnamnet visas bara på
+desktop. Efter ändringen: 297 px i 297 px, ingen klippning och ingen
+sidoscroll på sidan.
+
+### Buggfix som ändringen avslöjade: kortet unmountades var 60:e sekund
+
+`PlayedPanel.load` hämtar i två steg — först `?live=false` för lokal data,
+sedan `?live=true`. Steg ett satte `live_pending: true` UTAN att bära med sig
+föregående `live`, så `live` var odefinierad i ~en halv sekund var 60:e sekund.
+Hela kortkroppen ligger bakom `{live && (...)}` och unmountades alltså
+regelbundet, vilket nollställer allt tillstånd i den: radlistan man just slagit
+upp slog igen av sig själv en gång i minuten.
+
+`load` behåller nu föregående `live` per kupong-id medan den nya hämtas. Den
+visade statusen är en verklig observation som är högst en minut gammal, och
+`live_pending` säger redan att en ny är på väg — att blanka den var varken
+färskare eller ärligare. Verifierat i drift: radlistan stod öppen med samma
+valda nivå 102 sekunder efter öppning, alltså över minst en hel uppdatering.
+
+### Driftkvitto
+
+Mätt på de två riktiga Topptipset 4278-kupongerna med tre matcher kvar:
+
+```
+alive_per_level: {'8': 2, '7': 21, '6': 86, '5': 184}
+öppna kolumner:  [6, 7, 8]
+  rad  70: 5 säkra, max 8, behöver [1 2 1]
+  rad 192: 5 säkra, max 8, behöver [1 2 2]
+```
+
+762 backendtester gröna (`AliveRowsTests`: sortering och innehåll, död rad
+utesluts, kapning med sann total, struken match och obelagd förlängning som
+öppna kolumner). Frontend lintad och byggd.

@@ -1099,6 +1099,24 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 .playedlevels { width: auto; min-width: 260px; }
 .playedlevels td, .playedlevels th { padding-right: 18px; }
 .playedlevels tr.dead { opacity: 0.4; }
+/* Vilka rader som lever. Antalet kvarvarande matcher styr bredden, så
+   tabellen scrollar i sin EGEN behållare i stället för att skjuta ut kortet. */
+.aliverows { margin: 4px 0 8px; }
+.aliverows .tablewrap { overflow-x: auto; margin-top: 6px; }
+.aliverows-levels { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.aliverows-levels button { border-radius: 999px; padding: 3px 10px;
+  font-size: 11px; background: var(--panel2); color: var(--muted);
+  border: 1px solid var(--line); cursor: pointer; }
+.aliverows-levels button.on { border-color: var(--green); color: var(--green); }
+.aliverows-levels button i { font-style: normal; margin-left: 5px;
+  opacity: 0.7; }
+.aliverows-table { width: auto; min-width: 0; }
+.aliverows-table th, .aliverows-table td { padding-right: 12px;
+  white-space: nowrap; }
+.aliverows-table td.ar-sign { font-weight: 600; text-align: center;
+  padding-right: 12px; }
+.aliverows-table thead i { font-style: normal; margin-right: 4px;
+  color: var(--muted); }
 .playeddivider { margin: 14px 0 4px; font-size: 11px; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--muted); }
 .playeddone { opacity: 0.75; }
@@ -1214,6 +1232,17 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   .playedcard-sum { gap: 10px; }
   .playedlevels { width: 100%; min-width: 0; }
   .playedlevels td, .playedlevels th { padding-right: 8px; }
+  /* Lagnamnen kortas hårt på mobil — tecknet under rubriken är det man läser,
+     och hela namnet finns kvar i title. Tabellen scrollar i sin behållare. */
+  .aliverows-table { font-size: 12px; }
+  .aliverows-table th, .aliverows-table td { padding-right: 8px; }
+  /* Uppmätt vid 375 px: tabellen var 330 px i en 297 px behållare, alltså
+     33 px för bred, och den TREDJE kvarvarande matchen — den man behöver —
+     hamnade utanför. `max` är 45 px och helt härledbar ur `rätt nu`, så den
+     är rätt kolumn att offra. Matchnumret räcker som rubrik; hela lagnamnet
+     står i liverättningen strax ovanför. */
+  .aliverows-table .ar-max { display: none; }
+  .aliverows-table thead th span { display: none; }
   .played-detail-backdrop { padding: 0; place-items: stretch; }
   .played-detail { width: 100%; max-height: 100dvh; border: none; border-radius: 0; }
   .played-detail-head { padding: 12px; }

@@ -675,7 +675,8 @@ def live_status(coupon: dict, states: list[dict],
     best_secure = 0
     secure_hist: dict[int, int] = {}
     possible_hist: dict[int, int] = {}
-    for row in rows:
+    per_row: list[tuple[int, int, int]] = []      # (radnr, säkra, möjliga)
+    for n, row in enumerate(rows, start=1):
         secure = possible = 0
         for i in range(width):
             state = col_states[i]
@@ -688,6 +689,7 @@ def live_status(coupon: dict, states: list[dict],
         best_secure = max(best_secure, secure)
         secure_hist[secure] = secure_hist.get(secure, 0) + 1
         possible_hist[possible] = possible_hist.get(possible, 0) + 1
+        per_row.append((n, secure, possible))
     alive = {level: sum(n for p, n in possible_hist.items() if p >= level)
              for level in range(max(1, width - 3), width + 1)}
     levels = sorted(alive, reverse=True)
@@ -713,6 +715,7 @@ def live_status(coupon: dict, states: list[dict],
            "secure_dist": dict(sorted(secure_hist.items(), reverse=True)),
            "alive_per_level": dict(sorted(alive.items(), reverse=True)),
            **alive_span,
+           **_alive_rows(rows, per_row, col_states, width, levels),
            "matches": _match_rows(rows, col_states, events, width),
            "cheer": _cheer_per_match(rows, col_states, width, levels)}
     # Idag-kortet visar faktisk matchstatus och levande rader men ingen
@@ -723,6 +726,49 @@ def live_status(coupon: dict, states: list[dict],
     return out
 
 
+
+
+ALIVE_ROWS_MAX = 40     # längre listor läses inte; totalen redovisas ändå
+
+
+def _alive_rows(rows: list[str], per_row: list[tuple[int, int, int]],
+                col_states: list[Optional[dict]], width: int,
+                levels: list[int]) -> dict:
+    """VILKA rader som lever, inte bara hur många.
+
+    Aggregatet "3 rader kvar till 12 rätt" går inte att agera på: kupongen har
+    hundratals rader och siffran pekar inte ut någon av dem. Här får varje
+    överlevande rad sitt radnummer, sina säkrade rätt och — det som faktiskt
+    betyder något — vilka tecken den behöver i de matcher som ÄR KVAR.
+
+    En rad räknas som levande om den fortfarande kan nå den LÄGSTA redovisade
+    vinstnivån, samma tröskel som `out_of_contention`. Sorteringen är säkra
+    rätt fallande, så de rader som kan nå toppnivån står först.
+
+    Öppna kolumner är exakt `_decided()`s komplement: en struken match och ett
+    obelagt förlängningstecken är öppna här också. Raden visas alltså med det
+    tecken den BEHÖVER, aldrig med ett tecken vi gissat åt Svenska Spel.
+    """
+    if not rows or not levels or not width:
+        return {}
+    floor = min(levels)
+    open_cols = [i for i in range(width) if not _decided(col_states[i])]
+    alive = [(n, secure, possible) for n, secure, possible in per_row
+             if possible >= floor]
+    alive.sort(key=lambda r: (-r[1], r[0]))
+    out = []
+    for n, secure, possible in alive[:ALIVE_ROWS_MAX]:
+        row = rows[n - 1]
+        out.append({
+            "n": n,
+            "row": row,
+            "secure": secure,
+            "possible": possible,
+            "open": [{"col": i + 1, "sign": row[i]} for i in open_cols],
+        })
+    return {"alive_rows": out,
+            "alive_rows_total": len(alive),
+            "alive_rows_open_cols": [i + 1 for i in open_cols]}
 
 
 def _alive_span(rows: list[str], col_states: list[Optional[dict]], width: int,
