@@ -232,12 +232,27 @@ class RefreshXgTests(unittest.TestCase):
         self.assertEqual(2, row["hg"], "målen får aldrig röras")
 
     def test_flashscore_and_sofascore_are_stored_separately(self):
+        """Båda lagras — men Sofascore vinner urvalet sedan 2026-08-21.
+
+        Flashscore läser bevisligen −0,19 xG per lag lägre än Sofascore och
+        började samla först 2026-08-06, så den vann uteslutande på de nyaste
+        matcherna och gav den tidsviktade fitten ett skalbyte mitt i serien.
+        Raden ska fortfarande FINNAS (den är korskontrollen), bara inte väljas.
+        """
         self._result(xg_h=1.11, xg_a=0.22, source="sofa")
         report = self._run({"xg_home": 9.9, "xg_away": 9.9})
         self.assertEqual(1, report["fyllda"])
         stats = self.store.oddset_result_stats("allsvenskan")
         self.assertEqual({"flashscore", "sofascore"},
                          {row["provider"] for row in stats})
+        selected = self.store.oddset_results("allsvenskan")[0]
+        self.assertEqual(1.11, selected["xg_h"])
+        self.assertEqual("sofascore", selected["stats_provider"])
+
+    def test_flashscore_fyller_nar_sofascore_saknar_matchen(self):
+        """Fallbacken finns kvar: utan Sofascore-par vinner Flashscore."""
+        self._result()
+        self._run({"xg_home": 9.9, "xg_away": 8.8})
         selected = self.store.oddset_results("allsvenskan")[0]
         self.assertEqual(9.9, selected["xg_h"])
         self.assertEqual("flashscore", selected["stats_provider"])

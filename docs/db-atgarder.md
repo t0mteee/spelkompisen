@@ -1434,3 +1434,94 @@ varv i stället för 12). Två åtgärder, båda i kod och utan migrering:
 
 Ankaret gick därmed 4235 (bounden) → **4264** (lägsta verkligt öppna) och
 scanningen från 49 till 20 omgångar.
+
+## 2026-08-21 — xG-luckorna var två fel, inget datahål
+
+**Bakgrund.** MLS stod på 1 132/1 361 matcher med xG och La Liga på 767/847.
+Antagandet var att Sofascore saknade datat. Det gjorde den inte.
+
+### Fel 1: sidbläddringen var dimensionerad för fel ligastorlek
+
+`scripts/backfill_xg_ligor.py` har `SIDOR_PER_SASONG = 14` med kommentaren
+"14 täcker även en 380-matcherssäsong med marginal". MLS spelar **522–540**
+matcher per säsong, alltså 18 sidor à 30 event. Sidorna 14+ nåddes aldrig, och
+luckorna låg därför exakt på varje säsongs FÖRSTA matcher — 2024-02 t.o.m.
+2024-04 (104 st) och 2025-02 t.o.m. 2025-05 (125 st). Inget annat mönster
+fanns; alla lag hade ~17 luckor var.
+
+Åtgärd: `--sidor 22`. Backup `stryktips-2026-08-10-fore-xg-luckor.db` togs av
+skriptet före körning. Resultat: **+228 xG, matchantal oförändrat
+1 361 → 1 361** (alltså inga dubbletter), 0 fel, `integrity_check: ok`.
+Kördes 5,0 min.
+
+### Fel 2: en enda felstavning i football-datas fil splittade en klubb
+
+`merged_results.to_canon()` kortsluter på `if name in canon: return name` —
+"namnet finns bland football-datas namn, alltså ÄR det kanoniskt". Det vilar
+på att källan är internt konsekvent. Det är den inte: football-data skrev
+`Rayo Vallecano` **en gång** och `Vallecano` **77 gånger**. Den enda raden
+lyfte in varianten i `canon`, kortslutningen returnerade namnet oförändrat,
+och det redan verifierade aliaset `rayo vallecano → vallecano` nådde aldrig
+fram.
+
+Följden var värre än saknad xG: klubben fanns som **två identiteter**, så La
+Ligas fit bar **76 dubblettmatcher** (847 rader där 771 är rätt — 380/säsong ×
+2 färdiga säsonger + 11 spelade i 2026/27) och 77 matcher stod utan xG trots
+att Sofascores 78 rader låg där hela tiden.
+
+Åtgärd: ett verifierat alias vinner nu över kortslutningen **när även aliasets
+mål är kanoniskt**. Står båda stavningarna i `canon` är det bevis på att
+källan är inkonsekvent, inte på att det är två klubbar. Är målet inte
+kanoniskt gäller kortslutningen som förut, så ett historiskt alias kan
+fortfarande aldrig mappa bort en exakt identitet (`ifk goteborg → goteborg`).
+
+Säkerhetskontroll före ändring, över alla sju aliasligor: **exakt ETT par**
+berörs (`rayo vallecano` 1 fd-rad mot `vallecano` 77). Inget annat alias har
+både källa och mål i `canon`.
+
+Ingen SQL kördes för fel 2 — det var en läsvägsrättelse, inga rader ändrades.
+
+### Fel 3 (upptäckt på köpet): fitten bytte xG-skala mitt i serien
+
+`Storage.RESULT_STATS_PRIORITY` stod på `flashscore` före `sofascore`. Det
+valdes när Flashscore blev radarns ankare — men det argumentet gäller LIVE,
+där Sofascore rapporterade xG som 0.0 i stället för att utelämna det. För
+settlad resultatstatistik finns inget sådant problem, och de två mäter
+bevisligen inte samma sak:
+
+> 47 matcher där båda mätt: **Flashscore − Sofascore = −0,19 xG per lag** i
+> snitt (median 0,00 · sd 0,384 · största avvikelse 1,99). Bara 63 % av de 94
+> lagvärdena ligger inom ±0,10.
+
+Flashscore vann alla 47, och eftersom den började samla 2026-08-06 låg de
+uteslutande på de nyaste matcherna: **45 %** av Allsvenskans 40 senaste,
+**42 %** av Eliteseriens, **55 %** av MLS. Fitten är tidsviktad, så exakt de
+tyngst vägande matcherna bytte skala — modellen läste ett anfallstapp som bara
+var ett källbyte.
+
+Åtgärd: `sofascore` först. Flashscore står kvar som korskontroll och som
+fallback när Sofascore genuint saknar matchen, alltid stämplad med provider.
+
+### Efter
+
+| liga | matcher | med xG | täckning | provider |
+|---|---:|---:|---:|---|
+| allsvenskan | 619 | 618 | 99,8 % | sofascore |
+| bundesliga | 612 | 611 | 99,8 % | sofascore |
+| eliteserien | 626 | 625 | 99,8 % | sofascore |
+| la_liga | 771 | 768 | 99,6 % | sofascore 767 · flashscore 1 |
+| mls | 1 361 | 1 360 | 99,9 % | sofascore |
+| obosligaen | 632 | 629 | 99,5 % | sofascore |
+| premier_league | 760 | 760 | 100 % | sofascore |
+| serie_a | 760 | 760 | 100 % | sofascore |
+| superettan | 640 | 639 | 99,8 % | sofascore |
+
+### Versionskonsekvenser
+
+`MODEL_DATA_VERSION` 5 → 6 (två ändringar i samma process). V2.2:s frysta
+manifest v8 fick inte absorbera den — dess EGEN `change_policy` kräver nytt
+manifest när en liga i FIT_POOLS byter datagenererande process, och både La
+Liga och Allsvenskan berörs. **Manifest v9** skrevs med
+`model_signal_version` `m22-9e2d2b4b → m22-f0e0257f` och `feature_version`
+`f22-d6baf69c → f22-8a90906b`. Äldre manifest blandas aldrig in.
+Sharp-pipelinen är orörd, så sharp-CLV-facitet rörs inte.

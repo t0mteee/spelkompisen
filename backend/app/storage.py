@@ -2499,8 +2499,29 @@ class Storage:
                 a["pts"].append({"t": t, "o": o, "l": ln})
         return out
 
+    # SOFASCORE FÖRE FLASHSCORE FÖR RESULTATSTATISTIK (Samans beslut
+    # 2026-08-21). Flashscore stod först sedan den blev radarns ANKARE — men
+    # det argumentet gäller LIVE, där Sofascore rapporterade xG som 0.0 i
+    # stället för att utelämna det. För settlad resultatstatistik finns inget
+    # sådant problem (`_xg_is_measured` fångar 0.0-paren), och de två mäter
+    # bevisligen inte samma sak:
+    #
+    #   47 matcher där båda mätt: Flashscore − Sofascore = −0,19 xG per lag
+    #   i snitt (median 0,00, sd 0,38, största avvikelse 1,99). Bara 63 % av
+    #   värdena ligger inom ±0,10.
+    #
+    # Med Flashscore först vann den ALLA 47, och eftersom den började samla
+    # 2026-08-06 låg de uteslutande på de NYASTE matcherna — 45 % av
+    # Allsvenskans 40 senaste, 42 % av Eliteseriens, 55 % av MLS. Fitten är
+    # tidsviktad, så exakt de tyngst vägande matcherna bytte skala mitt i
+    # serien och modellen läste ett anfallstapp som bara var ett källbyte.
+    #
+    # Sofascore bär 6 541 av 6 611 xG-rader och hela modellsidans historik.
+    # Att låta den vinna gör serien ENKÄLLIG; Flashscore står kvar som
+    # korskontroll och som fallback när Sofascore genuint saknar matchen,
+    # alltid stämplad med provider så en blandad rad går att se.
     RESULT_STATS_PRIORITY = (
-        "flashscore", "sofascore", "football_data", "legacy",
+        "sofascore", "flashscore", "football_data", "legacy",
     )
 
     @staticmethod

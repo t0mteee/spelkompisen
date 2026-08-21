@@ -117,7 +117,13 @@ DATA_VERSION = 3
 # Flashscore→Sofascore→football-data/legacy och aldrig fältvis källblandning;
 # 5 = ett lyckat men ännu xG-tomt Sofa-svar är inte terminalt och får läkas
 # vid senare varv/bakfyllning. Modellindatan kan ändras, alltså ny version.
-MODEL_DATA_VERSION = 5
+# 6 = TVÅ rättelser i samma process (2026-08-21): (a) ett verifierat alias
+# vinner över "namnet finns i canon" när även målet är kanoniskt — ett enda
+# `Rayo Vallecano` i football-datas fil hade splittat klubben i två identiteter
+# och gav La Liga 76 DUBBLETTMATCHER i fitten plus 77 matcher utan xG;
+# (b) resultatstatistiken prioriterar Sofascore före Flashscore, så en
+# tidsviktad fit inte byter xG-skala mitt i serien (se RESULT_STATS_PRIORITY).
+MODEL_DATA_VERSION = 6
 # missingPlayers-orsakskoder (Sofascore): observerade typer
 _ABS_REASON = {0: "annat", 1: "skada", 2: "tveksam", 3: "avstängd",
                11: "avstängd", 12: "avstängd", 13: "avstängd"}
@@ -981,8 +987,30 @@ def merged_results(store: Storage, league: str,
                                   base.get("corners_provider"))
 
     def to_canon(name: str, match_key: tuple) -> str:
-        if not canon or name in canon:
+        if not canon:
             return name          # en-källe-liga (Superettan/OBOS) kanoniserar inte
+        # ETT VERIFIERAT ALIAS VINNER NÄR ÄVEN MÅLET ÄR KANONISKT (2026-08-21).
+        #
+        # Regeln "namnet finns i canon ⇒ det ÄR kanoniskt" vilar på att
+        # football-data är internt konsekvent. Det är den inte: filen skrev
+        # `Rayo Vallecano` EN gång och `Vallecano` 77 gånger. Den enda raden
+        # lyfte in `rayo vallecano` i canon, kortslutningen ovan returnerade
+        # namnet oförändrat, och det verifierade aliaset nådde aldrig fram —
+        # så Sofascores 78 xG-rader låg kvar under en egen identitet och 77
+        # La Liga-matcher stod utan xG i fitten. Samma klass som när
+        # football-data serverade skotsk Championship på La Ligas säsongs-URL.
+        #
+        # Står BÅDA stavningarna i canon är det bevis på att källan är
+        # inkonsekvent, inte på att de är två klubbar — då vinner aliaset.
+        # Är målet INTE kanoniskt gäller kortslutningen som förut, så ett
+        # historiskt alias kan fortfarande aldrig mappa bort en exakt
+        # identitet (`ifk goteborg` -> `goteborg`).
+        #
+        # Uppmätt över alla sju aliasligor berör undantaget exakt ETT par.
+        if name in alias and alias[name] in canon:
+            return alias[name]
+        if name in canon:
+            return name
         if name in alias:
             return alias[name]   # manuellt verifierad koppling vinner
         best, best_s = name, FUZZY_AUTO_MIN
