@@ -199,7 +199,12 @@ def league_events(champ_id: int, integration: str = "betinia",
 
 
 def _live_rows(data: dict) -> list[dict]:
-    """Normalisera GetLiveEvents utan att göra suspenderade odds spelbara."""
+    """Normalisera GetLiveEvents utan att göra suspenderade odds spelbara.
+
+    Livepayloaden bär både matchens 1X2 och Ö/U. Tidigare kastades 1X2 bort,
+    trots att just den marknaden behövs när en redan inlämnad poolkupong
+    rättas live och Kambi tillfälligt har stängt sitt eget 1X2.
+    """
     markets = {m.get("id"): m for m in data.get("markets") or []}
     odds_by_id = {o.get("id"): o for o in data.get("odds") or []}
     out = []
@@ -211,8 +216,11 @@ def _live_rows(data: dict) -> list[dict]:
         if not sep:
             continue
         home, away = (part.strip() for part in name.split(sep, 1))
-        total_market = next((markets.get(mid) for mid in event.get("marketIds") or []
-                             if (markets.get(mid) or {}).get("typeId") == 18), None)
+        event_markets = [markets.get(mid) for mid in event.get("marketIds") or []]
+        total_market = next((market for market in event_markets
+                             if (market or {}).get("typeId") == 18), None)
+        one_x_two_market = next((market for market in event_markets
+                                if (market or {}).get("typeId") == 1), None)
         status, total = "not_offered", None
         if total_market:
             sides = {}
@@ -237,10 +245,39 @@ def _live_rows(data: dict) -> list[dict]:
                 total, status = {**sides, "line": line}, "captured"
             elif suspended:
                 status = "suspended"
+
+        one_x_two_status, one_x_two = "not_offered", None
+        if one_x_two_market:
+            prices = {}
+            suspended = False
+            for odd_id in one_x_two_market.get("oddIds") or []:
+                odd = odds_by_id.get(odd_id) or {}
+                # Altenar använder både 2 och 7 för kryss i liveflödet
+                # (uppmätt 2026-08-19 på bl.a. Celtic–LASK och
+                # Nijmegen–Bodø/Glimt). Position får aldrig användas som
+                # reserv; typ-id:t är det semantiska kontraktet.
+                sign = {1: "1", 2: "X", 7: "X", 3: "2"}.get(
+                    odd.get("typeId"))
+                if not sign:
+                    continue
+                if odd.get("oddStatus") not in (None, 0) or not odd.get("price"):
+                    suspended = True
+                    continue
+                try:
+                    price = round(float(odd["price"]), 4)
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if price > 1.0:
+                    prices[sign] = price
+            if set(prices) == {"1", "X", "2"}:
+                one_x_two, one_x_two_status = prices, "captured"
+            elif suspended:
+                one_x_two_status = "suspended"
         out.append({
             "id": str(event.get("id")), "home": home, "away": away,
             "start": event.get("startDate"), "status": status,
             "ou": total, "offers": [total] if total else [],
+            "odds_status": one_x_two_status, "odds": one_x_two,
         })
     return out
 

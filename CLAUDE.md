@@ -33,6 +33,12 @@ live-endpoints vid första Följer/Stark. Pinnacle får bara påverka spelet vid
 HTTP Age ≤90 s. Linan väljs först (färsk Pinnacle, annars Kambi, annars Ninja)
 och högsta Över-odds väljs sedan enbart på exakt samma lina. Samtliga
 källobservationer sparas i `oddset_live_signal_quote`; priser bakfylls aldrig.
+Spelade poolkupongers liverättning har en separat 1X2-kedja: Kambi först,
+Ninja därefter och Pinnacle sist. Pinnacle måste vara högst 90 sekunder
+gammalt enligt HTTP Age. När alla tre saknar komplett 1X2 används den tydligt
+märkta ställnings-/tidsmodellen; den är enbart en kupongchans och får aldrig
+påverka system, värde eller facit. `chance_live_source_counts` visar i UI
+vilken källa som faktiskt användes.
 Den underkända V2.1 är fortsatt vilande. Ett separat V2.2-experiment samlar
 Allsvenskan + Premier League/Serie A/La Liga/Bundesliga med WP9c
 i isolerad sharp-identitetskontroll. **Aktuellt fryst kontrakt är manifest v7**
@@ -229,6 +235,19 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       när ordinarie tid är slut. Utan det jagade chansmotorn ett
                       livepris som per definition inte finns och satte noten
                       "saknar odds" på en match som hade odds hela vägen.
+                      **LIVE-1X2-KÄLLOR (2026-08-19):** Kambi är första källa,
+                      Ninja/Altenars `GetLiveEvents` är reserv och Pinnacles
+                      per-matchup-moneyline är sista reserv. Ninja-parsern
+                      accepterar de observerade kryss-id:na 2 och 7 men bara
+                      tre kompletta, öppna utfall. Pinnaclebulken används för
+                      identitet; priset hämtas per barn och det färskaste
+                      öppna barnet väljs, men bara HTTP Age ≤90 s får räknas.
+                      Samma-sida krävs alltid. Ett ensidigt namnbevis kräver
+                      läsbar avspark på båda sidor, ≤30 min och EN kandidat.
+                      `probs_source`/`chance_live_source_counts` gör valet
+                      synligt. Alla källor borta ⇒ den märkta modellen ur
+                      ställning, tid och prematchpris; den får ALDRIG lämna
+                      kupongens read-only chansvy.
                       `FINISHED_STATUS_IDS` bär nu även 32 ("Slut efter
                       förlängning") — samma lucka som 33 gav 2026-08-08, och
                       matchen räddades bara av att ett publicerat `Fulltime`

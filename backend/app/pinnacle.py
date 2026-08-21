@@ -90,6 +90,37 @@ def _totals_by_child(markets: list[dict]) -> tuple[dict[int, list[dict]], set[in
     return by_child, seen_total
 
 
+def _moneylines_by_child(markets: list[dict]) -> tuple[dict[int, dict], set[int]]:
+    """Öppna helmatchs-1X2 per live-matchup, plus observerade marknader.
+
+    Pinnacles livefeed innehåller även tvåvägs-moneylines och specialmarknader.
+    Bara period 0 med de tre uttryckliga designationerna home/draw/away är
+    matchens 1X2. En stängd eller ofullständig marknad får aldrig bli pris.
+    """
+    by_child: dict[int, dict] = {}
+    seen: set[int] = set()
+    for market in markets:
+        if market.get("period") != 0 or market.get("type") != "moneyline":
+            continue
+        child_id = market.get("matchupId")
+        if child_id is None:
+            continue
+        prices = {price.get("designation"): american_to_decimal(price.get("price"))
+                  for price in market.get("prices") or []
+                  if price.get("designation") in {"home", "draw", "away"}}
+        # En moneyline utan alla tre designationer kan vara en annan
+        # speltyp. Den räknas inte ens som observerad 1X2.
+        if not all(prices.get(side) for side in ("home", "draw", "away")):
+            continue
+        seen.add(child_id)
+        if str(market.get("status") or "open").lower() != "open":
+            continue
+        by_child[child_id] = {
+            "1": prices["home"], "X": prices["draw"], "2": prices["away"],
+        }
+    return by_child, seen
+
+
 class Pinnacle:
     def __init__(self, timeout: float = 30.0):
         self._client = httpx.Client(timeout=timeout, headers=HEADERS)
@@ -255,6 +286,37 @@ class Pinnacle:
             }
         return None
 
+    def refresh_live_1x2(self, matchup_ids: list[str]) -> Optional[dict]:
+        """Färskt live-1X2 för en redan identifierad fysisk match.
+
+        Samma per-matchup-väg som totalsrefreshern används för att undvika
+        bulkens cirka 15 minuter långa cache. Alla barn provas: ett
+        ``danger_zone``-barn kan vara stängt samtidigt som ``live_delay`` är
+        öppet. Returen bär HTTP Age så anroparen kan avslå gamla priser.
+        """
+        captured = []
+        suspended_age = None
+        for matchup_id in matchup_ids:
+            try:
+                markets = self._get(f"/matchups/{matchup_id}/markets/straight")
+            except Exception:  # noqa: BLE001 — ett dött barn får inte fälla nästa
+                continue
+            age_s = self.last_age_s
+            by_child, seen = _moneylines_by_child(markets)
+            for prices in by_child.values():
+                captured.append({"status": "captured", "odds": prices,
+                                 "age_s": age_s})
+            if seen:
+                suspended_age = age_s
+        if captured:
+            # Två live-mode-barn kan båda vara öppna men bära olika CDN-ålder.
+            # Den första i bulken är inte nödvändigtvis den färskaste.
+            return min(captured, key=lambda item: item["age_s"])
+        if suspended_age is not None:
+            return {"status": "suspended", "odds": None,
+                    "age_s": suspended_age}
+        return None
+
     def soccer_live_totals(self) -> list[dict]:
         """Pågående fotbollsmatcher och öppna live-totaler.
 
@@ -272,6 +334,7 @@ class Pinnacle:
         market_age_s = self.last_age_s
 
         by_child, seen_total = _totals_by_child(markets)
+        moneyline_by_child, seen_moneyline = _moneylines_by_child(markets)
 
         grouped: dict[str, list[dict]] = {}
         for matchup in matchups:
@@ -305,6 +368,11 @@ class Pinnacle:
                 default=None,
             )
             had_total = any(child.get("id") in seen_total for child in children)
+            odds = next((moneyline_by_child.get(child.get("id"))
+                         for child in children
+                         if moneyline_by_child.get(child.get("id"))), None)
+            had_moneyline = any(child.get("id") in seen_moneyline
+                                for child in children)
             out.append({
                 "id": parent_id,
                 "matchup_ids": [str(child.get("id")) for child in children],
@@ -313,6 +381,9 @@ class Pinnacle:
                 "status": "captured" if main else (
                     "suspended" if had_total else "not_offered"),
                 "ou": main, "offers": offers, "age_s": market_age_s,
+                "odds_status": "captured" if odds else (
+                    "suspended" if had_moneyline else "not_offered"),
+                "odds": odds,
             })
         self.last_age_s = market_age_s
         return out

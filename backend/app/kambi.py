@@ -313,7 +313,7 @@ def live_1x2(event_id: str, timeout: float = 8.0,
 
 
 def live_events(timeout: float = 15.0, operator: str = "svenskaspel") -> list[dict]:
-    """Alla pågående matcher hos operatören: ``[{id, home, away, group}]``.
+    """Alla pågående matcher: ``[{id, home, away, start, group}]``.
 
     Poolkupongernas matcher ligger till stor del UTANFÖR Oddsets tio ligor, så
     en slagning via `oddset_matches` täcker bara en bråkdel. Live-listan är ett
@@ -334,5 +334,6 @@ def live_events(timeout: float = 15.0, operator: str = "svenskaspel") -> list[di
         event = row.get("event") or {}
         if event.get("id") and event.get("homeName") and event.get("awayName"):
             out.append({"id": str(event["id"]), "home": event["homeName"],
-                        "away": event["awayName"], "group": event.get("group")})
+                        "away": event["awayName"], "start": event.get("start"),
+                        "group": event.get("group")})
     return out

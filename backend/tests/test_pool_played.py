@@ -7,7 +7,7 @@ import unittest.mock
 from pathlib import Path
 from unittest.mock import patch
 
-from app import kambi, pool_played
+from app import altenar, kambi, pinnacle, pool_played
 from app.storage import Storage
 
 
@@ -562,6 +562,7 @@ class LiveOddsForRunningMatchTests(unittest.TestCase):
                           return_value={"1": 9.0, "X": 4.5, "2": 1.3}):
             pool_played.attach_live_odds(self.store, [state])
         self.assertEqual("live", state["probs_basis"])
+        self.assertEqual("svenskaspel", state["probs_source"])
         self.assertLess(state["probs"]["1"], 0.15, "prematch-favoriten ska falla")
         self.assertGreater(state["probs"]["2"], 0.65)
         self.assertAlmostEqual(1.0, sum(state["probs"].values()), places=6)
@@ -579,10 +580,48 @@ class LiveOddsForRunningMatchTests(unittest.TestCase):
     def test_missing_live_price_clears_instead_of_falling_back(self):
         state = self._state()
         with patch.object(kambi, "live_events", return_value=[CATALOGUE]), \
-             patch.object(kambi, "live_1x2", return_value={}):
+             patch.object(kambi, "live_1x2", return_value={}), \
+             patch.object(altenar, "live_events", return_value=[]), \
+             patch.object(pinnacle.Pinnacle, "soccer_live_totals",
+                          return_value=[]):
             pool_played.attach_live_odds(self.store, [state])
         self.assertIsNone(state["probs"], "prematch får aldrig återanvändas")
         self.assertEqual("live_saknas", state["probs_basis"])
+
+    def test_ninja_reprices_when_kambi_1x2_is_closed(self):
+        state = self._state()
+        ninja = {"id": "77", "home": "AIK", "away": "Örgryte IS",
+                 "start": state["start"], "odds_status": "captured",
+                 "odds": {"1": 9.0, "X": 4.5, "2": 1.3}}
+        with patch.object(kambi, "live_events", return_value=[CATALOGUE]), \
+             patch.object(kambi, "live_1x2", return_value={}), \
+             patch.object(altenar, "live_events", return_value=[ninja]), \
+             patch.object(pinnacle.Pinnacle, "soccer_live_totals",
+                          side_effect=AssertionError("Ninja ska räcka")):
+            pool_played.attach_live_odds(self.store, [state])
+
+        self.assertEqual("live", state["probs_basis"])
+        self.assertEqual("ninja", state["probs_source"])
+        self.assertGreater(state["probs"]["2"], 0.65)
+
+    def test_fresh_pinnacle_is_last_fallback_but_stale_is_rejected(self):
+        event = {"id": "88", "home": "AIK", "away": "Örgryte IS",
+                 "start": self._state()["start"], "matchup_ids": ["881"],
+                 "age_s": 400, "odds_status": "captured",
+                 "odds": {"1": 8.0, "X": 4.0, "2": 1.4}}
+        for age, expected in ((12, "pinnacle"), (120, None)):
+            state = self._state()
+            with patch.object(kambi, "live_events", return_value=[]), \
+                 patch.object(altenar, "live_events", return_value=[]), \
+                 patch.object(pinnacle.Pinnacle, "soccer_live_totals",
+                              return_value=[event]), \
+                 patch.object(pinnacle.Pinnacle, "refresh_live_1x2",
+                              return_value={"status": "captured", "age_s": age,
+                                            "odds": event["odds"]}):
+                pool_played.attach_live_odds(self.store, [state])
+            self.assertEqual(expected, state.get("probs_source"))
+            self.assertEqual("live" if expected else "live_saknas",
+                             state["probs_basis"])
 
     def test_not_started_match_keeps_its_prematch_price(self):
         state = self._state(in_progress=False)
@@ -609,6 +648,18 @@ class LiveOddsForRunningMatchTests(unittest.TestCase):
         catalogue = [{"id": "1", "home": "AIK", "away": "Örgryte IS"},
                      {"id": "2", "home": "AIK", "away": "Örgryte"}]
         self.assertIsNone(pool_played._kambi_id_for(catalogue, self._state()))
+
+    def test_one_side_needs_same_start_and_unique_candidate(self):
+        state = self._state(home="Hapoel Be`er Sheva FC",
+                            away="Sabah Masazir",
+                            start="2026-08-19T18:00:00Z")
+        event = {"id": "9", "home": "Hapoel Be`er Sheva FC",
+                 "away": "Qarabag", "start": "2026-08-19T18:04:00Z"}
+        self.assertEqual("9", pool_played._kambi_id_for([event], state))
+        self.assertIsNone(pool_played._kambi_id_for(
+            [{**event, "start": "2026-08-19T20:00:00Z"}], state))
+        self.assertIsNone(pool_played._kambi_id_for(
+            [event, {**event, "id": "10"}], state))
 
     def test_running_match_without_live_price_gives_an_interval(self):
         states = [{"event_number": 1, "sign": "1", "final": True,

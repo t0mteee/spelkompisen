@@ -3297,6 +3297,10 @@ function PlayedLiveCard({ c, onForget }) {
       : p >= 0.001 ? `${(p * 100).toFixed(1)}%` : '<0,1%'
   const levels = live ? Object.keys(live.alive_per_level)
     .map(Number).sort((a, b) => b - a) : []
+  const liveSourceNames = { svenskaspel: 'SvS', ninja: 'Ninja', pinnacle: 'Pinnacle' }
+  const liveSourceText = Object.entries(live?.chance_live_source_counts || {})
+    .map(([source, count]) => `${liveSourceNames[source] || source} ${count}`)
+    .join(', ')
   return (
     <div className="playedcard">
       <div className="playedcard-head">
@@ -3395,7 +3399,8 @@ function PlayedLiveCard({ c, onForget }) {
                   : 'Chans räknad exakt ur oddsen på kvarvarande matcher.'}
                 {live.chance_live_matches > 0 && <> <b>{live.chance_live_matches} pågående
                   {live.chance_live_matches === 1 ? ' match' : ' matcher'} prissatta live</b> —
-                  ställningen är alltså inräknad.</>}
+                  ställningen är alltså inräknad
+                  {liveSourceText && <> ({liveSourceText})</>}.</>}
                 {/* Modellskattningen är inget marknadspris och får aldrig läsas
                     som ett. Den syns bara på kupongen, aldrig i värde/CLV. */}
                 {live.chance_modelled_matches > 0 && <> <b>{live.chance_modelled_matches}</b>

@@ -693,8 +693,9 @@ def pool_played_list(live: bool = True, chance: bool = True):
         if live:
             # Flera sparade kuponger kan höra till samma omgång. Draw-data,
             # ordinarie tid och livepriser är då identiska. Draw-data hämtas
-            # per unik omgång; Flashscore- och Kambi-listorna hämtas en gång
-            # för samtliga öppna omgångar i samma request.
+            # per unik omgång; Flashscore- och liveprislistorna hämtas en gång
+            # för samtliga öppna omgångar i samma request. 1X2-kedjan frågar
+            # Kambi först och tar Ninja/Pinnacle bara för kvarvarande luckor.
             states_by_draw: dict[tuple[str, int], list[dict]] = {}
             errors_by_draw: dict[tuple[str, int], Exception] = {}
             keys = list(dict.fromkeys(

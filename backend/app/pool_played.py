@@ -37,6 +37,10 @@ from typing import Optional
 from .storage import Storage
 
 SIGNS = ("1", "X", "2")
+# Samma hårda färskhetsgräns som liveblindtestet. Pinnacles per-matchup-cache
+# är ofta flera minuter gammal; ett sådant pris är inte ett livepris bara för
+# att vi hämtade det nu.
+PINNACLE_LIVE_MAX_AGE_S = 90
 # v2 (2026-07-26): facit ur pool_event_settlement (officiellt outcome per
 # eventNumber) i stället för draw-payloadens Current-score; events_order-join;
 # hård breddvakt. v1 hann aldrig settla en kupong i drift.
@@ -576,26 +580,103 @@ def attach_live_odds(store: Storage, states: list[dict]) -> None:
     (≈8 %) — en kupongchans räknad på det förra är inte ungefär rätt, den är
     fel. Matcher som INTE startat rör vi inte; där är prematch rätt pris.
 
-    Hittas inget öppet livepris nollas sannolikheten i stället för att falla
-    tillbaka på prematch. Chansberäkningen visar då ingen siffra alls, vilket
-    är sanningen: vi vet inte.
+    Källstegen är Kambi → Ninja → färsk Pinnacle. Först när alla tre saknar
+    ett säkert, komplett 1X2 används den tydligt märkta skattningen från
+    ställning + tid + prematchpris. Det här påverkar bara en redan inlämnad
+    kupongs chansvy, aldrig tips, värde, CLV eller facit.
     """
-    from . import kambi
+    from . import altenar, kambi, pinnacle
     from .analysis import _power_probs
     running = [s for s in states if s.get("in_progress")]
     if not running:
         return
-    catalogue = kambi.live_events()      # ETT anrop för hela statusvarvet
-    prices_by_event: dict[str, dict] = {}
+
+    def apply_price(state: dict, prices: Optional[dict], source: str) -> bool:
+        if not prices or set(prices) != set(SIGNS):
+            return False
+        try:
+            implied = {sign: 1 / float(prices[sign]) for sign in SIGNS
+                       if float(prices[sign]) > 1.0}
+        except (TypeError, ValueError, ZeroDivisionError):
+            return False
+        if set(implied) != set(SIGNS):
+            return False
+        state["probs"] = _power_probs(implied)
+        state["probs_basis"] = "live"
+        state["probs_source"] = source
+        return True
+
     for state in running:
         state["probs_basis"] = "live"
-        event_id = _kambi_id_for(catalogue, state)
+        state["probs_source"] = None
+
+    # 1. Svenska Spel/Kambi — behåller kontinuitet med tidigare liverättning.
+    catalogue = kambi.live_events()      # ETT listanrop för hela statusvarvet
+    prices_by_event: dict[str, dict] = {}
+    unresolved = []
+    for state in running:
+        event = _live_event_for(catalogue, state)
+        event_id = str(event["id"]) if event else None
         if event_id and event_id not in prices_by_event:
             prices_by_event[event_id] = kambi.live_1x2(event_id)
         prices = prices_by_event.get(event_id, {})
-        if len(prices) == 3:
-            state["probs"] = _power_probs({s: 1 / o for s, o in prices.items()})
+        if apply_price(state, prices, "svenskaspel"):
             continue
+        unresolved.append(state)
+
+    # 2. Ninja/Altenar — separat prismotor, live-CDN med max-age 3 s.
+    if unresolved:
+        try:
+            ninja_events = altenar.live_events(
+                integration="ninjacasinose", timeout=8.0, strict=True)
+        except Exception:  # noqa: BLE001 — reservkälla får aldrig fälla vyn
+            ninja_events = []
+        still_unresolved = []
+        for state in unresolved:
+            event = _live_event_for(ninja_events, state)
+            prices = (event or {}).get("odds")
+            if ((event or {}).get("odds_status") == "captured"
+                    and apply_price(state, prices, "ninja")):
+                continue
+            still_unresolved.append(state)
+        unresolved = still_unresolved
+
+    # 3. Pinnacle — endast per-matchup-pris med HTTP Age ≤90 s. Bulken används
+    # för identiteten och som reserv bara när även den råkar vara lika färsk.
+    if unresolved:
+        try:
+            with pinnacle.Pinnacle(timeout=8.0) as client:
+                pinnacle_events = client.soccer_live_totals()
+                fresh_by_event: dict[str, Optional[dict]] = {}
+                still_unresolved = []
+                for state in unresolved:
+                    event = _live_event_for(pinnacle_events, state)
+                    if not event:
+                        still_unresolved.append(state)
+                        continue
+                    event_id = str(event.get("id"))
+                    if event_id not in fresh_by_event:
+                        fresh_by_event[event_id] = client.refresh_live_1x2(
+                            event.get("matchup_ids") or [])
+                    fresh = fresh_by_event[event_id]
+                    prices = None
+                    if (fresh and fresh.get("status") == "captured"
+                            and int(fresh.get("age_s") or 0)
+                            <= PINNACLE_LIVE_MAX_AGE_S):
+                        prices = fresh.get("odds")
+                    elif ((not fresh or fresh.get("status") != "captured")
+                          and event.get("odds_status") == "captured"
+                          and int(event.get("age_s") or 0)
+                          <= PINNACLE_LIVE_MAX_AGE_S):
+                        prices = event.get("odds")
+                    if apply_price(state, prices, "pinnacle"):
+                        continue
+                    still_unresolved.append(state)
+                unresolved = still_unresolved
+        except Exception:  # noqa: BLE001 — sista reservkälla får inte fälla vyn
+            pass
+
+    for state in unresolved:
         # Stängd livemarknad är inte okunskap. Ställningen och marknadens eget
         # prematchpris finns kvar, och att kasta båda gav "0 %–77 %" på en
         # kupong där NK Celje ledde 2–0 i andra halvlek (2026-08-11).
@@ -603,9 +684,77 @@ def attach_live_odds(store: Storage, states: list[dict]) -> None:
         if modelled:
             state["probs"] = modelled
             state["probs_basis"] = "modell"
+            state["probs_source"] = "modell"
         else:
             state["probs"] = None
             state["probs_basis"] = "live_saknas"
+            state["probs_source"] = None
+
+
+def _parse_live_start(value) -> Optional[dt.datetime]:
+    if value is None:
+        return None
+    try:
+        if isinstance(value, (int, float)):
+            return dt.datetime.fromtimestamp(float(value), dt.timezone.utc)
+        parsed = dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.timezone.utc)
+    except (TypeError, ValueError, OSError):
+        return None
+
+
+def _same_live_start(state: dict, event: dict) -> bool:
+    left = _parse_live_start(state.get("start"))
+    right = _parse_live_start(event.get("start"))
+    return bool(left and right and abs(left - right) <= dt.timedelta(minutes=30))
+
+
+def _live_event_for(catalogue: list[dict], state: dict) -> Optional[dict]:
+    """Entydig poolmatch → provider-event, alltid i samma orientering.
+
+    Båda lagen går först. Ett kortnamn får accepteras i kontext när den andra
+    sidan är strikt samma lag. Sista steget tillåter bara ett lag, och då är
+    känd avspark på båda sidor, högst 30 minuters skillnad och exakt en
+    kandidat obligatoriskt. Spegelvända event avslås eftersom 1 och 2 annars
+    skulle byta betydelse.
+    """
+    from .live_radar import _same_team, _same_team_in_context
+    home, away = state.get("home"), state.get("away")
+    if not (home and away):
+        return None
+
+    def distinct(events: list[dict]) -> list[dict]:
+        # Altenars samma event kan i princip förekomma under två menygrenar.
+        # Samma provider-id två gånger är en kandidat, inte tvetydighet.
+        by_id = {}
+        for event in events:
+            key = str(event.get("id")) if event.get("id") is not None else id(event)
+            by_id[key] = event
+        return list(by_id.values())
+
+    direct = distinct([event for event in catalogue
+                       if _same_team(event.get("home") or "", home)
+                       and _same_team(event.get("away") or "", away)])
+    if direct:
+        return direct[0] if len(direct) == 1 else None
+
+    contextual = []
+    one_side = []
+    for event in catalogue:
+        home_same = _same_team(event.get("home") or "", home)
+        away_same = _same_team(event.get("away") or "", away)
+        if ((home_same and _same_team_in_context(
+                event.get("away") or "", away))
+                or (away_same and _same_team_in_context(
+                    event.get("home") or "", home))):
+            contextual.append(event)
+        if ((home_same or away_same) and _same_live_start(state, event)):
+            one_side.append(event)
+    contextual = distinct(contextual)
+    if contextual:
+        return contextual[0] if len(contextual) == 1 else None
+    one_side = distinct(one_side)
+    return one_side[0] if len(one_side) == 1 else None
 
 
 def _kambi_id_for(catalogue: list[dict], state: dict) -> Optional[str]:
@@ -618,17 +767,8 @@ def _kambi_id_for(catalogue: list[dict], state: dict) -> Optional[str]:
     Hemma/borta måste stämma på SAMMA sida — en spegelvänd träff kan vara ett
     returmöte, och ett pris på fel lag är värre än inget pris. Entydighet krävs.
     """
-    from .live_radar import _same_team
-    home, away = state.get("home"), state.get("away")
-    if not (home and away):
-        return None
-    # `_same_team` och inte strikt `norm_team`-likhet: SvS och Kambi skiljer sig
-    # på föreningssuffix (`Kristiansund` mot `Kristiansund BK`), svensk genitiv
-    # och de observerade aliasen. Spärrarna mot U23/B-lag och prefixkrockar
-    # följer med på köpet.
-    hits = {row["id"] for row in catalogue
-            if _same_team(row["home"], home) and _same_team(row["away"], away)}
-    return hits.pop() if len(hits) == 1 else None
+    event = _live_event_for(catalogue, state)
+    return str(event["id"]) if event and event.get("id") is not None else None
 
 
 def _decimal(value) -> Optional[float]:
@@ -1000,6 +1140,7 @@ def _chance_per_level(rows: list[str], col_states: list[Optional[dict]],
     open_cols = [i for i in range(width) if not _decided(col_states[i])]
     priced_cols, priced_probs, unpriced_cols, unpriced_names = [], [], [], []
     live_used = modelled_used = 0
+    live_source_counts: dict[str, int] = {}
     for i in open_cols:
         state = col_states[i] or {}
         # Current under förlängning kan bära förlängningsmål. Även ett gammalt
@@ -1011,6 +1152,8 @@ def _chance_per_level(rows: list[str], col_states: list[Optional[dict]],
             priced_probs.append(p)
             if state.get("probs_basis") == "live":
                 live_used += 1
+                source = state.get("probs_source") or "okänd"
+                live_source_counts[source] = live_source_counts.get(source, 0) + 1
             elif state.get("probs_basis") == "modell":
                 modelled_used += 1
         else:
@@ -1054,7 +1197,8 @@ def _chance_per_level(rows: list[str], col_states: list[Optional[dict]],
 
     out = {"chance_basis": basis, "chance_open_matches": len(open_cols),
            "chance_live_matches": live_used,
-           "chance_modelled_matches": modelled_used}
+           "chance_modelled_matches": modelled_used,
+           "chance_live_source_counts": live_source_counts}
     if not unpriced_cols:
         out["chance_per_level"] = {lvl: round(hi[lvl], 6) for lvl in levels}
         return out

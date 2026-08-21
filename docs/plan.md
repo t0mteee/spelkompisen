@@ -1,6 +1,24 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-08-18 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-08-19 — läs detta först i ny session)
+
+**SPELADE KUPONGERS LIVERÄTTNING HAR TRE 1X2-KÄLLOR (2026-08-19,
+Codex).** Topptipset 4278 hade fem pågående matcher men bara Atlético
+Madrid–Málaga bar ett öppet Kambi-1X2. Nijmegen–Bodø/Glimt och
+Slovan–Celje var korrekt länkade men marknaden var stängd; Celtic–LASK
+saknades i Kambi-listan och Hapoel–Sabah föll på namnvarianten. De fyra
+visades därför som modellskattningar trots att Ninja hade öppet 1X2 på alla.
+Liverättningen provar nu Kambi först, därefter Ninjas separata
+`GetLiveEvents` och sist Pinnacles per-matchup-moneyline. Pinnacle får bara
+räknas vid HTTP Age ≤90 sekunder; ett pris som hämtas nu men observerades för
+flera minuter sedan är inte live. Ninjas båda observerade kryss-id:n 2 och 7
+stöds, suspension spärras, entydig samma-sida-identitet krävs och ett
+ensidigt namnbevis kräver känd avspark på båda sidor, högst 30 minuter och
+exakt en kandidat. Först när alla tre saknar ett komplett pris används den
+redan märkta skattningen ur ställning/tid/prematch. UI:t visar källfördelning,
+exempelvis `Ninja 4, SvS 1`. Ändringen gäller bara sannolikhetsvisningen för
+en redan inlämnad kupong; systemförslag, värde, liveblindtest, settlement och
+facit är oförändrade.
 
 **LIVEBLINDTEST V10 LÅSER BÄSTA FÄRSKA ÖVERPRIS FRÅN TRE KÄLLOR
 (2026-08-18, Codex).** Varje ny Följer-/Stark-observation frågar Svenska

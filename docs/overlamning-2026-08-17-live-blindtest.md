@@ -631,3 +631,45 @@ alive_per_level: {'8': 2, '7': 21, '6': 86, '5': 184}
 762 backendtester gröna (`AliveRowsTests`: sortering och innehåll, död rad
 utesluts, kapning med sann total, struken match och obelagd förlängning som
 öppna kolumner). Frontend lintad och byggd.
+## Tillägg 2026-08-19 — poolens liverättning fick samma källtålighet
+
+Det här är **inte** en ändring av liveblindtestet. Det gäller Historiks kort för
+redan spelade poolkuponger, där chansen på kvarvarande vinstnivåer behöver
+live-1X2 och tidigare bara frågade Kambi.
+
+Topptipset 4278 gav ett konkret femmatchersprov. Bara Atlético Madrid–Málaga
+hade öppet Kambi-1X2. Nijmegen–Bodø/Glimt och Slovan–Celje fanns i listan men
+Kambi returnerade inget öppet 1X2; Celtic–LASK saknades och Hapoel–Sabah hade
+namndrift. Ninjas råa livepayload bar samtidigt komplett, öppet 1X2 på alla
+fem. Den bar också två olika semantiska typ-id:n för kryss: 2 respektive 7.
+Att parsern bara sparade Ö/U var alltså vår täckningslucka.
+
+Ny ordning i `pool_played.attach_live_odds`:
+
+1. Kambi-live-1X2, precis som förut;
+2. Ninja/Altenar `GetLiveEvents`, öppna trevägsutfall och separat
+   suspensionsstatus;
+3. Pinnacle: livebulken identifierar matchen, men moneyline hämtas om via varje
+   matchup-barns detaljväg. Färskaste öppna barn väljs och HTTP Age måste vara
+   högst 90 sekunder;
+4. först därefter den gamla, tydligt märkta modellen ur ställning, spelad tid
+   och spelbolagets prematchpris.
+
+Provideridentiteten är fail-closed. Båda lagen i samma orientering går först;
+spegelvända event avslås eftersom 1 och 2 då byter betydelse. En kontextlänk
+kräver en strikt sida. Bara ett lag får räcka först när båda avsparkarna kan
+läsas, skiljer högst 30 minuter och kandidaten är unik. Kambi-liveevent
+exponerar därför även `start` nu.
+
+`probs_source` följer varje pågående match och summeras i
+`chance_live_source_counts`. Historiktexten kan därför säga exempelvis
+`5 prissatta live (SvS 1, Ninja 4)` i stället för att bara påstå att ett pris
+fanns. Ingen observation skrivs till DB: detta är en read-only aktuell
+kupongchans, inte ett nytt facit. Systembyggare, tips, CLV, signal-ROI och
+settlement läser inget av fälten.
+
+Regressioner finns för Ninjas båda kryss-id:n, suspension, Pinnacles
+moneyline/färskaste barn/cacheålder, Kambi→Ninja→Pinnacle-ordningen,
+Pinnacles 90-sekundersstopp och entydig ensidig identitet. Efter sammanfogning
+med liverättningens radlista: 767 backendtester, 12 frontendtester, ESLint och
+produktionsbygge gröna.
