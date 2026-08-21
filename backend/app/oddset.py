@@ -109,6 +109,19 @@ LEAGUES = [
     # xG-/closehistorik finns.
     {"key": "bolivian_primera", "name": "Bolivianska Primera División",
      "pin_id": 5595, "kambi": "football/bolivia", "altenar": None},
+    # Ligue 1 (2026-08-21, Samans beställning). Alla källor verifierade mot
+    # aktuellt utbud, inte mönsterhärledda: Pinnacle `France - Ligue 1` id
+    # 2036 (420 matchups), Kambi `football/france/ligue_1` (9 event med 1X2
+    # hos Svenska Spel), Sofascore unique-tournament 34, football-data `F1`
+    # (306 rader/säsong = 18 lag × 34 omgångar).
+    #
+    # Ligue 2 samlas som RESULTATLIGA via football-data `F2`, precis som
+    # Championship/Segunda/Serie B/2. Bundesliga — den ligger utanför
+    # `LEAGUES` eftersom vi inte handlar på den. Ligue 1 poolas INTE med den:
+    # uppmätt försämrar matarligepoolning modellen i alla fyra Europaligor
+    # (+0,0036 till +0,0125 logloss), och Ligue 2 saknar dessutom xG.
+    {"key": "ligue_1", "name": "Ligue 1", "pin_id": 2036,
+     "kambi": "football/france/ligue_1", "altenar": None},
 ]
 # Actionable = får skapa spelbar signal, Kelly, notis och CLV-/value_log-rader.
 ACTIONABLE_LEAGUE_KEYS = frozenset(

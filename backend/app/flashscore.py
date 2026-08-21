@@ -114,6 +114,10 @@ LEAGUE_NAMES = {
     "ICELAND: Besta deild karla": "bestadeild",
     "ICELAND: Besta deild": "bestadeild",
     "USA: MLS": "mls",
+    # Avläst ur Flashscores egen dagsfeed 2026-08-21: rubriken är exakt
+    # "FRANCE: Ligue 1". Feeden bär även Ligue 2/3 och National 1, som
+    # medvetet lämnas utanför scopet.
+    "FRANCE: Ligue 1": "ligue_1",
     "ENGLAND: Premier League": "premier_league",
     "ITALY: Serie A": "serie_a",
     "SPAIN: LaLiga": "la_liga",

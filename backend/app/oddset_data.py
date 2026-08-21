@@ -40,13 +40,25 @@ FD_SEASON_CODES = {
     "la_liga": "SP1",
     "segunda": "SP2",
     "bundesliga": "D1",
+    # Frankrike 2026-08-21. F1/F2 verifierade: HTTP 200 med 306 rader för
+    # både 2425 och 2526, och filens egen `Div`-kolumn kontrolleras av
+    # `_fd_result_rows(..., div=)` — football-data har serverat fel liga på
+    # rätt URL förr (skotsk Championship på La Ligas säsongs-URL).
+    "ligue_1": "F1",
+    "ligue_2": "F2",
     "zweite_bundesliga": "D2",
 }
 FD_MIN_SEASON = 2024          # fit-fönster: ~2,5 säsonger räcker med tidsviktning
 SOFA_UT = {"allsvenskan": 40, "eliteserien": 20, "superettan": 46,
            "obosligaen": 22, "mls": 242,
            "premier_league": 17, "serie_a": 23, "la_liga": 8,
-           "bundesliga": 35}
+           "bundesliga": 35,
+           # Ligue 1: unique-tournament 34, verifierad genom att turneringens
+           # egna eventrader svarar med namnet "Ligue 1" och franska klubbar.
+           # Ligue 2 (182) läggs MEDVETET inte in — den är matarliga och får
+           # resultat ur football-data, precis som de fyra andra matarligorna,
+           # så vi lägger inga statistik-anrop på en liga vi inte fittar på.
+           "ligue_1": 34}
 # OBS: sök ALDRIG fram Sofascore-id:n utan att verifiera sporten — 1420 ("1.
 # Divisjon") visade sig vara HANDBOLL och 28937 volleyboll; fotbollens norska
 # andraliga är ut 22 ("Norwegian 1st Division", verifierad med lagnamn + xG).
@@ -843,6 +855,38 @@ def refresh_all(store: Storage, force: bool = False) -> dict:
 # (la galaxy↔los angeles galaxy = 0.67 → laget splittrades i två identiteter i
 # fitten). Runtime-tillägg utan deploy: meta-nyckeln oddset_alias:{liga} (JSON).
 TEAM_ALIAS = {
+    # Ligue 1 (2026-08-21). Sofascore skriver ut de fullständiga klubbnamnen,
+    # football-data de korta. Utan mappningen länkade bara 145 av 612 matcher
+    # och sex klubbar fick NOLL xG — varje lag saknade exakt 68 matcher, dvs
+    # två hela säsonger, vilket är signaturen för ett namnfel och inte för ett
+    # datahål. Varje par är verifierat mot football-datas egen namnlista.
+    #
+    # `red star` och `rodez af` lämnas MEDVETET omappade: de är Ligue 2-klubbar
+    # utan motsvarighet i Ligue 1:s canon, och att tvinga en länk vore att
+    # gissa. De länkar helt enkelt inte, vilket är rätt svar.
+    "ligue_1": {
+        "as monaco": "monaco",
+        "olympique de marseille": "marseille",
+        "olympique lyonnais": "lyon",
+        # PARIS-FÄLLAN: football-data har BÅDA klubbarna, `paris` = Paris FC
+        # och `paris sg` = Paris Saint-Germain. Fuzzy hade kunnat dra
+        # `paris saint germain` till `paris`; den vägen är spärrad i
+        # TEAM_REJECTED_LINKS.
+        "paris saint germain": "paris sg",
+        "rc lens": "lens",
+        "rc strasbourg": "strasbourg",
+        "saint etienne": "st etienne",
+        "stade brestois": "brest",
+        # Sofascore skriver "Stade de Reims", football-data "Reims" — enda
+        # klubben i Ligue 1 med det namnet, verifierad mot 34 matcher säsongen
+        # 2024/25 (Reims åkte ur efter kval och saknas därför i 2025/26, vilket
+        # är skälet att den inte syntes i den första namnjämförelsen).
+        # `_team_sim` ger 1,0 här, men backfillens `_target` matchar MEDVETET
+        # bara exakt eller via alias — fuzzy får aldrig avgöra vilken match ett
+        # xG-par skrivs till — så aliaset måste stå skrivet.
+        "stade de reims": "reims",
+        "stade rennais": "rennes",
+    },
     "allsvenskan": {
         "halmstads": "halmstad", "ifk goteborg": "goteborg",
         "djurgardens": "djurgarden", "ifk norrkoping": "norrkoping",
@@ -917,6 +961,15 @@ TEAM_ALIAS = {
 }
 TEAM_REJECTED_LINKS = {
     "eliteserien": {("egersund", "haugesund")},
+    # Ligue 1 har BÅDA Parisklubbarna. Pinnacle skriver ut dem fullt
+    # (`Paris FC`, `Paris Saint-Germain`), Kambi skriver `Paris FC` och `PSG`.
+    # Fuzzy och delsträngsregler länkar dem — samma klass som `stuttgart`
+    # → `start` och `Los Angeles FC` → `Los Angeles Galaxy`. Skrivs ut
+    # explicit i stället för att upptäckas som en dubblett i UI:t.
+    # De normaliserade namnen är `paris` (Paris FC) och `paris sg` (PSG) —
+    # inte "paris fc". Spärren måste stå på de namn koden faktiskt jämför.
+    "ligue_1": {("paris", "paris sg"),
+                ("paris", "paris saint germain")},
 }
 FUZZY_AUTO_MIN = 0.75
 FUZZY_SUGGEST_MIN = 0.55

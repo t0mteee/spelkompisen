@@ -56,6 +56,9 @@ LEAGUE_SLUGS = {
     "belgian_pro_league": "belgium-first-division-a",
     "primeira_liga": "portugal-primeira-liga",
     "bolivian_primera": "bolivia-primera-division",
+    # Avläst ur Smarkets egna full_slug 2026-08-21 (8 kommande event), inte
+    # mönsterhärledd: /sport/football/france-ligue-1/...
+    "ligue_1": "france-ligue-1",
     # Smarkets kör TVÅ aktiva slugs för Besta deild (uppmätt 2026-07-27:
     # en bettable match under vardera) — värdet får därför vara en tupel.
     "bestadeild": ("iceland-premier-league", "iceland-besta-deild"),

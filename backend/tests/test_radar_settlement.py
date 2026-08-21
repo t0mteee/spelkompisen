@@ -22,7 +22,10 @@ from scripts import migrera_radar_event_id_text, migrera_radar_settlement
 # skrivs av dagens kod, som stämplar raden med dagens version; en fixtur
 # daterad före fönstret blir därför korrekt `transitional`. Datumet ska följa
 # med vid VARJE ny kohortstart — T0 ligger 5 h före NOW och måste också rymmas.
-NOW = dt.datetime(2026, 8, 18, 12, 0, tzinfo=dt.timezone.utc)
+# Klockan ligger i den AKTIVA radarkohortens fönster. Flyttas gränsen
+# (ny signalversion) måste den här följa med, annars blir fixturens
+# captures `transitional` och tillhör per definition ingen kohort.
+NOW = dt.datetime(2026, 8, 22, 12, 0, tzinfo=dt.timezone.utc)
 T0 = NOW - dt.timedelta(hours=5)     # stängd serie: sista capture > 3 h gammal
 
 

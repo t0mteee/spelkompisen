@@ -80,6 +80,10 @@ LEAGUE_NAMES = {
     ("BEL", "Belgian Pro League"): "belgian_pro_league",
     ("POR", "Liga Portugal"): "primeira_liga",
     ("BOL", "Primera División"): "bolivian_primera",
+    # Ligue 1 (2026-08-21). Avläst ur FotMobs EGNA dagsfeed, inte gissad:
+    # ccode "FRA", ligarubrik "Ligue 1". Ligue 2 är matarliga utan modell och
+    # ingår inte i radarscopet.
+    ("FRA", "Ligue 1"): "ligue_1",
     # Club Friendlies är GLOBAL (som Sofascores UT 853) och går därför genom
     # samma Oddset-spärr som Sofascore-varvet (_scope_friendlies) — utan den
     # hade varje turnématch i världen ätit varvets matchtak.

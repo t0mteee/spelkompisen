@@ -50,7 +50,7 @@ FIT_POOLS = {
 # ihop — inte ens ett manifest med noll observationer skrivs över.
 MANIFEST_PATH = (
     Path(__file__).resolve().parents[2] / "docs" /
-    "model-v2.2-multileague-forward-manifest-v9.json"
+    "model-v2.2-multileague-forward-manifest-v10.json"
 )
 REQUIRED_BASE_FEATURES = (
     "attack_log_ratio", "defence_log_ratio", "home_adv_log",

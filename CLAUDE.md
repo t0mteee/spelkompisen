@@ -5,9 +5,9 @@ Europatipset, Topptipset, Bomben) med en ny **Oddset-del**: enskilda matcher (Al
 norska Eliteserien, träningsmatcher till att börja med) med sharp-odds, oddsrörelser,
 egen modell och värdespels-tips (1X2, asian handicap, över/under, hörnor på sikt).
 
-**Läge (2026-08-09):** Etapp 0–5 KLARA + långt därutöver. Oddset-delen är i full drift:
-18 ligor (Allsvenskan/Superettan/Eliteserien/OBOS/Besta deild/MLS/träningsmatcher + CL/EL/
-Conference INKL. kval + Premier League/Serie A/La Liga/Bundesliga + danska
+**Läge (2026-08-21):** Etapp 0–5 KLARA + långt därutöver. Oddset-delen är i full drift:
+19 ligor (Allsvenskan/Superettan/Eliteserien/OBOS/Besta deild/MLS/träningsmatcher + CL/EL/
+Conference INKL. kval + Premier League/Serie A/La Liga/Bundesliga/**Ligue 1** + danska
 Superliga/belgiska Pro League/Primeira Liga/Bolivias Primera División — cuperna är
 två Pinnacle-ligor + två Kambi-vägar per nyckel,
 `pin_ids`/`kambi_paths` i oddset.py), 4 bokkällor +
@@ -27,6 +27,14 @@ Ninja/Altenar visas under `+ Fler odds` för 1X2, Ö/U och hörnor och får vara
 spelbar mjuk bok i sharp-värdemotorn. UI får bara säga `bekräftat kvar` när
 det oförändrade bokpriset återobserverats efter Pinnacles senaste prisändring;
 vanlig färskhet eller ett gammalt cachepris räcker inte.
+Aktiv radarversion är **`chance-gap-shadow-v11`** från 2026-08-21T22:00:00Z:
+enda ändringen mot v10 är att Ligue 1 kom in i scopet — trösklar, providers,
+källrankning och namnlänkning är oförändrade
+(`docs/radar-scope-v11-2026-08-21.md`). En ny liga ändrar populationen som kan
+producera en signal, och en utökning inne i en löpande version hade blandat två
+populationer i samma blindkohort. `live_settlement` bär en egen spärr som vägrar
+settla när radarversionen saknas i dess capture-tidslinje; den föll som avsett
+vid bytet och ska inte tas bort.
 Liveblindtestets ROI-pris är separat från prematchvärdemotorn. Från
 `chance-gap-shadow-v10` frågas SvS/Kambi, Ninja/Altenar och Pinnacles
 live-endpoints vid första Följer/Stark. Pinnacle får bara påverka spelet vid
@@ -41,14 +49,21 @@ påverka system, värde eller facit. `chance_live_source_counts` visar i UI
 vilken källa som faktiskt användes.
 Den underkända V2.1 är fortsatt vilande. Ett separat V2.2-experiment samlar
 Allsvenskan + Premier League/Serie A/La Liga/Bundesliga med WP9c
-i isolerad sharp-identitetskontroll. **Aktuellt fryst kontrakt är manifest v7**
-från 2026-08-10T06:50:39Z:
-`docs/model-v2.2-multileague-forward-manifest-v7.json`. V1/v2 är historik;
+i isolerad sharp-identitetskontroll. **Aktuellt fryst kontrakt är manifest v10**
+från 2026-08-21T22:10:00Z:
+`docs/model-v2.2-multileague-forward-manifest-v10.json`. V1/v2 är historik;
 v3 hann få 0 captures innan ett ofullständigt aliasfingeravtryck upptäcktes
 och ersattes; v4 bar 12 rader/2 avgjorda när de fyra Europaligornas
 lagnamnsalias utökades inför xG-bakfyllningen; v5 bar 1 rad/0 avgjorda när
 ClubElo-identiteten rättades och kalibreringen utökades; v6 bar 19 rader/8
-matcher när xG-retryn rättades (`MODEL_DATA_VERSION=5`). En ny kalibrering
+matcher när xG-retryn rättades (`MODEL_DATA_VERSION=5`); v7 bar sharp-versioner
+kopierade från v6 och föll därför stängt; v8 ersattes av v9 när
+`MODEL_DATA_VERSION` gick 5 → 6 (aliaskortslutningen som splittade Rayo
+Vallecano i La Ligas fit, plus providerordningen sofascore-först); v9 hann samla
+NOLL captures innan Ligue 1 kom in i `SOFA_UT` och tio franska alias skrevs.
+**`feature_version` hashar manifestets EGET experimentnamn** — läs alltså ut
+värdet EFTER att den nya manifestfilen finns, annars fryser du in ett värde som
+runtime aldrig kommer att producera. En ny kalibrering
 räknas som ändrad datagenererande process — `model_source_version` bär
 T per liga. Manifestets EGEN `change_policy` kräver då
 ett nytt manifest — en aliasändring i en liga som ingår i V2.2:s FIT_POOLS
@@ -896,7 +911,7 @@ enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
 
 ### CLV-facit (signalvalidering)
 
-- **Modelldata v4:** `oddset_results` bär bara matchidentitet och normaltids-
+- **Modelldata v6:** `oddset_results` bär bara matchidentitet och normaltids-
   resultat. En komplett football-data-rad vinner atomiskt som resultatfacit
   (källa, råa lagnamn, hemma- och bortamål som ett paket). xG och hörnor bor i
   `oddset_result_stats`: välj alltid ett komplett hem/borta-par per
@@ -905,7 +920,20 @@ enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
   Sofascore samlas parallellt. Frånvaro har provider i primärnyckeln,
   namespacade spelar-id:n och status `observed`/`unavailable`; transportfel är
   aldrig `unavailable`, medan ett lyckat tomt svar är en riktig observation.
-  `MODEL_DATA_VERSION=4` och V2.2-manifest v4 isolerar äldre kohorter.
+  `MODEL_DATA_VERSION=6` och V2.2-manifest v10 isolerar äldre kohorter.
+  **`RESULT_STATS_PRIORITY` är `sofascore` FÖRE `flashscore`** sedan
+  2026-08-21: på 47 matcher där båda mätt ligger Flashscore −0,19 xG per lag
+  (median 0,00, sd 0,38, max 1,99; bara 63 % inom ±0,10). Flashscore vann alla
+  47 och började samla först 2026-08-06, alltså uteslutande på de NYASTE
+  matcherna (45 % av Allsvenskans 40 senaste). Fitten är tidsviktad, så exakt
+  de tyngst vägande matcherna bytte xG-skala — modellen läste ett anfallstapp
+  som bara var ett källbyte. Flashscore står kvar som korskontroll och som
+  fallback när Sofascore genuint saknar matchen.
+  **Ett verifierat alias vinner över "namnet finns redan i canon"** när även
+  aliasets mål är kanoniskt: football-data skrev `Rayo Vallecano` EN gång och
+  `Vallecano` 77 gånger, och den enda raden lyfte in varianten i canon så att
+  kortslutningen returnerade namnet oförändrat. Följden var 76 dubblettmatcher
+  i La Ligas fit. Undantaget berör uppmätt exakt ETT par över alla aliasligor.
 
 - `app/clv.py` + `value_log`-tabellen: gröna värde-kvoter (≥1.08) / sharp-edge (≥2 %) loggas
   first/best per selektion; stängning = devigad Pinnacle; facit från resultat-API:t.

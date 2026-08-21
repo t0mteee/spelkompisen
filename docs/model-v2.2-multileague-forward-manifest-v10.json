@@ -1,0 +1,154 @@
+{
+ "schema": 2,
+ "experiment": "v2.2-wp9c-multileague-v10",
+ "supersedes": "v2.2-wp9c-multileague-v9",
+ "frozen_at": "2026-08-21T22:10:00Z",
+ "hypothesis": "En hårt ridge-krympt residual mot Pinnacles devigade 1X2 kan förbättra parad logloss när kompletta styrke-, Elo-, vila-, belastnings- och resefeatures skattas gemensamt över Allsvenskan, Premier League, Serie A, La Liga och Bundesliga, med ligaskillnader öppet modellerade och redovisade.",
+ "scope": {
+  "leagues": [
+   "allsvenskan",
+   "premier_league",
+   "serie_a",
+   "la_liga",
+   "bundesliga"
+  ],
+  "market": "1x2",
+  "horizons": [
+   "h24",
+   "h3",
+   "m20"
+  ],
+  "unit": "unique_match",
+  "separate_model_per_horizon": true,
+  "research_only_leagues": [
+   "premier_league",
+   "serie_a",
+   "la_liga",
+   "bundesliga"
+  ]
+ },
+ "source_versions_at_freeze": {
+  "sharp_signal_version": "s-2f14f9a6",
+  "sharp_base_version": "s-ccdfecc0",
+  "model_signal_version": "m22-2ea820a8",
+  "feature_version": "f22-109a6fab",
+  "change_policy": "a source-version change requires a new manifest and shadow version"
+ },
+ "collection": {
+  "starts_at": "2026-08-21T22:10:00Z",
+  "capture_mode": "live",
+  "historical_reconstruction_allowed": false,
+  "current_phase": "identity_control_until_training_gate",
+  "identity_control": "p_v22_equals_p_sharp_exactly",
+  "notifications": false,
+  "actionable_signals": false,
+  "regular_ui": false
+ },
+ "features": {
+  "base": [
+   "standalone_model_market_residual_1x2",
+   "attack_log_ratio",
+   "defence_log_ratio",
+   "home_adv_log",
+   "effective_n_home",
+   "effective_n_away",
+   "data_age_home_days",
+   "data_age_away_days",
+   "elo_home",
+   "elo_away",
+   "elo_diff"
+  ],
+  "wp9c": [
+   "rest_home_hours",
+   "rest_away_hours",
+   "rest_diff_hours",
+   "matches_home_7d",
+   "matches_away_7d",
+   "matches_home_14d",
+   "matches_away_14d",
+   "matches_home_30d",
+   "matches_away_30d",
+   "outside_primary_home_14d",
+   "outside_primary_away_14d",
+   "last_was_away_home",
+   "last_was_away_away",
+   "away_base_travel_km"
+  ],
+  "travel_semantics": "club-base-to-club-base proxy; neutral venue is not resolved",
+  "complete_case_only": true,
+  "missing_policy": "fall_back_to_exact_sharp_identity_and_keep_row_in_coverage",
+  "xg_policy": "xg home/away is always selected as one intact provider pair; corners are independently selected as one intact provider pair; missing xg falls back to goals",
+  "alias_fingerprint_policy": "all main and feeder leagues in FIT_POOLS are frozen; a runtime alias change creates a new feature version"
+ },
+ "pooling": {
+  "shared_feature_coefficients": true,
+  "league_intercepts": true,
+  "league_effects": "ridge-shrunk toward the shared effect",
+  "free_per_league_feature_slopes": false,
+  "required_robustness": [
+   "report every metric per league",
+   "leave-one-league-out transfer audit",
+   "pooled pass cannot hide a league degradation beyond the guardrail"
+  ]
+ },
+ "eligibility": {
+  "direct_fresh_pinnacle_1x2": true,
+  "standalone_model_snapshot_required": true,
+  "fixed_horizon_timing_required": true,
+  "verified_fit_and_elo_identity_required": true,
+  "verified_wp9c_team_identity_required": true,
+  "wp9c_issues_must_be_empty": true,
+  "post_kickoff_features_allowed": false,
+  "feature_first_seen_must_be_at_or_before_as_of": true
+ },
+ "training_gate": {
+  "minimum_unique_settled_matches_total_per_horizon": 300,
+  "minimum_unique_settled_matches_per_league_per_horizon": 50,
+  "minimum_span_days_per_horizon": 42,
+  "fit_cutoff": "freeze_at_first_chronological_audit_that_satisfies_all_minimums",
+  "regularization_grid": [
+   0.01,
+   0.1,
+   1.0,
+   10.0
+  ],
+  "selection": "inner_time_blocked_validation_before_fit_cutoff",
+  "forbidden": [
+   "historical_closing_proxy_as_training_or_promotion_evidence",
+   "feature_selection_after_forward_outcomes",
+   "silent_imputation",
+   "cross-provider-xg-mixing",
+   "aggregate_pass_that_hides_a_failed_league"
+  ]
+ },
+ "forward_judgment": {
+  "starts_strictly_after": "frozen_fit_cutoff",
+  "minimum_unique_settled_matches_total_per_horizon": 300,
+  "minimum_unique_settled_matches_per_league_per_horizon": 50,
+  "minimum_span_days_per_horizon": 42,
+  "primary_metric": "paired_delta_logloss_sharp_minus_v22",
+  "pass": {
+   "mean_delta_logloss": ">0",
+   "cluster_bootstrap_90_ci_lower": ">0",
+   "maximum_per_league_logloss_degradation": 0.005,
+   "brier_delta_max": 0.002,
+   "new_absolute_calibration_bias_max": 0.03
+  },
+  "failure_action": "remain_on_sharp_identity; no threshold_or_feature_tuning_on_same_window"
+ },
+ "promotion": {
+  "first_possible_state": "amber",
+  "green_requires_existing_prediction_ledger_candidate_then_out_of_time_rule": true,
+  "notifications_from_v22_probability_alone": false,
+  "automatic_betting": false
+ },
+ "supersedes_with_observations_kept_as_history": {
+  "experiment": "v2.2-wp9c-multileague-v9",
+  "manifest": "docs/model-v2.2-multileague-forward-manifest-v9.json",
+  "observations_at_cutover": 0,
+  "unique_matches_at_cutover": 0,
+  "eligible_observations_at_cutover": 0,
+  "reason": "V9 frystes 2026-08-21T20:45Z och hann samla NOLL captures innan Ligue 1 lades till som resultat- och statistikliga samma kväll. Inga rader går förlorade och ingen kohort flyttas; v9 lämnas orörd som historik, precis som v3."
+ },
+ "change_note_v10": "Ny manifestversion krävdes av v9:s egen change_policy. Ligue 1 lades till 2026-08-21 som resultatliga (football-data F1/F2) OCH som statistikliga (SOFA_UT 34), tillsammans med tio verifierade lagnamnsalias för franska klubbar. SOFA_UT och aliaskartan ingår båda i V2.2:s fingeravtryck: model_signal_version gick m22-f0e0257f -> m22-2ea820a8 och feature_version f22-8a90906b -> f22-109a6fab. Ligue 1 ingår INTE i V2.2:s SCOPE_LEAGUES och hypotesen, features, poolningen och grinden är helt oförändrade — men kontraktet mäter den datagenererande PROCESSEN, inte scopet, och en ny statistikkälla för en liga är en ändrad process även när ligan står utanför urvalet. Äldre manifest blandas aldrig in."
+}

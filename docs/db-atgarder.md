@@ -1525,3 +1525,78 @@ Liga och Allsvenskan berörs. **Manifest v9** skrevs med
 `model_signal_version` `m22-9e2d2b4b → m22-f0e0257f` och `feature_version`
 `f22-d6baf69c → f22-8a90906b`. Äldre manifest blandas aldrig in.
 Sharp-pipelinen är orörd, så sharp-CLV-facitet rörs inte.
+
+## 2026-08-21 — Ligue 1 in som resultat- och statistikliga
+
+**Bakgrund:** Saman: "Xg finns garanterat, vi borde kunna backtracka samtliga
+stora ligor … Fixa för samtliga ligor." Av de stora europeiska ligorna saknades
+Ligue 1 helt — varken odds, resultat eller xG samlades.
+
+**Skript:** `backend/scripts/backfill_xg_ligor.py --ligor ligue_1 --sasonger 3
+--sidor 16 --skarpt`. Backuper: `--backup ligue1` och `--backup reims`.
+Ingen ad-hoc-SQL; inga rader raderades.
+
+### Identiteterna lästes, aldrig gissades
+
+Pinnacle 2036, Kambi `football/france/ligue_1`, Sofascore UT 34, Flashscore
+`FRANCE: Ligue 1`, FotMob `FRA`/`Ligue 1`, Smarkets `france-ligue-1`,
+football-data `F1` (matarligan `F2`). Varje värde bekräftades mot källans eget
+svar. `_fd_result_rows(..., div=)` kontrollerar dessutom filens EGEN
+divisionskod — football-data har serverat fel liga på rätt URL förr.
+
+`ligue_2` är resultatliga men läggs MEDVETET inte i `SOFA_UT`: den fittas inte,
+så den ska inte kosta statistikanrop.
+
+### Två namnfel, samma signatur båda gångerna
+
+Första bakfyllningen nådde 145 av 612 matcher. Fördelningen avslöjade felet:
+varje saknat lag saknade **exakt 68** matcher, alltså två hela säsonger. Ett
+datahål är aldrig så jämnt fördelat — det är en identitet som inte länkar.
+Nio verifierade alias räckte (`as monaco → monaco`, `olympique de marseille →
+marseille`, `olympique lyonnais → lyon`, `paris saint germain → paris sg`,
+`rc lens → lens`, `rc strasbourg → strasbourg`, `saint etienne → st etienne`,
+`stade brestois → brest`, `stade rennais → rennes`).
+
+**Paris-fällan:** football-data har BÅDA klubbarna — `paris` = Paris FC och
+`paris sg` = Paris Saint-Germain. Fuzzy hade kunnat dra `paris saint germain`
+till `paris`. Den vägen är spärrad explicit i `TEAM_REJECTED_LINKS`.
+
+Andra körningen lämnade 35 luckor, och samma signatur igen: **34 av 35 var
+Reims**, alla i 2024/25. Sofascore skriver `Stade de Reims`. Klubben syntes
+inte i den första namnjämförelsen därför att den provet bara läste tre sidor av
+två säsonger — Reims åkte ur efter 2024/25 och fanns inte i urvalet. Aliaset
+`stade de reims → reims` är skrivet. Notera att `_team_sim` ger 1,0 här, men
+bakfyllningens `_target` matchar MEDVETET bara exakt eller via alias: fuzzy får
+aldrig avgöra vilken match ett xG-par skrivs till.
+
+### Integritetsspärren löste ut — och hade rätt
+
+Skriptet avbröt på `matcher 612 → 613`. Den 613:e är Marseille–Strasbourg
+2026-08-21 ur Sofascore, som football-data ännu inte publicerat.
+306 + 306 + 1 = 613 är exakt rätt för tre säsonger. Spärren gjorde sitt jobb:
+den ska larma vid varje förändrat matchantal, och skillnaden mellan en dubblett
+och en ny match avgörs av en människa, inte av skriptet.
+
+### Läge
+
+**578/613 (94,3 %)** med xG. De 35 återstående fylls när Sofascore svarar igen
+— källan började returnera 403 efter kvällens anrop, och den gränsen
+respekteras. `integrity_check: ok` efter varje körning.
+
+Ligue 1 står **utanför `MODEL_LEAGUES`** tills täckningen är hel. Inträdet
+kräver dessutom en per-liga-kalibrerad `T`, som i sig är en ändrad
+datagenererande process — båda görs i EN ändring, inte i två.
+
+### Versionskonsekvenser
+
+- Live-radarn: `chance-gap-shadow-v10 → v11`, fönster från
+  2026-08-21T22:00:00Z. Se `docs/radar-scope-v11-2026-08-21.md`. Enbart
+  populationen ändras; trösklar och länkning är oförändrade.
+- V2.2: **manifest v10** ersätter v9, som hann samla NOLL captures.
+  `model_signal_version` `m22-f0e0257f → m22-2ea820a8`, `feature_version`
+  `f22-8a90906b → f22-109a6fab`. Ligue 1 ingår inte i V2.2:s `SCOPE_LEAGUES`,
+  men kontraktet mäter den datagenererande PROCESSEN, inte scopet.
+  OBS: `feature_version` hashar manifestets EGET experimentnamn, så värdet
+  måste läsas ut EFTER att den nya manifestfilen finns — annars fryser man in
+  ett värde som runtime aldrig kommer att producera.
+- Sharp-pipelinen är orörd. Sharp-CLV-facitet rörs inte.

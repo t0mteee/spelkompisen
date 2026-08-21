@@ -42,7 +42,8 @@ RADAR_V7_VERSION = "chance-gap-shadow-v7"
 RADAR_V8_VERSION = "chance-gap-shadow-v8"
 RADAR_V9_VERSION = "chance-gap-shadow-v9"
 RADAR_V10_VERSION = "chance-gap-shadow-v10"
-RADAR_VERSION = RADAR_V10_VERSION
+RADAR_V11_VERSION = "chance-gap-shadow-v11"
+RADAR_VERSION = RADAR_V11_VERSION
 
 # En observation som inte bevisligen hör till någon kohort. Se `cohort_for`.
 RADAR_TRANSITIONAL = "transitional"
@@ -84,7 +85,23 @@ RADAR_V9_STARTED_AT = "2026-08-09T18:00:00Z"
 # efterhand är försvarbart HÄR och bara här: v10 hade exakt noll rader när
 # ändringen gjordes, så ingen observation producerades av den gamla koden inne
 # i v10:s fönster. Hade en enda rad funnits hade det krävt v11.
-RADAR_VERSION_STARTED_AT = "2026-08-18T00:00:00Z"
+RADAR_V10_STARTED_AT = "2026-08-18T00:00:00Z"
+# v11 (2026-08-21): Ligue 1 läggs till i radarscopet. Populationen ändras —
+# trösklar, providers, källrankning, identitet och ROI-process är oförändrade.
+# Till skillnad från v10, som hade NOLL rader när dess deklaration utökades,
+# bar v11:s föregångare 27 signaler i blindkohorten när beslutet togs. Att
+# skriva om v10:s text hade därför varit att låta en ändrad population smyga
+# in i en kohort som redan mätt — det kräver en ny version.
+#
+# Ligarubrikerna är AVLÄSTA ur providrarnas egna feeds, aldrig gissade:
+# FotMob ccode "FRA" + "Ligue 1", Flashscore "FRANCE: Ligue 1". Ligue 2 är
+# matarliga utan modell och ingår inte i scopet.
+#
+# Gränsen är satt strax framåt (midnatt CEST). Koden gäller i samma sekund
+# filen sparas, så observationer däremellan blir `transitional` enligt
+# cohort_for och tillhör ingen kohort — det är avsikten, inte ett fel.
+RADAR_V11_STARTED_AT = "2026-08-21T22:00:00Z"
+RADAR_VERSION_STARTED_AT = RADAR_V11_STARTED_AT
 
 # OBSERVERADE växlingar — när koden faktiskt bytte.
 #
@@ -335,6 +352,7 @@ LEAGUE_PRIORITY = {"allsvenskan": 0, "superettan": 0, "eliteserien": 0,
                    "la_liga": 0, "bundesliga": 0,
                    "danish_superliga": 0, "belgian_pro_league": 0,
                    "primeira_liga": 0, "bolivian_primera": 0,
+                   "ligue_1": 0,
                    "champions_league": 0, "europa_league": 0,
                    "conference_league": 0, "friendlies": 1}
 
@@ -944,7 +962,8 @@ def previous_capture(earlier: list[dict],
 def declared_version_at(observed_at: str) -> str:
     """Vilken kohort som DEKLARERAT äger observationsögonblicket."""
     observed = _parse_iso(observed_at)
-    for version, start in ((RADAR_V10_VERSION, RADAR_VERSION_STARTED_AT),
+    for version, start in ((RADAR_V11_VERSION, RADAR_V11_STARTED_AT),
+                           (RADAR_V10_VERSION, RADAR_V10_STARTED_AT),
                            (RADAR_V9_VERSION, RADAR_V9_STARTED_AT),
                            (RADAR_V8_VERSION, RADAR_V8_STARTED_AT),
                            (RADAR_V7_VERSION, RADAR_V7_STARTED_AT),

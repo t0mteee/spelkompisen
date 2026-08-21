@@ -15,7 +15,9 @@ from app.storage import Storage
 # dagens kod, som stämplar raden med aktuell `radar_version`; en fixtur daterad
 # före fönstret blir därför korrekt `transitional` och faller ur blindkohorten.
 # Datumet ska följa med vid nästa kohortstart.
-NOW = dt.datetime(2026, 8, 18, 18, 30, tzinfo=dt.timezone.utc)
+# Se noten i test_radar_settlement: klockan måste ligga i den aktiva
+# radarkohortens deklarerade fönster.
+NOW = dt.datetime(2026, 8, 22, 18, 30, tzinfo=dt.timezone.utc)
 
 
 def iso(when: dt.datetime) -> str:
