@@ -1180,9 +1180,31 @@ nitton rullande matcher): hela svaret tog **49 s**. Två orsaker, båda åtgärd
   `live=true&chance=false` (4 s) → fullt svar. Endpointen hade redan
   `chance`-flaggan; det var frontend som inte använde den.
 
-Kvar är chansmotorns ~10 s ren Python. Den är CPU-bunden i en synkron endpoint
-och konkurrerar därför med allt annat i trådpoolen — mät den mot HTTP, inte
-bara i process (13,5 s i process blev 23,6 s över HTTP medan poolvarvet tickade).
+**Chansmotorn räknar EXAKT sedan 2026-08-22, inte simulerat.** Monte Carlo över
+20 000 dragningar redovisade toppnivån som exakt `0,0 %` medan samtliga tretton
+matcher var oavgjorda — noll träffar av 20 000 är inte samma sak som omöjligt,
+och UI:t visar `0%` just för exakt noll (`<0,1%` för allt annat smått). Det var
+alltså en lögn om det enda tal man tittar på.
+
+Nyckeln: att nå nivån L betyder att utfallet ligger inom Hamming-avstånd
+`secure + k − L` från någon rad. Massan i UNIONEN av radernas klot räknas upp
+direkt (`_ball_union_probabilities`), och för de nivåer som betyder något är
+klotet litet — med 13 matcher rymmer radie 0 en punkt, radie 1 tjugosju, radie 2
+tvåhundratrettionio. Exakt kostar därför 3,1 miljoner kandidater mot
+simuleringens 20,5 miljoner. Verifierat mot uttömmande uppräkning av hela 3^k
+i `test_klotunionen_ar_exakt_lika_med_full_uppräkning`. Simuleringen finns kvar
+för system där klotet inte ryms i `CHANCE_BALL_MAX_CANDIDATES`, och för de fall
+där någon sannolikhet är exakt noll (vikten divideras fram).
+
+`_round_chance` behåller minst tre värdesiffror — `round(x, 6)` skrev 3e-07 som
+0,0 och återinförde felet i sista ledet.
+
+Uppmätt: 9,8 → 5,0 s för sex kuponger. Kvar är TVÅ saker att veta:
+CPU-bundet Python i en synkron endpoint konkurrerar i trådpoolen (5 s i process
+blir 8–19 s över HTTP), och **varje match utan livepris TREDUBBLAR arbetet** —
+intervallet betingas på hur den matchen går, så två oprissatta matcher är nio
+körningar. Kambi stänger 1X2 i sekunder vid farliga lägen, så det slår till
+oregelbundet. Mät därför alltid med `chance_unpriced` i handen.
 
 **Det som återstår är samtidighet, inte enskild långsamhet.** Varje endpoint är
 20–180 ms ensam men 1 500–1 800 ms när 43 anrop startar samtidigt. Appen öppnas

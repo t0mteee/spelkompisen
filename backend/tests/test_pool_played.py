@@ -1,3 +1,4 @@
+import itertools
 import datetime as dt
 import json
 import random
@@ -496,13 +497,73 @@ class ChancePerLevelTests(unittest.TestCase):
                 if best >= level:
                     reference[level] += 1.0 / samples
 
+        # Båda de exakta vägarna stängs av: uppräkningen av hela utfallsrummet
+        # OCH klotunionen. Testet gäller simuleringens bitmask-optimering, som
+        # finns kvar för de kupongsystem där ingen exakt väg ryms i budgeten.
         with patch.object(pool_played, "CHANCE_EXACT_MAX_COMBOS", 0), \
+             patch.object(pool_played, "CHANCE_BALL_MAX_CANDIDATES", 0), \
              patch.object(pool_played, "CHANCE_SAMPLES", samples):
             actual, basis = pool_played._hit_probabilities(
                 groups, probs, levels)
 
         self.assertEqual("simulerad", basis)
         self.assertEqual(reference, actual)
+
+    def test_klotunionen_ar_exakt_lika_med_full_uppräkning(self) -> None:
+        """Den exakta genvägen måste ge SAMMA svar som att räkna upp allt.
+
+        Att nå nivån L betyder att utfallet ligger inom Hamming-avstånd
+        `secure + k - L` från någon rad. Klotunionen räknar bara upp de
+        avstånden i stället för hela 3^k, men svaret ska vara identiskt —
+        annars är det en approximation som utger sig för att vara exakt.
+        """
+        rng = random.Random(20260822)
+        signs = ("1", "X", "2")
+        for _ in range(25):
+            width = rng.randint(3, 6)
+            probs = []
+            for _ in range(width):
+                raw = [rng.uniform(0.1, 0.8) for _ in signs]
+                total = sum(raw)
+                probs.append(dict(zip(signs, (v / total for v in raw))))
+            items = list({
+                tuple(rng.choice(signs) for _ in range(width)):
+                    rng.randint(0, 2)
+                for _ in range(rng.randint(1, 8))
+            }.items())
+            levels = sorted({rng.randint(width - 2, width + 1)
+                             for _ in range(3)})
+
+            full = {level: 0.0 for level in levels}
+            for combo in itertools.product(signs, repeat=width):
+                weight = 1.0
+                for i, sign in enumerate(combo):
+                    weight *= probs[i][sign]
+                best = max(secure + width
+                           - sum(1 for i in range(width)
+                                 if pattern[i] != combo[i])
+                           for pattern, secure in items)
+                for level in levels:
+                    if best >= level:
+                        full[level] += weight
+
+            ball = pool_played._ball_union_probabilities(items, probs, levels)
+            self.assertIsNotNone(ball)
+            for level in levels:
+                self.assertAlmostEqual(full[level], ball[level], places=12)
+
+    def test_liten_chans_redovisas_aldrig_som_noll(self) -> None:
+        """0 % betyder omöjligt. En chans på 3e-07 är inte omöjlig.
+
+        `round(x, 6)` skrev toppnivån som exakt 0.0 medan alla tretton matcher
+        var oavgjorda, och UI:t visar `0%` just för exakt noll. Skillnaden mot
+        `<0,1%` är hela skillnaden mellan "kan inte hända" och "osannolikt".
+        """
+        self.assertEqual(0.0, pool_played._round_chance(0.0))
+        for tiny in (3e-07, 1.2e-06, 4.9e-05):
+            self.assertEqual(tiny, pool_played._round_chance(tiny))
+            self.assertGreater(pool_played._round_chance(tiny), 0.0)
+        self.assertEqual(0.015325, pool_played._round_chance(0.0153248))
 
     def test_odds_are_devigged_and_streck_is_the_fallback(self):
         # Bok utan overround (1/odds summerar redan till 1) — då är k = 1 och

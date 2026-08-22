@@ -1094,10 +1094,117 @@ def _cheer_per_match(rows: list[str], col_states: list[Optional[dict]],
 
 
 CHANCE_EXACT_MAX_COMBOS = 60000     # 3^10; över det blir uppräkningen dyr
-CHANCE_SAMPLES = 20000              # Monte Carlo när uppräkning är för dyr
+CHANCE_SAMPLES = 20000              # Monte Carlo när ingen exakt väg finns
+# Att nå nivån L betyder att utfallet ligger inom Hamming-avstånd
+# `secure + k - L` från någon rad. För de nivåer som betyder mest är det klotet
+# LITET: med 13 matcher rymmer radie 0 en enda punkt, radie 1 tjugosju och
+# radie 2 tvåhundratrettionio. Unionen av raderna klot går därför att räkna upp
+# exakt, och det är BILLIGARE än att simulera — 3,1 miljoner kandidater mot
+# Monte Carlos 20,5 miljoner för en 1024-raderskupong.
+#
+# Skälet att göra det är dock inte farten utan att simuleringen LJUG om
+# toppnivån: 13 rätt kom aldrig upp i 20 000 dragningar och redovisades som
+# exakt 0,0 % fast ingen match var avgjord. Monte Carlo kan inte skilja
+# omöjligt från osannolikt, och det är precis toppnivån man tittar på.
+CHANCE_BALL_MAX_CANDIDATES = 4_000_000
+SIGN_DIGIT = {"1": 0, "X": 1, "2": 2}
 # Fler oprissatta matcher än så ger ett intervall så brett att det inte säger
 # något — då är noten ärligare än en gräns mellan 0 och 100 %.
 CHANCE_MAX_UNPRICED = 2
+
+
+def _round_chance(value: float) -> float:
+    """Avrunda en chans utan att göra den liten men verkliga till NOLL.
+
+    `round(x, 6)` skrev 3e-07 som 0.0, och UI:t visar `0%` för exakt noll och
+    `<0,1%` för allt annat smått. Kupongen påstod alltså att 13 rätt var
+    UTESLUTET medan samtliga tretton matcher ännu var oavgjorda. En liten chans
+    och en omöjlig chans är inte samma sak, och skillnaden är hela poängen med
+    den översta raden.
+
+    Positiva värden behåller därför alltid minst tre värdesiffror.
+    """
+    if value <= 0.0:
+        return 0.0
+    if value >= 1.0:
+        return 1.0
+    return round(value, max(6, 2 - math.floor(math.log10(value))))
+
+
+def _ball_size(width: int, radius: int) -> int:
+    """Antal utfall inom Hamming-avstånd `radius` när varje match har tre tecken."""
+    return sum(math.comb(width, d) * 2 ** d for d in range(radius + 1))
+
+
+def _ball_union_probabilities(items, probs, levels) -> Optional[dict]:
+    """Exakt P(bästa raden når nivån) via unionen av radernas Hamming-klot.
+
+    En rad når nivån L exakt när utfallet avviker på högst `secure + k - L`
+    matcher. Mängden sådana utfall är ett Hamming-klot runt radens
+    teckenmönster, och nivåns sannolikhet är massan i UNIONEN av alla raders
+    klot — därav att vikten skrivs på utfallets KOD, så att ett utfall som två
+    rader båda täcker räknas en gång.
+
+    Returnerar None när klotet inte ryms i budgeten, eller när någon
+    sannolikhet är exakt noll: vikten räknas fram genom att dividera bort de
+    tecken som byts ut, och en nolla i nämnaren stänger den vägen.
+    """
+    width = len(probs)
+    if not width or not levels or not items:
+        return None
+    signs = ("1", "X", "2")
+    if any(float(column.get(sign) or 0.0) <= 0.0
+           for column in probs for sign in signs):
+        return None
+
+    radii = {level: [secure + width - level for _, secure in items]
+             for level in levels}
+    budget = sum(_ball_size(width, radius)
+                 for level in levels for radius in radii[level]
+                 if 0 <= radius < width)
+    if budget > CHANCE_BALL_MAX_CANDIDATES:
+        return None
+
+    powers = [3 ** i for i in range(width)]
+    hit: dict[int, float] = {}
+    for level in levels:
+        level_radii = radii[level]
+        if any(radius >= width for radius in level_radii):
+            hit[level] = 1.0            # klotet täcker hela utfallsrummet
+            continue
+        mass: dict[int, float] = {}
+        for (pattern, _secure), radius in zip(items, level_radii):
+            if radius < 0:
+                continue                # raden kan inte nå nivån alls
+            base_code = 0
+            base_weight = 1.0
+            for i in range(width):
+                base_code += SIGN_DIGIT[pattern[i]] * powers[i]
+                base_weight *= probs[i][pattern[i]]
+            mass[base_code] = base_weight
+            # Per match: vad de TVÅ andra tecknen gör med koden och vikten.
+            # Räknas en gång per rad i stället för en gång per kandidat —
+            # den innersta loopen går miljontals varv och ska inte slå upp
+            # siffertabeller den redan känner.
+            swaps = [[((SIGN_DIGIT[sign] - SIGN_DIGIT[pattern[i]]) * powers[i],
+                       probs[i][sign])
+                      for sign in signs if sign != pattern[i]]
+                     for i in range(width)]
+            for distance in range(1, radius + 1):
+                for positions in itertools.combinations(range(width), distance):
+                    stem = base_weight
+                    for i in positions:
+                        stem /= probs[i][pattern[i]]
+                    for choice in itertools.product(
+                            *[swaps[i] for i in positions]):
+                        code = base_code
+                        weight = stem
+                        for delta, probability in choice:
+                            code += delta
+                            weight *= probability
+                        mass[code] = weight
+        hit[level] = sum(mass.values())
+    return hit
 
 
 def _hit_probabilities(groups, probs, levels) -> tuple[dict, str]:
@@ -1147,6 +1254,11 @@ def _hit_probabilities(groups, probs, levels) -> tuple[dict, str]:
                 if best >= lvl:
                     hit[lvl] += weight
         return hit, "exakt"
+
+    # Exakt uppräkning av radernas Hamming-klot när den ryms i budgeten.
+    exact = _ball_union_probabilities(items, probs, levels)
+    if exact is not None:
+        return exact, "exakt"
 
     rng = random.Random(20260802)        # fast frö: samma svar vid omladdning
     for _ in range(CHANCE_SAMPLES):
@@ -1241,10 +1353,10 @@ def _chance_per_level(rows: list[str], col_states: list[Optional[dict]],
            "chance_modelled_matches": modelled_used,
            "chance_live_source_counts": live_source_counts}
     if not unpriced_cols:
-        out["chance_per_level"] = {lvl: round(hi[lvl], 6) for lvl in levels}
+        out["chance_per_level"] = {lvl: _round_chance(hi[lvl]) for lvl in levels}
         return out
-    out["chance_min_per_level"] = {lvl: round(lo[lvl], 6) for lvl in levels}
-    out["chance_max_per_level"] = {lvl: round(hi[lvl], 6) for lvl in levels}
+    out["chance_min_per_level"] = {lvl: _round_chance(lo[lvl]) for lvl in levels}
+    out["chance_max_per_level"] = {lvl: _round_chance(hi[lvl]) for lvl in levels}
     out["chance_unpriced"] = unpriced_names
     return out
 
