@@ -3576,7 +3576,17 @@ function PlayedPanel({ product = null }) {
           }
         })
         if (hasOpen) {
-          fetch(`/api/pool/played?_t=${stamp}`, { cache: 'no-store' })
+          // TRE steg, inte två. Chansmotorn räknar över hela utfallsrummet och
+          // kostade 2026-08-22 tio sekunder för sex kuponger (fyra av dem med
+          // 13 oavgjorda matcher, alltså Monte Carlo över 3^13). Livestatusen —
+          // ställning, tecken, hur många rader som lever — är däremot billig.
+          // Låg de ihop väntade hela kortet på det dyraste, var 60:e sekund,
+          // och panelen var i praktiken permanent laddande.
+          //
+          // `chance=false` först ger alltså allt utom chanskolumnen direkt;
+          // det fulla svaret ersätter det när det är klart. Samma data, samma
+          // ordning — bara inte samma väntan.
+          const full = () => fetch(`/api/pool/played?_t=${stamp}`, { cache: 'no-store' })
             .then((r) => {
               if (!r.ok) throw new Error(`HTTP ${r.status}`)
               return r.json()
@@ -3592,6 +3602,22 @@ function PlayedPanel({ product = null }) {
                 }
               )),
             } : current))
+          fetch(`/api/pool/played?chance=false&_t=${stamp}`, { cache: 'no-store' })
+            .then((r) => {
+              if (!r.ok) throw new Error(`HTTP ${r.status}`)
+              return r.json()
+            })
+            // Chansen saknas ännu, så kortet ska fortsätta säga att något är
+            // på väg. Utan `live_pending` ser en tom chanskolumn ut som ett
+            // svar i stället för som ett mellanläge.
+            .then((quick) => setData({
+              ...quick,
+              coupons: (quick.coupons || []).map((coupon) => (
+                coupon.settled_at ? coupon : { ...coupon, live_pending: true }
+              )),
+            }))
+            .catch(() => {})
+            .finally(full)
         }
       })
       .catch(() => setData((current) => current || { coupons: [] }))

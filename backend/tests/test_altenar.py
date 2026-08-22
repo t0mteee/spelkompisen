@@ -80,5 +80,72 @@ class AltenarEventMarketTests(unittest.TestCase):
             altenar.event_markets("1", strict=True)
 
 
+class AltenarLiveEventsTests(unittest.TestCase):
+    """Parallella ligaanrop får inte ändra VAD som hämtas eller i vilken ordning."""
+
+    MENU = {
+        "sports": [{"id": altenar.SOCCER, "catIds": [7]}],
+        "categories": [{"id": 7, "champIds": [11, 22, 33]}],
+        "champs": [{"id": 11, "hasLiveEvents": True},
+                   {"id": 22, "hasLiveEvents": True},
+                   {"id": 33, "hasLiveEvents": True},
+                   {"id": 44, "hasLiveEvents": True}],   # utanför fotboll
+    }
+
+    def _client(self, seen):
+        def get(url, params=None):
+            response = mock.MagicMock()
+            response.headers = {}
+            if url.endswith("/GetSportMenu"):
+                response.json.return_value = self.MENU
+                return response
+            champ = params["champIds"]
+            seen.append(champ)
+            response.json.return_value = {
+                "events": [{"id": champ * 100, "champId": champ}]}
+            return response
+        client = mock.MagicMock()
+        client.get.side_effect = get
+        return client
+
+    def test_alla_liveligor_fragas_och_ordningen_bevaras(self) -> None:
+        """Sekventiellt kostade det 7,7 s (85 ligor × 0,09 s) 2026-08-22.
+
+        Parallellt ska exakt samma ligor frågas och raderna komma i samma
+        ordning — en snabbare väg får inte bli en annan observation.
+        """
+        seen: list[int] = []
+        rows_by_champ = {11: "a", 22: "b", 33: "c"}
+        with mock.patch.object(altenar.httpx, "Client",
+                               return_value=self._client(seen)), \
+             mock.patch.object(altenar, "_live_rows",
+                               side_effect=lambda payload: [
+                                   rows_by_champ[payload["events"][0]["champId"]]]):
+            rows = altenar.live_events(integration="x", strict=True)
+
+        self.assertEqual([11, 22, 33], sorted(seen))
+        self.assertEqual(3, len(seen), "champ 44 är inte fotboll")
+        self.assertEqual(["a", "b", "c"], rows)
+
+    def test_fel_i_en_liga_faller_som_forut(self) -> None:
+        """Ett halvt svar är ingen observation — strict ska fortfarande resa."""
+        def get(url, params=None):
+            response = mock.MagicMock()
+            response.headers = {}
+            if url.endswith("/GetSportMenu"):
+                response.json.return_value = self.MENU
+                return response
+            if params["champIds"] == 22:
+                raise RuntimeError("blocked")
+            response.json.return_value = {"events": []}
+            return response
+        client = mock.MagicMock()
+        client.get.side_effect = get
+        with mock.patch.object(altenar.httpx, "Client", return_value=client):
+            self.assertEqual([], altenar.live_events(integration="x"))
+            with self.assertRaisesRegex(RuntimeError, "blocked"):
+                altenar.live_events(integration="x", strict=True)
+
+
 if __name__ == "__main__":
     unittest.main()

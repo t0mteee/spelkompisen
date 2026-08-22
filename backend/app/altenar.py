@@ -13,6 +13,7 @@ Inofficiellt API — kan ändras utan förvarning.
 """
 from __future__ import annotations
 
+import concurrent.futures as cf
 from typing import Optional
 
 import httpx
@@ -20,6 +21,10 @@ import httpx
 BASE = "https://sb2frontend-altenar2.biahosted.com/api/Widget"
 HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
 SOCCER = 66
+# Hur många liveligor som frågas samtidigt. Anropen är oberoende och
+# CDN-cachade (max-age 3 s), men taket håller nere hur hårt vi trycker på
+# källan i ett enda svep — artighet, inte prestandagräns.
+LIVE_CHAMP_WORKERS = 8
 
 # HTTP `Age` ur senaste lyckade svar (0 = huvudet saknas). Uppmätt 2026-07-26:
 # Altenar svarar `cache-control: public,max-age=3` utan Age-huvud — fönstret är
@@ -311,16 +316,44 @@ def live_events(integration: str = "ninjacasinose", timeout: float = 12.0,
             for champ in menu.get("champs") or []
             if champ.get("hasLiveEvents") and champ.get("id") in soccer_champs
         ]
-        rows = []
-        ages = [_age_s(menu_response)]
-        for champ_id in live_champs:
+        # En lördagseftermiddag har Altenar ~85 fotbollsligor med liveevent, och
+        # varje liga är ett eget anrop. Sekventiellt kostade det 7,7 s (uppmätt
+        # 2026-08-22, 0,09 s per anrop) — hela fördröjningen i kupongernas
+        # liverättning, som bara behöver pris på en handfull matcher.
+        #
+        # Anropen är oberoende, så de görs samtidigt. Antalet anrop är
+        # OFÖRÄNDRAT — det är ordningen som ändras, inte trafiken — och
+        # `LIVE_CHAMP_WORKERS` håller nere hur många som är i luften mot
+        # källan samtidigt. Resultatet sätts in på champ-ligans egen plats så
+        # att raden får samma ordning som förut; en parallell körning får
+        # inte göra utdatan icke-deterministisk.
+        def _champ_rows(champ_id: int):
             response = client.get(
                 f"{BASE}/GetLiveEvents",
                 params={**_params(integration), "champIds": champ_id,
                         "sportId": SOCCER, "eventCount": "50"})
             response.raise_for_status()
-            ages.append(_age_s(response))
-            rows.extend(_live_rows(response.json()))
+            return _age_s(response), _live_rows(response.json())
+
+        per_champ: list[Optional[tuple]] = [None] * len(live_champs)
+        if live_champs:
+            with cf.ThreadPoolExecutor(
+                    max_workers=min(LIVE_CHAMP_WORKERS, len(live_champs))) as pool:
+                futures = {pool.submit(_champ_rows, champ_id): index
+                           for index, champ_id in enumerate(live_champs)}
+                for future in cf.as_completed(futures):
+                    # Ett fel i EN liga ska falla som förut: hela anropet är
+                    # antingen en observation eller inget, så undantaget får
+                    # propagera till den befintliga hanteringen nedan.
+                    per_champ[futures[future]] = future.result()
+        rows = []
+        ages = [_age_s(menu_response)]
+        for entry in per_champ:
+            if entry is None:
+                continue
+            age, champ_rows = entry
+            ages.append(age)
+            rows.extend(champ_rows)
         client.close()
         last_age_s = max(ages, default=0)
         return rows

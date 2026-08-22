@@ -1163,6 +1163,27 @@ Ingen numerik ändrad; allt är arbete som inte behövde göras om.
   observationstid.
 - **Ligafitten**, se avsnittet ovan.
 
+**Spelade kupongers liverättning, uppmätt 2026-08-22** (sex öppna kuponger,
+nitton rullande matcher): hela svaret tog **49 s**. Två orsaker, båda åtgärdade:
+
+- `altenar.live_events` frågade varje liveliga i ett EGET anrop, sekventiellt.
+  En lördagseftermiddag är det **85 ligor × 0,09 s = 7,7 s** — för att prissätta
+  som mest fyra matcher. Anropen är oberoende och görs nu samtidigt
+  (`LIVE_CHAMP_WORKERS` = 8). Antalet anrop är OFÖRÄNDRAT; det är ordningen som
+  ändras, inte trafiken. Raderna sätts in på ligans egen plats så att utdatan
+  förblir deterministisk. `attach_live_odds` 8,9 → 2,4 s.
+- Chansmotorn räknar över hela utfallsrummet och kostade ~10 s för sex kuponger
+  (fyra med 13 oavgjorda matcher ⇒ Monte Carlo, 20 000 dragningar × upp till
+  1 024 mönster). Den låg i SAMMA svar som livestatusen, så hela kortet väntade
+  på det dyraste — var 60:e sekund, alltså i praktiken permanent laddande.
+  `PlayedPanel` hämtar nu i TRE steg: `live=false` (0,08 s) →
+  `live=true&chance=false` (4 s) → fullt svar. Endpointen hade redan
+  `chance`-flaggan; det var frontend som inte använde den.
+
+Kvar är chansmotorns ~10 s ren Python. Den är CPU-bunden i en synkron endpoint
+och konkurrerar därför med allt annat i trådpoolen — mät den mot HTTP, inte
+bara i process (13,5 s i process blev 23,6 s över HTTP medan poolvarvet tickade).
+
 **Det som återstår är samtidighet, inte enskild långsamhet.** Varje endpoint är
 20–180 ms ensam men 1 500–1 800 ms när 43 anrop startar samtidigt. Appen öppnas
 på Idag, vars hämtningar redan är i luften när man trycker Oddset. Nästa steg
