@@ -267,6 +267,24 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       förlängning") — samma lucka som 33 gav 2026-08-08, och
                       matchen räddades bara av att ett publicerat `Fulltime`
                       också räknas som slut.
+                      **FULLTIME-NÄTET FÅR INTE KÖRA ÖVER KLOCKAN
+                      (2026-08-22).** Nätet finns för OKÄNDA statuskoder, inte
+                      som bevis. SvS publicerade ett `Fulltime` 0–0 för
+                      Nottingham–Leeds (Stryktipset 4967, event 4) medan
+                      matchen stod i `statusId 6` = "Första halvlek", 43
+                      minuter efter avspark och ensam bland omgångens tretton
+                      matcher. Sex spelade kuponger visade matchen som SLUT med
+                      tecknet X, räknade bort den ur radantalet och slutade
+                      jaga livepris. `match_finished`/`regulation_over` tar
+                      därför en valfri `now` och nätet gatas av
+                      `REGULATION_WALL_CLOCK_MIN` = 105 min (90 spelade + paus).
+                      Vetot är FYSIK, inte ännu en statuskod, och gäller BARA
+                      nätet — en uttalad slutstatus vinner alltid, annars vore
+                      ett trasigt `matchStart` nog för att öppna en avgjord
+                      match igen. Marginalen är den fysiska miniminivån och
+                      INTE settlementets 130: stoppa nätet när det är omöjligt,
+                      aldrig när det bara är osannolikt. Ett `Fulltime` under
+                      förlängning (Nijmegen–Olympiakos) passerar som förut.
                       **STATUSKODER GISSAS ALDRIG (2026-08-12).**
                       `EXTRA_TIME_STATUS_IDS` innehöll den gissade serien
                       20–25. `statusId 23` betyder **"Uppskjuten"** (uppmätt på

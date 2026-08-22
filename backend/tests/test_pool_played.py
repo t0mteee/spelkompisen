@@ -994,6 +994,62 @@ class PenaltyShootoutStateTests(unittest.TestCase):
         self.assertTrue(pool_played.match_finished(match))
         self.assertFalse(pool_played.in_extra_time(match))
 
+    def test_forhastat_fulltime_gor_inte_en_pagaende_match_slut(self) -> None:
+        """SvS publicerade Fulltime 0–0 mitt i första halvlek.
+
+        Nottingham–Leeds (Stryktipset 4967, event 4, 2026-08-22) bar `statusId`
+        6 = "Första halvlek" 43 minuter efter avspark och var ensam bland
+        omgångens tretton matcher om att ha ett publicerat `Fulltime`.
+        Skyddsnätet mot okända statuskoder gjorde matchen "slut" med tecknet X
+        på sex spelade kuponger. Nätet får aldrig köra över klockan.
+        """
+        nu = dt.datetime(2026, 8, 22, 14, 43, tzinfo=dt.timezone.utc)
+        match = {"statusId": 6, "status": "Första halvlek",
+                 "matchStart": "2026-08-22T16:00:00+02:00",
+                 "result": [{"sportEventResultType": "Current",
+                             "home": "0", "away": "0"},
+                            {"sportEventResultType": "Fulltime",
+                             "home": "0", "away": "0"}]}
+
+        self.assertFalse(pool_played.match_finished(match, now=nu))
+        self.assertFalse(pool_played.regulation_over(match, now=nu))
+
+    def test_fulltime_under_forlangning_passerar_klockvetot(self) -> None:
+        """Vetot är fysik, inte en statuskod — det får inte fälla äkta fall.
+
+        Nijmegen–Olympiakos bar Fulltime 1–1 mitt i första övertidsperioden
+        2026-08-11. Då har det gått långt mer än 105 minuter, så nätet ska
+        fungera precis som förut.
+        """
+        nu = dt.datetime(2026, 8, 11, 21, 15, tzinfo=dt.timezone.utc)
+        match = {"statusId": 20, "status": "Första övertidsperioden",
+                 "matchStart": "2026-08-11T19:00:00+00:00",
+                 "result": [{"sportEventResultType": "Fulltime",
+                             "home": "1", "away": "1"}]}
+
+        self.assertTrue(pool_played.match_finished(match, now=nu))
+
+    def test_okand_avspark_lamnar_skyddsnatet_orort(self) -> None:
+        """Ett oläsbart datum får aldrig göra en färdigspelad match öppen."""
+        match = {"statusId": 99, "status": "Okänd kod", "matchStart": None,
+                 "result": [{"sportEventResultType": "Fulltime",
+                             "home": "2", "away": "1"}]}
+
+        self.assertTrue(pool_played.match_finished(match))
+
+    def test_klockvetot_gäller_bara_fulltime_inte_slutstatusen(self) -> None:
+        """Vetot gatear NÄTET, aldrig en uttalad slutstatus.
+
+        Säger SvS att matchen är slut är den slut, även om avsparken enligt
+        payloaden ligger orimligt nära — annars vore ett trasigt `matchStart`
+        nog för att öppna en avgjord match igen.
+        """
+        nu = dt.datetime(2026, 8, 22, 14, 43, tzinfo=dt.timezone.utc)
+        match = {"statusId": 31, "status": "Slut",
+                 "matchStart": "2026-08-22T16:00:00+02:00", "result": []}
+
+        self.assertTrue(pool_played.match_finished(match, now=nu))
+
     def test_finished_shootout_is_not_reported_as_playing_extra_time(self) -> None:
         """Slutstatusen bär ordet "straffläggning" utan att något spelas."""
         state = pool_played.event_state(self._shootout())

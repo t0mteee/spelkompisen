@@ -58,6 +58,21 @@ SETTLEMENT_VERSION = "played-v2"
 FINISHED_STATUS_IDS = frozenset({31, 32, 33})
 FINISHED_STATUS_WORDS = frozenset({"slut", "ended", "finished", "avslutad"})
 
+# Fulltime-skyddsnätet är ett nät mot OKÄNDA statuskoder, aldrig ett bevis som
+# får köra över en känd och korrekt status. SvS publicerade 2026-08-22 ett
+# `Fulltime` 0–0 för Nottingham–Leeds (Stryktipset 4967, event 4) medan matchen
+# stod i `statusId 6` = "Första halvlek", 43 minuter efter avspark — ensam bland
+# omgångens tretton matcher. Nätet gjorde då sex spelade kuponger till "slut"
+# med tecknet X, räknade bort matchen ur radantalet och slutade jaga livepris.
+#
+# Vetot är FYSIK, inte ännu en statuskod: ordinarie tid kräver 90 spelade
+# minuter plus paus, alltså minst 105 minuter väggklocka. Marginalen är
+# medvetet den fysiska miniminivån och INTE settlementets 130 — nätet ska
+# stoppas när det är omöjligt, aldrig när det bara är osannolikt. Ett `Fulltime`
+# publicerat under förlängning (Nijmegen–Olympiakos 2026-08-11) ligger långt
+# efter gränsen och passerar precis som förut.
+REGULATION_WALL_CLOCK_MIN = 105
+
 # Spel EFTER ordinarie tid. Poolen avgörs på ordinarie tid, så här står tecknet
 # redan fast trots att matchen inte är slut. Observerat 2026-08-11: statusId 20
 # = "Första övertidsperioden" (Apollon Limassol–Brann, Topptipset 4260).
@@ -174,7 +189,31 @@ def _minus_overtime(current: Optional[dict],
     return {"home": str(home), "away": str(away)} if home >= 0 and away >= 0 else None
 
 
-def match_finished(match: dict) -> bool:
+def _fulltime_can_be_real(match: dict,
+                          now: Optional[dt.datetime] = None) -> bool:
+    """Har det hunnit gå tillräckligt länge för att ett `Fulltime` ska KUNNA
+    beskriva en spelad match?
+
+    Ordinarie tid är 90 spelade minuter plus paus, alltså minst
+    `REGULATION_WALL_CLOCK_MIN` minuter väggklocka från avspark. Ett `Fulltime`
+    dessförinnan är omöjligt, inte bara osannolikt.
+
+    Saknas eller är `matchStart` oläsbar lämnas skyddsnätet orört — vi vet då
+    ingenting som motsäger det, och ett trasigt datum får aldrig göra en
+    färdigspelad match öppen igen.
+    """
+    start = match.get("matchStart")
+    try:
+        stamp = dt.datetime.fromisoformat(str(start).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return True
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=dt.timezone.utc)
+    now = now or dt.datetime.now(dt.timezone.utc)
+    return (now - stamp) >= dt.timedelta(minutes=REGULATION_WALL_CLOCK_MIN)
+
+
+def match_finished(match: dict, now: Optional[dt.datetime] = None) -> bool:
     """Är matchen färdigspelad så att tecknet står fast?
 
     EN definition, tre användare: livekortets `final`, settlementens
@@ -191,8 +230,9 @@ def match_finished(match: dict) -> bool:
         or status_word in FINISHED_STATUS_WORDS
         or str(match.get("sportEventStatus") or "").casefold() == "ended"
         # Ett publicerat Fulltime-resultat betyder att ordinarie tid är spelad,
-        # även om SvS hunnit sätta en statuskod vi inte sett förut.
-        or has_fulltime)
+        # även om SvS hunnit sätta en statuskod vi inte sett förut — men bara
+        # när klockan tillåter det. Se REGULATION_WALL_CLOCK_MIN.
+        or (has_fulltime and _fulltime_can_be_real(match, now)))
 
 
 def match_postponed(match: dict) -> bool:
@@ -236,7 +276,8 @@ def in_extra_time(match: dict) -> bool:
         or any(needle in word for needle in EXTRA_TIME_STATUS_WORDS))
 
 
-def regulation_over(match: dict) -> bool:
+def regulation_over(match: dict,
+                    now: Optional[dt.datetime] = None) -> bool:
     """Är ORDINARIE tid färdigspelad, så att pooltecknet står fast?
 
     Detta är INTE samma fråga som `match_finished`, och skillnaden är hela
@@ -250,7 +291,7 @@ def regulation_over(match: dict) -> bool:
     ordinarie tid är stängd när ordinarie tid är slut. Resultatet blev noten
     "saknar odds" på en match som hade odds hela vägen.
     """
-    return match_finished(match) or in_extra_time(match)
+    return match_finished(match, now) or in_extra_time(match)
 
 
 def event_state(draw_event: dict) -> dict:
