@@ -10,6 +10,7 @@ Körning:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import pathlib
 import random
@@ -68,6 +69,14 @@ def _portfolio_diagnostics(analysis, rows: list[tuple], facit: list[str]) -> dic
 
 def _mean(values: list[float]) -> float | None:
     return round(statistics.fmean(values), 6) if values else None
+
+
+def _sha256(path: pathlib.Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _comparison(rows: list[dict], candidate: str,
@@ -130,6 +139,9 @@ def _summarize(rows: list[dict], bootstrap_iters: int) -> dict:
                  for item in selected]),
             "x_count_impossible": sum(
                 item["x_count_impossible"] for item in selected),
+            "mean_rows_changed_vs_current": _mean([
+                float(item.get("rows_changed_vs_current", 0))
+                for item in selected]),
         }
 
     return {
@@ -181,7 +193,7 @@ def _run_draw(product: str, historic: dict, budget: float,
     row_shape = builder.build_topptips_row_shape_system(
         kappa_by_x=kappa_by_x, value_weight=0.5, **kwargs)
     low_ev = builder.build_ev_system(value_weight=0.0, **kwargs)
-    return {
+    result = {
         "product": product,
         "draw": historic["draw"],
         "close": historic["close"],
@@ -196,6 +208,13 @@ def _run_draw(product: str, historic: dict, budget: float,
         "low_ev": _evaluate_arm(
             low_ev, analysis, facit, historic["tiers"], cost),
     }
+    current_rows = {tuple(row) for row in current.rows or []}
+    for arm, system in (("row_shape", row_shape),
+                        ("x_balanced", x_balanced), ("low_ev", low_ev)):
+        arm_rows = {tuple(row) for row in system.rows or []}
+        result[arm]["rows_changed_vs_current"] = len(arm_rows - current_rows)
+    result["current"]["rows_changed_vs_current"] = 0
+    return result
 
 
 def _fit_row_shape_kappa(
@@ -271,9 +290,14 @@ def main() -> None:
         "evaluation_from_date": EVALUATION_FROM_DATE,
         "evaluation_before_date": EVALUATION_BEFORE_DATE,
         "budget": args.budget,
+        "code_version": ph5._code_version(),
         "holdout_share": HOLDOUT_SHARE,
         "bootstrap_iters": args.bootstrap_iters,
-        "database": {"path": str(db_path), "size_bytes": db_path.stat().st_size},
+        "database": {
+            "path": str(db_path),
+            "size_bytes": db_path.stat().st_size,
+            "sha256": _sha256(db_path),
+        },
         "limitations": [
             "final_only: slutstreck och öppningsodds, inte point-in-time",
             "relativ historisk screening; ingen automatisk promotion",
@@ -337,7 +361,8 @@ def main() -> None:
     if args.json:
         output = pathlib.Path(args.json)
         output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+        output.write_text(json.dumps(
+            report, ensure_ascii=False, separators=(",", ":")) + "\n")
         print(f"JSON: {output}")
     family = report["family"]["holdout"]
     print(json.dumps({
