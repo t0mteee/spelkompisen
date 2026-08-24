@@ -1,6 +1,23 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-08-24 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-08-25 — läs detta först i ny session)
+
+**TOPPTIPSETS X-PROBLEM ÄR BACKTESTAT PÅ 1 985 MODERNA OMGÅNGAR (Codex).**
+Den faktiskt spelade Topptipset 4289-kupongen saknade alla 4X-rader och blev
+utgångspunkt, men hölls utanför både träning och holdout. En förregistrerad
+radformsmodell skattar separat medvinnarkappa för 0, 1, 2, 3 och 4+ X utan att
+tvinga in kryss. På 597 senare holdoutomgångar gav den 208 mot currents 204
+åttarättsträffar, fyra egna/noll förlorade, och +1,34 pp parad winsoriserad ROI
+med 90 % KI `[+0,34..+2,35]`; cirka 10 av 384 rader ändrades. Utvecklingsdelen
+var dock svagt negativ, så kandidaten får starta separat forwardtest men inte
+ersätta standarden. Full marknadskalibrerad X-balans eliminerade X-omöjliga
+kuponger och hade fångat 4289 i en final_only-rekonstruktion, men gav 203 mot
+204 träffar och lägre beräknad träffchans på holdout — underkänd som standard.
+Värdevikt 0 gav fler träffar (225) men sämre rå utdelningsprofil och löste inte
+fyrkryssutfallet. Resultat, metod och nästa steg:
+`docs/overlamning-2026-08-25-topptips-radform.md`.
+
+## STATUS-SAMMANFATTNING (2026-08-24)
 
 **PH5 HAR EN EGEN `5 000-test`-VY OCH X-BORTFALLET ÄR MÄTBART (Codex).**
 Det framåtriktade researchtestet låg tidigare gömt bland Historiks drygt hundra
