@@ -1214,8 +1214,9 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
     <div className="v3sysdetail" id="hist-system-detail">
       <div className="v3sysdetailhead">
         <b>{PRODUCT_LABEL[product] || product} · omgång {draw} · {d
-          ? `${d.research ? '🧪 PH5-test · ' : ''}${STRATEGY_LABEL[d.strategy]
-            || d.strategy || 'testsystem'}`
+          ? `${d.research ? '🧪 PH5-test · ' : ''}${d.research
+            ? PH5_METHOD_LABEL[d.method] || d.method
+            : STRATEGY_LABEL[d.strategy] || d.strategy || 'testsystem'}`
           : 'testsystem'}</b>
         <button className="v3more" onClick={onClose}>stäng ✕</button>
       </div>
@@ -1243,7 +1244,7 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
               <b>X-kontroll</b>
               <span>Kryss utgör {d.x_summary.row_share == null ? '–'
                 : `${Math.round(d.x_summary.row_share * 100)} %`} av alla tecken
-                i systemets 5 000 rader.</span>
+                i systemets {d.n_rows.toLocaleString('sv-SE')} rader.</span>
               <span>{d.x_summary.omitted} matcher saknar X helt
                 {d.x_summary.thin ? ` · ${d.x_summary.thin} har under 10 % X` : ''}.</span>
               {d.facit_complete && <span className={d.x_summary.x_outcomes_omitted
@@ -1406,6 +1407,15 @@ function Ph5V3() {
       .catch((reason) => { if (current) setError(String(reason)) })
     return () => { current = false }
   }, [])
+  useEffect(() => {
+    if (!openSystem) return undefined
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById('hist-system-detail')?.scrollIntoView({
+        behavior: 'smooth', block: 'start',
+      })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [openSystem])
   if (error) return <ErrorState message={error} />
   if (!data) return <LoadingState label="Hämtar 5 000-kronorstestet…" />
 
@@ -1415,11 +1425,9 @@ function Ph5V3() {
     && (filters.method === 'alla' || test.method === filters.method)
   ))
   const summary = data.summary || {}
-  const evaluatedCost = summary.simulated_cost_kr || 0
-  const totalRoi = evaluatedCost > 0
-    ? (summary.simulated_payout_kr || 0) / evaluatedCost - 1 : null
   const setFilter = (key, value) => setFilters((current) => ({ ...current, [key]: value }))
   const methods = [...new Set((data.tests || []).map((test) => test.method))]
+  const retiredCount = (data.tests || []).filter((test) => test.retired).length
 
   return (
     <div className="v3ph5">
@@ -1435,10 +1443,9 @@ function Ph5V3() {
 
       <div className="v3ph5kpis">
         <div><span>Omgångar</span><b>{summary.draws || 0}</b></div>
-        <div><span>Frysta testkuponger</span><b>{summary.freezes || 0}</b></div>
-        <div><span>Med komplett facit</span><b>{summary.evaluated || 0}</b></div>
-        <div><span>Samlad simulerad ROI</span><b className={roiCls(totalRoi)}>
-          {pctSigned(totalRoi)}</b></div>
+        <div><span>Aktiva testkuponger</span><b>{summary.freezes || 0}</b></div>
+        <div><span>Facitklara aktiva</span><b>{summary.evaluated || 0}</b></div>
+        <div><span>Aktiva metoder</span><b>{summary.methods || 0}</b></div>
       </div>
 
       <div className="v3card v3ph5explain">
@@ -1473,7 +1480,8 @@ function Ph5V3() {
 
       <div className="v3card">
         <div className="v3cardhead"><h3>Alla frysta 5 000-kuponger</h3>
-          <span className="v3hint">{tests.length} av {(data.tests || []).length}</span></div>
+          <span className="v3hint">{tests.length} av {(data.tests || []).length}
+            {retiredCount ? ` · ${retiredCount} avslutade` : ''}</span></div>
         <div className="v3groupfilters" aria-label="Filtrera 5 000-tester">
           <label><span>Spel</span><select value={filters.product}
             onChange={(event) => setFilter('product', event.target.value)}>
