@@ -530,6 +530,10 @@ def build_svs_rsystem(analysis: DrawAnalysis, name: str = "R 3-3-24",
 
 EV_UNIVERSE_CAP = 60_000     # max kandidatrader att enumerera
 EV_REFINE_CAP = 4_000        # rader som får full vinstnivå-EV (Poisson-binomial)
+TOPPTIPS_X_BALANCED_VERSION = "topptips-xbalans-v1"
+TOPPTIPS_ROW_SHAPE_VERSION = "topptips-radform-v1"
+TOPPTIPS_PRODUCTS = frozenset(
+    {"topptipset", "topptipsetstryk", "topptipsetextra"})
 
 
 def _prize_pools(turnover: float, plan: dict, jackpot: float = 0.0) -> dict[int, float]:
@@ -552,6 +556,56 @@ def _poisson_binomial(probs: list[float]) -> list[float]:
     return d
 
 
+def x_count_distribution(analysis: DrawAnalysis) -> list[float]:
+    """Marknadens sannolikhet för exakt 0..n kryss i en omgång.
+
+    Krysssannolikheten kommer från samma sharp-först-estimat som radbyggaren.
+    Fördelningen används bara för portföljens spridning; en enskild rads EV
+    räknas fortfarande med den ordinarie, popularitetsjusterade modellen.
+    """
+    probabilities = []
+    for match in analysis.matches:
+        outcome = match.outcomes["X"]
+        probability = (outcome.sharp_prob if outcome.sharp_prob is not None
+                       else outcome.fair_prob)
+        probabilities.append(max(0.0, min(1.0, probability or (1.0 / 3.0))))
+    return _poisson_binomial(probabilities)
+
+
+def _largest_remainder_quotas(probabilities: list[float], target: int,
+                              capacities: dict[int, int]) -> dict[int, int]:
+    """Deterministiska heltalskvoter som summerar till target.
+
+    Hamiltons största-rest-metod ger den närmaste heltalsfördelningen. Om en
+    grupp saknar tillräckligt många kandidatrader fylls resten i de grupper
+    som ligger längst under sin ideala kvot.
+    """
+    target = max(0, target)
+    raw = {count: target * probability
+           for count, probability in enumerate(probabilities)}
+    quotas = {
+        count: min(capacities.get(count, 0), int(raw.get(count, 0.0)))
+        for count in capacities
+    }
+    remaining = target - sum(quotas.values())
+    while remaining > 0:
+        eligible = [count for count, capacity in capacities.items()
+                    if quotas.get(count, 0) < capacity]
+        if not eligible:
+            break
+        count = max(
+            eligible,
+            key=lambda item: (
+                raw.get(item, 0.0) - quotas.get(item, 0),
+                probabilities[item] if item < len(probabilities) else 0.0,
+                -item,
+            ),
+        )
+        quotas[count] = quotas.get(count, 0) + 1
+        remaining -= 1
+    return quotas
+
+
 # κ-korrektion per produkt och nivå (PH4-analysen 2026-07-24, se
 # docs/ph4-analys-2026-07-24.md). κ = faktiska medvinnare ÷ oberoende-
 # förväntade, mätt på 7 754 avgjorda omgångar. κ > 1 betyder att folket
@@ -572,6 +626,11 @@ KAPPA: dict[str, dict[int, float]] = {
 def kappa_for(product: Optional[str], correct: int) -> float:
     """Medvinnarkorrektion för (produkt, rättnivå); 1,0 när mätning saknas."""
     return (KAPPA.get(product or "", {}) or {}).get(correct, 1.0)
+
+
+def _x_count_bucket(row: tuple[str, ...]) -> int:
+    """0, 1, 2, 3 eller 4 där 4 betyder fyra eller fler kryss."""
+    return min(row.count("X"), 4)
 
 
 def _row_expected_value(pf: list[float], pk: list[float],
@@ -636,7 +695,9 @@ class _EVRankedRows:
 
 def _rank_ev_rows(analysis: DrawAnalysis, budget: float, row_price: float,
                   value_weight: float, plan: Optional[dict],
-                  jackpot: float, *, refine_all: bool = False) -> _EVRankedRows:
+                  jackpot: float, *, refine_all: bool = False,
+                  top_tier_kappa_by_x: Optional[dict[int, float]] = None,
+                  ) -> _EVRankedRows:
     """Ranka EV-kandidater en gång; används av både enkel- och dubbelkupong."""
     turnover = analysis.turnover or 0.0
     if not plan or turnover <= 0:
@@ -684,11 +745,29 @@ def _rank_ev_rows(analysis: DrawAnalysis, budget: float, row_price: float,
     refine = (scored if refine_all else
               scored[:max(EV_REFINE_CAP, min(len(scored), target * 2))])
     full: list[tuple[float, float, tuple]] = []   # (score, ev_total, rad)
-    for _, p_row, _, row in refine:
-        pf = _poisson_binomial([pq[(m.event_number, s)][0] for m, s in zip(ms, row)])
-        pk = _poisson_binomial([pq[(m.event_number, s)][1] for m, s in zip(ms, row)])
-        ev_total = _row_expected_value(
-            pf, pk, pools, field, getattr(analysis, "product", None))
+    single_exact_tier = len(pools) == 1 and top_tier == n
+    product = getattr(analysis, "product", None)
+    for _, p_row, q_row, row in refine:
+        if single_exact_tier:
+            # Topptipset betalar bara på exakt 8 rätt. Då är
+            # Poisson-binomialens enda använda cell exakt produkterna p_row
+            # och q_row som redan räknats ovan. Snabbvägen är matematiskt
+            # identisk men gör 6 561-radersaudit/backtest praktiskt möjlig.
+            pool = pools[top_tier]
+            row_kappa = kappa_for(product, top_tier)
+            if top_tier_kappa_by_x is not None:
+                row_kappa = top_tier_kappa_by_x.get(
+                    _x_count_bucket(row), row_kappa)
+            expected_others = field * q_row * row_kappa
+            dividend = min(pool, pool / (expected_others + 1.0))
+            ev_total = p_row * dividend
+        else:
+            pf = _poisson_binomial(
+                [pq[(m.event_number, s)][0] for m, s in zip(ms, row)])
+            pk = _poisson_binomial(
+                [pq[(m.event_number, s)][1] for m, s in zip(ms, row)])
+            ev_total = _row_expected_value(
+                pf, pk, pools, field, product)
         full.append(((p_row ** k) * ev_total, ev_total, row))
     full.sort(key=lambda t: t[0], reverse=True)
 
@@ -1149,6 +1228,98 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
     return _ev_system_from_rows(
         analysis, strategy, budget, row_price, jackpot, ranked,
         ranked.rows[:ranked.target])
+
+
+def _x_balanced_rows(analysis: DrawAnalysis, ranked: _EVRankedRows
+                     ) -> tuple[list[tuple[float, float, tuple[str, ...]]],
+                                dict[int, int]]:
+    """Välj högst rankade rader inom marknadskalibrerade X-grupper."""
+    groups: dict[int, list[tuple[float, float, tuple[str, ...]]]] = {}
+    for item in ranked.rows:
+        groups.setdefault(item[2].count("X"), []).append(item)
+    quotas = _largest_remainder_quotas(
+        x_count_distribution(analysis), ranked.target,
+        {count: len(rows) for count, rows in groups.items()},
+    )
+    chosen = [item for count, rows in groups.items()
+              for item in rows[:quotas.get(count, 0)]]
+    # Presentationsordningen följer samma score som ordinarie byggare.
+    chosen.sort(key=lambda item: item[0], reverse=True)
+    return chosen, quotas
+
+
+def build_topptips_x_balanced_system(
+        analysis: DrawAnalysis, strategy: str = "medel",
+        budget: float = 100.0, row_price: float = ROW_PRICE,
+        value_weight: float = 0.5, plan: Optional[dict] = None,
+        jackpot: float = 0.0) -> System:
+    """Researchkandidat: ordinarie EV inom marknadskalibrerade X-grupper.
+
+    Topptipsets 3^8 = 6 561 utfall ryms helt. Därför kan samtliga rader
+    fullrankas och portföljen få samma fördelning av antal X som marknadens
+    sharp-först-sannolikheter implicerar. Funktionen ändrar inte
+    `build_ev_system` och används inte av produktionsförslag utan ett separat
+    beslut efter backtest/forwardtest.
+    """
+    if getattr(analysis, "product", None) not in TOPPTIPS_PRODUCTS:
+        raise ValueError("X-balanserad v1 gäller endast Topptipset-familjen.")
+    if len(analysis.matches) != 8:
+        raise ValueError("X-balanserad v1 kräver exakt åtta matcher.")
+    ranked = _rank_ev_rows(
+        analysis, budget, row_price, value_weight, plan, jackpot,
+        refine_all=True)
+    chosen, quotas = _x_balanced_rows(analysis, ranked)
+    if len(chosen) != ranked.target:
+        raise ValueError(
+            f"X-balanseringen gav {len(chosen)} av {ranked.target} rader.")
+    system = _ev_system_from_rows(
+        analysis, strategy, budget, row_price, jackpot, ranked, chosen)
+    quota_text = ", ".join(
+        f"{count}X:{amount}" for count, amount in sorted(quotas.items())
+        if amount)
+    system.system_type = "x-balanserade-värderader"
+    system.rule += (
+        f" {TOPPTIPS_X_BALANCED_VERSION}: raderna fördelades efter marknadens "
+        f"sannolikhet för antal kryss ({quota_text}); inom varje grupp valdes "
+        "högst ordinarie EV-score.")
+    return system
+
+
+def build_topptips_row_shape_system(
+        analysis: DrawAnalysis, kappa_by_x: dict[int, float],
+        strategy: str = "medel", budget: float = 100.0,
+        row_price: float = ROW_PRICE, value_weight: float = 0.5,
+        plan: Optional[dict] = None, jackpot: float = 0.0) -> System:
+    """Researchkandidat med historiskt skattad medvinnareffekt per X-antal.
+
+    Kandidaten ändrar inte matchernas sannolikheter och tvingar inte in ett
+    visst antal X-rader. Skillnaden mot ordinarie byggare är att utdelningen
+    för en rad räknas med en separat kappa för 0, 1, 2, 3 respektive 4+ X.
+    Kartan måste tränas utanför den period där systemet utvärderas.
+    """
+    if getattr(analysis, "product", None) not in TOPPTIPS_PRODUCTS:
+        raise ValueError("Radform v1 gäller endast Topptipset-familjen.")
+    if len(analysis.matches) != 8:
+        raise ValueError("Radform v1 kräver exakt åtta matcher.")
+    missing = set(range(5)) - set(kappa_by_x)
+    if missing or any(not (0.25 <= value <= 4.0)
+                      for value in kappa_by_x.values()):
+        raise ValueError(
+            "Radform v1 kräver rimlig kappa för grupperna 0,1,2,3,4+.")
+    ranked = _rank_ev_rows(
+        analysis, budget, row_price, value_weight, plan, jackpot,
+        refine_all=True, top_tier_kappa_by_x=kappa_by_x)
+    chosen = ranked.rows[:ranked.target]
+    system = _ev_system_from_rows(
+        analysis, strategy, budget, row_price, jackpot, ranked, chosen)
+    kappa_text = ", ".join(
+        f"{count if count < 4 else '4+'}X:{kappa_by_x[count]:.3f}"
+        for count in range(5))
+    system.system_type = "radformsjusterade-värderader"
+    system.rule += (
+        f" {TOPPTIPS_ROW_SHAPE_VERSION}: medvinnarprognosen justerades efter "
+        f"antal X ({kappa_text}); inga X-kvoter tvingades in.")
+    return system
 
 
 # ---------- färgreducering (villkorsreducering med min/max per färg) ----------

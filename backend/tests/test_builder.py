@@ -3,10 +3,12 @@ from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from app.builder import (_poisson_binomial, _prize_pools,
+from app.builder import (_poisson_binomial, _prize_pools, _rank_ev_rows,
                          _reason, _row_expected_value, build_ev_system,
                          build_complementary_ev_systems,
-                         ev_candidate_signs)
+                         build_topptips_row_shape_system,
+                         build_topptips_x_balanced_system,
+                         ev_candidate_signs, x_count_distribution)
 
 
 class PrizePoolTests(unittest.TestCase):
@@ -150,6 +152,103 @@ class PrizePoolTests(unittest.TestCase):
         self.assertEqual(4, sum(len(signs) == 3 for signs in candidates.values()))
         self.assertTrue(all(signs in (["1", "X"], ["1", "X", "2"])
                             for signs in candidates.values()))
+
+    def test_x_count_distribution_uses_market_probabilities(self) -> None:
+        analysis = self._eight_match_analysis()
+
+        distribution = x_count_distribution(analysis)
+
+        self.assertEqual(9, len(distribution))
+        self.assertAlmostEqual(1.0, sum(distribution), places=10)
+        expected_x = sum(
+            match.outcomes["X"].sharp_prob for match in analysis.matches)
+        self.assertAlmostEqual(
+            expected_x,
+            sum(count * probability
+                for count, probability in enumerate(distribution)),
+            places=10,
+        )
+
+    def test_x_balanced_topptips_matches_market_x_quotas(self) -> None:
+        analysis = self._eight_match_analysis()
+        budget = 384.0
+
+        first = build_topptips_x_balanced_system(
+            analysis, budget=budget, row_price=1.0, value_weight=0.5,
+            plan={"ratio": 0.70, "splits": {8: 1.0}}, jackpot=0.0)
+        second = build_topptips_x_balanced_system(
+            analysis, budget=budget, row_price=1.0, value_weight=0.5,
+            plan={"ratio": 0.70, "splits": {8: 1.0}}, jackpot=0.0)
+
+        self.assertEqual(384, first.num_rows)
+        self.assertEqual(first.rows, second.rows)
+        actual = {count: 0 for count in range(9)}
+        for row in first.rows:
+            actual[row.count("X")] += 1
+        expected = x_count_distribution(analysis)
+        for count, probability in enumerate(expected):
+            self.assertLessEqual(abs(actual[count] - budget * probability), 1.0)
+        self.assertIn("topptips-xbalans-v1", first.rule)
+
+    def test_x_balanced_model_is_isolated_to_topptips(self) -> None:
+        analysis = self._eight_match_analysis()
+        analysis.product = "stryktipset"
+
+        with self.assertRaisesRegex(ValueError, "endast Topptipset"):
+            build_topptips_x_balanced_system(
+                analysis, budget=10.0,
+                plan={"ratio": 0.70, "splits": {8: 1.0}})
+
+    def test_row_shape_model_changes_only_payout_shape_not_row_count(self) -> None:
+        analysis = self._eight_match_analysis()
+        plan = {"ratio": 0.70, "splits": {8: 1.0}}
+        baseline = build_ev_system(
+            analysis, budget=384.0, row_price=1.0, value_weight=0.5,
+            plan=plan, jackpot=0.0)
+
+        candidate = build_topptips_row_shape_system(
+            analysis, {0: 4.0, 1: 4.0, 2: 4.0, 3: 0.25, 4: 0.25},
+            budget=384.0, row_price=1.0, value_weight=0.5,
+            plan=plan, jackpot=0.0)
+
+        self.assertEqual(baseline.num_rows, candidate.num_rows)
+        self.assertNotEqual(baseline.rows, candidate.rows)
+        self.assertGreater(
+            sum(row.count("X") for row in candidate.rows),
+            sum(row.count("X") for row in baseline.rows))
+        self.assertIn("topptips-radform-v1", candidate.rule)
+
+    def test_row_shape_model_requires_every_frozen_bucket(self) -> None:
+        with self.assertRaisesRegex(ValueError, "grupperna 0,1,2,3,4"):
+            build_topptips_row_shape_system(
+                self._eight_match_analysis(), {0: 1.0}, budget=10.0,
+                plan={"ratio": 0.70, "splits": {8: 1.0}})
+
+    def test_single_exact_tier_fast_path_matches_general_ev_formula(self) -> None:
+        analysis = self._eight_match_analysis()
+        analysis.matches = analysis.matches[:2]
+        plan = {"ratio": 0.70, "splits": {2: 1.0}}
+
+        ranked = _rank_ev_rows(
+            analysis, budget=9.0, row_price=1.0, value_weight=0.5,
+            plan=plan, jackpot=0.0, refine_all=True)
+
+        pool = _prize_pools(analysis.turnover, plan)[2]
+        field = analysis.turnover
+        for _score, optimized_ev, row in ranked.rows:
+            probabilities = [
+                match.outcomes[sign].sharp_prob
+                for match, sign in zip(analysis.matches, row)
+            ]
+            popularity = [
+                match.outcomes[sign].streck / 100.0
+                for match, sign in zip(analysis.matches, row)
+            ]
+            expected = _row_expected_value(
+                _poisson_binomial(probabilities),
+                _poisson_binomial(popularity), {2: pool}, field,
+                product="topptipset")
+            self.assertAlmostEqual(expected, optimized_ev, places=12)
 
     def test_jackpot_is_added_only_to_top_tier(self) -> None:
         plan = {"ratio": 0.65, "splits": {13: 0.40, 12: 0.15, 11: 0.12}}
