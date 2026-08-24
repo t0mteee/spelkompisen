@@ -83,6 +83,16 @@ _JACKPOTS_TTL_S = 120.0
 _jackpots_cache: dict = {}
 _jackpots_lock = threading.Lock()
 
+# Historikpanelen gör avsiktligt två läsningar: en snabb liverättning utan den
+# dyra sannolikhetsmotorn, därefter samma observation med chansberäkning. Före
+# den här cachen hämtade båda anropen SvS + samtliga liveböcker på nytt. Det
+# både dubblerade källtrycket och kunde blanda två olika ögonblick i samma
+# kort. Cachen gäller bara den berikade LIVEBILDEN; kupongraderna och själva
+# chansen räknas om per anrop. Insamlingsjobb och PIT-ledgers går aldrig hit.
+_POOL_LIVE_TTL_S = 20.0
+_pool_live_cache: dict[tuple, tuple[float, dict, dict]] = {}
+_pool_live_lock = threading.Lock()
+
 
 def _jackpots_for_ui(ss: SvenskaSpel) -> dict | None:
     import time as _time
@@ -101,6 +111,59 @@ def _jackpots_for_ui(ss: SvenskaSpel) -> dict | None:
         data = ss.jackpots_payload()
         _jackpots_cache["hit"] = (_time.monotonic(), data)
         return data
+
+
+def _pool_live_states(store: Storage,
+                      keys: list[tuple[str, int]]) -> tuple[dict, dict]:
+    """Hämta en gemensam, kortlivad livebild för öppna poolomgångar.
+
+    Låset ger single-flight: om snabb- och fullsvaret råkar starta samtidigt
+    gör bara det första källanropen. Samma nyckel betyder samma unika
+    produkt/omgångar, oberoende av kupongernas ordning.
+    """
+    import time as _time
+
+    cache_key = tuple(sorted(keys))
+    if not cache_key:
+        return {}, {}
+    now = _time.monotonic()
+    hit = _pool_live_cache.get(cache_key)
+    if hit and now - hit[0] < _POOL_LIVE_TTL_S:
+        return hit[1], hit[2]
+
+    with _pool_live_lock:
+        now = _time.monotonic()
+        hit = _pool_live_cache.get(cache_key)
+        if hit and now - hit[0] < _POOL_LIVE_TTL_S:
+            return hit[1], hit[2]
+
+        from . import pool_played
+        states_by_draw: dict[tuple[str, int], list[dict]] = {}
+        errors_by_draw: dict[tuple[str, int], Exception] = {}
+        with SvenskaSpel() as ss:
+            for key in cache_key:
+                try:
+                    raw = ss.get_draw_raw(*key)
+                    states_by_draw[key] = [
+                        pool_played.event_state(e)
+                        for e in (raw.get("drawEvents") or [])]
+                except Exception as source_exc:  # noqa: BLE001
+                    errors_by_draw[key] = source_exc
+
+        all_states = [state for states in states_by_draw.values()
+                      for state in states]
+        if all_states:
+            try:
+                pool_played.attach_regulation_time(all_states)
+                pool_played.attach_live_odds(store, all_states)
+            except Exception as source_exc:  # noqa: BLE001
+                for key in states_by_draw:
+                    errors_by_draw[key] = source_exc
+
+        _pool_live_cache.clear()  # högst en aktuell kuponguppsättning behövs
+        _pool_live_cache[cache_key] = (
+            _time.monotonic(), states_by_draw, errors_by_draw)
+        return states_by_draw, errors_by_draw
 
 
 def _get_draw(product: str, draw_number: int | None = None):
@@ -634,6 +697,17 @@ def pool_system_detail(product: str, draw: int, horizon: str, config: str):
         store.close()
 
 
+@app.get("/api/pool/ph5")
+def pool_ph5_overview():
+    """Separat, lätt översikt för researchtestet med exakt 5 000 rader."""
+    from . import pool_system_ledger
+    store = Storage()
+    try:
+        return pool_system_ledger.ph5_overview(store)
+    finally:
+        store.close()
+
+
 @app.post("/api/pool/played")
 async def pool_played_record(request: Request):
     """Bokför att användaren SJÄLV har lämnat in kupongen. Lägger inga spel."""
@@ -696,34 +770,10 @@ def pool_played_list(live: bool = True, chance: bool = True):
             # per unik omgång; Flashscore- och liveprislistorna hämtas en gång
             # för samtliga öppna omgångar i samma request. 1X2-kedjan frågar
             # Kambi först och tar Ninja/Pinnacle bara för kvarvarande luckor.
-            states_by_draw: dict[tuple[str, int], list[dict]] = {}
-            errors_by_draw: dict[tuple[str, int], Exception] = {}
             keys = list(dict.fromkeys(
                 (item["product"], item["draw_number"])
                 for item in out if not item["settled_at"]))
-            with SvenskaSpel() as ss:
-                for key in keys:
-                    try:
-                        raw = ss.get_draw_raw(*key)
-                        states_by_draw[key] = [
-                            pool_played.event_state(e)
-                            for e in (raw.get("drawEvents") or [])]
-                    except Exception as source_exc:  # noqa: BLE001
-                        errors_by_draw[key] = source_exc
-
-            all_states = [state for states in states_by_draw.values()
-                          for state in states]
-            if all_states:
-                try:
-                    # Under förlängning bär SvS `Current` förlängningsmålen;
-                    # Flashscore har ordinarie tid och den riktiga minuten.
-                    pool_played.attach_regulation_time(all_states)
-                    # SvS odds är statiska prematch-odds även när matchen
-                    # pågår; byt dem mot öppna livepriser.
-                    pool_played.attach_live_odds(store, all_states)
-                except Exception as source_exc:  # noqa: BLE001
-                    for key in states_by_draw:
-                        errors_by_draw[key] = source_exc
+            states_by_draw, errors_by_draw = _pool_live_states(store, keys)
 
             for item in out:
                 if item["settled_at"]:

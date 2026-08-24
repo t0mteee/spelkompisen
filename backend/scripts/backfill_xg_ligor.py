@@ -40,8 +40,9 @@ DEFAULT_BACKUP = "stryktips-2026-08-10-fore-xg-luckor.db"
 # 30 event/sida. 14 räcker för en 380-matcherssäsong men INTE för MLS, som
 # spelar 522–540 matcher (18 sidor). Med 14 nåddes aldrig sidorna 14+, så
 # luckorna låg exakt på varje säsongs FÖRSTA matcher — 229 st i MLS 2024–25.
-# Höj `--sidor` för ligor större än 420 matcher/säsong.
-SIDOR_PER_SASONG = 14
+# 20 ger marginal även om ligan växer; mindre ligor bryter ändå vid första
+# tomma sida och gör därför inga extra källanrop.
+SIDOR_PER_SASONG = 20
 
 
 def backup_database(source: Path, target: Path) -> bool:

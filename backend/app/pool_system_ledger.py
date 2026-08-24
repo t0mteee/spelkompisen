@@ -686,6 +686,23 @@ def _streck_at(store: Storage, product: str, draw_number: int,
     return out
 
 
+def _sharp_at(store: Storage, product: str, draw_number: int,
+              at: Optional[str]) -> dict[int, dict[str, dict]]:
+    """Sharp-oddset som senast observerats vid eller före en frysning."""
+    query = ("SELECT event_number, sign, odds, fetched_at "
+             "FROM sharp_snapshots WHERE product=? AND draw_number=?")
+    args: list = [product, draw_number]
+    if at:
+        query += " AND fetched_at<=?"
+        args.append(at)
+    query += " ORDER BY fetched_at"
+    out: dict[int, dict[str, dict]] = {}
+    for event_number, sign, odds, fetched_at in store.conn.execute(query, args):
+        out.setdefault(int(event_number), {})[sign] = {
+            "odds": odds, "observed_at": fetched_at}
+    return out
+
+
 def system_detail(store: Storage, product: str, draw_number: int,
                   horizon: str, config_key: str) -> dict:
     """Ett fryst system mot facit, match för match.
@@ -721,21 +738,42 @@ def system_detail(store: Storage, product: str, draw_number: int,
                  "FROM pool_event_settlement WHERE product=? AND draw_number=?",
                  (product, draw_number))}
     at_freeze = _streck_at(store, product, draw_number, frozen_at)
+    sharp_at_freeze = _sharp_at(store, product, draw_number, frozen_at)
 
     events = []
     ordered_outcomes = []
     for index, event_number in enumerate(order):
-        covered = sorted({r[index] for r in rows if index < len(r)})
+        sign_counts = {
+            sign: sum(index < len(system_row) and system_row[index] == sign
+                      for system_row in rows)
+            for sign in ("1", "X", "2")
+        }
+        covered = [sign for sign in ("1", "X", "2") if sign_counts[sign]]
         info = facit.get(event_number, {})
         outcome = info.get("outcome")
         ordered_outcomes.append(outcome)
         frozen_signs = at_freeze.get(event_number, {})
+        frozen_sharp = sharp_at_freeze.get(event_number, {})
+        observed = [
+            value.get("observed_at") for value in
+            (*frozen_signs.values(), *frozen_sharp.values())
+            if value.get("observed_at")
+        ]
         events.append({
             "event_number": event_number,
             "description": info.get("description"),
             "home": info.get("home"), "away": info.get("away"),
             "outcome": outcome, "cancelled": info.get("cancelled"),
             "covered": covered,
+            # `covered` säger bara om tecknet finns på MINST en rad. I ett
+            # 5 000-raderssystem är det nästan alltid sant och döljer därför
+            # modellens verkliga viktning. Antal/andel gör bl.a. X-bortfall
+            # synligt utan att någon urvalsregel ändras i efterhand.
+            "sign_counts": sign_counts,
+            "sign_shares": {
+                sign: (sign_counts[sign] / len(rows) if rows else None)
+                for sign in ("1", "X", "2")
+            },
             # Den enda frågan som spelar roll för facitet: täckte vi tecknet
             # som gick in? En enda missad match kapar hela systemets tak.
             "hit": None if not outcome else outcome in covered,
@@ -743,7 +781,16 @@ def system_detail(store: Storage, product: str, draw_number: int,
                                  for s in ("1", "X", "2")},
             "odds_at_freeze": {s: frozen_signs.get(s, {}).get("odds")
                                for s in ("1", "X", "2")},
+            "sharp_odds_at_freeze": {
+                s: frozen_sharp.get(s, {}).get("odds")
+                for s in ("1", "X", "2")
+            },
+            "market_observed_at": max(observed) if observed else None,
             "streck_at_close": info.get("streck_close"),
+            "x_omitted": sign_counts["X"] == 0,
+            "x_thin": bool(rows) and 0 < sign_counts["X"] / len(rows) < 0.10,
+            "x_was_outcome_but_omitted": (
+                outcome == "X" and sign_counts["X"] == 0),
         })
     missed = [e for e in events if e["hit"] is False]
     facit_complete = bool(order) and all(
@@ -755,16 +802,19 @@ def system_detail(store: Storage, product: str, draw_number: int,
         "SELECT correct, winners, amount FROM pool_payout_tier "
         "WHERE product=? AND draw_number=? AND correct IS NOT NULL",
         (product, draw_number))}
-    if facit_complete:
-        for index, signs in enumerate(rows, 1):
+    for index, signs in enumerate(rows, 1):
+        correct = None
+        if facit_complete:
             correct = sum(sign == outcome for sign, outcome in zip(
                 signs, ordered_outcomes))
             calculated_dist[correct] = calculated_dist.get(correct, 0) + 1
-            row_results.append({
-                "index": index,
-                "signs": "".join(signs),
-                "correct": correct,
-            })
+        row_results.append({
+            "index": index,
+            "signs": "".join(signs),
+            "correct": correct,
+            "payout_kr": None if not facit_complete else 0.0,
+        })
+    if facit_complete:
         # Payouten är kontrafaktisk: lägg till systemets egna vinnande rader i
         # nämnaren på samma sätt som `counterfactual_payout`. Då summerar
         # radbeloppen till detaljens systemutdelning (avrundningsöre undantaget).
@@ -801,6 +851,18 @@ def system_detail(store: Storage, product: str, draw_number: int,
         "events": events,
         "n_missed": len(missed),
         "missed_events": [e["event_number"] for e in missed],
+        "x_summary": {
+            "events": len(events),
+            "omitted": sum(e["x_omitted"] for e in events),
+            "thin": sum(e["x_thin"] for e in events),
+            "x_outcomes": sum(e["outcome"] == "X" for e in events),
+            "x_outcomes_omitted": sum(
+                e["x_was_outcome_but_omitted"] for e in events),
+            "row_share": (
+                sum(e["sign_counts"]["X"] for e in events)
+                / (len(events) * len(rows))
+                if events and rows else None),
+        },
         # Exakta rader hämtas bara när användaren öppnar EN frysning. Lägg
         # aldrig detta i `/api/pool/systems`: 5 000 × 13 tecken per arm gör
         # annars hela Historik tung på mobil.
@@ -812,6 +874,115 @@ def system_detail(store: Storage, product: str, draw_number: int,
             {int(key): int(value) for key, value in (stored_dist or {}).items()}
             == calculated_dist if facit_complete and stored_dist is not None
             else None),
+    }
+
+
+def ph5_overview(store: Storage) -> dict:
+    """Alla PH5-frysningar för den separata 5 000-testvyn.
+
+    Ingen `rows_text` följer med här. Den exakta 5 000-raderskupongen hämtas
+    först när användaren öppnar en testfrysning via `system_detail`.
+    """
+    configs = (*PH5_FORWARD_CONFIGS, *PH5_RETIRED_CONFIGS)
+    keys = tuple(config["key"] for config in configs)
+    marks = ",".join("?" for _ in keys)
+    tests = []
+    for row in store.conn.execute(
+            "SELECT l.product, l.draw_number, l.horizon, l.config_key, "
+            "l.frozen_at, l.timely, l.lag_min, l.n_rows, l.cost_kr, "
+            "l.strategy, l.value_weight, l.settled_at, l.correct_max, "
+            "l.correct_dist, l.payout_kr, l.payout_complete, l.roi, "
+            "l.settle_note, COALESCE(s.reg_close_time,d.reg_close_time) "
+            ", l.events_order, l.rows_text "
+            "FROM pool_system_ledger l "
+            "LEFT JOIN pool_draw_settlement s ON s.product=l.product "
+            "AND s.draw_number=l.draw_number "
+            "LEFT JOIN draws d ON d.product=l.product "
+            "AND d.draw_number=l.draw_number "
+            f"WHERE l.config_key IN ({marks}) "
+            "ORDER BY COALESCE(s.reg_close_time,d.reg_close_time,l.frozen_at) "
+            "DESC, l.product, l.draw_number DESC, l.horizon, l.config_key",
+            keys):
+        bench = _bench(row[3], {
+            "budget": row[8], "strategy": row[9],
+            "value_weight": row[10],
+        })
+        event_order = [int(value) for value in (row[19] or "").split(",")
+                       if value]
+        system_rows = [value.split(",") for value in
+                       (row[20] or "").splitlines() if value]
+        outcomes = {int(event_number): outcome for event_number, outcome in
+                    store.conn.execute(
+                        "SELECT event_number,outcome FROM pool_event_settlement "
+                        "WHERE product=? AND draw_number=?",
+                        (row[0], row[1]))}
+        x_counts = [sum(index < len(system_row)
+                        and system_row[index] == "X"
+                        for system_row in system_rows)
+                    for index in range(len(event_order))]
+        x_omitted = sum(count == 0 for count in x_counts)
+        x_outcomes = sum(outcomes.get(event_number) == "X"
+                         for event_number in event_order)
+        x_outcomes_omitted = sum(
+            outcomes.get(event_number) == "X" and x_counts[index] == 0
+            for index, event_number in enumerate(event_order))
+        tests.append({
+            "product": row[0], "draw_number": int(row[1]),
+            "horizon": row[2],
+            "horizon_minutes": FREEZE_HORIZONS.get(row[2], (None, None))[0],
+            "config_key": row[3], "frozen_at": row[4],
+            "timely": bool(row[5]), "lag_min": row[6],
+            "n_rows": row[7], "cost_kr": row[8],
+            "strategy": bench["strategy"],
+            "value_weight": bench["value_weight"],
+            "method": bench["method"], "retired": bench["retired"],
+            "settled_at": row[11], "correct_max": row[12],
+            "correct_dist": json.loads(row[13]) if row[13] else None,
+            "payout_kr": row[14],
+            "payout_complete": (
+                bool(row[15]) if row[15] is not None else None),
+            "roi": row[16], "settle_note": row[17], "close": row[18],
+            "x_share": (
+                sum(x_counts) / (len(event_order) * len(system_rows))
+                if event_order and system_rows else None),
+            "x_omitted_events": x_omitted,
+            "x_outcomes": x_outcomes,
+            "x_outcomes_omitted": x_outcomes_omitted,
+        })
+
+    active = [test for test in tests if not test["retired"]]
+    model_tests = [test for test in active if test["method"] == "varderader"]
+    evaluable = [test for test in active if test["timely"]
+                 and test["correct_max"] is not None
+                 and test["payout_complete"] is True]
+    return {
+        "available": bool(tests),
+        "tests": tests,
+        "summary": {
+            "draws": len({(t["product"], t["draw_number"])
+                          for t in active}),
+            "freezes": len(active),
+            "evaluated": len(evaluable),
+            "methods": len(PH5_FORWARD_CONFIGS),
+            "rows_per_test": 5000,
+            "simulated_cost_kr": sum(t["cost_kr"] or 0 for t in evaluable),
+            "simulated_payout_kr": sum(t["payout_kr"] or 0 for t in evaluable),
+            "x_omitted_events": sum(t["x_omitted_events"] for t in active),
+            "x_outcomes": sum(t["x_outcomes"] for t in active),
+            "x_outcomes_omitted": sum(
+                t["x_outcomes_omitted"] for t in active),
+            "model_x_omitted_events": sum(
+                t["x_omitted_events"] for t in model_tests),
+            "model_x_outcomes": sum(t["x_outcomes"] for t in model_tests),
+            "model_x_outcomes_omitted": sum(
+                t["x_outcomes_omitted"] for t in model_tests),
+        },
+        "configs": [dict(config) for config in configs],
+        "products": list(PH5_FORWARD_PRODUCTS),
+        "horizons": {
+            key: {"minutes": value[0], "tolerance_min": value[1]}
+            for key, value in FREEZE_HORIZONS.items()
+        },
     }
 
 

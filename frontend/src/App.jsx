@@ -3547,85 +3547,86 @@ function PlayedCouponDetail({ coupon, onClose }) {
 function PlayedPanel({ product = null }) {
   const [data, setData] = useState(null)
   const [detailCoupon, setDetailCoupon] = useState(null)
-  const load = useCallback(() => {
+  const requestRef = useRef(0)
+  const abortRef = useRef(null)
+  const load = useCallback(async () => {
+    const requestId = ++requestRef.current
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
     const stamp = Date.now()
-    fetch(`/api/pool/played?live=false&_t=${stamp}`, { cache: 'no-store' })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
-      .then((local) => {
-        const hasOpen = (local.coupons || []).some((coupon) => !coupon.settled_at)
-        // BEHÅLL föregående livestatus medan den nya hämtas. Utan det blir
-        // `live` odefinierad i ~en halv sekund var 60:e sekund, och hela
-        // kortkroppen UNMOUNTAS — vilket nollställer allt öppet tillstånd i
-        // den. Radlistan man just slagit upp slog alltså igen av sig själv en
-        // gång i minuten. Den visade statusen är en verklig observation som
-        // är högst en minut gammal, och `live_pending` säger redan att en ny
-        // är på väg; att blanka den var varken färskare eller ärligare.
-        setData((current) => {
-          const previous = Object.fromEntries(
-            (current?.coupons || []).filter((c) => c.live).map((c) => [c.id, c.live]))
-          return {
-            ...local,
-            coupons: (local.coupons || []).map((coupon) => (
-              !coupon.settled_at && hasOpen
-                ? { ...coupon, live_pending: true, live: previous[coupon.id] }
-                : coupon
-            )),
-          }
-        })
-        if (hasOpen) {
-          // TRE steg, inte två. Chansmotorn räknar över hela utfallsrummet och
-          // kostade 2026-08-22 tio sekunder för sex kuponger (fyra av dem med
-          // 13 oavgjorda matcher, alltså Monte Carlo över 3^13). Livestatusen —
-          // ställning, tecken, hur många rader som lever — är däremot billig.
-          // Låg de ihop väntade hela kortet på det dyraste, var 60:e sekund,
-          // och panelen var i praktiken permanent laddande.
-          //
-          // `chance=false` först ger alltså allt utom chanskolumnen direkt;
-          // det fulla svaret ersätter det när det är klart. Samma data, samma
-          // ordning — bara inte samma väntan.
-          const full = () => fetch(`/api/pool/played?_t=${stamp}`, { cache: 'no-store' })
-            .then((r) => {
-              if (!r.ok) throw new Error(`HTTP ${r.status}`)
-              return r.json()
-            })
-            .then(setData)
-            .catch((error) => setData((current) => current ? {
-              ...current,
-              coupons: (current.coupons || []).map((coupon) => (
-                coupon.settled_at ? coupon : {
-                  ...coupon,
-                  live_pending: false,
-                  live_error: error?.name || 'FetchError',
-                }
-              )),
-            } : current))
-          fetch(`/api/pool/played?chance=false&_t=${stamp}`, { cache: 'no-store' })
-            .then((r) => {
-              if (!r.ok) throw new Error(`HTTP ${r.status}`)
-              return r.json()
-            })
-            // Chansen saknas ännu, så kortet ska fortsätta säga att något är
-            // på väg. Utan `live_pending` ser en tom chanskolumn ut som ett
-            // svar i stället för som ett mellanläge.
-            .then((quick) => setData({
-              ...quick,
-              coupons: (quick.coupons || []).map((coupon) => (
-                coupon.settled_at ? coupon : { ...coupon, live_pending: true }
-              )),
-            }))
-            .catch(() => {})
-            .finally(full)
+    const current = () => requestRef.current === requestId && !controller.signal.aborted
+    const read = async (url) => {
+      const response = await fetch(url, { cache: 'no-store', signal: controller.signal })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      return response.json()
+    }
+    try {
+      const local = await read(`/api/pool/played?live=false&_t=${stamp}`)
+      if (!current()) return
+      const hasOpen = (local.coupons || []).some((coupon) => !coupon.settled_at)
+      // BEHÅLL föregående livestatus medan den nya hämtas. Utan det blir
+      // kortet tomt varje minut och allt öppet detaljtillstånd nollställs.
+      setData((previousData) => {
+        if (!current()) return previousData
+        const previous = Object.fromEntries(
+          (previousData?.coupons || []).filter((c) => c.live).map((c) => [c.id, c.live]))
+        return {
+          ...local,
+          coupons: (local.coupons || []).map((coupon) => (
+            !coupon.settled_at && hasOpen
+              ? { ...coupon, live_pending: true, live: previous[coupon.id] }
+              : coupon
+          )),
         }
       })
-      .catch(() => setData((current) => current || { coupons: [] }))
+      if (!hasOpen) return
+
+      // TRE steg. Chansen över hela utfallsrummet är dyr, men den snabba
+      // liverättningen och fullsvaret återanvänder nu exakt samma kortlivade
+      // livebild på servern — inga dubbla bokanrop och inget blandat ögonblick.
+      try {
+        const quick = await read(`/api/pool/played?chance=false&_t=${stamp}`)
+        if (current()) setData({
+          ...quick,
+          coupons: (quick.coupons || []).map((coupon) => (
+            coupon.settled_at ? coupon : { ...coupon, live_pending: true }
+          )),
+        })
+      } catch (error) {
+        if (error?.name === 'AbortError' || !current()) return
+        // Fullsvaret kan fortfarande lyckas; snabbvägens fel är inte slutligt.
+      }
+      if (!current()) return
+      try {
+        const full = await read(`/api/pool/played?_t=${stamp}`)
+        if (current()) setData(full)
+      } catch (error) {
+        if (error?.name === 'AbortError' || !current()) return
+        setData((previousData) => previousData ? {
+          ...previousData,
+          coupons: (previousData.coupons || []).map((coupon) => (
+            coupon.settled_at ? coupon : {
+              ...coupon,
+              live_pending: false,
+              live_error: error?.name || 'FetchError',
+            }
+          )),
+        } : previousData)
+      }
+    } catch (error) {
+      if (error?.name !== 'AbortError' && current()) {
+        setData((previousData) => previousData || { coupons: [] })
+      }
+    }
   }, [])
   useEffect(() => {
     load()
     const timer = window.setInterval(load, 60_000)
-    return () => window.clearInterval(timer)
+    return () => {
+      window.clearInterval(timer)
+      abortRef.current?.abort()
+    }
   }, [load])
   if (!data) return <LoadingState label="Hämtar spelade kuponger…" />
   const all = data.coupons || []

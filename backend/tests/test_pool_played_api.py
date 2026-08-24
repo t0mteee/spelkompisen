@@ -18,6 +18,7 @@ class PoolPlayedApiTests(unittest.TestCase):
         store.close.assert_called_once()
 
     def test_samma_omgang_hamtas_en_gang_och_snabbvagen_skippar_chans(self):
+        main._pool_live_cache.clear()
         coupons = [
             {"id": 1, "product": "europatipset", "draw_number": 2598,
              "settled_at": None, "rows_text": "11", "events_order": "[1,2]"},
@@ -52,6 +53,34 @@ class PoolPlayedApiTests(unittest.TestCase):
         self.assertTrue(all("rows_text" not in coupon
                             and "events_order" not in coupon
                             for coupon in result["coupons"]))
+
+    def test_snabb_och_full_lasning_delar_exakt_samma_livebild(self):
+        main._pool_live_cache.clear()
+        coupons = [{
+            "id": 1, "product": "stryktipset", "draw_number": 5001,
+            "settled_at": None, "rows_text": "1", "events_order": "[1]",
+        }]
+        store = MagicMock()
+        source = MagicMock()
+        source.__enter__.return_value = source
+        source.get_draw_raw.return_value = {
+            "drawEvents": [{"eventNumber": 1, "match": {}}]}
+
+        with patch.object(main, "Storage", return_value=store), \
+             patch.object(main, "SvenskaSpel", return_value=source), \
+             patch.object(pool_played, "all_coupons", return_value=coupons), \
+             patch.object(pool_played, "summary", return_value={}), \
+             patch.object(pool_played, "attach_regulation_time") as regulation, \
+             patch.object(pool_played, "attach_live_odds") as odds, \
+             patch.object(pool_played, "live_status", return_value={}) as status:
+            main.pool_played_list(live=True, chance=False)
+            main.pool_played_list(live=True, chance=True)
+
+        source.get_draw_raw.assert_called_once_with("stryktipset", 5001)
+        regulation.assert_called_once()
+        odds.assert_called_once()
+        self.assertEqual([False, True], [
+            call.kwargs["include_chance"] for call in status.call_args_list])
 
 
 if __name__ == "__main__":

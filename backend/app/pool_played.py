@@ -308,12 +308,16 @@ def event_state(draw_event: dict) -> dict:
     # ordinarie tid. `Current` är bara "ställningen nu" och kan i cupmatcher
     # bära förlängning eller straffar — Barnsley–Wigan 2026-08-08 hade
     # Fulltime 1–1 men Penalties 6–5, och Montreal–Atlanta 2024 blev "6-7" i
-    # stället för 2–2 på exakt det sättet. Fulltime vinner därför när den
-    # finns; den publiceras aldrig under pågående match (verifierat: matcher
-    # i spel bär bara Current och Halftime).
-    fulltime = results.get("Fulltime")
+    # stället för 2–2 på exakt det sättet.
+    #
+    # SvS har dock också observerats lämna ett förifyllt `Fulltime` i en
+    # PÅGÅENDE match. Då får det aldrig maskera den verkliga `Current`-
+    # ställningen. Fulltime blir därför betrott först när matchklockan/statusen
+    # säger att ordinarie tid faktiskt är över.
+    fulltime_raw = results.get("Fulltime")
     current = results.get("Current")
     extra = in_extra_time(match)
+    fulltime = fulltime_raw if regulation_over(match) else None
     # Under förlängning bär `Current` ordinarie tids resultat bara tills ett mål
     # görs i förlängningen — då tickar den vidare och beskriver inte längre det
     # som avgör kupongen. Halvlekssummorna är immuna mot det och går därför före

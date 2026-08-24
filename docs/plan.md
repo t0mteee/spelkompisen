@@ -1,5 +1,45 @@
 # Spelkompisen — färdplan
 
+## STATUS-SAMMANFATTNING (2026-08-24 — läs detta först i ny session)
+
+**PH5 HAR EN EGEN `5 000-test`-VY OCH X-BORTFALLET ÄR MÄTBART (Codex).**
+Det framåtriktade researchtestet låg tidigare gömt bland Historiks drygt hundra
+benchmarkgrupper. Den nya huvudfliken visar varje fryst testkupong separat med
+produkt, omgångsdatum, h3/m20, metod, facit, simulerad utdelning och ROI. Ett
+klick hämtar lazy samtliga 5 000 sparade rader samt teckenandel per match,
+sharp-/SvS-odds, streck vid frysning, streckrörelse och slutligt facit. Öppna
+tester visar raderna även innan facit finns; de visades tidigare som tomma.
+Marknadsdatan rekonstrueras ur de append-only förändringsserier som redan
+sparades före frysningen (`snapshots` och `sharp_snapshots`, sista observation
+`<= frozen_at`) och bakfylls aldrig med ett senare pris.
+
+Samans X-misstanke har en verklig mekanism: ett binärt kandidatval kan välja
+1+2 och lämna X helt utanför. Produktionsauditen över de fyra första oberoende
+omgångarna visar för appens `varderader` att X saknades i 33 av 104 frysta
+matchbeslut; 7 av 32 observerade X-facit saknades helt. Samma fotbollsmatch kan
+ingå vid både h3 och m20, så 32 är inte 32 oberoende matcher. Det är tillräckligt
+för synlig diagnostik, inte för en retroaktiv modelländring. PH5-v3 förblir
+orörd. Nästa modellsteg bör vara en separat förregistrerad X-balanserad arm med
+ny nyckel och start på en ännu ofryst omgång — aldrig en tyst ändring av v3.
+Metod och UI: `docs/overlamning-2026-08-24-ph5-testvy.md`.
+
+**SPELADE KUPONGERS LIVEBILD HÄMTAS EN GÅNG PER UPPDATERING (2026-08-24,
+Codex).** Historikens snabbsvar och efterföljande chanssvar gjorde tidigare
+var sitt komplett källsvep. Nu delar de en 20 sekunders single-flight-livebild;
+kupongchansen räknas fortfarande separat men SvS/Kambi/Ninja/Pinnacle frågas
+inte dubbelt och båda stegen beskriver samma ögonblick. Frontend avbryter gamla
+förfrågningar och ett sent svar kan inte skriva över en nyare uppdatering.
+Ett förifyllt `Fulltime` får inte längre maskera `Current` i en pågående match.
+MLS-bakfyllningens standardsidgräns är 20 i stället för 14, så en hel
+522–540-matcherssäsong ryms med marginal.
+
+**LIGUE 1-RETRYN ÄR KLAR SEDAN 2026-08-23.** Den gamla 578/613-texten var
+driftad. Aktuell audit är 621/622 med xG; enda kvarvarande luckan är
+Nantes–Toulouse 2026-05-17 (0–0). V11-radarn är samtidigt bevisligen aktiv i
+produktion. Ligue 1 står fortsatt utanför `MODEL_LEAGUES` tills dess egen
+temperatur har kalibrerats och versionskontraktet uppdaterats i en samlad
+ändring.
+
 ## STATUS-SAMMANFATTNING (2026-08-19 — läs detta först i ny session)
 
 **SPELADE KUPONGERS LIVERÄTTNING HAR TRE 1X2-KÄLLOR (2026-08-19,

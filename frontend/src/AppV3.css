@@ -390,6 +390,43 @@
 .v3radar-result b.push, .v3radar-result b.pending { color: #dca85e; }
 .v3radar-result i { font-style: normal; font-size: 14px; line-height: 1; }
 
+/* ---------- 5 000-test ---------- */
+.v3ph5 { display: grid; gap: 12px; }
+.v3ph5hero {
+  padding: 22px 24px; border: 1px solid var(--line) !important;
+  border-top: 2px solid var(--v3acc) !important; border-radius: 14px;
+  background:
+    radial-gradient(circle at 90% 15%, color-mix(in srgb, var(--v3acc) 18%, transparent), transparent 34%),
+    var(--panel);
+}
+.v3ph5hero h1 { margin: 5px 0 7px; font-size: clamp(24px, 4vw, 38px); }
+.v3ph5hero p { margin: 0; max-width: 780px; color: var(--muted); line-height: 1.55; }
+.v3eyebrow {
+  color: var(--v3acc); font-size: 10px; font-weight: 800;
+  letter-spacing: .12em;
+}
+.v3ph5kpis {
+  display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 8px;
+}
+.v3ph5kpis > div {
+  display: grid; gap: 3px; padding: 11px 13px; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--panel);
+}
+.v3ph5kpis span { color: var(--muted); font-size: 10.5px; }
+.v3ph5kpis b { font-size: 18px; }
+.v3ph5explain p, .v3ph5xnote p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.v3ph5methods {
+  display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 7px;
+}
+.v3ph5methods span {
+  display: grid; gap: 2px; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--panel2);
+  color: var(--muted); font-size: 11px;
+}
+.v3ph5methods b { color: var(--text); }
+.v3ph5xnote { border-top-color: #dca85e; }
+.v3ph5table { min-width: 980px; }
+
 /* ---------- Historik ---------- */
 .v3histbar { margin-bottom: 10px; }
 .v3note {
@@ -509,6 +546,24 @@
   display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px;
   margin-bottom: 8px;
 }
+.v3xsummary {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+  margin-bottom: 8px; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid color-mix(in srgb, #dca85e 50%, var(--line));
+  background: color-mix(in srgb, #dca85e 6%, var(--panel));
+  color: var(--muted); font-size: 11.5px;
+}
+.v3xsummary b { color: var(--text); }
+.v3sysfacit { min-width: 1220px; }
+.v3oddsline { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.v3oddsline span { display: block; }
+.v3markettime { display: block; margin-top: 2px; color: var(--muted); font-size: 9.5px; }
+.v3xmissing { background: color-mix(in srgb, #dca85e 9%, transparent); }
+.v3xflag {
+  display: inline-block; margin-left: 5px; padding: 1px 5px; border-radius: 999px;
+  color: #dca85e; border: 1px solid color-mix(in srgb, #dca85e 55%, transparent);
+  font-size: 9.5px; font-weight: 800; white-space: nowrap;
+}
 /* En missad match kapar takresultatet — den ska hittas på en halv sekund. */
 .v3histtable tr.v3sysmiss td { background: color-mix(in srgb, #e06b6b 14%, transparent); }
 .v3streckhit { font-weight: 800; color: var(--v3acc); }
@@ -594,6 +649,9 @@
   .complementary-options { grid-template-columns: 1fr; }
   .complementary-details > summary { display: grid; gap: 2px; }
   .v3histkpis { grid-template-columns: 1fr 1fr; }
+  .v3ph5hero { padding: 17px 16px; }
+  .v3ph5kpis { grid-template-columns: 1fr 1fr; }
+  .v3ph5methods { grid-template-columns: 1fr 1fr; }
   .v3groupfilters { grid-template-columns: 1fr 1fr; }
   .v3filterreset { grid-column: 1 / -1; }
   .v3systemrowshead { align-items: stretch; flex-direction: column; }

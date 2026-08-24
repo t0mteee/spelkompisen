@@ -696,7 +696,78 @@ class SystemDetailTests(unittest.TestCase):
         self.assertEqual(70, d["events"][0]["streck_at_freeze"]["1"],
                          "11:00-värdet gällde vid frysningen 12:00")
 
+    def test_detaljen_visar_bada_oddsfallen_och_teckenandelar(self):
+        for sign, odds, streck in (("1", 1.8, 55), ("X", 3.5, 25),
+                                   ("2", 4.4, 20)):
+            self.store.conn.execute(
+                "INSERT INTO snapshots (product, draw_number, event_number, "
+                "sign, odds, streck, fetched_at) VALUES "
+                "('topptipset',77,2,?,?,?,'2026-08-01T11:30:00Z')",
+                (sign, odds, streck))
+            self.store.conn.execute(
+                "INSERT INTO sharp_snapshots (product, draw_number, "
+                "event_number, sign, odds, fetched_at) VALUES "
+                "('topptipset',77,2,?,?,'2026-08-01T11:45:00Z')",
+                (sign, odds + 0.1))
+        self.store.conn.commit()
+
+        d = pool_system_ledger.system_detail(
+            self.store, "topptipset", 77, "m20",
+            pool_system_ledger.CHAMPION_KEY)
+        event = d["events"][1]
+
+        self.assertEqual({"1": 1, "X": 1, "2": 0}, event["sign_counts"])
+        self.assertEqual({"1": 0.5, "X": 0.5, "2": 0.0},
+                         event["sign_shares"])
+        self.assertEqual(3.5, event["odds_at_freeze"]["X"])
+        self.assertEqual(3.6, event["sharp_odds_at_freeze"]["X"])
+        self.assertEqual("2026-08-01T11:45:00Z",
+                         event["market_observed_at"])
+
+    def test_oppet_test_visar_de_exakt_frysta_raderna_fore_facit(self):
+        self.store.conn.execute(
+            "DELETE FROM pool_event_settlement WHERE product='topptipset' "
+            "AND draw_number=77")
+        self.store.conn.execute(
+            "UPDATE pool_system_ledger SET correct_max=NULL, correct_dist=NULL, "
+            "payout_kr=NULL, payout_complete=NULL, roi=NULL "
+            "WHERE product='topptipset' AND draw_number=77")
+        self.store.conn.commit()
+
+        d = pool_system_ledger.system_detail(
+            self.store, "topptipset", 77, "m20",
+            pool_system_ledger.CHAMPION_KEY)
+
+        self.assertFalse(d["facit_complete"])
+        self.assertEqual([
+            {"index": 1, "signs": "11", "correct": None,
+             "payout_kr": None},
+            {"index": 2, "signs": "1X", "correct": None,
+             "payout_kr": None},
+        ], d["rows"])
+
     def test_unknown_system_is_reported_not_crashed(self):
         d = pool_system_ledger.system_detail(
             self.store, "topptipset", 77, "h3", "finns-inte")
         self.assertFalse(d["available"])
+
+    def test_ph5_overview_ar_separerad_och_innehaller_varje_frysning(self):
+        key = pool_system_ledger.PH5_FORWARD_CONFIGS[0]["key"]
+        self.store.conn.execute(
+            "INSERT INTO pool_system_ledger (product, draw_number, horizon, "
+            "config_key, frozen_at, lag_min, timely, code_version, budget, "
+            "strategy, value_weight, row_price, n_rows, cost_kr, events_order, "
+            "rows_text, rows_hash, n_events_covered, turnover_used, "
+            "turnover_basis, jackpot_used) VALUES "
+            "('stryktipset',5001,'h3',?,'2026-08-24T10:00:00Z',2,1,'test',"
+            "5000,'medel',0.5,1,5000,5000,'1','1','hash',1,1000,'live',0)",
+            (key,))
+        self.store.conn.commit()
+
+        report = pool_system_ledger.ph5_overview(self.store)
+
+        self.assertTrue(report["available"])
+        self.assertEqual(1, len(report["tests"]))
+        self.assertEqual(key, report["tests"][0]["config_key"])
+        self.assertEqual(5000, report["summary"]["rows_per_test"])
+        self.assertEqual(1, report["summary"]["draws"])

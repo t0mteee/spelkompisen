@@ -71,6 +71,9 @@ ett nytt manifest — en aliasändring i en liga som ingår i V2.2:s FIT_POOLS
 datagenererande process. Äldre manifest blandas aldrig in. Det är inte en
 tränad modell och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
+`docs/overlamning-2026-08-24-ph5-testvy.md` — separat 5 000-testvy med exakt
+kupong/facit/frysta odds och streck, X-diagnostik samt hardening av spelade
+kupongers gemensamma livebild. Därefter
 `docs/overlamning-2026-08-16-dubbelkuponger.md` — dubbelkupongernas skarpa
 v2-kontrakt efter verkligt A/B-spel, Topptips utan basspik och det förenklade
 mobilflödet. Därefter

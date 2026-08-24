@@ -55,11 +55,11 @@ jobb och ska inte tas bort.
 
 Ligue 1 samlar resultat och xG men står utanför `MODEL_LEAGUES`. Skälet är
 samma empiriska som spärrade de fyra Europaligorna fram till 2026-08-07: en
-xG-viktad modell utan xG är sämre än ingen. Täckningen är i skrivande stund
-**578/613 (94,3 %)**. De 35 luckorna är 34 Reims-matcher i 2024/25 plus en, och
-alias-fixen som löser dem ligger i koden — bakfyllningen kunde inte köras klart
-eftersom Sofascore började svara 403 efter kvällens anrop. Källans gräns
-respekteras; luckorna fylls vid nästa körning.
+xG-viktad modell utan xG är sämre än ingen. Retryn slutfördes 2026-08-23 efter
+att källan åter svarade. Aktuell audit är **621/622 med xG (99,8 %)**; enda
+kvarvarande luckan är Nantes–Toulouse 2026-05-17 (0–0). Produktionsradarn har
+samtidigt lagrat Ligue 1-captures, så v11-scopeändringen är verifierad i drift
+och inte bara konfigurerad i kod.
 
 Inträdet i `MODEL_LEAGUES` kräver därutöver en per-liga-kalibrerad `T`, och en
 ny kalibrering är i sig en ändrad datagenererande process som kräver ett nytt

@@ -1600,3 +1600,17 @@ datagenererande process — båda görs i EN ändring, inte i två.
   måste läsas ut EFTER att den nya manifestfilen finns — annars fryser man in
   ett värde som runtime aldrig kommer att producera.
 - Sharp-pipelinen är orörd. Sharp-CLV-facitet rörs inte.
+
+## 2026-08-23 — Ligue 1-retry slutförd
+
+Den dokumenterade 403-pausen ovan upphörde och samma verifierade
+bakfyllningsväg kunde köras klart. Ingen ad-hoc-SQL och ingen historisk
+prisbakfyllning användes. Efterkontroll: **621/622** resultat har xG (99,8 %).
+Enda återstående lucka är Nantes–Toulouse 2026-05-17, 0–0. Den betraktas som
+saknad statistik, inte som 0,00–0,00 xG. Matchantalet och identitetskontrollen
+är gröna.
+
+2026-08-24-arbetet med PH5-vyn gjorde **ingen DB-migration**: frysta odds och
+streck fanns redan point-in-time i `sharp_snapshots` respektive `snapshots`.
+Detalj-API:t läser sista observation `<= pool_system_ledger.frozen_at`; senare
+värden kan därför inte läcka bakåt.

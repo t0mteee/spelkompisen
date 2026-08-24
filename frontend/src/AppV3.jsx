@@ -21,7 +21,8 @@ const VIEWS = [
   { id: 'pool', label: 'Poolspel', icon: '🎟️' },
   { id: 'oddset', label: 'Oddset', icon: '⚡' },
   { id: 'historik', label: 'Historik', icon: '🗄' },
-  { id: 'labb', label: 'Labb', icon: '🧪' },
+  { id: 'ph5', label: '5 000-test', icon: '🧪' },
+  { id: 'labb', label: 'Labb', icon: '🔬' },
 ]
 const POOL_GAMES = [
   { id: 'topptipset', label: 'Topptipset' },
@@ -1194,6 +1195,21 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
   const distribution = Object.entries(d?.correct_dist || {})
     .map(([correct, count]) => [Number(correct), Number(count)])
     .sort((a, b) => b[0] - a[0])
+  const signWeights = (event) => ['1', 'X', '2'].map((sign) => {
+    const share = event.sign_shares?.[sign]
+    return `${sign} ${share == null ? '–' : `${Math.round(share * 100)} %`}`
+  }).join(' · ')
+  const oddsLine = (event, key) => ['1', 'X', '2'].map((sign) => {
+    const odds = event[key]?.[sign]
+    return `${sign} ${odds == null ? '–' : Number(odds).toFixed(2)}`
+  }).join(' · ')
+  const marketTime = (iso) => {
+    if (!iso) return null
+    const parsed = new Date(iso)
+    return Number.isNaN(parsed.getTime()) ? iso : parsed.toLocaleString('sv-SE', {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    })
+  }
   return (
     <div className="v3sysdetail" id="hist-system-detail">
       <div className="v3sysdetailhead">
@@ -1217,13 +1233,30 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
                 gick in. Varje sådan match sänker takresultatet med ett rätt.">
                 missade {d.n_missed} {d.n_missed === 1 ? 'match' : 'matcher'}</span>
             )}
-            <span className={roiCls(d.roi)}>{d.payout_complete === false
-              ? 'utdelning okänd' : `${kr(d.payout_kr)} · ${pctSigned(d.roi)}`}</span>
+            <span className={roiCls(d.roi)}>{d.correct_max == null
+              ? 'väntar facit'
+              : d.payout_complete === false ? 'utdelning okänd'
+                : `${kr(d.payout_kr)} · ${pctSigned(d.roi)}`}</span>
           </div>
+          {d.x_summary && (
+            <div className="v3xsummary">
+              <b>X-kontroll</b>
+              <span>Kryss utgör {d.x_summary.row_share == null ? '–'
+                : `${Math.round(d.x_summary.row_share * 100)} %`} av alla tecken
+                i systemets 5 000 rader.</span>
+              <span>{d.x_summary.omitted} matcher saknar X helt
+                {d.x_summary.thin ? ` · ${d.x_summary.thin} har under 10 % X` : ''}.</span>
+              {d.facit_complete && <span className={d.x_summary.x_outcomes_omitted
+                ? 'v3neg' : 'v3hint'}>{d.x_summary.x_outcomes} matcher slutade X
+                {' '}· {d.x_summary.x_outcomes_omitted} av dem saknades helt.</span>}
+            </div>
+          )}
           <div className="v3histtablewrap">
             <table className="v3histtable v3sysfacit">
               <thead><tr>
-                <th>#</th><th>Match</th><th>Facit</th><th>Vi spelade</th>
+                <th>#</th><th>Match</th><th>Facit</th><th>Teckenvikt</th>
+                <th title="Pinnacles/sharp odds, senast observerade före frysningen.">Sharpodds vid frysning</th>
+                <th title="Svenska Spels odds och folkets streck när systemet frystes.">SvS odds · streck</th>
                 <th title="Folkets procent när systemet frystes, och förändringen
                   fram till spelstopp.">Streck vid frysning → stopp</th>
               </tr></thead>
@@ -1232,13 +1265,28 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
                   <tr key={e.event_number}
                     className={e.hit === false ? 'v3sysmiss' : ''}>
                     <td>{e.event_number}</td>
-                    <td>{e.home && e.away ? `${e.home} – ${e.away}` : e.description}</td>
+                    <td>{e.home && e.away ? `${e.home} – ${e.away}`
+                      : e.description || `Match ${e.event_number}`}
+                      {e.market_observed_at && <span className="v3markettime">
+                        prisbild mätt {marketTime(e.market_observed_at)}</span>}
+                    </td>
                     <td className="v3outcome">
                       {e.cancelled ? '⚠️' : e.outcome || '–'}</td>
-                    <td>{e.covered.join('')}{e.hit === false
+                    <td className={e.x_omitted ? 'v3xmissing' : ''}>
+                      {signWeights(e)}{e.hit === false
                       ? <span className="v3neg" title="Systemet spelade inte det
                         tecken som gick in — inget av raderna kunde bli rätt här."> ✗</span>
-                      : e.hit ? ' ✓' : ''}</td>
+                      : e.hit ? ' ✓' : ''}
+                      {e.x_omitted && <span className="v3xflag"> X saknas</span>}
+                    </td>
+                    <td className="v3oddsline">{oddsLine(e, 'sharp_odds_at_freeze')}</td>
+                    <td className="v3oddsline">
+                      {['1', 'X', '2'].map((s) => (
+                        <span key={s}>{s} {e.odds_at_freeze?.[s] == null ? '–'
+                          : Number(e.odds_at_freeze[s]).toFixed(2)} ·{' '}
+                          {e.streck_at_freeze?.[s] ?? '–'} % </span>
+                      ))}
+                    </td>
                     <td className="v3hint">
                       {['1', 'X', '2'].map((s) => (
                         <span key={s} className={e.outcome === s ? 'v3streckhit' : ''}>
@@ -1251,19 +1299,21 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
               </tbody>
             </table>
           </div>
-          <span className="v3hint">"Vi spelade" är alla tecken systemet täcker på
-            matchen — en enskild rad har förstås bara ett. Ett ✗ betyder att ingen
-            rad kunde bli rätt där, vilket kapar hela systemets takresultat.
-            Strecksiffran är folkets procent vid frysningen; talet inom parentes är
-            rörelsen fram till spelstopp.</span>
+          <span className="v3hint">Teckenvikt visar hur stor del av de 5 000
+            raderna som använder 1, X respektive 2 — betydligt mer informativt
+            än att ett tecken råkar finnas på minst en rad. Ett ✗ betyder att
+            facittecknet saknades helt. Oddsen och strecken är sista sparade
+            observationen före frysningen; de läses aldrig in i efterhand.</span>
           {rows.length > 0 && (
             <section className="v3systemrows" aria-label="Testsystemets exakta rader">
               <div className="v3systemrowshead">
                 <div>
                   <h4>Exakta rader mot facit</h4>
                   <span className="v3hint">Det här testet består av {rows.length.toLocaleString('sv-SE')}
-                    {' '}separata rader, inte en enda rad. De är sorterade med bäst
-                    resultat först; # är platsen i den sparade testfilen.</span>
+                    {' '}separata rader, inte en enda rad. {d.facit_complete
+                      ? 'De är sorterade med bäst resultat först.'
+                      : 'Facit saknas ännu, så den frysta originalordningen visas.'}
+                    {' '}# är platsen i den sparade testfilen.</span>
                 </div>
                 <label className="v3rowfind">
                   <span>Hitta radnummer</span>
@@ -1272,12 +1322,16 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
                     onChange={(event) => setRowNumber(event.target.value)} />
                 </label>
               </div>
-              <div className="v3systemfacitline">
-                <b>Facit</b>
-                {(d.facit || '').split('').map((sign, index) => (
-                  <span key={index}>{sign}</span>
-                ))}
-              </div>
+              {d.facit_complete
+                ? <div className="v3systemfacitline">
+                    <b>Facit</b>
+                    {(d.facit || '').split('').map((sign, index) => (
+                      <span key={index}>{sign}</span>
+                    ))}
+                  </div>
+                : <div className="v3note"><b>Facit väntar.</b> Kupongen är ändå
+                    redan fryst och kan granskas exakt som den såg ut före
+                    spelstopp.</div>}
               <div className="v3systemdist">
                 {distribution.map(([correct, count]) => (
                   <span key={correct}>{count.toLocaleString('sv-SE')} {count === 1 ? 'rad' : 'rader'}
@@ -1296,11 +1350,12 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
                       style={{ gridTemplateColumns: `repeat(${d.events.length}, minmax(19px, 1fr))` }}>
                       {row.signs.split('').map((sign, index) => (
                         <span key={index}
-                          className={d.facit?.[index] === sign ? 'hit' : 'miss'}>{sign}</span>
+                          className={!d.facit_complete ? ''
+                            : d.facit?.[index] === sign ? 'hit' : 'miss'}>{sign}</span>
                       ))}
                     </div>
-                    <b>{row.correct}/{d.events.length}</b>
-                    {row.payout_kr > 0
+                    <b>{row.correct == null ? 'väntar' : `${row.correct}/${d.events.length}`}</b>
+                    {row.payout_kr == null ? null : row.payout_kr > 0
                       ? <span className="v3pos">+{kr(row.payout_kr)}</span>
                       : <span className="v3hint">0 kr</span>}
                   </div>
@@ -1324,6 +1379,155 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
           )}
         </>
       )}
+    </div>
+  )
+}
+
+const PH5_METHOD_LABEL = {
+  varderader: 'Värderader',
+  byggarslump: 'Byggarslump',
+  favoritrad: 'Favoritrad',
+  maxev: 'Max-EV',
+  folkrad: 'Folkrad (avslutad)',
+}
+
+/* PH5 har en egen uppgift och ska därför inte ligga gömt bland Historiks
+   hundratals benchmarkgrupper. En rad här är EN exakt fryst 5 000-raders-
+   kupong. Själva raderna hämtas först när användaren öppnar testet. */
+function Ph5V3() {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState(null)
+  const [openSystem, setOpenSystem] = useState(null)
+  const [filters, setFilters] = useState({ product: 'alla', horizon: 'alla', method: 'alla' })
+  useEffect(() => {
+    let current = true
+    get('/api/pool/ph5')
+      .then((value) => { if (current) setData(value) })
+      .catch((reason) => { if (current) setError(String(reason)) })
+    return () => { current = false }
+  }, [])
+  if (error) return <ErrorState message={error} />
+  if (!data) return <LoadingState label="Hämtar 5 000-kronorstestet…" />
+
+  const tests = (data.tests || []).filter((test) => (
+    (filters.product === 'alla' || test.product === filters.product)
+    && (filters.horizon === 'alla' || test.horizon === filters.horizon)
+    && (filters.method === 'alla' || test.method === filters.method)
+  ))
+  const summary = data.summary || {}
+  const evaluatedCost = summary.simulated_cost_kr || 0
+  const totalRoi = evaluatedCost > 0
+    ? (summary.simulated_payout_kr || 0) / evaluatedCost - 1 : null
+  const setFilter = (key, value) => setFilters((current) => ({ ...current, [key]: value }))
+  const methods = [...new Set((data.tests || []).map((test) => test.method))]
+
+  return (
+    <div className="v3ph5">
+      <section className="v3hero v3ph5hero">
+        <div>
+          <span className="v3eyebrow">FRAMÅTRIKTAT BLINDTEST · INGA RIKTIGA INSATSER</span>
+          <h1>5 000-kronorstestet</h1>
+          <p>Här går varje automatisk testkupong att öppna exakt som den frystes
+            före spelstopp — samtliga 5 000 rader, odds, streck, teckenvikt och
+            slutligt facit på samma ställe.</p>
+        </div>
+      </section>
+
+      <div className="v3ph5kpis">
+        <div><span>Omgångar</span><b>{summary.draws || 0}</b></div>
+        <div><span>Frysta testkuponger</span><b>{summary.freezes || 0}</b></div>
+        <div><span>Med komplett facit</span><b>{summary.evaluated || 0}</b></div>
+        <div><span>Samlad simulerad ROI</span><b className={roiCls(totalRoi)}>
+          {pctSigned(totalRoi)}</b></div>
+      </div>
+
+      <div className="v3card v3ph5explain">
+        <div className="v3cardhead"><h3>Så ska testet läsas</h3></div>
+        <p>Fyra olika metoder får samma budget och fryses både tre timmar och
+          tjugo minuter före stopp. Det gör jämförelsen rättvis. Resultatet är
+          kontrafaktiskt: systemet lämnades aldrig in, så kronor och ROI visar
+          vad testet uppskattas ha gett — inte pengar som vunnits eller förlorats.</p>
+        <div className="v3ph5methods">
+          <span><b>Värderader</b> appens balanserade modell</span>
+          <span><b>Max-EV</b> prioriterar värde hårdast</span>
+          <span><b>Favoritrad</b> marknadens sannolikaste tecken</span>
+          <span><b>Byggarslump</b> slumpkontroll ur samma kandidater</span>
+        </div>
+      </div>
+
+      <div className="v3card v3ph5xnote">
+        <div className="v3cardhead"><h3>Är X systematiskt underviktat?</h3></div>
+        <p>Det är en rimlig misstanke, särskilt när ett binärt 1–2-hörn väljs.
+          Vi ändrar inte den pågående PH5-v3-kohorten i efterhand. I stället
+          mäter sidan nu X-andelen i varje kupong och markerar varje match där
+          X saknas helt eller får mindre än 10 procent av raderna.</p>
+        <p><b>Appens Värderader hittills:</b> X har saknats i{' '}
+          {summary.model_x_omitted_events || 0} frysta matchbeslut. Av{' '}
+          {summary.model_x_outcomes || 0} observerade X-facit saknades X helt i{' '}
+          <span className={summary.model_x_outcomes_omitted ? 'v3neg' : 'v3pos'}>
+            {summary.model_x_outcomes_omitted || 0}</span>. Samma match kan
+          räknas vid både tre timmar och tjugo minuter; detta är diagnostik,
+          ännu inget statistiskt modellbeslut. Kontrollerna visas separat i
+          tabellen och blandas inte in i den här siffran.</p>
+      </div>
+
+      <div className="v3card">
+        <div className="v3cardhead"><h3>Alla frysta 5 000-kuponger</h3>
+          <span className="v3hint">{tests.length} av {(data.tests || []).length}</span></div>
+        <div className="v3groupfilters" aria-label="Filtrera 5 000-tester">
+          <label><span>Spel</span><select value={filters.product}
+            onChange={(event) => setFilter('product', event.target.value)}>
+            <option value="alla">Alla spel</option>
+            {(data.products || []).map((product) => <option key={product} value={product}>
+              {PRODUCT_LABEL[product] || product}</option>)}
+          </select></label>
+          <label><span>Fryst</span><select value={filters.horizon}
+            onChange={(event) => setFilter('horizon', event.target.value)}>
+            <option value="alla">Båda tiderna</option>
+            <option value="h3">3 timmar före</option>
+            <option value="m20">20 minuter före</option>
+          </select></label>
+          <label><span>Metod</span><select value={filters.method}
+            onChange={(event) => setFilter('method', event.target.value)}>
+            <option value="alla">Alla metoder</option>
+            {methods.map((method) => <option key={method} value={method}>
+              {PH5_METHOD_LABEL[method] || method}</option>)}
+          </select></label>
+        </div>
+
+        {!tests.length
+          ? <EmptyState title="Inga tester matchar filtren" />
+          : <div className="v3histtablewrap"><table className="v3histtable v3ph5table">
+              <thead><tr><th>Datum</th><th>Spel</th><th>Omgång</th><th>Fryst</th>
+                <th>Metod</th><th>Facit</th><th>X-vikt</th><th>Kupong</th></tr></thead>
+              <tbody>{tests.map((test) => (
+                <tr key={`${test.product}:${test.draw_number}:${test.horizon}:${test.config_key}`}
+                  className={test.retired ? 'v3retired' : ''}>
+                  <td>{test.close ? fmtDay(test.close) : fmtDay(test.frozen_at)}</td>
+                  <td>{PRODUCT_LABEL[test.product] || test.product}</td>
+                  <td>#{test.draw_number}</td>
+                  <td>{horizonLabel(test)}{test.timely ? '' : ' · sen'}</td>
+                  <td>{PH5_METHOD_LABEL[test.method] || test.method}</td>
+                  <td>{test.correct_max == null ? 'Väntar facit'
+                    : test.payout_complete === false
+                      ? `${test.correct_max} rätt · utdelning okänd`
+                      : <><b>{test.correct_max} rätt</b> · {kr(test.payout_kr)} ·{' '}
+                          <span className={roiCls(test.roi)}>{pctSigned(test.roi)}</span></>}</td>
+                  <td className={test.x_outcomes_omitted ? 'v3neg' : ''}>
+                    {test.x_share == null ? '–' : `${Math.round(test.x_share * 100)} %`}
+                    {test.x_omitted_events ? ` · saknas i ${test.x_omitted_events}` : ''}</td>
+                  <td><button className="v3more" onClick={() => setOpenSystem(test)}>
+                    Visa exakt kupong</button></td>
+                </tr>
+              ))}</tbody>
+            </table></div>}
+      </div>
+
+      {openSystem && <SystemDetail
+        key={`${openSystem.product}:${openSystem.draw_number}:${openSystem.horizon}:${openSystem.config_key}`}
+        product={openSystem.product} draw={openSystem.draw_number}
+        horizon={openSystem.horizon} config={openSystem.config_key}
+        onClose={() => setOpenSystem(null)} />}
     </div>
   )
 }
@@ -3204,6 +3408,7 @@ export default function AppV3() {
         {view === 'historik' && <ErrBoundary>
           <HistorikV3 initialProduct={histProduct} focus={histFocus} />
         </ErrBoundary>}
+        {view === 'ph5' && <ErrBoundary><Ph5V3 /></ErrBoundary>}
         {view === 'labb' && <ErrBoundary><LabbV3 /></ErrBoundary>}
       </main>
       <footer className="v3foot">Lokal data från Svenska Spel + Pinnacle · personligt verktyg</footer>

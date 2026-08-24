@@ -800,6 +800,33 @@ class PenaltyShootoutStateTests(unittest.TestCase):
         self.assertEqual("X", state["sign"])
         self.assertEqual("1-1", state["score"])
 
+    def test_premature_fulltime_does_not_mask_current_score(self) -> None:
+        """Ett förifyllt Fulltime-fält får inte skriva om en livematch.
+
+        Fulltime 0–0 har observerats ligga kvar samtidigt som Current visar
+        1–0. Fulltime blir facit först när ordinarie tid faktiskt är över.
+        """
+        event = {
+            "eventNumber": 3, "cancelled": False,
+            "match": {
+                "statusId": 4, "status": "Första halvlek",
+                # Framtida tid gör testet oberoende av när sviten körs; den
+                # uttryckliga pågående-statusen är det viktiga här.
+                "matchStart": "2099-08-24T15:00:00Z",
+                "result": [
+                    {"sportEventResultType": "Fulltime", "home": "0", "away": "0"},
+                    {"sportEventResultType": "Current", "home": "1", "away": "0"},
+                ],
+            },
+        }
+
+        state = pool_played.event_state(event)
+
+        self.assertFalse(state["final"])
+        self.assertTrue(state["in_progress"])
+        self.assertEqual("1", state["sign"])
+        self.assertEqual("1-0", state["score"])
+
     def test_extra_time_stops_the_live_price_hunt_but_keeps_the_sign_unknown(self) -> None:
         """Apollon Limassol–Brann, Topptipset 4260 (2026-08-11).
 
