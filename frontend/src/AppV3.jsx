@@ -1503,6 +1503,12 @@ function Ph5V3() {
           </select></label>
         </div>
 
+        {openSystem && <SystemDetail
+          key={`${openSystem.product}:${openSystem.draw_number}:${openSystem.horizon}:${openSystem.config_key}`}
+          product={openSystem.product} draw={openSystem.draw_number}
+          horizon={openSystem.horizon} config={openSystem.config_key}
+          onClose={() => setOpenSystem(null)} />}
+
         {!tests.length
           ? <EmptyState title="Inga tester matchar filtren" />
           : <div className="v3histtablewrap"><table className="v3histtable v3ph5table">
@@ -1531,11 +1537,6 @@ function Ph5V3() {
             </table></div>}
       </div>
 
-      {openSystem && <SystemDetail
-        key={`${openSystem.product}:${openSystem.draw_number}:${openSystem.horizon}:${openSystem.config_key}`}
-        product={openSystem.product} draw={openSystem.draw_number}
-        horizon={openSystem.horizon} config={openSystem.config_key}
-        onClose={() => setOpenSystem(null)} />}
     </div>
   )
 }
