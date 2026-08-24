@@ -20,7 +20,9 @@ Kupongskaparen har nu manuella Topptipsprofiler för **Standard**,
 **Träffsäkrare** (låst värdevikt 0) och **Radform v1 · test** (låst 0,5 och
 fryst kappakarta). Standard är fortsatt förvald; vald profil och effektiv vikt
 följer med till kuponghistoriken. Inget har automatiskt bytt modell eller
-lämnat in spel.
+lämnat in spel. Valet är driftsatt på produktionsservern i `c6da62b`; skarpt
+läsprov mot Topptipset 4292 verifierade 128 Radform-rader och rätt X-beroende
+kappa utan databasändring.
 
 ## STATUS-SAMMANFATTNING (2026-08-24)
 

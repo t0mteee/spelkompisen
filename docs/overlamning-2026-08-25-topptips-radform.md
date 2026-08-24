@@ -4,7 +4,8 @@
 
 Samans faktiskt spelade Topptipset 4289 (`21XX21XX`) hade fyra X medan hans
 384 rader saknade alla 4X-rader. Den exakta kupongen, inte PH5-frysningen, var
-utgångspunkten. Ingen spelad kupong eller produktionskonfiguration har ändrats.
+utgångspunkten. Ingen spelad kupong, standardprofil eller automatisk
+forskningskonfiguration har ändrats.
 
 Två isolerade researchbyggare finns nu i `backend/app/builder.py`:
 
@@ -14,9 +15,11 @@ Två isolerade researchbyggare finns nu i `backend/app/builder.py`:
 - `build_topptips_x_balanced_system` / `topptips-xbalans-v1`: diagnostiskt
   stresstest som fördelar 384 rader enligt marknadens sannolikhet för antal X.
 
-Ingen av dem anropas av ordinarie API eller autoinsamling. Den exakta
-Topptips-snabbvägen i `_rank_ev_rows` är testad matematiskt likvärdig med den
-gamla Poisson-binomialvägen och gör full ranking av 6 561 rader snabb nog.
+`topptips-radform-v1` kan nu väljas manuellt i ordinarie API/kupongskapare,
+men anropas inte av autoinsamlingen och är inte standard. `topptips-xbalans-v1`
+är fortsatt en ren offlinediagnos. Den exakta Topptips-snabbvägen i
+`_rank_ev_rows` är testad matematiskt likvärdig med den gamla
+Poisson-binomialvägen och gör full ranking av 6 561 rader snabb nog.
 
 ## Resultat
 
@@ -82,5 +85,11 @@ föredrar den öppna varianten; regressionstest finns i `poolSelection.test.js`.
   träningskoefficienter, summeringar samt varje omgång.
 - Lokal browserkontroll på mobilbredd verifierade profilval, låsta reglage,
   API-bygge, Radform-märkt kupong och X-justerat portföljkort.
-- Produktionsservern har inte driftsatts med kandidaterna och databasen har
-  inte migrerats eller skrivits.
+- Commit `c6da62b` är pushad till `main` och driftsatt på produktionsservern.
+  Servern körde 793 backendtester, 13 frontendtester, lint och
+  produktionsbygge grönt. Backend/frontend startades om via sina launchd-
+  tjänster och svarade på port 8002/5175.
+- Ett skarpt läsande API-prov mot Topptipset 4292 skapade 128 rader med
+  `row_model=row_shape_v1`, rätt systemtyp, låst värdevikt 0,5 och den frysta
+  X-beroende kappakartan i portföljsimuleringen. Inget spel lades och ingen
+  databas migrerades eller skrevs av driftsättningen.
