@@ -58,6 +58,23 @@
 
 .complementary-toggle { text-transform: none !important; }
 .complementary-toggle:has(input:disabled) { opacity: .45; cursor: not-allowed; }
+.rowprofiles { margin: 4px 0 12px; padding: 10px; border: 1px solid var(--line);
+  border-radius: 9px; background: color-mix(in srgb, var(--panel2) 76%, transparent); }
+.rowprofiles legend { padding: 0 5px; color: var(--muted); font-size: 10px;
+  font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.rowprofile-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.rowprofile-options label { display: flex; align-items: center; justify-content: center;
+  gap: 6px; min-height: 38px; padding: 7px 8px; border: 1px solid var(--line);
+  border-radius: 7px; color: var(--muted); cursor: pointer; text-align: center; }
+.rowprofile-options label.active { border-color: var(--v3acc-dim); color: var(--text);
+  background: color-mix(in srgb, var(--v3acc) 11%, transparent); }
+.rowprofile-options input { accent-color: var(--v3acc); }
+.rowprofiles p { margin: 8px 2px 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.evscale input:disabled { opacity: .48; cursor: not-allowed; }
+@media (max-width: 640px) {
+  .rowprofile-options { grid-template-columns: 1fr; }
+  .rowprofile-options label { justify-content: flex-start; text-align: left; min-height: 34px; }
+}
 .complementary-summary, .complementary-warning {
   margin: 16px 0 10px; padding: 12px; border-radius: 10px;
   background: var(--panel2); border: 1px solid rgba(61,220,132,.42);

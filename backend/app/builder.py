@@ -622,10 +622,41 @@ KAPPA: dict[str, dict[int, float]] = {
     "topptipsetextra": {8: 1.022},
 }
 
+# `topptips-radform-v1`, tränad på utvecklingsdelen 2024-01-01–2026-08-23
+# och därefter låst före holdoutkörningen. Absolut kappa per produkt och antal
+# X i den EXAKTA raden; bucket 4 betyder fyra eller fler. Se
+# docs/topptips-radform-v1-forregistrering.md och -resultat.md. Värdena får
+# inte trimmas mot senare facit under samma versionsnamn.
+TOPPTIPS_ROW_SHAPE_KAPPA: dict[str, dict[int, float]] = {
+    "topptipset": {
+        0: 1.0967540741273925, 1: 1.0130136309628786,
+        2: 1.0249454407029754, 3: 1.0880232233410114,
+        4: 1.120878592571974,
+    },
+    "topptipsetstryk": {
+        0: 1.0988672804359232, 1: 1.014965487669936,
+        2: 1.0269202874095322, 3: 1.0901196072010133,
+        4: 1.1230382815750029,
+    },
+    "topptipsetextra": {
+        0: 1.0798484236591475, 1: 0.9973987773064179,
+        2: 1.0091466670505211, 3: 1.0712521524609957,
+        4: 1.1036010805477432,
+    },
+}
+
 
 def kappa_for(product: Optional[str], correct: int) -> float:
     """Medvinnarkorrektion för (produkt, rättnivå); 1,0 när mätning saknas."""
     return (KAPPA.get(product or "", {}) or {}).get(correct, 1.0)
+
+
+def topptips_row_shape_kappa(product: str) -> dict[int, float]:
+    """Returnera en kopia av den frysta v1-kartan för en Topptipsprodukt."""
+    values = TOPPTIPS_ROW_SHAPE_KAPPA.get(product)
+    if values is None:
+        raise ValueError("Radform v1 gäller endast Topptipset-familjen.")
+    return dict(values)
 
 
 def _x_count_bucket(row: tuple[str, ...]) -> int:

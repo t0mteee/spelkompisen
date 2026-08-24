@@ -85,6 +85,27 @@ class PortfolioSimulationTests(unittest.TestCase):
         self.assertAlmostEqual(base["mean_return"], fallback["mean_return"],
                                places=6)
 
+    def test_radform_uses_x_bucket_only_on_exact_top_tier(self) -> None:
+        analysis = _analysis([(0.6, 0.3, 0.1)])
+        base = simulate_pool_portfolio(
+            analysis, [["X"]], {"ratio": 0.70, "splits": {1: 1.0}},
+            turnover=100, row_price=1, simulations=100,
+            kappa_by_tier={1: 1.0},
+        )
+        shaped = simulate_pool_portfolio(
+            analysis, [["X"]], {"ratio": 0.70, "splits": {1: 1.0}},
+            turnover=100, row_price=1, simulations=100,
+            kappa_by_tier={1: 1.0},
+            top_tier_kappa_by_x={0: 1.0, 1: 2.0, 2: 1.0,
+                                 3: 1.0, 4: 1.0},
+        )
+
+        self.assertLess(shaped["mean_return"], base["mean_return"])
+        self.assertEqual(
+            {"0": 1.0, "1": 2.0, "2": 1.0, "3": 1.0, "4": 1.0},
+            shaped["top_tier_kappa_by_x"])
+        self.assertIsNone(base["top_tier_kappa_by_x"])
+
     def test_own_rows_compete_on_lower_prize_tier(self) -> None:
         analysis = _analysis([(0.5, 0.3, 0.2), (0.5, 0.3, 0.2)])
         report = simulate_pool_portfolio(

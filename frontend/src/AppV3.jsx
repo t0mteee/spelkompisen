@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from 'react'
 import './AppV3.css'
 import {
-  beginRequest, payoutMatchesSelection, requestIsCurrent,
+  beginRequest, payoutMatchesSelection, requestIsCurrent, uniqueDraws,
 } from './poolSelection.js'
 import {
   AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel,
@@ -30,6 +30,21 @@ const POOL_GAMES = [
   { id: 'europatipset', label: 'Europatipset' },
   { id: 'bomben', label: 'Bomben' },
 ]
+const ROW_MODELS = [
+  {
+    id: 'standard', label: 'Standard',
+    note: 'Nuvarande modell. Reglaget kan väga mellan träffchans och högre värde.',
+  },
+  {
+    id: 'hit', label: 'Träffsäkrare',
+    note: 'Värdevikt 0. Fler 8-rättsträffar historiskt, men oftare lägre utdelning. Inte ett X-skydd; backtestet gällde 384 rader.',
+  },
+  {
+    id: 'row_shape_v1', label: 'Radform v1 · test',
+    note: 'Förregistrerad challenger. Justerar väntade medvinnare efter 0, 1, 2, 3 eller 4+ X. Backtestet gällde 384 rader.',
+  },
+]
+const ROW_MODEL_LABEL = Object.fromEntries(ROW_MODELS.map((model) => [model.id, model.label]))
 const HIST_PRODUCTS = [
   { id: 'stryktipset', label: 'Stryktipset' },
   { id: 'europatipset', label: 'Europatipset' },
@@ -759,11 +774,17 @@ function PoolV3() {
   const [budget, setBudget] = useState(saved.budget || 256)
   const [sysType, setSysType] = useState(saved.sysType || 'ev')
   const [valueWeight, setValueWeight] = useState(saved.valueWeight ?? 50)
+  const [rowModel, setRowModel] = useState(
+    ROW_MODELS.some((model) => model.id === saved.rowModel) ? saved.rowModel : 'standard')
   const [complementaryMode, setComplementaryMode] = useState(
-    saved.sysType === 'ev' && saved.complementaryMode === true)
+    saved.sysType === 'ev' && saved.rowModel !== 'row_shape_v1'
+    && saved.complementaryMode === true)
   const [picks, setPicks] = useState(saved.picks || {})
   const [pickRows, setPickRows] = useState(saved.pickRows || null)
   const [couponVariant, setCouponVariant] = useState(saved.couponVariant || null)
+  const [couponModel, setCouponModel] = useState(saved.couponModel || null)
+  const [couponValueWeight, setCouponValueWeight] = useState(
+    saved.couponValueWeight ?? null)
   const [selected, setSelected] = useState(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(null)
@@ -804,12 +825,15 @@ function PoolV3() {
     const selectionSequence = beginRequest(loadSequence)
     setLoading(true); setErr(null); setSys(null); setAnalysis(null)
     setMovement(null); setPayouts(null)
-    if (!restore) { setPicks({}); setPickRows(null); setCouponVariant(null) }
+    if (!restore) {
+      setPicks({}); setPickRows(null); setCouponVariant(null); setCouponModel(null)
+      setCouponValueWeight(null)
+    }
     try {
       const d = await get(`/api/draws?product=${g}`)
       if (!requestIsCurrent(loadSequence, selectionSequence)) return
       const raw = d.open?.length ? d.open : d.draws || []
-      const list = [...raw].sort((a, b) => {
+      const list = uniqueDraws(raw).sort((a, b) => {
         const at = a.reg_close_time ? new Date(a.reg_close_time).getTime() : Infinity
         const bt = b.reg_close_time ? new Date(b.reg_close_time).getTime() : Infinity
         return at - bt
@@ -818,7 +842,10 @@ function PoolV3() {
       const restored = restore && list.find((x) => x.product === saved.product && x.draw_number === saved.draw)
       const chosen = restored || list[0]
       if (!chosen) { setLoading(false); setErr('Inga öppna omgångar just nu.'); return }
-      if (restore && !restored) { setPicks({}); setPickRows(null); setCouponVariant(null) }
+      if (restore && !restored) {
+        setPicks({}); setPickRows(null); setCouponVariant(null); setCouponModel(null)
+        setCouponValueWeight(null)
+      }
       setProduct(chosen.product); setDraw(chosen.draw_number)
       if (g !== 'bomben') await loadAnalysis(chosen.product, chosen.draw_number)
       else setLoading(false)
@@ -835,7 +862,7 @@ function PoolV3() {
     beginRequest(loadSequence)
     setProduct(slug); setDraw(dn); setSys(null); setAnalysis(null)
     setMovement(null); setPayouts(null); setPicks({}); setPickRows(null)
-    setCouponVariant(null)
+    setCouponVariant(null); setCouponModel(null); setCouponValueWeight(null)
     if (game !== 'bomben') loadAnalysis(slug, dn)
   }
 
@@ -856,16 +883,18 @@ function PoolV3() {
     try {
       localStorage.setItem('svs_state', JSON.stringify({
         group: game, product, draw, picks, strategy, budget, sysType, valueWeight,
-        complementaryMode, couponVariant,
+        rowModel, complementaryMode, couponVariant, couponModel, couponValueWeight,
         pickRows: pickRows && pickRows.length <= 2048 ? pickRows : null,
       }))
     } catch { /* ok */ }
   }, [game, product, draw, picks, pickRows, strategy, budget, sysType, valueWeight,
-    complementaryMode, couponVariant])
+    rowModel, complementaryMode, couponVariant, couponModel, couponValueWeight])
 
   const toggleSign = (ev, sign) => {
     setPickRows(null)
     setCouponVariant(null)
+    setCouponModel(null)
+    setCouponValueWeight(null)
     setPicks((prev) => {
       const cur = prev[ev] || []
       const next = cur.includes(sign) ? cur.filter((s) => s !== sign) : [...cur, sign]
@@ -874,7 +903,10 @@ function PoolV3() {
       return copy
     })
   }
-  const clearCoupon = () => { setPicks({}); setPickRows(null); setCouponVariant(null) }
+  const clearCoupon = () => {
+    setPicks({}); setPickRows(null); setCouponVariant(null); setCouponModel(null)
+    setCouponValueWeight(null)
+  }
   const selectSystem = (chosenSystem, variantLabel) => {
     if (!analysis || !chosenSystem?.picks) return
     const p = {}
@@ -883,6 +915,8 @@ function PoolV3() {
       ? chosenSystem.rows.map((r) => [...r]) : null)
     setPicks(p)
     setCouponVariant(variantLabel)
+    setCouponModel(chosenSystem.row_model || 'standard')
+    setCouponValueWeight(chosenSystem.effective_value_weight ?? effectiveValueWeight / 100)
     // scrollIntoView får även flytta sidan horisontellt. När den breda
     // kupongtabellen nyss mountats ser det på mobil ut som att sidan zoomar.
     // Vänta tills layouten satt sig och flytta bara Y-led.
@@ -896,6 +930,11 @@ function PoolV3() {
 
   const nMatches = analysis?.matches?.length || 0
   const systemTypes = nMatches === 13 ? [...SYSTEM_BASE, ...SYSTEM_SVS] : SYSTEM_BASE
+  const rowModelAvailable = sysType === 'ev' && FAMILY(product) === 'topptipset'
+  const activeRowModel = rowModelAvailable ? rowModel : 'standard'
+  const effectiveValueWeight = activeRowModel === 'hit' ? 0
+    : activeRowModel === 'row_shape_v1' ? 50 : valueWeight
+  const activeRowModelInfo = ROW_MODELS.find((model) => model.id === activeRowModel)
   const budgetIdx = BUDGET_STOPS.reduce((best, v, i) =>
     Math.abs(v - budget) < Math.abs(BUDGET_STOPS[best] - budget) ? i : best, 0)
   const rowShares = (pickRows?.length && analysis?.matches?.length === pickRows[0]?.length) ? (() => {
@@ -917,12 +956,13 @@ function PoolV3() {
     try {
       let q = (systemTypes.find((t) => t.id === sysType) || SYSTEM_BASE[0]).q
       if (q.endsWith('guarantee=')) q += Math.max(1, nMatches - 1)
-      const vw = valueWeight / 100
+      const vw = effectiveValueWeight / 100
       const jp = currentPayouts?.jackpot != null
         ? `&jackpot=${encodeURIComponent(currentPayouts.jackpot)}` : ''
-      const pair = complementaryMode && sysType === 'ev' ? '&complementary=true' : ''
+      const pair = complementaryMode && sysType === 'ev'
+        && activeRowModel !== 'row_shape_v1' ? '&complementary=true' : ''
       const built = await getDetail(
-        `/api/system?product=${product}&draw=${draw}&strategy=${encodeURIComponent(strategy)}&budget=${budget}&value_weight=${vw}&${q}${jp}${pair}`,
+        `/api/system?product=${product}&draw=${draw}&strategy=${encodeURIComponent(strategy)}&budget=${budget}&value_weight=${vw}&row_model=${activeRowModel}&${q}${jp}${pair}`,
         'System')
       if (requestIsCurrent(loadSequence, selectionSequence)) setSys(built)
     } catch (e) {
@@ -1001,7 +1041,11 @@ function PoolV3() {
                 {STRATEGIES.map((s) => (
                   <label key={s} className={strategy === s ? 'active' : ''}>
                     <input type="radio" name="v3strategy" checked={strategy === s}
-                      onChange={() => { setStrategy(s); setValueWeight(STRATEGY_EV[s]) }} />{s}
+                      onChange={() => {
+                        setStrategy(s)
+                        if (activeRowModel === 'standard') setValueWeight(STRATEGY_EV[s])
+                        setSys(null)
+                      }} />{s}
                   </label>
                 ))}
                 <label className="budget">
@@ -1019,7 +1063,8 @@ function PoolV3() {
                 </select>
                 <label className={`complementary-toggle ${complementaryMode ? 'active' : ''}`}
                   title="Bygger två lika stora kuponger tillsammans. De får skilda ankare, högst 10 % identiska rader och tonar ned varandras ankartecken. Varje kupong kostar hela den valda insatsen.">
-                  <input type="checkbox" checked={complementaryMode} disabled={sysType !== 'ev'}
+                  <input type="checkbox" checked={complementaryMode}
+                    disabled={sysType !== 'ev' || activeRowModel === 'row_shape_v1'}
                     onChange={(e) => { setComplementaryMode(e.target.checked); setSys(null) }} />
                   Två kompletterande kuponger
                 </label>
@@ -1027,12 +1072,37 @@ function PoolV3() {
                   {complementaryMode && sysType === 'ev' ? 'Föreslå två kuponger' : 'Föreslå rad'}
                 </button>
               </div>
+              {rowModelAvailable && (
+                <fieldset className="rowprofiles">
+                  <legend>Radprofil</legend>
+                  <div className="rowprofile-options">
+                    {ROW_MODELS.map((model) => (
+                      <label key={model.id} className={rowModel === model.id ? 'active' : ''}>
+                        <input type="radio" name="row-model" value={model.id}
+                          checked={rowModel === model.id}
+                          onChange={() => {
+                            setRowModel(model.id)
+                            if (model.id === 'hit') setValueWeight(0)
+                            if (model.id === 'row_shape_v1' || model.id === 'standard') {
+                              setValueWeight(50)
+                            }
+                            if (model.id === 'row_shape_v1') setComplementaryMode(false)
+                            setSys(null)
+                          }} />
+                        <span>{model.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p>{activeRowModelInfo?.note}</p>
+                </fieldset>
+              )}
               <div className="evscale">
                 <span>Träffbart</span>
-                <input type="range" min="0" max="100" step="5" value={valueWeight}
-                  onChange={(e) => setValueWeight(Number(e.target.value))} />
+                <input type="range" min="0" max="100" step="5"
+                  value={effectiveValueWeight} disabled={activeRowModel !== 'standard'}
+                  onChange={(e) => { setValueWeight(Number(e.target.value)); setSys(null) }} />
                 <span>Max EV</span>
-                <span className="evval">{valueWeight}%</span>
+                <span className="evval">{effectiveValueWeight}%</span>
               </div>
               {sys?.complementary?.available && sys.complementary.system && (
                 <>
@@ -1078,7 +1148,10 @@ function PoolV3() {
             </section>
 
             <section id="kupong">
-              <h2>Din kupong{couponVariant ? ` · ${couponVariant}` : ''} — granska &amp; lämna in</h2>
+              <h2>Din kupong{couponVariant ? ` · ${couponVariant}` : ''}
+                {couponModel && couponModel !== 'standard'
+                  ? ` · ${ROW_MODEL_LABEL[couponModel] || couponModel}` : ''}
+                {' '}— granska &amp; lämna in</h2>
               {/* Byggarens inställningar följer med till bokföringen. Utan dem
                   gick det inte att i efterhand se VILKET slags förslag en
                   spelad kupong byggde på — alla rader före 2026-08-05 har
@@ -1086,11 +1159,17 @@ function PoolV3() {
               <CouponPanel key={`${product}:${draw}`} matches={analysis.matches}
                 picks={picks} pickRows={pickRows}
                 payouts={currentPayouts} product={product} draw={draw} onClear={clearCoupon}
-                buildConfig={{ strategy, budget, value_weight: valueWeight / 100,
+                buildConfig={{ strategy, budget,
+                  value_weight: couponValueWeight ?? valueWeight / 100,
                   source: couponVariant === 'Kupong A' ? 'byggare-komplement-a'
                     : couponVariant === 'Kupong B' ? 'byggare-komplement-b'
-                      : couponVariant === 'Förslag' ? 'byggare' : 'manuell',
-                  label: couponVariant }} />
+                      : couponVariant === 'Förslag' && couponModel === 'row_shape_v1'
+                        ? 'byggare-radform-v1'
+                        : couponVariant === 'Förslag' && couponModel === 'hit'
+                          ? 'byggare-traffsakrare'
+                          : couponVariant === 'Förslag' ? 'byggare' : 'manuell',
+                  label: [couponVariant, couponModel && couponModel !== 'standard'
+                    ? ROW_MODEL_LABEL[couponModel] : null].filter(Boolean).join(' · ') }} />
             </section>
           </div>
 

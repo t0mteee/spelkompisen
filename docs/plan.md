@@ -16,6 +16,11 @@ kuponger och hade fångat 4289 i en final_only-rekonstruktion, men gav 203 mot
 Värdevikt 0 gav fler träffar (225) men sämre rå utdelningsprofil och löste inte
 fyrkryssutfallet. Resultat, metod och nästa steg:
 `docs/overlamning-2026-08-25-topptips-radform.md`.
+Kupongskaparen har nu manuella Topptipsprofiler för **Standard**,
+**Träffsäkrare** (låst värdevikt 0) och **Radform v1 · test** (låst 0,5 och
+fryst kappakarta). Standard är fortsatt förvald; vald profil och effektiv vikt
+följer med till kuponghistoriken. Inget har automatiskt bytt modell eller
+lämnat in spel.
 
 ## STATUS-SAMMANFATTNING (2026-08-24)
 

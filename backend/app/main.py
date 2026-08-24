@@ -29,8 +29,10 @@ from .analysis import analyze_draw, analysis_to_dict
 from .builder import (build_math_system, build_reduced_system,
                       build_guarantee_system, build_svs_rsystem,
                       build_ev_system, build_complementary_ev_systems,
+                      build_topptips_row_shape_system,
                       build_color_system, SVS_R12,
-                      kappa_for, system_to_dict)
+                      kappa_for, system_to_dict,
+                      topptips_row_shape_kappa)
 from .collector import collector
 from .pool_mc import materialize_system_rows, simulate_pool_portfolio
 from . import sharp_service
@@ -875,16 +877,29 @@ def system(product: str = "stryktipset",
            bounds: str = "",
            jackpot: float | None = Query(None, ge=0),
            value_weight: float = 0.5,
+           row_model: str = Query(
+               "standard", pattern="^(standard|hit|row_shape_v1)$"),
            complementary: bool = False):
     """value_weight 0..1 = EV-/värdeskala: 0 = lågoddsare/favoriter (hög träffchans),
     högre = mer värde/skräll (lägre chans, högre EV). sv_rsystem ger SvS R-system.
     ev=true rankar konkreta rader efter popularitetsjusterad EV (poolspels-optimal).
-    complementary=true bygger dessutom en lika stor Kupong B med andra spikmatcher."""
+    complementary=true bygger dessutom en lika stor Kupong B med andra spikmatcher.
+    row_model=hit låser värdevikten till 0; row_shape_v1 använder den
+    förregistrerade Topptipsmodellen och låser värdevikten till 0,5."""
     a = _analyze(product, draw)
+    if row_model != "standard" and not ev:
+        raise HTTPException(400, "Radprofil kan bara användas med Värderader.")
+    if row_model == "row_shape_v1" and complementary:
+        raise HTTPException(
+            400, "Radform v1 kan ännu inte kombineras med två kuponger.")
     if complementary and not ev:
         raise HTTPException(
             400, "Kompletterande kuponger stöds för Värderader (EV × träffchans).")
     vw = max(0.0, min(1.0, value_weight))
+    if row_model == "hit":
+        vw = 0.0
+    elif row_model == "row_shape_v1":
+        vw = 0.5
     plan = PRIZE_PLANS.get(product)
     jp = jackpot
     if (ev or color) and jp is None:
@@ -914,13 +929,20 @@ def system(product: str = "stryktipset",
             turnover_basis = "projected"
     if (ev or color) and valuation_turnover > (a.turnover or 0.0):
         a.turnover = valuation_turnover
+    row_shape_kappa = None
     complementary_system = None
     complementary_meta = None
     try:
         if sv_rsystem and sv_rsystem in SVS_R12:
             s = build_svs_rsystem(a, sv_rsystem, strategy, value_weight=vw)
         elif ev:
-            if complementary:
+            if row_model == "row_shape_v1":
+                row_shape_kappa = topptips_row_shape_kappa(product)
+                s = build_topptips_row_shape_system(
+                    a, row_shape_kappa, strategy, budget,
+                    row_price=a.row_price or 1.0, value_weight=vw,
+                    plan=plan, jackpot=jp)
+            elif complementary:
                 s, complementary_system, complementary_meta = (
                     build_complementary_ev_systems(
                         a, strategy, budget, row_price=a.row_price or 1.0,
@@ -962,7 +984,7 @@ def system(product: str = "stryktipset",
     except ValueError as e:
         raise HTTPException(400, str(e))
 
-    def attach_portfolio(system):
+    def attach_portfolio(system, use_row_shape: bool = False):
         if not plan or valuation_turnover <= 0 or system is None:
             return
         concrete_rows = materialize_system_rows(system)
@@ -980,20 +1002,36 @@ def system(product: str = "stryktipset",
                 # portföljvärderingen och byggaren berättar samma sanning
                 kappa_by_tier={int(c): kappa_for(product, int(c))
                                for c in plan["splits"]},
+                top_tier_kappa_by_x=(row_shape_kappa
+                                     if use_row_shape else None),
             )
 
-    attach_portfolio(s)
+    attach_portfolio(s, row_model == "row_shape_v1")
     attach_portfolio(complementary_system)
     response = system_to_dict(s)
+    response["row_model"] = row_model
+    response["row_model_label"] = {
+        "standard": "Standard",
+        "hit": "Träffsäkrare",
+        "row_shape_v1": "Radform v1 · test",
+    }[row_model]
+    response["effective_value_weight"] = vw
     if complementary:
         complementary_meta = complementary_meta or {
             "available": False,
             "reason": "Den kompletterande kupongen kunde inte byggas.",
         }
+        complementary_dict = (system_to_dict(complementary_system)
+                              if complementary_system is not None else None)
+        if complementary_dict is not None:
+            complementary_dict.update({
+                "row_model": row_model,
+                "row_model_label": response["row_model_label"],
+                "effective_value_weight": vw,
+            })
         response["complementary"] = {
             **complementary_meta,
-            "system": (system_to_dict(complementary_system)
-                       if complementary_system is not None else None),
+            "system": complementary_dict,
         }
     return response
 

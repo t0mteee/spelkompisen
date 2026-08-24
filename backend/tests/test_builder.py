@@ -8,7 +8,8 @@ from app.builder import (_poisson_binomial, _prize_pools, _rank_ev_rows,
                          build_complementary_ev_systems,
                          build_topptips_row_shape_system,
                          build_topptips_x_balanced_system,
-                         ev_candidate_signs, x_count_distribution)
+                         ev_candidate_signs, topptips_row_shape_kappa,
+                         x_count_distribution)
 
 
 class PrizePoolTests(unittest.TestCase):
@@ -223,6 +224,17 @@ class PrizePoolTests(unittest.TestCase):
             build_topptips_row_shape_system(
                 self._eight_match_analysis(), {0: 1.0}, budget=10.0,
                 plan={"ratio": 0.70, "splits": {8: 1.0}})
+
+    def test_frozen_row_shape_kappa_is_product_specific_and_copied(self) -> None:
+        first = topptips_row_shape_kappa("topptipset")
+        second = topptips_row_shape_kappa("topptipsetstryk")
+
+        self.assertEqual(set(range(5)), set(first))
+        self.assertNotEqual(first[0], second[0])
+        first[0] = 99.0
+        self.assertNotEqual(99.0, topptips_row_shape_kappa("topptipset")[0])
+        with self.assertRaisesRegex(ValueError, "endast Topptipset"):
+            topptips_row_shape_kappa("stryktipset")
 
     def test_single_exact_tier_fast_path_matches_general_ev_formula(self) -> None:
         analysis = self._eight_match_analysis()

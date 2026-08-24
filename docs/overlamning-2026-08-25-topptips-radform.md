@@ -52,11 +52,35 @@ standard. Värdevikt 0 gav 225 träffar och högre träffchans men sämre rå RO
    svansportfölj på toppträff, winsoriserad ROI, portföljträff och antal
    X-omöjliga facit. Standard får ändras först då.
 
+## Manuell kupongskapare tillagd samma dag
+
+Poolbyggaren visar tre radprofiler för Topptipsets Dagens/Stryk/Extra när
+systemtypen är Värderader:
+
+- **Standard** — nuvarande modell; användaren kan fortsätta justera reglaget.
+- **Träffsäkrare** — låst värdevikt 0. Historiskt fler 8-rättsträffar men
+  folkligare/lägre utdelningsprofil och inget särskilt skydd mot många X.
+- **Radform v1 · test** — låst värdevikt 0,5 och exakt den frysta kappakartan
+  från rapporten. Den kan inte kombineras med dubbelkupong i v1.
+
+Standard är fortsatt förvald. Båda challengers märks i API-svaret, kupongen
+och historiken; den effektiva värdevikten fångas när förslaget läggs i
+kupongen, så ett senare reglagebyte inte kan skriva om dess identitet.
+Portföljsimuleringen använder samma X-beroende kappa som radvalet. UI:t säger
+uttryckligen att historiktestet gällde 384 rader även om användaren får välja
+annan budget. Inget spel lämnas in automatiskt.
+
+Den visuella mobilkontrollen hittade också dubbla `product+draw` i ett
+Topptips-listsvar. Frontend deduplicerar nu identiteten deterministiskt och
+föredrar den öppna varianten; regressionstest finns i `poolSelection.test.js`.
+
 ## Verifiering och drift
 
-- 18 riktade buildertester gröna före fullkörningen.
+- 793 backendtester, 13 frontendtester, frontend-lint och produktionsbygge
+  gröna efter UI-integrationen.
 - Backtestet öppnar snapshoten read-only och sparar hash, kodversion,
   träningskoefficienter, summeringar samt varje omgång.
+- Lokal browserkontroll på mobilbredd verifierade profilval, låsta reglage,
+  API-bygge, Radform-märkt kupong och X-justerat portföljkort.
 - Produktionsservern har inte driftsatts med kandidaterna och databasen har
   inte migrerats eller skrivits.
-

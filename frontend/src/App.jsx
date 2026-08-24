@@ -630,8 +630,11 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse, label = null,
           </div>
           <div className="portfolio-note muted">
             Matchutfall dras från fair-sannolikheterna. Medvinnare beräknas som
-            Poisson kring utfallets faktiska streckkombination; κ={mc.kappa.toFixed(2)} är
-            fortsatt konservativt. Percentiler beskriver risk, inte en garanterad utdelning.
+            Poisson kring utfallets faktiska streckkombination;
+            {mc.top_tier_kappa_by_x
+              ? ' Radform v1 använder separat κ för 0, 1, 2, 3 och 4+ X.'
+              : ` κ=${mc.kappa.toFixed(2)} är fortsatt konservativt.`}
+            {' '}Percentiler beskriver risk, inte en garanterad utdelning.
           </div>
         </div>
       )}

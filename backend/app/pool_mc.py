@@ -195,6 +195,7 @@ def simulate_pool_portfolio(analysis, rows: list[list[str]], plan: dict,
                             simulations: int = DEFAULT_SIMULATIONS,
                             kappa: float = 1.0,
                             kappa_by_tier: Optional[dict[int, float]] = None,
+                            top_tier_kappa_by_x: Optional[dict[int, float]] = None,
                             seed: Optional[int] = None,
                             turnover_basis: str = "provided") -> dict:
     """Värdera ett helt poolsystem med utfallsberoende medvinnare.
@@ -209,6 +210,8 @@ def simulate_pool_portfolio(analysis, rows: list[list[str]], plan: dict,
     system fick två olika sanningar (2026-07-28). κ ≥ 1 sänker EV och kan
     aldrig blåsa upp förväntningar (PH4:s ärlighetsargument). Skalära
     `kappa` är kvar som fallback för nivåer utan mätning och för tester.
+    `top_tier_kappa_by_x` används endast på den exakta toppnivån och håller
+    Radform v1:s portföljkort konsekvent med radvalet.
     """
     if not rows:
         raise ValueError("Portföljsimulering kräver minst en konkret rad.")
@@ -225,9 +228,16 @@ def simulate_pool_portfolio(analysis, rows: list[list[str]], plan: dict,
     kappa = max(0.01, float(kappa))
     tier_kappa = {int(c): max(0.01, float(v))
                   for c, v in (kappa_by_tier or {}).items()}
+    x_kappa = {int(count): max(0.01, float(value))
+               for count, value in (top_tier_kappa_by_x or {}).items()}
 
     def _kappa(correct: int) -> float:
         return tier_kappa.get(correct, kappa)
+
+    def _row_kappa(correct: int, encoded) -> float:
+        if correct == top_tier and x_kappa:
+            return x_kappa.get(min(encoded.count(1), 4), _kappa(correct))
+        return _kappa(correct)
 
     jackpot = max(0.0, float(jackpot))
     fair, folk = _probability_tables(analysis)
@@ -254,7 +264,8 @@ def simulate_pool_portfolio(analysis, rows: list[list[str]], plan: dict,
             # samma κ som builder-EV:n — annars jämför vi mot en okalibrerad
             # variant som inte längre finns i drift
             dividend = pool / (
-                field_rows * folk_hits[correct] * _kappa(correct) + 1.0)
+                field_rows * folk_hits[correct]
+                * _row_kappa(correct, encoded) + 1.0)
             analytical_by_tier[correct] += fair_hits[correct] * min(pool, dividend)
 
     # Toppnivån kan räknas utan utfalls-MC. Dubblettrader grupperas så även
@@ -266,7 +277,8 @@ def simulate_pool_portfolio(analysis, rows: list[list[str]], plan: dict,
         folk_probability = math.prod(
             folk[i][sign_index] for i, sign_index in enumerate(encoded))
         reciprocal = expected_poisson_reciprocal(
-            field_rows * folk_probability * _kappa(top_tier), multiplicity)
+            field_rows * folk_probability
+            * _row_kappa(top_tier, encoded), multiplicity)
         top_exact += (fair_probability * pools[top_tier]
                       * multiplicity * reciprocal)
 
@@ -309,8 +321,9 @@ def simulate_pool_portfolio(analysis, rows: list[list[str]], plan: dict,
             own = own_counts[correct]
             if not own:
                 continue
-            expected_external = (field_rows * external_hits[correct]
-                                 * _kappa(correct))
+            expected_external = (
+                field_rows * external_hits[correct]
+                * _row_kappa(correct, outcome))
             portfolio_share = min(
                 pool,
                 pool * own * expected_poisson_reciprocal(expected_external, own),
@@ -355,6 +368,9 @@ def simulate_pool_portfolio(analysis, rows: list[list[str]], plan: dict,
         "kappa": round(kappa, 4),
         "kappa_by_tier": {str(c): round(v, 4)
                           for c, v in sorted(tier_kappa.items())} or None,
+        "top_tier_kappa_by_x": {
+            str(count): round(value, 4)
+            for count, value in sorted(x_kappa.items())} or None,
         "cost": round(cost, 2),
         "mean_return": round(mean_return, 2),
         "net_ev": round(mean_return - cost, 2),
