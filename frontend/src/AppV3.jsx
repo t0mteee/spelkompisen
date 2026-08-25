@@ -37,7 +37,7 @@ const ROW_MODELS = [
   },
   {
     id: 'hit', label: 'Träffsäkrare',
-    note: 'Värdevikt 0. Fler topprätt i historiska 256/512-test, men ingen bevisad högre avkastning. Inte ett X-skydd.',
+    note: 'Värdevikt 0. Fler topprätt i historiska 256/512-test, men oftare folkligare rader och lägre utdelning per träff. Inte ett X-skydd.',
   },
   {
     id: 'row_shape_v1', label: 'Radform v1 · test',
@@ -939,7 +939,8 @@ function PoolV3() {
     .includes(FAMILY(product))
   const availableRowModels = ROW_MODELS.filter((model) => (
     model.id !== 'row_shape_v1' || FAMILY(product) === 'topptipset'))
-  const activeRowModel = rowModelAvailable
+  const rowModelSupported = availableRowModels.some((model) => model.id === rowModel)
+  const activeRowModel = rowModelAvailable && rowModelSupported
     && (rowModel !== 'row_shape_v1' || budget === 384) ? rowModel : 'standard'
   const effectiveValueWeight = activeRowModel === 'hit' ? 0
     : activeRowModel === 'row_shape_v1' ? 50 : valueWeight

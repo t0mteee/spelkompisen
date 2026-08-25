@@ -61,17 +61,26 @@ Poolbyggaren visar tre radprofiler för Topptipsets Dagens/Stryk/Extra när
 systemtypen är Värderader:
 
 - **Standard** — nuvarande modell; användaren kan fortsätta justera reglaget.
-- **Träffsäkrare** — låst värdevikt 0. Historiskt fler 8-rättsträffar men
-  folkligare/lägre utdelningsprofil och inget särskilt skydd mot många X.
+- **Träffsäkrare** — låst värdevikt 0. Historiskt fler toppträffar men
+  folkligare/lägre utdelning per träff och inget särskilt skydd mot många X.
+  Efter 256/512-kontrollen är den även manuellt valbar på Stryktipset och
+  Europatipset; ROI-fördelen är inte säker där.
 - **Radform v1 · test** — låst värdevikt 0,5 och exakt den frysta kappakartan
-  från rapporten. Den kan inte kombineras med dubbelkupong i v1.
+  från rapporten. Den kan inte kombineras med dubbelkupong och är numera
+  strikt begränsad till 384 kr.
 
 Standard är fortsatt förvald. Båda challengers märks i API-svaret, kupongen
 och historiken; den effektiva värdevikten fångas när förslaget läggs i
 kupongen, så ett senare reglagebyte inte kan skriva om dess identitet.
-Portföljsimuleringen använder samma X-beroende kappa som radvalet. UI:t säger
-uttryckligen att historiktestet gällde 384 rader även om användaren får välja
-annan budget. Inget spel lämnas in automatiskt.
+Portföljsimuleringen använder samma X-beroende kappa som radvalet. API och UI
+faller stängt om Radform begärs med annan budget än 384. Inget spel lämnas in
+automatiskt.
+
+Budgetrobustheten finns i `docs/radprofiler-256-512-2026-08-25.md`. På samma
+597 holdoutomgångar gav Radform 171/173 mot Standard vid 256 och 235/236 vid
+512; bara 384-resultatet var positivt. Träffsäkrare gav 174/173 vid 256,
+225/204 vid 384 och 253/236 vid 512. På 13-matchsspelen gav Träffsäkrare fler
+toppträffar i samtliga fyra produkt×budget-celler, men ROI-KI korsade noll.
 
 Den visuella mobilkontrollen hittade också dubbla `product+draw` i ett
 Topptips-listsvar. Frontend deduplicerar nu identiteten deterministiskt och

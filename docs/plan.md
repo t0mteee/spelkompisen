@@ -16,13 +16,16 @@ kuponger och hade fångat 4289 i en final_only-rekonstruktion, men gav 203 mot
 Värdevikt 0 gav fler träffar (225) men sämre rå utdelningsprofil och löste inte
 fyrkryssutfallet. Resultat, metod och nästa steg:
 `docs/overlamning-2026-08-25-topptips-radform.md`.
-Kupongskaparen har nu manuella Topptipsprofiler för **Standard**,
-**Träffsäkrare** (låst värdevikt 0) och **Radform v1 · test** (låst 0,5 och
-fryst kappakarta). Standard är fortsatt förvald; vald profil och effektiv vikt
-följer med till kuponghistoriken. Inget har automatiskt bytt modell eller
-lämnat in spel. Valet är driftsatt på produktionsservern i `c6da62b`; skarpt
-läsprov mot Topptipset 4292 verifierade 128 Radform-rader och rätt X-beroende
-kappa utan databasändring.
+Kupongskaparen har nu manuella profiler för **Standard** och
+**Träffsäkrare** (låst värdevikt 0) på Topptipset-familjen, Stryktipset och
+Europatipset. **Radform v1 · test** (låst 0,5 och fryst kappakarta) gäller bara
+Topptipset och exakt 384 kr: robusthetskontrollen gav 171/173 toppträffar mot
+Standard vid 256 och 235/236 vid 512, så 384-resultatet var budgetspecifikt.
+Träffsäkrare gav fler toppträffar i alla testade familjer/budgetar men ingen
+säker ROI-fördel på 13-matchsspelen. Standard och grundbudget 256 är fortsatt
+förvalda; vald profil och effektiv vikt följer med till kuponghistoriken.
+Inget har automatiskt bytt modell eller lämnat in spel. Metod och rådata:
+`docs/radprofiler-256-512-2026-08-25.md`.
 
 ## STATUS-SAMMANFATTNING (2026-08-24)
 

@@ -1,0 +1,7093 @@
+{
+ "cohort": "final_only-radval-v3-fixed-payout",
+ "seed": 20260725,
+ "budget": 256.0,
+ "code_version": "722a50f3105bb0c6ed082c91f67342d8b30f9b57",
+ "database": {
+  "path": "/private/tmp/topptips-radform-v1-snapshot.db",
+  "size_bytes": 403742720
+ },
+ "fixed_payout_cohort": true,
+ "hamming_included": false,
+ "profiles_only": true,
+ "bootstrap_iters": 2000,
+ "primary_baselines": [
+  "folkrad",
+  "favoritrad",
+  "byggarslump"
+ ],
+ "products": {
+  "stryktipset": {
+   "n_available": 218,
+   "n_used": 218,
+   "n_incomplete_payout": 0,
+   "n_build_failed": 0,
+   "primary_row_shortfalls": {},
+   "arms": {
+    "traffsakrare": {
+     "n_draws": 218,
+     "mean_roi_unpaired": -0.7663,
+     "ci90_unpaired": [
+      -0.8389,
+      -0.6774
+     ],
+     "top_tier_hits": 2
+    },
+    "varderader": {
+     "n_draws": 218,
+     "mean_roi_unpaired": -0.5993,
+     "ci90_unpaired": [
+      -0.7736,
+      -0.3808
+     ],
+     "top_tier_hits": 1
+    }
+   },
+   "paired_vs_baselines": {
+    "traffsakrare": {
+     "n": 218,
+     "mean_diff_w": 0.0248,
+     "median_diff": 0.0,
+     "ci90": [
+      -0.0231,
+      0.074
+     ],
+     "ci95": [
+      -0.0333,
+      0.0809
+     ],
+     "passes_ci95": false,
+     "win_share": 0.1697
+    }
+   },
+   "per_draw_roi": [
+    {
+     "draw": 4725,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.70703125,
+     "traffsakrare": -0.3359375
+    },
+    {
+     "draw": 4726,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4727,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.10550781249999996
+    },
+    {
+     "draw": 4728,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.66796875
+    },
+    {
+     "draw": 4729,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4730,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.6953125
+    },
+    {
+     "draw": 4731,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.8123828125000001,
+     "traffsakrare": -0.8203125
+    },
+    {
+     "draw": 4732,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4733,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4734,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4735,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4736,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4737,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4738,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4739,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.7109375
+    },
+    {
+     "draw": 4740,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.87109375,
+     "traffsakrare": -0.87109375
+    },
+    {
+     "draw": 4741,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4742,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7109375,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4743,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4745,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4746,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.3826562499999999,
+     "traffsakrare": 0.007734375000000071
+    },
+    {
+     "draw": 4749,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4750,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.08609374999999997,
+     "traffsakrare": -0.08609374999999997
+    },
+    {
+     "draw": 4751,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4752,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.09773437500000004,
+     "traffsakrare": -0.69921875
+    },
+    {
+     "draw": 4753,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 10.417890625,
+     "traffsakrare": -0.12503906249999996
+    },
+    {
+     "draw": 4754,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4756,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4757,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4759,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8828125,
+     "traffsakrare": -0.8828125
+    },
+    {
+     "draw": 4760,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4761,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4762,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4763,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4764,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.86328125,
+     "traffsakrare": -0.7265625
+    },
+    {
+     "draw": 4765,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4766,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4767,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.73828125,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4768,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6875,
+     "traffsakrare": -0.84375
+    },
+    {
+     "draw": 4769,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.21867187500000007,
+     "traffsakrare": 4.669921875
+    },
+    {
+     "draw": 4770,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 1.38234375,
+     "traffsakrare": 0.1522265625000001
+    },
+    {
+     "draw": 4771,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4773,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4774,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4775,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4776,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4777,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4779,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8828125,
+     "traffsakrare": -0.8828125
+    },
+    {
+     "draw": 4780,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4781,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4783,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.62890625
+    },
+    {
+     "draw": 4784,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.734375
+    },
+    {
+     "draw": 4785,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.8359375
+    },
+    {
+     "draw": 4787,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.94140625,
+     "traffsakrare": -0.94140625
+    },
+    {
+     "draw": 4788,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4789,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.78515625,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4790,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.734375,
+     "traffsakrare": -0.8671875
+    },
+    {
+     "draw": 4791,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4792,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.45695312500000007,
+     "traffsakrare": -0.23441406249999996
+    },
+    {
+     "draw": 4793,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.71484375,
+     "traffsakrare": -0.71484375
+    },
+    {
+     "draw": 4794,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.65625,
+     "traffsakrare": -0.7421875
+    },
+    {
+     "draw": 4795,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.828125,
+     "traffsakrare": -0.828125
+    },
+    {
+     "draw": 4796,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4797,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.24613281249999996,
+     "traffsakrare": -0.24613281249999996
+    },
+    {
+     "draw": 4798,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4799,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4800,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.84375
+    },
+    {
+     "draw": 4801,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4802,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4803,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.597421875,
+     "traffsakrare": 0.42949218749999996
+    },
+    {
+     "draw": 4804,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6250390625,
+     "traffsakrare": -0.90625
+    },
+    {
+     "draw": 4806,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.921875
+    },
+    {
+     "draw": 4807,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4808,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.71875
+    },
+    {
+     "draw": 4809,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4811,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4812,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 1.4646484375000002,
+     "traffsakrare": 1.8864843750000002
+    },
+    {
+     "draw": 4813,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4814,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4815,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4816,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.859375
+    },
+    {
+     "draw": 4817,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4818,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4819,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4820,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.19527343750000004,
+     "traffsakrare": -0.28519531249999996
+    },
+    {
+     "draw": 4821,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.87890625,
+     "traffsakrare": -0.7578125
+    },
+    {
+     "draw": 4822,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 20.1973828125,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4823,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.46488281249999996
+    },
+    {
+     "draw": 4824,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4826,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4827,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.58984375,
+     "traffsakrare": -0.7265625
+    },
+    {
+     "draw": 4828,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8203125,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4829,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.6016015625
+    },
+    {
+     "draw": 4830,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.5312890625
+    },
+    {
+     "draw": 4832,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4833,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4834,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.80859375,
+     "traffsakrare": -0.80859375
+    },
+    {
+     "draw": 4835,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4836,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4837,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4838,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4839,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4841,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4842,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4843,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4844,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.12503906249999996,
+     "traffsakrare": -0.12503906249999996
+    },
+    {
+     "draw": 4845,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4846,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.578125,
+     "traffsakrare": -0.4375
+    },
+    {
+     "draw": 4847,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.5078125,
+     "traffsakrare": -0.671875
+    },
+    {
+     "draw": 4848,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.65625,
+     "traffsakrare": -0.65625
+    },
+    {
+     "draw": 4849,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.48441406249999996,
+     "traffsakrare": -0.828125
+    },
+    {
+     "draw": 4850,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.44121093749999996,
+     "traffsakrare": 0.44121093749999996
+    },
+    {
+     "draw": 4851,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4852,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4853,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6797265625,
+     "traffsakrare": 6.7178515625
+    },
+    {
+     "draw": 4854,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4855,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4856,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4857,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4859,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4860,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4861,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4862,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.07027343750000004,
+     "traffsakrare": -0.35550781249999996
+    },
+    {
+     "draw": 4863,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.25785156249999996,
+     "traffsakrare": -0.25785156249999996
+    },
+    {
+     "draw": 4864,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.828125,
+     "traffsakrare": -0.65625
+    },
+    {
+     "draw": 4866,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.55859375,
+     "traffsakrare": -0.55859375
+    },
+    {
+     "draw": 4867,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4868,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4869,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7890625,
+     "traffsakrare": -0.68359375
+    },
+    {
+     "draw": 4870,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4871,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4872,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4873,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4874,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4876,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4878,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.8828125
+    },
+    {
+     "draw": 4879,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.6875
+    },
+    {
+     "draw": 4880,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4881,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8984375,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4882,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4884,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4885,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.5469140625,
+     "traffsakrare": -0.66015625
+    },
+    {
+     "draw": 4886,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4887,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4888,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4889,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.44523437500000007,
+     "traffsakrare": -0.765625
+    },
+    {
+     "draw": 4890,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4891,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.74609375,
+     "traffsakrare": 0.2693749999999999
+    },
+    {
+     "draw": 4892,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4893,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4894,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.8671875
+    },
+    {
+     "draw": 4895,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4896,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4897,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4898,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4899,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.484375,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4900,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4901,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4902,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.9375,
+     "traffsakrare": -0.9375
+    },
+    {
+     "draw": 4903,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4904,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4905,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.859375,
+     "traffsakrare": -0.5781640625
+    },
+    {
+     "draw": 4906,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4908,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.91015625
+    },
+    {
+     "draw": 4909,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.5391015625,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4910,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4911,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6953125,
+     "traffsakrare": -0.6953125
+    },
+    {
+     "draw": 4912,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4913,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.32816406249999996,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4914,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4915,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4916,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4917,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.8396484375,
+     "traffsakrare": 0.4099999999999999
+    },
+    {
+     "draw": 4918,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4920,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4921,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 6.6574609375,
+     "traffsakrare": -0.75
+    },
+    {
+     "draw": 4922,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.68359375,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4923,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.34378906249999996
+    },
+    {
+     "draw": 4924,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4925,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.89453125,
+     "traffsakrare": 0.9490624999999999
+    },
+    {
+     "draw": 4926,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4927,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4928,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.625
+    },
+    {
+     "draw": 4929,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.89453125
+    },
+    {
+     "draw": 4930,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8671875,
+     "traffsakrare": -0.8671875
+    },
+    {
+     "draw": 4931,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 6.9980859375,
+     "traffsakrare": -0.6875
+    },
+    {
+     "draw": 4932,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.9296875,
+     "traffsakrare": -0.43359375
+    },
+    {
+     "draw": 4933,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.92578125
+    },
+    {
+     "draw": 4937,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4938,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6875,
+     "traffsakrare": -0.84375
+    },
+    {
+     "draw": 4939,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.73046875,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4941,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4942,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.57421875
+    },
+    {
+     "draw": 4943,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4944,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4945,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4946,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.875
+    },
+    {
+     "draw": 4947,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.54296875,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4948,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4949,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4950,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4951,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.6639453125000001,
+     "traffsakrare": -0.4453125
+    },
+    {
+     "draw": 4952,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.90625,
+     "traffsakrare": -0.71875
+    },
+    {
+     "draw": 4953,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4954,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4955,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.75,
+     "traffsakrare": -0.75
+    },
+    {
+     "draw": 4956,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4957,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4958,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8515625,
+     "traffsakrare": -0.8515625
+    },
+    {
+     "draw": 4959,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4960,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.23050781249999996,
+     "traffsakrare": -0.73046875
+    },
+    {
+     "draw": 4961,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.8125
+    },
+    {
+     "draw": 4962,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.3907421875,
+     "traffsakrare": 0.015351562500000027
+    },
+    {
+     "draw": 4963,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4964,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.77734375,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4965,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4966,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 4967,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    }
+   ]
+  },
+  "europatipset": {
+   "n_available": 480,
+   "n_used": 480,
+   "n_incomplete_payout": 0,
+   "n_build_failed": 0,
+   "primary_row_shortfalls": {},
+   "arms": {
+    "traffsakrare": {
+     "n_draws": 480,
+     "mean_roi_unpaired": -0.5902,
+     "ci90_unpaired": [
+      -0.7171,
+      -0.4288
+     ],
+     "top_tier_hits": 8
+    },
+    "varderader": {
+     "n_draws": 480,
+     "mean_roi_unpaired": -0.6394,
+     "ci90_unpaired": [
+      -0.7583,
+      -0.4922
+     ],
+     "top_tier_hits": 3
+    }
+   },
+   "paired_vs_baselines": {
+    "traffsakrare": {
+     "n": 480,
+     "mean_diff_w": -0.024,
+     "median_diff": 0.0,
+     "ci90": [
+      -0.0575,
+      0.0093
+     ],
+     "ci95": [
+      -0.0635,
+      0.017
+     ],
+     "passes_ci95": false,
+     "win_share": 0.1542
+    }
+   },
+   "per_draw_roi": [
+    {
+     "draw": 2051,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 7.362890625,
+     "traffsakrare": 0.8509765625000001
+    },
+    {
+     "draw": 2052,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.5469140625,
+     "traffsakrare": -0.88671875
+    },
+    {
+     "draw": 2054,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6484375,
+     "traffsakrare": -0.6484375
+    },
+    {
+     "draw": 2055,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2056,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.9140625,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2059,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2060,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2061,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.71875,
+     "traffsakrare": -0.5312890625
+    },
+    {
+     "draw": 2062,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.91015625
+    },
+    {
+     "draw": 2063,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.22671874999999997,
+     "traffsakrare": -0.22671874999999997
+    },
+    {
+     "draw": 2064,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.9375,
+     "traffsakrare": -0.31253906249999996
+    },
+    {
+     "draw": 2065,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.77734375,
+     "traffsakrare": -0.92578125
+    },
+    {
+     "draw": 2066,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.2815234375,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2067,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.93359375,
+     "traffsakrare": -0.93359375
+    },
+    {
+     "draw": 2068,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8125,
+     "traffsakrare": -0.7187890625
+    },
+    {
+     "draw": 2069,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.80078125
+    },
+    {
+     "draw": 2070,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.05851562500000007,
+     "traffsakrare": -0.5508203125
+    },
+    {
+     "draw": 2071,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.5351953125,
+     "traffsakrare": -0.5351953125
+    },
+    {
+     "draw": 2072,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.8046875
+    },
+    {
+     "draw": 2073,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7578515625,
+     "traffsakrare": -0.6367578125
+    },
+    {
+     "draw": 2074,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2075,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.5933984375000001,
+     "traffsakrare": 0.8042578125
+    },
+    {
+     "draw": 2076,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7812890625,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2077,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.90625,
+     "traffsakrare": -0.6250781249999999
+    },
+    {
+     "draw": 2078,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2079,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2080,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2081,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7031640625,
+     "traffsakrare": -0.7773828125
+    },
+    {
+     "draw": 2082,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.16031249999999997,
+     "traffsakrare": -0.83203125
+    },
+    {
+     "draw": 2083,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2084,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2085,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.027539062500000044,
+     "traffsakrare": -0.41804687500000004
+    },
+    {
+     "draw": 2086,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2087,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8671875,
+     "traffsakrare": -0.8671875
+    },
+    {
+     "draw": 2089,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2090,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2091,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.5820703125
+    },
+    {
+     "draw": 2093,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2094,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.2032421875,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2095,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2096,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2097,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.2770703125,
+     "traffsakrare": 0.2770703125
+    },
+    {
+     "draw": 2098,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8125,
+     "traffsakrare": -0.75
+    },
+    {
+     "draw": 2099,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7656640625,
+     "traffsakrare": -0.8828125
+    },
+    {
+     "draw": 2100,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2101,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2102,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2103,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.84375,
+     "traffsakrare": 1.2955859374999998
+    },
+    {
+     "draw": 2104,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8125,
+     "traffsakrare": -0.8125
+    },
+    {
+     "draw": 2105,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.4376171875,
+     "traffsakrare": -0.859375
+    },
+    {
+     "draw": 2106,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2107,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.8828125
+    },
+    {
+     "draw": 2108,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.609375
+    },
+    {
+     "draw": 2109,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2110,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2111,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7891015625,
+     "traffsakrare": -0.7891015625
+    },
+    {
+     "draw": 2112,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.17203124999999997
+    },
+    {
+     "draw": 2113,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2115,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.75,
+     "traffsakrare": -0.5000390625
+    },
+    {
+     "draw": 2117,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2118,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2119,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6484765625,
+     "traffsakrare": -0.71875
+    },
+    {
+     "draw": 2120,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2122,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2127,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.875,
+     "traffsakrare": -0.30472656249999996
+    },
+    {
+     "draw": 2128,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2132,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2133,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 24.4854296875,
+     "traffsakrare": 0.7066406249999999
+    },
+    {
+     "draw": 2134,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2135,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.5234765625,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2136,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2137,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2139,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.88671875
+    },
+    {
+     "draw": 2141,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6680078125,
+     "traffsakrare": 0.7691796875000001
+    },
+    {
+     "draw": 2142,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": 0.9526171875
+    },
+    {
+     "draw": 2144,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2145,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.35550781249999996,
+     "traffsakrare": -0.16804687500000004
+    },
+    {
+     "draw": 2146,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.8203125
+    },
+    {
+     "draw": 2147,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2148,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2149,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.828125
+    },
+    {
+     "draw": 2150,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7773828125,
+     "traffsakrare": -0.8515625
+    },
+    {
+     "draw": 2151,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.20710937500000004,
+     "traffsakrare": -0.20710937500000004
+    },
+    {
+     "draw": 2152,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6289453125,
+     "traffsakrare": -0.77734375
+    },
+    {
+     "draw": 2153,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2154,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.73046875
+    },
+    {
+     "draw": 2155,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.03109374999999992,
+     "traffsakrare": -0.87109375
+    },
+    {
+     "draw": 2156,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.86328125,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2157,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2158,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2159,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.5391015625
+    },
+    {
+     "draw": 2160,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7421875,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2161,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2162,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.42203124999999997,
+     "traffsakrare": -0.85546875
+    },
+    {
+     "draw": 2163,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2166,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2167,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2169,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2170,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2171,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2172,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.859375,
+     "traffsakrare": -0.4376171875
+    },
+    {
+     "draw": 2173,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2174,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.6563281249999999
+    },
+    {
+     "draw": 2175,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.5117968749999999,
+     "traffsakrare": -0.2579296875
+    },
+    {
+     "draw": 2176,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2177,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2179,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2181,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2182,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.9140625
+    },
+    {
+     "draw": 2183,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2185,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2186,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2187,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2188,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2189,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.75
+    },
+    {
+     "draw": 2191,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2192,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2193,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2194,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2198,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2199,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8828125,
+     "traffsakrare": -0.2383984375
+    },
+    {
+     "draw": 2200,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2201,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2202,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2203,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2204,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.441171875,
+     "traffsakrare": -0.14460937500000004
+    },
+    {
+     "draw": 2205,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8359375,
+     "traffsakrare": -0.6719531249999999
+    },
+    {
+     "draw": 2206,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2207,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.284921875,
+     "traffsakrare": 1.6864453125
+    },
+    {
+     "draw": 2208,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2209,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8359375,
+     "traffsakrare": -0.75390625
+    },
+    {
+     "draw": 2210,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 1.4328906250000002,
+     "traffsakrare": 0.39824218749999996
+    },
+    {
+     "draw": 2211,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2212,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2213,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2214,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2216,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.89453125,
+     "traffsakrare": -0.7890625
+    },
+    {
+     "draw": 2217,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.73046875,
+     "traffsakrare": -0.73046875
+    },
+    {
+     "draw": 2218,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2219,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2220,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.86328125,
+     "traffsakrare": 0.4368749999999999
+    },
+    {
+     "draw": 2221,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2224,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2225,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.82421875,
+     "traffsakrare": -0.82421875
+    },
+    {
+     "draw": 2226,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2227,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2228,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2229,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2231,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2233,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2236,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2237,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2238,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2239,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.1719921875
+    },
+    {
+     "draw": 2240,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8984375,
+     "traffsakrare": -0.8984375
+    },
+    {
+     "draw": 2241,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.39851562500000004,
+     "traffsakrare": -0.39851562500000004
+    },
+    {
+     "draw": 2242,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.49945312500000005,
+     "traffsakrare": -0.2501171875
+    },
+    {
+     "draw": 2243,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2244,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.847109375,
+     "traffsakrare": -0.875
+    },
+    {
+     "draw": 2245,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2246,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.765625
+    },
+    {
+     "draw": 2247,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2248,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.14082031250000004
+    },
+    {
+     "draw": 2249,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.1326953125000001,
+     "traffsakrare": -0.75
+    },
+    {
+     "draw": 2250,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.9375,
+     "traffsakrare": -0.875
+    },
+    {
+     "draw": 2251,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.92578125,
+     "traffsakrare": -0.92578125
+    },
+    {
+     "draw": 2253,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2254,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2255,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2256,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8984375,
+     "traffsakrare": -0.5937890625
+    },
+    {
+     "draw": 2257,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2258,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2259,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 1.43640625,
+     "traffsakrare": 0.6244921875
+    },
+    {
+     "draw": 2260,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.87890625,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2261,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.43753906249999996
+    },
+    {
+     "draw": 2262,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2263,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 1.0894140625,
+     "traffsakrare": -0.671875
+    },
+    {
+     "draw": 2264,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2265,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.90625,
+     "traffsakrare": -0.90625
+    },
+    {
+     "draw": 2266,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6641015625,
+     "traffsakrare": 6.8707421875
+    },
+    {
+     "draw": 2267,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2268,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2269,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.89453125,
+     "traffsakrare": -0.7890625
+    },
+    {
+     "draw": 2270,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2271,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2272,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.34394531250000004,
+     "traffsakrare": -0.34394531250000004
+    },
+    {
+     "draw": 2273,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6250390625,
+     "traffsakrare": 0.20292968749999996
+    },
+    {
+     "draw": 2276,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2277,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7070703125,
+     "traffsakrare": -0.34773437500000004
+    },
+    {
+     "draw": 2278,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 1.6619531250000001,
+     "traffsakrare": 0.33148437500000005
+    },
+    {
+     "draw": 2279,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2280,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2281,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2282,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.32832031250000004,
+     "traffsakrare": -0.32832031250000004
+    },
+    {
+     "draw": 2283,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.7266015625
+    },
+    {
+     "draw": 2284,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2285,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.89453125,
+     "traffsakrare": -0.89453125
+    },
+    {
+     "draw": 2286,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2287,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6484765625,
+     "traffsakrare": -0.5312890625
+    },
+    {
+     "draw": 2288,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.89453125
+    },
+    {
+     "draw": 2289,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2290,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2291,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2292,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.6048046874999999,
+     "traffsakrare": 1.5840234375
+    },
+    {
+     "draw": 2293,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2294,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2295,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2296,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2297,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.82421875,
+     "traffsakrare": -0.82421875
+    },
+    {
+     "draw": 2298,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2299,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2300,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 4.5434765625,
+     "traffsakrare": 3.7524609375000004
+    },
+    {
+     "draw": 2301,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.921875,
+     "traffsakrare": -0.6094140625
+    },
+    {
+     "draw": 2302,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2303,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2304,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.46882812500000004,
+     "traffsakrare": -0.46882812500000004
+    },
+    {
+     "draw": 2305,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8671875,
+     "traffsakrare": -0.80078125
+    },
+    {
+     "draw": 2306,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": 0.1324609375000001
+    },
+    {
+     "draw": 2307,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2309,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 1.55359375,
+     "traffsakrare": 1.55359375
+    },
+    {
+     "draw": 2310,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2312,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8125390625,
+     "traffsakrare": -0.875
+    },
+    {
+     "draw": 2313,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.28144531250000004
+    },
+    {
+     "draw": 2314,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2315,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2317,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.83984375
+    },
+    {
+     "draw": 2318,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2320,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2321,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2322,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2323,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2324,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2325,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.89453125,
+     "traffsakrare": -0.89453125
+    },
+    {
+     "draw": 2326,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2328,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2329,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.6167578125,
+     "traffsakrare": -0.7656640625
+    },
+    {
+     "draw": 2330,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2331,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2332,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2333,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.83984375,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2336,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6367578125,
+     "traffsakrare": -0.6367578125
+    },
+    {
+     "draw": 2337,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2338,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2339,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.9140625,
+     "traffsakrare": -0.9140625
+    },
+    {
+     "draw": 2340,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2342,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2343,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2344,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2346,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2347,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.33218749999999997
+    },
+    {
+     "draw": 2348,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2349,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.81640625,
+     "traffsakrare": -0.44929687500000004
+    },
+    {
+     "draw": 2350,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2351,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2353,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.195546875,
+     "traffsakrare": 33.94015625
+    },
+    {
+     "draw": 2354,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.75,
+     "traffsakrare": -0.75
+    },
+    {
+     "draw": 2355,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2356,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.82421875
+    },
+    {
+     "draw": 2357,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2358,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.34378906249999996,
+     "traffsakrare": -0.7421875
+    },
+    {
+     "draw": 2361,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.27312500000000006,
+     "traffsakrare": -0.11734374999999997
+    },
+    {
+     "draw": 2362,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.83203125,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2363,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.8515625
+    },
+    {
+     "draw": 2364,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2365,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.6558203125,
+     "traffsakrare": 0.6558203125
+    },
+    {
+     "draw": 2366,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2367,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2368,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.016015624999999978
+    },
+    {
+     "draw": 2369,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.21109374999999997
+    },
+    {
+     "draw": 2370,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6875781249999999,
+     "traffsakrare": -0.7500390625
+    },
+    {
+     "draw": 2371,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8125,
+     "traffsakrare": -0.8125
+    },
+    {
+     "draw": 2372,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2373,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.85546875
+    },
+    {
+     "draw": 2374,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7578125,
+     "traffsakrare": -0.5157031249999999
+    },
+    {
+     "draw": 2375,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2376,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2377,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.41410156249999996,
+     "traffsakrare": -0.41410156249999996
+    },
+    {
+     "draw": 2378,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2380,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.5860156249999999,
+     "traffsakrare": -0.5860156249999999
+    },
+    {
+     "draw": 2381,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2383,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2384,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.5536328125000001,
+     "traffsakrare": 0.5536328125000001
+    },
+    {
+     "draw": 2385,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 22.867890625,
+     "traffsakrare": 0.210703125
+    },
+    {
+     "draw": 2386,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2388,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8984375,
+     "traffsakrare": -0.6953515625
+    },
+    {
+     "draw": 2389,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6797265625,
+     "traffsakrare": 2.9812109375
+    },
+    {
+     "draw": 2390,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6719140625,
+     "traffsakrare": -0.6719140625
+    },
+    {
+     "draw": 2391,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2392,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2393,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7812890625,
+     "traffsakrare": -0.45328124999999997
+    },
+    {
+     "draw": 2394,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2395,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2396,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.8671875
+    },
+    {
+     "draw": 2397,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.9058203125,
+     "traffsakrare": -0.6250390625
+    },
+    {
+     "draw": 2398,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2399,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2400,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.859375,
+     "traffsakrare": -0.7187890625
+    },
+    {
+     "draw": 2401,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2403,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8828125,
+     "traffsakrare": 0.27714843749999996
+    },
+    {
+     "draw": 2404,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.7187890625
+    },
+    {
+     "draw": 2405,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.87890625,
+     "traffsakrare": -0.6367578125
+    },
+    {
+     "draw": 2406,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2407,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2409,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2411,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2412,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.80859375,
+     "traffsakrare": -0.80859375
+    },
+    {
+     "draw": 2413,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.94140625,
+     "traffsakrare": -0.8828125
+    },
+    {
+     "draw": 2414,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7891015625,
+     "traffsakrare": -0.9296875
+    },
+    {
+     "draw": 2415,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2416,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2417,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2418,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2421,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.7578515625
+    },
+    {
+     "draw": 2422,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2423,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.31257812500000004
+    },
+    {
+     "draw": 2426,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8828125,
+     "traffsakrare": -0.7070703125
+    },
+    {
+     "draw": 2427,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2428,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.859375,
+     "traffsakrare": -0.9296875
+    },
+    {
+     "draw": 2429,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2430,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.91796875,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2431,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.91796875
+    },
+    {
+     "draw": 2432,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.78515625
+    },
+    {
+     "draw": 2433,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.890625
+    },
+    {
+     "draw": 2434,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6875781249999999,
+     "traffsakrare": -0.6094921875
+    },
+    {
+     "draw": 2435,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.9140625,
+     "traffsakrare": -0.9140625
+    },
+    {
+     "draw": 2436,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.6445703125
+    },
+    {
+     "draw": 2437,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.87109375
+    },
+    {
+     "draw": 2438,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2440,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.35941406249999996,
+     "traffsakrare": -0.18367187500000004
+    },
+    {
+     "draw": 2441,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2442,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.10960937500000001,
+     "traffsakrare": -0.77734375
+    },
+    {
+     "draw": 2443,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8359375,
+     "traffsakrare": -0.8359375
+    },
+    {
+     "draw": 2444,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.43757812500000004,
+     "traffsakrare": -0.90625
+    },
+    {
+     "draw": 2445,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8203125,
+     "traffsakrare": -0.6406640625
+    },
+    {
+     "draw": 2446,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.875,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2447,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.43363281249999996,
+     "traffsakrare": -0.43363281249999996
+    },
+    {
+     "draw": 2448,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6719140625,
+     "traffsakrare": -0.890625
+    },
+    {
+     "draw": 2449,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2450,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 1.553125,
+     "traffsakrare": 0.7571484374999999
+    },
+    {
+     "draw": 2451,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2452,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.14078124999999997,
+     "traffsakrare": -0.14078124999999997
+    },
+    {
+     "draw": 2453,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.42972656249999996,
+     "traffsakrare": -0.859375
+    },
+    {
+     "draw": 2454,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.8270312500000001,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2455,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2456,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2457,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2458,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2459,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2460,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2461,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.8984375
+    },
+    {
+     "draw": 2462,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2463,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2464,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.92578125,
+     "traffsakrare": -0.7031640625
+    },
+    {
+     "draw": 2465,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2466,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2467,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2468,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.82421875
+    },
+    {
+     "draw": 2469,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2470,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7344140625,
+     "traffsakrare": -0.46894531250000004
+    },
+    {
+     "draw": 2471,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2472,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2473,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2474,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2475,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2476,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.5391406249999999,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2477,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.796875,
+     "traffsakrare": -0.8984375
+    },
+    {
+     "draw": 2478,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2480,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2481,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.41421874999999997,
+     "traffsakrare": 9.7470703125
+    },
+    {
+     "draw": 2482,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.5235156249999999,
+     "traffsakrare": -0.5235156249999999
+    },
+    {
+     "draw": 2483,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2484,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6016406249999999,
+     "traffsakrare": -0.6016406249999999
+    },
+    {
+     "draw": 2485,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2486,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2487,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.26187499999999997,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2489,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8671875,
+     "traffsakrare": -0.8671875
+    },
+    {
+     "draw": 2490,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2491,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2492,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2493,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2494,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2495,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6562890625,
+     "traffsakrare": -0.828125
+    },
+    {
+     "draw": 2496,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2497,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2498,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.6250390625
+    },
+    {
+     "draw": 2499,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2500,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2501,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.86328125
+    },
+    {
+     "draw": 2502,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.875,
+     "traffsakrare": -0.8125390625
+    },
+    {
+     "draw": 2503,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2504,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2505,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.77734375,
+     "traffsakrare": -0.8515625
+    },
+    {
+     "draw": 2506,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.25410156250000004,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2508,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2509,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2510,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2511,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2512,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2513,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.71484375
+    },
+    {
+     "draw": 2514,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2515,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2516,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2517,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7890625,
+     "traffsakrare": -0.7890625
+    },
+    {
+     "draw": 2518,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.8828125
+    },
+    {
+     "draw": 2519,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.671875
+    },
+    {
+     "draw": 2520,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.78125,
+     "traffsakrare": -0.78125
+    },
+    {
+     "draw": 2521,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": 0.3708203125
+    },
+    {
+     "draw": 2522,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2523,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.93359375,
+     "traffsakrare": -0.93359375
+    },
+    {
+     "draw": 2525,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.875
+    },
+    {
+     "draw": 2526,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.05046875000000006,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2527,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2528,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2529,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2530,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2531,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6484375,
+     "traffsakrare": -0.859375
+    },
+    {
+     "draw": 2532,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2533,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.7031640625
+    },
+    {
+     "draw": 2534,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2535,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2536,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2537,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.5117578125,
+     "traffsakrare": -0.6094140625
+    },
+    {
+     "draw": 2538,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2539,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2540,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.48835937500000004
+    },
+    {
+     "draw": 2541,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2542,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.02695312499999991,
+     "traffsakrare": 0.02695312499999991
+    },
+    {
+     "draw": 2543,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2544,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2545,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2547,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.21882812500000004,
+     "traffsakrare": -0.8046875
+    },
+    {
+     "draw": 2548,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7734375,
+     "traffsakrare": -0.88671875
+    },
+    {
+     "draw": 2549,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.015820312500000044
+    },
+    {
+     "draw": 2551,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.828125,
+     "traffsakrare": -0.828125
+    },
+    {
+     "draw": 2552,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2553,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.70703125
+    },
+    {
+     "draw": 2554,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2555,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2556,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2557,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2558,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8242578125,
+     "traffsakrare": 0.5072265625000001
+    },
+    {
+     "draw": 2559,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 1.7648046874999999,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2560,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7421875,
+     "traffsakrare": -0.828125
+    },
+    {
+     "draw": 2561,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7773828125,
+     "traffsakrare": -0.92578125
+    },
+    {
+     "draw": 2562,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2563,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2564,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.78515625
+    },
+    {
+     "draw": 2565,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2566,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.5782031249999999,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2567,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.8862109375,
+     "traffsakrare": 1.003359375
+    },
+    {
+     "draw": 2568,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2569,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2570,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6758203125,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2571,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.8671875,
+     "traffsakrare": -0.8671875
+    },
+    {
+     "draw": 2572,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6485156249999999,
+     "traffsakrare": -0.7656640625
+    },
+    {
+     "draw": 2573,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.84375
+    },
+    {
+     "draw": 2574,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.6836328125,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2575,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2577,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2578,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2579,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.7656640625,
+     "traffsakrare": -0.921875
+    },
+    {
+     "draw": 2580,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2582,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2583,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": 5.4555078125
+    },
+    {
+     "draw": 2584,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -0.48441406249999996
+    },
+    {
+     "draw": 2585,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2586,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.72265625,
+     "traffsakrare": -0.72265625
+    },
+    {
+     "draw": 2587,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.9676562500000001,
+     "traffsakrare": -0.75390625
+    },
+    {
+     "draw": 2588,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 0.7645703125000001,
+     "traffsakrare": 0.6162890624999999
+    },
+    {
+     "draw": 2589,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 13.6669140625,
+     "traffsakrare": 13.6669140625
+    },
+    {
+     "draw": 2590,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": 2.46140625,
+     "traffsakrare": 2.34046875
+    },
+    {
+     "draw": 2591,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.91796875,
+     "traffsakrare": -0.5898828125
+    },
+    {
+     "draw": 2593,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.86328125,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2594,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2595,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -0.5196093749999999,
+     "traffsakrare": -0.3594921875
+    },
+    {
+     "draw": 2596,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2597,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2598,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2600,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": -1.0
+    },
+    {
+     "draw": 2601,
+     "builder_universe_n": 41472,
+     "n_rows": {
+      "varderader": 256,
+      "traffsakrare": 256
+     },
+     "varderader": -1.0,
+     "traffsakrare": 8.7244140625
+    }
+   ]
+  }
+ }
+}

@@ -107,3 +107,16 @@ kupongen spelades.
    utvärderas framåt.
 5. Värdevikt 0 ska presenteras som “högre historisk träfffrekvens, lägre
    utdelningsprofil”, inte som ett sätt att försäkra sig mot många X.
+
+## Efterföljande budgetrobusthet 2026-08-25
+
+Efter Samans besked att 256 kr blir sannolik normalinsats återkördes samma
+låsta modell och samma holdout vid 256 och 512 rader. Radform gav 171 mot
+Standards 173 toppträffar vid 256 och 235 mot 236 vid 512. V1:s positiva
+384-resultat replikerade alltså inte över budget.
+
+Konsekvensen är striktare än beslutspunkt 2 ovan: Radform v1 får vara ett
+manuellt 384-raderstest men inte användas vid 256/512 eller starta en generell
+budgetoberoende forwardarm. `Träffsäkrare` gav 174/173 vid 256 och 253/236 vid
+512 och kvarstår som manuellt träfffokus. Full metod och Stryk/Europa-resultat:
+`docs/radprofiler-256-512-2026-08-25.md`.
