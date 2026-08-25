@@ -102,3 +102,11 @@ föredrar den öppna varianten; regressionstest finns i `poolSelection.test.js`.
   `row_model=row_shape_v1`, rätt systemtyp, låst värdevikt 0,5 och den frysta
   X-beroende kappakartan i portföljsimuleringen. Inget spel lades och ingen
   databas migrerades eller skrevs av driftsättningen.
+- Budget-/familjeuppföljningen är implementerad i `722a50f`, dokumenterad i
+  `688d3e7`, pushad och driftsatt. Lokal helkörning gav 797 backendtester,
+  13 frontendtester, lint och produktionsbygge grönt; servern körde de 10
+  direkt berörda backendtesterna samt samma frontendkontroller grönt.
+- Drift-API verifierade Europatipset 2602 med 256 `Träffsäkrare`-rader,
+  Radform 256 som HTTP 400 och Radform 384 som 384 rader. Browserkontrollen
+  verifierade Standard/Träffsäkrare på Europatipset, låst värdeviktsreglage,
+  tydlig `kräver 384 kr`-text på Topptipset och noll konsolfel.
