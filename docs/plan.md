@@ -2,6 +2,17 @@
 
 ## STATUS-SAMMANFATTNING (2026-08-25 — läs detta först i ny session)
 
+**TOPPTIPSETS FELAKTIGA 0,8-PROCENTSCHANS ÄR IDENTIFIERAD OCH STÄNGD (Codex).**
+Ninjas Altenar-feed återanvänder `typeId=1` för syntetiska marknader som
+`Fjärde målet`; utfall 7 heter där `Ingen` men tolkades som X. Därför kunde en
+3–0-ledning få 73 % krysschans och Topptipset 4292 visas med cirka 0,8 % trots
+en rad med alla åtta aktuella tecken. Live-1X2 godtas nu endast med Altenars
+kanoniska `sportMarketId=70472`, utan `isAlt`, och typ 7 är aldrig kryss.
+Rättningskortet skiljer samtidigt mellan avslutade matchers **fastställda**
+rätt, **om det slutar som nu**, och oddsbaserad **chans att nå**. Systembygge,
+facit och spel är oförändrade. Teknisk evidens finns i
+`docs/overlamning-2026-08-25-topptips-radform.md`.
+
 **TOPPTIPSETS X-PROBLEM ÄR BACKTESTAT PÅ 1 985 MODERNA OMGÅNGAR (Codex).**
 Den faktiskt spelade Topptipset 4289-kupongen saknade alla 4X-rader och blev
 utgångspunkt, men hölls utanför både träning och holdout. En förregistrerad
@@ -78,8 +89,10 @@ visades därför som modellskattningar trots att Ninja hade öppet 1X2 på alla.
 Liverättningen provar nu Kambi först, därefter Ninjas separata
 `GetLiveEvents` och sist Pinnacles per-matchup-moneyline. Pinnacle får bara
 räknas vid HTTP Age ≤90 sekunder; ett pris som hämtas nu men observerades för
-flera minuter sedan är inte live. Ninjas båda observerade kryss-id:n 2 och 7
-stöds, suspension spärras, entydig samma-sida-identitet krävs och ett
+flera minuter sedan är inte live. Ninjas kanoniska matchresultatmarknad
+använder kryss-id 2; id 7 visade sig betyda `Ingen` på en syntetisk
+nästa-mål-marknad och spärras sedan 2026-08-25. Suspension spärras, entydig
+samma-sida-identitet krävs och ett
 ensidigt namnbevis kräver känd avspark på båda sidor, högst 30 minuter och
 exakt en kandidat. Först när alla tre saknar ett komplett pris används den
 redan märkta skattningen ur ställning/tid/prematch. UI:t visar källfördelning,

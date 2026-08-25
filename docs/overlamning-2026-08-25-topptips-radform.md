@@ -110,3 +110,30 @@ föredrar den öppna varianten; regressionstest finns i `poolSelection.test.js`.
   Radform 256 som HTTP 400 och Radform 384 som 384 rader. Browserkontrollen
   verifierade Standard/Träffsäkrare på Europatipset, låst värdeviktsreglage,
   tydlig `kräver 384 kr`-text på Topptipset och noll konsolfel.
+
+## Tillägg 2026-08-25 — felaktig 0,8-procentschans i liverättningen
+
+Topptipset 4292 hade en rad med alla åtta aktuella tecken, men chanskolumnen
+visade cirka 0,8 %. Det var inte ett skalningsfel: Ninja-parsern godtog varje
+Altenar-marknad med `typeId=1` som matchresultat. Providern skapar samtidigt
+syntetiska `isAlt`-marknader med samma typ-id för exempelvis **Fjärde målet**;
+där betyder utfallstyp 7 **Ingen**, inte X. Vid 3–0 gav den felaktiga tolkningen
+Bodø/Glimt 21 % och X 73 %, och liknande nästa-mål-priser förstörde hela
+kupongchansen.
+
+Parsern accepterar nu bara den observerade kanoniska liveidentiteten
+`sportMarketId=70472`, `typeId=1`, `isAlt≠true`, och endast utfall 1/2/3 som
+1/X/2. Saknas den faller liverättningen vidare till Pinnacle eller den tydligt
+märkta ställningsmodellen. Ett komplett felmärkt pris är aldrig en godkänd
+reserv. Regressionstestet innehåller den verkliga Bodø/Glimt-strukturen med
+`Fjärde målet` och `Ingen`.
+
+Liverättningen redovisar dessutom två skilda mått:
+
+- **fastställt bäst** — rätt i avslutade matcher;
+- **om det slutar som nu** — bästa rad mot samtliga aktuella ställningar.
+
+Procentkolumnen heter nu **chans att nå** och är uttryckligen oddsbaserad;
+den är inte andelen rätt just nu. Backendens nya fält är `current_known`,
+`current_best` och `current_best_rows`. Ändringen påverkar bara visningen av en
+redan inlämnad kupong, aldrig systembyggaren, facit eller automatiska spel.

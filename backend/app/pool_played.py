@@ -875,6 +875,19 @@ def live_status(coupon: dict, states: list[dict],
         secure_hist[secure] = secure_hist.get(secure, 0) + 1
         possible_hist[possible] = possible_hist.get(possible, 0) + 1
         per_row.append((n, secure, possible))
+    # `best_secure` räknar bara resultat som står fast. Användaren vill
+    # dessutom kunna se den intuitiva liverättningen: hur många rätt kupongen
+    # har OM de aktuella ställningarna står sig. De två måtten får inte
+    # blandas — det ena är facit hittills, det andra ett ögonblicksläge.
+    current_cols = [i for i, state in enumerate(col_states)
+                    if state and not state.get("cancelled")
+                    and state.get("sign") in SIGNS]
+    current_scores = [sum(row[i] == col_states[i].get("sign")
+                          for i in current_cols)
+                      for row in rows]
+    current_best = max(current_scores) if current_scores else None
+    current_best_rows = (sum(score == current_best for score in current_scores)
+                         if current_best is not None else 0)
     alive = {level: sum(n for p, n in possible_hist.items() if p >= level)
              for level in range(max(1, width - 3), width + 1)}
     levels = sorted(alive, reverse=True)
@@ -894,6 +907,9 @@ def live_status(coupon: dict, states: list[dict],
     out = {"n_events": width, "n_decided": decided,
            "all_decided": bool(width and decided == width),
            "best_secure": best_secure,
+           "current_known": len(current_cols),
+           "current_best": current_best,
+           "current_best_rows": current_best_rows,
            "max_possible": max_possible,
            # Ingen rad kan nå ens den lägsta redovisade vinstnivån.
            "out_of_contention": bool(levels) and max_possible < min(levels),

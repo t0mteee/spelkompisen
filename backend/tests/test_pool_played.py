@@ -112,6 +112,11 @@ class LiveStatusTests(unittest.TestCase):
         self.assertEqual(2, status["best_secure"])
         self.assertEqual(2, status["alive_per_level"][3])
         self.assertEqual(3, status["alive_per_level"][1])
+        # Alla tre matcher har en aktuell ställning och första raden har
+        # samtliga tecken just nu, även om bara två står fast.
+        self.assertEqual(3, status["current_known"])
+        self.assertEqual(3, status["current_best"])
+        self.assertEqual(1, status["current_best_rows"])
 
     def test_tecken_paras_pa_eventnummer_inte_payloadordning(self):
         # Granskningsfix F4: payloaden kommer i omvänd ordning. Kolumn 1 = match

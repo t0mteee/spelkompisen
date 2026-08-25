@@ -3331,7 +3331,18 @@ function PlayedLiveCard({ c, onForget }) {
         <>
           <div className="playedcard-sum">
             <span><b>{live.n_decided}</b>/{live.n_events} avgjorda</span>
-            <span>bäst <b>{live.best_secure}</b> rätt</span>
+            <span title="Rätt i matcher vars resultat redan står fast.">
+              fastställt bäst <b>{live.best_secure}</b> rätt
+            </span>
+            {live.current_known > 0 && live.current_best != null && (
+              <span className={live.current_best === live.n_events ? 'pos' : ''}
+                title="Bästa radens rätt om alla aktuella ställningar blir slutresultat. Pågående matcher kan fortfarande ändras.">
+                om det slutar som nu <b>{live.current_best}</b>/{live.current_known}
+                {live.current_best_rows > 0
+                  ? ` · ${live.current_best_rows} rad${live.current_best_rows === 1 ? '' : 'er'}`
+                  : ''}
+              </span>
+            )}
             {/* Max nåbart är ren aritmetik och finns även när en livemarknad
                 är avstängd — det är ofta den enda siffra som betyder något. */}
             {live.max_possible != null && (
@@ -3353,7 +3364,9 @@ function PlayedLiveCard({ c, onForget }) {
             </p>
           )}
           {!live.out_of_contention && <table className="grid compact playedlevels">
-            <thead><tr><th>nivå</th><th>rader kvar</th><th>chans</th></tr></thead>
+            <thead><tr><th>nivå</th><th>rader kvar</th>
+              <th title="Oddsbaserad sannolikhet att kupongen når nivån när alla pågående matcher är slut. Inte andelen rätt just nu.">chans att nå</th>
+            </tr></thead>
             <tbody>
               {levels.map((lvl) => {
                 const alive = live.alive_per_level[lvl]

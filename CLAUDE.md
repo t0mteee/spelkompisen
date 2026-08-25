@@ -256,8 +256,11 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       **LIVE-1X2-KÄLLOR (2026-08-19):** Kambi är första källa,
                       Ninja/Altenars `GetLiveEvents` är reserv och Pinnacles
                       per-matchup-moneyline är sista reserv. Ninja-parsern
-                      accepterar de observerade kryss-id:na 2 och 7 men bara
-                      tre kompletta, öppna utfall. Pinnaclebulken används för
+                      accepterar bara kanonisk matchresultatmarknad
+                      (`sportMarketId=70472`, ej `isAlt`) och kryss-id 2.
+                      Id 7 betyder `Ingen` på syntetiska nästa-mål-marknader
+                      och får ALDRIG bli X (driftfel 2026-08-25). Tre
+                      kompletta, öppna utfall krävs. Pinnaclebulken används för
                       identitet; priset hämtas per barn och det färskaste
                       öppna barnet väljs, men bara HTTP Age ≤90 s får räknas.
                       Samma-sida krävs alltid. Ett ensidigt namnbevis kräver

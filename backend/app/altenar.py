@@ -25,6 +25,12 @@ SOCCER = 66
 # CDN-cachade (max-age 3 s), men taket håller nere hur hårt vi trycker på
 # källan i ett enda svep — artighet, inte prestandagräns.
 LIVE_CHAMP_WORKERS = 8
+# Altenars riktiga live-marknad för matchresultat. `typeId == 1` räcker
+# INTE som identitet: providern skapar också syntetiska `isAlt`-marknader med
+# samma typ-id för exempelvis "Fjärde målet". Där betyder utfall 7 "Ingen",
+# inte kryss. Att läsa den som 1X2 gav Bodø/Glimt 21 % vinstchans vid 3–0 och
+# gjorde en Topptipsrad med alla åtta aktuella tecken till bara 0,8 %.
+LIVE_1X2_SPORT_MARKET_ID = 70472
 
 # HTTP `Age` ur senaste lyckade svar (0 = huvudet saknas). Uppmätt 2026-07-26:
 # Altenar svarar `cache-control: public,max-age=3` utan Age-huvud — fönstret är
@@ -224,8 +230,14 @@ def _live_rows(data: dict) -> list[dict]:
         event_markets = [markets.get(mid) for mid in event.get("marketIds") or []]
         total_market = next((market for market in event_markets
                              if (market or {}).get("typeId") == 18), None)
+        # Fail closed på den semantiska marknadsidentiteten. `typeId=1` finns
+        # även på alternativa nästa-mål-/förlängningsmarknader; ett saknat
+        # livepris är bättre än ett komplett men felmärkt 1X2-pris.
         one_x_two_market = next((market for market in event_markets
-                                if (market or {}).get("typeId") == 1), None)
+                                if (market or {}).get("typeId") == 1
+                                and not (market or {}).get("isAlt")
+                                and (market or {}).get("sportMarketId")
+                                == LIVE_1X2_SPORT_MARKET_ID), None)
         status, total = "not_offered", None
         if total_market:
             sides = {}
@@ -257,12 +269,10 @@ def _live_rows(data: dict) -> list[dict]:
             suspended = False
             for odd_id in one_x_two_market.get("oddIds") or []:
                 odd = odds_by_id.get(odd_id) or {}
-                # Altenar använder både 2 och 7 för kryss i liveflödet
-                # (uppmätt 2026-08-19 på bl.a. Celtic–LASK och
-                # Nijmegen–Bodø/Glimt). Position får aldrig användas som
-                # reserv; typ-id:t är det semantiska kontraktet.
-                sign = {1: "1", 2: "X", 7: "X", 3: "2"}.get(
-                    odd.get("typeId"))
+                # På den riktiga matchresultatmarknaden är 1/2/3
+                # hemma/kryss/borta. Typ 7 betyder "Ingen" på nästa
+                # mål-marknaden och får aldrig översättas till kryss.
+                sign = {1: "1", 2: "X", 3: "2"}.get(odd.get("typeId"))
                 if not sign:
                     continue
                 if odd.get("oddStatus") not in (None, 0) or not odd.get("price"):

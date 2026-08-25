@@ -641,8 +641,11 @@ Topptipset 4278 gav ett konkret femmatchersprov. Bara Atlético Madrid–Málaga
 hade öppet Kambi-1X2. Nijmegen–Bodø/Glimt och Slovan–Celje fanns i listan men
 Kambi returnerade inget öppet 1X2; Celtic–LASK saknades och Hapoel–Sabah hade
 namndrift. Ninjas råa livepayload bar samtidigt komplett, öppet 1X2 på alla
-fem. Den bar också två olika semantiska typ-id:n för kryss: 2 respektive 7.
-Att parsern bara sparade Ö/U var alltså vår täckningslucka.
+fem enligt den dåvarande tolkningen. **Korrigering 2026-08-25:** typ-id 7
+visade sig vara `Ingen` i en syntetisk nästa-mål-marknad, inte kryss. Bara den
+kanoniska `sportMarketId=70472` och kryss-id 2 får nu användas. Den ursprungliga
+täckningsslutsatsen var därför för optimistisk; fallbackkedjan är fortfarande
+rätt, men hellre modell/Pinnacle än en felmärkt Ninja-marknad.
 
 Ny ordning i `pool_played.attach_live_odds`:
 
@@ -668,7 +671,8 @@ fanns. Ingen observation skrivs till DB: detta är en read-only aktuell
 kupongchans, inte ett nytt facit. Systembyggare, tips, CLV, signal-ROI och
 settlement läser inget av fälten.
 
-Regressioner finns för Ninjas båda kryss-id:n, suspension, Pinnacles
+Regressioner finns för Ninjas kanoniska kryss-id och för att typ 7/`Ingen`
+avslås, suspension, Pinnacles
 moneyline/färskaste barn/cacheålder, Kambi→Ninja→Pinnacle-ordningen,
 Pinnacles 90-sekundersstopp och entydig ensidig identitet. Efter sammanfogning
 med liverättningens radlista: 767 backendtester, 12 frontendtester, ESLint och

@@ -523,7 +523,9 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
                   <b>{FAMILY_LABEL[FAMILY(c.product)] || c.product} {c.draw_number}</b>
                   <span className="v3hint">
                     {c.n_rows} rader ({kr(c.cost_kr)}) · {live.n_decided ?? '–'}/{live.n_events ?? '–'} avgjorda
-                    · bäst {live.best_secure ?? '–'} rätt
+                    · fastställt {live.best_secure ?? '–'} rätt
+                    {live.current_known > 0 && live.current_best != null
+                      ? ` · läget nu ${live.current_best}/${live.current_known}` : ''}
                     {alive ? ` · ${alive[1]} rad${alive[1] > 1 ? 'er' : ''} vid liv för ${alive[0]}` : ''}
                   </span>
                 </div>)
