@@ -20,6 +20,8 @@ att jämföra RADVALSMETODER mot varandra långt innan forward-grinden fylls.
 * `byggarslump` dras ur exakt samma kandidatuniversum som produktionsbyggaren.
   Kandidattecknen kommer från `builder.ev_candidate_signs`, aldrig från en
   tredje kopia av EV-logiken.
+* `traffsakrare` kör samma produktionsbyggare med `value_weight=0.0`. Det är
+  exakt profilen som API/UI kallar "Träffsäkrare", inte en favoritradsproxy.
 
 Körning:  .venv/bin/python -B scripts/ph5_radvalsablation.py [--product X]
               [--limit N] [--budget KR] [--db FIL] [--fixed-payout-cohort]
@@ -180,7 +182,8 @@ def _p_folk(m, sign: str) -> float:
 
 
 def arms(draw: Draw, n_rows: int, rng: random.Random,
-         plan: dict, include_hamming: bool = True) -> dict[str, object]:
+         plan: dict, include_hamming: bool = True,
+         include_baselines: bool = True) -> dict[str, object]:
     """Armar med samma budget; byggarslump delar vår kandidatmängd exakt."""
     ms = draw.matches
 
@@ -201,16 +204,26 @@ def arms(draw: Draw, n_rows: int, rng: random.Random,
             row_price=draw.row_price or 1.0, value_weight=0.5, plan=plan,
             jackpot=0.0)
         out["varderader"] = [tuple(r) for r in (system.rows or [])][:n_rows]
-        builder_pool = list(itertools.product(*(
-            candidate_signs[m.event_number] for m in analysis.matches)))
-        builder_rng = random.Random(
-            f"{SEED}|{draw.product}|{draw.draw_number}|{n_rows}|byggarslump")
-        out["byggarslump"] = builder_rng.sample(
-            builder_pool, min(n_rows, len(builder_pool)))
+        hit_system = builder.build_ev_system(
+            analysis, strategy="medel", budget=n_rows * (draw.row_price or 1.0),
+            row_price=draw.row_price or 1.0, value_weight=0.0, plan=plan,
+            jackpot=0.0)
+        out["traffsakrare"] = [
+            tuple(r) for r in (hit_system.rows or [])][:n_rows]
         out["_builder_universe_n"] = universe
+        if include_baselines:
+            builder_pool = list(itertools.product(*(
+                candidate_signs[m.event_number] for m in analysis.matches)))
+            builder_rng = random.Random(
+                f"{SEED}|{draw.product}|{draw.draw_number}|{n_rows}|byggarslump")
+            out["byggarslump"] = builder_rng.sample(
+                builder_pool, min(n_rows, len(builder_pool)))
     except Exception as exc:                      # noqa: BLE001
         out["varderader"] = []
         out["_error"] = f"{type(exc).__name__}: {exc}"[:120]   # type: ignore
+
+    if not include_baselines:
+        return out
 
     # 2. Folkets rader — mest streckade kombinationerna.
     out["folkrad"] = _candidate_rows(draw, n_rows, lambda r: p_row(r, _p_folk))
@@ -306,6 +319,8 @@ def main() -> None:
                     help="kräv identifierbara potter på alla nivåer före armbygge")
     ap.add_argument("--skip-hamming", action="store_true",
                     help="utelämna den kvadratiska Hamming-armen")
+    ap.add_argument("--profiles-only", action="store_true",
+                    help="jämför bara Standard mot exakta Träffsäkrare-profilen")
     ap.add_argument("--bootstrap-iters", type=int, default=1000)
     ap.add_argument("--json", type=str, default="")
     args = ap.parse_args()
@@ -323,6 +338,7 @@ def main() -> None:
         "database": {"path": str(db_path), "size_bytes": db_path.stat().st_size},
         "fixed_payout_cohort": args.fixed_payout_cohort,
         "hamming_included": not args.skip_hamming,
+        "profiles_only": args.profiles_only,
         "bootstrap_iters": args.bootstrap_iters,
         "primary_baselines": list(PRIMARY_BASELINES),
         "products": {},
@@ -343,7 +359,8 @@ def main() -> None:
             n_rows = max(1, int(args.budget / (row["row_price"] or 1.0)))
             cost = n_rows * (row["row_price"] or 1.0)
             built = arms(draw, n_rows, rng, plan,
-                         include_hamming=not args.skip_hamming)
+                         include_hamming=not args.skip_hamming,
+                         include_baselines=not args.profiles_only)
             if not built.get("varderader"):
                 failed += 1
                 continue
@@ -352,7 +369,10 @@ def main() -> None:
             if not all(r["complete"] for r in results.values()):
                 incomplete += 1
                 continue
-            for name in ("varderader", *PRIMARY_BASELINES):
+            expected_arms = (("varderader", "traffsakrare")
+                             if args.profiles_only
+                             else ("varderader", *PRIMARY_BASELINES))
+            for name in expected_arms:
                 if results.get(name, {}).get("n_rows") != n_rows:
                     row_shortfalls[name] = row_shortfalls.get(name, 0) + 1
             used += 1

@@ -892,6 +892,9 @@ def system(product: str = "stryktipset",
     if row_model == "row_shape_v1" and complementary:
         raise HTTPException(
             400, "Radform v1 kan ännu inte kombineras med två kuponger.")
+    if row_model == "row_shape_v1" and abs(budget - 384.0) > 1e-9:
+        raise HTTPException(
+            400, "Radform v1 är bara historiskt validerad för 384 kr.")
     if complementary and not ev:
         raise HTTPException(
             400, "Kompletterande kuponger stöds för Värderader (EV × träffchans).")

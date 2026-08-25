@@ -37,11 +37,11 @@ const ROW_MODELS = [
   },
   {
     id: 'hit', label: 'Träffsäkrare',
-    note: 'Värdevikt 0. Fler 8-rättsträffar historiskt, men oftare lägre utdelning. Inte ett X-skydd; backtestet gällde 384 rader.',
+    note: 'Värdevikt 0. Fler topprätt i historiska 256/512-test, men ingen bevisad högre avkastning. Inte ett X-skydd.',
   },
   {
     id: 'row_shape_v1', label: 'Radform v1 · test',
-    note: 'Förregistrerad challenger. Justerar väntade medvinnare efter 0, 1, 2, 3 eller 4+ X. Backtestet gällde 384 rader.',
+    note: 'Topptips-test som justerar väntade medvinnare efter antal X. Endast valbar vid 384 kr; fördelen höll inte vid 256/512.',
   },
 ]
 const ROW_MODEL_LABEL = Object.fromEntries(ROW_MODELS.map((model) => [model.id, model.label]))
@@ -774,8 +774,13 @@ function PoolV3() {
   const [budget, setBudget] = useState(saved.budget || 256)
   const [sysType, setSysType] = useState(saved.sysType || 'ev')
   const [valueWeight, setValueWeight] = useState(saved.valueWeight ?? 50)
-  const [rowModel, setRowModel] = useState(
-    ROW_MODELS.some((model) => model.id === saved.rowModel) ? saved.rowModel : 'standard')
+  const [rowModel, setRowModel] = useState(() => {
+    if (!ROW_MODELS.some((model) => model.id === saved.rowModel)) return 'standard'
+    if (saved.rowModel === 'row_shape_v1' && (saved.budget || 256) !== 384) {
+      return 'standard'
+    }
+    return saved.rowModel
+  })
   const [complementaryMode, setComplementaryMode] = useState(
     saved.sysType === 'ev' && saved.rowModel !== 'row_shape_v1'
     && saved.complementaryMode === true)
@@ -930,8 +935,12 @@ function PoolV3() {
 
   const nMatches = analysis?.matches?.length || 0
   const systemTypes = nMatches === 13 ? [...SYSTEM_BASE, ...SYSTEM_SVS] : SYSTEM_BASE
-  const rowModelAvailable = sysType === 'ev' && FAMILY(product) === 'topptipset'
-  const activeRowModel = rowModelAvailable ? rowModel : 'standard'
+  const rowModelAvailable = sysType === 'ev' && ['topptipset', 'stryktipset', 'europatipset']
+    .includes(FAMILY(product))
+  const availableRowModels = ROW_MODELS.filter((model) => (
+    model.id !== 'row_shape_v1' || FAMILY(product) === 'topptipset'))
+  const activeRowModel = rowModelAvailable
+    && (rowModel !== 'row_shape_v1' || budget === 384) ? rowModel : 'standard'
   const effectiveValueWeight = activeRowModel === 'hit' ? 0
     : activeRowModel === 'row_shape_v1' ? 50 : valueWeight
   const activeRowModelInfo = ROW_MODELS.find((model) => model.id === activeRowModel)
@@ -1051,7 +1060,14 @@ function PoolV3() {
                 <label className="budget">
                   Max budget <b>{budget} kr</b>
                   <input type="range" min="0" max={BUDGET_STOPS.length - 1} step="1" value={budgetIdx}
-                    onChange={(e) => setBudget(BUDGET_STOPS[Number(e.target.value)])} />
+                    onChange={(e) => {
+                      const nextBudget = BUDGET_STOPS[Number(e.target.value)]
+                      setBudget(nextBudget)
+                      if (rowModel === 'row_shape_v1' && nextBudget !== 384) {
+                        setRowModel('standard')
+                      }
+                      setSys(null)
+                    }} />
                 </label>
                 <select value={sysType} onChange={(e) => {
                   const next = e.target.value
@@ -1076,10 +1092,13 @@ function PoolV3() {
                 <fieldset className="rowprofiles">
                   <legend>Radprofil</legend>
                   <div className="rowprofile-options">
-                    {ROW_MODELS.map((model) => (
-                      <label key={model.id} className={rowModel === model.id ? 'active' : ''}>
+                    {availableRowModels.map((model) => {
+                      const disabled = model.id === 'row_shape_v1' && budget !== 384
+                      return (
+                      <label key={model.id}
+                        className={activeRowModel === model.id ? 'active' : ''}>
                         <input type="radio" name="row-model" value={model.id}
-                          checked={rowModel === model.id}
+                          checked={activeRowModel === model.id} disabled={disabled}
                           onChange={() => {
                             setRowModel(model.id)
                             if (model.id === 'hit') setValueWeight(0)
@@ -1089,9 +1108,10 @@ function PoolV3() {
                             if (model.id === 'row_shape_v1') setComplementaryMode(false)
                             setSys(null)
                           }} />
-                        <span>{model.label}</span>
+                        <span>{model.label}{disabled ? ' · kräver 384 kr' : ''}</span>
                       </label>
-                    ))}
+                      )
+                    })}
                   </div>
                   <p>{activeRowModelInfo?.note}</p>
                 </fieldset>

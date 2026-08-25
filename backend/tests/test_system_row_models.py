@@ -61,6 +61,25 @@ class SystemRowModelTests(unittest.TestCase):
         self.assertEqual(400, error.exception.status_code)
         self.assertIn("endast Topptipset", error.exception.detail)
 
+    def test_row_shape_fails_closed_outside_validated_budget(self) -> None:
+        with mock.patch("app.main._analyze", return_value=self._analysis()):
+            with self.assertRaises(HTTPException) as error:
+                self._call(row_model="row_shape_v1", budget=256.0)
+
+        self.assertEqual(400, error.exception.status_code)
+        self.assertIn("384 kr", error.exception.detail)
+
+    def test_hit_profile_is_available_for_thirteen_match_games(self) -> None:
+        with (mock.patch("app.main._analyze", return_value=self._analysis()),
+              mock.patch("app.main.build_ev_system",
+                         return_value=object()) as build,
+              mock.patch("app.main.system_to_dict", return_value={})):
+            response = self._call(
+                product="europatipset", row_model="hit", budget=256.0)
+
+        self.assertEqual("hit", response["row_model"])
+        self.assertEqual(0.0, build.call_args.kwargs["value_weight"])
+
     def test_row_shape_cannot_be_combined_or_used_outside_ev(self) -> None:
         with mock.patch("app.main._analyze", return_value=self._analysis()):
             with self.assertRaises(HTTPException) as combined:
