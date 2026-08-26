@@ -1545,7 +1545,8 @@ function ForwardTestV3({ family }) {
   ))
   const summary = data.summary || {}
   const setFilter = (key, value) => setFilters((current) => ({ ...current, [key]: value }))
-  const methods = [...new Map((data.tests || []).map((test) => [
+  const methodSource = (data.tests || []).length ? data.tests : data.configs || []
+  const methods = [...new Map(methodSource.map((test) => [
     forwardTestFilterKey(test), forwardTestLabel(test),
   ])).entries()]
   const retiredCount = (data.tests || []).filter((test) => test.retired).length
@@ -1659,7 +1660,12 @@ function ForwardTestV3({ family }) {
           onClose={() => setOpenSystem(null)} />}
 
         {!tests.length
-          ? <EmptyState title="Inga tester matchar filtren" />
+          ? <EmptyState
+              title={(data.tests || []).length
+                ? "Inga tester matchar filtren"
+                : "Väntar på första frysningen"}
+              detail={(data.tests || []).length ? undefined
+                : `Testet startar framåt: ${starts || 'nästa ofrysta omgång'}.`} />
           : <div className="v3histtablewrap"><table className="v3histtable v3ph5table">
               <thead><tr><th>Datum</th><th>Spel</th><th>Omgång</th><th>Fryst</th>
                 <th>{meta.filterLabel}</th><th>Facit</th><th>X-vikt</th>
