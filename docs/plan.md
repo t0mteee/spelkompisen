@@ -1,6 +1,19 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-08-25 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-08-26 — läs detta först i ny session)
+
+**ETT SEPARAT 40 000-RADERSTEST STARTAR FRAMÅT (Codex).** Stryktipset 4968
+och Europatipset 2602 fryser två research-only-armar vid h3 och m20: EV medel
+(medel/0,50) och EV högt (tuff/0,80), exakt 40 000 rader vardera. Ett första
+försök mot vanliga byggarens 41 472 kandidater gav 99,8 procent överlapp och
+var metodiskt svagt. Max40 rankar därför isolerat hela `3^13`-rummet; vanliga
+förslag och PH5 är oförändrade. API/UI visar facit, fryst marknadsdata,
+teckenvikt, exakt kupong samt parad radöverlapp. Topptipset ingår inte
+(`3^8 = 6 561`). 40 000 är vår teststorlek, inte en verifierad aktuell
+officiell SvS-gräns. Ingen bakfyllning, automatisk promotion eller riktiga
+spel. Förregistrering och handover: `docs/max40-forward-2026-08-26.md`.
+
+## STATUS-SAMMANFATTNING (2026-08-25)
 
 **TOPPTIPSETS FELAKTIGA 0,8-PROCENTSCHANS ÄR IDENTIFIERAD OCH STÄNGD (Codex).**
 Ninjas Altenar-feed återanvänder `typeId=1` för syntetiska marknader som

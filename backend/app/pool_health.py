@@ -15,7 +15,7 @@ import datetime as dt
 from typing import Iterable, Optional
 
 from .pool_system_ledger import (FREEZE_HORIZONS, benchmarks_for,
-                                 research_configs_for)
+                                 research_families_for)
 from .svenskaspel import PRODUCTS
 
 NORMAL_MAX_AGE_MIN = 45
@@ -101,9 +101,8 @@ def report(store, *, now: Optional[dt.datetime] = None,
         # frysta när deras nominella tid plus ett helt tätvarv har passerat.
         benchmark_keys = tuple(b["key"] for b in benchmarks_for(product))
         for draw in draws:
-            research_keys = tuple(
-                c["key"] for c in research_configs_for(
-                    product, draw["draw_number"]))
+            research_families = research_families_for(
+                product, draw["draw_number"])
             for horizon, (minutes, timely_tol) in FREEZE_HORIZONS.items():
                 due = draw["close"] - dt.timedelta(minutes=minutes)
                 horizon_label = ("3 timmar" if horizon == "h3" else
@@ -137,20 +136,24 @@ def report(store, *, now: Optional[dt.datetime] = None,
                                "frysta system")
                     _issue(issues, level, product, "freeze_incomplete", message,
                            draw["draw_number"])
-                if research_keys:
+                for family, configs in research_families.items():
+                    research_keys = tuple(c["key"] for c in configs)
                     research_count = _count(research_keys)
                     if research_count < len(research_keys):
                         closed = draw["close"] <= now
                         level = "warning" if closed else "error"
+                        family_label = ("PH5" if family == "ph5"
+                                        else "40 000-testet" if family == "max40"
+                                        else family)
                         message = (
                             f"{horizon_label} före spelstopp: {research_count} "
-                            f"av {len(research_keys)} PH5-testsystem sparades"
+                            f"av {len(research_keys)} system i {family_label} sparades"
                             if closed else
                             f"{horizon} har {research_count}/{len(research_keys)} "
-                            "frysta PH5-researchsystem")
+                            f"frysta system i {family_label}")
                         _issue(
                             issues, level, product,
-                            "research_freeze_incomplete",
+                            f"{family}_freeze_incomplete",
                             message,
                             draw["draw_number"])
 

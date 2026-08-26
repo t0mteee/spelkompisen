@@ -152,6 +152,34 @@ PH5_FORWARD_CONFIGS = (
      "method": "maxev"},
 )
 
+# 40 000 FORWARD, RESEARCH-ONLY (förregistrerat 2026-08-26).
+#
+# Samans fråga är vad radbyggaren gör nära den praktiska maxskalan, inte
+# om ytterligare kontrollarmar kan slå modellen. Därför fryses bara två rena
+# modellarmar: samma EV-rankning med värdevikt 50 respektive 80 procent. De
+# jämförs parat på exakt samma produkt, omgång och horisont och kan aldrig
+# promoveras automatiskt eller påverka vanliga kupongförslag.
+#
+# Topptipset ingår inte: dess HELA utfallsrum är bara 3^8 = 6 561 rader, så
+# "40 000 rader" skulle vara sex kopior av samma utfall och inte ett radval.
+MAX40_FORWARD_PRODUCTS = ("stryktipset", "europatipset")
+MAX40_FORWARD_START_DRAW_BY_PRODUCT = {
+    # Första omgångarna vars h3-fönster fortfarande låg i framtiden när
+    # kontraktet skrevs. Ingen retrofrysning är tillåten.
+    "stryktipset": 4968,
+    "europatipset": 2602,
+}
+MAX40_FORWARD_CONFIGS = (
+    {"key": "max40-v1-b40000-ev50", "budget": 40000.0,
+     "strategy": "medel", "value_weight": 0.5,
+     "method": "varderader", "label": "EV medel",
+     "research_family": "max40", "full_universe": True},
+    {"key": "max40-v1-b40000-ev80", "budget": 40000.0,
+     "strategy": "tuff", "value_weight": 0.8,
+     "method": "varderader", "label": "EV högt",
+     "research_family": "max40", "full_universe": True},
+)
+
 # BUDGETTAK FÖR 8-MATCHSSPELEN (Samans beslut 2026-08-09).
 #
 # Budgeten är antal rader, och hur mycket en budget "är" beror på hur stort
@@ -185,16 +213,33 @@ def benchmarks_for(product: str) -> tuple[dict, ...]:
     return BENCHMARKS
 
 
+def research_families_for(
+        product: str,
+        draw_number: Optional[int] = None) -> dict[str, tuple[dict, ...]]:
+    """Aktiva forwardfamiljer per produkt/omgång, med separata identiteter.
+
+    Hälsokontrollen behöver veta VILKEN familj som saknas. Den gamla platta
+    listan fick annars ett max40-bortfall att heta "PH5 saknas".
+    """
+    families: dict[str, tuple[dict, ...]] = {}
+    if product in PH5_FORWARD_PRODUCTS:
+        start = PH5_FORWARD_START_DRAW_BY_PRODUCT.get(
+            product, PH5_FORWARD_START_DRAW)
+        if draw_number is None or draw_number >= start:
+            families["ph5"] = PH5_FORWARD_CONFIGS
+    if product in MAX40_FORWARD_PRODUCTS:
+        start = MAX40_FORWARD_START_DRAW_BY_PRODUCT[product]
+        if draw_number is None or draw_number >= start:
+            families["max40"] = MAX40_FORWARD_CONFIGS
+    return families
+
+
 def research_configs_for(product: str,
                          draw_number: Optional[int] = None) -> tuple[dict, ...]:
-    """PH5:s separata forwardfamilj; aldrig en del av promotionsfamiljen."""
-    if product not in PH5_FORWARD_PRODUCTS:
-        return ()
-    start = PH5_FORWARD_START_DRAW_BY_PRODUCT.get(
-        product, PH5_FORWARD_START_DRAW)
-    if draw_number is not None and draw_number < start:
-        return ()
-    return PH5_FORWARD_CONFIGS
+    """Alla research-only-frysningar; aldrig en del av promotionsfamiljen."""
+    return tuple(config
+                 for family in research_families_for(product, draw_number).values()
+                 for config in family)
 
 
 def _parse(ts: Optional[str]) -> Optional[dt.datetime]:
@@ -219,6 +264,26 @@ def _frozen(store: Storage, product: str, draw_number: int,
         "SELECT 1 FROM pool_system_ledger WHERE product=? AND draw_number=? "
         "AND horizon=? AND config_key=?",
         (product, draw_number, horizon, key)).fetchone() is not None
+
+
+def _encode_rows(rows: list[list[str]], *, compact: bool = False) -> str:
+    """Versionslöst radformat: gamla kommaseparerade eller kompakt 1X2-text.
+
+    En 40 000-radersfrysning skulle annars lagra tolv onödiga kommatecken per
+    rad. Det kompakta formatet halverar nästan den nya seriens DB-volym utan
+    schemaändring. Läsaren accepterar båda formaten så historiken rörs inte.
+    """
+    separator = "" if compact else ","
+    return "\n".join(separator.join(row) for row in rows)
+
+
+def _decode_rows(rows_text: Optional[str]) -> list[list[str]]:
+    rows = []
+    for line in (rows_text or "").splitlines():
+        if not line:
+            continue
+        rows.append(line.split(",") if "," in line else list(line))
+    return rows
 
 
 def _ph5_binary_rows(analysis: DrawAnalysis, n_rows: int,
@@ -322,11 +387,16 @@ def freeze_due(store: Storage, product: str, draw: Draw,
                 system = build_ev_system(
                     analysis, bench["strategy"], bench["budget"],
                     row_price=analysis.row_price or 1.0,
-                    value_weight=bench["value_weight"], plan=plan, jackpot=jp)
+                    value_weight=bench["value_weight"], plan=plan, jackpot=jp,
+                    full_universe=bool(bench.get("full_universe")))
                 rows = system.rows
                 n_rows = system.num_rows
                 cost = system.cost
                 build_note = system.note
+                if bench.get("full_universe"):
+                    build_note = (
+                        f"Fullt 3^{len(analysis.matches)}-kandidatuniversum. "
+                        f"{build_note or ''}").strip()
             else:
                 rows = _ph5_control_rows(analysis, bench, horizon)
                 n_rows = len(rows)
@@ -342,7 +412,11 @@ def freeze_due(store: Storage, product: str, draw: Draw,
                     continue   # delsystem får inte se ut som ett giltigt test
             events_order = ",".join(
                 str(match.event_number) for match in analysis.matches)
-            rows_text = "\n".join(",".join(row) for row in rows)
+            # Max40 är den enda stora serien och får det kompakta, fullt
+            # reversibla textformatet. Övriga rader behåller byte-identiskt
+            # format så deras hash och auditkontrakt inte ändras.
+            rows_text = _encode_rows(
+                rows, compact=bench.get("research_family") == "max40")
             covered = sum(
                 1 for match in analysis.matches
                 if any(match.outcomes[s].fair_prob is not None
@@ -474,8 +548,7 @@ def settle_pending(store: Storage, now: Optional[dt.datetime] = None) -> dict:
             continue
         facit = [outcomes[e] for e in events]
         dist: dict[int, int] = {}
-        for line in rows_text.split("\n"):
-            signs = line.split(",")
+        for signs in _decode_rows(rows_text):
             correct = sum(1 for sign, res in zip(signs, facit) if sign == res)
             dist[correct] = dist.get(correct, 0) + 1
         correct_max = max(dist) if dist else 0
@@ -518,6 +591,10 @@ def _bench(key: str, stored: Optional[dict] = None) -> dict:
     for config in PH5_RETIRED_CONFIGS:
         if config["key"] == key:
             return {**config, "primary": False, "retired": True,
+                    "research": True, "promotion_eligible": False}
+    for config in MAX40_FORWARD_CONFIGS:
+        if config["key"] == key:
+            return {**config, "primary": False, "retired": False,
                     "research": True, "promotion_eligible": False}
     stored = stored or {}
     return {"key": key, "budget": stored.get("budget"),
@@ -728,7 +805,7 @@ def system_detail(store: Storage, product: str, draw_number: int,
      payout_complete, roi, settle_note, turnover_used, turnover_basis) = row
 
     order = [int(n) for n in (events_order or "").split(",") if n]
-    rows = [line.split(",") for line in (rows_text or "").splitlines() if line]
+    rows = _decode_rows(rows_text)
     facit = {int(r[0]): {"description": r[1], "home": r[2], "away": r[3],
                          "outcome": r[4], "cancelled": bool(r[5]),
                          "streck_close": {"1": r[6], "X": r[7], "2": r[8]}}
@@ -766,7 +843,7 @@ def system_detail(store: Storage, product: str, draw_number: int,
             "outcome": outcome, "cancelled": info.get("cancelled"),
             "covered": covered,
             # `covered` säger bara om tecknet finns på MINST en rad. I ett
-            # 5 000-raderssystem är det nästan alltid sant och döljer därför
+            # Stora researchsystem är det nästan alltid sant och döljer därför
             # modellens verkliga viktning. Antal/andel gör bl.a. X-bortfall
             # synligt utan att någon urvalsregel ändras i efterhand.
             "sign_counts": sign_counts,
@@ -838,7 +915,8 @@ def system_detail(store: Storage, product: str, draw_number: int,
         "value_weight": value_weight, "retired": bench["retired"],
         "research": bench["research"],
         "promotion_eligible": bench["promotion_eligible"],
-        "method": bench["method"],
+        "method": bench["method"], "label": bench.get("label"),
+        "research_family": bench.get("research_family"),
         "frozen_at": frozen_at, "timely": bool(timely), "lag_min": lag_min,
         "n_rows": n_rows, "cost_kr": cost_kr,
         "correct_max": correct_max,
@@ -864,7 +942,7 @@ def system_detail(store: Storage, product: str, draw_number: int,
                 if events and rows else None),
         },
         # Exakta rader hämtas bara när användaren öppnar EN frysning. Lägg
-        # aldrig detta i `/api/pool/systems`: 5 000 × 13 tecken per arm gör
+        # aldrig detta i `/api/pool/systems`: 5 000/40 000 × 13 tecken gör
         # annars hela Historik tung på mobil.
         "facit_complete": facit_complete,
         "facit": "".join(ordered_outcomes) if facit_complete else None,
@@ -877,16 +955,22 @@ def system_detail(store: Storage, product: str, draw_number: int,
     }
 
 
-def ph5_overview(store: Storage) -> dict:
-    """Alla PH5-frysningar för den separata 5 000-testvyn.
+def _research_overview(
+        store: Storage, *, configs: tuple[dict, ...],
+        products: tuple[str, ...], rows_per_test: int,
+        active_methods: int, start_draws: dict[str, int],
+        paired_overlap: bool = False) -> dict:
+    """Lätt översikt för en isolerad researchfamilj.
 
-    Ingen `rows_text` följer med här. Den exakta 5 000-raderskupongen hämtas
-    först när användaren öppnar en testfrysning via `system_detail`.
+    Ingen `rows_text` skickas till klienten. Raderna avkodas bara lokalt för
+    teckenvikt och eventuell parad överlappskontroll; exakt kupong hämtas via
+    `system_detail` när användaren faktiskt öppnar den.
     """
-    configs = (*PH5_FORWARD_CONFIGS, *PH5_RETIRED_CONFIGS)
     keys = tuple(config["key"] for config in configs)
     marks = ",".join("?" for _ in keys)
     tests = []
+    pair_overlaps = []
+    pending_pairs: dict[tuple, dict] = {}
     for row in store.conn.execute(
             "SELECT l.product, l.draw_number, l.horizon, l.config_key, "
             "l.frozen_at, l.timely, l.lag_min, l.n_rows, l.cost_kr, "
@@ -909,8 +993,7 @@ def ph5_overview(store: Storage) -> dict:
         })
         event_order = [int(value) for value in (row[19] or "").split(",")
                        if value]
-        system_rows = [value.split(",") for value in
-                       (row[20] or "").splitlines() if value]
+        system_rows = _decode_rows(row[20])
         outcomes = {int(event_number): outcome for event_number, outcome in
                     store.conn.execute(
                         "SELECT event_number,outcome FROM pool_event_settlement "
@@ -926,7 +1009,7 @@ def ph5_overview(store: Storage) -> dict:
         x_outcomes_omitted = sum(
             outcomes.get(event_number) == "X" and x_counts[index] == 0
             for index, event_number in enumerate(event_order))
-        tests.append({
+        test = {
             "product": row[0], "draw_number": int(row[1]),
             "horizon": row[2],
             "horizon_minutes": FREEZE_HORIZONS.get(row[2], (None, None))[0],
@@ -935,7 +1018,9 @@ def ph5_overview(store: Storage) -> dict:
             "n_rows": row[7], "cost_kr": row[8],
             "strategy": bench["strategy"],
             "value_weight": bench["value_weight"],
-            "method": bench["method"], "retired": bench["retired"],
+            "method": bench["method"],
+            "label": bench.get("label"),
+            "retired": bench["retired"],
             "settled_at": row[11], "correct_max": row[12],
             "correct_dist": json.loads(row[13]) if row[13] else None,
             "payout_kr": row[14],
@@ -948,9 +1033,43 @@ def ph5_overview(store: Storage) -> dict:
             "x_omitted_events": x_omitted,
             "x_outcomes": x_outcomes,
             "x_outcomes_omitted": x_outcomes_omitted,
-        })
+        }
+        tests.append(test)
+
+        # Håll högst ett 40 000-raderspar i minnet. Att först bygga mängder
+        # för HELA historiken skulle växa med 160 000 rader per avgjord
+        # omgång och till sist göra själva översiktssidan onödigt tung.
+        if paired_overlap and not test["retired"]:
+            pair_key = (test["product"], test["draw_number"], test["horizon"])
+            if pending_pairs and pair_key not in pending_pairs:
+                # SQL-sorteringen håller ett pars två config_key intill
+                # varandra. Har nästa par börjat var det förra ofullständigt;
+                # släpp dess mängd direkt i stället för att bära historiska
+                # halva par genom hela svaret.
+                for unmatched in pending_pairs.values():
+                    unmatched.pop("_row_keys", None)
+                pending_pairs.clear()
+            test["_row_keys"] = {
+                "".join(system_row) for system_row in system_rows}
+            other = pending_pairs.pop(pair_key, None)
+            if other is None:
+                pending_pairs[pair_key] = test
+            else:
+                common = len(other["_row_keys"] & test["_row_keys"])
+                denominator = min(len(other["_row_keys"]),
+                                  len(test["_row_keys"]))
+                overlap = common / denominator if denominator else None
+                if overlap is not None:
+                    pair_overlaps.append(overlap)
+                for member in (other, test):
+                    member["paired_overlap"] = overlap
+                    member["unique_rows"] = len(member["_row_keys"]) - common
+                    member.pop("_row_keys", None)
 
     active = [test for test in tests if not test["retired"]]
+    for unmatched in pending_pairs.values():
+        unmatched.pop("_row_keys", None)
+
     model_tests = [test for test in active if test["method"] == "varderader"]
     evaluable = [test for test in active if test["timely"]
                  and test["correct_max"] is not None
@@ -963,8 +1082,12 @@ def ph5_overview(store: Storage) -> dict:
                           for t in active}),
             "freezes": len(active),
             "evaluated": len(evaluable),
-            "methods": len(PH5_FORWARD_CONFIGS),
-            "rows_per_test": 5000,
+            "methods": active_methods,
+            "rows_per_test": rows_per_test,
+            "paired_freezes": len(pair_overlaps),
+            "average_overlap": (
+                sum(pair_overlaps) / len(pair_overlaps)
+                if pair_overlaps else None),
             "simulated_cost_kr": sum(t["cost_kr"] or 0 for t in evaluable),
             "simulated_payout_kr": sum(t["payout_kr"] or 0 for t in evaluable),
             "x_omitted_events": sum(t["x_omitted_events"] for t in active),
@@ -978,12 +1101,38 @@ def ph5_overview(store: Storage) -> dict:
                 t["x_outcomes_omitted"] for t in model_tests),
         },
         "configs": [dict(config) for config in configs],
-        "products": list(PH5_FORWARD_PRODUCTS),
+        "products": list(products),
+        "start_draws": dict(start_draws),
         "horizons": {
             key: {"minutes": value[0], "tolerance_min": value[1]}
             for key, value in FREEZE_HORIZONS.items()
         },
     }
+
+
+def ph5_overview(store: Storage) -> dict:
+    """Alla PH5-frysningar för den separata 5 000-testvyn."""
+    return _research_overview(
+        store,
+        configs=(*PH5_FORWARD_CONFIGS, *PH5_RETIRED_CONFIGS),
+        products=PH5_FORWARD_PRODUCTS,
+        rows_per_test=5000,
+        active_methods=len(PH5_FORWARD_CONFIGS),
+        start_draws=PH5_FORWARD_START_DRAW_BY_PRODUCT,
+    )
+
+
+def max40_overview(store: Storage) -> dict:
+    """De två parade 40 000-radersarmarna, utan exakta rader i svaret."""
+    return _research_overview(
+        store,
+        configs=MAX40_FORWARD_CONFIGS,
+        products=MAX40_FORWARD_PRODUCTS,
+        rows_per_test=40000,
+        active_methods=len(MAX40_FORWARD_CONFIGS),
+        start_draws=MAX40_FORWARD_START_DRAW_BY_PRODUCT,
+        paired_overlap=True,
+    )
 
 
 def summary(store: Storage) -> dict:

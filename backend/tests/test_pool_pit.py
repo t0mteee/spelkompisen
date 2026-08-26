@@ -3,6 +3,8 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from app import pool_dataset, pool_system_ledger
 from app.storage import Storage
@@ -438,6 +440,67 @@ class SystemLedgerTests(unittest.TestCase):
         self.assertEqual((), pool_system_ledger.research_configs_for(
             "topptipset", start))
 
+    def test_max40_startar_framat_och_bara_for_13_matchsspelen(self):
+        stryk_start = pool_system_ledger.MAX40_FORWARD_START_DRAW_BY_PRODUCT[
+            "stryktipset"]
+        euro_start = pool_system_ledger.MAX40_FORWARD_START_DRAW_BY_PRODUCT[
+            "europatipset"]
+
+        before = pool_system_ledger.research_families_for(
+            "stryktipset", stryk_start - 1)
+        at_start = pool_system_ledger.research_families_for(
+            "stryktipset", stryk_start)
+
+        self.assertEqual({"ph5"}, set(before))
+        self.assertEqual({"ph5", "max40"}, set(at_start))
+        self.assertNotIn("max40", pool_system_ledger.research_families_for(
+            "europatipset", euro_start - 1))
+        self.assertIn("max40", pool_system_ledger.research_families_for(
+            "europatipset", euro_start))
+        self.assertNotIn("max40", pool_system_ledger.research_families_for(
+            "topptipset", 99999))
+
+    def test_max40_fryser_tva_exakta_kompakta_40000_radersarmar(self):
+        close = NOW + dt.timedelta(minutes=178)
+        draw = _draw_fixture(close, n_events=13, product="stryktipset")
+        draw.draw_number = (
+            pool_system_ledger.MAX40_FORWARD_START_DRAW_BY_PRODUCT["stryktipset"])
+
+        def fake_system(_analysis, strategy, budget, **kwargs):
+            # Olika första tecken ger olika audit-hash för de två armarnas
+            # exakta radmängder. Storleken är avsiktligt fullskalig.
+            self.assertTrue(kwargs["full_universe"])
+            first = "1" if kwargs["value_weight"] == 0.5 else "2"
+            row = [first, *("X" for _ in range(12))]
+            return SimpleNamespace(
+                rows=[row] * 40000, num_rows=40000, cost=40000.0,
+                note=f"{strategy}:{budget}")
+
+        with patch.object(pool_system_ledger, "benchmarks_for", return_value=()), \
+                patch.object(pool_system_ledger, "research_configs_for",
+                             return_value=pool_system_ledger.MAX40_FORWARD_CONFIGS), \
+                patch.object(pool_system_ledger, "build_ev_system",
+                             side_effect=fake_system):
+            report = pool_system_ledger.freeze_due(
+                self.store, "stryktipset", draw, now=NOW, code_version="test")
+            retry = pool_system_ledger.freeze_due(
+                self.store, "stryktipset", draw, now=NOW, code_version="test")
+
+        self.assertEqual(2, report["frozen"])
+        self.assertEqual(0, retry["frozen"])
+        rows = self.store.conn.execute(
+            "SELECT config_key,n_rows,cost_kr,rows_text,rows_hash "
+            "FROM pool_system_ledger ORDER BY config_key").fetchall()
+        self.assertEqual(2, len(rows))
+        self.assertTrue(all((row[1], row[2]) == (40000, 40000.0)
+                            for row in rows))
+        self.assertTrue(all("," not in row[3] for row in rows))
+        self.assertTrue(all(len(pool_system_ledger._decode_rows(row[3])) == 40000
+                            for row in rows))
+        self.assertTrue(all(len(pool_system_ledger._decode_rows(row[3])[0]) == 13
+                            for row in rows))
+        self.assertEqual(2, len({row[4] for row in rows}))
+
     def test_avslutad_ph5_arm_redovisas_men_ar_inte_promotionsbar(self):
         retired = pool_system_ledger.PH5_RETIRED_CONFIGS[0]["key"]
         self.assertNotIn(
@@ -771,3 +834,42 @@ class SystemDetailTests(unittest.TestCase):
         self.assertEqual(key, report["tests"][0]["config_key"])
         self.assertEqual(5000, report["summary"]["rows_per_test"])
         self.assertEqual(1, report["summary"]["draws"])
+
+    def test_max40_overview_ar_separerad_och_visar_paroverlapp(self):
+        configs = pool_system_ledger.MAX40_FORWARD_CONFIGS
+        row_sets = (
+            "111\n1X2\n222\nXXX",
+            "111\n1X2\n211\n2X2",
+        )
+        for config, rows_text in zip(configs, row_sets):
+            self.store.conn.execute(
+                "INSERT INTO pool_system_ledger (product,draw_number,horizon,"
+                "config_key,frozen_at,lag_min,timely,code_version,budget,"
+                "strategy,value_weight,row_price,n_rows,cost_kr,events_order,"
+                "rows_text,rows_hash,n_events_covered,turnover_used,"
+                "turnover_basis,jackpot_used) VALUES "
+                "('stryktipset',4968,'h3',?,'2026-08-26T10:00:00Z',2,1,"
+                "'test',?,?,?,1,4,4,'1,2,3',?,'hash',3,1000,'live',0)",
+                (config["key"], config["budget"], config["strategy"],
+                 config["value_weight"], rows_text))
+        self.store.conn.commit()
+
+        max40 = pool_system_ledger.max40_overview(self.store)
+        ph5 = pool_system_ledger.ph5_overview(self.store)
+
+        self.assertTrue(max40["available"])
+        self.assertFalse(ph5["available"])
+        self.assertEqual(2, len(max40["tests"]))
+        self.assertEqual({"EV medel", "EV högt"},
+                         {test["label"] for test in max40["tests"]})
+        self.assertEqual(40000, max40["summary"]["rows_per_test"])
+        self.assertEqual(1, max40["summary"]["paired_freezes"])
+        self.assertEqual(0.5, max40["summary"]["average_overlap"])
+        self.assertTrue(all(test["paired_overlap"] == 0.5
+                            for test in max40["tests"]))
+        self.assertTrue(all(test["unique_rows"] == 2
+                            for test in max40["tests"]))
+        detail = pool_system_ledger.system_detail(
+            self.store, "stryktipset", 4968, "h3", configs[0]["key"])
+        self.assertEqual("max40", detail["research_family"])
+        self.assertEqual("EV medel", detail["label"])

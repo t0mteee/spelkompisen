@@ -71,6 +71,9 @@ ett nytt manifest — en aliasändring i en liga som ingår i V2.2:s FIT_POOLS
 datagenererande process. Äldre manifest blandas aldrig in. Det är inte en
 tränad modell och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
+`docs/max40-forward-2026-08-26.md` — separat framåtriktat 40 000-raderstest
+för EV medel/EV högt, full `3^13`-rankning, parad överlapp och egen UI/API;
+inga vanliga förslag eller riktiga spel påverkas. Därefter
 `docs/overlamning-2026-08-24-ph5-testvy.md` — separat 5 000-testvy med exakt
 kupong/facit/frysta odds och streck, X-diagnostik samt hardening av spelade
 kupongers gemensamma livebild. Därefter
@@ -342,6 +345,11 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       **`benchmarks_for(product)` är ENDA källan till vad som
                       mäts** (frysning, championrapport och översikt måste läsa
                       samma familj).
+                      Researchfamiljerna ligger separat i
+                      `research_families_for()`: PH5 5 000 och max40 40 000
+                      får egna hälsolarm och översikter och får aldrig räknas
+                      som championutmanare. Max40 rankar hela `3^13` endast
+                      under sina två versionslåsta config_key:er.
                       **SPELFAMILJ, INTE PRODUKTSLUG (2026-08-12):**
                       `champion_report()` grupperar på `svenskaspel.family_of()`
                       — Topptipset Dagens/Stryk/Extra är samma spel med samma

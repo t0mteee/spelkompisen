@@ -295,6 +295,25 @@ class PrizePoolTests(unittest.TestCase):
         self.assertEqual(500, system.jackpot)
         self.assertIn("Jackpot 500 kr ingår", system.rule)
 
+    def test_full_universe_flag_bypasses_only_the_candidate_cap(self) -> None:
+        analysis = self._eight_match_analysis()
+        analysis.matches = analysis.matches[:2]
+        analysis.product = "stryktipset"
+        plan = {"ratio": 0.65, "splits": {2: 1.0}}
+
+        with patch("app.builder.EV_UNIVERSE_CAP", 4):
+            ordinary = build_ev_system(
+                analysis, budget=4, row_price=1, value_weight=0.5,
+                plan=plan)
+            complete = build_ev_system(
+                analysis, budget=4, row_price=1, value_weight=0.5,
+                plan=plan, full_universe=True)
+
+        self.assertEqual((4, 4), (ordinary.num_rows, complete.num_rows))
+        self.assertIn("alla 4 möjliga rader", ordinary.rule)
+        self.assertIn("alla 9 möjliga rader", complete.rule)
+        self.assertNotEqual(ordinary.rows, complete.rows)
+
     def test_complementary_system_builds_two_genuinely_different_anchors(self) -> None:
         analysis = self._eight_match_analysis()
         plan = {"ratio": 0.70, "splits": {8: 1.0}}

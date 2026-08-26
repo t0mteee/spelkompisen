@@ -710,6 +710,17 @@ def pool_ph5_overview():
         store.close()
 
 
+@app.get("/api/pool/max40")
+def pool_max40_overview():
+    """Separat, lätt översikt för det parade 40 000-raderstestet."""
+    from . import pool_system_ledger
+    store = Storage()
+    try:
+        return pool_system_ledger.max40_overview(store)
+    finally:
+        store.close()
+
+
 @app.post("/api/pool/played")
 async def pool_played_record(request: Request):
     """Bokför att användaren SJÄLV har lämnat in kupongen. Lägger inga spel."""

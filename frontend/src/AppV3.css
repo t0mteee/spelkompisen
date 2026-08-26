@@ -407,7 +407,7 @@
 .v3radar-result b.push, .v3radar-result b.pending { color: #dca85e; }
 .v3radar-result i { font-style: normal; font-size: 14px; line-height: 1; }
 
-/* ---------- 5 000-test ---------- */
+/* ---------- 5 000- och 40 000-test ---------- */
 .v3ph5 { display: grid; gap: 12px; }
 .v3ph5hero {
   padding: 22px 24px; border: 1px solid var(--line) !important;
@@ -441,6 +441,14 @@
   color: var(--muted); font-size: 11px;
 }
 .v3ph5methods b { color: var(--text); }
+.v3max40hero {
+  border-top-color: #dca85e !important;
+  background:
+    radial-gradient(circle at 90% 15%, color-mix(in srgb, #dca85e 18%, transparent), transparent 34%),
+    var(--panel);
+}
+.v3max40hero .v3eyebrow { color: #dca85e; }
+.v3max40methods { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
 .v3ph5xnote { border-top-color: #dca85e; }
 .v3ph5table { min-width: 980px; }
 

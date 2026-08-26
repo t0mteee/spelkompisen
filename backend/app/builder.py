@@ -24,6 +24,7 @@ Systemtyper
 """
 from __future__ import annotations
 
+import heapq
 import itertools
 from dataclasses import dataclass, asdict, field
 from typing import Optional
@@ -728,6 +729,7 @@ def _rank_ev_rows(analysis: DrawAnalysis, budget: float, row_price: float,
                   value_weight: float, plan: Optional[dict],
                   jackpot: float, *, refine_all: bool = False,
                   top_tier_kappa_by_x: Optional[dict[int, float]] = None,
+                  full_universe: bool = False,
                   ) -> _EVRankedRows:
     """Ranka EV-kandidater en gång; används av både enkel- och dubbelkupong."""
     turnover = analysis.turnover or 0.0
@@ -747,21 +749,41 @@ def _rank_ev_rows(analysis: DrawAnalysis, budget: float, row_price: float,
         q = (o.streck / 100.0) if o.streck else p
         return p, max(q, 0.001)
 
-    # kandidattecken: topp-2 enligt teckenpoäng; utöka de öppnaste till 3.
-    # PH5 använder samma hjälpfunktion för sin byggarslump-kontroll.
-    cand, universe = ev_candidate_signs(analysis, value_weight)
+    # Vanliga system begränsas till högst EV_UNIVERSE_CAP kandidater. Det
+    # separata 40 000-testet måste däremot ranka mot hela 3^13-rummet:
+    # annars väljer båda armarna 40 000 av samma 41 472 kandidater och blir
+    # matematiskt tvungna att nästan helt överlappa.
+    if full_universe:
+        cand = {match.event_number: list(SIGNS) for match in analysis.matches}
+        universe = 3 ** len(analysis.matches)
+    else:
+        # Kandidattecken: topp-2 enligt teckenpoäng; utöka de öppnaste till 3.
+        # PH5 använder samma hjälpfunktion för sin byggarslump-kontroll.
+        cand, universe = ev_candidate_signs(analysis, value_weight)
 
     ms = analysis.matches
     pq = {(m.event_number, s): _pq(m, s) for m in ms for s in SIGNS}
 
     # steg 1: enumerera kandidatrader med toppnivå-EV (p×pott/(fält×q+1))
     scored: list[tuple[float, float, float, tuple]] = []   # (ev1, p, q, rad)
+    # Fulla 3^13 är 1 594 323 rader. Behåll bara de kandidater som kan nå
+    # steg 2 i en min-heap; då ligger minnestoppen nära 80 000 rader i stället
+    # för hela utfallsrummet. Standardvägen är byte-identisk med tidigare kod.
+    refine_limit = max(EV_REFINE_CAP, min(universe, target * 2))
+    coarse_top: list[tuple[float, float, float, tuple]] = []
 
     def _walk(i: int, p: float, q: float, acc: list[str]):
         if i == n:
             div = min(pools[top_tier], pools[top_tier] / (field * q + 1.0))
             # grovranka på balans-scoren så spelbara rader inte filtreras bort
-            scored.append(((p ** k) * p * div, p, q, tuple(acc)))
+            item = ((p ** k) * p * div, p, q, tuple(acc))
+            if full_universe and not refine_all:
+                if len(coarse_top) < refine_limit:
+                    heapq.heappush(coarse_top, item)
+                elif item > coarse_top[0]:
+                    heapq.heapreplace(coarse_top, item)
+            else:
+                scored.append(item)
             return
         ev = ms[i].event_number
         for s in cand[ev]:
@@ -769,7 +791,10 @@ def _rank_ev_rows(analysis: DrawAnalysis, budget: float, row_price: float,
             _walk(i + 1, p * ps, q * qs, acc + [s])
 
     _walk(0, 1.0, 1.0, [])
-    scored.sort(key=lambda t: t[0], reverse=True)
+    if full_universe and not refine_all:
+        scored = sorted(coarse_top, key=lambda t: t[0], reverse=True)
+    else:
+        scored.sort(key=lambda t: t[0], reverse=True)
 
     # steg 2: full EV (alla vinstnivåer) för de bästa kandidaterna;
     # välj på balans-score, rapportera ärlig EV
@@ -1244,7 +1269,8 @@ def build_complementary_ev_systems(
 def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
                     budget: float = 100.0, row_price: float = ROW_PRICE,
                     value_weight: float = 0.5, plan: Optional[dict] = None,
-                    jackpot: float = 0.0) -> System:
+                    jackpot: float = 0.0,
+                    full_universe: bool = False) -> System:
     """Ranka konkreta rader efter EV **balanserat mot träffchans** och ta de
     bästa som ryms i budgeten.
 
@@ -1255,7 +1281,8 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
     ≈ maximera P×EV ~ log-tillväxt), 0.0 → k=2 (träffsäkra värderader).
     EV rapporteras alltid ärligt oavsett ranking."""
     ranked = _rank_ev_rows(
-        analysis, budget, row_price, value_weight, plan, jackpot)
+        analysis, budget, row_price, value_weight, plan, jackpot,
+        full_universe=full_universe)
     return _ev_system_from_rows(
         analysis, strategy, budget, row_price, jackpot, ranked,
         ranked.rows[:ranked.target])

@@ -58,13 +58,15 @@ class PoolHealthTests(unittest.TestCase):
         freezes = [i for i in rep["issues"] if i["kind"] == "freeze_incomplete"]
         self.assertEqual(1, len(freezes))
         self.assertIn("h3 har 0/12", freezes[0]["message"])
-        self.assertIn("research_freeze_incomplete",
-                      {i["kind"] for i in rep["issues"]})
+        kinds = {i["kind"] for i in rep["issues"]}
+        self.assertIn("ph5_freeze_incomplete", kinds)
+        self.assertIn("max40_freeze_incomplete", kinds)
 
     def test_researchrader_kan_inte_maskera_saknade_benchmarksystem(self):
         self._draw(hours=1)
         self._snapshot()
-        for config in pool_system_ledger.PH5_FORWARD_CONFIGS:
+        for config in pool_system_ledger.research_configs_for(
+                "stryktipset", 5000):
             self.store.conn.execute(
                 "INSERT INTO pool_system_ledger (product,draw_number,horizon,"
                 "config_key,frozen_at,lag_min,timely,code_version,budget,"
@@ -78,8 +80,29 @@ class PoolHealthTests(unittest.TestCase):
         messages = [i["message"] for i in rep["issues"]
                     if i["kind"] == "freeze_incomplete"]
         self.assertEqual(["h3 har 0/12 frysta system"], messages)
-        self.assertNotIn("research_freeze_incomplete",
-                         {i["kind"] for i in rep["issues"]})
+        self.assertFalse(any(i["kind"].endswith("_freeze_incomplete")
+                             and i["kind"] != "freeze_incomplete"
+                             for i in rep["issues"]))
+
+    def test_researchfamiljer_larmar_separat(self):
+        self._draw(hours=1)
+        self._snapshot()
+        for config in pool_system_ledger.PH5_FORWARD_CONFIGS:
+            self.store.conn.execute(
+                "INSERT INTO pool_system_ledger (product,draw_number,horizon,"
+                "config_key,frozen_at,lag_min,timely,code_version,budget,"
+                "strategy,value_weight,n_rows,cost_kr,events_order,rows_text,"
+                "rows_hash) VALUES ('stryktipset',5000,'h3',?,?,0,1,'test',"
+                "?,?,?,?,1,'1','h','hash')",
+                (config["key"], pool_health._iso(NOW), config["budget"],
+                 config["strategy"], config["value_weight"], 1))
+
+        rep = pool_health.report(
+            self.store, now=NOW, products=("stryktipset",))
+        kinds = {i["kind"] for i in rep["issues"]}
+
+        self.assertNotIn("ph5_freeze_incomplete", kinds)
+        self.assertIn("max40_freeze_incomplete", kinds)
 
     def test_h3_alarm_waits_for_one_allowed_base_interval(self):
         close = self._draw(hours=3)
