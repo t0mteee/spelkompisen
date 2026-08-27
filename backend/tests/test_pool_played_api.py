@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from app import main, pool_played
+from app import main, pool_played, pool_system_ledger
 
 
 class PoolPlayedApiTests(unittest.TestCase):
@@ -81,6 +81,48 @@ class PoolPlayedApiTests(unittest.TestCase):
         odds.assert_called_once()
         self.assertEqual([False, True], [
             call.kwargs["include_chance"] for call in status.call_args_list])
+
+    def test_forskningssystem_liverattas_utan_liveodds_eller_raddetaljer(self):
+        main._pool_live_cache.clear()
+        store = MagicMock()
+        coupon = {
+            "product": "stryktipset", "draw_number": 4968,
+            "rows_text": "111", "events_order": "[1, 2, 3]",
+            "settled": False,
+        }
+        states = [{"event_number": 1}]
+        with patch.object(main, "Storage", return_value=store), \
+             patch.object(pool_system_ledger, "system_live_coupon",
+                          return_value=coupon), \
+             patch.object(main, "_pool_live_states",
+                          return_value=({("stryktipset", 4968): states}, {})) as source, \
+             patch.object(pool_played, "live_status",
+                          return_value={"n_decided": 0}) as status:
+            result = main.pool_system_live(
+                "stryktipset", 4968, "h3", "max40-v1-b40000-ev50")
+
+        source.assert_called_once_with(
+            store, [("stryktipset", 4968)], include_odds=False)
+        status.assert_called_once_with(
+            coupon, states, include_chance=False,
+            include_row_details=False)
+        self.assertTrue(result["available"])
+        self.assertFalse(result["settled"])
+        self.assertEqual({"n_decided": 0}, result["live"])
+        store.close.assert_called_once()
+
+    def test_settlat_forskningssystem_anropar_ingen_livekalla(self):
+        store = MagicMock()
+        with patch.object(main, "Storage", return_value=store), \
+             patch.object(pool_system_ledger, "system_live_coupon",
+                          return_value={"settled": True}), \
+             patch.object(main, "_pool_live_states") as source:
+            result = main.pool_system_live(
+                "europatipset", 2602, "m20", "max40-v1-b40000-ev80")
+
+        self.assertEqual({"available": True, "settled": True}, result)
+        source.assert_not_called()
+        store.close.assert_called_once()
 
 
 if __name__ == "__main__":

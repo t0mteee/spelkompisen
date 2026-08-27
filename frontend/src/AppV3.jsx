@@ -1266,11 +1266,95 @@ function BuildBadge({ row }) {
   return <span className="v3buildbadge">{parts.join(' · ')}</span>
 }
 
+const marketTimeLabel = (iso) => {
+  const parsed = new Date(iso)
+  return Number.isNaN(parsed.getTime()) ? 'nyss' : parsed.toLocaleTimeString('sv-SE', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  })
+}
+
+function SystemLiveCorrection({ live, error, observedAt }) {
+  if (!live) return (
+    <div className={`v3syslive ${error ? 'error' : ''}`}>
+      <b>{error ? 'Liverättningen är tillfälligt otillgänglig' : 'Hämtar liverättning…'}</b>
+      <span className="v3hint">{error
+        ? 'Försöker igen automatiskt. Det frysta systemet och slutliga facitet påverkas inte.'
+        : 'Aktuell ställning hämtas utan att något nytt system skapas.'}</span>
+    </div>
+  )
+  const levels = Object.keys(live.alive_per_level || {})
+    .map(Number).sort((a, b) => b - a)
+  const aliveText = (level) => {
+    const lo = live.alive_min_per_level?.[level]
+    const hi = live.alive_max_per_level?.[level]
+    if (lo != null && hi != null && lo !== hi) {
+      return `${lo.toLocaleString('sv-SE')}–${hi.toLocaleString('sv-SE')}`
+    }
+    return Number(live.alive_per_level?.[level] || 0).toLocaleString('sv-SE')
+  }
+  const status = (match) => match.cancelled ? 'struken · tecken väntar'
+    : match.extra_time ? `ordinarie tid klar · ${match.status_text || 'förlängning'}`
+      : match.final ? 'slut'
+        : match.in_progress ? match.status_text || 'pågår'
+          : 'ej startad'
+  return (
+    <section className="v3syslive" aria-label="Liverättning av testkupongen">
+      <div className="v3syslivehead">
+        <div>
+          <span className="v3eyebrow">LIVERÄTTNING · PRELIMINÄRT</span>
+          <h4>{live.all_decided ? 'Alla matcher avgjorda' : 'Så ligger testkupongen till nu'}</h4>
+        </div>
+        <span className="v3hint">uppdaterad {observedAt ? marketTimeLabel(observedAt) : 'nyss'}</span>
+      </div>
+      <div className="v3syslivekpis">
+        <span><b>{live.n_decided}</b>/{live.n_events} fastställda</span>
+        <span>fastställt bäst <b>{live.best_secure}</b> rätt</span>
+        {live.current_known > 0 && live.current_best != null && (
+          <span title="Bästa radens rätt om alla aktuella ställningar står sig.">
+            läget nu <b>{live.current_best}/{live.current_known}</b></span>
+        )}
+        <span className={live.out_of_contention ? 'v3neg' : ''}>
+          max <b>{live.max_possible}</b> möjligt</span>
+      </div>
+      <div className="v3syslivelevels">
+        {levels.map((level) => (
+          <span key={level} className={live.alive_per_level[level] ? '' : 'dead'}>
+            <b>{aliveText(level)}</b>
+            <small>rader kan nå {level} rätt</small>
+          </span>
+        ))}
+      </div>
+      {live.alive_unproven?.length > 0 && (
+        <div className="v3note">Radantalet visas som ett spann eftersom ordinarie tids
+          resultat ännu inte är belagt för {live.alive_unproven.join(', ')}.</div>
+      )}
+      <div className="v3syslivematches">
+        {(live.matches || []).map((match) => (
+          <div key={match.col} className={`v3syslivematch${match.final ? ' final' : ''}`}>
+            <span className="v3hint">{match.col}</span>
+            <b>{match.description || [match.home, match.away].filter(Boolean).join(' – ')
+              || `Match ${match.col}`}</b>
+            <span className="v3syslivescore">{match.score || '–'}
+              {match.sign && <i>{match.sign}</i>}</span>
+            <span className="v3hint">{status(match)}</span>
+          </div>
+        ))}
+      </div>
+      <p className="v3hint">”Fastställt” räknar bara matcher vars tecken står fast.
+        ”Läget nu” använder även pågående ställningar. Slutligt facit och
+        simulerad utdelning sätts fortfarande först från Svenska Spels officiella resultat.</p>
+    </section>
+  )
+}
+
 /* Ett fryst system match för match: täckte vi tecknet som gick in, och hur
    stod folkets streck vid frysningen mot vid spelstopp? */
 function SystemDetail({ product, draw, horizon, config, onClose }) {
   const [d, setD] = useState(null)
   const [err, setErr] = useState(null)
+  const [live, setLive] = useState(null)
+  const [liveErr, setLiveErr] = useState(null)
+  const [liveObservedAt, setLiveObservedAt] = useState(null)
   const [rowPage, setRowPage] = useState(0)
   const [rowNumber, setRowNumber] = useState('')
   useEffect(() => {
@@ -1281,6 +1365,49 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
       .catch((e) => { if (current) setErr(String(e)) })
     return () => { current = false }
   }, [product, draw, horizon, config])
+  useEffect(() => {
+    if (!d?.available || d.facit_complete) return undefined
+    let current = true
+    let pending = false
+    let controller = null
+    const liveUrl = `/api/pool/systems/live?product=${product}&draw=${draw}`
+      + `&horizon=${horizon}&config=${encodeURIComponent(config)}`
+    const detailUrl = `/api/pool/systems/detail?product=${product}&draw=${draw}`
+      + `&horizon=${horizon}&config=${encodeURIComponent(config)}`
+    const refresh = () => {
+      if (!current || pending || document.visibilityState === 'hidden') return
+      pending = true
+      controller = new AbortController()
+      get(liveUrl, { signal: controller.signal })
+        .then((value) => {
+          if (!current) return undefined
+          if (value.settled) {
+            // Settlementjobbet är klart. Hämta den tunga exakta detaljen EN
+            // gång till och byt livebilden mot officiellt facit.
+            return get(detailUrl, { signal: controller.signal }).then((detail) => {
+              if (current) setD(detail)
+            })
+          }
+          setLive(value.live || null)
+          setLiveObservedAt(value.observed_at || null)
+          setLiveErr(null)
+          return undefined
+        })
+        .catch((reason) => {
+          if (current && reason?.name !== 'AbortError') setLiveErr(String(reason))
+        })
+        .finally(() => { pending = false })
+    }
+    refresh()
+    const timer = window.setInterval(refresh, 30000)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      current = false
+      controller?.abort()
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [d?.available, d?.facit_complete, product, draw, horizon, config])
   const move = (e, sign) => {
     const a = e.streck_at_freeze?.[sign], b = e.streck_at_close?.[sign]
     if (a == null || b == null || a === b) return null
@@ -1313,6 +1440,22 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
       month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
     })
   }
+  const liveByEvent = Object.fromEntries(
+    (live?.matches || []).map((match) => [match.event, match]))
+  const liveByColumn = Object.fromEntries(
+    (live?.matches || []).map((match) => [match.col, match]))
+  const liveRowScore = (signs) => {
+    if (!live?.matches?.length) return null
+    let secure = 0
+    let possible = 0
+    for (let index = 0; index < signs.length; index += 1) {
+      const match = liveByColumn[index + 1]
+      const decided = match?.final && !match.cancelled && !match.sign_provisional
+      if (!decided) possible += 1
+      else if (match.sign === signs[index]) { secure += 1; possible += 1 }
+    }
+    return { secure, possible }
+  }
   return (
     <div className="v3sysdetail" id="hist-system-detail">
       <div className="v3sysdetailhead">
@@ -1332,7 +1475,8 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
           <div className="v3sysdetailmeta">
             <span>{d.n_rows.toLocaleString('sv-SE')} rader · {kr(d.cost_kr)}</span>
             <span>fryst {horizonLabel(d)} före stopp{d.timely ? '' : ' (sen)'}</span>
-            <span>bäst <b>{d.correct_max ?? '–'}</b> rätt</span>
+            <span>{d.correct_max == null && live ? 'fastställt bäst ' : 'bäst '}
+              <b>{d.correct_max ?? live?.best_secure ?? '–'}</b> rätt</span>
             {d.n_missed > 0 && (
               <span className="v3neg" title="Matcher där inget av systemets tecken
                 gick in. Varje sådan match sänker takresultatet med ett rätt.">
@@ -1343,6 +1487,8 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
               : d.payout_complete === false ? 'utdelning okänd'
                 : `${kr(d.payout_kr)} · ${pctSigned(d.roi)}`}</span>
           </div>
+          {!d.facit_complete && <SystemLiveCorrection live={live}
+            error={liveErr} observedAt={liveObservedAt} />}
           {d.x_summary && (
             <div className="v3xsummary">
               <b>X-kontroll</b>
@@ -1359,24 +1505,32 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
           <div className="v3histtablewrap">
             <table className="v3histtable v3sysfacit">
               <thead><tr>
-                <th>#</th><th>Match</th><th>Facit</th><th>Teckenvikt</th>
+                <th>#</th><th>Match</th><th>Läge / facit</th><th>Teckenvikt</th>
                 <th title="Pinnacles/sharp odds, senast observerade före frysningen.">Sharpodds vid frysning</th>
                 <th title="Svenska Spels odds och folkets streck när systemet frystes.">SvS odds · streck</th>
                 <th title="Folkets procent när systemet frystes, och förändringen
                   fram till spelstopp.">Streck vid frysning → stopp</th>
               </tr></thead>
               <tbody>
-                {d.events.map((e) => (
-                  <tr key={e.event_number}
+                {d.events.map((e) => {
+                  const liveEvent = liveByEvent[e.event_number]
+                  return <tr key={e.event_number}
                     className={e.hit === false ? 'v3sysmiss' : ''}>
                     <td>{e.event_number}</td>
                     <td>{e.home && e.away ? `${e.home} – ${e.away}`
-                      : e.description || `Match ${e.event_number}`}
+                      : e.description || liveEvent?.description
+                        || [liveEvent?.home, liveEvent?.away].filter(Boolean).join(' – ')
+                        || `Match ${e.event_number}`}
                       {e.market_observed_at && <span className="v3markettime">
                         prisbild mätt {marketTime(e.market_observed_at)}</span>}
                     </td>
                     <td className="v3outcome">
-                      {e.cancelled ? '⚠️' : e.outcome || '–'}</td>
+                      {e.cancelled ? '⚠️' : e.outcome || (liveEvent
+                        ? <><b>{liveEvent.score || '–'}</b>{liveEvent.sign
+                          ? ` · ${liveEvent.sign}` : ''}<span className="v3markettime">
+                          {liveEvent.final ? 'slut' : liveEvent.in_progress
+                            ? liveEvent.status_text || 'pågår' : 'ej startad'}</span></>
+                        : '–')}</td>
                     <td className={e.x_omitted ? 'v3xmissing' : ''}>
                       {signWeights(e)}{e.hit === false
                       ? <span className="v3neg" title="Systemet spelade inte det
@@ -1400,7 +1554,7 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
                       ))}
                     </td>
                   </tr>
-                ))}
+                })}
               </tbody>
             </table>
           </div>
@@ -1448,23 +1602,29 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
                   raderna stämmer inte med den sparade summeringen.</div>
               )}
               <div className="v3systemrowlist">
-                {shownRows.map((row) => (
-                  <div className="v3systemrow" key={row.index}>
+                {shownRows.map((row) => {
+                  const rowLive = row.correct == null ? liveRowScore(row.signs) : null
+                  return <div className="v3systemrow" key={row.index}>
                     <span className="v3systemrowindex">#{row.index}</span>
                     <div className="v3systemsigns" aria-label={`Rad ${row.index}: ${row.signs}`}
                       style={{ gridTemplateColumns: `repeat(${d.events.length}, minmax(19px, 1fr))` }}>
-                      {row.signs.split('').map((sign, index) => (
-                        <span key={index}
-                          className={!d.facit_complete ? ''
+                      {row.signs.split('').map((sign, index) => {
+                        const match = liveByColumn[index + 1]
+                        const liveClass = !match?.sign ? ''
+                          : match.final ? (match.sign === sign ? 'hit' : 'miss')
+                            : match.sign === sign ? 'liveleading' : ''
+                        return <span key={index}
+                          className={!d.facit_complete ? liveClass
                             : d.facit?.[index] === sign ? 'hit' : 'miss'}>{sign}</span>
-                      ))}
+                      })}
                     </div>
-                    <b>{row.correct == null ? 'väntar' : `${row.correct}/${d.events.length}`}</b>
+                    <b>{row.correct != null ? `${row.correct}/${d.events.length}`
+                      : rowLive ? `${rowLive.secure} fast · max ${rowLive.possible}` : 'väntar'}</b>
                     {row.payout_kr == null ? null : row.payout_kr > 0
                       ? <span className="v3pos">+{kr(row.payout_kr)}</span>
                       : <span className="v3hint">0 kr</span>}
                   </div>
-                ))}
+                })}
                 {rowNumber !== '' && !searchedRow && (
                   <EmptyState title={`Rad #${rowNumber} finns inte`}
                     detail={`Ange ett nummer mellan 1 och ${rows.length}.`} />
@@ -1561,7 +1721,7 @@ function ForwardTestV3({ family }) {
           <h1>{meta.title}</h1>
           <p>Här går varje automatisk testkupong att öppna exakt som den frystes
             före spelstopp — samtliga {meta.rowLabel} rader, odds, streck, teckenvikt och
-            slutligt facit på samma ställe.</p>
+            liverättning medan omgången pågår samt slutligt facit på samma ställe.</p>
         </div>
       </section>
 
@@ -1678,7 +1838,7 @@ function ForwardTestV3({ family }) {
                   <td>#{test.draw_number}</td>
                   <td>{horizonLabel(test)}{test.timely ? '' : ' · sen'}</td>
                   <td>{forwardTestLabel(test)}</td>
-                  <td>{test.correct_max == null ? 'Väntar facit'
+                  <td>{test.correct_max == null ? 'Öppna för liverättning'
                     : test.payout_complete === false
                       ? `${test.correct_max} rätt · utdelning okänd`
                       : <><b>{test.correct_max} rätt</b> · {kr(test.payout_kr)} ·{' '}

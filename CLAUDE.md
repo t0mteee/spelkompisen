@@ -47,6 +47,13 @@ gammalt enligt HTTP Age. När alla tre saknar komplett 1X2 används den tydligt
 märkta ställnings-/tidsmodellen; den är enbart en kupongchans och får aldrig
 påverka system, värde eller facit. `chance_live_source_counts` visar i UI
 vilken källa som faktiskt användes.
+PH5-/max40-kuponger använder samma `pool_played.live_status`, men via den rent
+läsande `GET /api/pool/systems/live` och utan odds/chans/heja-på-raddetaljer.
+Det ger fastställda rätt, aktuellt läge, max nåbart och levande rader per
+13/12/11/10 medan omgången pågår. Frontend pollar var 30:e sekund endast när
+detaljen är öppen och synlig. `system_live_coupon` normaliserar både gamla
+kommaseparerade PH5-rader och max40:s kompakta rader; `events_order` är alltid
+kanon för kolumnmatchningen. Livebilden skriver aldrig settlement eller facit.
 Den underkända V2.1 är fortsatt vilande. Ett separat V2.2-experiment samlar
 Allsvenskan + Premier League/Serie A/La Liga/Bundesliga med WP9c
 i isolerad sharp-identitetskontroll. **Aktuellt fryst kontrakt är manifest v10**
@@ -72,7 +79,8 @@ datagenererande process. Äldre manifest blandas aldrig in. Det är inte en
 tränad modell och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
 `docs/max40-forward-2026-08-26.md` — separat framåtriktat 40 000-raderstest
-för EV medel/EV högt, full `3^13`-rankning, parad överlapp och egen UI/API;
+för EV medel/EV högt, full `3^13`-rankning, parad överlapp, egen UI/API och
+liverättning för både 5 000-/40 000-kuponger;
 inga vanliga förslag eller riktiga spel påverkas. Därefter
 `docs/overlamning-2026-08-24-ph5-testvy.md` — separat 5 000-testvy med exakt
 kupong/facit/frysta odds och streck, X-diagnostik samt hardening av spelade

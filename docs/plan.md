@@ -1,6 +1,22 @@
 # Spelkompisen — färdplan
 
-## STATUS-SAMMANFATTNING (2026-08-26 — läs detta först i ny session)
+## STATUS-SAMMANFATTNING (2026-08-27 — läs detta först i ny session)
+
+**5 000- OCH 40 000-TESTERNA KAN LIVERÄTTAS (Codex).** Öppna en fryst
+testkupong i dess egen flik: samma beprövade matchstatusmotor som för spelade
+kuponger visar nu fastställda matcher, bästa fastställda rätt, rätt om
+ställningarna står sig, max nåbart och hur många frysta rader som fortfarande
+kan nå 13/12/11/10 rätt. Matchlistan visar aktuell ställning och tecken; de
+100 rader som visas på aktuell detaljsida markeras mot nuläget och får
+`fast · max`. Bilden uppdateras var 30:e sekund medan fliken är synlig och
+byter till officiellt facit när settlementjobbet är klart. Livebilden är
+uttryckligen preliminär och skriver aldrig facit. Max40 hoppar över
+oddsbaserad chans, heja-på-matris och enskilda levande-rader-listor, så
+40 000-rättningen gör bara det arbete vyn behöver. API:
+`GET /api/pool/systems/live`; metod/handover:
+`docs/max40-forward-2026-08-26.md`.
+
+## STATUS-SAMMANFATTNING (2026-08-26)
 
 **ETT SEPARAT 40 000-RADERSTEST STARTAR FRAMÅT (Codex).** Stryktipset 4968
 och Europatipset 2602 fryser två research-only-armar vid h3 och m20: EV medel

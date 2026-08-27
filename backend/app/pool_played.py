@@ -836,7 +836,8 @@ def _coupon_events(coupon: dict, width: int) -> list[int]:
 
 
 def live_status(coupon: dict, states: list[dict],
-                include_chance: bool = True) -> dict:
+                include_chance: bool = True,
+                include_row_details: bool = True) -> dict:
     """Rätt-så-långt per rad + vilka rader som fortfarande kan nå varje nivå.
 
     Det här är svaret på "följa reducerade system live": för varje rad räknas
@@ -916,9 +917,15 @@ def live_status(coupon: dict, states: list[dict],
            "secure_dist": dict(sorted(secure_hist.items(), reverse=True)),
            "alive_per_level": dict(sorted(alive.items(), reverse=True)),
            **alive_span,
-           **_alive_rows(rows, per_row, col_states, width, levels),
-           "matches": _match_rows(rows, col_states, events, width),
-           "cheer": _cheer_per_match(rows, col_states, width, levels)}
+           "matches": _match_rows(rows, col_states, events, width)}
+    # Forskningssystemen innehåller upp till 40 000 rader. Där behövs
+    # nivåsummeringen och matchläget för liverättning, men inte en kapad lista
+    # med enskilda levande rader eller den betydligt dyrare "heja på"-matrisen.
+    # Vanliga spelade kuponger behåller båda delarna oförändrade.
+    if include_row_details:
+        out.update(_alive_rows(rows, per_row, col_states, width, levels))
+        out["cheer"] = _cheer_per_match(
+            rows, col_states, width, levels)
     # Idag-kortet visar faktisk matchstatus och levande rader men ingen
     # oddsbaserad vinstchans. Den dyrare sannolikheten hör till detaljkortet i
     # Historik och får inte hålla grundläggande livestatus gisslan.

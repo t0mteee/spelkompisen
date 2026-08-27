@@ -116,7 +116,8 @@ def _jackpots_for_ui(ss: SvenskaSpel) -> dict | None:
 
 
 def _pool_live_states(store: Storage,
-                      keys: list[tuple[str, int]]) -> tuple[dict, dict]:
+                      keys: list[tuple[str, int]], *,
+                      include_odds: bool = True) -> tuple[dict, dict]:
     """Hämta en gemensam, kortlivad livebild för öppna poolomgångar.
 
     Låset ger single-flight: om snabb- och fullsvaret råkar starta samtidigt
@@ -125,9 +126,13 @@ def _pool_live_states(store: Storage,
     """
     import time as _time
 
-    cache_key = tuple(sorted(keys))
-    if not cache_key:
+    draw_keys = tuple(sorted(keys))
+    if not draw_keys:
         return {}, {}
+    # En snabb liverättning av stora forskningssystem behöver inga odds.
+    # Separera cacheidentiteten så att ett sådant svar aldrig kan förväxlas
+    # med Historikens fulla kupongbild, där oddsbaserad chans ska finnas.
+    cache_key = (bool(include_odds), *draw_keys)
     now = _time.monotonic()
     hit = _pool_live_cache.get(cache_key)
     if hit and now - hit[0] < _POOL_LIVE_TTL_S:
@@ -143,7 +148,7 @@ def _pool_live_states(store: Storage,
         states_by_draw: dict[tuple[str, int], list[dict]] = {}
         errors_by_draw: dict[tuple[str, int], Exception] = {}
         with SvenskaSpel() as ss:
-            for key in cache_key:
+            for key in draw_keys:
                 try:
                     raw = ss.get_draw_raw(*key)
                     states_by_draw[key] = [
@@ -157,12 +162,23 @@ def _pool_live_states(store: Storage,
         if all_states:
             try:
                 pool_played.attach_regulation_time(all_states)
-                pool_played.attach_live_odds(store, all_states)
+                if include_odds:
+                    pool_played.attach_live_odds(store, all_states)
             except Exception as source_exc:  # noqa: BLE001
                 for key in states_by_draw:
                     errors_by_draw[key] = source_exc
 
-        _pool_live_cache.clear()  # högst en aktuell kuponguppsättning behövs
+        # Behåll både snabb status utan odds och Historikens fulla livebild.
+        # Gamla omgångsuppsättningar lever bara TTL-tiden och rensas här så
+        # cachen ändå förblir strikt begränsad.
+        cutoff = _time.monotonic() - _POOL_LIVE_TTL_S
+        for old_key, old_hit in list(_pool_live_cache.items()):
+            if old_hit[0] < cutoff:
+                _pool_live_cache.pop(old_key, None)
+        if len(_pool_live_cache) >= 4:
+            oldest = min(_pool_live_cache,
+                         key=lambda item: _pool_live_cache[item][0])
+            _pool_live_cache.pop(oldest, None)
         _pool_live_cache[cache_key] = (
             _time.monotonic(), states_by_draw, errors_by_draw)
         return states_by_draw, errors_by_draw
@@ -695,6 +711,53 @@ def pool_system_detail(product: str, draw: int, horizon: str, config: str):
     try:
         return pool_system_ledger.system_detail(
             store, product, int(draw), horizon, config)
+    finally:
+        store.close()
+
+
+@app.get("/api/pool/systems/live")
+def pool_system_live(product: str, draw: int, horizon: str, config: str):
+    """Liverätta ett fryst PH5-/max40-system utan att skapa nytt facit.
+
+    Samma statusmotor som för en manuellt spelad kupong används. Resultatet är
+    ett ögonblicksläge; officiellt facit kommer fortsatt enbart från
+    settlementlagret. Oddsbaserad chans och enskilda levande rader hoppas över
+    eftersom de inte behövs för rättningen och max40 annars blir onödigt tungt.
+    """
+    from . import pool_played, pool_system_ledger
+    store = Storage()
+    try:
+        coupon = pool_system_ledger.system_live_coupon(
+            store, product, int(draw), horizon, config)
+        if coupon is None:
+            return {"available": False}
+        if coupon["settled"]:
+            return {"available": True, "settled": True}
+        key = (product, int(draw))
+        states_by_draw, errors_by_draw = _pool_live_states(
+            store, [key], include_odds=False)
+        if key in errors_by_draw:
+            raise errors_by_draw[key]
+        states = states_by_draw.get(key)
+        if states is None:
+            raise RuntimeError("omgångens livestatus saknas")
+        status = pool_played.live_status(
+            coupon, states, include_chance=False,
+            include_row_details=False)
+        return {
+            "available": True, "settled": False,
+            "observed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "live": status,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001 — källfel ska bli begripligt 503
+        logger.warning(
+            "Liverättning misslyckades för %s %s %s %s",
+            product, draw, horizon, config, exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="Liverättningen är tillfälligt otillgänglig") from exc
     finally:
         store.close()
 

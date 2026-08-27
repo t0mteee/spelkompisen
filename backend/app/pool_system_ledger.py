@@ -955,6 +955,37 @@ def system_detail(store: Storage, product: str, draw_number: int,
     }
 
 
+def system_live_coupon(store: Storage, product: str, draw_number: int,
+                       horizon: str, config_key: str) -> Optional[dict]:
+    """Minimal kupongform för den gemensamma liverättningen.
+
+    Ledgern lagrar äldre PH5-rader kommaseparerat och max40-rader kompakt.
+    `pool_played.live_status` arbetar med ett tecken per kolumn, så båda
+    formaten normaliseras här. Funktionen hämtar varken källdata eller facit
+    och är därför en rent lokal, testbar brygga mellan de två lagren.
+    """
+    row = store.conn.execute(
+        "SELECT rows_text, events_order, n_rows, cost_kr, settled_at "
+        "FROM pool_system_ledger WHERE product=? AND draw_number=? "
+        "AND horizon=? AND config_key=?",
+        (product, draw_number, horizon, config_key)).fetchone()
+    if row is None:
+        return None
+    rows_text, events_order, n_rows, cost_kr, settled_at = row
+    order = [int(value) for value in (events_order or "").split(",")
+             if value]
+    compact_rows = ["".join(signs) for signs in _decode_rows(rows_text)]
+    return {
+        "product": product, "draw_number": int(draw_number),
+        "horizon": horizon, "config_key": config_key,
+        "rows_text": "\n".join(compact_rows),
+        "events_order": json.dumps(order),
+        "n_rows": int(n_rows or len(compact_rows)),
+        "cost_kr": float(cost_kr or 0),
+        "settled": settled_at is not None,
+    }
+
+
 def _research_overview(
         store: Storage, *, configs: tuple[dict, ...],
         products: tuple[str, ...], rows_per_test: int,

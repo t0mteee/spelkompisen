@@ -809,6 +809,33 @@ class SystemDetailTests(unittest.TestCase):
              "payout_kr": None},
         ], d["rows"])
 
+    def test_liverattningsbryggan_normaliserar_gamla_och_kompakta_rader(self):
+        coupon = pool_system_ledger.system_live_coupon(
+            self.store, "topptipset", 77, "m20",
+            pool_system_ledger.CHAMPION_KEY)
+
+        self.assertEqual("11\n1X", coupon["rows_text"])
+        self.assertEqual("[1, 2]", coupon["events_order"])
+        self.assertEqual(2, coupon["n_rows"])
+        self.assertFalse(coupon["settled"])
+
+        config = pool_system_ledger.MAX40_FORWARD_CONFIGS[0]
+        self.store.conn.execute(
+            "INSERT INTO pool_system_ledger (product,draw_number,horizon,"
+            "config_key,frozen_at,lag_min,timely,code_version,budget,strategy,"
+            "value_weight,row_price,n_rows,cost_kr,events_order,rows_text,"
+            "rows_hash,n_events_covered,settled_at) VALUES "
+            "('stryktipset',4968,'h3',?,'2026-08-26T10:00:00Z',2,1,'test',"
+            "40000,'medel',0.5,1,2,2,'3,7','1X\n22','h',2,"
+            "'2026-08-26T22:00:00Z')", (config["key"],))
+        self.store.conn.commit()
+
+        compact = pool_system_ledger.system_live_coupon(
+            self.store, "stryktipset", 4968, "h3", config["key"])
+        self.assertEqual("1X\n22", compact["rows_text"])
+        self.assertEqual("[3, 7]", compact["events_order"])
+        self.assertTrue(compact["settled"])
+
     def test_unknown_system_is_reported_not_crashed(self):
         d = pool_system_ledger.system_detail(
             self.store, "topptipset", 77, "h3", "finns-inte")

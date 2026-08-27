@@ -263,6 +263,19 @@ class AliveRowsTests(unittest.TestCase):
             o["sign"] for o in live["alive_rows"][0]["open"]))
         self.assertTrue(all(r["secure"] == 1 for r in live["alive_rows"]))
 
+    def test_stort_forskningssystem_kan_hoppa_over_raddetaljer(self):
+        coupon, states = self._tretton(
+            "1111111111", ["1111111111111", "1111111111XX2"])
+
+        live = pool_played.live_status(
+            coupon, states, include_chance=False,
+            include_row_details=False)
+
+        self.assertEqual(2, live["alive_per_level"][13])
+        self.assertEqual(13, len(live["matches"]))
+        self.assertNotIn("alive_rows", live)
+        self.assertNotIn("cheer", live)
+
 
 class SettleTests(unittest.TestCase):
     def setUp(self):
