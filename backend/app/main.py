@@ -820,6 +820,34 @@ async def pool_played_record(request: Request):
         store.close()
 
 
+@app.post("/api/pool/played/import/preview")
+async def pool_played_import_preview(request: Request):
+    """Kontrollera en sparad Egna rader-fil utan att bokföra den."""
+    from . import pool_played
+    payload = await request.json()
+    store = Storage()
+    try:
+        return {"preview": pool_played.saved_rows_preview(store, payload)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        store.close()
+
+
+@app.post("/api/pool/played/import")
+async def pool_played_import(request: Request):
+    """Bokför en bekräftad radfil i efterhand. Lägger och betalar inget spel."""
+    from . import pool_played
+    payload = await request.json()
+    store = Storage()
+    try:
+        return pool_played.import_saved_rows(store, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        store.close()
+
+
 @app.delete("/api/pool/played/{coupon_id}")
 def pool_played_forget(coupon_id: int):
     from . import pool_played

@@ -1,5 +1,20 @@
 # Spelkompisen — färdplan
 
+## STATUS-SAMMANFATTNING (2026-08-29 — import av glömd spelad kupong)
+
+**SPARADE RADFILER KAN NU BOKFÖRAS I EFTERHAND (Codex).** Historik har ett
+återhämtningsflöde för när användaren faktiskt lämnade in kupongen men glömde
+”Spelad kupong”. En sparad Svenska Spel/Egna rader-fil förhandsgranskas innan
+något skrivs: produkt, Topptipsvariant, omgång, radbredd, tecken, insats och
+dubbletter valideras. Stryktipsets/Europatipsets rubrik saknar omgång, så våra
+filnamn är identitetskälla; en omdöpt fil kräver uttryckligt manuellt
+omgångsnummer och konflikter avvisas. Bekräftad import använder samma
+`pool_played_coupon`-ledger, livestatus och officiella settlement som
+direktknappen. Finns facit redan lokalt rättas kupongen direkt. Importen
+kontaktar aldrig Svenska Spel, lägger inget spel och är inte ett
+betalningskvitto. Ingen DB-migration eller historisk bakfyllning.
+Handover: `docs/overlamning-2026-08-29-importera-spelad-kupong.md`.
+
 ## STATUS-SAMMANFATTNING (2026-08-29 — läs detta först i ny session)
 
 **40 000-PILOTEN ÄR ERSATT AV TVÅ KORREKT DEFINIERADE MAXTESTER (Codex).**

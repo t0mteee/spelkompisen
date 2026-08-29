@@ -32,6 +32,7 @@ import itertools
 import math
 import json
 import random
+import re
 from typing import Optional
 
 from .storage import Storage
@@ -45,6 +46,23 @@ PINNACLE_LIVE_MAX_AGE_S = 90
 # eventNumber) i stället för draw-payloadens Current-score; events_order-join;
 # hård breddvakt. v1 hann aldrig settla en kupong i drift.
 SETTLEMENT_VERSION = "played-v2"
+
+# En sparad "Egna rader"-fil är ett kvitto på EXAKTA rader, men inte på att
+# spelet betalades. Importen bokför därför bara efter användarens uttryckliga
+# bekräftelse i UI och lägger aldrig något spel. Bomben har ett annat radformat
+# och följs ännu inte i pool_played-ledgern.
+IMPORT_PRODUCT_WIDTH = {
+    "stryktipset": 13,
+    "europatipset": 13,
+    "topptipset": 8,
+    "topptipsetstryk": 8,
+    "topptipsetextra": 8,
+}
+IMPORT_MAX_BYTES = 3_000_000
+IMPORT_MAX_ROWS = 20_000
+_IMPORT_FILENAME = re.compile(
+    r"(?:^|_)(topptipsetstryk|topptipsetextra|topptipset|"
+    r"stryktipset|europatipset)_omg(\d+)(?:_|\.)", re.IGNORECASE)
 
 # SvS-statusar: matchen är färdigspelad och tecknet står fast.
 # 31 = "Slut", 33 = "Slut efter straffläggning". 33 saknades och gjorde två
@@ -119,6 +137,202 @@ def normalize_rows(rows) -> list[str]:
         if text:
             out.append(text)
     return out
+
+
+def _clean_filename(filename) -> str:
+    """Behåll bara basnamnet; filnamnet är metadata, aldrig en sökväg."""
+    return str(filename or "").replace("\\", "/").rsplit("/", 1)[-1][:255]
+
+
+def _header_identity(header: str) -> tuple[Optional[str], Optional[int], float]:
+    """Läs produkt, omgång och radinsats ur SvS-rubrikraden."""
+    parts = [part.strip() for part in header.split(",")]
+    first = (parts[0] if parts else "").casefold()
+    product = None
+    if first == "stryktipset":
+        product = "stryktipset"
+    elif first == "europatipset":
+        product = "europatipset"
+    elif first == "topptipset":
+        variants = [part.casefold() for part in parts[1:] if "=" not in part]
+        if len(variants) > 1 or (variants and variants[0] not in ("stryk", "europa")):
+            raise ValueError("filens Topptipsvariant stöds inte")
+        variant = variants[0] if variants else ""
+        product = {"stryk": "topptipsetstryk",
+                   "europa": "topptipsetextra"}.get(variant, "topptipset")
+    elif first == "bomben":
+        raise ValueError("Bombens radfiler kan inte följas i kuponghistoriken än")
+    else:
+        raise ValueError("filens första rad är inte en stödd Egna rader-rubrik")
+
+    values = {}
+    for part in parts[1:]:
+        if "=" in part:
+            key, value = part.split("=", 1)
+            values[key.strip().casefold()] = value.strip()
+    draw = None
+    if values.get("omg"):
+        try:
+            draw = int(values["omg"])
+        except ValueError as exc:
+            raise ValueError("filens Omg-värde är inte ett heltal") from exc
+    stake = 1.0
+    if values.get("insats"):
+        try:
+            stake = float(values["insats"].replace(",", "."))
+        except ValueError as exc:
+            raise ValueError("filens Insats-värde är inte ett tal") from exc
+    if not math.isfinite(stake) or stake <= 0 or stake > 10:
+        raise ValueError("filens Insats måste vara 1–10 kr per rad")
+    return product, draw, stake
+
+
+def _filename_identity(filename: str) -> tuple[Optional[str], Optional[int]]:
+    match = _IMPORT_FILENAME.search(_clean_filename(filename))
+    if not match:
+        return None, None
+    return match.group(1).casefold(), int(match.group(2))
+
+
+def parse_saved_rows(payload: dict) -> dict:
+    """Validera en sparad SvS-fil och returnera ett kanoniskt importunderlag.
+
+    Stryktipsets och Europatipsets filrubrik saknar omgångsnummer. Våra egna
+    nedladdningar bär därför omgången i filnamnet. Har filen döpts om krävs ett
+    uttryckligt omgångsnummer från användaren; vi gissar aldrig på aktuell
+    omgång eftersom en gammal fil då skulle kunna bokföras på fel facit.
+    """
+    filename = _clean_filename(payload.get("filename"))
+    text = payload.get("text")
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("filen är tom")
+    if len(text.encode("utf-8")) > IMPORT_MAX_BYTES:
+        raise ValueError("filen är för stor")
+    lines = [line.strip() for line in text.lstrip("\ufeff").splitlines()
+             if line.strip()]
+    if len(lines) < 2:
+        raise ValueError("filen saknar spelrader")
+
+    header_product, header_draw, row_price = _header_identity(lines[0])
+    filename_product, filename_draw = _filename_identity(filename)
+    override_product = str(payload.get("product") or "").strip().casefold() or None
+    if override_product and override_product not in IMPORT_PRODUCT_WIDTH:
+        raise ValueError("vald produkt stöds inte av kupongimporten")
+    products = {p for p in (header_product, filename_product, override_product) if p}
+    if len(products) != 1:
+        raise ValueError("produkt i filnamn, rubrik och manuellt val stämmer inte överens")
+    product = products.pop()
+
+    override_draw = payload.get("draw_number")
+    try:
+        override_draw = int(override_draw) if override_draw not in (None, "") else None
+    except (TypeError, ValueError) as exc:
+        raise ValueError("omgångsnumret måste vara ett heltal") from exc
+    draws = {draw for draw in (header_draw, filename_draw, override_draw)
+             if draw is not None}
+    if not draws:
+        raise ValueError("omgång saknas — ange den manuellt om filen har döpts om")
+    if len(draws) != 1:
+        raise ValueError("omgång i filnamn, rubrik och manuellt val stämmer inte överens")
+    draw_number = draws.pop()
+    if draw_number <= 0:
+        raise ValueError("omgångsnumret måste vara större än noll")
+
+    rows = []
+    for number, line in enumerate(lines[1:], start=2):
+        parts = [part.strip().upper() for part in line.split(",")]
+        if not parts or parts[0] != "E":
+            raise ValueError(f"rad {number} måste börja med E")
+        signs = parts[1:]
+        if not signs or any(sign not in SIGNS for sign in signs):
+            raise ValueError(f"rad {number} innehåller ett ogiltigt tecken")
+        rows.append("".join(signs))
+    if len(rows) > IMPORT_MAX_ROWS:
+        raise ValueError(f"filen har fler än {IMPORT_MAX_ROWS} rader")
+    expected_width = IMPORT_PRODUCT_WIDTH[product]
+    widths = {len(row) for row in rows}
+    if widths != {expected_width}:
+        raise ValueError(
+            f"{product} kräver exakt {expected_width} tecken per rad")
+    if len(set(rows)) != len(rows):
+        raise ValueError("filen innehåller dubblettrader och kan därför inte kostnadsberäknas säkert")
+    return {
+        "filename": filename,
+        "product": product,
+        "draw_number": draw_number,
+        "row_price": row_price,
+        "rows": rows,
+        "events_order": list(range(1, expected_width + 1)),
+    }
+
+
+def saved_rows_preview(store: Storage, payload: dict) -> dict:
+    """Förhandsgranska importen utan att skriva något."""
+    parsed = parse_saved_rows(payload)
+    digest = rows_hash(parsed["rows"])
+    existing = store.conn.execute(
+        "SELECT id, settled_at FROM pool_played_coupon WHERE product=? "
+        "AND draw_number=? AND rows_hash=?",
+        (parsed["product"], parsed["draw_number"], digest)).fetchone()
+    settlement = store.conn.execute(
+        "SELECT reg_close_time, n_events FROM pool_draw_settlement "
+        "WHERE product=? AND draw_number=?",
+        (parsed["product"], parsed["draw_number"])).fetchone()
+    draw = store.conn.execute(
+        "SELECT reg_close_time FROM draws WHERE product=? AND draw_number=?",
+        (parsed["product"], parsed["draw_number"])).fetchone()
+    if settlement and settlement["n_events"] is not None:
+        expected = IMPORT_PRODUCT_WIDTH[parsed["product"]]
+        if int(settlement["n_events"]) != expected:
+            raise ValueError(
+                f"den lokala omgången har {settlement['n_events']} matcher, "
+                f"men filen hör till ett {expected}-matchersspel")
+    return {
+        "filename": parsed["filename"],
+        "product": parsed["product"],
+        "draw_number": parsed["draw_number"],
+        "n_rows": len(parsed["rows"]),
+        "n_events": len(parsed["rows"][0]),
+        "row_price": parsed["row_price"],
+        "cost_kr": round(len(parsed["rows"]) * parsed["row_price"], 2),
+        "draw_known": bool(settlement or draw),
+        "draw_close": (settlement["reg_close_time"] if settlement else
+                       draw["reg_close_time"] if draw else None),
+        "duplicate": bool(existing),
+        "coupon_id": existing["id"] if existing else None,
+        "already_settled": bool(existing and existing["settled_at"]),
+        "rows_sample": parsed["rows"][:3],
+    }
+
+
+def import_saved_rows(store: Storage, payload: dict) -> dict:
+    """Bokför en bekräftad filimport och sätt lokalt facit direkt om möjligt."""
+    parsed = parse_saved_rows(payload)
+    digest = rows_hash(parsed["rows"])
+    existing = store.conn.execute(
+        "SELECT id FROM pool_played_coupon WHERE product=? AND draw_number=? "
+        "AND rows_hash=?", (parsed["product"], parsed["draw_number"], digest)).fetchone()
+    filename = parsed["filename"] or "namnlös fil"
+    coupon = record(store, {
+        **parsed,
+        "label": "Importerad sparad radfil",
+        "build_kind": "egna-rader-import",
+        "budget": round(len(parsed["rows"]) * parsed["row_price"], 2),
+        "note": (f"Importerad i efterhand från {filename}; exakt speltidpunkt "
+                 "är okänd. Importen bokför bara användarens uppgift och är "
+                 "inte ett betalningskvitto."),
+    })
+    if not coupon.get("settled_at"):
+        tiers = {int(correct): (winners, amount)
+                 for correct, winners, amount in store.conn.execute(
+            "SELECT correct, winners, amount FROM pool_payout_tier "
+            "WHERE product=? AND draw_number=? AND correct IS NOT NULL",
+            (parsed["product"], parsed["draw_number"]))}
+        if tiers:
+            settle(store, coupon, tiers)
+            coupon = dict(store.conn.execute(
+                "SELECT * FROM pool_played_coupon WHERE id=?", (coupon["id"],)).fetchone())
+    return {"coupon": coupon, "created": existing is None}
 
 
 def record(store: Storage, payload: dict) -> dict:

@@ -88,6 +88,82 @@ class RecordTests(unittest.TestCase):
         self.store.conn.commit()
         self.assertFalse(pool_played.forget(self.store, kupong["id"]))
 
+    def test_sparad_radfil_forhandsgranskas_utan_skrivning(self):
+        text = ("Stryktipset\r\n"
+                "E,1,1,1,1,1,1,1,1,1,1,1,1,1\r\n"
+                "E,X,1,1,1,1,1,1,1,1,1,1,1,1\r\n")
+        preview = pool_played.saved_rows_preview(self.store, {
+            "filename": "svs_stryktipset_omg4968_egnarader.txt",
+            "text": text,
+        })
+        self.assertEqual("stryktipset", preview["product"])
+        self.assertEqual(4968, preview["draw_number"])
+        self.assertEqual(2, preview["n_rows"])
+        self.assertEqual(2.0, preview["cost_kr"])
+        self.assertFalse(preview["draw_known"])
+        self.assertFalse(preview["duplicate"])
+        self.assertEqual([], pool_played.all_coupons(self.store))
+
+    def test_omdopt_strykfil_kraver_manuell_omgang(self):
+        text = "Stryktipset\nE," + ",".join("1" * 13) + "\n"
+        with self.assertRaisesRegex(ValueError, "omgång saknas"):
+            pool_played.parse_saved_rows({"filename": "mina-rader.txt", "text": text})
+        parsed = pool_played.parse_saved_rows({
+            "filename": "mina-rader.txt", "text": text,
+            "product": "stryktipset", "draw_number": 4968,
+        })
+        self.assertEqual(4968, parsed["draw_number"])
+
+    def test_topptipsvariant_och_insats_lases_ur_rubriken(self):
+        text = ("Topptipset,Europa,Omg=4301,Insats=2\n"
+                "E,1,X,2,1,X,2,1,X\n")
+        parsed = pool_played.parse_saved_rows({
+            "filename": "rader.txt", "text": text})
+        self.assertEqual("topptipsetextra", parsed["product"])
+        self.assertEqual(4301, parsed["draw_number"])
+        self.assertEqual(2.0, parsed["row_price"])
+
+    def test_identitetskonflikt_och_trasig_rad_avvisas(self):
+        text = ("Topptipset,Omg=4301,Insats=1\n"
+                "E,1,X,2,1,X,2,1,X\n")
+        with self.assertRaisesRegex(ValueError, "stämmer inte överens"):
+            pool_played.parse_saved_rows({
+                "filename": "svs_topptipset_omg4302_egnarader.txt",
+                "text": text})
+        with self.assertRaisesRegex(ValueError, "ogiltigt tecken"):
+            pool_played.parse_saved_rows({
+                "filename": "rader.txt",
+                "text": text.replace("E,1,X", "E,1,A")})
+
+    def test_import_ar_idempotent_och_satter_redan_kant_facit(self):
+        product, draw = "topptipset", 4300
+        self.store.conn.execute(
+            "INSERT INTO pool_draw_settlement (product, draw_number, "
+            "draw_state, reg_close_time, row_price, n_events, source_version, "
+            "payload_hash, fetched_at) VALUES (?,?,?,?,?,?,?,?,?)",
+            (product, draw, "Finalized", "2026-08-29T18:00:00Z", 1.0, 8,
+             "test", "hash", "2026-08-29T20:00:00Z"))
+        _seed_facit(self.store, product, draw, {i: "1" for i in range(1, 9)})
+        self.store.conn.execute(
+            "INSERT INTO pool_payout_tier (product, draw_number, tier_name, "
+            "correct, winners, amount) VALUES (?,?,?,?,?,?)",
+            (product, draw, "8 rätt", 8, 1, 100.0))
+        self.store.conn.commit()
+        payload = {
+            "filename": "svs_topptipset_omg4300_egnarader.txt",
+            "text": "Topptipset,Omg=4300,Insats=1\nE,1,1,1,1,1,1,1,1\n",
+        }
+
+        first = pool_played.import_saved_rows(self.store, payload)
+        second = pool_played.import_saved_rows(self.store, payload)
+
+        self.assertTrue(first["created"])
+        self.assertFalse(second["created"])
+        self.assertEqual(1, len(pool_played.all_coupons(self.store)))
+        self.assertEqual(8, first["coupon"]["correct_max"])
+        self.assertEqual(100.0, first["coupon"]["payout_kr"])
+        self.assertEqual("egna-rader-import", first["coupon"]["build_kind"])
+
 
 class LiveStatusTests(unittest.TestCase):
     """Livestatus för reducerade system — kärnan i Samans andra önskan."""

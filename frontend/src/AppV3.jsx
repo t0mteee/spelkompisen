@@ -2204,7 +2204,7 @@ function HistorikV3({ initialProduct, focus }) {
       {/* ---------------------------- kuponger ---------------------------- */}
       <div className="v3card">
         <div className="v3cardhead"><h3>🎟️ Dina spelade kuponger</h3>
-          <span className="v3hint">bara kuponger du markerat som spelade</span>
+          <span className="v3hint">markerade direkt eller importerade i efterhand</span>
         </div>
         <PlayedPanel product={single ? product : null} />
       </div>

@@ -78,6 +78,10 @@ ett nytt manifest — en aliasändring i en liga som ingår i V2.2:s FIT_POOLS
 datagenererande process. Äldre manifest blandas aldrig in. Det är inte en
 tränad modell och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
+`docs/overlamning-2026-08-29-importera-spelad-kupong.md` — återställning när
+”Spelad kupong” glömts: Historik kan förhandsgranska och bokföra en sparad
+Egna rader-fil i efterhand, med strikt produkt-/omgångskontroll,
+dubblettskydd och omedelbart facit när settlement redan finns. Därefter
 `docs/maxtester-2026-08-29.md` — aktiva separata maxserier: äkta matematiskt
 41 472 (4 hel + 9 halv) och reducerat 20 000, båda EV medel/EV högt med egna
 UI/API/hälsolarm. Den tidigare 40 000-serien är en avslutad reducerad pilot;
@@ -205,8 +209,11 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/pool_dataset.py PH2: PIT-features per omgång/horisont (pit-v3, enbart
                       observed_pit — no backfill) + separat presence-ledger
                       och proveniensmärkt pool_draw_snapshot-serie
-  app/pool_played.py  SPELADE kuponger: 🎟-knappen bokför att SAMAN själv lämnat
-                      in kupongen (lägger inga spel). FACIT = settlementlagrets
+  app/pool_played.py  SPELADE kuponger: 🎟-knappen eller en bekräftad import av
+                      sparad Egna rader-fil bokför att SAMAN själv lämnat in
+                      kupongen (lägger inga spel). Importen gissar aldrig
+                      produkt/omgång och är inte ett betalningskvitto.
+                      FACIT = settlementlagrets
                       officiella `outcome` per eventNumber (samma kanon som PH3;
                       struken match = SvS fastställda tecken, aldrig "rätt för
                       alla") mot PUBLICERAD utdelning — kupongen låg i potten,
@@ -948,6 +955,11 @@ enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
   Topptipset = `Topptipset[,Stryk|,Europa],Omg=<nr>,Insats=<1–10>`. Därefter `E,1,X,2,...`.
 - Exportera alltid konkreta enumererade rader (E), aldrig M-system.
 - Uppladdning på `spela.svenskaspel.se/{produkt}/externa-systemspel`.
+- Om 🎟-knappen glömdes kan samma sparade fil importeras i Historik. API:t
+  `/api/pool/played/import/preview` skriver inget; först en uttrycklig
+  bekräftelse till `/api/pool/played/import` skapar ledgerraden. Filnamnets
+  omgång används för Stryk/Europa eftersom deras rubrik saknar `Omg`; en
+  omdöpt fil kräver manuellt omgångsnummer och konflikt faller stängt.
 - R 4-0-9 / R 0-7-16 / R 4-4-144 är exakta Hamming-täckningar; R 3-3-24 är greedy (38 rader).
 
 ### CLV-facit (signalvalidering)

@@ -3557,6 +3557,141 @@ function PlayedCouponDetail({ coupon, onClose }) {
   )
 }
 
+function PlayedFileImport({ onImported }) {
+  const [savedFile, setSavedFile] = useState(null)
+  const [manualProduct, setManualProduct] = useState('')
+  const [manualDraw, setManualDraw] = useState('')
+  const [preview, setPreview] = useState(null)
+  const [checkedPayload, setCheckedPayload] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const inputRef = useRef(null)
+  const inspectRef = useRef(0)
+
+  const changeOverride = (setter, value) => {
+    ++inspectRef.current
+    setter(value); setBusy(false); setPreview(null); setCheckedPayload(null)
+    setError(''); setMessage('')
+  }
+
+  const payload = (file = savedFile) => ({
+    filename: file?.name || '', text: file?.text || '',
+    product: manualProduct || undefined,
+    draw_number: manualDraw || undefined,
+  })
+  const inspect = async (file = savedFile, requestId = null) => {
+    if (!file) return
+    const id = requestId ?? ++inspectRef.current
+    const checked = payload(file)
+    setBusy(true); setError(''); setMessage(''); setPreview(null); setCheckedPayload(null)
+    try {
+      const response = await fetch('/api/pool/played/import/preview', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(checked),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`)
+      if (inspectRef.current === id) {
+        setCheckedPayload(checked)
+        setPreview(result.preview)
+      }
+    } catch (caught) {
+      if (inspectRef.current === id) {
+        setError(caught.message || 'Filen kunde inte kontrolleras')
+      }
+    } finally {
+      if (inspectRef.current === id) setBusy(false)
+    }
+  }
+  const chooseFile = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const requestId = ++inspectRef.current
+    setBusy(true); setError(''); setMessage(''); setPreview(null); setCheckedPayload(null)
+    try {
+      const saved = { name: file.name, text: await file.text() }
+      if (inspectRef.current !== requestId) return
+      setSavedFile(saved)
+      await inspect(saved, requestId)
+    } catch {
+      if (inspectRef.current === requestId) {
+        setBusy(false)
+        setError('Filen kunde inte läsas på den här enheten')
+      }
+    }
+  }
+  const confirm = async () => {
+    if (!checkedPayload || !preview || preview.duplicate) return
+    setBusy(true); setError(''); setMessage('')
+    try {
+      const response = await fetch('/api/pool/played/import', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(checkedPayload),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`)
+      setMessage(result.created
+        ? `✓ ${preview.n_rows.toLocaleString('sv-SE')} rader bokförda och följs nu.`
+        : 'Kupongen var redan bokförd.')
+      setPreview(null); setCheckedPayload(null); setSavedFile(null)
+      if (inputRef.current) inputRef.current.value = ''
+      onImported?.()
+    } catch (caught) {
+      setError(caught.message || 'Kupongen kunde inte bokföras')
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <section className="played-import">
+      <div className="played-import-head">
+        <div><b>Glömde du ”Spelad kupong”?</b>
+          <span>Läs in den sparade Egna rader-filen och bokför spelet i efterhand.</span></div>
+        <label className="played-import-file">
+          <span>{busy ? 'Kontrollerar…' : 'Välj radfil'}</span>
+          <input ref={inputRef} type="file" accept=".txt,text/plain"
+            disabled={busy} onChange={chooseFile} />
+        </label>
+      </div>
+      <p className="hint">Filen läses och kontrolleras här, men skickas aldrig till
+        Svenska Spel och lägger inget nytt spel. Bekräfta bara kuponger du faktiskt betalade.</p>
+      <details className="played-import-manual">
+        <summary>Har filen döpts om och saknar omgång?</summary>
+        <div>
+          <label>Spel<select value={manualProduct}
+            onChange={(event) => changeOverride(setManualProduct, event.target.value)}>
+            <option value="">Läs från filen</option>
+            <option value="stryktipset">Stryktipset</option>
+            <option value="europatipset">Europatipset</option>
+            <option value="topptipset">Topptipset · Dagens</option>
+            <option value="topptipsetstryk">Topptipset · Stryk</option>
+            <option value="topptipsetextra">Topptipset · Extra</option>
+          </select></label>
+          <label>Omgång<input type="number" min="1" inputMode="numeric"
+            value={manualDraw} placeholder="t.ex. 4968"
+            onChange={(event) => changeOverride(setManualDraw, event.target.value)} /></label>
+          <button disabled={!savedFile || busy} onClick={() => inspect()}>
+            Kontrollera igen</button>
+        </div>
+      </details>
+      {error && <div className="played-import-status bad">⚠️ {error}</div>}
+      {message && <div className="played-import-status good">{message}</div>}
+      {preview && (
+        <div className="played-import-preview">
+          <div><b>{PRODUCT_LABEL[preview.product] || preview.product} · omgång {preview.draw_number}</b>
+            <span>{preview.n_rows.toLocaleString('sv-SE')} rader · {preview.n_events} matcher
+              {' · '}{kr(preview.cost_kr)}</span></div>
+          {!preview.draw_known && <span className="played-import-warn">Omgången finns inte
+            lokalt ännu. Den börjar samlas in och följas efter bokföringen.</span>}
+          {preview.duplicate
+            ? <span className="played-import-ok">✓ Exakt den här kupongen är redan bokförd.</span>
+            : <button disabled={busy} onClick={confirm}>Bokför och följ kupongen</button>}
+        </div>
+      )}
+    </section>
+  )
+}
+
 // `product` = null visar alla spel; annars filtreras allt till ett. Summeringen
 // räknas om på det filtrerade urvalet — en ROI som gäller alla spel får inte
 // stå kvar som rubrik när tabellen bara visar ett.
@@ -3657,13 +3792,6 @@ function PlayedPanel({ product = null }) {
         n_open: coupons.length - settled.length, spent_kr: spent, won_kr: won,
         roi: spent > 0 ? won / spent - 1 : null }
     : (data.summary || {})
-  if (!coupons.length) {
-    return <p className="hint">{all.length
-      ? 'Inga bokförda kuponger för det här spelet.'
-      : <>Inga bokförda kuponger än. Bygg ett förslag, lämna in det
-        hos Svenska Spel och tryck <b>🎟️ Markera som spelad</b> i kupongen — då följs
-        reducerade system live och får riktigt facit när omgången är klar.</>}</p>
-  }
   const forget = async (id) => {
     await fetch(`/api/pool/played/${id}`, { method: 'DELETE' }); load()
   }
@@ -3673,7 +3801,12 @@ function PlayedPanel({ product = null }) {
   const done = settled
   return (
     <div className="playedbox">
-      <p className="hint" title={s.note}>
+      <PlayedFileImport onImported={load} />
+      {!coupons.length ? <p className="hint">{all.length
+        ? 'Inga bokförda kuponger för det här spelet.'
+        : <>Inga bokförda kuponger än. Markera kupongen som spelad när du lämnar
+          in den, eller importera den sparade radfilen ovan i efterhand.</>}</p> : <>
+      <p className="hint played-summary" title={s.note}>
         {s.n_coupons} kuponger · {s.n_settled} med facit · {s.n_open} öppna
         {s.n_settled > 0 && <> · satsat {kr(s.spent_kr)} · tillbaka {kr(s.won_kr)}
           {s.roi != null && <> · ROI <b className={s.roi >= 0 ? 'pos' : 'neg'}>
@@ -3756,6 +3889,7 @@ function PlayedPanel({ product = null }) {
         <PlayedCouponDetail key={detailCoupon.id} coupon={detailCoupon}
           onClose={() => setDetailCoupon(null)} />
       )}
+      </>}
     </div>
   )
 }
