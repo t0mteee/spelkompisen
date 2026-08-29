@@ -36,6 +36,10 @@ ROW_PRICE = 1.0  # Stryktipset: 1 kr/rad
 COMPLEMENTARY_PREFERRED_QUALITY = 0.75
 COMPLEMENTARY_FALLBACK_QUALITY = 0.60
 COMPLEMENTARY_MIN_QUALITY = 0.55
+MAX_MATH_MATCHES = 13
+MAX_MATH_FULL_GUARDS = 4
+MAX_MATH_ROWS = 3 ** MAX_MATH_FULL_GUARDS * 2 ** (
+    MAX_MATH_MATCHES - MAX_MATH_FULL_GUARDS)
 
 
 @dataclass
@@ -266,6 +270,58 @@ def build_math_system(analysis: DrawAnalysis, strategy: str = "medel",
         note=f"{sum(1 for p in picks if p.role=='spik')} spikar, "
              f"{sum(1 for p in picks if p.role=='halvgardering')} halvgarderingar, "
              f"{sum(1 for p in picks if p.role=='helgardering')} helgarderingar",
+    )
+
+
+def build_max_math_system(analysis: DrawAnalysis, strategy: str = "medel",
+                          row_price: float = ROW_PRICE,
+                          value_weight: float = 0.5) -> System:
+    """Bygg Svenska Spels största matematiska 13-matchssystem.
+
+    Maxformen är exakt 4 helgarderingar och 9 halvgarderingar:
+    ``3^4 * 2^9 = 41 472`` rader. Den vanliga budgetgiriga dimensioneringen
+    kan stanna på en annan faktorkombination under taket. Här låser vi därför
+    formen först och använder profilen enbart till att välja vilka fyra
+    matcher som får det tredje tecknet och vilka två tecken som tas i resten.
+    Resultatet är ett äkta kartesiskt M-system, aldrig ett rankat radurval.
+    """
+    if len(analysis.matches) != MAX_MATH_MATCHES:
+        raise ValueError(
+            f"matematiskt max kräver {MAX_MATH_MATCHES} matcher")
+
+    cfg = STRATEGIES[strategy]
+
+    def third_sign_gain(match: MatchAnalysis) -> float:
+        order = _signs_by_score(match, value_weight)
+        scores = [max(1e-12, _sign_score(match, sign, value_weight))
+                  for sign in order]
+        return scores[2] / (scores[0] + scores[1])
+
+    full_events = {
+        match.event_number for match in sorted(
+            analysis.matches,
+            key=lambda match: (
+                third_sign_gain(match), match.open_score or 0,
+                -match.event_number),
+            reverse=True)[:MAX_MATH_FULL_GUARDS]
+    }
+    counts = {
+        match.event_number: (3 if match.event_number in full_events else 2)
+        for match in analysis.matches
+    }
+    picks = _build_picks(analysis, cfg, counts, value_weight)
+    rows = [list(combo) for combo in itertools.product(
+        *[pick.signs for pick in picks])]
+    if len(rows) != MAX_MATH_ROWS:
+        raise AssertionError(
+            f"matematiskt max gav {len(rows)} i stället för {MAX_MATH_ROWS}")
+    return System(
+        strategy=strategy, system_type="matematiskt", budget=float(MAX_MATH_ROWS),
+        row_price=row_price, num_rows=MAX_MATH_ROWS,
+        cost=round(MAX_MATH_ROWS * row_price, 2), picks=picks, rows=rows,
+        note=(f"Matematiskt max: {MAX_MATH_FULL_GUARDS} helgarderingar, "
+              f"{MAX_MATH_MATCHES - MAX_MATH_FULL_GUARDS} halvgarderingar, "
+              "inga spikar."),
     )
 
 
@@ -749,10 +805,10 @@ def _rank_ev_rows(analysis: DrawAnalysis, budget: float, row_price: float,
         q = (o.streck / 100.0) if o.streck else p
         return p, max(q, 0.001)
 
-    # Vanliga system begränsas till högst EV_UNIVERSE_CAP kandidater. Det
-    # separata 40 000-testet måste däremot ranka mot hela 3^13-rummet:
-    # annars väljer båda armarna 40 000 av samma 41 472 kandidater och blir
-    # matematiskt tvungna att nästan helt överlappa.
+    # Vanliga system begränsas till högst EV_UNIVERSE_CAP kandidater. Stora
+    # reducerade researchserier rankar däremot hela 3^13-rummet; annars väljer
+    # armarna nästan hela samma lilla kandidatmängd och blir matematiskt
+    # tvungna att överlappa.
     if full_universe:
         cand = {match.event_number: list(SIGNS) for match in analysis.matches}
         universe = 3 ** len(analysis.matches)

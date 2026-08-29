@@ -6,7 +6,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from app import pool_dataset, pool_system_ledger
+from app import builder, pool_dataset, pool_system_ledger
+from app.analysis import analyze_draw
 from app.storage import Storage
 
 # Efter pit-v4-aktiveringen (FEATURE_START_AT 2026-07-25T16:00Z). Fixturen måste
@@ -440,10 +441,10 @@ class SystemLedgerTests(unittest.TestCase):
         self.assertEqual((), pool_system_ledger.research_configs_for(
             "topptipset", start))
 
-    def test_max40_startar_framat_och_bara_for_13_matchsspelen(self):
-        stryk_start = pool_system_ledger.MAX40_FORWARD_START_DRAW_BY_PRODUCT[
+    def test_bada_nya_maxtester_startar_framat_och_bara_for_13_matchsspelen(self):
+        stryk_start = pool_system_ledger.MAX_TEST_START_DRAW_BY_PRODUCT[
             "stryktipset"]
-        euro_start = pool_system_ledger.MAX40_FORWARD_START_DRAW_BY_PRODUCT[
+        euro_start = pool_system_ledger.MAX_TEST_START_DRAW_BY_PRODUCT[
             "europatipset"]
 
         before = pool_system_ledger.research_families_for(
@@ -452,54 +453,87 @@ class SystemLedgerTests(unittest.TestCase):
             "stryktipset", stryk_start)
 
         self.assertEqual({"ph5"}, set(before))
-        self.assertEqual({"ph5", "max40"}, set(at_start))
-        self.assertNotIn("max40", pool_system_ledger.research_families_for(
-            "europatipset", euro_start - 1))
-        self.assertIn("max40", pool_system_ledger.research_families_for(
-            "europatipset", euro_start))
-        self.assertNotIn("max40", pool_system_ledger.research_families_for(
-            "topptipset", 99999))
+        self.assertEqual({"ph5", "mathmax", "reducedmax"}, set(at_start))
+        for family in ("mathmax", "reducedmax"):
+            self.assertNotIn(family, pool_system_ledger.research_families_for(
+                "europatipset", euro_start - 1))
+            self.assertIn(family, pool_system_ledger.research_families_for(
+                "europatipset", euro_start))
+            self.assertNotIn(family, pool_system_ledger.research_families_for(
+                "topptipset", 99999))
+        self.assertNotIn("max40", at_start)  # piloten är avslutad
 
-    def test_max40_fryser_tva_exakta_kompakta_40000_radersarmar(self):
+    def test_matematiskt_max_ar_akta_4_hel_9_halv_41472(self):
+        draw = _draw_fixture(
+            NOW + dt.timedelta(hours=4), n_events=13,
+            product="stryktipset")
+        analysis = analyze_draw(draw, {}, {})
+
+        system = builder.build_max_math_system(
+            analysis, "medel", value_weight=0.5)
+
+        self.assertEqual("matematiskt", system.system_type)
+        self.assertEqual(41472, system.num_rows)
+        self.assertEqual(41472, len(system.rows))
+        self.assertEqual(41472.0, system.cost)
+        self.assertEqual(4, sum(p.role == "helgardering" for p in system.picks))
+        self.assertEqual(9, sum(p.role == "halvgardering" for p in system.picks))
+        self.assertEqual(0, sum(p.role == "spik" for p in system.picks))
+        self.assertEqual(41472, len({tuple(row) for row in system.rows}))
+
+    def test_nya_maxtester_fryser_exakta_kompakta_rader(self):
         close = NOW + dt.timedelta(minutes=178)
         draw = _draw_fixture(close, n_events=13, product="stryktipset")
-        draw.draw_number = (
-            pool_system_ledger.MAX40_FORWARD_START_DRAW_BY_PRODUCT["stryktipset"])
+        draw.draw_number = pool_system_ledger.MAX_TEST_START_DRAW_BY_PRODUCT[
+            "stryktipset"]
 
         def fake_system(_analysis, strategy, budget, **kwargs):
-            # Olika första tecken ger olika audit-hash för de två armarnas
-            # exakta radmängder. Storleken är avsiktligt fullskalig.
+            # Olika första tecken ger olika audit-hash för de två profilerna.
+            # Storleken är avsiktligt fullskalig.
             self.assertTrue(kwargs["full_universe"])
             first = "1" if kwargs["value_weight"] == 0.5 else "2"
             row = [first, *("X" for _ in range(12))]
             return SimpleNamespace(
-                rows=[row] * 40000, num_rows=40000, cost=40000.0,
+                rows=[row] * 20000, num_rows=20000, cost=20000.0,
                 note=f"{strategy}:{budget}")
+
+        def fake_math(_analysis, strategy, **kwargs):
+            first = "1" if kwargs["value_weight"] == 0.5 else "2"
+            row = [first, "2", *("X" for _ in range(11))]
+            return SimpleNamespace(
+                rows=[row] * 41472, num_rows=41472, cost=41472.0,
+                note=f"math:{strategy}")
+
+        configs = (*pool_system_ledger.MATHMAX_FORWARD_CONFIGS,
+                   *pool_system_ledger.REDUCEDMAX_FORWARD_CONFIGS)
 
         with patch.object(pool_system_ledger, "benchmarks_for", return_value=()), \
                 patch.object(pool_system_ledger, "research_configs_for",
-                             return_value=pool_system_ledger.MAX40_FORWARD_CONFIGS), \
+                             return_value=configs), \
                 patch.object(pool_system_ledger, "build_ev_system",
-                             side_effect=fake_system):
+                             side_effect=fake_system), \
+                patch.object(pool_system_ledger, "build_max_math_system",
+                             side_effect=fake_math):
             report = pool_system_ledger.freeze_due(
                 self.store, "stryktipset", draw, now=NOW, code_version="test")
             retry = pool_system_ledger.freeze_due(
                 self.store, "stryktipset", draw, now=NOW, code_version="test")
 
-        self.assertEqual(2, report["frozen"])
+        self.assertEqual(4, report["frozen"])
         self.assertEqual(0, retry["frozen"])
         rows = self.store.conn.execute(
             "SELECT config_key,n_rows,cost_kr,rows_text,rows_hash "
             "FROM pool_system_ledger ORDER BY config_key").fetchall()
-        self.assertEqual(2, len(rows))
-        self.assertTrue(all((row[1], row[2]) == (40000, 40000.0)
-                            for row in rows))
+        self.assertEqual(4, len(rows))
+        self.assertEqual([20000, 20000, 41472, 41472],
+                         sorted(row[1] for row in rows))
+        self.assertTrue(all(row[1] == row[2] for row in rows))
         self.assertTrue(all("," not in row[3] for row in rows))
-        self.assertTrue(all(len(pool_system_ledger._decode_rows(row[3])) == 40000
+        self.assertTrue(all(len(pool_system_ledger._decode_rows(row[3])) == row[1]
                             for row in rows))
         self.assertTrue(all(len(pool_system_ledger._decode_rows(row[3])[0]) == 13
                             for row in rows))
-        self.assertEqual(2, len({row[4] for row in rows}))
+        self.assertEqual(4, len({row[4] for row in rows}))
 
     def test_avslutad_ph5_arm_redovisas_men_ar_inte_promotionsbar(self):
         retired = pool_system_ledger.PH5_RETIRED_CONFIGS[0]["key"]
@@ -819,7 +853,7 @@ class SystemDetailTests(unittest.TestCase):
         self.assertEqual(2, coupon["n_rows"])
         self.assertFalse(coupon["settled"])
 
-        config = pool_system_ledger.MAX40_FORWARD_CONFIGS[0]
+        config = pool_system_ledger.MAX40_RETIRED_CONFIGS[0]
         self.store.conn.execute(
             "INSERT INTO pool_system_ledger (product,draw_number,horizon,"
             "config_key,frozen_at,lag_min,timely,code_version,budget,strategy,"
@@ -862,8 +896,8 @@ class SystemDetailTests(unittest.TestCase):
         self.assertEqual(5000, report["summary"]["rows_per_test"])
         self.assertEqual(1, report["summary"]["draws"])
 
-    def test_max40_overview_ar_separerad_och_visar_paroverlapp(self):
-        configs = pool_system_ledger.MAX40_FORWARD_CONFIGS
+    def test_mathmax_overview_ar_separerad_och_visar_paroverlapp(self):
+        configs = pool_system_ledger.MATHMAX_FORWARD_CONFIGS
         row_sets = (
             "111\n1X2\n222\nXXX",
             "111\n1X2\n211\n2X2",
@@ -881,22 +915,41 @@ class SystemDetailTests(unittest.TestCase):
                  config["value_weight"], rows_text))
         self.store.conn.commit()
 
-        max40 = pool_system_ledger.max40_overview(self.store)
+        mathmax = pool_system_ledger.mathmax_overview(self.store)
         ph5 = pool_system_ledger.ph5_overview(self.store)
 
-        self.assertTrue(max40["available"])
+        self.assertTrue(mathmax["available"])
         self.assertFalse(ph5["available"])
-        self.assertEqual(2, len(max40["tests"]))
+        self.assertEqual(2, len(mathmax["tests"]))
         self.assertEqual({"EV medel", "EV högt"},
-                         {test["label"] for test in max40["tests"]})
-        self.assertEqual(40000, max40["summary"]["rows_per_test"])
-        self.assertEqual(1, max40["summary"]["paired_freezes"])
-        self.assertEqual(0.5, max40["summary"]["average_overlap"])
+                         {test["label"] for test in mathmax["tests"]})
+        self.assertEqual(41472, mathmax["summary"]["rows_per_test"])
+        self.assertEqual(1, mathmax["summary"]["paired_freezes"])
+        self.assertEqual(0.5, mathmax["summary"]["average_overlap"])
         self.assertTrue(all(test["paired_overlap"] == 0.5
-                            for test in max40["tests"]))
+                            for test in mathmax["tests"]))
         self.assertTrue(all(test["unique_rows"] == 2
-                            for test in max40["tests"]))
+                            for test in mathmax["tests"]))
         detail = pool_system_ledger.system_detail(
             self.store, "stryktipset", 4968, "h3", configs[0]["key"])
-        self.assertEqual("max40", detail["research_family"])
+        self.assertEqual("mathmax", detail["research_family"])
         self.assertEqual("EV medel", detail["label"])
+
+    def test_max40_piloten_redovisas_som_avslutad(self):
+        config = pool_system_ledger.MAX40_RETIRED_CONFIGS[0]
+        self.store.conn.execute(
+            "INSERT INTO pool_system_ledger (product,draw_number,horizon,"
+            "config_key,frozen_at,lag_min,timely,code_version,budget,"
+            "strategy,value_weight,row_price,n_rows,cost_kr,events_order,"
+            "rows_text,rows_hash,n_events_covered) VALUES "
+            "('stryktipset',4968,'h3',?,'2026-08-26T10:00:00Z',2,1,"
+            "'test',40000,'medel',0.5,1,2,2,'1,2','11\n1X','hash',2)",
+            (config["key"],))
+        self.store.conn.commit()
+
+        report = pool_system_ledger.max40_overview(self.store)
+
+        self.assertTrue(report["available"])
+        self.assertEqual(1, len(report["tests"]))
+        self.assertTrue(report["tests"][0]["retired"])
+        self.assertEqual(0, report["summary"]["methods"])

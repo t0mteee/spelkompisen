@@ -717,12 +717,12 @@ def pool_system_detail(product: str, draw: int, horizon: str, config: str):
 
 @app.get("/api/pool/systems/live")
 def pool_system_live(product: str, draw: int, horizon: str, config: str):
-    """Liverätta ett fryst PH5-/max40-system utan att skapa nytt facit.
+    """Liverätta ett fryst researchsystem utan att skapa nytt facit.
 
     Samma statusmotor som för en manuellt spelad kupong används. Resultatet är
     ett ögonblicksläge; officiellt facit kommer fortsatt enbart från
     settlementlagret. Oddsbaserad chans och enskilda levande rader hoppas över
-    eftersom de inte behövs för rättningen och max40 annars blir onödigt tungt.
+    eftersom de inte behövs för rättningen och stora system annars blir tunga.
     """
     from . import pool_played, pool_system_ledger
     store = Storage()
@@ -775,11 +775,33 @@ def pool_ph5_overview():
 
 @app.get("/api/pool/max40")
 def pool_max40_overview():
-    """Separat, lätt översikt för det parade 40 000-raderstestet."""
+    """Historisk, lätt översikt för den avslutade 40 000-piloten."""
     from . import pool_system_ledger
     store = Storage()
     try:
         return pool_system_ledger.max40_overview(store)
+    finally:
+        store.close()
+
+
+@app.get("/api/pool/mathmax")
+def pool_mathmax_overview():
+    """Översikt för äkta matematiskt max: 4 hel + 9 halv."""
+    from . import pool_system_ledger
+    store = Storage()
+    try:
+        return pool_system_ledger.mathmax_overview(store)
+    finally:
+        store.close()
+
+
+@app.get("/api/pool/reducedmax")
+def pool_reducedmax_overview():
+    """Översikt för det reducerade 20 000-raderstestet."""
+    from . import pool_system_ledger
+    store = Storage()
+    try:
+        return pool_system_ledger.reducedmax_overview(store)
     finally:
         store.close()
 

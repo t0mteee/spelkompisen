@@ -47,12 +47,12 @@ gammalt enligt HTTP Age. När alla tre saknar komplett 1X2 används den tydligt
 märkta ställnings-/tidsmodellen; den är enbart en kupongchans och får aldrig
 påverka system, värde eller facit. `chance_live_source_counts` visar i UI
 vilken källa som faktiskt användes.
-PH5-/max40-kuponger använder samma `pool_played.live_status`, men via den rent
+PH5-/maxtestkuponger använder samma `pool_played.live_status`, men via den rent
 läsande `GET /api/pool/systems/live` och utan odds/chans/heja-på-raddetaljer.
 Det ger fastställda rätt, aktuellt läge, max nåbart och levande rader per
 13/12/11/10 medan omgången pågår. Frontend pollar var 30:e sekund endast när
 detaljen är öppen och synlig. `system_live_coupon` normaliserar både gamla
-kommaseparerade PH5-rader och max40:s kompakta rader; `events_order` är alltid
+kommaseparerade PH5-rader och de stora testernas kompakta rader; `events_order` är alltid
 kanon för kolumnmatchningen. Livebilden skriver aldrig settlement eller facit.
 Den underkända V2.1 är fortsatt vilande. Ett separat V2.2-experiment samlar
 Allsvenskan + Premier League/Serie A/La Liga/Bundesliga med WP9c
@@ -78,9 +78,10 @@ ett nytt manifest — en aliasändring i en liga som ingår i V2.2:s FIT_POOLS
 datagenererande process. Äldre manifest blandas aldrig in. Det är inte en
 tränad modell och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
-`docs/max40-forward-2026-08-26.md` — separat framåtriktat 40 000-raderstest
-för EV medel/EV högt, full `3^13`-rankning, parad överlapp, egen UI/API och
-liverättning för både 5 000-/40 000-kuponger;
+`docs/maxtester-2026-08-29.md` — aktiva separata maxserier: äkta matematiskt
+41 472 (4 hel + 9 halv) och reducerat 20 000, båda EV medel/EV högt med egna
+UI/API/hälsolarm. Den tidigare 40 000-serien är en avslutad reducerad pilot;
+se `docs/max40-forward-2026-08-26.md`. Liverättning finns för alla serier;
 inga vanliga förslag eller riktiga spel påverkas. Därefter
 `docs/overlamning-2026-08-24-ph5-testvy.md` — separat 5 000-testvy med exakt
 kupong/facit/frysta odds och streck, X-diagnostik samt hardening av spelade
@@ -354,10 +355,10 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       mäts** (frysning, championrapport och översikt måste läsa
                       samma familj).
                       Researchfamiljerna ligger separat i
-                      `research_families_for()`: PH5 5 000 och max40 40 000
-                      får egna hälsolarm och översikter och får aldrig räknas
-                      som championutmanare. Max40 rankar hela `3^13` endast
-                      under sina två versionslåsta config_key:er.
+                      `research_families_for()`: PH5 5 000, `mathmax` 41 472
+                      och `reducedmax` 20 000 får egna hälsolarm/översikter
+                      och får aldrig räknas som championutmanare. Gamla
+                      `max40` är pensionerad, visas enbart som historisk pilot.
                       **SPELFAMILJ, INTE PRODUKTSLUG (2026-08-12):**
                       `champion_report()` grupperar på `svenskaspel.family_of()`
                       — Topptipset Dagens/Stryk/Extra är samma spel med samma

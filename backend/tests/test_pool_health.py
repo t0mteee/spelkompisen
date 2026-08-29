@@ -60,7 +60,8 @@ class PoolHealthTests(unittest.TestCase):
         self.assertIn("h3 har 0/12", freezes[0]["message"])
         kinds = {i["kind"] for i in rep["issues"]}
         self.assertIn("ph5_freeze_incomplete", kinds)
-        self.assertIn("max40_freeze_incomplete", kinds)
+        self.assertIn("mathmax_freeze_incomplete", kinds)
+        self.assertIn("reducedmax_freeze_incomplete", kinds)
 
     def test_researchrader_kan_inte_maskera_saknade_benchmarksystem(self):
         self._draw(hours=1)
@@ -102,7 +103,8 @@ class PoolHealthTests(unittest.TestCase):
         kinds = {i["kind"] for i in rep["issues"]}
 
         self.assertNotIn("ph5_freeze_incomplete", kinds)
-        self.assertIn("max40_freeze_incomplete", kinds)
+        self.assertIn("mathmax_freeze_incomplete", kinds)
+        self.assertIn("reducedmax_freeze_incomplete", kinds)
 
     def test_h3_alarm_waits_for_one_allowed_base_interval(self):
         close = self._draw(hours=3)

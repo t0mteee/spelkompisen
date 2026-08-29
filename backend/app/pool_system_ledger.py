@@ -23,7 +23,7 @@ from typing import Optional
 
 from . import pool_settlement
 from .analysis import DrawAnalysis, analyze_draw
-from .builder import build_ev_system, ev_candidate_signs
+from .builder import build_ev_system, build_max_math_system, ev_candidate_signs
 from .storage import Storage
 from .svenskaspel import Draw, family_of
 
@@ -152,7 +152,7 @@ PH5_FORWARD_CONFIGS = (
      "method": "maxev"},
 )
 
-# 40 000 FORWARD, RESEARCH-ONLY (förregistrerat 2026-08-26).
+# 40 000-PILOTEN, AVSLUTAD (förregistrerad 2026-08-26, avslutad 2026-08-29).
 #
 # Samans fråga är vad radbyggaren gör nära den praktiska maxskalan, inte
 # om ytterligare kontrollarmar kan slå modellen. Därför fryses bara två rena
@@ -162,14 +162,14 @@ PH5_FORWARD_CONFIGS = (
 #
 # Topptipset ingår inte: dess HELA utfallsrum är bara 3^8 = 6 561 rader, så
 # "40 000 rader" skulle vara sex kopior av samma utfall och inte ett radval.
-MAX40_FORWARD_PRODUCTS = ("stryktipset", "europatipset")
-MAX40_FORWARD_START_DRAW_BY_PRODUCT = {
+MAX40_RETIRED_PRODUCTS = ("stryktipset", "europatipset")
+MAX40_RETIRED_START_DRAW_BY_PRODUCT = {
     # Första omgångarna vars h3-fönster fortfarande låg i framtiden när
     # kontraktet skrevs. Ingen retrofrysning är tillåten.
     "stryktipset": 4968,
     "europatipset": 2602,
 }
-MAX40_FORWARD_CONFIGS = (
+MAX40_RETIRED_CONFIGS = (
     {"key": "max40-v1-b40000-ev50", "budget": 40000.0,
      "strategy": "medel", "value_weight": 0.5,
      "method": "varderader", "label": "EV medel",
@@ -179,6 +179,45 @@ MAX40_FORWARD_CONFIGS = (
      "method": "varderader", "label": "EV högt",
      "research_family": "max40", "full_universe": True},
 )
+
+# MAXTESTER V2, RESEARCH-ONLY (förregistrerade 2026-08-29).
+#
+# Den gamla 40 000-piloten var ett explicit urval ur 3^13 och därmed
+# reducerad till sin konstruktion. Nu separeras de två frågor som piloten
+# blandade ihop. Matematiskt max är det kartesiska M-systemet 4 hel + 9 halv
+# = 41 472 rader. Reducerat max följer Spelkompisens verkliga leveransväg:
+# externa E-rader med officiellt tak 20 000 kr, uppdelat i högst 10 000 rader
+# per fil vid eventuell manuell export. Inga riktiga spel lämnas in här.
+MAX_TEST_PRODUCTS = ("stryktipset", "europatipset")
+MAX_TEST_START_DRAW_BY_PRODUCT = {
+    # Båda h3-fönstren låg i framtiden när kontraktet skrevs. Ingen
+    # retrofrysning eller återanvändning av 40 000-pilotens rader är tillåten.
+    "stryktipset": 4968,
+    "europatipset": 2603,
+}
+MATH_MAX_ROWS = 41472
+REDUCED_MAX_ROWS = 20000
+MATHMAX_FORWARD_CONFIGS = (
+    {"key": "mathmax-v1-b41472-ev50", "budget": float(MATH_MAX_ROWS),
+     "strategy": "medel", "value_weight": 0.5,
+     "method": "matematiskt", "label": "EV medel",
+     "research_family": "mathmax"},
+    {"key": "mathmax-v1-b41472-ev80", "budget": float(MATH_MAX_ROWS),
+     "strategy": "tuff", "value_weight": 0.8,
+     "method": "matematiskt", "label": "EV högt",
+     "research_family": "mathmax"},
+)
+REDUCEDMAX_FORWARD_CONFIGS = (
+    {"key": "reducedmax-v1-b20000-ev50", "budget": float(REDUCED_MAX_ROWS),
+     "strategy": "medel", "value_weight": 0.5,
+     "method": "varderader", "label": "EV medel",
+     "research_family": "reducedmax", "full_universe": True},
+    {"key": "reducedmax-v1-b20000-ev80", "budget": float(REDUCED_MAX_ROWS),
+     "strategy": "tuff", "value_weight": 0.8,
+     "method": "varderader", "label": "EV högt",
+     "research_family": "reducedmax", "full_universe": True},
+)
+LARGE_RESEARCH_FAMILIES = frozenset({"max40", "mathmax", "reducedmax"})
 
 # BUDGETTAK FÖR 8-MATCHSSPELEN (Samans beslut 2026-08-09).
 #
@@ -219,7 +258,7 @@ def research_families_for(
     """Aktiva forwardfamiljer per produkt/omgång, med separata identiteter.
 
     Hälsokontrollen behöver veta VILKEN familj som saknas. Den gamla platta
-    listan fick annars ett max40-bortfall att heta "PH5 saknas".
+    listan fick annars ett bortfall i en maxfamilj att heta "PH5 saknas".
     """
     families: dict[str, tuple[dict, ...]] = {}
     if product in PH5_FORWARD_PRODUCTS:
@@ -227,10 +266,11 @@ def research_families_for(
             product, PH5_FORWARD_START_DRAW)
         if draw_number is None or draw_number >= start:
             families["ph5"] = PH5_FORWARD_CONFIGS
-    if product in MAX40_FORWARD_PRODUCTS:
-        start = MAX40_FORWARD_START_DRAW_BY_PRODUCT[product]
+    if product in MAX_TEST_PRODUCTS:
+        start = MAX_TEST_START_DRAW_BY_PRODUCT[product]
         if draw_number is None or draw_number >= start:
-            families["max40"] = MAX40_FORWARD_CONFIGS
+            families["mathmax"] = MATHMAX_FORWARD_CONFIGS
+            families["reducedmax"] = REDUCEDMAX_FORWARD_CONFIGS
     return families
 
 
@@ -269,8 +309,8 @@ def _frozen(store: Storage, product: str, draw_number: int,
 def _encode_rows(rows: list[list[str]], *, compact: bool = False) -> str:
     """Versionslöst radformat: gamla kommaseparerade eller kompakt 1X2-text.
 
-    En 40 000-radersfrysning skulle annars lagra tolv onödiga kommatecken per
-    rad. Det kompakta formatet halverar nästan den nya seriens DB-volym utan
+    En stor researchfrysning skulle annars lagra tolv onödiga kommatecken per
+    rad. Det kompakta formatet halverar nästan seriens DB-volym utan
     schemaändring. Läsaren accepterar båda formaten så historiken rörs inte.
     """
     separator = "" if compact else ","
@@ -397,6 +437,15 @@ def freeze_due(store: Storage, product: str, draw: Draw,
                     build_note = (
                         f"Fullt 3^{len(analysis.matches)}-kandidatuniversum. "
                         f"{build_note or ''}").strip()
+            elif method == "matematiskt":
+                system = build_max_math_system(
+                    analysis, bench["strategy"],
+                    row_price=analysis.row_price or 1.0,
+                    value_weight=bench["value_weight"])
+                rows = system.rows
+                n_rows = system.num_rows
+                cost = system.cost
+                build_note = system.note
             else:
                 rows = _ph5_control_rows(analysis, bench, horizon)
                 n_rows = len(rows)
@@ -412,11 +461,12 @@ def freeze_due(store: Storage, product: str, draw: Draw,
                     continue   # delsystem får inte se ut som ett giltigt test
             events_order = ",".join(
                 str(match.event_number) for match in analysis.matches)
-            # Max40 är den enda stora serien och får det kompakta, fullt
-            # reversibla textformatet. Övriga rader behåller byte-identiskt
-            # format så deras hash och auditkontrakt inte ändras.
+            # Stora researchserier får det kompakta, fullt reversibla
+            # textformatet. Övriga rader behåller byte-identiskt format så
+            # deras hash och auditkontrakt inte ändras.
             rows_text = _encode_rows(
-                rows, compact=bench.get("research_family") == "max40")
+                rows, compact=(bench.get("research_family")
+                               in LARGE_RESEARCH_FAMILIES))
             covered = sum(
                 1 for match in analysis.matches
                 if any(match.outcomes[s].fair_prob is not None
@@ -592,9 +642,17 @@ def _bench(key: str, stored: Optional[dict] = None) -> dict:
         if config["key"] == key:
             return {**config, "primary": False, "retired": True,
                     "research": True, "promotion_eligible": False}
-    for config in MAX40_FORWARD_CONFIGS:
+    for config in MATHMAX_FORWARD_CONFIGS:
         if config["key"] == key:
             return {**config, "primary": False, "retired": False,
+                    "research": True, "promotion_eligible": False}
+    for config in REDUCEDMAX_FORWARD_CONFIGS:
+        if config["key"] == key:
+            return {**config, "primary": False, "retired": False,
+                    "research": True, "promotion_eligible": False}
+    for config in MAX40_RETIRED_CONFIGS:
+        if config["key"] == key:
+            return {**config, "primary": False, "retired": True,
                     "research": True, "promotion_eligible": False}
     stored = stored or {}
     return {"key": key, "budget": stored.get("budget"),
@@ -942,7 +1000,7 @@ def system_detail(store: Storage, product: str, draw_number: int,
                 if events and rows else None),
         },
         # Exakta rader hämtas bara när användaren öppnar EN frysning. Lägg
-        # aldrig detta i `/api/pool/systems`: 5 000/40 000 × 13 tecken gör
+        # aldrig detta i `/api/pool/systems`: 5 000–41 472 × 13 tecken gör
         # annars hela Historik tung på mobil.
         "facit_complete": facit_complete,
         "facit": "".join(ordered_outcomes) if facit_complete else None,
@@ -959,7 +1017,7 @@ def system_live_coupon(store: Storage, product: str, draw_number: int,
                        horizon: str, config_key: str) -> Optional[dict]:
     """Minimal kupongform för den gemensamma liverättningen.
 
-    Ledgern lagrar äldre PH5-rader kommaseparerat och max40-rader kompakt.
+    Ledgern lagrar äldre PH5-rader kommaseparerat och stora tester kompakt.
     `pool_played.live_status` arbetar med ett tecken per kolumn, så båda
     formaten normaliseras här. Funktionen hämtar varken källdata eller facit
     och är därför en rent lokal, testbar brygga mellan de två lagren.
@@ -1067,7 +1125,7 @@ def _research_overview(
         }
         tests.append(test)
 
-        # Håll högst ett 40 000-raderspar i minnet. Att först bygga mängder
+        # Håll högst ett stort radpar i minnet. Att först bygga mängder
         # för HELA historiken skulle växa med 160 000 rader per avgjord
         # omgång och till sist göra själva översiktssidan onödigt tung.
         if paired_overlap and not test["retired"]:
@@ -1105,6 +1163,9 @@ def _research_overview(
     evaluable = [test for test in active if test["timely"]
                  and test["correct_max"] is not None
                  and test["payout_complete"] is True]
+    all_evaluable = [test for test in tests if test["timely"]
+                     and test["correct_max"] is not None
+                     and test["payout_complete"] is True]
     return {
         "available": bool(tests),
         "tests": tests,
@@ -1113,6 +1174,10 @@ def _research_overview(
                           for t in active}),
             "freezes": len(active),
             "evaluated": len(evaluable),
+            "all_draws": len({(t["product"], t["draw_number"])
+                              for t in tests}),
+            "all_freezes": len(tests),
+            "all_evaluated": len(all_evaluable),
             "methods": active_methods,
             "rows_per_test": rows_per_test,
             "paired_freezes": len(pair_overlaps),
@@ -1154,14 +1219,39 @@ def ph5_overview(store: Storage) -> dict:
 
 
 def max40_overview(store: Storage) -> dict:
-    """De två parade 40 000-radersarmarna, utan exakta rader i svaret."""
+    """Den avslutade 40 000-piloten, kvar som oföränderlig historik."""
     return _research_overview(
         store,
-        configs=MAX40_FORWARD_CONFIGS,
-        products=MAX40_FORWARD_PRODUCTS,
+        configs=MAX40_RETIRED_CONFIGS,
+        products=MAX40_RETIRED_PRODUCTS,
         rows_per_test=40000,
-        active_methods=len(MAX40_FORWARD_CONFIGS),
-        start_draws=MAX40_FORWARD_START_DRAW_BY_PRODUCT,
+        active_methods=0,
+        start_draws=MAX40_RETIRED_START_DRAW_BY_PRODUCT,
+    )
+
+
+def mathmax_overview(store: Storage) -> dict:
+    """De två parade äkta matematiska 41 472-radersarmarna."""
+    return _research_overview(
+        store,
+        configs=MATHMAX_FORWARD_CONFIGS,
+        products=MAX_TEST_PRODUCTS,
+        rows_per_test=MATH_MAX_ROWS,
+        active_methods=len(MATHMAX_FORWARD_CONFIGS),
+        start_draws=MAX_TEST_START_DRAW_BY_PRODUCT,
+        paired_overlap=True,
+    )
+
+
+def reducedmax_overview(store: Storage) -> dict:
+    """De två parade reducerade 20 000-radersarmarna."""
+    return _research_overview(
+        store,
+        configs=REDUCEDMAX_FORWARD_CONFIGS,
+        products=MAX_TEST_PRODUCTS,
+        rows_per_test=REDUCED_MAX_ROWS,
+        active_methods=len(REDUCEDMAX_FORWARD_CONFIGS),
+        start_draws=MAX_TEST_START_DRAW_BY_PRODUCT,
         paired_overlap=True,
     )
 

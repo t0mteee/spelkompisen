@@ -142,9 +142,11 @@ def report(store, *, now: Optional[dt.datetime] = None,
                     if research_count < len(research_keys):
                         closed = draw["close"] <= now
                         level = "warning" if closed else "error"
-                        family_label = ("PH5" if family == "ph5"
-                                        else "40 000-testet" if family == "max40"
-                                        else family)
+                        family_label = {
+                            "ph5": "PH5",
+                            "mathmax": "matematiska 41 472-testet",
+                            "reducedmax": "reducerade 20 000-testet",
+                        }.get(family, family)
                         message = (
                             f"{horizon_label} före spelstopp: {research_count} "
                             f"av {len(research_keys)} system i {family_label} sparades"

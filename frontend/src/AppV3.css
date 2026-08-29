@@ -449,6 +449,7 @@
 }
 .v3max40hero .v3eyebrow { color: #dca85e; }
 .v3max40methods { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
+.v3maxtabs { margin-bottom: 10px; }
 .v3ph5xnote { border-top-color: #dca85e; }
 .v3ph5table { min-width: 980px; }
 

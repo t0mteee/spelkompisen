@@ -22,7 +22,7 @@ const VIEWS = [
   { id: 'oddset', label: 'Oddset', icon: '⚡' },
   { id: 'historik', label: 'Historik', icon: '🗄' },
   { id: 'ph5', label: '5 000-test', icon: '🧪' },
-  { id: 'max40', label: '40 000-test', icon: '🚀' },
+  { id: 'maxtest', label: 'Max-tester', icon: '🚀' },
   { id: 'labb', label: 'Labb', icon: '🔬' },
 ]
 const POOL_GAMES = [
@@ -63,6 +63,12 @@ const PRODUCT_LABEL = Object.fromEntries(
    PH3:s config_key och `benchmarks_for(product)` är oförändrade — en nyckel
    får aldrig byta betydelse i efterhand, och de tre har egna omgångsserier. */
 const FAMILY_LABEL = { ...PRODUCT_LABEL, topptipset: 'Topptipset' }
+const RESEARCH_FAMILY_LABEL = {
+  ph5: '🧪 5 000-test',
+  mathmax: '🧮 Matematiskt max',
+  reducedmax: '✂️ Reducerat max',
+  max40: '🗃 40 000-pilot',
+}
 // Väljarens poster: en per familj, i HIST_PRODUCTS ordning. Backend expanderar
 // familjenyckeln via svenskaspel.GAME_GROUPS när `family=1` skickas med.
 const HIST_FAMILIES = HIST_PRODUCTS
@@ -1460,8 +1466,8 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
     <div className="v3sysdetail" id="hist-system-detail">
       <div className="v3sysdetailhead">
         <b>{PRODUCT_LABEL[product] || product} · omgång {draw} · {d
-          ? `${d.research ? `${d.research_family === 'max40'
-            ? '🚀 40 000-test' : '🧪 PH5-test'} · ` : ''}${d.research
+          ? `${d.research ? `${RESEARCH_FAMILY_LABEL[d.research_family]
+            || '🧪 Researchtest'} · ` : ''}${d.research
             ? d.label || PH5_METHOD_LABEL[d.method] || d.method
             : STRATEGY_LABEL[d.strategy] || d.strategy || 'testsystem'}`
           : 'testsystem'}</b>
@@ -1662,8 +1668,22 @@ const FORWARD_TEST = {
     loading: 'Hämtar 5 000-kronorstestet…', filterLabel: 'Metod',
   },
   max40: {
-    endpoint: '/api/pool/max40', rowLabel: '40 000', title: '40 000-raderstestet',
-    loading: 'Hämtar 40 000-raderstestet…', filterLabel: 'Arm',
+    endpoint: '/api/pool/max40', rowLabel: '40 000',
+    title: '40 000-piloten · avslutad',
+    loading: 'Hämtar den historiska 40 000-piloten…', filterLabel: 'Arm',
+    paired: false, archived: true,
+  },
+  mathmax: {
+    endpoint: '/api/pool/mathmax', rowLabel: '41 472',
+    title: 'Matematiskt max · 41 472 rader',
+    loading: 'Hämtar matematiskt maxtest…', filterLabel: 'Arm',
+    paired: true,
+  },
+  reducedmax: {
+    endpoint: '/api/pool/reducedmax', rowLabel: '20 000',
+    title: 'Reducerat max · 20 000 rader',
+    loading: 'Hämtar reducerat maxtest…', filterLabel: 'Arm',
+    paired: true,
   },
 }
 const forwardTestLabel = (test) => test.label || PH5_METHOD_LABEL[test.method] || test.method
@@ -1674,7 +1694,7 @@ const forwardTestFilterKey = (test) => test.label || test.method
    kupong. Själva raderna hämtas först när användaren öppnar testet. */
 function ForwardTestV3({ family }) {
   const meta = FORWARD_TEST[family]
-  const isMax40 = family === 'max40'
+  const isMaxTest = family !== 'ph5'
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [openSystem, setOpenSystem] = useState(null)
@@ -1715,9 +1735,10 @@ function ForwardTestV3({ family }) {
 
   return (
     <div className="v3ph5">
-      <section className={`v3hero v3ph5hero ${isMax40 ? 'v3max40hero' : ''}`}>
+      <section className={`v3hero v3ph5hero ${isMaxTest ? 'v3max40hero' : ''}`}>
         <div>
-          <span className="v3eyebrow">FRAMÅTRIKTAT BLINDTEST · INGA RIKTIGA INSATSER</span>
+          <span className="v3eyebrow">{meta.archived ? 'HISTORISK PILOT · INGA RIKTIGA INSATSER'
+            : 'FRAMÅTRIKTAT BLINDTEST · INGA RIKTIGA INSATSER'}</span>
           <h1>{meta.title}</h1>
           <p>Här går varje automatisk testkupong att öppna exakt som den frystes
             före spelstopp — samtliga {meta.rowLabel} rader, odds, streck, teckenvikt och
@@ -1726,21 +1747,27 @@ function ForwardTestV3({ family }) {
       </section>
 
       <div className="v3ph5kpis">
-        <div><span>Omgångar</span><b>{summary.draws || 0}</b></div>
-        <div><span>Aktiva testkuponger</span><b>{summary.freezes || 0}</b></div>
-        <div><span>Facitklara aktiva</span><b>{summary.evaluated || 0}</b></div>
-        <div><span>{isMax40 ? 'Kompletta jämförelsepar' : 'Aktiva metoder'}</span>
-          <b>{isMax40 ? summary.paired_freezes || 0 : summary.methods || 0}</b></div>
+        <div><span>Omgångar</span><b>{meta.archived
+          ? summary.all_draws || 0 : summary.draws || 0}</b></div>
+        <div><span>{meta.archived ? 'Sparade pilotkuponger' : 'Aktiva testkuponger'}</span>
+          <b>{meta.archived ? summary.all_freezes || 0 : summary.freezes || 0}</b></div>
+        <div><span>{meta.archived ? 'Facitklara' : 'Facitklara aktiva'}</span>
+          <b>{meta.archived ? summary.all_evaluated || 0 : summary.evaluated || 0}</b></div>
+        <div><span>{meta.archived ? 'Status'
+          : meta.paired ? 'Kompletta jämförelsepar' : 'Aktiva metoder'}</span>
+          <b>{meta.archived ? 'Avslutad'
+            : meta.paired ? summary.paired_freezes || 0 : summary.methods || 0}</b></div>
       </div>
 
       <div className="v3card v3ph5explain">
         <div className="v3cardhead"><h3>Så ska testet läsas</h3></div>
-        {isMax40 ? <>
-          <p>Två modellarmar får exakt samma 40 000-radersbudget, marknadsdata
+        {isMaxTest ? <>
+          <p>Två modellarmar får exakt samma {meta.rowLabel}-radersbudget, marknadsdata
             och frysningstid. <b>EV medel</b> balanserar sannolikhet och värde;
             <b> EV högt</b> pressar urvalet hårdare mot värde och skrällutdelning.
             Skillnaden i facit kan då kopplas till armvalet, inte till en annan
-            omgång eller ett senare odds.</p>
+            omgång eller ett senare odds. {meta.archived
+              ? 'Piloten fryser inga nya kuponger.' : ''}</p>
           <div className="v3ph5methods v3max40methods">
             <span><b>EV medel</b> medelstrategi · 50 % värdevikt</span>
             <span><b>EV högt</b> tuff strategi · 80 % värdevikt</span>
@@ -1759,19 +1786,26 @@ function ForwardTestV3({ family }) {
         </>}
       </div>
 
-      {isMax40 ? <div className="v3card v3ph5xnote">
+      {isMaxTest ? <div className="v3card v3ph5xnote">
         <div className="v3cardhead"><h3>Vad ”max” betyder här</h3></div>
-        <p>40 000 är testets valda praktiska maxskala, inte en utfästelse om
-          Svenska Spels aktuella officiella gräns. Till skillnad från vanliga
-          mindre förslag rankar testet hela 3¹³-rummet och behåller de bästa
-          40 000 raderna — cirka 2,5 % av alla möjliga utfall. Topptipset ingår
-          inte eftersom hela dess utfallsrum bara är 6 561 rader.</p>
-        <p><b>Start utan bakfyllning:</b> {starts || '–'}. Båda armarna fryses
-          tre timmar och tjugo minuter före stopp. Genomsnittlig exakt
-          radöverlapp hittills:{' '}
-          <b>{summary.average_overlap == null
-            ? 'väntar på första kompletta par'
-            : `${Math.round(summary.average_overlap * 100)} %`}</b>.</p>
+        {family === 'mathmax' ? <p>Detta är ett äkta matematiskt M-system:
+          <b> 4 helgarderingar × 9 halvgarderingar = 41 472 unika rader</b>.
+          Alla kombinationer av de valda tecknen ingår; inget radurval reduceras bort.
+          Det ska återskapas som M-system hos Svenska Spel, inte laddas upp som
+          en enda extern E-radfil.</p> : family === 'reducedmax' ? <p>Detta är
+          det största reducerade test som passar vår faktiska externa radväg:
+          <b> 20 000 rader/kr totalt</b>. En manuell uppladdning måste delas i
+          två separata E-filer med högst 10 000 rader i varje. Testet lämnar
+          aldrig in något automatiskt.</p> : <p>40 000-piloten rankade 40 000
+          enskilda rader ur hela 3¹³-rummet och var alltså reducerad till sin
+          konstruktion. Den avslutades när de officiella leveransgränserna
+          verifierades. Redan frysta kuponger ligger kvar för revision.</p>}
+        <p><b>{meta.archived ? 'Historisk start' : 'Start utan bakfyllning'}:</b>{' '}
+          {starts || '–'}. {meta.archived ? 'Inga nya frysningar görs.' : <>
+            Båda armarna fryses tre timmar och tjugo minuter före stopp.
+            Genomsnittlig exakt radöverlapp hittills: <b>{summary.average_overlap == null
+              ? 'väntar på första kompletta par'
+              : `${Math.round(summary.average_overlap * 100)} %`}</b>.</>}</p>
       </div> : <div className="v3card v3ph5xnote">
         <div className="v3cardhead"><h3>Är X systematiskt underviktat?</h3></div>
         <p>Det är en rimlig misstanke, särskilt när ett binärt 1–2-hörn väljs.
@@ -1807,7 +1841,7 @@ function ForwardTestV3({ family }) {
           </select></label>
           <label><span>{meta.filterLabel}</span><select value={filters.method}
             onChange={(event) => setFilter('method', event.target.value)}>
-            <option value="alla">Alla {isMax40 ? 'armar' : 'metoder'}</option>
+            <option value="alla">Alla {isMaxTest ? 'armar' : 'metoder'}</option>
             {methods.map(([key, label]) => <option key={key} value={key}>
               {label}</option>)}
           </select></label>
@@ -1829,7 +1863,7 @@ function ForwardTestV3({ family }) {
           : <div className="v3histtablewrap"><table className="v3histtable v3ph5table">
               <thead><tr><th>Datum</th><th>Spel</th><th>Omgång</th><th>Fryst</th>
                 <th>{meta.filterLabel}</th><th>Facit</th><th>X-vikt</th>
-                {isMax40 && <th>Paröverlapp</th>}<th>Kupong</th></tr></thead>
+                {meta.paired && <th>Paröverlapp</th>}<th>Kupong</th></tr></thead>
               <tbody>{tests.map((test) => (
                 <tr key={`${test.product}:${test.draw_number}:${test.horizon}:${test.config_key}`}
                   className={test.retired ? 'v3retired' : ''}>
@@ -1846,7 +1880,7 @@ function ForwardTestV3({ family }) {
                   <td className={test.x_outcomes_omitted ? 'v3neg' : ''}>
                     {test.x_share == null ? '–' : `${Math.round(test.x_share * 100)} %`}
                     {test.x_omitted_events ? ` · saknas i ${test.x_omitted_events}` : ''}</td>
-                  {isMax40 && <td>{test.paired_overlap == null ? 'Väntar par'
+                  {meta.paired && <td>{test.paired_overlap == null ? 'Väntar par'
                     : <>{Math.round(test.paired_overlap * 100)} %
                       {test.unique_rows != null && ` · ${test.unique_rows.toLocaleString('sv-SE')} unika`}</>}</td>}
                   <td><button className="v3more" onClick={() => setOpenSystem(test)}>
@@ -1861,7 +1895,20 @@ function ForwardTestV3({ family }) {
 }
 
 function Ph5V3() { return <ForwardTestV3 family="ph5" /> }
-function Max40V3() { return <ForwardTestV3 family="max40" /> }
+function MaxTestsV3() {
+  const [family, setFamily] = useState('mathmax')
+  return <div>
+    <div className="v3subnav v3maxtabs" aria-label="Välj maxtest">
+      <button className={family === 'mathmax' ? 'on' : ''}
+        onClick={() => setFamily('mathmax')}>Matematiskt 41 472</button>
+      <button className={family === 'reducedmax' ? 'on' : ''}
+        onClick={() => setFamily('reducedmax')}>Reducerat 20 000</button>
+      <button className={family === 'max40' ? 'on' : ''}
+        onClick={() => setFamily('max40')}>40 000-pilot · avslutad</button>
+    </div>
+    <ForwardTestV3 family={family} />
+  </div>
+}
 
 /* En grupp är en simulerad konfiguration över flera omgångar, inte en spelad
    kupong. Håll därför kostnad/utdelning explicit kontrafaktiska i både rubrik
@@ -3740,7 +3787,7 @@ export default function AppV3() {
           <HistorikV3 initialProduct={histProduct} focus={histFocus} />
         </ErrBoundary>}
         {view === 'ph5' && <ErrBoundary><Ph5V3 /></ErrBoundary>}
-        {view === 'max40' && <ErrBoundary><Max40V3 /></ErrBoundary>}
+        {view === 'maxtest' && <ErrBoundary><MaxTestsV3 /></ErrBoundary>}
         {view === 'labb' && <ErrBoundary><LabbV3 /></ErrBoundary>}
       </main>
       <footer className="v3foot">Lokal data från Svenska Spel + Pinnacle · personligt verktyg</footer>

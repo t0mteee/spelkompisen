@@ -1,5 +1,22 @@
 # Spelkompisen — färdplan
 
+## STATUS-SAMMANFATTNING (2026-08-29 — läs detta först i ny session)
+
+**40 000-PILOTEN ÄR ERSATT AV TVÅ KORREKT DEFINIERADE MAXTESTER (Codex).**
+Svenska Spels aktuella externa filspecifikation tillåter högst 10 000
+enkelrader per fil och 20 000 kr total insats. Samtidigt är ett matematiskt
+13-matchsmax `3^4 × 2^9 = 41 472` rader. Den gamla max40-serien valde 40 000
+enskilda rader ur `3^13` och var därför reducerad till sin konstruktion; den
+är nu avslutad men alla gamla nycklar, rader och facit ligger orörda kvar.
+
+Två nya research-only-familjer startar utan bakfyllning på Stryktipset 4968
+och Europatipset 2603: `mathmax-v1` är äkta kartesiska M-system med exakt fyra
+hel- och nio halvgarderingar (41 472 rader); `reducedmax-v1` rankar exakt
+20 000 E-rader ur hela `3^13`. Båda har parade EV medel/EV högt-armar vid h3
+och m20, egna hälsolarm, API:er, liverättning och underflikar i **Max-tester**.
+Inga riktiga spel eller vanliga kupongförslag påverkas. Förregistrering,
+källor och driftkontrakt: `docs/maxtester-2026-08-29.md`.
+
 ## STATUS-SAMMANFATTNING (2026-08-27 — läs detta först i ny session)
 
 **5 000- OCH 40 000-TESTERNA KAN LIVERÄTTAS (Codex).** Öppna en fryst
