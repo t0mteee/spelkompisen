@@ -1794,7 +1794,7 @@ function ForwardTestV3({ family }) {
           Det ska återskapas som M-system hos Svenska Spel, inte laddas upp som
           en enda extern E-radfil.</p> : family === 'reducedmax' ? <p>Detta är
           det största reducerade test som passar vår faktiska externa radväg:
-          <b> 20 000 rader/kr totalt</b>. En manuell uppladdning måste delas i
+          <b> 20 000 rader, alltså 20 000 kr totalt</b>. En manuell uppladdning måste delas i
           två separata E-filer med högst 10 000 rader i varje. Testet lämnar
           aldrig in något automatiskt.</p> : <p>40 000-piloten rankade 40 000
           enskilda rader ur hela 3¹³-rummet och var alltså reducerad till sin
