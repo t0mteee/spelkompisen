@@ -16,6 +16,7 @@ backend/data/*.log
 backend/data/*.jsonl
 backend/data/fd/
 backend/data/backups/
+backend/data/optimizer/
 
 # Node / frontend (kommer senare)
 node_modules/

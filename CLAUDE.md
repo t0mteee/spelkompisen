@@ -78,6 +78,12 @@ ett nytt manifest — en aliasändring i en liga som ingår i V2.2:s FIT_POOLS
 datagenererande process. Äldre manifest blandas aldrig in. Det är inte en
 tränad modell och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
+`docs/pooloptimerare-v1-pilot-2026-08-30.md` — lokal, read-only
+Topptips-256-optimerare med förregistrerad 60/20/20-delning, exakt
+produktionskontroll och successiv gallring av högst 10 000 radportföljer.
+500-konfigurationspiloten är endast ett teknikbevis; Standard är oförändrad.
+Kör inte fullsökningen mot en levande DB eller den gamla 11 augusti-kopian —
+ta först en konsistent server-snapshot enligt rapportens nästa steg. Därefter
 `docs/overlamning-2026-08-29-importera-spelad-kupong.md` — återställning när
 ”Spelad kupong” glömts: Historik kan förhandsgranska och bokföra en sparad
 Egna rader-fil i efterhand, med strikt produkt-/omgångskontroll,

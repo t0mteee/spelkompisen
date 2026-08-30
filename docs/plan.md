@@ -1,5 +1,21 @@
 # Spelkompisen — färdplan
 
+## STATUS-SAMMANFATTNING (2026-08-30 — lokal systemoptimerare pilotklar)
+
+**EN LOKAL TOPPTIPS-256-SÖKMOTOR ÄR BYGGD SOM OFFLINEFORSKNING (Codex).** V1
+håller sannolikhetsmodellen fast och söker bara radportföljens värdevikt,
+X-gruppvärdering, X-kvot och teckenexponering. Historiken delas kronologiskt
+60/20/20; upp till 10 000 deterministiska kandidater gallras successivt och
+utvärderas med samma referensmodell. En teknisk pilot med 500 konfigurationer
+och 60 tidsutspridda omgångar är klar: två lokala kärnor tog cirka 25 sekunder,
+kontrollmodellen var giltig genom alla steg och slutkandidaterna valde samma
+rader i den lilla slutauditen. Det är teknikbevis, inte modellresultat.
+`final_only` får nominera men aldrig promovera; endast senare
+point-in-time-forwarddata kan ändra Standard. Nästa steg är färsk konsistent
+read-only-snapshot och full 10 000-sökning. Förregistrering och pilotrapport:
+`docs/pooloptimerare-v1-forregistrering.md`,
+`docs/pooloptimerare-v1-pilot-2026-08-30.md`.
+
 ## STATUS-SAMMANFATTNING (2026-08-29 — import av glömd spelad kupong)
 
 **SPARADE RADFILER KAN NU BOKFÖRAS I EFTERHAND (Codex).** Historik har ett
