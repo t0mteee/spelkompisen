@@ -17,6 +17,15 @@ utan spikar ligger kvar som avslutad historik och skrivs aldrig om.
 Detta är en framåtriktad riskregel, inte ett påstående om positiv ROI och
 inte automatisk spelinlämning.
 
+## Driftstatus
+
+Driftsatt på servern 2026-08-31 från kodcommit `2ea3f3f`. Den additiva
+databasmigreringen skapade backup, lade till totalfälten och den tomma
+forwardtabellen utan historisk bakfyllning; `integrity_check=ok`. Frontend
+byggdes på servern, alla fyra Spelkompisen-tjänster startades och både
+`/api/health` och poolkontrollen svarade `ok`. Exakt migrationsutfall finns i
+`docs/db-atgarder.md`.
+
 ## Fryst regel
 
 Version: `pool-draw-risk-v1`.
@@ -50,8 +59,8 @@ total och den nya append-only-tabellen `sharp_total_snapshots` sparar endast
 verkliga förändringar med observationstid. Inga historiska totaler bakfylls.
 
 Migration: `backend/scripts/migrera_pool_totaler.py`. Den är additiv,
-idempotent, tar SQLite-onlinebackup och kör `integrity_check`. Produktionsutfall
-ska loggas i `docs/db-atgarder.md` direkt efter drift.
+idempotent, tar SQLite-onlinebackup och kör `integrity_check`.
+Produktionsutfallet är loggat i `docs/db-atgarder.md`.
 
 Detalj-API/UI visar nu Ö/U-lina, Över-/Under-pris och om X-skyddet var aktivt
 för den frysta configversionen. Historiska kuponger kan märkas ”ny regel:

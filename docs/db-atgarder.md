@@ -8,6 +8,29 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-08-31 — point-in-time-totaler för poolens X-risk
+
+**Additiv migration körd i produktion:**
+`backend/scripts/migrera_pool_totaler.py`. Spelkompisens backend-, frontend-
+och insamlingsjobb stoppades kontrollerat före migreringen och startades igen
+efter frontendbygget. Inga andra projekt berördes.
+
+Skriptet skapade SQLite-onlinebackupen
+`data/backups/stryktips-2026-08-31-fore-pool-totaler.db`, lade till kolumnerna
+`total_line`, `over_odds` och `under_odds` i `sharp_odds` samt skapade den
+append-only-tabellen `sharp_total_snapshots`. Produktionsutfall:
+`backup_created=True`, tre kolumner tillagda, 0 historiska rader bakfyllda,
+0 initiala total-snapshots och `integrity_check=ok`. Noll rader är avsiktligt:
+bara totaler som faktiskt observeras från och med driftsättningen får sparas.
+
+Efter migreringen byggdes produktionsfrontend på servern och samtliga fyra
+Spelkompisen-tjänster startades. `/api/health` svarade `ok`, poolkontrollen
+hade 0 problem och `/api/pool/mathmax` exponerade de aktiva
+`mathmax-v2-dr1-b39366-*`-konfigurationerna. Driftsatt kodcommit:
+`2ea3f3f`.
+
+---
+
 ## 2026-08-18 — fler-källors livepris per radarsignal
 
 **Additiv migration körd i produktion:**
