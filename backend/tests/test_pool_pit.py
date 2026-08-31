@@ -400,7 +400,7 @@ class SystemLedgerTests(unittest.TestCase):
         self.assertEqual(ordinary + len(research), rep["frozen"])
         rows = self.store.conn.execute(
             "SELECT config_key,n_rows,cost_kr,rows_hash FROM pool_system_ledger "
-            "WHERE config_key LIKE 'ph5-v3-%' ORDER BY config_key").fetchall()
+            "WHERE config_key LIKE 'ph5-v4-dr1-%' ORDER BY config_key").fetchall()
         self.assertEqual(4, len(rows))
         self.assertTrue(all((r[1], r[2]) == (5000, 5000.0) for r in rows))
         self.assertEqual(4, len({r[3] for r in rows}))
@@ -409,7 +409,8 @@ class SystemLedgerTests(unittest.TestCase):
             "stryktipset", draw.draw_number - 1))
 
         groups = pool_system_ledger.summary(self.store)["groups"]
-        ph5 = [g for g in groups if g["config_key"].startswith("ph5-v3-")]
+        ph5 = [g for g in groups
+               if g["config_key"].startswith("ph5-v4-dr1-")]
         self.assertEqual(4, len(ph5))
         self.assertTrue(all(g["research"] for g in ph5))
         self.assertTrue(all(not g["promotion_eligible"] for g in ph5))
@@ -425,13 +426,17 @@ class SystemLedgerTests(unittest.TestCase):
             self.store, "europatipset", draw, now=NOW, code_version="test")
 
         ordinary = len(pool_system_ledger.benchmarks_for("europatipset"))
-        self.assertEqual(ordinary + 4, rep["frozen"])
+        research = pool_system_ledger.research_configs_for(
+            "europatipset", draw.draw_number)
+        self.assertEqual(ordinary + len(research), rep["frozen"])
         rows = self.store.conn.execute(
             "SELECT config_key,n_rows,rows_hash FROM pool_system_ledger "
-            "WHERE config_key LIKE 'ph5-v3-%' ORDER BY config_key").fetchall()
+            "WHERE config_key LIKE 'ph5-v4-dr1-%' ORDER BY config_key").fetchall()
         self.assertEqual(
-            ["ph5-v3-b5000-byggarslump", "ph5-v3-b5000-favoritrad",
-             "ph5-v3-b5000-maxev", "ph5-v3-b5000-medel"], [r[0] for r in rows])
+            ["ph5-v4-dr1-b5000-byggarslump",
+             "ph5-v4-dr1-b5000-favoritrad",
+             "ph5-v4-dr1-b5000-maxev", "ph5-v4-dr1-b5000-medel"],
+            [r[0] for r in rows])
         self.assertTrue(all(r[1] == 5000 for r in rows))
         self.assertEqual(4, len({r[2] for r in rows}))   # fyra olika radmängder
         # Serien får inte bakfyllas: en tidigare omgång ger ingen forwardfamilj.
@@ -452,7 +457,7 @@ class SystemLedgerTests(unittest.TestCase):
         at_start = pool_system_ledger.research_families_for(
             "stryktipset", stryk_start)
 
-        self.assertEqual({"ph5"}, set(before))
+        self.assertEqual(set(), set(before))
         self.assertEqual({"ph5", "mathmax", "reducedmax"}, set(at_start))
         for family in ("mathmax", "reducedmax"):
             self.assertNotIn(family, pool_system_ledger.research_families_for(
@@ -463,7 +468,7 @@ class SystemLedgerTests(unittest.TestCase):
                 "topptipset", 99999))
         self.assertNotIn("max40", at_start)  # piloten är avslutad
 
-    def test_matematiskt_max_ar_akta_4_hel_9_halv_41472(self):
+    def test_matematiskt_max_ar_3_spik_1_halv_9_hel_39366(self):
         draw = _draw_fixture(
             NOW + dt.timedelta(hours=4), n_events=13,
             product="stryktipset")
@@ -473,13 +478,13 @@ class SystemLedgerTests(unittest.TestCase):
             analysis, "medel", value_weight=0.5)
 
         self.assertEqual("matematiskt", system.system_type)
-        self.assertEqual(41472, system.num_rows)
-        self.assertEqual(41472, len(system.rows))
-        self.assertEqual(41472.0, system.cost)
-        self.assertEqual(4, sum(p.role == "helgardering" for p in system.picks))
-        self.assertEqual(9, sum(p.role == "halvgardering" for p in system.picks))
-        self.assertEqual(0, sum(p.role == "spik" for p in system.picks))
-        self.assertEqual(41472, len({tuple(row) for row in system.rows}))
+        self.assertEqual(39366, system.num_rows)
+        self.assertEqual(39366, len(system.rows))
+        self.assertEqual(39366.0, system.cost)
+        self.assertEqual(9, sum(p.role == "helgardering" for p in system.picks))
+        self.assertEqual(1, sum(p.role == "halvgardering" for p in system.picks))
+        self.assertEqual(3, sum(p.role == "spik" for p in system.picks))
+        self.assertEqual(39366, len({tuple(row) for row in system.rows}))
 
     def test_nya_maxtester_fryser_exakta_kompakta_rader(self):
         close = NOW + dt.timedelta(minutes=178)
@@ -501,7 +506,7 @@ class SystemLedgerTests(unittest.TestCase):
             first = "1" if kwargs["value_weight"] == 0.5 else "2"
             row = [first, "2", *("X" for _ in range(11))]
             return SimpleNamespace(
-                rows=[row] * 41472, num_rows=41472, cost=41472.0,
+                rows=[row] * 39366, num_rows=39366, cost=39366.0,
                 note=f"math:{strategy}")
 
         configs = (*pool_system_ledger.MATHMAX_FORWARD_CONFIGS,
@@ -525,7 +530,7 @@ class SystemLedgerTests(unittest.TestCase):
             "SELECT config_key,n_rows,cost_kr,rows_text,rows_hash "
             "FROM pool_system_ledger ORDER BY config_key").fetchall()
         self.assertEqual(4, len(rows))
-        self.assertEqual([20000, 20000, 41472, 41472],
+        self.assertEqual([20000, 20000, 39366, 39366],
                          sorted(row[1] for row in rows))
         self.assertTrue(all(row[1] == row[2] for row in rows))
         self.assertTrue(all("," not in row[3] for row in rows))
@@ -821,6 +826,36 @@ class SystemDetailTests(unittest.TestCase):
         self.assertEqual("2026-08-01T11:45:00Z",
                          event["market_observed_at"])
 
+    def test_detaljen_visar_exakt_total_fore_frysning_och_x_skydd(self):
+        for sign, odds in (("1", 2.66), ("X", 2.99), ("2", 3.16)):
+            self.store.conn.execute(
+                "INSERT INTO sharp_snapshots (product,draw_number,event_number,"
+                "sign,odds,fetched_at) VALUES "
+                "('topptipset',77,1,?,?, '2026-08-01T11:45:00Z')",
+                (sign, odds))
+        self.store.conn.execute(
+            "INSERT INTO sharp_total_snapshots (product,draw_number,"
+            "event_number,line,over_odds,under_odds,fetched_at) VALUES "
+            "('topptipset',77,1,2.0,1.95,1.95,'2026-08-01T11:50:00Z')")
+        # Senare data får aldrig läcka bakåt till den frysta kupongen.
+        self.store.conn.execute(
+            "INSERT INTO sharp_total_snapshots (product,draw_number,"
+            "event_number,line,over_odds,under_odds,fetched_at) VALUES "
+            "('topptipset',77,1,2.5,2.01,1.89,'2026-08-01T13:00:00Z')")
+        self.store.conn.commit()
+
+        detail = pool_system_ledger.system_detail(
+            self.store, "topptipset", 77, "m20",
+            pool_system_ledger.CHAMPION_KEY)
+        event = detail["events"][0]
+
+        self.assertEqual(2.0, event["total_at_freeze"]["line"])
+        self.assertEqual("2026-08-01T11:50:00Z",
+                         event["market_observed_at"])
+        self.assertTrue(event["draw_risk"]["protected"])
+        self.assertTrue(event["draw_risk"]["applied"])
+        self.assertTrue(detail["draw_risk_applied"])
+
     def test_oppet_test_visar_de_exakt_frysta_raderna_fore_facit(self):
         self.store.conn.execute(
             "DELETE FROM pool_event_settlement WHERE product='topptipset' "
@@ -923,7 +958,7 @@ class SystemDetailTests(unittest.TestCase):
         self.assertEqual(2, len(mathmax["tests"]))
         self.assertEqual({"EV medel", "EV högt"},
                          {test["label"] for test in mathmax["tests"]})
-        self.assertEqual(41472, mathmax["summary"]["rows_per_test"])
+        self.assertEqual(39366, mathmax["summary"]["rows_per_test"])
         self.assertEqual(1, mathmax["summary"]["paired_freezes"])
         self.assertEqual(0.5, mathmax["summary"]["average_overlap"])
         self.assertTrue(all(test["paired_overlap"] == 0.5

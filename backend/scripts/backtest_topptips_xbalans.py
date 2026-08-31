@@ -183,16 +183,21 @@ def _run_draw(product: str, historic: dict, budget: float,
         "plan": plan,
         "jackpot": 0.0,
     }
-    current = builder.build_ev_system(value_weight=0.5, **kwargs)
+    # Fryst historisk v1: den nya forwardregeln pool-draw-risk-v1 får inte
+    # skriva om det publicerade pilotfacitet.
+    current = builder.build_ev_system(
+        value_weight=0.5, draw_risk=False, **kwargs)
     x_balanced = builder.build_topptips_x_balanced_system(
-        value_weight=0.5, **kwargs)
+        value_weight=0.5, draw_risk=False, **kwargs)
     kappa_by_x = {
         bucket: builder.kappa_for(product, 8) * multiplier
         for bucket, multiplier in kappa_multiplier_by_x.items()
     }
     row_shape = builder.build_topptips_row_shape_system(
-        kappa_by_x=kappa_by_x, value_weight=0.5, **kwargs)
-    low_ev = builder.build_ev_system(value_weight=0.0, **kwargs)
+        kappa_by_x=kappa_by_x, value_weight=0.5,
+        draw_risk=False, **kwargs)
+    low_ev = builder.build_ev_system(
+        value_weight=0.0, draw_risk=False, **kwargs)
     result = {
         "product": product,
         "draw": historic["draw"],

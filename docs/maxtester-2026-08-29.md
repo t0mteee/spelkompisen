@@ -1,5 +1,11 @@
 # Maxtester — matematiskt 41 472 och reducerat 20 000
 
+> **Historiskt v1-kontrakt, ersatt framåt 2026-08-31.** Kupongerna och
+> resultaten nedan ligger kvar oförändrade. Nya matematiska maxkuponger har
+> formen 3 spikar + 1 halv + 9 hela = 39 366 rader och båda maxfamiljerna
+> använder `pool-draw-risk-v1`. Se
+> `docs/pool-xrisk-v1-mathmax-v2-2026-08-31.md`.
+
 Datum: 2026-08-29  
 Status: förregistrerade framåtriktade researchtest när committen som innehåller
 detta dokument är driftsatt. Inga riktiga spel läggs.

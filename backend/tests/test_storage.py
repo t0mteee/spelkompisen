@@ -21,6 +21,53 @@ class BulkTransactionTests(unittest.TestCase):
                 store.close()
 
 
+class PoolSharpTotalTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+
+    def tearDown(self) -> None:
+        self.store.close()
+        self.tmp.cleanup()
+
+    def test_total_cache_and_change_only_snapshot_are_point_in_time(self):
+        total = {"line": 2.25, "O": 1.97, "U": 1.93}
+        odds = {"1": 2.66, "X": 2.99, "2": 3.16}
+        hit = {"event_number": 8, "bookmaker": "pinnacle",
+               "odds": odds, "total": total, "confidence": 0.99,
+               "matched": "Deportivo - Valencia",
+               "fetched_at": "2026-08-30T12:00:00Z"}
+
+        self.assertEqual(1, self.store.save_sharp(
+            "europatipset", 2604, [hit]))
+        cached = self.store.get_sharp("europatipset", 2604)[8]
+        self.assertEqual(total, cached["total"])
+        self.store.save_sharp("europatipset", 2604, [{
+            **hit, "total": None, "fetched_at": "2026-08-30T12:05:00Z",
+        }])
+        self.assertEqual(
+            total, self.store.get_sharp("europatipset", 2604)[8]["total"])
+
+        hits = {8: hit}
+        self.assertEqual(3, self.store.save_sharp_snapshot(
+            "europatipset", 2604, hits, "2026-08-30T12:00:00Z"))
+        self.assertEqual(0, self.store.save_sharp_snapshot(
+            "europatipset", 2604, hits, "2026-08-30T12:05:00Z"))
+        changed = {8: {**hit, "total": {**total, "O": 2.01}}}
+        # Returvärdet behåller sin gamla betydelse: antal nya 1X2-punkter.
+        self.assertEqual(0, self.store.save_sharp_snapshot(
+            "europatipset", 2604, changed, "2026-08-30T12:10:00Z"))
+
+        rows = self.store.conn.execute(
+            "SELECT line,over_odds,under_odds,fetched_at "
+            "FROM sharp_total_snapshots ORDER BY id").fetchall()
+        self.assertEqual(2, len(rows))
+        self.assertEqual((2.25, 1.97, 1.93, "2026-08-30T12:00:00Z"),
+                         tuple(rows[0]))
+        self.assertEqual((2.25, 2.01, 1.93, "2026-08-30T12:10:00Z"),
+                         tuple(rows[1]))
+
+
 class OddsetPresenceTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()

@@ -198,16 +198,19 @@ def arms(draw: Draw, n_rows: int, rng: random.Random,
     # 1. VÅR metod — den riktiga byggaren, exakt samma kod som appen kör.
     analysis = analyze_draw(draw)
     try:
-        candidate_signs, universe = builder.ev_candidate_signs(analysis, 0.5)
+        # PH5 v3 är ett publicerat historiskt experiment. Den nya
+        # forwardregeln får en egen v4 och får inte skriva om denna kohort.
+        candidate_signs, universe = builder.ev_candidate_signs(
+            analysis, 0.5, draw_risk=False)
         system = builder.build_ev_system(
             analysis, strategy="medel", budget=n_rows * (draw.row_price or 1.0),
             row_price=draw.row_price or 1.0, value_weight=0.5, plan=plan,
-            jackpot=0.0)
+            jackpot=0.0, draw_risk=False)
         out["varderader"] = [tuple(r) for r in (system.rows or [])][:n_rows]
         hit_system = builder.build_ev_system(
             analysis, strategy="medel", budget=n_rows * (draw.row_price or 1.0),
             row_price=draw.row_price or 1.0, value_weight=0.0, plan=plan,
-            jackpot=0.0)
+            jackpot=0.0, draw_risk=False)
         out["traffsakrare"] = [
             tuple(r) for r in (hit_system.rows or [])][:n_rows]
         out["_builder_universe_n"] = universe

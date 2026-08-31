@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import heapq
 import itertools
+import math
 from dataclasses import dataclass, asdict, field
 from typing import Optional
 
@@ -37,9 +38,15 @@ COMPLEMENTARY_PREFERRED_QUALITY = 0.75
 COMPLEMENTARY_FALLBACK_QUALITY = 0.60
 COMPLEMENTARY_MIN_QUALITY = 0.55
 MAX_MATH_MATCHES = 13
-MAX_MATH_FULL_GUARDS = 4
-MAX_MATH_ROWS = 3 ** MAX_MATH_FULL_GUARDS * 2 ** (
-    MAX_MATH_MATCHES - MAX_MATH_FULL_GUARDS)
+MAX_MATH_SPIKES = 3
+MAX_MATH_HALF_GUARDS = 1
+MAX_MATH_FULL_GUARDS = 9
+MAX_MATH_ROWS = (3 ** MAX_MATH_FULL_GUARDS
+                 * 2 ** MAX_MATH_HALF_GUARDS)
+DRAW_RISK_VERSION = "pool-draw-risk-v1"
+DRAW_RISK_TOTAL_MAX = 2.25
+DRAW_RISK_X_MIN = 0.295
+DRAW_RISK_X_STRONG = 0.32
 
 
 @dataclass
@@ -127,14 +134,60 @@ def _signs_by_score(m: MatchAnalysis, value_weight: float) -> list[str]:
     return sorted(SIGNS, key=lambda s: _sign_score(m, s, value_weight), reverse=True)
 
 
+def _selection_probability(m: MatchAnalysis, sign: str) -> float:
+    outcome = (getattr(m, "outcomes", {}) or {}).get(sign)
+    if outcome is None:
+        return 0.0
+    sharp = getattr(outcome, "sharp_prob", None)
+    value = sharp if sharp is not None else getattr(outcome, "fair_prob", None)
+    return max(0.0, float(value or 0.0))
+
+
+def draw_risk_values(probability: float,
+                     total_line: Optional[float]) -> dict:
+    """Rent kontrakt så ledger/UI kan auditera samma trösklar som byggaren."""
+    try:
+        total_line = float(total_line) if total_line is not None else None
+    except (TypeError, ValueError):
+        total_line = None
+    low_total = total_line is not None and total_line <= DRAW_RISK_TOTAL_MAX
+    protected = bool(
+        probability >= DRAW_RISK_X_STRONG
+        or (low_total and probability >= DRAW_RISK_X_MIN)
+    )
+    minimum_share = (min(0.20, max(0.10, probability / 2.0))
+                     if protected else 0.0)
+    return {
+        "version": DRAW_RISK_VERSION,
+        "protected": protected,
+        "x_probability": probability or None,
+        "total_line": total_line,
+        "low_total": low_total,
+        "minimum_x_share": minimum_share,
+    }
+
+
+def draw_risk_context(m: MatchAnalysis) -> dict:
+    """Det frysta, gemensamma X-skyddet för alla automatiska byggare."""
+    return draw_risk_values(
+        _selection_probability(m, "X"),
+        getattr(m, "total_line", None),
+    )
+
+
 def _pick_signs(m: MatchAnalysis, count: int, cfg: StrategyConfig,
-                value_weight: float = 0.5) -> list[str]:
+                value_weight: float = 0.5,
+                draw_risk: bool = True) -> list[str]:
     """Välj `count` tecken (sorterade 1/X/2), viktat mot värde enligt value_weight."""
     if count >= 3:
         return list(SIGNS)
     order = _signs_by_score(m, value_weight)
     if count == 1:
         return [order[0]]
+    if draw_risk and draw_risk_context(m)["protected"]:
+        non_draw = max(("1", "2"),
+                       key=lambda sign: _selection_probability(m, sign))
+        return sorted(("X", non_draw), key=SIGNS.index)
     return sorted(order[:2], key=SIGNS.index)
 
 
@@ -142,12 +195,20 @@ def _role(count: int) -> str:
     return {1: "spik", 2: "halvgardering", 3: "helgardering"}[count]
 
 
-def _reason(m: MatchAnalysis, count: int) -> str:
+def _reason(m: MatchAnalysis, count: int,
+            draw_risk: bool = True) -> str:
+    context = (draw_risk_context(m) if draw_risk else
+               {"protected": False})
+    risk_text = ""
+    if context["protected"]:
+        total = (f", total {context['total_line']:g}"
+                 if context["total_line"] is not None else "")
+        risk_text = (f", X-skydd {context['x_probability']:.0%}{total}")
     if count == 1:
         p = f"{m.favourite_prob*100:.0f}%" if m.favourite_prob else "?"
         score = (f"{m.spik_score:.0f}"
                  if isinstance(m.spik_score, (int, float)) else "?")
-        return f"spik {m.favourite} ({p}), spik-score {score}"
+        return f"spik {m.favourite} ({p}), spik-score {score}{risk_text}"
     score = (f"{m.open_score:.0f}"
              if isinstance(m.open_score, (int, float)) else "?")
     base = f"öppen-score {score}"
@@ -162,14 +223,15 @@ def _reason(m: MatchAnalysis, count: int) -> str:
             v = getattr(outcome, "value", None)
         if isinstance(v, (int, float)):
             base += f", värdetecken {m.best_value_sign} ({v:+.0f})"
-    return base
+    return base + risk_text
 
 
 # ---------- dimensionering mot budget ----------
 
 def _size_to_budget(analysis: DrawAnalysis, cfg: StrategyConfig,
                     budget: float, row_price: float,
-                    value_weight: float = 0.5) -> dict[int, int]:
+                    value_weight: float = 0.5,
+                    draw_risk: bool = True) -> dict[int, int]:
     """Returnera {event_number: antal_tecken} dimensionerat mot budget.
 
     Värde/kostnads-girig: i varje steg uppgradera den match där NÄSTA tecken
@@ -181,28 +243,52 @@ def _size_to_budget(analysis: DrawAnalysis, cfg: StrategyConfig,
     import math
     target = max(1, int(budget / row_price))
     counts = {m.event_number: 1 for m in analysis.matches}
-    # sannolikhet per tecken i pick-ordning (samma ordning som _pick_signs)
-    probs: dict[int, list[float]] = {}
+    rows = 1
+    if draw_risk:
+        # X-skyddet ska få faktisk budgeteffekt även i vanliga M-/R-/
+        # färgsystem, inte bara byta tecken om en annan heuristik råkar
+        # halvgardera matchen. Om budgeten inte räcker till alla tas de
+        # tydligaste riskerna först; vi överskrider aldrig användarens insats.
+        protected = sorted(
+            (m for m in analysis.matches
+             if not m.cancelled and draw_risk_context(m)["protected"]),
+            key=lambda match: (
+                draw_risk_context(match)["x_probability"] or 0.0,
+                -match.event_number),
+            reverse=True,
+        )
+        for match in protected:
+            if rows * 2 > target:
+                break
+            counts[match.event_number] = 2
+            rows *= 2
+    # Täckt sannolikhet för exakt 1/2/3 tecken. Draw-risk kan medvetet byta
+    # den andra sidan när en match uppgraderas till halv, så en enkel prefix-
+    # ordning är inte alltid samma sak som det faktiska slutvalet.
+    coverage: dict[int, dict[int, float]] = {}
     for m in analysis.matches:
         if m.cancelled:
             continue
-        order = _signs_by_score(m, value_weight)
-        probs[m.event_number] = [max(1e-4, m.outcomes[s].fair_prob or 1e-4) for s in order]
+        coverage[m.event_number] = {
+            count: sum(max(1e-4, _selection_probability(m, sign))
+                       for sign in _pick_signs(
+                           m, count, cfg, value_weight, draw_risk))
+            for count in (1, 2, 3)
+        }
 
     def _gain(ev: int) -> Optional[float]:
         c = counts[ev]
         cap = 3 if cfg.allow_full else 2
         if c >= cap:
             return None
-        p = probs.get(ev)
-        if not p or c >= len(p):
+        probabilities = coverage.get(ev)
+        if not probabilities or c + 1 not in probabilities:
             return None
-        cov = sum(p[:c])
-        added = p[c]
+        cov = max(1e-4, probabilities[c])
+        next_cov = max(cov, probabilities[c + 1])
         # effektivitet = täckningsvinst (log) per kostnadsökning (log)
-        return math.log((cov + added) / cov) / math.log((c + 1) / c)
+        return math.log(next_cov / cov) / math.log((c + 1) / c)
 
-    rows = 1
     while True:
         best, best_eff = None, 0.0
         for ev in counts:
@@ -219,7 +305,8 @@ def _size_to_budget(analysis: DrawAnalysis, cfg: StrategyConfig,
 
 
 def _build_picks(analysis: DrawAnalysis, cfg: StrategyConfig,
-                 counts: dict[int, int], value_weight: float = 0.5) -> list[MatchPick]:
+                 counts: dict[int, int], value_weight: float = 0.5,
+                 draw_risk: bool = True) -> list[MatchPick]:
     picks: list[MatchPick] = []
     for m in analysis.matches:
         c = counts.get(m.event_number, 1)
@@ -232,14 +319,14 @@ def _build_picks(analysis: DrawAnalysis, cfg: StrategyConfig,
         # avgörs alltså med riktigt resultat och räknas normalt — och även om
         # de HADE räknats rätt för alla vore helgardering slöseri, eftersom
         # ett enda tecken då räcker. Behandla dem som vanliga matcher.
-        signs = _pick_signs(m, c, cfg, value_weight)
+        signs = _pick_signs(m, c, cfg, value_weight, draw_risk)
         picks.append(MatchPick(
             event_number=m.event_number,
             description=m.description,
             role=_role(len(signs)),
             signs=signs,
             favourite=m.favourite,
-            reason=_reason(m, len(signs)),
+            reason=_reason(m, len(signs), draw_risk),
         ))
     return picks
 
@@ -255,10 +342,13 @@ def _num_rows(picks: list[MatchPick]) -> int:
 
 def build_math_system(analysis: DrawAnalysis, strategy: str = "medel",
                       budget: float = 100.0, row_price: float = ROW_PRICE,
-                      enumerate_rows: bool = False, value_weight: float = 0.5) -> System:
+                      enumerate_rows: bool = False, value_weight: float = 0.5,
+                      draw_risk: bool = True) -> System:
     cfg = STRATEGIES[strategy]
-    counts = _size_to_budget(analysis, cfg, budget, row_price, value_weight)
-    picks = _build_picks(analysis, cfg, counts, value_weight)
+    counts = _size_to_budget(
+        analysis, cfg, budget, row_price, value_weight, draw_risk)
+    picks = _build_picks(
+        analysis, cfg, counts, value_weight, draw_risk)
     n = _num_rows(picks)
     rows: list[list[str]] = []
     if enumerate_rows and n <= 100_000:
@@ -275,15 +365,13 @@ def build_math_system(analysis: DrawAnalysis, strategy: str = "medel",
 
 def build_max_math_system(analysis: DrawAnalysis, strategy: str = "medel",
                           row_price: float = ROW_PRICE,
-                          value_weight: float = 0.5) -> System:
-    """Bygg Svenska Spels största matematiska 13-matchssystem.
+                          value_weight: float = 0.5,
+                          draw_risk: bool = True) -> System:
+    """Bygg det förregistrerade matematiska 39 366-raderssystemet.
 
-    Maxformen är exakt 4 helgarderingar och 9 halvgarderingar:
-    ``3^4 * 2^9 = 41 472`` rader. Den vanliga budgetgiriga dimensioneringen
-    kan stanna på en annan faktorkombination under taket. Här låser vi därför
-    formen först och använder profilen enbart till att välja vilka fyra
-    matcher som får det tredje tecknet och vilka två tecken som tas i resten.
-    Resultatet är ett äkta kartesiskt M-system, aldrig ett rankat radurval.
+    Formen är 3 spikar, 1 halvgardering och 9 helgarderingar. Till skillnad
+    från gamla 4H+9h köper den inte bredd utan ankare. Draw-risk-skyddade
+    matcher får inte bli spikar när tre oskyddade alternativ finns.
     """
     if len(analysis.matches) != MAX_MATH_MATCHES:
         raise ValueError(
@@ -291,25 +379,44 @@ def build_max_math_system(analysis: DrawAnalysis, strategy: str = "medel",
 
     cfg = STRATEGIES[strategy]
 
-    def third_sign_gain(match: MatchAnalysis) -> float:
-        order = _signs_by_score(match, value_weight)
+    def anchor_score(match: MatchAnalysis) -> float:
         scores = [max(1e-12, _sign_score(match, sign, value_weight))
-                  for sign in order]
-        return scores[2] / (scores[0] + scores[1])
+                  for sign in SIGNS]
+        # Tydlig etta i profilens egen score + hög faktisk sannolikhet. Ett
+        # värdetecken får påverka, men kan inte ensamt göra en skräll till
+        # samma typ av ankare som en sannolik favorit.
+        best_sign = max(SIGNS, key=lambda sign: _sign_score(
+            match, sign, value_weight))
+        concentration = max(scores) / sum(scores)
+        probability = _selection_probability(match, best_sign)
+        return 0.55 * concentration + 0.45 * probability
 
-    full_events = {
-        match.event_number for match in sorted(
-            analysis.matches,
-            key=lambda match: (
-                third_sign_gain(match), match.open_score or 0,
-                -match.event_number),
-            reverse=True)[:MAX_MATH_FULL_GUARDS]
-    }
-    counts = {
-        match.event_number: (3 if match.event_number in full_events else 2)
-        for match in analysis.matches
-    }
-    picks = _build_picks(analysis, cfg, counts, value_weight)
+    protected = [match for match in analysis.matches
+                 if draw_risk and draw_risk_context(match)["protected"]]
+    protected_events = {match.event_number for match in protected}
+    unprotected = [match for match in analysis.matches
+                   if match.event_number not in protected_events]
+    spike_pool = unprotected if len(unprotected) >= MAX_MATH_SPIKES \
+        else list(analysis.matches)
+    spike_matches = sorted(
+        spike_pool,
+        key=lambda match: (anchor_score(match), -match.event_number),
+        reverse=True,
+    )[:MAX_MATH_SPIKES]
+    spike_events = {match.event_number for match in spike_matches}
+    remaining = [match for match in analysis.matches
+                 if match.event_number not in spike_events]
+    half_match = max(
+        remaining,
+        key=lambda match: (anchor_score(match), -match.event_number),
+    )
+    counts = {match.event_number: (
+        1 if match.event_number in spike_events
+        else 2 if match.event_number == half_match.event_number
+        else 3
+    ) for match in analysis.matches}
+    picks = _build_picks(
+        analysis, cfg, counts, value_weight, draw_risk)
     rows = [list(combo) for combo in itertools.product(
         *[pick.signs for pick in picks])]
     if len(rows) != MAX_MATH_ROWS:
@@ -320,14 +427,15 @@ def build_max_math_system(analysis: DrawAnalysis, strategy: str = "medel",
         row_price=row_price, num_rows=MAX_MATH_ROWS,
         cost=round(MAX_MATH_ROWS * row_price, 2), picks=picks, rows=rows,
         note=(f"Matematiskt max: {MAX_MATH_FULL_GUARDS} helgarderingar, "
-              f"{MAX_MATH_MATCHES - MAX_MATH_FULL_GUARDS} halvgarderingar, "
-              "inga spikar."),
+              f"{MAX_MATH_HALF_GUARDS} halvgardering och "
+              f"{MAX_MATH_SPIKES} spikar · {DRAW_RISK_VERSION}."),
     )
 
 
 def build_reduced_system(analysis: DrawAnalysis, strategy: str = "medel",
                          budget: float = 100.0, row_price: float = ROW_PRICE,
-                         expand: float = 4.0, value_weight: float = 0.5) -> System:
+                         expand: float = 4.0, value_weight: float = 0.5,
+                         draw_risk: bool = True) -> System:
     """Reducerat system: ta ett generösare garderingsval (≈ budget×expand rader
     som fullt system) och reducera ner till budget med villkorsreducering.
 
@@ -335,8 +443,10 @@ def build_reduced_system(analysis: DrawAnalysis, strategy: str = "medel",
     [lo, hi]. Det skär bort de mest osannolika kombinationerna (alla skrällar
     samtidigt) men behåller bredden — klassisk färg-/villkorsreducering."""
     cfg = STRATEGIES[strategy]
-    counts = _size_to_budget(analysis, cfg, budget * expand, row_price, value_weight)
-    picks = _build_picks(analysis, cfg, counts, value_weight)
+    counts = _size_to_budget(
+        analysis, cfg, budget * expand, row_price, value_weight, draw_risk)
+    picks = _build_picks(
+        analysis, cfg, counts, value_weight, draw_risk)
     full_rows = _num_rows(picks)
 
     # favorittecken per match (för att räkna avvikelser)
@@ -344,7 +454,8 @@ def build_reduced_system(analysis: DrawAnalysis, strategy: str = "medel",
 
     if full_rows > 500_000:
         # för stort att räkna ut — backa till matematiskt inom budget
-        return build_math_system(analysis, strategy, budget, row_price)
+        return build_math_system(
+            analysis, strategy, budget, row_price, draw_risk=draw_risk)
 
     sign_lists = [p.signs for p in picks]
     evs = [p.event_number for p in picks]
@@ -356,18 +467,28 @@ def build_reduced_system(analysis: DrawAnalysis, strategy: str = "medel",
         dev = sum(1 for ev, s in zip(evs, combo) if s != fav[ev])
         scored.append((dev, list(combo)))
 
-    # behåll de mest sannolika (minst avvikelser) upp till budget
+    # Ranka de mest sannolika (minst avvikelser) först; det gemensamma
+    # X-golvet kan sedan byta in de högst rankade X-rader som krävs.
     scored.sort(key=lambda t: t[0])
-    kept = scored[:target]
-    max_dev = kept[-1][0] if kept else 0
-    rows = [r for _, r in kept]
+    ranked = _EVRankedRows(
+        rows=[(-float(dev), -float(index), tuple(row))
+              for index, (dev, row) in enumerate(scored)],
+        target=min(target, len(scored)), universe=full_rows,
+        exponent=0.0, turnover=analysis.turnover or 0.0,
+    )
+    selected = _select_draw_risk_rows(analysis, ranked, draw_risk)
+    rows = [list(row) for _score, _order, row in selected]
+    max_dev = max(
+        sum(1 for ev, sign in zip(evs, row) if sign != fav[ev])
+        for row in rows) if rows else 0
 
     return System(
         strategy=strategy, system_type="reducerat", budget=budget,
         row_price=row_price, num_rows=len(rows), cost=round(len(rows) * row_price, 2),
         picks=picks, rows=rows,
-        rule=f"Behåll rader med ≤ {max_dev} avvikelser från favorittecknen "
-             f"(av {full_rows} möjliga i det fulla systemet).",
+        rule=f"Prioritera rader med ≤ {max_dev} avvikelser från "
+             f"favorittecknen (av {full_rows} möjliga i det fulla systemet)"
+             + (f" och tillämpa {DRAW_RISK_VERSION}." if draw_risk else "."),
         note=f"Reducerat från {full_rows} -> {len(rows)} rader.",
     )
 
@@ -401,12 +522,24 @@ def _greedy_cover(sign_lists: list[list[str]], radius: int) -> list[tuple]:
 MAX_UNIVERSE = 1024
 
 
+def _guard_priority(match: MatchAnalysis, draw_risk: bool = True) -> float:
+    boost = (1000.0 if draw_risk
+             and draw_risk_context(match)["protected"] else 0.0)
+    return float(match.open_score or 0.0) + boost
+
+
 def _pick_garderings_capped(analysis: DrawAnalysis, cfg: StrategyConfig,
-                            max_universe: int = MAX_UNIVERSE) -> dict[int, int]:
+                            max_universe: int = MAX_UNIVERSE,
+                            draw_risk: bool = True) -> dict[int, int]:
     counts = {m.event_number: 1 for m in analysis.matches}
     universe = 1
-    for m in sorted(analysis.matches, key=lambda x: x.open_score, reverse=True):
-        if m.cancelled or m.open_score < cfg.min_open_for_half:
+    for m in sorted(
+            analysis.matches,
+            key=lambda match: _guard_priority(match, draw_risk),
+            reverse=True):
+        protected = draw_risk and draw_risk_context(m)["protected"]
+        if m.cancelled or (not protected
+                           and m.open_score < cfg.min_open_for_half):
             continue
         if universe * 2 > max_universe:
             break
@@ -420,7 +553,9 @@ def _pick_garderings_capped(analysis: DrawAnalysis, cfg: StrategyConfig,
 
 def build_guarantee_system(analysis: DrawAnalysis, strategy: str = "medel",
                            budget: float = 100.0, guarantee: int = 12,
-                           row_price: float = ROW_PRICE, value_weight: float = 0.5) -> System:
+                           row_price: float = ROW_PRICE,
+                           value_weight: float = 0.5,
+                           draw_risk: bool = True) -> System:
     """Reducerat R-system med garanti 'minst `guarantee` rätt' (av antalet
     matcher) förutsatt att alla dina tecken är rätt. Väljer garderingar efter
     strategi/öppenhet, krymper vid behov tills systemet ryms i budget."""
@@ -428,7 +563,8 @@ def build_guarantee_system(analysis: DrawAnalysis, strategy: str = "medel",
     n_matches = len(analysis.matches)
     guarantee = max(n_matches - 3, min(n_matches, int(guarantee)))
     target_rows = max(1, int(budget / row_price))
-    counts = _pick_garderings_capped(analysis, cfg)
+    counts = _pick_garderings_capped(
+        analysis, cfg, draw_risk=draw_risk)
 
     # ordna garderingar efter minst öppen sist (dem droppar vi först om för dyrt)
     by_open = sorted(analysis.matches, key=lambda m: m.open_score)
@@ -437,7 +573,8 @@ def build_guarantee_system(analysis: DrawAnalysis, strategy: str = "medel",
     picks: list[MatchPick] = []
     full_rows = 0
     while True:
-        picks = _build_picks(analysis, cfg, counts, value_weight)
+        picks = _build_picks(
+            analysis, cfg, counts, value_weight, draw_risk)
         gard = [p for p in picks if len(p.signs) > 1]
         full_rows = _num_rows(picks)
         if not gard:
@@ -520,7 +657,8 @@ def _r12_index_cover(name: str, hel: int, halv: int) -> tuple[list[tuple], bool]
 
 def build_svs_rsystem(analysis: DrawAnalysis, name: str = "R 3-3-24",
                       strategy: str = "medel", row_price: float = ROW_PRICE,
-                      value_weight: float = 0.5) -> System:
+                      value_weight: float = 0.5,
+                      draw_risk: bool = True) -> System:
     """Bygg ett av Svenska Spels 12-rättsgaranti-R-system. Helgarderar de mest
     öppna matcherna, halvgarderar nästa, spikar resten — och genererar de
     faktiska raderna med 12-garantin verifierad."""
@@ -531,7 +669,10 @@ def build_svs_rsystem(analysis: DrawAnalysis, name: str = "R 3-3-24",
     spec = SVS_R12[name]
     hel, halv = spec["hel"], spec["halv"]
 
-    order = sorted(analysis.matches, key=lambda m: m.open_score, reverse=True)
+    order = sorted(
+        analysis.matches,
+        key=lambda match: _guard_priority(match, draw_risk),
+        reverse=True)
     hel_ms = order[:hel]
     halv_ms = order[hel:hel + halv]
     hel_ev = {m.event_number for m in hel_ms}
@@ -542,16 +683,19 @@ def build_svs_rsystem(analysis: DrawAnalysis, name: str = "R 3-3-24",
     for m in analysis.matches:
         if m.event_number in hel_ev:
             picks.append(MatchPick(m.event_number, m.description, "helgardering",
-                                   list(SIGNS), m.favourite, _reason(m, 3)))
+                                   list(SIGNS), m.favourite,
+                                   _reason(m, 3, draw_risk)))
         elif m.event_number in halv_ev:
-            signs = _pick_signs(m, 2, cfg, value_weight)
+            signs = _pick_signs(m, 2, cfg, value_weight, draw_risk)
             halv_signs[m.event_number] = signs
             picks.append(MatchPick(m.event_number, m.description, "halvgardering",
-                                   signs, m.favourite, _reason(m, 2)))
+                                   signs, m.favourite,
+                                   _reason(m, 2, draw_risk)))
         else:
             sign = _signs_by_score(m, value_weight)[0]
             picks.append(MatchPick(m.event_number, m.description, "spik",
-                                   [sign], m.favourite, _reason(m, 1)))
+                                   [sign], m.favourite,
+                                   _reason(m, 1, draw_risk)))
 
     cover, exact = _r12_index_cover(name, hel, halv)
     rows: list[list[str]] = []
@@ -740,7 +884,8 @@ def _row_expected_value(pf: list[float], pk: list[float],
 
 
 def ev_candidate_signs(analysis: DrawAnalysis,
-                       value_weight: float = 0.5) -> tuple[dict[int, list[str]], int]:
+                       value_weight: float = 0.5,
+                       draw_risk: bool = True) -> tuple[dict[int, list[str]], int]:
     """Returnera EV-byggarens kandidattecken och exakta universumstorlek.
 
     Hjälpfunktionen är den enda källan till kandidatuniversumet. Den används
@@ -753,7 +898,12 @@ def ev_candidate_signs(analysis: DrawAnalysis,
         # Strukna matcher behandlas som vanliga (empirisk grund i _pick-koden
         # ovan): de avgörs med riktigt resultat och räknas normalt, så de ska
         # inte äta upp kandidatuniversumet med tvingad helgardering.
-        signs = _signs_by_score(m, value_weight)[:2]
+        if draw_risk and draw_risk_context(m)["protected"]:
+            non_draw = max(("1", "2"),
+                           key=lambda sign: _selection_probability(m, sign))
+            signs = ["X", non_draw]
+        else:
+            signs = _signs_by_score(m, value_weight)[:2]
         cand[m.event_number] = sorted(signs, key=SIGNS.index)
         universe *= len(signs)
     for m in sorted(analysis.matches, key=lambda x: x.open_score, reverse=True):
@@ -786,6 +936,7 @@ def _rank_ev_rows(analysis: DrawAnalysis, budget: float, row_price: float,
                   jackpot: float, *, refine_all: bool = False,
                   top_tier_kappa_by_x: Optional[dict[int, float]] = None,
                   full_universe: bool = False,
+                  draw_risk: bool = True,
                   ) -> _EVRankedRows:
     """Ranka EV-kandidater en gång; används av både enkel- och dubbelkupong."""
     turnover = analysis.turnover or 0.0
@@ -815,7 +966,8 @@ def _rank_ev_rows(analysis: DrawAnalysis, budget: float, row_price: float,
     else:
         # Kandidattecken: topp-2 enligt teckenpoäng; utöka de öppnaste till 3.
         # PH5 använder samma hjälpfunktion för sin byggarslump-kontroll.
-        cand, universe = ev_candidate_signs(analysis, value_weight)
+        cand, universe = ev_candidate_signs(
+            analysis, value_weight, draw_risk)
 
     ms = analysis.matches
     pq = {(m.event_number, s): _pq(m, s) for m in ms for s in SIGNS}
@@ -827,6 +979,20 @@ def _rank_ev_rows(analysis: DrawAnalysis, budget: float, row_price: float,
     # för hela utfallsrummet. Standardvägen är byte-identisk med tidigare kod.
     refine_limit = max(EV_REFINE_CAP, min(universe, target * 2))
     coarse_top: list[tuple[float, float, float, tuple]] = []
+    risk_requirements = {
+        index: max(1, int(math.ceil(
+            target * draw_risk_context(match)["minimum_x_share"])))
+        for index, match in enumerate(ms)
+        if (full_universe and draw_risk
+            and draw_risk_context(match)["protected"])
+    }
+    risk_top: dict[int, list[tuple[float, float, float, tuple]]] = {
+        index: [] for index in risk_requirements
+    }
+    # En gemensam reserv gör flera samtidiga golv genomförbara utan att
+    # behöva fullvärdera hela 3^13-rummet. Högt antal skyddade X vinner
+    # först; grovscore bryter lika.
+    risk_joint_top: list[tuple[int, float, float, float, tuple]] = []
 
     def _walk(i: int, p: float, q: float, acc: list[str]):
         if i == n:
@@ -838,6 +1004,22 @@ def _rank_ev_rows(analysis: DrawAnalysis, budget: float, row_price: float,
                     heapq.heappush(coarse_top, item)
                 elif item > coarse_top[0]:
                     heapq.heapreplace(coarse_top, item)
+                for index, capacity in risk_requirements.items():
+                    if acc[index] != "X":
+                        continue
+                    heap = risk_top[index]
+                    if len(heap) < capacity:
+                        heapq.heappush(heap, item)
+                    elif item > heap[0]:
+                        heapq.heapreplace(heap, item)
+                if risk_requirements:
+                    x_count = sum(acc[index] == "X"
+                                  for index in risk_requirements)
+                    joint = (x_count, *item)
+                    if len(risk_joint_top) < target:
+                        heapq.heappush(risk_joint_top, joint)
+                    elif joint > risk_joint_top[0]:
+                        heapq.heapreplace(risk_joint_top, joint)
             else:
                 scored.append(item)
             return
@@ -848,13 +1030,17 @@ def _rank_ev_rows(analysis: DrawAnalysis, budget: float, row_price: float,
 
     _walk(0, 1.0, 1.0, [])
     if full_universe and not refine_all:
-        scored = sorted(coarse_top, key=lambda t: t[0], reverse=True)
+        retained = {item[3]: item for item in coarse_top}
+        for heap in risk_top.values():
+            retained.update((item[3], item) for item in heap)
+        retained.update((item[4], item[1:]) for item in risk_joint_top)
+        scored = sorted(retained.values(), key=lambda t: t[0], reverse=True)
     else:
         scored.sort(key=lambda t: t[0], reverse=True)
 
     # steg 2: full EV (alla vinstnivåer) för de bästa kandidaterna;
     # välj på balans-score, rapportera ärlig EV
-    refine = (scored if refine_all else
+    refine = (scored if refine_all or risk_requirements else
               scored[:max(EV_REFINE_CAP, min(len(scored), target * 2))])
     full: list[tuple[float, float, tuple]] = []   # (score, ev_total, rad)
     single_exact_tier = len(pools) == 1 and top_tier == n
@@ -889,11 +1075,104 @@ def _rank_ev_rows(analysis: DrawAnalysis, budget: float, row_price: float,
     )
 
 
+def _select_draw_risk_rows(
+        analysis: DrawAnalysis, ranked: _EVRankedRows,
+        draw_risk: bool = True,
+) -> list[tuple[float, float, tuple[str, ...]]]:
+    """Välj target rader med deterministiska, gemensamma X-minimigolv.
+
+    En enda rad kan fylla flera matchers underskott. Därför skannas den redan
+    totalordnade rankningen en gång och den högst rankade rad som hjälper
+    minst ett kvarvarande golv tas. När alla golv är fyllda kompletteras med
+    de högst rankade återstående raderna.
+    """
+    if not draw_risk:
+        return ranked.rows[:ranked.target]
+    protected = []
+    for index, match in enumerate(analysis.matches):
+        context = draw_risk_context(match)
+        if context["protected"]:
+            protected.append((
+                index,
+                max(1, int(math.ceil(
+                    ranked.target * context["minimum_x_share"]))),
+            ))
+    if not protected:
+        return ranked.rows[:ranked.target]
+
+    deficits = {index: amount for index, amount in protected}
+    chosen = []
+    chosen_rows = set()
+    ranked_with_order = list(enumerate(ranked.rows))
+    # Fyll gemensamt: rader som hjälper flest fortfarande öppna golv går
+    # först, med originalrankningen som stabil skiljare. När ett golv
+    # fyllts räknas prioriteten om. Det sker högst en gång per skyddad
+    # match och undviker att separata kvoter tillsammans äter hela budgeten.
+    while any(deficit > 0 for deficit in deficits.values()):
+        active = {index for index, deficit in deficits.items()
+                  if deficit > 0}
+        candidates = sorted(
+            (entry for entry in ranked_with_order
+             if entry[1][2] not in chosen_rows),
+            key=lambda entry: (
+                -sum(entry[1][2][index] == "X" for index in active),
+                entry[0]),
+        )
+        progress = False
+        satisfied_one = False
+        for _rank, item in candidates:
+            hits = [index for index in active if item[2][index] == "X"]
+            if not hits:
+                break
+            chosen.append(item)
+            chosen_rows.add(item[2])
+            progress = True
+            for index in hits:
+                deficits[index] -= 1
+                if deficits[index] == 0:
+                    satisfied_one = True
+            if satisfied_one or len(chosen) >= ranked.target:
+                break
+        if not progress or len(chosen) >= ranked.target:
+            break
+    if any(deficit > 0 for deficit in deficits.values()):
+        raise ValueError(
+            f"{DRAW_RISK_VERSION}: kandidatuniversumet kan inte fylla X-golvet")
+    for item in ranked.rows:
+        if item[2] in chosen_rows:
+            continue
+        chosen.append(item)
+        if len(chosen) == ranked.target:
+            break
+    if len(chosen) != ranked.target:
+        raise ValueError(
+            f"{DRAW_RISK_VERSION}: fick {len(chosen)} av {ranked.target} rader")
+    chosen.sort(key=lambda item: item[0], reverse=True)
+    return chosen
+
+
+def _rows_meet_draw_risk(
+        analysis: DrawAnalysis,
+        rows: list[tuple[float, float, tuple[str, ...]]],
+        draw_risk: bool = True) -> bool:
+    if not draw_risk or not rows:
+        return True
+    for index, match in enumerate(analysis.matches):
+        context = draw_risk_context(match)
+        if not context["protected"]:
+            continue
+        required = int(math.ceil(len(rows) * context["minimum_x_share"]))
+        if sum(item[2][index] == "X" for item in rows) < required:
+            return False
+    return True
+
+
 def _ev_system_from_rows(analysis: DrawAnalysis, strategy: str, budget: float,
                          row_price: float, jackpot: float,
                          ranked: _EVRankedRows,
                          chosen: list[tuple[float, float, tuple[str, ...]]],
-                         complementary: bool = False) -> System:
+                         complementary: bool = False,
+                         draw_risk: bool = True) -> System:
     """Materialisera ett system från redan rankade konkreta rader."""
     ms = analysis.matches
     k = ranked.exponent
@@ -910,7 +1189,8 @@ def _ev_system_from_rows(analysis: DrawAnalysis, strategy: str, budget: float,
                 used[m.event_number].append(s)
     picks = [MatchPick(m.event_number, m.description, _role(len(used[m.event_number])),
                        sorted(used[m.event_number], key=SIGNS.index),
-                       m.favourite, _reason(m, len(used[m.event_number])))
+                       m.favourite, _reason(
+                           m, len(used[m.event_number]), draw_risk))
              for m in ms]
 
     profile = ("max EV (skrälltungt)" if k < 0.4
@@ -918,6 +1198,11 @@ def _ev_system_from_rows(analysis: DrawAnalysis, strategy: str, budget: float,
     complement_note = (
         " Kupongen är en av två gemensamt optimerade varianter med skilda spikmatcher."
         if complementary else "")
+    risk_matches = ([match for match in analysis.matches
+                     if draw_risk_context(match)["protected"]]
+                    if draw_risk else [])
+    risk_note = (f" {DRAW_RISK_VERSION}: X-golv i {len(risk_matches)} "
+                 "lågmåls-/hög-X-match(er)." if risk_matches else "")
     return System(
         strategy=strategy, system_type="värderader", budget=budget,
         row_price=row_price, num_rows=len(rows), cost=round(cost, 2),
@@ -932,7 +1217,8 @@ def _ev_system_from_rows(analysis: DrawAnalysis, strategy: str, budget: float,
               f"andra som spelat raden). Bort åker folkrader (många delar potten) och, "
               f"utom i max EV-läget, rena skrällbomber."
               + (f" Jackpot {jackpot:,.0f} kr ingår i toppnivåns radval."
-                 if jackpot > 0 else "").replace(",", " ") + complement_note),
+                 if jackpot > 0 else "").replace(",", " ")
+              + complement_note + risk_note),
         note=f"Förv. utdelning ≈ {ev_sum:.0f} kr mot {cost:.0f} kr insats "
              f"(EV {ev_sum - cost:+.0f} kr) vid {ranked.turnover:,.0f} kr omsättning "
              f"och nuvarande streck.".replace(",", " "),
@@ -1093,6 +1379,7 @@ def build_complementary_ev_systems(
         quality_floor: float = COMPLEMENTARY_MIN_QUALITY,
         cross_anchor_share: float = 0.50,
         max_overlap_share: float = 0.10,
+        draw_risk: bool = True,
 ) -> tuple[System, Optional[System], dict]:
     """Bygg två portföljvarianter med ömsesidigt skilda spikmatcher.
 
@@ -1103,11 +1390,13 @@ def build_complementary_ev_systems(
     föredragna riktmärket; lägre resultat märks öppet i metadata och UI.
     """
     baseline_ranked = _rank_ev_rows(
-        analysis, budget, row_price, value_weight, plan, jackpot)
-    baseline_rows = baseline_ranked.rows[:baseline_ranked.target]
+        analysis, budget, row_price, value_weight, plan, jackpot,
+        draw_risk=draw_risk)
+    baseline_rows = _select_draw_risk_rows(
+        analysis, baseline_ranked, draw_risk)
     baseline = _ev_system_from_rows(
         analysis, strategy, budget, row_price, jackpot, baseline_ranked,
-        baseline_rows)
+        baseline_rows, draw_risk=draw_risk)
     baseline_score = sum(item[0] for item in baseline_rows)
     metadata = {
         "available": False,
@@ -1135,7 +1424,7 @@ def build_complementary_ev_systems(
 
     pair_ranked = _rank_ev_rows(
         analysis, budget, row_price, value_weight, plan, jackpot,
-        refine_all=True)
+        refine_all=True, draw_risk=draw_risk)
     target = len(baseline_rows)
     cap = int(target * cross_anchor_share)
 
@@ -1143,6 +1432,8 @@ def build_complementary_ev_systems(
     # eller byggarens värdetecken; det som ger bäst target-stort system vinner.
     candidates: list[tuple[float, float, int, str]] = []
     for index, match in enumerate(analysis.matches):
+        if draw_risk and draw_risk_context(match)["protected"]:
+            continue
         probability_sign = max(
             SIGNS, key=lambda sign: (
                 match.outcomes[sign].sharp_prob
@@ -1243,6 +1534,11 @@ def build_complementary_ev_systems(
                     left_rows, right_rows, left_eligible, right_eligible,
                     left_caps, right_caps, floor_score)
                 a_rows, b_rows, a_score, b_score, overlap = result
+                if (not _rows_meet_draw_risk(
+                        analysis, a_rows, draw_risk)
+                        or not _rows_meet_draw_risk(
+                            analysis, b_rows, draw_risk)):
+                    continue
                 if overlap > int(target * max_overlap_share):
                     continue
                 a_details = _spike_details(a_rows, analysis.matches)
@@ -1295,10 +1591,10 @@ def build_complementary_ev_systems(
     alternative_anchors = anchor_details(alternative_fixed)
     primary = _ev_system_from_rows(
         analysis, strategy, budget, row_price, jackpot, pair_ranked,
-        primary_rows, complementary=True)
+        primary_rows, complementary=True, draw_risk=draw_risk)
     alternative = _ev_system_from_rows(
         analysis, strategy, budget, row_price, jackpot, pair_ranked,
-        alternative_rows, complementary=True)
+        alternative_rows, complementary=True, draw_risk=draw_risk)
     primary_quality = primary_score / baseline_score
     alternative_quality = alternative_score / baseline_score
     metadata.update({
@@ -1326,7 +1622,8 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
                     budget: float = 100.0, row_price: float = ROW_PRICE,
                     value_weight: float = 0.5, plan: Optional[dict] = None,
                     jackpot: float = 0.0,
-                    full_universe: bool = False) -> System:
+                    full_universe: bool = False,
+                    draw_risk: bool = True) -> System:
     """Ranka konkreta rader efter EV **balanserat mot träffchans** och ta de
     bästa som ryms i budgeten.
 
@@ -1338,10 +1635,11 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
     EV rapporteras alltid ärligt oavsett ranking."""
     ranked = _rank_ev_rows(
         analysis, budget, row_price, value_weight, plan, jackpot,
-        full_universe=full_universe)
+        full_universe=full_universe, draw_risk=draw_risk)
+    chosen = _select_draw_risk_rows(analysis, ranked, draw_risk)
     return _ev_system_from_rows(
         analysis, strategy, budget, row_price, jackpot, ranked,
-        ranked.rows[:ranked.target])
+        chosen, draw_risk=draw_risk)
 
 
 def _x_balanced_rows(analysis: DrawAnalysis, ranked: _EVRankedRows
@@ -1366,7 +1664,7 @@ def build_topptips_x_balanced_system(
         analysis: DrawAnalysis, strategy: str = "medel",
         budget: float = 100.0, row_price: float = ROW_PRICE,
         value_weight: float = 0.5, plan: Optional[dict] = None,
-        jackpot: float = 0.0) -> System:
+        jackpot: float = 0.0, draw_risk: bool = True) -> System:
     """Researchkandidat: ordinarie EV inom marknadskalibrerade X-grupper.
 
     Topptipsets 3^8 = 6 561 utfall ryms helt. Därför kan samtliga rader
@@ -1381,13 +1679,14 @@ def build_topptips_x_balanced_system(
         raise ValueError("X-balanserad v1 kräver exakt åtta matcher.")
     ranked = _rank_ev_rows(
         analysis, budget, row_price, value_weight, plan, jackpot,
-        refine_all=True)
+        refine_all=True, draw_risk=draw_risk)
     chosen, quotas = _x_balanced_rows(analysis, ranked)
     if len(chosen) != ranked.target:
         raise ValueError(
             f"X-balanseringen gav {len(chosen)} av {ranked.target} rader.")
     system = _ev_system_from_rows(
-        analysis, strategy, budget, row_price, jackpot, ranked, chosen)
+        analysis, strategy, budget, row_price, jackpot, ranked, chosen,
+        draw_risk=draw_risk)
     quota_text = ", ".join(
         f"{count}X:{amount}" for count, amount in sorted(quotas.items())
         if amount)
@@ -1403,7 +1702,8 @@ def build_topptips_row_shape_system(
         analysis: DrawAnalysis, kappa_by_x: dict[int, float],
         strategy: str = "medel", budget: float = 100.0,
         row_price: float = ROW_PRICE, value_weight: float = 0.5,
-        plan: Optional[dict] = None, jackpot: float = 0.0) -> System:
+        plan: Optional[dict] = None, jackpot: float = 0.0,
+        draw_risk: bool = True) -> System:
     """Researchkandidat med historiskt skattad medvinnareffekt per X-antal.
 
     Kandidaten ändrar inte matchernas sannolikheter och tvingar inte in ett
@@ -1422,17 +1722,19 @@ def build_topptips_row_shape_system(
             "Radform v1 kräver rimlig kappa för grupperna 0,1,2,3,4+.")
     ranked = _rank_ev_rows(
         analysis, budget, row_price, value_weight, plan, jackpot,
-        refine_all=True, top_tier_kappa_by_x=kappa_by_x)
-    chosen = ranked.rows[:ranked.target]
+        refine_all=True, top_tier_kappa_by_x=kappa_by_x,
+        draw_risk=draw_risk)
+    chosen = _select_draw_risk_rows(analysis, ranked, draw_risk)
     system = _ev_system_from_rows(
-        analysis, strategy, budget, row_price, jackpot, ranked, chosen)
+        analysis, strategy, budget, row_price, jackpot, ranked, chosen,
+        draw_risk=draw_risk)
     kappa_text = ", ".join(
         f"{count if count < 4 else '4+'}X:{kappa_by_x[count]:.3f}"
         for count in range(5))
     system.system_type = "radformsjusterade-värderader"
     system.rule += (
         f" {TOPPTIPS_ROW_SHAPE_VERSION}: medvinnarprognosen justerades efter "
-        f"antal X ({kappa_text}); inga X-kvoter tvingades in.")
+        f"antal X ({kappa_text}); {DRAW_RISK_VERSION} tillämpades separat.")
     return system
 
 
@@ -1449,7 +1751,8 @@ def build_color_system(analysis: DrawAnalysis, strategy: str = "medel",
                        value_weight: float = 0.5, plan: Optional[dict] = None,
                        colors_override: Optional[dict] = None,
                        bounds_override: Optional[tuple] = None,
-                       jackpot: float = 0.0) -> System:
+                       jackpot: float = 0.0,
+                       draw_risk: bool = True) -> System:
     """colors_override: {(event_number, tecken): 'blå'|'gul'} — användarens egna färger.
     bounds_override: (blo, bhi, glo, ghi) — användarens egna min/max-gränser.
     Utan overrides väljs båda automatiskt för max EV inom budgeten."""
@@ -1457,21 +1760,27 @@ def build_color_system(analysis: DrawAnalysis, strategy: str = "medel",
     target = max(1, int(budget / row_price))
 
     # generösare grundsystem än budgeten — reduceringen skär ner kostnaden
-    counts = _size_to_budget(analysis, cfg, budget * 6, row_price, value_weight)
-    picks = _build_picks(analysis, cfg, counts, value_weight)
+    counts = _size_to_budget(
+        analysis, cfg, budget * 6, row_price, value_weight, draw_risk)
+    picks = _build_picks(
+        analysis, cfg, counts, value_weight, draw_risk)
     while _num_rows(picks) > EV_UNIVERSE_CAP:      # håll enumereringen hanterbar
-        for m in sorted(analysis.matches, key=lambda x: x.open_score):
+        for m in sorted(
+                analysis.matches,
+                key=lambda match: _guard_priority(match, draw_risk)):
             c = counts.get(m.event_number, 1)
             if c > 1:
                 counts[m.event_number] = c - 1
                 break
         else:
             break
-        picks = _build_picks(analysis, cfg, counts, value_weight)
+        picks = _build_picks(
+            analysis, cfg, counts, value_weight, draw_risk)
     full_rows = _num_rows(picks)
     if full_rows <= target:
         return build_math_system(analysis, strategy, budget, row_price,
-                                 enumerate_rows=True, value_weight=value_weight)
+                                 enumerate_rows=True, value_weight=value_weight,
+                                 draw_risk=draw_risk)
 
     # färgsätt utmanartecknen: rank 2 -> blå, rank 3 -> gul (eller användarens egna)
     order = {m.event_number: _signs_by_score(m, value_weight) for m in analysis.matches}
@@ -1524,7 +1833,17 @@ def build_color_system(analysis: DrawAnalysis, strategy: str = "medel",
     _walk(0, 0, 0, 1.0, 1.0, [])
     nb_max = max(k[0] for k in buckets)
     ng_max = max(k[1] for k in buckets)
-    bstat = {k: (len(v), sum(e for e, _ in v)) for k, v in buckets.items()}
+    protected_indexes = {
+        index: draw_risk_context(match)["minimum_x_share"]
+        for index, match in enumerate(analysis.matches)
+        if draw_risk and draw_risk_context(match)["protected"]
+    }
+    bstat = {key: {
+        "n": len(values),
+        "ev": sum(value for value, _row in values),
+        "x": {index: sum(row[index] == "X" for _value, row in values)
+              for index in protected_indexes},
+    } for key, values in buckets.items()}
 
     if bounds_override is not None:
         blo, bhi, glo, ghi = bounds_override
@@ -1538,14 +1857,26 @@ def build_color_system(analysis: DrawAnalysis, strategy: str = "medel",
                 for glo_ in range(ng_max + 1):
                     for ghi_ in range(glo_, ng_max + 1):
                         n = ev = 0.0
-                        for (nb, ng), (cnt, evs) in bstat.items():
+                        x_counts = {index: 0 for index in protected_indexes}
+                        for (nb, ng), stats in bstat.items():
                             if blo_ <= nb <= bhi_ and glo_ <= ng <= ghi_:
-                                n += cnt; ev += evs
-                        if n and n <= target and ev > best_ev:
+                                n += stats["n"]; ev += stats["ev"]
+                                for index in x_counts:
+                                    x_counts[index] += stats["x"][index]
+                        risk_ok = all(
+                            x_counts[index] >= math.ceil(n * share)
+                            for index, share in protected_indexes.items())
+                        if n and n <= target and risk_ok and ev > best_ev:
                             best, best_ev = (blo_, bhi_, glo_, ghi_), ev
         if best is None:    # ingen färgregel ryms (t.ex. inga färger satta) -> ta bästa raderna rakt av
             allr = sorted((t for v in buckets.values() for t in v), key=lambda t: t[0], reverse=True)
-            rows = [list(r) for _, r in allr[:target]]
+            ranked = _EVRankedRows(
+                rows=[(score, score, row) for score, row in allr],
+                target=min(target, len(allr)), universe=full_rows,
+                exponent=0.0, turnover=turnover)
+            selected = _select_draw_risk_rows(
+                analysis, ranked, draw_risk)
+            rows = [list(row) for _score, _ev, row in selected]
             return System(
                 strategy=strategy, system_type="färgreducerat", budget=budget,
                 row_price=row_price, num_rows=len(rows), cost=round(len(rows) * row_price, 2),

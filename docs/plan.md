@@ -1,5 +1,19 @@
 # Spelkompisen — färdplan
 
+## STATUS-SAMMANFATTNING (2026-08-31 — X-risk v1 och matematiskt max v2 klara)
+
+**LÅGMÅLSMATCHER FÅR ETT GEMENSAMT X-SKYDD OCH MATEMATISKT MAX BYTER FORM
+(Codex).** Europatipset 2603 visade ett konstruktionsfel: två spanska matcher
+med X nära 3,00/3,25 och Pinnacle-total 2,0/2,25 fick båda noll X-täckning i
+matematiskt EV medel. `pool-draw-risk-v1` sparar totalen point-in-time och
+skyddar X från 29,5 procent vid total högst 2,25 (eller 32 procent utan
+total). Regeln gäller alla automatiska systembyggen, inte bara maxtester.
+Matematiskt max v2 är 3 spikar + 1 halv + 9 hela = 39 366 rader. Alla berörda
+forwardserier har nya nycklar; gamla kuponger pensioneras men skrivs aldrig
+om. 837 backendtester, 13 frontendtester och produktionsbygget är gröna.
+Kontrakt/acceptans: `docs/pool-xrisk-v1-mathmax-v2-2026-08-31.md`.
+Överlämning: `docs/overlamning-2026-08-31-pool-xrisk.md`.
+
 ## STATUS-SAMMANFATTNING (2026-08-30 — lokal systemoptimerare pilotklar)
 
 **EN LOKAL TOPPTIPS-256-SÖKMOTOR ÄR BYGGD SOM OFFLINEFORSKNING (Codex).** V1

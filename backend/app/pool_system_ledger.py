@@ -22,8 +22,9 @@ import random
 from typing import Optional
 
 from . import pool_settlement
-from .analysis import DrawAnalysis, analyze_draw
-from .builder import build_ev_system, build_max_math_system, ev_candidate_signs
+from .analysis import DrawAnalysis, _normalize_odds, analyze_draw
+from .builder import (build_ev_system, build_max_math_system,
+                      draw_risk_values, ev_candidate_signs)
 from .storage import Storage
 from .svenskaspel import Draw, family_of
 
@@ -69,13 +70,25 @@ RISK_PROFILES = (("saker", "säker", 0.2),
                  ("medel", "medel", 0.5),
                  ("tuff", "tuff", 0.8))
 BUDGETS = (144.0, 256.0, 512.0, 1024.0)
-CHAMPION_KEY = "b256-medel"
-RETIRED_KEYS = ("ev50-medel-vw50", "ev50-tuff-vw80", "ev256-medel-vw50")
+CHAMPION_KEY = "dr1-b256-medel"
+RETIRED_KEYS = (
+    "ev50-medel-vw50", "ev50-tuff-vw80", "ev256-medel-vw50",
+    *(f"b{int(budget)}-{slug}" for budget in BUDGETS
+      for slug, _strategy, _weight in RISK_PROFILES),
+)
 
-BENCHMARKS = tuple(
+RETIRED_BENCHMARKS = tuple(
     {"key": f"b{int(budget)}-{slug}", "budget": budget,
      "strategy": strategy, "value_weight": weight,
-     "primary": f"b{int(budget)}-{slug}" == CHAMPION_KEY}
+     "draw_risk": False}
+    for budget in BUDGETS
+    for slug, strategy, weight in RISK_PROFILES
+)
+BENCHMARKS = tuple(
+    {"key": f"dr1-b{int(budget)}-{slug}", "budget": budget,
+     "strategy": strategy, "value_weight": weight,
+     "draw_risk": True,
+     "primary": f"dr1-b{int(budget)}-{slug}" == CHAMPION_KEY}
     for budget in BUDGETS
     for slug, strategy, weight in RISK_PROFILES
 )
@@ -86,7 +99,7 @@ BENCHMARKS = tuple(
 # folk-/favoritrad. Därför får dessa nycklar samla äkta point-in-time-facit,
 # men de ingår ALDRIG i `benchmarks_for`, championrapporten eller automatisk
 # promotion. Fyra armar med samma radantal gör testet tolkningsbart.
-PH5_FORWARD_START_DRAW = 4966
+PH5_FORWARD_START_DRAW = 4969
 
 # EUROPATIPSET KOM MED 2026-08-18 (Samans beslut). Det var dessutom den
 # produkt som PASSERADE den historiska grinden — mot folk-, favorit- OCH
@@ -102,12 +115,10 @@ PH5_FORWARD_START_DRAW = 4966
 # frågan får en egen grind.
 PH5_FORWARD_PRODUCTS = ("stryktipset", "europatipset")
 PH5_FORWARD_START_DRAW_BY_PRODUCT = {
-    "stryktipset": 4966,
-    # Europatipsets serie börjar på 2600, som är öppen med spelstopp
-    # 2026-08-20 18:59 CEST och ännu inte har en enda frysning. Båda
-    # horisonterna ligger alltså i framtiden — det är en äkta point-in-time-
-    # start, inte bakfyllning. Ett system byggt efter facit vore falsk evidens.
-    "europatipset": 2600,
+    "stryktipset": 4969,
+    # V4 börjar på nästa ofrysta omgång. V3 ligger kvar som pensionerad
+    # evidens; ett system byggt efter facit vore falsk evidens.
+    "europatipset": 2604,
 }
 
 # FOLKRAD ÄR AVSLUTAD 2026-08-18 — den var en dubblett, inte en kontroll.
@@ -136,8 +147,6 @@ PH5_RETIRED_CONFIGS = (
     {"key": "ph5-v3-b5000-folkrad", "budget": 5000.0,
      "strategy": "folkrad", "value_weight": 0.0,
      "method": "folkrad"},
-)
-PH5_FORWARD_CONFIGS = (
     {"key": "ph5-v3-b5000-medel", "budget": 5000.0,
      "strategy": "medel", "value_weight": 0.5,
      "method": "varderader"},
@@ -150,6 +159,20 @@ PH5_FORWARD_CONFIGS = (
     {"key": "ph5-v3-b5000-maxev", "budget": 5000.0,
      "strategy": "maxev", "value_weight": 1.0,
      "method": "maxev"},
+)
+PH5_FORWARD_CONFIGS = (
+    {"key": "ph5-v4-dr1-b5000-medel", "budget": 5000.0,
+     "strategy": "medel", "value_weight": 0.5,
+     "method": "varderader", "draw_risk": True},
+    {"key": "ph5-v4-dr1-b5000-byggarslump", "budget": 5000.0,
+     "strategy": "byggarslump", "value_weight": 0.5,
+     "method": "byggarslump", "draw_risk": True},
+    {"key": "ph5-v4-dr1-b5000-favoritrad", "budget": 5000.0,
+     "strategy": "favoritrad", "value_weight": 0.0,
+     "method": "favoritrad", "draw_risk": False},
+    {"key": "ph5-v4-dr1-b5000-maxev", "budget": 5000.0,
+     "strategy": "maxev", "value_weight": 1.0,
+     "method": "maxev", "draw_risk": True},
 )
 
 # 40 000-PILOTEN, AVSLUTAD (förregistrerad 2026-08-26, avslutad 2026-08-29).
@@ -180,42 +203,65 @@ MAX40_RETIRED_CONFIGS = (
      "research_family": "max40", "full_universe": True},
 )
 
-# MAXTESTER V2, RESEARCH-ONLY (förregistrerade 2026-08-29).
+# MAXTESTER V2, RESEARCH-ONLY (förregistrerade 2026-08-31).
 #
 # Den gamla 40 000-piloten var ett explicit urval ur 3^13 och därmed
 # reducerad till sin konstruktion. Nu separeras de två frågor som piloten
-# blandade ihop. Matematiskt max är det kartesiska M-systemet 4 hel + 9 halv
-# = 41 472 rader. Reducerat max följer Spelkompisens verkliga leveransväg:
+# blandade ihop. Matematiskt max v2 är det kartesiska M-systemet 3 spikar,
+# 1 halv och 9 hela = 39 366 rader. Reducerat max följer Spelkompisens
+# verkliga leveransväg:
 # externa E-rader med officiellt tak 20 000 kr, uppdelat i högst 10 000 rader
 # per fil vid eventuell manuell export. Inga riktiga spel lämnas in här.
 MAX_TEST_PRODUCTS = ("stryktipset", "europatipset")
 MAX_TEST_START_DRAW_BY_PRODUCT = {
     # Båda h3-fönstren låg i framtiden när kontraktet skrevs. Ingen
     # retrofrysning eller återanvändning av 40 000-pilotens rader är tillåten.
-    "stryktipset": 4968,
-    "europatipset": 2603,
+    "stryktipset": 4969,
+    "europatipset": 2604,
 }
-MATH_MAX_ROWS = 41472
+MATH_MAX_ROWS = 39366
 REDUCED_MAX_ROWS = 20000
-MATHMAX_FORWARD_CONFIGS = (
-    {"key": "mathmax-v1-b41472-ev50", "budget": float(MATH_MAX_ROWS),
+MATHMAX_RETIRED_CONFIGS = (
+    {"key": "mathmax-v1-b41472-ev50", "budget": 41472.0,
      "strategy": "medel", "value_weight": 0.5,
-     "method": "matematiskt", "label": "EV medel",
+     "method": "matematiskt", "label": "EV medel · gamla 4H+9h",
      "research_family": "mathmax"},
-    {"key": "mathmax-v1-b41472-ev80", "budget": float(MATH_MAX_ROWS),
+    {"key": "mathmax-v1-b41472-ev80", "budget": 41472.0,
      "strategy": "tuff", "value_weight": 0.8,
-     "method": "matematiskt", "label": "EV högt",
+     "method": "matematiskt", "label": "EV högt · gamla 4H+9h",
      "research_family": "mathmax"},
 )
+MATHMAX_FORWARD_CONFIGS = (
+    {"key": "mathmax-v2-dr1-b39366-ev50", "budget": float(MATH_MAX_ROWS),
+     "strategy": "medel", "value_weight": 0.5,
+     "method": "matematiskt", "label": "EV medel",
+     "research_family": "mathmax", "draw_risk": True},
+    {"key": "mathmax-v2-dr1-b39366-ev80", "budget": float(MATH_MAX_ROWS),
+     "strategy": "tuff", "value_weight": 0.8,
+     "method": "matematiskt", "label": "EV högt",
+     "research_family": "mathmax", "draw_risk": True},
+)
+REDUCEDMAX_RETIRED_CONFIGS = (
+    {"key": "reducedmax-v1-b20000-ev50", "budget": 20000.0,
+     "strategy": "medel", "value_weight": 0.5,
+     "method": "varderader", "label": "EV medel · utan X-golv",
+     "research_family": "reducedmax", "full_universe": True},
+    {"key": "reducedmax-v1-b20000-ev80", "budget": 20000.0,
+     "strategy": "tuff", "value_weight": 0.8,
+     "method": "varderader", "label": "EV högt · utan X-golv",
+     "research_family": "reducedmax", "full_universe": True},
+)
 REDUCEDMAX_FORWARD_CONFIGS = (
-    {"key": "reducedmax-v1-b20000-ev50", "budget": float(REDUCED_MAX_ROWS),
+    {"key": "reducedmax-v2-dr1-b20000-ev50", "budget": float(REDUCED_MAX_ROWS),
      "strategy": "medel", "value_weight": 0.5,
      "method": "varderader", "label": "EV medel",
-     "research_family": "reducedmax", "full_universe": True},
-    {"key": "reducedmax-v1-b20000-ev80", "budget": float(REDUCED_MAX_ROWS),
+     "research_family": "reducedmax", "full_universe": True,
+     "draw_risk": True},
+    {"key": "reducedmax-v2-dr1-b20000-ev80", "budget": float(REDUCED_MAX_ROWS),
      "strategy": "tuff", "value_weight": 0.8,
      "method": "varderader", "label": "EV högt",
-     "research_family": "reducedmax", "full_universe": True},
+     "research_family": "reducedmax", "full_universe": True,
+     "draw_risk": True},
 )
 LARGE_RESEARCH_FAMILIES = frozenset({"max40", "mathmax", "reducedmax"})
 
@@ -375,14 +421,16 @@ def _ph5_control_rows(analysis: DrawAnalysis, config: dict,
         system = build_ev_system(
             analysis, "maxev", config["budget"], row_price=row_price,
             value_weight=1.0, plan=_prize_plan(analysis.product),
-            jackpot=0.0)
+            jackpot=0.0, draw_risk=bool(config.get("draw_risk", True)))
         return [list(row) for row in system.rows]
     if method != "byggarslump":
         raise ValueError(f"okänd PH5-kontroll: {method}")
-    signs, _universe = ev_candidate_signs(analysis, value_weight=0.5)
+    signs, _universe = ev_candidate_signs(
+        analysis, value_weight=0.5,
+        draw_risk=bool(config.get("draw_risk", True)))
     pool = list(itertools.product(*(
         signs[match.event_number] for match in analysis.matches)))
-    seed_text = (f"ph5-forward-v3|{analysis.product}|{analysis.draw_number}|"
+    seed_text = (f"ph5-forward-v4|{analysis.product}|{analysis.draw_number}|"
                  f"{horizon}|{config['key']}")
     seed = int(hashlib.sha256(seed_text.encode()).hexdigest()[:16], 16)
     rng = random.Random(seed)
@@ -428,7 +476,8 @@ def freeze_due(store: Storage, product: str, draw: Draw,
                     analysis, bench["strategy"], bench["budget"],
                     row_price=analysis.row_price or 1.0,
                     value_weight=bench["value_weight"], plan=plan, jackpot=jp,
-                    full_universe=bool(bench.get("full_universe")))
+                    full_universe=bool(bench.get("full_universe")),
+                    draw_risk=bool(bench.get("draw_risk", True)))
                 rows = system.rows
                 n_rows = system.num_rows
                 cost = system.cost
@@ -441,7 +490,8 @@ def freeze_due(store: Storage, product: str, draw: Draw,
                 system = build_max_math_system(
                     analysis, bench["strategy"],
                     row_price=analysis.row_price or 1.0,
-                    value_weight=bench["value_weight"])
+                    value_weight=bench["value_weight"],
+                    draw_risk=bool(bench.get("draw_risk", True)))
                 rows = system.rows
                 n_rows = system.num_rows
                 cost = system.cost
@@ -634,6 +684,11 @@ def _bench(key: str, stored: Optional[dict] = None) -> dict:
         if bench["key"] == key:
             return {**bench, "retired": False, "research": False,
                     "promotion_eligible": True, "method": "varderader"}
+    for bench in RETIRED_BENCHMARKS:
+        if bench["key"] == key:
+            return {**bench, "primary": False, "retired": True,
+                    "research": False, "promotion_eligible": False,
+                    "method": "varderader"}
     for config in PH5_FORWARD_CONFIGS:
         if config["key"] == key:
             return {**config, "primary": False, "retired": False,
@@ -646,9 +701,17 @@ def _bench(key: str, stored: Optional[dict] = None) -> dict:
         if config["key"] == key:
             return {**config, "primary": False, "retired": False,
                     "research": True, "promotion_eligible": False}
+    for config in MATHMAX_RETIRED_CONFIGS:
+        if config["key"] == key:
+            return {**config, "primary": False, "retired": True,
+                    "research": True, "promotion_eligible": False}
     for config in REDUCEDMAX_FORWARD_CONFIGS:
         if config["key"] == key:
             return {**config, "primary": False, "retired": False,
+                    "research": True, "promotion_eligible": False}
+    for config in REDUCEDMAX_RETIRED_CONFIGS:
+        if config["key"] == key:
+            return {**config, "primary": False, "retired": True,
                     "research": True, "promotion_eligible": False}
     for config in MAX40_RETIRED_CONFIGS:
         if config["key"] == key:
@@ -838,6 +901,25 @@ def _sharp_at(store: Storage, product: str, draw_number: int,
     return out
 
 
+def _total_at(store: Storage, product: str, draw_number: int,
+              at: Optional[str]) -> dict[int, dict]:
+    """Senaste verkligt observerade Pinnacle-total vid frysningen."""
+    query = ("SELECT event_number,line,over_odds,under_odds,fetched_at "
+             "FROM sharp_total_snapshots WHERE product=? AND draw_number=?")
+    args: list = [product, draw_number]
+    if at:
+        query += " AND fetched_at<=?"
+        args.append(at)
+    query += " ORDER BY fetched_at,id"
+    out = {}
+    for event, line, over, under, observed_at in store.conn.execute(query, args):
+        out[int(event)] = {
+            "line": line, "O": over, "U": under,
+            "observed_at": observed_at,
+        }
+    return out
+
+
 def system_detail(store: Storage, product: str, draw_number: int,
                   horizon: str, config_key: str) -> dict:
     """Ett fryst system mot facit, match för match.
@@ -853,14 +935,18 @@ def system_detail(store: Storage, product: str, draw_number: int,
         "SELECT frozen_at, timely, lag_min, budget, strategy, value_weight, "
         "n_rows, cost_kr, events_order, rows_text, correct_max, correct_dist, "
         "payout_kr, payout_complete, roi, settle_note, turnover_used, "
-        "turnover_basis FROM pool_system_ledger WHERE product=? AND "
+        "turnover_basis, build_note FROM pool_system_ledger WHERE product=? AND "
         "draw_number=? AND horizon=? AND config_key=?",
         (product, draw_number, horizon, config_key)).fetchone()
     if row is None:
         return {"available": False}
     (frozen_at, timely, lag_min, budget, strategy, value_weight, n_rows,
      cost_kr, events_order, rows_text, correct_max, correct_dist, payout_kr,
-     payout_complete, roi, settle_note, turnover_used, turnover_basis) = row
+     payout_complete, roi, settle_note, turnover_used, turnover_basis,
+     build_note) = row
+    bench = _bench(config_key, {"budget": budget, "strategy": strategy,
+                                "value_weight": value_weight})
+    draw_risk_applied = bool(bench.get("draw_risk", False))
 
     order = [int(n) for n in (events_order or "").split(",") if n]
     rows = _decode_rows(rows_text)
@@ -874,6 +960,7 @@ def system_detail(store: Storage, product: str, draw_number: int,
                  (product, draw_number))}
     at_freeze = _streck_at(store, product, draw_number, frozen_at)
     sharp_at_freeze = _sharp_at(store, product, draw_number, frozen_at)
+    total_at_freeze = _total_at(store, product, draw_number, frozen_at)
 
     events = []
     ordered_outcomes = []
@@ -889,11 +976,22 @@ def system_detail(store: Storage, product: str, draw_number: int,
         ordered_outcomes.append(outcome)
         frozen_signs = at_freeze.get(event_number, {})
         frozen_sharp = sharp_at_freeze.get(event_number, {})
+        frozen_total = total_at_freeze.get(event_number)
         observed = [
             value.get("observed_at") for value in
             (*frozen_signs.values(), *frozen_sharp.values())
             if value.get("observed_at")
         ]
+        if frozen_total and frozen_total.get("observed_at"):
+            observed.append(frozen_total["observed_at"])
+        risk_audit = draw_risk_values(
+            (_normalize_odds({
+                sign: frozen_sharp.get(sign, {}).get("odds")
+                for sign in ("1", "X", "2")
+            }).get("X") or 0.0),
+            frozen_total.get("line") if frozen_total else None,
+        )
+        risk_audit["applied"] = draw_risk_applied
         events.append({
             "event_number": event_number,
             "description": info.get("description"),
@@ -920,6 +1018,8 @@ def system_detail(store: Storage, product: str, draw_number: int,
                 s: frozen_sharp.get(s, {}).get("odds")
                 for s in ("1", "X", "2")
             },
+            "total_at_freeze": frozen_total,
+            "draw_risk": risk_audit,
             "market_observed_at": max(observed) if observed else None,
             "streck_at_close": info.get("streck_close"),
             "x_omitted": sign_counts["X"] == 0,
@@ -963,8 +1063,6 @@ def system_detail(store: Storage, product: str, draw_number: int,
             else:
                 result["payout_kr"] = 0.0
         row_results.sort(key=lambda result: (-result["correct"], result["index"]))
-    bench = _bench(config_key, {"budget": budget, "strategy": strategy,
-                                "value_weight": value_weight})
     return {
         "available": True, "product": product, "draw_number": draw_number,
         "horizon": horizon, "horizon_minutes": FREEZE_HORIZONS.get(
@@ -975,6 +1073,7 @@ def system_detail(store: Storage, product: str, draw_number: int,
         "promotion_eligible": bench["promotion_eligible"],
         "method": bench["method"], "label": bench.get("label"),
         "research_family": bench.get("research_family"),
+        "draw_risk_applied": draw_risk_applied,
         "frozen_at": frozen_at, "timely": bool(timely), "lag_min": lag_min,
         "n_rows": n_rows, "cost_kr": cost_kr,
         "correct_max": correct_max,
@@ -984,6 +1083,7 @@ def system_detail(store: Storage, product: str, draw_number: int,
                             if payout_complete is not None else None),
         "roi": roi, "settle_note": settle_note,
         "turnover_used": turnover_used, "turnover_basis": turnover_basis,
+        "build_note": build_note,
         "events": events,
         "n_missed": len(missed),
         "missed_events": [e["event_number"] for e in missed],
@@ -1000,7 +1100,7 @@ def system_detail(store: Storage, product: str, draw_number: int,
                 if events and rows else None),
         },
         # Exakta rader hämtas bara när användaren öppnar EN frysning. Lägg
-        # aldrig detta i `/api/pool/systems`: 5 000–41 472 × 13 tecken gör
+        # aldrig detta i `/api/pool/systems`: 5 000–39 366 × 13 tecken gör
         # annars hela Historik tung på mobil.
         "facit_complete": facit_complete,
         "facit": "".join(ordered_outcomes) if facit_complete else None,
@@ -1231,10 +1331,10 @@ def max40_overview(store: Storage) -> dict:
 
 
 def mathmax_overview(store: Storage) -> dict:
-    """De två parade äkta matematiska 41 472-radersarmarna."""
+    """De aktiva 39 366-armarna plus de pensionerade 41 472-armarna."""
     return _research_overview(
         store,
-        configs=MATHMAX_FORWARD_CONFIGS,
+        configs=(*MATHMAX_FORWARD_CONFIGS, *MATHMAX_RETIRED_CONFIGS),
         products=MAX_TEST_PRODUCTS,
         rows_per_test=MATH_MAX_ROWS,
         active_methods=len(MATHMAX_FORWARD_CONFIGS),
@@ -1247,7 +1347,7 @@ def reducedmax_overview(store: Storage) -> dict:
     """De två parade reducerade 20 000-radersarmarna."""
     return _research_overview(
         store,
-        configs=REDUCEDMAX_FORWARD_CONFIGS,
+        configs=(*REDUCEDMAX_FORWARD_CONFIGS, *REDUCEDMAX_RETIRED_CONFIGS),
         products=MAX_TEST_PRODUCTS,
         rows_per_test=REDUCED_MAX_ROWS,
         active_methods=len(REDUCEDMAX_FORWARD_CONFIGS),

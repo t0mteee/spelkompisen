@@ -199,6 +199,7 @@ class Pinnacle:
                 spread.setdefault(mid, []).extend(x.get("prices", []))
             elif t == "total":
                 total.setdefault(mid, []).extend(x.get("prices", []))
+        totals_by_match, _seen_totals = _totals_by_child(markets)
 
         out: list[dict] = []
         for m in matchups:
@@ -224,8 +225,16 @@ class Pinnacle:
                 continue
             # förväntade mål (för Bombens resultatmodell) ur spread+total
             xg = goal_expectations(spread.get(mid, []), total.get(mid, []))
+            total_offers = totals_by_match.get(mid) or []
+            main_total = min(
+                total_offers,
+                key=lambda offer: abs(offer["O"] - 2.0)
+                + abs(offer["U"] - 2.0),
+                default=None,
+            )
             out.append({"home": home, "away": away, "start": m.get("startTime"),
                         "odds": odds, "odds_source": source,
+                        "total": main_total,
                         "home_xg": round(xg[0], 3) if xg else None,
                         "away_xg": round(xg[1], 3) if xg else None})
         return out
@@ -420,5 +429,8 @@ class Pinnacle:
         return {"home": best["home"], "away": best["away"], "start": best.get("start"),
                 "odds": odds, "confidence": round(best_score, 3),
                 "swapped": best_swapped, "odds_source": best.get("odds_source"),
+                # totalen är orienteringsoberoende och ska följa exakt samma
+                # fysiska match som 1X2-träffen.
+                "total": best.get("total"),
                 # rå xg i Pinnacles orientering — bomben.py speglar vid swapped
                 "home_xg": best.get("home_xg"), "away_xg": best.get("away_xg")}

@@ -903,6 +903,23 @@ CREATE TABLE IF NOT EXISTS sharp_snapshots (
 CREATE INDEX IF NOT EXISTS idx_sharpsnap_lookup
     ON sharp_snapshots (product, draw_number, event_number, sign, fetched_at);
 
+-- Poolens point-in-time huvudtotal från exakt samma Pinnacle-payload som
+-- 1X2. Separat tabell: en total får aldrig bakfyllas eller härledas ur ett
+-- senare odds bara för att en systemfrysning vill ha mer data.
+CREATE TABLE IF NOT EXISTS sharp_total_snapshots (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    product       TEXT NOT NULL,
+    draw_number   INTEGER NOT NULL,
+    event_number  INTEGER NOT NULL,
+    line          REAL NOT NULL,
+    over_odds     REAL,
+    under_odds    REAL,
+    fetched_at    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sharptotal_lookup
+    ON sharp_total_snapshots (
+        product, draw_number, event_number, fetched_at);
+
 CREATE TABLE IF NOT EXISTS sharp_odds (
     product       TEXT NOT NULL,
     draw_number   INTEGER NOT NULL,
@@ -911,6 +928,9 @@ CREATE TABLE IF NOT EXISTS sharp_odds (
     one           REAL,
     x             REAL,
     two           REAL,
+    total_line    REAL,
+    over_odds     REAL,
+    under_odds    REAL,
     confidence    REAL,
     matched       TEXT,
     fetched_at    TEXT,
@@ -1113,6 +1133,11 @@ class Storage:
                     "ALTER TABLE oddset_value_log ADD COLUMN git_hash TEXT",
                     "ALTER TABLE oddset_odds ADD COLUMN last_seen_at TEXT",
                     "ALTER TABLE oddset_odds ADD COLUMN available INTEGER NOT NULL DEFAULT 1",
+                    # Poolens aktuella totalcache. Själva point-in-time-serien
+                    # ligger i sharp_total_snapshots och skapas av schemat.
+                    "ALTER TABLE sharp_odds ADD COLUMN total_line REAL",
+                    "ALTER TABLE sharp_odds ADD COLUMN over_odds REAL",
+                    "ALTER TABLE sharp_odds ADD COLUMN under_odds REAL",
                     # andra ankaret (skuggmätning) — additivt och nullbart:
                     # gamla flaggor får NULL och räknas som "ej mätt", aldrig
                     # som "ankarna var eniga". Ingen bakfyllning är möjlig:
@@ -1473,15 +1498,25 @@ class Storage:
         n = 0
         for h in hits:
             o = h.get("odds") or {}
+            total = h.get("total") or {}
             self.conn.execute(
                 "INSERT INTO sharp_odds(product, draw_number, event_number, bookmaker, "
-                "one, x, two, confidence, matched, fetched_at) VALUES(?,?,?,?,?,?,?,?,?,?) "
+                "one, x, two, total_line, over_odds, under_odds, confidence, "
+                "matched, fetched_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) "
                 "ON CONFLICT(product, draw_number, event_number) DO UPDATE SET "
                 "bookmaker=excluded.bookmaker, one=excluded.one, x=excluded.x, "
-                "two=excluded.two, confidence=excluded.confidence, "
+                "two=excluded.two, "
+                # Samma cacheprincip som för sharpserien: en lyckad 1X2-
+                # träff utan total är inte bevis för att det senast faktiskt
+                # observerade totalpriset upphört att vara känt.
+                "total_line=COALESCE(excluded.total_line,sharp_odds.total_line), "
+                "over_odds=COALESCE(excluded.over_odds,sharp_odds.over_odds), "
+                "under_odds=COALESCE(excluded.under_odds,sharp_odds.under_odds), "
+                "confidence=excluded.confidence, "
                 "matched=excluded.matched, fetched_at=excluded.fetched_at",
                 (product, draw_number, h["event_number"], h.get("bookmaker"),
-                 o.get("1"), o.get("X"), o.get("2"), h.get("confidence"),
+                 o.get("1"), o.get("X"), o.get("2"), total.get("line"),
+                 total.get("O"), total.get("U"), h.get("confidence"),
                  h.get("matched"), h.get("fetched_at")),
             )
             n += 1
@@ -1510,6 +1545,24 @@ class Storage:
                     "INSERT INTO sharp_snapshots(product, draw_number, event_number, sign, odds, fetched_at) "
                     "VALUES(?,?,?,?,?,?)", (product, draw_number, ev, sign, val, fetched_at))
                 n += 1
+            total = h.get("total") or {}
+            if all(total.get(key) is not None for key in ("line", "O", "U")):
+                previous = self.conn.execute(
+                    "SELECT line,over_odds,under_odds FROM sharp_total_snapshots "
+                    "WHERE product=? AND draw_number=? AND event_number=? "
+                    "ORDER BY fetched_at DESC,id DESC LIMIT 1",
+                    (product, draw_number, ev),
+                ).fetchone()
+                values = (float(total["line"]), float(total["O"]),
+                          float(total["U"]))
+                old = (tuple(previous) if previous is not None else None)
+                if old != values:
+                    self.conn.execute(
+                        "INSERT INTO sharp_total_snapshots(product,draw_number,"
+                        "event_number,line,over_odds,under_odds,fetched_at) "
+                        "VALUES(?,?,?,?,?,?,?)",
+                        (product, draw_number, ev, *values, fetched_at),
+                    )
         self._commit()
         return n
 
@@ -1547,11 +1600,15 @@ class Storage:
 
     def get_sharp(self, product: str, draw_number: int) -> dict[int, dict]:
         rows = self.conn.execute(
-            "SELECT event_number, bookmaker, one, x, two, confidence, matched, fetched_at "
+            "SELECT event_number, bookmaker, one, x, two, total_line, "
+            "over_odds, under_odds, confidence, matched, fetched_at "
             "FROM sharp_odds WHERE product=? AND draw_number=?",
             (product, draw_number)).fetchall()
         return {r["event_number"]: {
             "odds": {"1": r["one"], "X": r["x"], "2": r["two"]},
+            "total": ({"line": r["total_line"], "O": r["over_odds"],
+                       "U": r["under_odds"]}
+                      if r["total_line"] is not None else None),
             "bookmaker": r["bookmaker"], "confidence": r["confidence"],
             "matched": r["matched"], "fetched_at": r["fetched_at"]}
             for r in rows}

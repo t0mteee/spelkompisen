@@ -60,16 +60,22 @@ def report(store, *, now: Optional[dt.datetime] = None,
     for product in chosen:
         draws = []
         for row in store.conn.execute(
-                "SELECT draw_number, reg_close_time FROM draws "
+                "SELECT draw_number, state, reg_close_time FROM draws "
                 "WHERE product=? AND reg_close_time IS NOT NULL "
                 "ORDER BY draw_number DESC LIMIT 100", (product,)):
-            close = _at(row[1])
+            close = _at(row[2])
             # DB:n innehåller både +02:00 och Z. Jämför därför tolkade tider,
             # aldrig ISO-strängarna lexikografiskt.
             if close and window_start <= close <= window_end:
-                draws.append({"draw_number": int(row[0]), "close": close})
+                draws.append({"draw_number": int(row[0]),
+                              "state": row[1], "close": close})
         draws.sort(key=lambda d: d["close"])
-        open_draws = [d for d in draws if d["close"] > now]
+        # `Defined` betyder att SvS har annonserat en framtida omgång men ännu
+        # inte öppnat odds/streck. Insamlaren kan korrekt inte snapshotta den;
+        # hälsan får därför inte kalla den ett bortfall bara för att spelstoppet
+        # ligger i framtiden.
+        open_draws = [d for d in draws
+                      if d["state"] == "Open" and d["close"] > now]
         nearest = open_draws[0] if open_draws else None
         latest = store.conn.execute(
             "SELECT MAX(fetched_at) FROM pool_draw_snapshot WHERE product=?",
@@ -144,7 +150,7 @@ def report(store, *, now: Optional[dt.datetime] = None,
                         level = "warning" if closed else "error"
                         family_label = {
                             "ph5": "PH5",
-                            "mathmax": "matematiska 41 472-testet",
+                            "mathmax": "matematiska 39 366-testet",
                             "reducedmax": "reducerade 20 000-testet",
                         }.get(family, family)
                         message = (

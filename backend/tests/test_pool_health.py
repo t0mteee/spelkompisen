@@ -43,6 +43,19 @@ class PoolHealthTests(unittest.TestCase):
         self.assertEqual("ok", rep["status"])
         self.assertEqual([], rep["issues"])
 
+    def test_defined_future_draw_does_not_require_snapshots_or_freezes(self):
+        close = NOW + dt.timedelta(hours=8)
+        self.store.conn.execute(
+            "INSERT INTO draws(product,draw_number,state,reg_close_time) "
+            "VALUES (?,?,?,?)",
+            ("stryktipset", 5001, "Defined", close.isoformat()))
+
+        rep = pool_health.report(
+            self.store, now=NOW, products=("stryktipset",))
+
+        self.assertEqual("ok", rep["status"])
+        self.assertEqual([], rep["issues"])
+
     def test_stale_snapshot_is_visible_end_to_end(self):
         self._draw()
         self._snapshot(minutes_ago=60)

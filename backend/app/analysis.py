@@ -71,6 +71,11 @@ class MatchAnalysis:
     has_sharp: bool = False
     sharp_bookmaker: Optional[str] = None
     sharp_confidence: Optional[float] = None
+    # Pinnacles point-in-time huvudtotal från samma matchning som sharp 1X2.
+    # NULL är riktig frånvaro och får aldrig fyllas med ett senare pris.
+    total_line: Optional[float] = None
+    total_over_odds: Optional[float] = None
+    total_under_odds: Optional[float] = None
 
 
 # --- trösklar (lätt att tweaka) ---
@@ -419,6 +424,7 @@ def analyze_match(m: Match, sharp: Optional[dict] = None,
 
     rec = _recommendation(speltyp, fav_sign, oa, basis_src, best_value)
 
+    total = (sharp.get("total") if sharp else None) or {}
     return MatchAnalysis(
         event_number=m.event_number,
         description=m.description,
@@ -438,6 +444,9 @@ def analyze_match(m: Match, sharp: Optional[dict] = None,
         has_sharp=has_sharp,
         sharp_bookmaker=(sharp.get("bookmaker") if sharp else None),
         sharp_confidence=(sharp.get("confidence") if sharp else None),
+        total_line=total.get("line"),
+        total_over_odds=total.get("O"),
+        total_under_odds=total.get("U"),
     )
 
 

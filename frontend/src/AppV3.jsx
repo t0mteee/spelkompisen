@@ -1544,7 +1544,21 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
                       : e.hit ? ' ✓' : ''}
                       {e.x_omitted && <span className="v3xflag"> X saknas</span>}
                     </td>
-                    <td className="v3oddsline">{oddsLine(e, 'sharp_odds_at_freeze')}</td>
+                    <td className="v3oddsline">
+                      {oddsLine(e, 'sharp_odds_at_freeze')}
+                      {e.total_at_freeze && <span className="v3markettime">
+                        Ö/U {Number(e.total_at_freeze.line).toLocaleString('sv-SE')}
+                        {' · '}O {Number(e.total_at_freeze.O).toFixed(2)}
+                        {' · '}U {Number(e.total_at_freeze.U).toFixed(2)}
+                      </span>}
+                      {e.draw_risk?.protected && <span className="v3xflag"
+                        title={e.draw_risk.applied
+                          ? 'Den frysta byggaren använde X-skyddet i den här matchen.'
+                          : 'Historisk kupong: den nya regeln var inte aktiv, men matchen hade kvalificerat.'}>
+                        {e.draw_risk.applied ? 'X-skydd' : 'ny regel: X-skydd'}
+                        {' '}{Math.round((e.draw_risk.x_probability || 0) * 100)} %
+                      </span>}
+                    </td>
                     <td className="v3oddsline">
                       {['1', 'X', '2'].map((s) => (
                         <span key={s}>{s} {e.odds_at_freeze?.[s] == null ? '–'
@@ -1564,8 +1578,8 @@ function SystemDetail({ product, draw, horizon, config, onClose }) {
               </tbody>
             </table>
           </div>
-          <span className="v3hint">Teckenvikt visar hur stor del av de 5 000
-            raderna som använder 1, X respektive 2 — betydligt mer informativt
+          <span className="v3hint">Teckenvikt visar hur stor del av systemets
+            {` ${d.n_rows.toLocaleString('sv-SE')} `}rader som använder 1, X respektive 2 — betydligt mer informativt
             än att ett tecken råkar finnas på minst en rad. Ett ✗ betyder att
             facittecknet saknades helt. Oddsen och strecken är sista sparade
             observationen före frysningen; de läses aldrig in i efterhand.</span>
@@ -1674,8 +1688,8 @@ const FORWARD_TEST = {
     paired: false, archived: true,
   },
   mathmax: {
-    endpoint: '/api/pool/mathmax', rowLabel: '41 472',
-    title: 'Matematiskt max · 41 472 rader',
+    endpoint: '/api/pool/mathmax', rowLabel: '39 366',
+    title: 'Matematiskt max · 39 366 rader',
     loading: 'Hämtar matematiskt maxtest…', filterLabel: 'Arm',
     paired: true,
   },
@@ -1789,7 +1803,7 @@ function ForwardTestV3({ family }) {
       {isMaxTest ? <div className="v3card v3ph5xnote">
         <div className="v3cardhead"><h3>Vad ”max” betyder här</h3></div>
         {family === 'mathmax' ? <p>Detta är ett äkta matematiskt M-system:
-          <b> 4 helgarderingar × 9 halvgarderingar = 41 472 unika rader</b>.
+          <b> 3 spikar × 1 halvgardering × 9 helgarderingar = 39 366 unika rader</b>.
           Alla kombinationer av de valda tecknen ingår; inget radurval reduceras bort.
           Det ska återskapas som M-system hos Svenska Spel, inte laddas upp som
           en enda extern E-radfil.</p> : family === 'reducedmax' ? <p>Detta är
@@ -1900,7 +1914,7 @@ function MaxTestsV3() {
   return <div>
     <div className="v3subnav v3maxtabs" aria-label="Välj maxtest">
       <button className={family === 'mathmax' ? 'on' : ''}
-        onClick={() => setFamily('mathmax')}>Matematiskt 41 472</button>
+        onClick={() => setFamily('mathmax')}>Matematiskt 39 366</button>
       <button className={family === 'reducedmax' ? 'on' : ''}
         onClick={() => setFamily('reducedmax')}>Reducerat 20 000</button>
       <button className={family === 'max40' ? 'on' : ''}

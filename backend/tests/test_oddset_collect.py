@@ -48,6 +48,39 @@ class PinnacleCacheAgeTests(unittest.TestCase):
         self.assertEqual([], pin.soccer_index())
         self.assertEqual(60, pin.last_age_s)
 
+    def test_soccer_index_exposes_balanced_main_total_from_same_match(self):
+        pin = Pinnacle.__new__(Pinnacle)
+        pin.last_age_s = 0
+        pin._get = mock.Mock(side_effect=[
+            [{"id": 10, "parent": None, "type": "matchup",
+              "startTime": "2026-09-01T18:00:00Z",
+              "participants": [
+                  {"alignment": "home", "name": "Home"},
+                  {"alignment": "away", "name": "Away"},
+              ]}],
+            [
+                {"matchupId": 10, "period": 0, "type": "moneyline",
+                 "status": "open", "prices": [
+                     {"designation": "home", "price": 150},
+                     {"designation": "draw", "price": 200},
+                     {"designation": "away", "price": 175},
+                 ]},
+                {"matchupId": 10, "period": 0, "type": "total",
+                 "status": "open", "prices": [
+                     {"designation": "over", "points": 2.5, "price": -105},
+                     {"designation": "under", "points": 2.5, "price": -105},
+                     {"designation": "over", "points": 3.5, "price": 180},
+                     {"designation": "under", "points": 3.5, "price": -250},
+                 ]},
+            ],
+        ])
+
+        rows = pin.soccer_index()
+
+        self.assertEqual(1, len(rows))
+        self.assertEqual(
+            {"line": 2.5, "O": 1.95, "U": 1.95}, rows[0]["total"])
+
 
 class CollectionPresenceTests(unittest.TestCase):
     def setUp(self) -> None:

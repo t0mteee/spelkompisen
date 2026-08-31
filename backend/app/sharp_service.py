@@ -119,6 +119,7 @@ def collect_pinnacle(product: str = "stryktipset",
         store.meta_set("pinnacle_error", "")
         if cache and hits:
             to_cache = [{"event_number": ev, "bookmaker": h["bookmaker"], "odds": h["odds"],
+                         "total": h.get("total"),
                          "confidence": h["confidence"],
                          "matched": f'{h["home"]} - {h["away"]}',
                          "fetched_at": observed_at}

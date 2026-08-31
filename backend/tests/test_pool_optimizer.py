@@ -58,7 +58,8 @@ class SelectionTests(unittest.TestCase):
         analysis = analyze_draw(draw)
         production = builder.build_ev_system(
             analysis, strategy="medel", budget=256, row_price=1.0,
-            value_weight=0.5, plan=ph5.prize_plan("topptipset"), jackpot=0.0)
+            value_weight=0.5, plan=ph5.prize_plan("topptipset"), jackpot=0.0,
+            draw_risk=False)
         selected = optimizer.select_rows(
             self.prepared, optimizer.champion_config())
         optimized_rows = [optimizer.ALL_ROWS[index] for index in selected]

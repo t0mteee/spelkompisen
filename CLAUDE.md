@@ -78,7 +78,12 @@ ett nytt manifest — en aliasändring i en liga som ingår i V2.2:s FIT_POOLS
 datagenererande process. Äldre manifest blandas aldrig in. Det är inte en
 tränad modell och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
-`docs/pooloptimerare-v1-pilot-2026-08-30.md` — lokal, read-only
+`docs/overlamning-2026-08-31-pool-xrisk.md` — gemensamt
+`pool-draw-risk-v1` för alla automatiska poolbyggare, point-in-time
+Pinnacle-totaler, nya forwardnycklar och matematiskt max v2 med exakt tre
+spikar + en halv + nio hela = 39 366 rader. Gamla benchmark-/PH5-/maxnycklar
+är pensionerade men oförändrade; favoritraden är fortsatt kontroll.
+Därefter `docs/pooloptimerare-v1-pilot-2026-08-30.md` — lokal, read-only
 Topptips-256-optimerare med förregistrerad 60/20/20-delning, exakt
 produktionskontroll och successiv gallring av högst 10 000 radportföljer.
 500-konfigurationspiloten är endast ett teknikbevis; Standard är oförändrad.
@@ -88,9 +93,9 @@ ta först en konsistent server-snapshot enligt rapportens nästa steg. Därefter
 ”Spelad kupong” glömts: Historik kan förhandsgranska och bokföra en sparad
 Egna rader-fil i efterhand, med strikt produkt-/omgångskontroll,
 dubblettskydd och omedelbart facit när settlement redan finns. Därefter
-`docs/maxtester-2026-08-29.md` — aktiva separata maxserier: äkta matematiskt
-41 472 (4 hel + 9 halv) och reducerat 20 000, båda EV medel/EV högt med egna
-UI/API/hälsolarm. Den tidigare 40 000-serien är en avslutad reducerad pilot;
+`docs/maxtester-2026-08-29.md` — historiskt v1-kontrakt för matematiskt
+41 472 (4 hel + 9 halv) och reducerat 20 000. V1 är ersatt framåt av
+2026-08-31-överlämningen ovan. Den tidigare 40 000-serien är en avslutad reducerad pilot;
 se `docs/max40-forward-2026-08-26.md`. Liverättning finns för alla serier;
 inga vanliga förslag eller riktiga spel påverkas. Därefter
 `docs/overlamning-2026-08-24-ph5-testvy.md` — separat 5 000-testvy med exakt

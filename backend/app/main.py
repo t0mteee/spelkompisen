@@ -786,7 +786,7 @@ def pool_max40_overview():
 
 @app.get("/api/pool/mathmax")
 def pool_mathmax_overview():
-    """Översikt för äkta matematiskt max: 4 hel + 9 halv."""
+    """Översikt för matematiskt max v2: 3 spik + 1 halv + 9 hel."""
     from . import pool_system_ledger
     store = Storage()
     try:
