@@ -93,6 +93,19 @@ BENCHMARKS = tuple(
     for slug, strategy, weight in RISK_PROFILES
 )
 
+# SANNOLIKHETSBAS-UTMANARE (förregistrerad 2026-09-02, docs/ph3-
+# sannolikhetsbas-v1-2026-09-02.md). Championen rankar EV på SvS-odds med
+# Pinnacle som reserv; den här nyckeln är SAMMA byggare med Pinnacle först.
+# Bara Topptipset-familjen: där är b256 champion, där är PH4:s out-of-time-
+# krav passerat och där finns retroaktiva pit-v4-omgångar att jämföra mot.
+# Egen nyckel, aldrig en ändring av dr1-b256-medel. Ingår i benchmarks_for
+# och därmed i championrapportens FDR-familj som en vanlig utmanare.
+PROB_BASE_CHALLENGERS = (
+    {"key": "dr1-b256-medel-sharp", "budget": 256.0, "strategy": "medel",
+     "value_weight": 0.5, "draw_risk": True, "primary": False,
+     "prob_base": "sharp"},
+)
+
 # PH5 FORWARD, RESEARCH-ONLY (förregistrerat 2026-08-15 före omgång 4966).
 #
 # Historiken gav en lovande 5 000-raderssignal men passerade INTE grinden mot
@@ -265,6 +278,49 @@ REDUCEDMAX_FORWARD_CONFIGS = (
 )
 LARGE_RESEARCH_FAMILIES = frozenset({"max40", "mathmax", "reducedmax"})
 
+# POOLOPTIMERARE V1, FORWARD (förregistrerad 2026-09-02,
+# docs/poolopt-v1-forward-2026-09-02.md). Den historiska sökningen
+# (poolopt-topptips256-v1, 10 000 konfigurationer, 2 006 omgångar, final_only)
+# nominerade tre tydligt olika armar ur den historiska slutauditen på 402
+# omgångar som ALDRIG användes för urval. Ingen slog championen på ROI där;
+# träff-armen hade +3 träffar (KI90 [0; +0,017] per omgång) och är den enda
+# med hela KI:t på rätt sida. Armarna är research-only: de kan aldrig
+# promoveras eller påverka kupongförslag; promotion kräver en egen
+# förregistrerad PH3-utmanare. Rader byggs av app/pool_optimizer.rows_for —
+# EXAKT sökningens radval, på samma frysta referensmodell (fair_prob +
+# streck, ingen jackpot) och samma prognosomsättning som championen.
+# = EIGHT_MATCH_PRODUCTS (definieras längre ned); låst av testet på familjen.
+POOLOPT_FORWARD_PRODUCTS = ("topptipset", "topptipsetstryk", "topptipsetextra")
+POOLOPT_FORWARD_START_DRAW_BY_PRODUCT = {
+    # Nästa omgång vars h3-fönster inte öppnat vid driftsättningen 2026-09-02.
+    "topptipset": 4309,
+    "topptipsetstryk": 979,
+    "topptipsetextra": 1864,
+}
+POOLOPT_FORWARD_CONFIGS = (
+    {"key": "poolopt-v1-b256-traff", "budget": 256.0, "strategy": "medel",
+     "value_weight": 0.29, "method": "poolopt", "label": "träff",
+     "research_family": "poolopt", "draw_risk": False,
+     "source_config_id": "cfg-ed3168f57bceacd6",
+     "optimizer": {"kappa_scale": 1.114, "sign_cap": 1.0,
+                   "value_weight": 0.29, "x_curve": -0.039,
+                   "x_quota": 0.0, "x_slope": -0.008}},
+    {"key": "poolopt-v1-b256-balans", "budget": 256.0, "strategy": "medel",
+     "value_weight": 0.32, "method": "poolopt", "label": "balans",
+     "research_family": "poolopt", "draw_risk": False,
+     "source_config_id": "cfg-6c2b6d8c8b242b82",
+     "optimizer": {"kappa_scale": 1.117, "sign_cap": 1.0,
+                   "value_weight": 0.32, "x_curve": 0.025,
+                   "x_quota": 0.0, "x_slope": 0.085}},
+    {"key": "poolopt-v1-b256-xkvot", "budget": 256.0, "strategy": "medel",
+     "value_weight": 0.33, "method": "poolopt", "label": "X-kvot",
+     "research_family": "poolopt", "draw_risk": False,
+     "source_config_id": "cfg-859356724deca5af",
+     "optimizer": {"kappa_scale": 1.345, "sign_cap": 1.0,
+                   "value_weight": 0.33, "x_curve": 0.106,
+                   "x_quota": 0.25, "x_slope": 0.084}},
+)
+
 # BUDGETTAK FÖR 8-MATCHSSPELEN (Samans beslut 2026-08-09).
 #
 # Budgeten är antal rader, och hur mycket en budget "är" beror på hur stort
@@ -293,8 +349,9 @@ def benchmarks_for(product: str) -> tuple[dict, ...]:
     dyker en konfiguration upp i tabellen som varvet inte längre fryser.
     """
     if product in EIGHT_MATCH_PRODUCTS:
-        return tuple(b for b in BENCHMARKS
-                     if b["budget"] <= EIGHT_MATCH_MAX_BUDGET)
+        return (*(b for b in BENCHMARKS
+                  if b["budget"] <= EIGHT_MATCH_MAX_BUDGET),
+                *PROB_BASE_CHALLENGERS)
     return BENCHMARKS
 
 
@@ -317,6 +374,10 @@ def research_families_for(
         if draw_number is None or draw_number >= start:
             families["mathmax"] = MATHMAX_FORWARD_CONFIGS
             families["reducedmax"] = REDUCEDMAX_FORWARD_CONFIGS
+    if product in POOLOPT_FORWARD_PRODUCTS:
+        start = POOLOPT_FORWARD_START_DRAW_BY_PRODUCT[product]
+        if draw_number is None or draw_number >= start:
+            families["poolopt"] = POOLOPT_FORWARD_CONFIGS
     return families
 
 
@@ -405,6 +466,30 @@ def _ph5_binary_rows(analysis: DrawAnalysis, n_rows: int,
     return [list(row) for row in rows[:n_rows]]
 
 
+def _poolopt_rows(analysis: DrawAnalysis, config: dict,
+                  plan: Optional[dict]) -> list[list[str]]:
+    """Pooloptimerarens radval live — samma kärna som den historiska sökningen.
+
+    Omsättningen är `analysis.turnover` som freeze_due redan höjt till
+    prognosen — samma tal som championen värderas mot. Sökningen kördes med
+    slutomsättning (final_only); framåt är prognosen det ärliga substitutet.
+    Ingen jackpot, precis som i sökningen. Fel antal matcher ⇒ [] (frysningen
+    hoppar över, aldrig ett delsystem).
+    """
+    from .pool_optimizer import rows_for
+    if plan is None or len(analysis.matches) != 8:
+        return []
+    turnover = float(analysis.turnover or 0.0)
+    if turnover <= 0:
+        return []
+    try:
+        return rows_for(analysis.product, analysis, config["optimizer"],
+                        turnover, analysis.row_price or 1.0, plan,
+                        budget=int(config["budget"] / (analysis.row_price or 1.0)))
+    except ValueError:
+        return []
+
+
 def _ph5_control_rows(analysis: DrawAnalysis, config: dict,
                       horizon: str) -> list[list[str]]:
     """Bygg en deterministisk kontroll med samma 5 000-radersbudget."""
@@ -477,7 +562,8 @@ def freeze_due(store: Storage, product: str, draw: Draw,
                     row_price=analysis.row_price or 1.0,
                     value_weight=bench["value_weight"], plan=plan, jackpot=jp,
                     full_universe=bool(bench.get("full_universe")),
-                    draw_risk=bool(bench.get("draw_risk", True)))
+                    draw_risk=bool(bench.get("draw_risk", True)),
+                    prob_base=bench.get("prob_base", "svs"))
                 rows = system.rows
                 n_rows = system.num_rows
                 cost = system.cost
@@ -496,6 +582,15 @@ def freeze_due(store: Storage, product: str, draw: Draw,
                 n_rows = system.num_rows
                 cost = system.cost
                 build_note = system.note
+            elif method == "poolopt":
+                rows = _poolopt_rows(analysis, bench, plan)
+                n_rows = len(rows)
+                cost = n_rows * (analysis.row_price or 1.0)
+                build_note = (
+                    f"Pooloptimerare v1 forward ({bench.get('label')}, "
+                    f"{bench.get('source_config_id')}): sökningens radval på "
+                    f"referensmodellen, prognosomsättning "
+                    f"{int(analysis.turnover or 0)}, ingen jackpot.")
             else:
                 rows = _ph5_control_rows(analysis, bench, horizon)
                 n_rows = len(rows)
@@ -1352,6 +1447,19 @@ def reducedmax_overview(store: Storage) -> dict:
         rows_per_test=REDUCED_MAX_ROWS,
         active_methods=len(REDUCEDMAX_FORWARD_CONFIGS),
         start_draws=MAX_TEST_START_DRAW_BY_PRODUCT,
+        paired_overlap=True,
+    )
+
+
+def poolopt_overview(store: Storage) -> dict:
+    """Pooloptimerarens tre forwardarmar (256 rader, Topptipset-familjen)."""
+    return _research_overview(
+        store,
+        configs=POOLOPT_FORWARD_CONFIGS,
+        products=POOLOPT_FORWARD_PRODUCTS,
+        rows_per_test=256,
+        active_methods=len(POOLOPT_FORWARD_CONFIGS),
+        start_draws=POOLOPT_FORWARD_START_DRAW_BY_PRODUCT,
         paired_overlap=True,
     )
 

@@ -410,6 +410,15 @@ def _payout_ratio(plan: dict) -> float:
     return plan["ratio"] * sum(plan["splits"].values())
 
 
+# Grind för en jackpotjusterad omsättningsprognos (förregistrerad 2026-09-02):
+# först vid så här många settlade omgångar per produkt med observerad
+# `jackpot_close` får en jackpotdimension i `_projected_turnover` prövas —
+# och då som rullande backtest mot den jackpotblinda medianen, aldrig som
+# fri kurvanpassning. Uppmätt 2026-09-02 på 6/11 omgångar: Stryk +12 %,
+# Europa −11 % vid jackpot — ingen riktning, för få omgångar.
+JACKPOT_MODEL_MIN_N = 30
+
+
 def _finalturn_key(product: str, weekday: int | None) -> str:
     return (f"finalturn_{product}:"
             + (f"wd{weekday}" if weekday is not None else "any"))
@@ -448,10 +457,12 @@ def _projected_turnover(product: str, current: float,
     gamla senaste-6-medianen blandade dagtyperna (den gjorde dessutom upp till
     15 resultat-anrop mot SvS per cache-miss — nu noll nätverk). Recency bär
     säsongseffekten (sommar ~12 M mot årsmedel ~24 M för Stryk) utan egen
-    modell. Jackpotläget är MEDVETET utelämnat: settlementlagret saknar
-    jackpotkolumn och snapshot-serien började 2026-07-24 — omprövas när den
-    har volym. Tidig låg omsättning ger annars glädje-EV: både potter och
-    medvinnare skalar med omsättningen."""
+    modell. Jackpotläget är MEDVETET utelämnat: `jackpot_close` samlas
+    sedan 2026-09-02 (snapshot-serien började 2026-07-24) och prövas först
+    vid `JACKPOT_MODEL_MIN_N` omgångar per produkt — `/api/pool/turnover-
+    prognos` visar prognos mot utfall per jackpotomgång tills dess. Tidig låg
+    omsättning ger annars glädje-EV: både potter och medvinnare skalar med
+    omsättningen."""
     import json as _json
 
     weekday = _close_weekday(close_iso)
@@ -795,6 +806,17 @@ def pool_mathmax_overview():
     store = Storage()
     try:
         return pool_system_ledger.mathmax_overview(store)
+    finally:
+        store.close()
+
+
+@app.get("/api/pool/poolopt")
+def pool_poolopt_overview():
+    """Pooloptimerare v1 forward: tre research-only-armar på 256 rader
+    (docs/poolopt-v1-forward-2026-09-02.md). Läser bara ledgern."""
+    store = Storage()
+    try:
+        return pool_system_ledger.poolopt_overview(store)
     finally:
         store.close()
 
@@ -1204,6 +1226,34 @@ def turnover_prognos():
                 "SELECT COUNT(*) FROM pool_draw_settlement WHERE product=? "
                 "AND reg_close_time > '2026-07-24T23:59:59Z'",
                 (product,)).fetchone()[0]
+            # Jackpotdimensionen (2026-09-02): `jackpot_close` är senast
+            # VERIFIERADE jackpotobservation före spelstopp (settlement +
+            # scripts/migrera_jackpot_close.py). Prognosen är MEDVETET
+            # jackpotblind tills JACKPOT_MODEL_MIN_N omgångar bär värdet;
+            # här visas prognos mot utfall per omgång som underlag, aldrig en
+            # jackpotjusterad modell. Prognosen per rad räknas som
+            # _projected_turnover skulle ha gjort vid stängning: veckodags-
+            # medianen av de 8 föregående settlade omgångarna med samma
+            # spelstoppsveckodag (blandad senaste-6 om färre än 3 finns).
+            jackpot_rows = []
+            for close_at, sale, jackpot, seen in store.conn.execute(
+                    "SELECT reg_close_time, net_sale, jackpot_close, "
+                    "jackpot_close_observed_at FROM pool_draw_settlement "
+                    "WHERE product=? AND jackpot_close IS NOT NULL "
+                    "AND net_sale > 0 ORDER BY reg_close_time DESC LIMIT 20",
+                    (product,)):
+                hist = [(c, s) for c, s in rows if c < close_at]
+                wd = _close_weekday(close_at)
+                same = [s for c, s in hist if _close_weekday(c) == wd][:8]
+                vals = same if len(same) >= 3 else [s for _, s in hist[:6]]
+                prognos = sorted(vals)[len(vals) // 2] if vals else None
+                jackpot_rows.append({
+                    "close": close_at, "jackpot_close": jackpot,
+                    "observed_at": seen, "net_sale": float(sale),
+                    "prognos": prognos,
+                    "fel": (round((prognos - float(sale)) / float(sale), 4)
+                            if prognos and sale else None),
+                })
             out[product] = {
                 "n_backtest": len(errs_wd),
                 "medianfel_veckodag": (round(statistics.median(errs_wd), 4)
@@ -1211,6 +1261,12 @@ def turnover_prognos():
                 "medianfel_blandad": (round(statistics.median(errs_mix), 4)
                                       if errs_mix else None),
                 "ph4_oot": oot, "ph4_oot_krav": 40,
+                "jackpot_close_n": store.conn.execute(
+                    "SELECT COUNT(*) FROM pool_draw_settlement WHERE "
+                    "product=? AND jackpot_close IS NOT NULL",
+                    (product,)).fetchone()[0],
+                "jackpot_close_krav": JACKPOT_MODEL_MIN_N,
+                "jackpot_rader": jackpot_rows,
             }
         return out
     finally:

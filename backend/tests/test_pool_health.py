@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from app import pool_health, pool_system_ledger
+from app.pool_system_ledger import benchmarks_for
 from app.storage import Storage
 
 
@@ -143,9 +144,14 @@ class PoolHealthTests(unittest.TestCase):
         self.assertEqual("ok", rep["status"])
         self.assertTrue(freezes)
         self.assertTrue(all(i["level"] == "warning" for i in freezes))
+        # Antalet är familjens egen längd (9 benchmark + sannolikhetsbas-
+        # utmanaren sedan 2026-09-02) — en ny utmanare ska höja talet här,
+        # aldrig tysta larmet.
+        n = len(benchmarks_for("topptipset"))
+        self.assertEqual(10, n)
         self.assertEqual(
-            ["3 timmar före spelstopp: 0 av 9 testsystem sparades",
-             "20 minuter före spelstopp: 0 av 9 testsystem sparades"],
+            [f"3 timmar före spelstopp: 0 av {n} testsystem sparades",
+             f"20 minuter före spelstopp: 0 av {n} testsystem sparades"],
             [i["message"] for i in freezes])
 
     def test_scanhint_must_not_lag_observed_draw(self):

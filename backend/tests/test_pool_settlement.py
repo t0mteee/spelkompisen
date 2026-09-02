@@ -325,3 +325,54 @@ class RetryPolicyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class JackpotAtCloseTests(unittest.TestCase):
+    """jackpot_close: senast VERIFIERADE snapshot ≤ regCloseTime, annars NULL.
+
+    Resultatpayloaden bär ingen jackpot; `draw.fund` räknas aldrig. En
+    observation EFTER stängning eller med annan proveniens än
+    verified_endpoint får inte bli omgångens jackpot.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+
+    def _snapshot(self, at, jackpot, source, n=100):
+        self.store.conn.execute(
+            "INSERT INTO pool_draw_snapshot (product, draw_number, fetched_at, "
+            "net_sale, jackpot, jackpot_source) VALUES "
+            "('stryktipset', ?, ?, 1000000, ?, ?)", (n, at, jackpot, source))
+        self.store.conn.commit()
+
+    def _settled(self, n=100):
+        row = self.store.conn.execute(
+            "SELECT jackpot_close, jackpot_close_observed_at FROM "
+            "pool_draw_settlement WHERE product='stryktipset' AND "
+            "draw_number=?", (n,)).fetchone()
+        return None if row is None else tuple(row)
+
+    def test_senaste_verifierade_fore_stangning_vinner(self):
+        # regCloseTime 15:59+02:00 = 13:59Z
+        self._snapshot("2026-07-18T12:00:00Z", 3_000_000.0, "verified_endpoint")
+        self._snapshot("2026-07-18T13:00:00Z", 5_000_000.0, "verified_endpoint")
+        self._snapshot("2026-07-18T13:30:00Z", None, "missing")
+        self._snapshot("2026-07-18T13:45:00Z", 8_000_000.0, "endpoint_error")
+        self._snapshot("2026-07-18T14:30:00Z", 9_000_000.0, "verified_endpoint")
+        svs = FakeSvS({100: _draw()}, {100: _result()})
+        self.assertEqual(ps.OK, ps.settle_draw(
+            self.store, svs, "stryktipset", 100, source_version="test"))
+        self.assertEqual((5_000_000.0, "2026-07-18T13:00:00Z"), self._settled())
+
+    def test_utan_snapshot_ar_jackpoten_oobserverad_inte_noll(self):
+        svs = FakeSvS({100: _draw()}, {100: _result()})
+        self.assertEqual(ps.OK, ps.settle_draw(
+            self.store, svs, "stryktipset", 100, source_version="test"))
+        self.assertEqual((None, None), self._settled())
+        self.assertEqual((None, None), ps.jackpot_at_close(
+            self.store, "stryktipset", 100, None))

@@ -135,6 +135,7 @@ def _research(store: Storage) -> list[dict]:
     for spar, fn, doc in (("ph5-forward", psl.ph5_overview, "docs/ph5-forward-2026-08-15.md"),
                           ("mathmax-v1", psl.mathmax_overview, "docs/maxtester-2026-08-29.md"),
                           ("reducedmax-v1", psl.reducedmax_overview, "docs/maxtester-2026-08-29.md"),
+                          ("poolopt-v1", psl.poolopt_overview, "docs/poolopt-v1-forward-2026-09-02.md"),
                           ("max40 (avslutad)", psl.max40_overview, "docs/max40-forward-2026-08-26.md")):
         try:
             s = fn(store)["summary"]

@@ -43,6 +43,17 @@ MAX_MATH_HALF_GUARDS = 1
 MAX_MATH_FULL_GUARDS = 9
 MAX_MATH_ROWS = (3 ** MAX_MATH_FULL_GUARDS
                  * 2 ** MAX_MATH_HALF_GUARDS)
+# SANNOLIKHETSBAS FÖR EV-RANKNINGEN (uppmätt 2026-09-02). `_rank_ev_rows`
+# tog `fair_prob`, som är SvS-odds devigade när SvS-odds finns och Pinnacle
+# bara som reserv — medan `ev_candidate_signs`, `_size_to_budget` och
+# dubbelkupongen tar Pinnacle först. Samma byggare, två baser. PH4 pit-v4
+# fällde streck och streckrörelse mot REN Pinnacle, men den arm som vann var
+# alltså inte den som EV-byggaren kör. Uppmätt skillnad vid h3 där båda
+# källorna observerats: 0,03–0,04 i L1-avstånd per match, ingen konsekvent
+# riktning, överlapp 12–35 % av matcherna — liten, men aldrig mätt som
+# radval. `prob_base="svs"` är byte-identisk med tidigare beteende och
+# förblir standard; `"sharp"` mäts som PH3-utmanare under egen config_key.
+PROB_BASES = ("svs", "sharp")
 DRAW_RISK_VERSION = "pool-draw-risk-v1"
 DRAW_RISK_TOTAL_MAX = 2.25
 DRAW_RISK_X_MIN = 0.295
@@ -937,8 +948,11 @@ def _rank_ev_rows(analysis: DrawAnalysis, budget: float, row_price: float,
                   top_tier_kappa_by_x: Optional[dict[int, float]] = None,
                   full_universe: bool = False,
                   draw_risk: bool = True,
+                  prob_base: str = "svs",
                   ) -> _EVRankedRows:
     """Ranka EV-kandidater en gång; används av både enkel- och dubbelkupong."""
+    if prob_base not in PROB_BASES:
+        raise ValueError(f"okänd sannolikhetsbas: {prob_base!r}")
     turnover = analysis.turnover or 0.0
     if not plan or turnover <= 0:
         raise ValueError("EV-rankning kräver aktuell omsättning och vinstplan.")
@@ -952,7 +966,10 @@ def _rank_ev_rows(analysis: DrawAnalysis, budget: float, row_price: float,
     # p (marknadens sannolikhet) och q (folkets) per match och tecken
     def _pq(m: MatchAnalysis, s: str) -> tuple[float, float]:
         o = m.outcomes[s]
-        p = o.fair_prob if o.fair_prob is not None else (1.0 / 3)
+        if prob_base == "sharp" and o.sharp_prob is not None:
+            p = o.sharp_prob
+        else:
+            p = o.fair_prob if o.fair_prob is not None else (1.0 / 3)
         q = (o.streck / 100.0) if o.streck else p
         return p, max(q, 0.001)
 
@@ -1623,7 +1640,8 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
                     value_weight: float = 0.5, plan: Optional[dict] = None,
                     jackpot: float = 0.0,
                     full_universe: bool = False,
-                    draw_risk: bool = True) -> System:
+                    draw_risk: bool = True,
+                    prob_base: str = "svs") -> System:
     """Ranka konkreta rader efter EV **balanserat mot träffchans** och ta de
     bästa som ryms i budgeten.
 
@@ -1635,11 +1653,17 @@ def build_ev_system(analysis: DrawAnalysis, strategy: str = "medel",
     EV rapporteras alltid ärligt oavsett ranking."""
     ranked = _rank_ev_rows(
         analysis, budget, row_price, value_weight, plan, jackpot,
-        full_universe=full_universe, draw_risk=draw_risk)
+        full_universe=full_universe, draw_risk=draw_risk,
+        prob_base=prob_base)
     chosen = _select_draw_risk_rows(analysis, ranked, draw_risk)
-    return _ev_system_from_rows(
+    system = _ev_system_from_rows(
         analysis, strategy, budget, row_price, jackpot, ranked,
         chosen, draw_risk=draw_risk)
+    if prob_base != "svs":
+        # Standardvägen lämnar noten byte-identisk; bara avvikande bas märks.
+        system.note = (f"Sannolikhetsbas {prob_base} (Pinnacle först, SvS "
+                       f"som reserv). {system.note or ''}").strip()
+    return system
 
 
 def _x_balanced_rows(analysis: DrawAnalysis, ranked: _EVRankedRows

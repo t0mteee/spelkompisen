@@ -44,8 +44,41 @@ prioritetsordning. ⚖ = kräver Samans beslut.
    manifest, aldrig en ändring i v3. Övriga produkter 5–11/40. Beslut: Saman.
    Utbrytningen klar 2026-09-02: AppV3 3 823 → 1 164 rader (`src/historik/`,
    `src/labb/`, `lib/api.js`, `lib/labels.js`, `components/badges.jsx`).
-   MODELLPLAN:en längst ned gäller i sak, men dess beslutsdatum (augusti) är
-   passerade utan bokförd skörd — bocka av eller flytta dem.
+   ✅ **Bokfört 2026-09-02 kväll:** PH4 Topptipset promotion NEJ; MODELLPLAN:ens
+   augustidatum är passerade och ersätts av listan nedan (ingen skörd förlorad —
+   V2.2, PH5, maxtester och poolstyrka läses via `cli.py gater`).
+7. ✅ (2026-09-02) **Chansmotorn exakt** — klotunion i stället för Monte Carlo;
+   `0 %` var ett samplingsartefakt (`_round_chance` bevarar ≥ 3 värdesiffror).
+   Kvar: chansen är CPU-bunden i en synkron endpoint; varje match utan livepris
+   tredubblar arbetet — mät med `chance_unpriced` innan du optimerar.
+8. ✅ (2026-09-02) **Pooloptimerare v1 fullsökning** — 10 000 konf., 2 006 omg.
+   Ingen arm slog Standard på ROI i slutauditen (402 omg); träff-armen +3
+   träffar med KI90 [0; +0,017]. Tre armar fryses framåt som research-familj
+   `poolopt` (Topptipset 4309/Stryk 979/Extra 1864→). Grind 40 parade omg;
+   avslut 120. `docs/poolopt-v1-forward-2026-09-02.md`. **Nästa version (v2,
+   512 rader, X-risk v1 som champion) startas INTE förrän forward har 40.**
+9. ✅ (2026-09-02) **Sannolikhetsbas** — EV-byggaren rankar på SvS-odds men
+   väljer kandidater på Pinnacle. `prob_base` infört (standard byte-identisk);
+   PH3-utmanare `dr1-b256-medel-sharp` i Topptipset-familjen. Retro på pit-v4:
+   identiskt facit på 77 omg; radval skiljer i 17 (h3) / 54 (m20) omg. Fynd:
+   Pinnacle täcker Topptipset vid h3 i bara 18/87 omg, m20 56/88 — **frågan om
+   Topptipsets h3-frysning ska flyttas närmare avspark är ny och obesvarad**
+   (⚖ PH3:s horisonter är förregistrerade; ändring = ny generation).
+10. ✅ (2026-09-02) **pit-total-v1** — Pinnacles huvudtotal fryst vid
+   h24/h3/m20 som syskonserie (pit-v4 orörd). Skörd vid ≥ 40 Topptipsomgångar
+   med total på alla åtta: bär totalen P(X) utöver X-priset? Först då vet vi om
+   X-skyddet är en riskregel eller en modell. Lägg grinden i `cli.py gater` när
+   första raden finns (byggs av `pool-tick`).
+11. ✅ (2026-09-02) **jackpot_close** i settlementlagret (9 omgångar bakfyllda
+   ur egna snapshots; `docs/db-atgarder.md`). Historik → Prognosträff visar
+   prognos mot utfall per jackpotomgång. Prognosen är jackpotblind tills
+   `JACKPOT_MODEL_MIN_N` = 30/produkt — ⚖ då: rullande backtest mot den
+   jackpotblinda medianen, aldrig fri kurvanpassning.
+12. **Öppet efter kvällen:** (a) Topptipsets h3-täckning från Pinnacle (punkt 9)
+   — mät om m20 ska bli PH3:s primära horisont för 8-matchsspelen innan nästa
+   generation; (b) `chance`-endpointen till en bakgrundsberäkning om Historik
+   fortfarande upplevs långsam; (c) `cli.py gater` saknar pit-total-grinden
+   tills första raden finns.
 
 ## 2026-08-11 — AWS korrekt omtestat och avfärdat
 
@@ -419,7 +452,11 @@ Ordnade efter mitt förslag, inte beslutade.
   "din rad vs folkets"-överlapp, Måltipset (pid 8), veckodagsviktad
   omsättningsprognos.
 
-## MODELLPLAN 2026-07-28 (odds + pool) — aktiv arbetslista
+## MODELLPLAN 2026-07-28 (odds + pool) — arbetslista (datumen ersatta 2026-09-02)
+
+**2026-09-02:** beslutsdatumen nedan (augusti) är passerade. Det som skördats
+står i **Aktivt** punkt 6–11; det som fortfarande samlar läses via
+`cli.py gater`. Planen behålls som historik över VARFÖR spåren startades.
 
 **Samans beställning 2026-07-28: "vad mer bör vi köra för att förbättra
 modellerna (odds, pool)?" Ersätter det gamla Förslag-avsnittet (alla dess

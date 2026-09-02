@@ -30,6 +30,7 @@ export const RESEARCH_FAMILY_LABEL = {
   mathmax: '🧮 Matematiskt max',
   reducedmax: '✂️ Reducerat max',
   max40: '🗃 40 000-pilot',
+  poolopt: '🔬 Pooloptimerare v1',
 }
 // Väljarens poster: en per familj, i HIST_PRODUCTS ordning. Backend expanderar
 // familjenyckeln via svenskaspel.GAME_GROUPS när `family=1` skickas med.
@@ -145,6 +146,12 @@ export const FORWARD_TEST = {
     loading: 'Hämtar reducerat maxtest…', filterLabel: 'Arm',
     paired: true,
   },
+  poolopt: {
+    endpoint: '/api/pool/poolopt', rowLabel: '256',
+    title: 'Pooloptimerare v1 · tre armar à 256 rader (Topptipset)',
+    loading: 'Hämtar pooloptimerarens forwardtest…', filterLabel: 'Arm',
+    paired: true,
+  },
 }
 export const forwardTestLabel = (test) => test.label || PH5_METHOD_LABEL[test.method] || test.method
 export const forwardTestFilterKey = (test) => test.label || test.method
@@ -193,9 +200,18 @@ export const LABB_RESEARCH = [
 ]
 // Poolens forskningsspår — visas i Historik (Historik = pool, Labb = odds).
 export const HISTORIK_RESEARCH = [
-  { icon: '📐', title: 'pit-v4 (pool-streckmove-v3)', status: 'samlar',
-    text: 'Forward samlar, gate ≥40 out-of-time-omgångar per produkt.',
-    doc: 'docs/pool-ph4-forward-manifest-v3.json' },
+  { icon: '📐', title: 'pit-v4 (pool-streckmove-v3)', date: '2026-09-02', status: 'fals',
+    text: 'Topptipset skördad (48 forward-omgångar): streck + streckrörelse slår inte ren Pinnacle vid h3 (Δlogloss +0,013, KI90 täcker noll). Promotion nej. Stryk/Europa samlar vidare.',
+    doc: 'docs/ph4-forward-status.json' },
+  { icon: '🔬', title: 'Pooloptimerare v1 · 10 000 konfigurationer', date: '2026-09-02', status: 'samlar',
+    text: 'Ingen arm slog Standard på ROI i den historiska slutauditen (402 omg). Tre armar (träff/balans/X-kvot) fryses framåt som research-only från Topptipset 4309.',
+    doc: 'docs/poolopt-v1-forward-2026-09-02.md' },
+  { icon: '⚖️', title: 'Sannolikhetsbas SvS vs Pinnacle', date: '2026-09-02', status: 'samlar',
+    text: 'EV-byggaren rankar på SvS-odds men väljer kandidater på Pinnacle. Retro på pit-v4: identiskt facit (21/21 träffar) på 77 omg; radvalen skiljer i 22 % (h3) / 68 % (m20). Utmanaren dr1-b256-medel-sharp mäts framåt i PH3.',
+    doc: 'docs/ph3-sannolikhetsbas-v1-2026-09-02.md' },
+  { icon: '📏', title: 'pit-total-v1 · Pinnacles huvudtotal', date: '2026-09-02', status: 'samlar',
+    text: 'Syskonserie till pit-v4: totalen fryst vid h24/h3/m20. Frågan "bär totalen P(X) utöver X-priset?" ställs vid ≥40 Topptipsomgångar med total på alla åtta.',
+    doc: 'docs/pool-pit-total-v1-2026-09-02.md' },
   { icon: '🎟️', title: 'PH5 256/512 rader', date: '2026-07-26', status: 'fals',
     text: 'Värderader ger ingen påvisad fördel på 13-matchsspel ens vid 512 rader.',
     doc: 'docs/ph5-radvalsablation-512rader-2026-07-26.json' },

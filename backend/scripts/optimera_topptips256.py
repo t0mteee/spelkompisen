@@ -32,6 +32,7 @@ from typing import Optional
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from app import builder  # noqa: E402
+from app import pool_optimizer  # noqa: E402
 from app.analysis import analyze_draw  # noqa: E402
 from app.storage import DEFAULT_DB  # noqa: E402
 from scripts import ph5_radvalsablation as ph5  # noqa: E402
@@ -42,11 +43,14 @@ BUDGET = 256
 MIN_CLOSE = "2024-01-01"
 EXCLUDED_DRAWS = frozenset({("topptipset", 4289)})
 PRODUCTS = ("topptipset", "topptipsetstryk", "topptipsetextra")
-SIGNS = ("1", "X", "2")
-SIGN_INDEX = {sign: index for index, sign in enumerate(SIGNS)}
-ALL_ROWS = tuple(itertools.product(SIGNS, repeat=8))
-ROW_INDEX = {row: index for index, row in enumerate(ALL_ROWS)}
-X_COUNTS = tuple(row.count("X") for row in ALL_ROWS)
+# Radvalskärnan bor sedan 2026-09-02 i app/pool_optimizer.py så PH3:s
+# framåtfrysning bygger exakt samma rader. Här bara alias — numeriken är
+# oförändrad (regressionstest mot championen i tests/test_pool_optimizer.py).
+SIGNS = pool_optimizer.SIGNS
+SIGN_INDEX = pool_optimizer.SIGN_INDEX
+ALL_ROWS = pool_optimizer.ALL_ROWS
+ROW_INDEX = pool_optimizer.ROW_INDEX
+X_COUNTS = pool_optimizer.X_COUNTS
 WINSOR_ROI_DIFF = 2.0
 CHAMPION_ID = "champion-standard-v1"
 CHECKPOINT_EVERY = 4
@@ -200,131 +204,25 @@ def _prepare(item: dict) -> dict:
     analysis = analyze_draw(draw)
     if len(analysis.matches) != 8 or tuple(facit) not in ROW_INDEX:
         raise ValueError("omgången saknar exakt åtta giltiga utfall")
-    field = float(item["net_sale"]) / float(item["row_price"])
-    plan = ph5.prize_plan(item["product"])
-    top = max(plan["splits"])
-    pool = (float(item["net_sale"]) * float(plan["ratio"])
-            * float(plan["splits"][top]))
-    base_kappa = builder.kappa_for(item["product"], top)
-    p_by_col = []
-    q_by_col = []
-    for match in analysis.matches:
-        ps, qs = [], []
-        for sign in SIGNS:
-            outcome = match.outcomes[sign]
-            p = outcome.fair_prob if outcome.fair_prob is not None else 1 / 3
-            q = ((outcome.streck / 100.0) if outcome.streck else p)
-            ps.append(max(float(p), 1e-12))
-            qs.append(max(float(q), 0.001))
-        p_by_col.append(tuple(ps)); q_by_col.append(tuple(qs))
-
-    logp, q_values, p_values, reference_ev = [], [], [], []
-    for row in ALL_ROWS:
-        lp = 0.0
-        q = 1.0
-        for column, sign in enumerate(row):
-            index = SIGN_INDEX[sign]
-            lp += math.log(p_by_col[column][index])
-            q *= q_by_col[column][index]
-        probability = math.exp(lp)
-        dividend = min(pool, pool / (field * q * base_kappa + 1.0))
-        logp.append(lp); q_values.append(q); p_values.append(probability)
-        reference_ev.append(probability * dividend)
-
+    prepared = pool_optimizer.prepare_analysis(
+        item["product"], analysis, float(item["net_sale"]),
+        float(item["row_price"]), ph5.prize_plan(item["product"]),
+        budget=BUDGET)
+    top = max(ph5.prize_plan(item["product"])["splits"])
     tier = (item.get("tiers") or {}).get(top, (None, None))
     winners, amount = tier
-    return {
+    prepared.update({
         "key": f"{item['product']}:{item['draw']}",
-        "product": item["product"], "draw": int(item["draw"]),
-        "close": item.get("close"), "field": field, "pool": pool,
-        "base_kappa": base_kappa, "logp": logp, "q": q_values,
-        "p": p_values, "reference_ev": reference_ev,
-        "x_distribution": builder.x_count_distribution(analysis),
+        "draw": int(item["draw"]), "close": item.get("close"),
         "facit_index": ROW_INDEX[tuple(facit)],
         "winners": winners, "amount": amount,
-        "cost": float(BUDGET), "target": BUDGET,
-    }
+    })
+    return prepared
 
 
-def _x_kappa(prepared: dict, config: dict, x_count: int) -> float:
-    centered = x_count - 2
-    modifier = (float(config["kappa_scale"])
-                * math.exp(float(config["x_slope"]) * centered
-                           + float(config["x_curve"]) * centered * centered))
-    modifier = max(0.50, min(2.00, modifier))
-    return float(prepared["base_kappa"]) * modifier
-
-
-def _ranked_indices(prepared: dict, config: dict) -> list[int]:
-    exponent = 3.0 - 2.0 * float(config["value_weight"])
-    field = float(prepared["field"])
-    scores = [
-        (exponent * prepared["logp"][index]
-         - math.log1p(field * prepared["q"][index]
-                      * _x_kappa(prepared, config, X_COUNTS[index])), index)
-        for index in range(len(ALL_ROWS))
-    ]
-    scores.sort(reverse=True)
-    return [index for _score, index in scores]
-
-
-def select_rows(prepared: dict, config: dict) -> list[int]:
-    """Välj exakt 256 rader med valfria X-minimikvoter och teckentak."""
-    ranked = _ranked_indices(prepared, config)
-    target = int(prepared["target"])
-    quota_strength = float(config["x_quota"])
-    needed = {
-        count: int(target * quota_strength
-                   * prepared["x_distribution"][count])
-        for count in range(9)
-    }
-    cap = math.ceil(target * float(config["sign_cap"]))
-    selected: list[int] = []
-    chosen = set()
-    exposures = [[0, 0, 0] for _ in range(8)]
-
-    def allowed(index: int) -> bool:
-        row = ALL_ROWS[index]
-        return all(exposures[column][SIGN_INDEX[sign]] < cap
-                   for column, sign in enumerate(row))
-
-    def add(index: int) -> None:
-        selected.append(index); chosen.add(index)
-        for column, sign in enumerate(ALL_ROWS[index]):
-            exposures[column][SIGN_INDEX[sign]] += 1
-
-    # Fyll X-minimikvoterna med den bästa ännu tillåtna raden ur en underfylld
-    # grupp. Global bästa-av-grupperna gör resultatet oberoende av bucketordning.
-    per_bucket = {count: [index for index in ranked if X_COUNTS[index] == count]
-                  for count in range(9)}
-    rank_position = {index: position for position, index in enumerate(ranked)}
-    pointers = {count: 0 for count in range(9)}
-    while any(value > 0 for value in needed.values()):
-        candidates = []
-        for count, remaining in needed.items():
-            if remaining <= 0:
-                continue
-            rows = per_bucket[count]
-            pointer = pointers[count]
-            while pointer < len(rows) and not allowed(rows[pointer]):
-                pointer += 1
-            pointers[count] = pointer
-            if pointer < len(rows):
-                index = rows[pointer]
-                # `ranked` har redan totalordningen; lägre position är bättre.
-                candidates.append((rank_position[index], count, index))
-        if not candidates:
-            return []
-        _position, count, index = min(candidates)
-        add(index); needed[count] -= 1; pointers[count] += 1
-
-    for index in ranked:
-        if index in chosen or not allowed(index):
-            continue
-        add(index)
-        if len(selected) == target:
-            return selected
-    return []
+_x_kappa = pool_optimizer._x_kappa
+_ranked_indices = pool_optimizer._ranked_indices
+select_rows = pool_optimizer.select_rows
 
 
 def evaluate_selected(prepared: dict, selected: list[int]) -> dict:

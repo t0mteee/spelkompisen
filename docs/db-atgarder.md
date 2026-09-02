@@ -1637,3 +1637,34 @@ saknad statistik, inte som 0,00–0,00 xG. Matchantalet och identitetskontrollen
 streck fanns redan point-in-time i `sharp_snapshots` respektive `snapshots`.
 Detalj-API:t läser sista observation `<= pool_system_ledger.frozen_at`; senare
 värden kan därför inte läcka bakåt.
+
+## 2026-09-02 — `jackpot_close` i settlementlagret
+
+**Vad.** `pool_draw_settlement` fick två additiva, nullbara kolumner:
+`jackpot_close REAL` och `jackpot_close_observed_at TEXT` (migreringslistan i
+`storage.py`). Värdet är senast VERIFIERADE jackpotobservation i
+`pool_draw_snapshot` (`jackpot_source='verified_endpoint'`) vid eller före
+`regCloseTime`; `pool_settlement.jackpot_at_close()` skriver det vid varje
+nytt settlement.
+
+**Bakfyllning.** `scripts/migrera_jackpot_close.py --skarp` kopierade
+observationen till redan settlade omgångar. Det är resultatstatistik i
+CLAUDE.md:s mening: observationen gjordes vid rätt tid och låg redan i DB;
+ingen jackpot hämtades i efterhand och `draw.fund` används aldrig.
+
+- Kandidater: 8 395 settlade omgångar utan värde.
+- Med verifierad observation före stängning: **9** (Stryktipset 4963, 4965,
+  4968; Europatipset 2593, 2594, 2595, 2597, 2600, 2602). Snapshot-serien
+  börjar 2026-07-24, så äldre omgångar förblir NULL = oobserverad, aldrig 0.
+- Backup före skrivning: `data/stryktips-backup-jackpot-20260902-174304.db`
+  (SQLite onlinebackup).
+- Efterkontroll: 9 rader med `jackpot_close`, 0 fel.
+
+**Konsument.** `/api/pool/turnover-prognos` visar prognos mot utfall per
+jackpotomgång (Historik → Prognosträff). Prognosen `_projected_turnover` är
+fortsatt jackpotblind; grinden `JACKPOT_MODEL_MIN_N = 30` per produkt är
+förregistrerad i `main.py` innan en jackpotdimension får prövas.
+
+**Samma dag, ingen migrering:** `pool_pit_total_features` (pit-total-v1) är en
+ny tabell som bara fylls framåt av `pool_dataset.build_total_draw`; inga
+historiska totaler bakfylls.

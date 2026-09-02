@@ -34,6 +34,10 @@ from .storage import Storage
 # som historik; de hann aldrig forward-scoras.
 # Manifest: docs/pool-ph4-forward-manifest-v3.json
 FEATURE_VERSION = "pit-v4"
+# Syskonserie för Pinnacles huvudtotal (förregistrerad 2026-09-02,
+# docs/pool-pit-total-v1-2026-09-02.md). Egen version så pit-v4 aldrig får
+# en ändrad datagenererande process av att en kolumn tillkommer.
+TOTAL_FEATURE_VERSION = "pit-total-v1"
 COHORT = "observed_pit"
 FEATURE_START_AT = "2026-07-25T16:00:00Z"
 HORIZONS = {"h24": 1440, "h3": 180, "m20": 20}
@@ -433,6 +437,94 @@ def build_draw(store: Storage, product: str, draw_number: int,
     return report
 
 
+def _total_series(store: Storage, product: str, draw_number: int,
+                  cutoff: str) -> dict[int, list[tuple[str, float, Optional[float],
+                                                        Optional[float]]]]:
+    """{event: [(fetched_at, line, over_odds, under_odds), …]} t.o.m. cutoff."""
+    out: dict[int, list] = {}
+    for event, line, over, under, ts in store.conn.execute(
+            "SELECT event_number, line, over_odds, under_odds, fetched_at "
+            "FROM sharp_total_snapshots WHERE product=? AND draw_number=? "
+            "AND fetched_at<=? ORDER BY fetched_at, id",
+            (product, draw_number, cutoff)):
+        out.setdefault(int(event), []).append((ts, line, over, under))
+    return out
+
+
+def build_total_draw(store: Storage, product: str, draw_number: int,
+                     reg_close_time: str,
+                     now: Optional[dt.datetime] = None) -> dict:
+    """Frys Pinnacles huvudtotal per match vid pit-v4:s horisonter.
+
+    Samma presence-regel som `sharp_eligible` i pit-v4: en Pinnacle-capture
+    inom horisontens tolerans med status matched/derived och komplett odds
+    bevisar att Pinnacle lästes vid as-of. Totalen är då den senaste
+    förändringspunkten i `sharp_total_snapshots` som ligger vid eller före
+    capture-tiden — samma logik som `p_sharp`. Ingen capture ⇒ ingen rad;
+    capture utan totalpunkt ⇒ rad med `total_eligible=0` och NULL-värden, så
+    "vi frågade och Pinnacle hade ingen total" går att skilja från "vi frågade
+    aldrig". Serien bakfylls aldrig.
+    """
+    from .analysis import _power_probs
+    now = now or dt.datetime.now(dt.timezone.utc)
+    close = _parse(reg_close_time)
+    report = {"built": 0, "skipped": 0}
+    if close is None:
+        return report
+    computed_at = _iso(now)
+    for horizon, minutes in HORIZONS.items():
+        cutoff_dt = close - dt.timedelta(minutes=minutes)
+        if cutoff_dt > now:
+            report["skipped"] += 1
+            continue
+        exists = store.conn.execute(
+            "SELECT 1 FROM pool_pit_total_features WHERE product=? AND "
+            "draw_number=? AND horizon=? AND feature_version=?",
+            (product, draw_number, horizon, TOTAL_FEATURE_VERSION)).fetchone()
+        if exists:
+            report["skipped"] += 1
+            continue
+        asof = _iso(cutoff_dt)
+        tolerance = TIMING_TOLERANCE_MIN[horizon]
+        sharp_captures = _captures(store, product, draw_number, "sharp", asof)
+        if not sharp_captures:
+            report["skipped"] += 1
+            continue
+        totals = _total_series(store, product, draw_number, asof)
+        rows = []
+        for event in sorted(sharp_captures):
+            cap = _capture_at(sharp_captures[event], asof)
+            if not cap:
+                continue
+            lag = round((cutoff_dt - _parse(cap[0])).total_seconds() / 60, 1)
+            eligible = int(lag <= tolerance and cap[2]
+                           and cap[1] in ("matched", "derived"))
+            point = (_at_or_before(totals.get(event) or [], cap[0])
+                     if eligible else None)
+            line = over = under = p_over = p_under = None
+            if point and point[1] is not None:
+                _ts, line, over, under = point
+                if over and under and over > 1.0 and under > 1.0:
+                    probs = _power_probs({"O": 1.0 / over, "U": 1.0 / under})
+                    p_over, p_under = probs.get("O"), probs.get("U")
+            else:
+                eligible = 0
+            rows.append((product, draw_number, horizon, event,
+                         TOTAL_FEATURE_VERSION, asof, computed_at, lag,
+                         eligible, line, over, under, p_over, p_under))
+        if not rows:
+            report["skipped"] += 1
+            continue
+        with store.bulk():
+            store.conn.executemany(
+                "INSERT INTO pool_pit_total_features (product, draw_number, "
+                "horizon, event_number, feature_version, asof, computed_at, "
+                "total_lag_min, total_eligible, line, over_odds, under_odds, "
+                "p_over, p_under) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+        report["built"] += 1
+    return report
+
+
 def build_recent(store: Storage, product: Optional[str] = None,
                  days_back: float = 7.0,
                  now: Optional[dt.datetime] = None) -> dict:
@@ -447,9 +539,15 @@ def build_recent(store: Storage, product: Optional[str] = None,
     if product:
         q += " AND product=?"
         args.append(product)
-    total = {"built": 0, "skipped": 0}
+    total = {"built": 0, "skipped": 0, "total_built": 0, "total_skipped": 0}
     for prod, draw_number, close in store.conn.execute(q, args).fetchall():
         rep = build_draw(store, prod, int(draw_number), close, now=now)
         total["built"] += rep["built"]
         total["skipped"] += rep["skipped"]
+        # Syskonserien byggs i samma varv men under egen version och egen
+        # idempotens — pit-v4:s rader och räknare rörs inte.
+        rep_total = build_total_draw(store, prod, int(draw_number), close,
+                                     now=now)
+        total["total_built"] += rep_total["built"]
+        total["total_skipped"] += rep_total["skipped"]
     return total

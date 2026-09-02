@@ -438,7 +438,10 @@ export function HistorikV3({ initialProduct, focus }) {
               <thead><tr><th>Spel</th><th>Prognosfel (veckodag)</th>
                 <th>Gammal metod</th>
                 <th title="Avgjorda omgångar efter 2026-07-24. Krävs innan nya
-                  κ-varianter får föreslås.">PH4-fönster</th></tr></thead>
+                  κ-varianter får föreslås.">PH4-fönster</th>
+                <th title="Omgångar med observerad jackpot vid spelstopp (senast
+                  verifierade snapshot före stängning). Prognosen är jackpotblind
+                  tills kravet är nått.">Jackpot vid stopp</th></tr></thead>
               <tbody>
                 {Object.entries(halsa)
                   .filter(([p]) => !single || p === product)
@@ -450,11 +453,37 @@ export function HistorikV3({ initialProduct, focus }) {
                       <td className="v3hint">{h.medianfel_blandad == null ? '–'
                         : `${(h.medianfel_blandad * 100).toFixed(0)} %`}</td>
                       <td>{h.ph4_oot}/{h.ph4_oot_krav}</td>
+                      <td>{h.jackpot_close_n ?? 0}/{h.jackpot_close_krav ?? '–'}</td>
                     </tr>
                   ))}
               </tbody>
             </table>
           </div>
+          {Object.entries(halsa)
+            .filter(([p, h]) => (!single || p === product) && (h.jackpot_rader || []).length > 0)
+            .map(([p, h]) => (
+              <div key={`jp-${p}`} className="v3histtablewrap">
+                <span className="v3hint">{PRODUCT_LABEL[p] || p}: prognos mot utfall
+                  i omgångar med jackpot vid stopp. Underlag för en jackpotdimension
+                  i prognosen — ingen modell förrän {h.jackpot_close_krav} omgångar.</span>
+                <table className="v3histtable">
+                  <thead><tr><th>Stopp</th><th>Jackpot</th><th>Prognos</th>
+                    <th>Utfall</th><th>Fel</th></tr></thead>
+                  <tbody>
+                    {h.jackpot_rader.map((r) => (
+                      <tr key={r.close}>
+                        <td>{String(r.close).slice(0, 10)}</td>
+                        <td>{kr(r.jackpot_close)}</td>
+                        <td>{r.prognos == null ? '–' : kr(r.prognos)}</td>
+                        <td>{kr(r.net_sale)}</td>
+                        <td className={r.fel == null ? 'v3hint' : (r.fel > 0 ? 'v3neg' : 'v3pos')}>
+                          {r.fel == null ? '–' : `${r.fel > 0 ? '+' : ''}${(r.fel * 100).toFixed(0)} %`}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
         </div>
       )}
 

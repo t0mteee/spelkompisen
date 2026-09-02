@@ -109,6 +109,9 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       research_families_for() (PH5/mathmax/reducedmax) är aldrig utmanare
   app/pool_health.py  poolens änd-till-änd-larm (snapshots, frysningar, settlement)
   app/pool_strength_shadow.py pool-strength-blend-v1 (Historik → Poolmodell)
+  app/pool_optimizer.py pooloptimerarens radvalskärna (poolopt-topptips256-v1);
+                      scripts/optimera_topptips256.py är skalet, PH3:s
+                      `poolopt`-forwardarmar byggs av SAMMA rows_for()
   app/live_radar.py   shadow-radar för pågående matcher: Flashscore ankare, FotMob sekundär,
                       Sofascore URKOPPLAD ur radarn (kvar för resultat/frånvaro)
   app/live_signal_ledger.py append-only-journal över första Följer/Stark per match,
@@ -179,6 +182,14 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
   512 (3^8 = 6 561 rader; 1 024 vore mattbombning). En `config_key` ändras aldrig i
   efterhand — nya nycklar räcker, ingen migrering. Championen MÅSTE spegla appens
   budgetreglage. Promotion kräver BH-FDR över hela utmanarfamiljen OCH ≥ 40 parade omgångar.
+- **SANNOLIKHETSBAS (2026-09-02):** `build_ev_system(prob_base=)` — `"svs"` (SvS-odds
+  först, Pinnacle reserv) är byte-identisk standard i appen; `"sharp"` mäts ENBART som
+  utmanaren `dr1-b256-medel-sharp` (8-matchsspelen). En ändrad bas är en ny nyckel,
+  aldrig en ändring av championen. Pinnacle är sharp-eligible vid h3 i bara ~20 % av
+  Topptipsomgångarna (m20 ~64 %) — h3 är en tunn horisont för allt Pinnacle-baserat där.
+- Research-familjer (`research_families_for`: ph5, mathmax, reducedmax, `poolopt`) får
+  nominera, aldrig promovera. `poolopt`-armarna byggs av `pool_optimizer.rows_for` med
+  prognosomsättningen och UTAN jackpot — exakt som sökningen kördes.
 - **SPELFAMILJ, INTE PRODUKTSLUG:** `champion_report()` grupperar på `family_of()`;
   `_paired_draw_roi` parar på `(produkt, omgång)`. Produktslug, settlementidentitet och
   `config_key` är OFÖRÄNDRADE — familjen styr vad som mäts ihop, aldrig vad något heter.
@@ -432,7 +443,13 @@ notiser; promotion sker bara enligt `docs/tva-ankare-2026-07-25.md`.
 - **Pool-PIT presence-regel:** `snapshots`/`sharp_snapshots` är ENBART förändringsserier.
   Endast `pool_market_capture` får bevisa att en källa var observerad vid T−24h/T−3h/T−20m;
   gamla laggar får aldrig omtolkas till presence. Captures före `FEATURE_START_AT` får
-  aldrig bakfyllas in.
+  aldrig bakfyllas in. **En ny PIT-feature som skulle ändra en löpande series
+  datagenererande process är en SYSKONSERIE med egen version** (`pit-total-v1` bredvid
+  `pit-v4`, `pool_pit_total_features`), aldrig en ny kolumn i den löpande serien.
+- **`jackpot_close`** i `pool_draw_settlement` är senast VERIFIERADE snapshot
+  (`jackpot_source='verified_endpoint'`) ≤ `regCloseTime` — aldrig `draw.fund`, aldrig
+  dagens jackpotlista; NULL = oobserverad, aldrig 0. `_projected_turnover` är jackpotblind
+  tills `JACKPOT_MODEL_MIN_N` (30/produkt).
 - **Värderader**: score = P(rad)^k × EV(rad) där k = 2·(1−value_weight); reglaget är enda
   risk-axeln (strategin sätter bara startpunkten 20/50/80).
 - **X-skydd (`pool-draw-risk-v1`):** vid Pinnacle-total ≤ 2,25 skyddas X från 29,5 %

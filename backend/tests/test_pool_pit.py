@@ -988,3 +988,266 @@ class SystemDetailTests(unittest.TestCase):
         self.assertEqual(1, len(report["tests"]))
         self.assertTrue(report["tests"][0]["retired"])
         self.assertEqual(0, report["summary"]["methods"])
+
+
+class ProbBaseChallengerTests(unittest.TestCase):
+    """dr1-b256-medel-sharp: samma byggare, Pinnacle som bas i stället för SvS.
+
+    Standardvägen måste förbli byte-identisk — utmanaren är en NY nyckel,
+    aldrig en ändring av championen.
+    """
+
+    @staticmethod
+    def _analysis(sharp_shift=None):
+        signs = ("1", "X", "2")
+        matches = []
+        for event in range(1, 9):
+            fair = (0.45, 0.30, 0.25) if event % 2 else (0.35, 0.30, 0.35)
+            sharp = fair
+            if sharp_shift and event == 1:
+                sharp = sharp_shift
+            outcomes = {
+                s: SimpleNamespace(fair_prob=f, sharp_prob=(None if sharp is None
+                                                            else sp),
+                                   streck=f * 100, tags=[], value=0,
+                                   value_sharp=0)
+                for s, f, sp in zip(signs, fair, sharp or fair)}
+            fav = max(signs, key=lambda s: outcomes[s].fair_prob)
+            matches.append(SimpleNamespace(
+                event_number=event, description=f"M{event}", cancelled=False,
+                outcomes=outcomes, favourite=fav,
+                favourite_prob=outcomes[fav].fair_prob,
+                spik_score=outcomes[fav].fair_prob * 100,
+                open_score=(1 - outcomes[fav].fair_prob) * 100,
+                best_value_sign=None, total_line=None))
+        return SimpleNamespace(matches=matches, turnover=500_000.0,
+                               product="topptipset")
+
+    def _build(self, analysis, **kw):
+        return builder.build_ev_system(
+            analysis, "medel", 256.0, row_price=1.0, value_weight=0.5,
+            plan={"ratio": 0.7, "splits": {8: 1.0}}, **kw)
+
+    def test_standardbasen_ar_byte_identisk_och_okand_bas_avvisas(self):
+        analysis = self._analysis(sharp_shift=(0.30, 0.30, 0.40))
+        default = self._build(analysis)
+        explicit = self._build(analysis, prob_base="svs")
+        self.assertEqual(default.rows, explicit.rows)
+        self.assertEqual(default.note, explicit.note)
+        with self.assertRaises(ValueError):
+            self._build(analysis, prob_base="pinnacle")
+
+    def test_sharpbasen_rankar_pa_pinnacle_men_faller_tillbaka_pa_svs(self):
+        shifted = self._analysis(sharp_shift=(0.30, 0.30, 0.40))
+        svs = self._build(shifted)
+        sharp = self._build(shifted, prob_base="sharp")
+        self.assertNotEqual(svs.rows, sharp.rows)
+        self.assertIn("Sannolikhetsbas sharp", sharp.note)
+        # Utan sharp-pris är basen SvS igen — samma rader som standard.
+        plain = self._analysis(sharp_shift=None)
+        for m in plain.matches:
+            for o in m.outcomes.values():
+                o.sharp_prob = None
+        self.assertEqual(self._build(plain).rows,
+                         self._build(plain, prob_base="sharp").rows)
+
+    def test_utmanaren_finns_bara_i_topptipsfamiljen_och_ror_inte_matrisen(self):
+        key = "dr1-b256-medel-sharp"
+        top = {b["key"]: b for b in pool_system_ledger.benchmarks_for("topptipset")}
+        self.assertIn(key, top)
+        self.assertEqual("sharp", top[key]["prob_base"])
+        self.assertFalse(top[key]["primary"])
+        self.assertEqual(pool_system_ledger.CHAMPION_KEY.replace("-sharp", ""),
+                         pool_system_ledger.CHAMPION_KEY)
+        for product in ("stryktipset", "europatipset"):
+            self.assertNotIn(key, {b["key"] for b in
+                                   pool_system_ledger.benchmarks_for(product)})
+        self.assertNotIn(key, {b["key"] for b in pool_system_ledger.BENCHMARKS})
+        self.assertTrue(all("prob_base" not in b
+                            for b in pool_system_ledger.BENCHMARKS))
+
+
+class PitTotalTests(unittest.TestCase):
+    """pit-total-v1: Pinnacles huvudtotal fryst vid pit-v4:s horisonter.
+
+    Samma presence-regel som p_sharp: en capture bevisar att Pinnacle lästes,
+    totalen är senaste förändringspunkt ≤ capture-tiden. Aldrig bakfylld.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+        self.close = NOW - dt.timedelta(hours=1)
+        self.store.conn.execute(
+            "INSERT INTO draws (product, draw_number, state, reg_close_time) "
+            "VALUES ('topptipset', 100, 'Open', ?)", (self.close.isoformat(),))
+        self.store.conn.commit()
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+
+    def _capture(self, event, at, status="matched", odds_ok=1):
+        self.store.conn.execute(
+            "INSERT INTO pool_market_capture (product, draw_number, source, "
+            "event_number, fetched_at, status, odds_complete, streck_complete) "
+            "VALUES ('topptipset',100,'sharp',?,?,?,?,0)",
+            (event, _iso(at), status, odds_ok))
+        self.store.conn.commit()
+
+    def _total(self, event, at, line, over, under):
+        self.store.conn.execute(
+            "INSERT INTO sharp_total_snapshots (product, draw_number, "
+            "event_number, line, over_odds, under_odds, fetched_at) "
+            "VALUES ('topptipset',100,?,?,?,?,?)",
+            (event, line, over, under, _iso(at)))
+        self.store.conn.commit()
+
+    def _rows(self, horizon):
+        return self.store.conn.execute(
+            "SELECT event_number, total_eligible, line, p_over, p_under, "
+            "total_lag_min FROM pool_pit_total_features WHERE horizon=? "
+            "AND feature_version=? ORDER BY event_number",
+            (horizon, pool_dataset.TOTAL_FEATURE_VERSION)).fetchall()
+
+    def test_totalen_fryses_vid_capture_och_lacker_aldrig_bakat(self):
+        early = self.close - dt.timedelta(hours=3, minutes=5)
+        late = self.close - dt.timedelta(minutes=30)
+        self._capture(1, early)
+        self._total(1, early - dt.timedelta(minutes=2), 2.5, 1.90, 1.95)
+        self._total(1, late, 2.25, 2.05, 1.80)   # efter h3 — får inte synas
+        self._capture(2, early)                  # Pinnacle läst, ingen total
+
+        before_m20 = self.close - dt.timedelta(minutes=25)
+        rep = pool_dataset.build_total_draw(
+            self.store, "topptipset", 100, self.close.isoformat(),
+            now=before_m20)
+        self.assertEqual(1, rep["built"])          # h24 saknar capture, m20 ej nådd
+        h3 = self._rows("h3")
+        self.assertEqual([1, 2], [r[0] for r in h3])
+        self.assertEqual(1, h3[0][1])
+        self.assertEqual(2.5, h3[0][2])
+        self.assertAlmostEqual(1.0, h3[0][3] + h3[0][4], places=9)
+        self.assertGreater(h3[0][3], h3[0][4])   # Över 1,90 kortare ⇒ högre p
+        self.assertEqual((0, None, None, None), h3[1][1:5])
+        # m20 ser den senare punkten — den ligger inom horisonten.
+        self._capture(1, late)
+        pool_dataset.build_total_draw(
+            self.store, "topptipset", 100, self.close.isoformat(), now=NOW)
+        m20 = {r[0]: r for r in self._rows("m20")}
+        self.assertEqual(2.25, m20[1][2])
+        # pit-v4 rörs inte av syskonserien.
+        self.assertEqual(0, self.store.conn.execute(
+            "SELECT COUNT(*) FROM pool_pit_match_features").fetchone()[0])
+
+    def test_utan_capture_ingen_rad_och_idempotent(self):
+        early = self.close - dt.timedelta(hours=3, minutes=5)
+        self._total(1, early, 2.5, 1.90, 1.95)   # pris utan presence
+        rep = pool_dataset.build_total_draw(
+            self.store, "topptipset", 100, self.close.isoformat(), now=NOW)
+        self.assertEqual(0, rep["built"])
+        self.assertEqual([], self._rows("h3"))
+        self._capture(1, early)
+        first = pool_dataset.build_total_draw(
+            self.store, "topptipset", 100, self.close.isoformat(), now=NOW)
+        second = pool_dataset.build_total_draw(
+            self.store, "topptipset", 100, self.close.isoformat(), now=NOW)
+        self.assertGreater(first["built"], 0)
+        self.assertEqual(0, second["built"])
+        self.assertEqual(1, len(self._rows("h3")))
+
+    def test_build_recent_bygger_syskonserien_med_egna_raknare(self):
+        early = self.close - dt.timedelta(hours=3, minutes=5)
+        self._capture(1, early)
+        self._total(1, early, 2.5, 1.90, 1.95)
+        rep = pool_dataset.build_recent(self.store, "topptipset", now=NOW)
+        self.assertIn("total_built", rep)
+        self.assertGreaterEqual(rep["total_built"], 1)
+        self.assertEqual(1, len(self._rows("h3")))
+
+
+class PoolOptForwardTests(unittest.TestCase):
+    """poolopt-v1: sökningens tre nominerade armar fryses framåt, research-only."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+
+    def test_familjen_startar_pa_forregistrerad_omgang_och_bara_8_matchsspel(self):
+        start = pool_system_ledger.POOLOPT_FORWARD_START_DRAW_BY_PRODUCT
+        for product, first in start.items():
+            self.assertNotIn("poolopt", pool_system_ledger.research_families_for(
+                product, first - 1))
+            fam = pool_system_ledger.research_families_for(product, first)["poolopt"]
+            self.assertEqual(["poolopt-v1-b256-traff", "poolopt-v1-b256-balans",
+                              "poolopt-v1-b256-xkvot"], [c["key"] for c in fam])
+            self.assertTrue(all(c["method"] == "poolopt" and c["budget"] == 256.0
+                                and c["research_family"] == "poolopt" for c in fam))
+        for product in ("stryktipset", "europatipset"):
+            self.assertNotIn("poolopt", pool_system_ledger.research_families_for(
+                product, 99999))
+        # Aldrig i promotionsfamiljen.
+        self.assertFalse({c["key"] for c in pool_system_ledger.POOLOPT_FORWARD_CONFIGS}
+                         & {b["key"] for b in pool_system_ledger.benchmarks_for("topptipset")})
+
+    def test_championkonfigurationen_reproducerar_byggaren_exakt(self):
+        from app import pool_optimizer
+        draw = _draw_fixture(NOW + dt.timedelta(hours=3))
+        # Tie-fri prisbild (som skriptets eget regressionstest): standard-
+        # fixturen har bara tre oddsmönster och lika rader får då godtycklig
+        # inbördes ordning — vilket inte är en numerisk skillnad.
+        for i, match in enumerate(draw.matches):
+            for sign, odds, streck in zip(("1", "X", "2"),
+                                          (1.72 + i * 0.031, 3.05 + i * 0.043,
+                                           4.60 - i * 0.071),
+                                          (57 - i, 25 + i // 2, 18 + i - i // 2)):
+                match.outcomes[sign].odds = odds
+                match.outcomes[sign].streck = streck
+        analysis = analyze_draw(draw, {}, {})
+        analysis.turnover = 120000.0
+        plan = {"ratio": 0.70, "splits": {8: 1.00}}
+        expected = builder.build_ev_system(
+            analysis, "medel", 256.0, row_price=1.0, value_weight=0.5,
+            plan=plan, jackpot=0.0, draw_risk=False)
+        rows = pool_optimizer.rows_for(
+            "topptipset", analysis, pool_optimizer.champion_config(),
+            120000.0, 1.0, plan)
+        self.assertEqual([list(r) for r in expected.rows], rows)
+
+    def test_freeze_due_fryser_tre_poolopt_armar_med_exakt_256_rader(self):
+        start = pool_system_ledger.POOLOPT_FORWARD_START_DRAW_BY_PRODUCT["topptipset"]
+        close = NOW + dt.timedelta(minutes=178)
+        draw = _draw_fixture(close)
+        draw.draw_number = start
+        rep = pool_system_ledger.freeze_due(
+            self.store, "topptipset", draw, now=NOW, code_version="test")
+        rows = self.store.conn.execute(
+            "SELECT config_key, n_rows, cost_kr, rows_text FROM pool_system_ledger "
+            "WHERE config_key LIKE 'poolopt-%' ORDER BY config_key").fetchall()
+        self.assertEqual(3, len(rows))
+        self.assertGreaterEqual(rep["frozen"], 3 + len(
+            pool_system_ledger.benchmarks_for("topptipset")))
+        for key, n_rows, cost, text in rows:
+            self.assertEqual(256, n_rows)
+            self.assertEqual(256.0, cost)
+            decoded = text.split("\n")
+            self.assertEqual(256, len(set(decoded)))
+        # X-kvotarmens invariant: minst 25 % av marknadens X-fördelning per
+        # X-antal — ett GOLV per grupp, inte "fler X totalt" (dess κ-kurva
+        # straffar X-tunga rader, så totalen kan mycket väl bli lägre).
+        from app import pool_optimizer
+        by_key = {r[0]: r[3].split("\n") for r in rows}
+        analysis = analyze_draw(draw, {}, {})
+        x_dist = builder.x_count_distribution(analysis)
+        counts = {k: sum(1 for r in by_key["poolopt-v1-b256-xkvot"]
+                         if r.count("X") == k) for k in range(9)}
+        for k in range(9):
+            self.assertGreaterEqual(counts[k], int(256 * 0.25 * x_dist[k]), k)
+        # …och armarna är verkligen olika radval.
+        self.assertNotEqual(set(by_key["poolopt-v1-b256-xkvot"]),
+                            set(by_key["poolopt-v1-b256-traff"]))
+        self.assertIs(pool_optimizer.select_rows, pool_optimizer.select_rows)

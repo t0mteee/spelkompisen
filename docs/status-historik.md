@@ -1,5 +1,58 @@
 # Statushistorik — daterade statusblock ur `docs/plan.md`
 
+## Statusblock 2026-09-02 (dag) — ersatt samma kväll
+
+Det här blocket **ersätts** vid varje leverans — skriv över, stapla inte.
+Tidigare statusblock ligger daterade och ordagranna i
+`docs/status-historik.md`. Överlämningar: `docs/overlamningar/`. Aktiv
+arbetslista: `docs/backlog.md` (avsnittet **Aktivt** överst).
+
+**Drift.** Allt kör på MacBook-servern `192.168.50.100` (backend 8002, byggd
+frontend 5175, launchd: snapshot/pool/kalltest + Chartervakt/Bonusvakt);
+se `docs/macbook-server-2026-08-11.md` och `docs/AI-OVERLAMNING-SERVER.md`.
+Kontroll före push: `tools/kontroll.sh` (837+ backendtester, eslint, 13
+frontendtester, ~60 s) — pre-push-hooken i `tools/githooks/` kör den.
+`backend/requirements.lock` är serverns frysta venv.
+
+**Kontrakt som gäller nu.**
+- **Live-radar** `chance-gap-shadow-v11` (Ligue 1 i scope sedan 2026-08-23;
+  v10 från 2026-08-18 låser bästa färska överpris från Kambi/Ninja/Pinnacle,
+  Pinnacle bara vid Age ≤ 90 s). Flashscore ankare, FotMob sekundär, Sofascore
+  urkopplad ur radarn men kvar för resultatstatistik/frånvaro.
+- **V2.2** samlar under manifest v10
+  (`docs/model-v2.2-multileague-forward-manifest-v10.json`), sharp
+  `s-2f14f9a6`; `/api/health` bevakar versionskontraktet. Aldrig tipsinput.
+- **Modell** (amber, sämre än Pinnacle i alla ligor): modelldata v5,
+  `powerrank-v2`. Modelligor: Allsvenskan/Superettan/Eliteserien/OBOS/MLS +
+  PL/Serie A/La Liga/Bundesliga. Ligue 1 samlas (621/622 med xG) men står
+  utanför `MODEL_LEAGUES` tills temperaturen kalibrerats.
+- **Pool.** `pool-draw-risk-v1`: X skyddas ≥ 29,5 % vid Pinnacle-total ≤ 2,25
+  (32 % utan total) i ALLA automatiska byggen. Matematiskt max v2 = 3 spikar +
+  1 halv + 9 hela = 39 366 rader. PH3 gen 2, champion `b256-medel`,
+  Topptipset-familjen tak 512. Radprofiler Standard/Träffsäkrare/Radform v1·test.
+  Topptipset Dagens/Stryk/Extra är ETT spel i all redovisning (`family_of`).
+  Spelade kuponger liverättas från tre 1X2-källor; glömda kuponger kan
+  importeras ur radfil.
+
+**Pågående mätningar — passiva. Läs på kadens, bygg inget nytt före skörd.**
+V2.2-gaten · PH5 forward (5 000 rader; Stryk 4966→, Europa 2600→) ·
+Max-tester `mathmax-v1`/`reducedmax-v1` (Stryk 4968/Europa 2603→) ·
+`pool-strength-blend-v1` (Historik → Poolmodell) · radarens blindtest (200
+matcher/60 dagar) · pooloptimerare v1 (nästa: färsk read-only-snapshot + full
+10 000-sökning; `final_only` får nominera, aldrig promovera).
+
+**Senast levererat.** 2026-09-02 (Claude, granskningen): rött test rättat med
+klockinjektion; `tools/kontroll.sh` + pre-push-hook + `requirements.lock`;
+KAPPA-synklås backend↔frontend; dokumentstrukturen (ett statusblock, historik,
+`docs/overlamningar/`); tystnadsvakt `oddset_health` på Idag/`/api/health`/
+`kallhalsa` (UI, ingen ntfy); 30 tester för `derive`/`steam`/`bomben`/`clv`;
+`cli.py gater` (alla grindar på ett ställe); frontend-utbrytning (`src/lib/`,
+`src/components/`, `src/oddset/OddsetView.jsx`); CLAUDE.md halverad (1 274 →
+619 rader) med evidensen fryst i `docs/claude-md-bakgrund-2026-09-02.md`.
+2026-08-31 (Codex): X-risk v1 + matematiskt max v2. Allt äldre:
+`docs/status-historik.md`.
+
+
 Flyttade hit ordagrant 2026-09-02. Nyaste överst. **Inget här är nuvarande
 kontrakt** — det står i statusblocket överst i `docs/plan.md`. Vid varje ny
 leverans: skriv över blocket i plan.md och klistra det gamla överst här.

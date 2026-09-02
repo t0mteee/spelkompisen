@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-09-02) — läs detta först i ny session
+## STATUS (2026-09-02, kväll) — läs detta först i ny session
 
 Det här blocket **ersätts** vid varje leverans — skriv över, stapla inte.
 Tidigare statusblock ligger daterade och ordagranna i
@@ -10,8 +10,8 @@ arbetslista: `docs/backlog.md` (avsnittet **Aktivt** överst).
 **Drift.** Allt kör på MacBook-servern `192.168.50.100` (backend 8002, byggd
 frontend 5175, launchd: snapshot/pool/kalltest + Chartervakt/Bonusvakt);
 se `docs/macbook-server-2026-08-11.md` och `docs/AI-OVERLAMNING-SERVER.md`.
-Kontroll före push: `tools/kontroll.sh` (837+ backendtester, eslint, 13
-frontendtester, ~60 s) — pre-push-hooken i `tools/githooks/` kör den.
+Kontroll före push: `tools/kontroll.sh` (900+ backendtester, eslint, 13
+frontendtester, ~90 s) — pre-push-hooken i `tools/githooks/` kör den.
 `backend/requirements.lock` är serverns frysta venv.
 
 **Kontrakt som gäller nu.**
@@ -28,28 +28,43 @@ frontendtester, ~60 s) — pre-push-hooken i `tools/githooks/` kör den.
   utanför `MODEL_LEAGUES` tills temperaturen kalibrerats.
 - **Pool.** `pool-draw-risk-v1`: X skyddas ≥ 29,5 % vid Pinnacle-total ≤ 2,25
   (32 % utan total) i ALLA automatiska byggen. Matematiskt max v2 = 3 spikar +
-  1 halv + 9 hela = 39 366 rader. PH3 gen 2, champion `b256-medel`,
-  Topptipset-familjen tak 512. Radprofiler Standard/Träffsäkrare/Radform v1·test.
-  Topptipset Dagens/Stryk/Extra är ETT spel i all redovisning (`family_of`).
-  Spelade kuponger liverättas från tre 1X2-källor; glömda kuponger kan
-  importeras ur radfil.
+  1 halv + 9 hela = 39 366 rader. PH3 gen 2, champion `dr1-b256-medel`
+  (sannolikhetsbas SvS), Topptipset-familjen tak 512 och **en tionde nyckel
+  sedan 2026-09-02: `dr1-b256-medel-sharp`** (samma byggare, Pinnacle först).
+  Radprofiler Standard/Träffsäkrare/Radform v1·test. Topptipset Dagens/Stryk/
+  Extra är ETT spel i all redovisning (`family_of`). Chansmotorn räknar EXAKT
+  (klotunion). Spelade kuponger liverättas från tre 1X2-källor; glömda
+  kuponger kan importeras ur radfil.
+- **PIT-serier.** `pit-v4` (1X2/streck) + **`pit-total-v1`** (Pinnacles
+  huvudtotal, syskonserie sedan 2026-09-02, aldrig bakfylld).
+  `pool_draw_settlement.jackpot_close` = senast verifierade jackpot före
+  stängning (9 omgångar bakfyllda ur egna snapshots; prognosen jackpotblind
+  tills `JACKPOT_MODEL_MIN_N` = 30/produkt).
 
 **Pågående mätningar — passiva. Läs på kadens, bygg inget nytt före skörd.**
 V2.2-gaten · PH5 forward (5 000 rader; Stryk 4966→, Europa 2600→) ·
-Max-tester `mathmax-v1`/`reducedmax-v1` (Stryk 4968/Europa 2603→) ·
+Max-tester `mathmax-v2`/`reducedmax-v2` (Stryk 4969/Europa 2604→) ·
 `pool-strength-blend-v1` (Historik → Poolmodell) · radarens blindtest (200
-matcher/60 dagar) · pooloptimerare v1 (nästa: färsk read-only-snapshot + full
-10 000-sökning; `final_only` får nominera, aldrig promovera).
+matcher/60 dagar) · **PH3 sannolikhetsbas** (`dr1-b256-medel-sharp`, Topptipset,
+grind 40 parade omg) · **pooloptimerare v1 forward** (`poolopt` research-
+familj: träff/balans/X-kvot à 256 rader, Topptipset 4309/Stryk 979/Extra 1864→,
+grind 40 parade omg mot championen, avslut 120) · **pit-total-v1** (grind ≥ 40
+Topptipsomgångar med total på alla åtta) · PH4 pit-v4 Stryk/Europa (6–11/40).
+`cli.py gater` läser allihop.
 
-**Senast levererat.** 2026-09-02 (Claude, granskningen): rött test rättat med
-klockinjektion; `tools/kontroll.sh` + pre-push-hook + `requirements.lock`;
-KAPPA-synklås backend↔frontend; dokumentstrukturen (ett statusblock, historik,
-`docs/overlamningar/`); tystnadsvakt `oddset_health` på Idag/`/api/health`/
-`kallhalsa` (UI, ingen ntfy); 30 tester för `derive`/`steam`/`bomben`/`clv`;
-`cli.py gater` (alla grindar på ett ställe); frontend-utbrytning (`src/lib/`,
-`src/components/`, `src/oddset/OddsetView.jsx`); CLAUDE.md halverad (1 274 →
-619 rader) med evidensen fryst i `docs/claude-md-bakgrund-2026-09-02.md`.
-2026-08-31 (Codex): X-risk v1 + matematiskt max v2. Allt äldre:
+**Skördat 2026-09-02.** PH4 Topptipset: streck + streckrörelse slår INTE ren
+Pinnacle vid h3 — promotion nej. Pooloptimerare v1 fullsökning (10 000 konf.,
+2 006 omg): ingen arm slog Standard på ROI i slutauditen (402 omg); tre armar
+nominerade till forward. Sannolikhetsbas retro (pit-v4): identiskt facit 21/21
+träffar på 77 omg, Pinnacle täcker Topptipset vid h3 i bara 18/87 omg (m20
+56/88). Se `docs/overlamningar/overlamning-2026-09-02-poolforbattringar.md`.
+
+**Senast levererat.** 2026-09-02 kväll (Claude): exakt chansmotor; PH4-skörd;
+optimerarens fullsökning + forwardfamilj `poolopt` (`app/pool_optimizer.py`);
+`prob_base` i EV-byggaren + PH3-utmanare; `pit-total-v1`; `jackpot_close` +
+migrering; Historik visar jackpot-prognosträff och alla nya spår. 2026-09-02
+dag: tystnadsvakt i UI, `cli.py gater`, frontend-utbrytning, CLAUDE.md
+halverad. 2026-08-31 (Codex): X-risk v1 + matematiskt max v2. Allt äldre:
 `docs/status-historik.md`.
 
 ## Modellplan — vägen till en modell att lita på (efter backtest-domen)

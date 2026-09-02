@@ -475,6 +475,30 @@ CREATE TABLE IF NOT EXISTS pool_pit_match_features (
     PRIMARY KEY (product, draw_number, horizon, event_number, feature_version)
 );
 
+-- pit-total-v1 (2026-09-02): Pinnacles huvudtotal per poolmatch vid samma
+-- horisonter som pit-v4, byggd ur sharp_total_snapshots (förändringsserie
+-- sedan 2026-08-31) och pool_market_capture (presence). En SYSKONSERIE med
+-- egen version: pit-v4:s datagenererande process rörs inte, så PH4:s
+-- Stryk-/Europa-grindar fortsätter fyllas under sin egen version. Aldrig
+-- bakfylld; en horisont utan capture får ingen rad. NULL = oobserverad.
+CREATE TABLE IF NOT EXISTS pool_pit_total_features (
+    product         TEXT NOT NULL,
+    draw_number     INTEGER NOT NULL,
+    horizon         TEXT NOT NULL,
+    event_number    INTEGER NOT NULL,
+    feature_version TEXT NOT NULL,
+    asof            TEXT NOT NULL,
+    computed_at     TEXT NOT NULL,
+    total_lag_min   REAL,
+    total_eligible  INTEGER NOT NULL DEFAULT 0,
+    line            REAL,
+    over_odds       REAL,
+    under_odds      REAL,
+    p_over          REAL,
+    p_under         REAL,
+    PRIMARY KEY (product, draw_number, horizon, event_number, feature_version)
+);
+
 CREATE TABLE IF NOT EXISTS pool_system_ledger (
     product       TEXT NOT NULL,
     draw_number   INTEGER NOT NULL,
@@ -1176,6 +1200,15 @@ class Storage:
                     "ALTER TABLE oddset_live_flashscore ADD COLUMN touches_box_home REAL",
                     "ALTER TABLE oddset_live_flashscore ADD COLUMN touches_box_away REAL",
                     "ALTER TABLE oddset_live_flashscore ADD COLUMN saves_home REAL",
+                    # Jackpot vid spelstopp (2026-09-02): senast VERIFIERADE
+                    # jackpotobservation ≤ regCloseTime ur pool_draw_snapshot.
+                    # Resultatpayloaden bär ingen jackpot, så kolumnen kan bara
+                    # fyllas för omgångar med snapshot (serien börjar juni 2026)
+                    # och ALDRIG ur draw.fund. NULL = oobserverad, aldrig 0.
+                    # Observationstiden sparas bredvid: värdet är en observation
+                    # före stängning, inte fonden i stängningsögonblicket.
+                    "ALTER TABLE pool_draw_settlement ADD COLUMN jackpot_close REAL",
+                    "ALTER TABLE pool_draw_settlement ADD COLUMN jackpot_close_observed_at TEXT",
                     "ALTER TABLE oddset_live_flashscore ADD COLUMN saves_away REAL",
                     "ALTER TABLE oddset_live_flashscore ADD COLUMN possession_home REAL",
                     "ALTER TABLE oddset_live_flashscore ADD COLUMN possession_away REAL",

@@ -152,6 +152,7 @@ def report(store, *, now: Optional[dt.datetime] = None,
                             "ph5": "PH5",
                             "mathmax": "matematiska 39 366-testet",
                             "reducedmax": "reducerade 20 000-testet",
+                            "poolopt": "pooloptimerarens forwardtest",
                         }.get(family, family)
                         message = (
                             f"{horizon_label} före spelstopp: {research_count} "

@@ -1,0 +1,1556 @@
+{
+ "version": "ph3-sannolikhetsbas-retro-v1",
+ "seed": 20260902,
+ "db": "/Users/saman/spelkompisen/backend/data/optimizer/snapshot-2026-09-02.db",
+ "horizon": "m20",
+ "feature_version": "pit-v4",
+ "config": {
+  "budget": 256.0,
+  "strategy": "medel",
+  "value_weight": 0.5,
+  "champion": "dr1-b256-medel",
+  "challenger": "dr1-b256-medel-sharp"
+ },
+ "n_draws": 79,
+ "skipped": {
+  "ofullstandiga_features": 5,
+  "facit_saknas": 0,
+  "utdelning_ofullstandig": 0,
+  "bygge_misslyckades": 0
+ },
+ "draws_with_any_sharp": 55,
+ "draws_with_full_sharp": 28,
+ "mean_rows_shared": 0.8775,
+ "draws_identical": 25,
+ "hits": {
+  "svs": 21,
+  "sharp": 21
+ },
+ "roi_mean": {
+  "svs": 0.1064,
+  "sharp": 0.0853
+ },
+ "paired": {
+  "hit_diff_mean": 0,
+  "hit_diff_ci90": [
+   -0.02532,
+   0.02532
+  ],
+  "roi_diff_mean_raw": -0.02113,
+  "roi_diff_ci90_raw": [
+   -0.14917,
+   0.0858
+  ],
+  "roi_diff_mean_winsor": 0.0,
+  "roi_diff_ci90_winsor": [
+   -0.0858,
+   0.0858
+  ],
+  "n_draws_rows_differ": 54,
+  "n_draws_roi_differ": 2,
+  "winsor_cap": 3.3889
+ },
+ "records": [
+  {
+   "product": "topptipset",
+   "draw_number": 4229,
+   "n_sharp_eligible": 7,
+   "turnover_asof": 150494.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 230,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4230,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 151326.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw_number": 1852,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 961742.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 209,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4231,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 291876.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4232,
+   "n_sharp_eligible": 7,
+   "turnover_asof": 130671.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 219,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4234,
+   "n_sharp_eligible": 7,
+   "turnover_asof": 1128107.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 218,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4235,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 199547.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 230,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 2.10015625,
+    "payout": 793.64
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 2.10015625,
+    "payout": 793.64
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4236,
+   "n_sharp_eligible": 6,
+   "turnover_asof": 951185.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 223,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4237,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 102140.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw_number": 1853,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 983264.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 172,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4238,
+   "n_sharp_eligible": 6,
+   "turnover_asof": 176829.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 161,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4239,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 942453.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4240,
+   "n_sharp_eligible": 6,
+   "turnover_asof": 195468.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 188,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4241,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 848033.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 202,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 8.3663671875,
+    "payout": 2397.79
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 8.3663671875,
+    "payout": 2397.79
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw_number": 974,
+   "n_sharp_eligible": 7,
+   "turnover_asof": 1050515.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 185,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4242,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 187498.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4243,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 186922.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 210,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw_number": 1854,
+   "n_sharp_eligible": 7,
+   "turnover_asof": 927025.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 202,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4244,
+   "n_sharp_eligible": 7,
+   "turnover_asof": 278384.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 213,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4245,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 230773.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 3.5277343749999996,
+    "payout": 1159.1
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 3.5277343749999996,
+    "payout": 1159.1
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4246,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 1443199.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 5.9044140625,
+    "payout": 1767.53
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 5.9044140625,
+    "payout": 1767.53
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4247,
+   "n_sharp_eligible": 7,
+   "turnover_asof": 264089.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 221,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 4.6008203125,
+    "payout": 1433.81
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 4.6008203125,
+    "payout": 1433.81
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4248,
+   "n_sharp_eligible": 7,
+   "turnover_asof": 1094253.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 183,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw_number": 1855,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 1100044.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 233,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw_number": 975,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 995115.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 8.9786328125,
+    "payout": 2554.53
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 8.9786328125,
+    "payout": 2554.53
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw_number": 1856,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 928891.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 8.08328125,
+    "payout": 2325.32
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 8.08328125,
+    "payout": 2325.32
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4256,
+   "n_sharp_eligible": 7,
+   "turnover_asof": 272418.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 217,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4257,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 144194.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 193,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4258,
+   "n_sharp_eligible": 6,
+   "turnover_asof": 1153553.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 226,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4260,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 1149260.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 214,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 1.4242578125,
+    "payout": 620.61
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 1.4242578125,
+    "payout": 620.61
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw_number": 1857,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 916930.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4264,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 881408.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 205,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4265,
+   "n_sharp_eligible": 7,
+   "turnover_asof": 326531.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 173,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4275,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 116829.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4267,
+   "n_sharp_eligible": 7,
+   "turnover_asof": 348356.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 174,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw_number": 976,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 1214357.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4268,
+   "n_sharp_eligible": 7,
+   "turnover_asof": 259934.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 234,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": -0.36761718750000005,
+    "payout": 161.89
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": -0.36761718750000005,
+    "payout": 161.89
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4269,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 131497.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw_number": 1858,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 1135507.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4274,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 251458.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 206,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4271,
+   "n_sharp_eligible": 7,
+   "turnover_asof": 110533.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 205,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 4.4016015625,
+    "payout": 1382.81
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 4.4016015625,
+    "payout": 1382.81
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4272,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 885783.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 219,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 0.9596875,
+    "payout": 501.68
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 0.9596875,
+    "payout": 501.68
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4273,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 151906.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4276,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 863191.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 206,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4277,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 207215.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 203,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 4.057890625,
+    "payout": 1294.82
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4278,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 1035971.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4279,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 112357.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 215,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw_number": 1859,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 801369.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4280,
+   "n_sharp_eligible": 6,
+   "turnover_asof": 164164.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 228,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 5.0816015625,
+    "payout": 1556.89
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 5.0816015625,
+    "payout": 1556.89
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4281,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 973551.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 213,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4282,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 507263.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 230,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": -0.10589843750000005,
+    "payout": 228.89
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": -0.10589843750000005,
+    "payout": 228.89
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4283,
+   "n_sharp_eligible": 7,
+   "turnover_asof": 107513.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 198,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4284,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 421277.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 217,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw_number": 977,
+   "n_sharp_eligible": 4,
+   "turnover_asof": 1721307.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 220,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4285,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 322120.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 220,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw_number": 1860,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 1185484.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 235,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4291,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 326721.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 226,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 2.3889453125,
+    "payout": 867.57
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4288,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 91007.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4289,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 1589397.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4290,
+   "n_sharp_eligible": 6,
+   "turnover_asof": 181663.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 210,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4292,
+   "n_sharp_eligible": 6,
+   "turnover_asof": 1341668.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 219,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 5.549296875,
+    "payout": 1676.62
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 5.549296875,
+    "payout": 1676.62
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4293,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 158528.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4294,
+   "n_sharp_eligible": 7,
+   "turnover_asof": 1400463.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 226,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 0.46046875,
+    "payout": 373.88
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 0.46046875,
+    "payout": 373.88
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4295,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 146302.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 0.759765625,
+    "payout": 450.5
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 0.759765625,
+    "payout": 450.5
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw_number": 1861,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 836562.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 192,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4296,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 181057.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 170,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4297,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 1577932.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 214,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 1.502890625,
+    "payout": 640.74
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 1.502890625,
+    "payout": 640.74
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4298,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 109429.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 210,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 0.4409375,
+    "payout": 368.88
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 0.4409375,
+    "payout": 368.88
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4299,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 859283.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw_number": 978,
+   "n_sharp_eligible": 4,
+   "turnover_asof": 1858780.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 205,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4300,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 370991.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 228,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4304,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 135151.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 205,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw_number": 1862,
+   "n_sharp_eligible": 6,
+   "turnover_asof": 1365493.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 235,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": 1.0537890625,
+    "payout": 525.77
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": 1.0537890625,
+    "payout": 525.77
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4305,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 332190.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4301,
+   "n_sharp_eligible": 7,
+   "turnover_asof": 102634.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 215,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4302,
+   "n_sharp_eligible": 8,
+   "turnover_asof": 1390829.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 220,
+   "rows_total": 256,
+   "svs": {
+    "hit": 1,
+    "roi": -0.37117187500000004,
+    "payout": 160.98
+   },
+   "sharp": {
+    "hit": 1,
+    "roi": -0.37117187500000004,
+    "payout": 160.98
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4303,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 163037.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4306,
+   "n_sharp_eligible": 4,
+   "turnover_asof": 1622458.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 221,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw_number": 4307,
+   "n_sharp_eligible": 0,
+   "turnover_asof": 188710.0,
+   "jackpot_asof": 0.0,
+   "rows_shared": 256,
+   "rows_total": 256,
+   "svs": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   },
+   "sharp": {
+    "hit": 0,
+    "roi": -1.0,
+    "payout": 0.0
+   }
+  }
+ ]
+}

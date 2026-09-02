@@ -60,6 +60,33 @@ def _parse_iso(value) -> Optional[dt.datetime]:
     return stamp if stamp.tzinfo else stamp.replace(tzinfo=dt.timezone.utc)
 
 
+def jackpot_at_close(store: Storage, product: str, draw_number: int,
+                     close_iso: Optional[str]) -> tuple[Optional[float],
+                                                        Optional[str]]:
+    """Senast VERIFIERADE jackpotobservation vid eller före spelstopp.
+
+    Resultatpayloaden bär ingen jackpot och `/jackpots` listar bara öppna
+    omgångar, så det enda ärliga värdet är vad vi själva observerade i
+    `pool_draw_snapshot` innan stängning — och bara med proveniensen
+    `verified_endpoint`. `draw.fund` är opålitligt och räknas aldrig.
+    Returnerar (NULL, NULL) när ingen sådan observation finns; NULL betyder
+    oobserverad, aldrig "ingen jackpot".
+    """
+    close = _parse_iso(close_iso)
+    if close is None:
+        return None, None
+    cutoff = close.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    row = store.conn.execute(
+        "SELECT jackpot, fetched_at FROM pool_draw_snapshot WHERE product=? "
+        "AND draw_number=? AND jackpot_source='verified_endpoint' "
+        "AND jackpot IS NOT NULL AND fetched_at<=? "
+        "ORDER BY fetched_at DESC LIMIT 1",
+        (product, draw_number, cutoff)).fetchone()
+    if row is None:
+        return None, None
+    return float(row[0]), str(row[1])
+
+
 def _retry_after(raw: Optional[dict], now: Optional[dt.datetime] = None) -> str:
     """Tidigaste meningsfulla omprövning av en omgång som inte var finaliserad.
 
@@ -191,6 +218,8 @@ def settle_draw(store: Storage, svs: SvenskaSpel, product: str,
         if ev.get("outcome") in ("1", "X", "2"):
             outcome_by_event[en] = ev["outcome"]
         cancelled_by_event[en] = bool(ev.get("cancelled"))
+    jackpot_close, jackpot_seen = jackpot_at_close(
+        store, product, draw_number, raw.get("regCloseTime"))
     try:
         with store.bulk():
             n_cancelled = sum(1 for v in cancelled_by_event.values() if v)
@@ -198,12 +227,14 @@ def settle_draw(store: Storage, svs: SvenskaSpel, product: str,
                 "INSERT INTO pool_draw_settlement (product, draw_number, "
                 "draw_state, reg_close_time, net_sale, row_price, n_events, "
                 "n_cancelled, product_name, source_version, payload_hash, "
-                "fetched_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                "fetched_at, jackpot_close, jackpot_close_observed_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (product, draw_number, state, raw.get("regCloseTime"),
                  _f(result.get("currentNetSale")) or _f(raw.get("currentNetSale")),
                  _f(raw.get("rowPrice")), len(events), n_cancelled,
                  raw.get("productName"), version,
-                 payload_hash(raw, result), _now_iso()))
+                 payload_hash(raw, result), _now_iso(),
+                 jackpot_close, jackpot_seen))
             for ev in events:
                 match = ev.get("match") or {}
                 parts = {p.get("type"): p for p in match.get("participants", [])}
