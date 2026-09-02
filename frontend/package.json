@@ -9,7 +9,7 @@
     "serve": "npm run build && vite preview",
     "lint": "eslint .",
     "test": "npm run test:ui",
-    "test:ui": "node --test src/*.test.js",
+    "test:ui": "node --test src/*.test.js src/lib/*.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

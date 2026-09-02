@@ -1,5 +1,5 @@
 """KAPPA finns i två exemplar: `builder.KAPPA` (backend, radval + PH3) och
-`const KAPPA` i frontend/src/App.jsx (`evalRows`). CLAUDE.md kräver att de
+`const KAPPA` i frontend/src/lib/poolEv.js (`evalRows`). CLAUDE.md kräver att de
 hålls identiska, men fram till nu var den meningen det enda som höll dem
 samman. Det här testet gör kravet körbart — det körs i `tools/kontroll.sh`
 och stoppar en push där bara ena sidan ändrats.
@@ -10,13 +10,13 @@ from pathlib import Path
 
 from app.builder import KAPPA
 
-APP_JSX = Path(__file__).resolve().parents[2] / "frontend" / "src" / "App.jsx"
+APP_JSX = Path(__file__).resolve().parents[2] / "frontend" / "src" / "lib" / "poolEv.js"
 
 
 def frontend_kappa() -> dict[str, dict[int, float]]:
     src = APP_JSX.read_text(encoding="utf-8")
-    m = re.search(r"^const KAPPA = \{(.*?)^\}", src, re.S | re.M)
-    assert m, "const KAPPA = { ... } hittades inte i App.jsx"
+    m = re.search(r"^(?:export )?const KAPPA = \{(.*?)^\}", src, re.S | re.M)
+    assert m, "const KAPPA = { ... } hittades inte i lib/poolEv.js"
     table: dict[str, dict[int, float]] = {}
     for prod, body in re.findall(r"(\w+):\s*\{([^}]*)\}", m.group(1)):
         table[prod] = {int(c): float(v)

@@ -512,6 +512,10 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   cli.py              show|spikar|snapshot|history|rad (snapshotvarvet settlar
                       även nyss avgjorda poolomgångar via settle_recent)
 frontend/ React + Vite, mörkt tema. src/AppV3.jsx + AppV3.css är APPEN
+  (2026-09-02: `src/lib/` = ren logik utan React — `format.js`, `poolEv.js`
+  (KAPPA/evalRows/couponStats) — testad med `node --test`; `src/components/` =
+  `ui.jsx`, `SortableTable.jsx`, `charts.jsx`; `src/oddset/OddsetView.jsx` =
+  hela Oddset-vyn. App.jsx re-exporterar allt, så AppV3 importerar som förut.)
   (enda gränssnittet sedan 2026-07-26 — klassiska v2-vyn är RIVEN): vyerna
   Idag, Poolspel, Oddset, Historik och 🧪 Labb (bevisytan: alla mät-/
   shadowspår som statuskort — inget där är tips). src/App.jsx + App.css är
