@@ -79,6 +79,13 @@ prioritetsordning. ⚖ = kräver Samans beslut.
    generation; (b) `chance`-endpointen till en bakgrundsberäkning om Historik
    fortfarande upplevs långsam; (c) `cli.py gater` saknar pit-total-grinden
    tills första raden finns.
+13. ✅ (2026-09-02) **Championship i Oddset och live.** Verifierade
+    provideridentiteter hos Pinnacle/Kambi/Ninja/Smarkets/Flashscore/FotMob,
+    fullt synlig och actionable liga samt ren radarkohort v12 från
+    2026-09-02T22:00Z. Football-data `E1` fortsätter ge resultat;
+    `MODEL_LEAGUES` och V2.2 är avsiktligt orörda tills separat täckningsaudit
+    och kalibrering finns. Följ upp första riktiga liveomgången med
+    `cli.py lanklucka`; se `docs/radar-scope-v12-2026-09-02.md`.
 
 ## 2026-08-11 — AWS korrekt omtestat och avfärdat
 

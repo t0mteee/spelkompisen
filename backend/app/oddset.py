@@ -85,6 +85,14 @@ LEAGUES = [
     # aldrig.
     {"key": "premier_league", "name": "Premier League", "pin_id": 1980,
      "kambi": "football/england/premier_league", "altenar": None,},
+    # Championship (2026-09-02, Samans beställning). Tidigare fanns ligan
+    # bara som football-data-matarliga till V2.2 och kunde därför varken
+    # visas i Oddset eller länka liveradarns statistik till ett prematchpris.
+    # Alla tre identiteter är avlästa ur källornas aktuella egna svar:
+    # Pinnacle `England - Championship` 1977, Kambi-vägen nedan (16 event)
+    # och Ninja/Altenar 2937 (engelska lag; 2962 är Skottland).
+    {"key": "championship", "name": "Championship", "pin_id": 1977,
+     "kambi": "football/england/the_championship", "altenar": 2937},
     {"key": "serie_a", "name": "Serie A", "pin_id": 2436,
      "kambi": "football/italy/serie_a", "altenar": None,},
     {"key": "la_liga", "name": "La Liga", "pin_id": 2196,
@@ -116,8 +124,9 @@ LEAGUES = [
     # (306 rader/säsong = 18 lag × 34 omgångar).
     #
     # Ligue 2 samlas som RESULTATLIGA via football-data `F2`, precis som
-    # Championship/Segunda/Serie B/2. Bundesliga — den ligger utanför
-    # `LEAGUES` eftersom vi inte handlar på den. Ligue 1 poolas INTE med den:
+    # Segunda/Serie B/2. Bundesliga — den ligger utanför `LEAGUES` eftersom
+    # vi inte handlar på den. Championship var tidigare likadan men är fullt
+    # följd sedan 2026-09-02. Ligue 1 poolas INTE med Ligue 2:
     # uppmätt försämrar matarligepoolning modellen i alla fyra Europaligor
     # (+0,0036 till +0,0125 logloss), och Ligue 2 saknar dessutom xG.
     {"key": "ligue_1", "name": "Ligue 1", "pin_id": 2036,

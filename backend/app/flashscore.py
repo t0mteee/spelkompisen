@@ -119,6 +119,8 @@ LEAGUE_NAMES = {
     # medvetet lämnas utanför scopet.
     "FRANCE: Ligue 1": "ligue_1",
     "ENGLAND: Premier League": "premier_league",
+    # Avläst ur Flashscores egen dagsfeed 2026-09-02.
+    "ENGLAND: Championship": "championship",
     "ITALY: Serie A": "serie_a",
     "SPAIN: LaLiga": "la_liga",
     "SPAIN: La Liga": "la_liga",

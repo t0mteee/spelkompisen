@@ -25,8 +25,9 @@ from scripts import migrera_radar_event_id_text, migrera_radar_settlement
 # Klockan ligger i den AKTIVA radarkohortens fönster. Flyttas gränsen
 # (ny signalversion) måste den här följa med, annars blir fixturens
 # captures `transitional` och tillhör per definition ingen kohort.
-NOW = dt.datetime(2026, 8, 22, 12, 0, tzinfo=dt.timezone.utc)
+NOW = dt.datetime(2026, 9, 3, 5, 0, tzinfo=dt.timezone.utc)
 T0 = NOW - dt.timedelta(hours=5)     # stängd serie: sista capture > 3 h gammal
+HISTORICAL_NOW = dt.datetime(2026, 8, 4, 12, 0, tzinfo=dt.timezone.utc)
 
 
 def iso(when: dt.datetime) -> str:
@@ -196,7 +197,8 @@ class RadarSettlementTests(unittest.TestCase):
         self.store.live_flashscore_save(first)
         self.store.live_flashscore_save(later)
 
-        report = live_settlement.settle_moments(self.store, now=NOW)
+        report = live_settlement.settle_moments(
+            self.store, now=HISTORICAL_NOW)
 
         self.assertEqual(2, report["settled"])
         rows = [row for row in self.rows() if row["event_id"] == event_id]
@@ -230,7 +232,7 @@ class RadarSettlementTests(unittest.TestCase):
                 sofa_capture(event_id, captured_at, 30, xg_home=0.3,
                              xg_away=0.2, radar_version=produced_by))
 
-        live_settlement.settle_moments(self.store, now=NOW)
+        live_settlement.settle_moments(self.store, now=HISTORICAL_NOW)
 
         versions = {row["event_id"]: row["signal_version"]
                     for row in self.rows()}
@@ -254,7 +256,7 @@ class RadarSettlementTests(unittest.TestCase):
             "UPDATE oddset_live_capture SET radar_version=NULL")
         self.store.conn.commit()
 
-        live_settlement.settle_moments(self.store, now=NOW)
+        live_settlement.settle_moments(self.store, now=HISTORICAL_NOW)
 
         versions = {row["event_id"]: row["signal_version"]
                     for row in self.rows()}
@@ -537,6 +539,16 @@ class CohortBoundaryTests(unittest.TestCase):
             live_radar.RADAR_V10_VERSION,
             live_radar.cohort_for("2026-08-18T00:00:00Z",
                                   produced_by=live_radar.RADAR_V10_VERSION))
+
+    def test_v12_championship_scope_start_is_a_clean_boundary(self):
+        self.assertEqual(
+            live_radar.RADAR_TRANSITIONAL,
+            live_radar.cohort_for("2026-09-02T21:59:59Z",
+                                  produced_by=live_radar.RADAR_V12_VERSION))
+        self.assertEqual(
+            live_radar.RADAR_V12_VERSION,
+            live_radar.cohort_for("2026-09-02T22:00:00Z",
+                                  produced_by=live_radar.RADAR_V12_VERSION))
 
     def test_declared_start_before_the_real_switch_yields_transitional(self):
         # v3 deklarerades 08:00Z men koden bytte först ~11:32–11:47Z.

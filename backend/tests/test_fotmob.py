@@ -96,6 +96,7 @@ class ParseTests(unittest.TestCase):
     def test_toppligor_och_besta_har_explicit_live_mapping(self):
         expected = {
             ("ENG", "Premier League"): "premier_league",
+            ("ENG", "Championship"): "championship",
             ("ITA", "Serie A"): "serie_a",
             ("ESP", "LaLiga"): "la_liga",
             ("GER", "Bundesliga"): "bundesliga",

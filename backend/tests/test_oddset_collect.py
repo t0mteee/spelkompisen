@@ -647,6 +647,18 @@ class ResearchLeagueIsolationTests(unittest.TestCase):
             self.assertNotIn(key, oddset_data.MODEL_LEAGUES)
             self.assertNotIn(key, oddset_v22.SCOPE_LEAGUES)
 
+    def test_championship_ar_fullt_foljd_men_inte_modellpromoverad(self) -> None:
+        league = next(row for row in oddset.LEAGUES
+                      if row["key"] == "championship")
+        self.assertEqual(1977, league["pin_id"])
+        self.assertEqual("football/england/the_championship", league["kambi"])
+        self.assertEqual(2937, league["altenar"])
+        self.assertIn("championship", oddset.ACTIONABLE_LEAGUE_KEYS)
+        self.assertIn("championship", oddset.VISIBLE_LEAGUE_KEYS)
+        from app import oddset_data, oddset_v22
+        self.assertNotIn("championship", oddset_data.MODEL_LEAGUES)
+        self.assertNotIn("championship", oddset_v22.SCOPE_LEAGUES)
+
     def test_visibility_and_actionability_are_independent_properties(self) -> None:
         """Mekanismen finns kvar även när ingen liga använder den just nu —
         synlig liga får aldrig automatiskt bli actionable."""

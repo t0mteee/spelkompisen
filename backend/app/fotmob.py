@@ -71,6 +71,8 @@ LEAGUE_NAMES = {
     ("ISL", "Besta deildin"): "bestadeild",
     ("USA", "MLS"): "mls",
     ("ENG", "Premier League"): "premier_league",
+    # Avläst ur FotMobs egen dagslista 2026-09-02 (liga-id 938218).
+    ("ENG", "Championship"): "championship",
     ("ITA", "Serie A"): "serie_a",
     ("ESP", "LaLiga"): "la_liga",
     ("ESP", "La Liga"): "la_liga",

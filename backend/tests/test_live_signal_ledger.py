@@ -17,7 +17,7 @@ from app.storage import Storage
 # Datumet ska följa med vid nästa kohortstart.
 # Se noten i test_radar_settlement: klockan måste ligga i den aktiva
 # radarkohortens deklarerade fönster.
-NOW = dt.datetime(2026, 8, 22, 18, 30, tzinfo=dt.timezone.utc)
+NOW = dt.datetime(2026, 9, 3, 5, 0, tzinfo=dt.timezone.utc)
 
 
 def iso(when: dt.datetime) -> str:

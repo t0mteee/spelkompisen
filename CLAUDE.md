@@ -1,7 +1,7 @@
 # Spelkompisen
 
 Personligt lokalt verktyg som kombinerar **SvS kompisen** (poolspels-analys: Stryktipset,
-Europatipset, Topptipset, Bomben) med en **Oddset-del**: enskilda matcher i 19 ligor med
+Europatipset, Topptipset, Bomben) med en **Oddset-del**: enskilda matcher i 20 ligor med
 sharp-odds, oddsrörelser, egen modell och värdespels-tips (1X2, asian handicap,
 över/under, hörnor på sikt).
 

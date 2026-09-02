@@ -48,6 +48,8 @@ LEAGUE_SLUGS = {
     "mls": "us-major-league-soccer",
     "friendlies": "club-friendlies",
     "premier_league": "england-premier-league",
+    # Avläst ur aktuella, bettable full_slug-rader 2026-09-02.
+    "championship": "england-championship",
     "serie_a": "italy-serie-a",
     "la_liga": "spain-la-liga",
     "bundesliga": "germany-bundesliga",

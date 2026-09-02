@@ -43,7 +43,8 @@ RADAR_V8_VERSION = "chance-gap-shadow-v8"
 RADAR_V9_VERSION = "chance-gap-shadow-v9"
 RADAR_V10_VERSION = "chance-gap-shadow-v10"
 RADAR_V11_VERSION = "chance-gap-shadow-v11"
-RADAR_VERSION = RADAR_V11_VERSION
+RADAR_V12_VERSION = "chance-gap-shadow-v12"
+RADAR_VERSION = RADAR_V12_VERSION
 
 # En observation som inte bevisligen hör till någon kohort. Se `cohort_for`.
 RADAR_TRANSITIONAL = "transitional"
@@ -101,7 +102,18 @@ RADAR_V10_STARTED_AT = "2026-08-18T00:00:00Z"
 # filen sparas, så observationer däremellan blir `transitional` enligt
 # cohort_for och tillhör ingen kohort — det är avsikten, inte ett fel.
 RADAR_V11_STARTED_AT = "2026-08-21T22:00:00Z"
-RADAR_VERSION_STARTED_AT = RADAR_V11_STARTED_AT
+# v12 (2026-09-02): Championship läggs till. Ligan fanns redan som
+# resultat-/fit-only-underlag men saknades helt i Oddsets synliga ligor och
+# Flashscore/FotMob-mappningarna. Populationen som kan skapa en livesignal
+# ändras därför och måste få en ren kohort. Trösklar, providers,
+# identitetsregler, prisprocess och källrankning är oförändrade.
+#
+# Källidentiteterna är avlästa ur aktuella providerflöden före kodändringen:
+# Flashscore "ENGLAND: Championship" och FotMob "ENG"/"Championship".
+# Gränsen ligger framåt vid midnatt CEST; eventuell koddrift före den blir
+# transitional och får aldrig blandas in i v11 eller v12.
+RADAR_V12_STARTED_AT = "2026-09-02T22:00:00Z"
+RADAR_VERSION_STARTED_AT = RADAR_V12_STARTED_AT
 
 # OBSERVERADE växlingar — när koden faktiskt bytte.
 #
@@ -350,6 +362,7 @@ LEAGUE_PRIORITY = {"allsvenskan": 0, "superettan": 0, "eliteserien": 0,
                    "obosligaen": 0, "bestadeild": 0, "mls": 0,
                    "premier_league": 0, "serie_a": 0,
                    "la_liga": 0, "bundesliga": 0,
+                   "championship": 0,
                    "danish_superliga": 0, "belgian_pro_league": 0,
                    "primeira_liga": 0, "bolivian_primera": 0,
                    "ligue_1": 0,
@@ -962,7 +975,8 @@ def previous_capture(earlier: list[dict],
 def declared_version_at(observed_at: str) -> str:
     """Vilken kohort som DEKLARERAT äger observationsögonblicket."""
     observed = _parse_iso(observed_at)
-    for version, start in ((RADAR_V11_VERSION, RADAR_V11_STARTED_AT),
+    for version, start in ((RADAR_V12_VERSION, RADAR_V12_STARTED_AT),
+                           (RADAR_V11_VERSION, RADAR_V11_STARTED_AT),
                            (RADAR_V10_VERSION, RADAR_V10_STARTED_AT),
                            (RADAR_V9_VERSION, RADAR_V9_STARTED_AT),
                            (RADAR_V8_VERSION, RADAR_V8_STARTED_AT),

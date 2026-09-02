@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-09-02, kväll) — läs detta först i ny session
+## STATUS (2026-09-02, natt) — läs detta först i ny session
 
 Det här blocket **ersätts** vid varje leverans — skriv över, stapla inte.
 Tidigare statusblock ligger daterade och ordagranna i
@@ -15,7 +15,8 @@ frontendtester, ~90 s) — pre-push-hooken i `tools/githooks/` kör den.
 `backend/requirements.lock` är serverns frysta venv.
 
 **Kontrakt som gäller nu.**
-- **Live-radar** `chance-gap-shadow-v11` (Ligue 1 i scope sedan 2026-08-23;
+- **Live-radar** `chance-gap-shadow-v12` (Championship i scope från
+  2026-09-02T22:00Z; Ligue 1 sedan v11;
   v10 från 2026-08-18 låser bästa färska överpris från Kambi/Ninja/Pinnacle,
   Pinnacle bara vid Age ≤ 90 s). Flashscore ankare, FotMob sekundär, Sofascore
   urkopplad ur radarn men kvar för resultatstatistik/frånvaro.
@@ -25,7 +26,9 @@ frontendtester, ~90 s) — pre-push-hooken i `tools/githooks/` kör den.
 - **Modell** (amber, sämre än Pinnacle i alla ligor): modelldata v5,
   `powerrank-v2`. Modelligor: Allsvenskan/Superettan/Eliteserien/OBOS/MLS +
   PL/Serie A/La Liga/Bundesliga. Ligue 1 samlas (621/622 med xG) men står
-  utanför `MODEL_LEAGUES` tills temperaturen kalibrerats.
+  utanför `MODEL_LEAGUES` tills temperaturen kalibrerats. Championship är nu
+  fullt följd för odds/live men står också utanför målmodellen; football-data
+  `E1` fortsätter ge resultat.
 - **Pool.** `pool-draw-risk-v1`: X skyddas ≥ 29,5 % vid Pinnacle-total ≤ 2,25
   (32 % utan total) i ALLA automatiska byggen. Matematiskt max v2 = 3 spikar +
   1 halv + 9 hela = 39 366 rader. PH3 gen 2, champion `dr1-b256-medel`
@@ -59,7 +62,9 @@ nominerade till forward. Sannolikhetsbas retro (pit-v4): identiskt facit 21/21
 träffar på 77 omg, Pinnacle täcker Topptipset vid h3 i bara 18/87 omg (m20
 56/88). Se `docs/overlamningar/overlamning-2026-09-02-poolforbattringar.md`.
 
-**Senast levererat.** 2026-09-02 kväll (Claude): exakt chansmotor; PH4-skörd;
+**Senast levererat.** 2026-09-02 natt (Codex): Championship fullt följd hos
+Pinnacle, Kambi, Ninja, Smarkets, Flashscore och FotMob; ren livekohort v12,
+ingen modellpromotion eller bakfyllning. 2026-09-02 kväll (Claude): exakt chansmotor; PH4-skörd;
 optimerarens fullsökning + forwardfamilj `poolopt` (`app/pool_optimizer.py`);
 `prob_base` i EV-byggaren + PH3-utmanare; `pit-total-v1`; `jackpot_close` +
 migrering; Historik visar jackpot-prognosträff och alla nya spår. 2026-09-02
