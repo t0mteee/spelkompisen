@@ -34,6 +34,14 @@ prioritetsordning. ⚖ = kräver Samans beslut.
 6. **Skörd av pågående mätningar** — `cli.py gater` 2026-09-02: **PH4 pit-v4
    Topptipset 79/40 har passerat out-of-time-kravet** (Stryk/Europa 6–11/40);
    sharp-CLV MLS + Allsvenskan gröna, Conference League 1X2 ej stöd (n=89).
+   **PH4 skördad 2026-09-02** (`scripts/ph4_ablationer.py`, första körningen
+   sedan manifest v3 frystes 25/7): Topptipset 48 forward-omgångar, kandidat d
+   (Pinnacle + streck + streckrörelse) Δlogloss **+0,0128** mot ren Pinnacle,
+   KI90 [−0,005, +0,030] — inte bättre, snarare sämre; även ren omkalibrering
+   (b*) +0,0085. **Promotion: NEJ.** Streckrörelse tillför inget utöver
+   marknadspriset vid h3. Caveat: c/d/f rapporterar `converged_folds 0/48`
+   inom manifestets 800 iterationer — en omprövning av konvergensen kräver nytt
+   manifest, aldrig en ändring i v3. Övriga produkter 5–11/40. Beslut: Saman.
    Kvar i utbrytningen: `LabbV3` (989 rader) och `HistorikV3` (723) ur AppV3.
    MODELLPLAN:en längst ned gäller i sak, men dess beslutsdatum (augusti) är
    passerade utan bokförd skörd — bocka av eller flytta dem.
