@@ -40,7 +40,9 @@ presentationspar trots samma liga, motståndare och avspark:
 `Queens Park Rangers`/`QPR` samt
 `Birmingham City`–`Wolverhampton`/`Birmingham`–`Wolves`. De tre namnen har
 lagts som explicita alias före v12:s rena start. Den globala fuzzy-tröskeln
-har inte lättats.
+har inte lättats. En backupad engångsmigrering slog ihop exakt de två redan
+skapade raderna: 15 → 13 kanoniska matcher, oddshistoriken oförändrad och
+integritetskontrollen grön.
 
 ## Vad som ändras
 
@@ -63,6 +65,19 @@ har inte lättats.
   att live- och oddsunderlaget öppnas.
 - Historiska livepriser, presence eller signaler bakfylls aldrig.
 
+## Produktionsverifiering
+
+Första fullvarvet gav gröna svar för Championship från Pinnacle,
+Kambi/Svenska Spel, Expekt, Ninja och Smarkets. 12 kommande matcher hade
+Pinnacle-pris; alla 12 länkade till motsvarande Kambi-identitet efter
+aliasrättningen. Oddset-API:t visade 13 rader inklusive en redan startad
+Kambi-only-match.
+
+Den redan pågående Burnley–Middlesbrough gav 5 Flashscore-captures och 4
+FotMob-captures mellan minut 85 och 92. Observationerna gjordes före v12:s
+rena start och klassas därför som `transitional`; de bevisar transport och
+ligamappning men får inte räknas som v12-facit.
+
 ## Varför en ny radarversion
 
 En ny liga ändrar populationen som kan producera Följer-/Stark-signaler.
@@ -74,11 +89,10 @@ vägrar som tidigare att settla en okänd radarversion.
 
 ## Uppföljning
 
-Efter driftsättning ska följande kontrolleras:
+Efter driftsättning gäller följande kontrollista:
 
-1. ett fullvarv skapar Championship-matcher och priser från tillgängliga
-   källor utan kvarvarande identitetskonflikt;
-2. nästa pågående Championship-match ger presence/capture från Flashscore
-   och/eller FotMob;
-3. `cli.py lanklucka` körs efter första riktiga liveomgången;
+1. ✅ fullvarvet skapade Championship-matcher och priser utan kvarvarande
+   identitetskonflikt;
+2. ✅ den pågående matchen gav capture från både Flashscore och FotMob;
+3. `cli.py lanklucka` körs efter första hela liveomgången efter v12-gränsen;
 4. Championship utvärderas separat i v12-facitet och blandas aldrig med v11.

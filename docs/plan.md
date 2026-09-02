@@ -64,7 +64,9 @@ träffar på 77 omg, Pinnacle täcker Topptipset vid h3 i bara 18/87 omg (m20
 
 **Senast levererat.** 2026-09-02 natt (Codex): Championship fullt följd hos
 Pinnacle, Kambi, Ninja, Smarkets, Flashscore och FotMob; ren livekohort v12,
-ingen modellpromotion eller bakfyllning. 2026-09-02 kväll (Claude): exakt chansmotor; PH4-skörd;
+två verifierade kortnamnsdubbletter backupat hopslagna 15→13 utan oddsförlust,
+produktions-API och båda livekällor verifierade; ingen modellpromotion eller
+bakfyllning. 2026-09-02 kväll (Claude): exakt chansmotor; PH4-skörd;
 optimerarens fullsökning + forwardfamilj `poolopt` (`app/pool_optimizer.py`);
 `prob_base` i EV-byggaren + PH3-utmanare; `pit-total-v1`; `jackpot_close` +
 migrering; Historik visar jackpot-prognosträff och alla nya spår. 2026-09-02

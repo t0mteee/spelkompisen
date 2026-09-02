@@ -1691,3 +1691,35 @@ gatar byggaren (horisont med as-of före fönstret ⇒ ingen rad).
 
 Lärdom (även i minnet): skriv fönsterspärren FÖRST i en ny insamlare/byggare
 på servern — ticken väntar inte på commit.
+
+## 2026-09-02 (natt) — Championship-provideridentiteter hopslagna
+
+**Bakgrund.** Första produktionsvarvet efter att Championship öppnades i
+Oddset skapade 15 matcher. Två fysiska matcher låg dubbelt eftersom Pinnacle
+och Kambi använde namnpar som föll under den konservativa sidogränsen:
+`Queens Park Rangers`/`QPR` och
+`Birmingham City`–`Wolverhampton`/`Birmingham`–`Wolves`. Liga, motståndare och
+avspark var identiska. Endast `oddset_odds` hade hunnit referera till de rena
+Kambi-raderna; ingen signal, prediction, frånvaro eller annan konsument gjorde
+det.
+
+**Kod och spärrar.** De tre normaliserade namnen lades som explicita alias;
+den globala fuzzy-tröskeln ändrades inte.
+`backend/scripts/migrera_championship_identitet.py` kräver exakt aliasnormaliserat
+hemma-/bortalag, känd avspark på båda sidor och högst 15 minuters skillnad.
+Flera mål eller varje referens utanför `oddset_odds` stoppar hela
+transaktionen. Tester verifierar flytt, oförändrat radantal, idempotens och
+rollback vid blockerande referens.
+
+**Produktionsutfall.** Spelkompisens fyra tjänster stoppades; Chartervakt och
+Bonusvakt berördes inte. Skriptet skapade SQLite-onlinebackupen
+`data/backups/stryktips-2026-09-02-fore-championship-identitet.db` och slog
+ihop:
+
+- `svs:1028142653` → `pin:1635003004` (QPR–Middlesbrough);
+- `svs:1028142650` → `pin:1635126665` (Birmingham–Wolves).
+
+Matcher: **15 → 13**. Hela databasens `oddset_odds`: **583 134 → 583 134**.
+Kvarvarande aliasdubbletter: **0**. `PRAGMA integrity_check`: **ok**.
+Tjänsterna startades igen, `/api/health` och Oddsets delhälsa svarade `ok`.
+Produktionscommit: `c2792ff`.

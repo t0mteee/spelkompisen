@@ -47,12 +47,34 @@ har lagts.
 Gatekontrollen före den nya kohorten läste 40 grindar utan läsfel; radarens
 föregående blindtest stod på 112/200 matcher och 11/30 dagar. Den gemensamma
 `tools/kontroll.sh` är grön: hela backendtestsviten, frontendlint och
-frontendtester passerar. Driftskvitto och produktionshash fylls på efter
-serverns fast-forward.
+frontendtester passerar.
+
+Produktionskvitto 2026-09-02:
+
+- `a95623c` införde ligan och v12; `c2792ff` införde de verifierade aliasen
+  och engångsmigreringen. Servern kör `c2792ff`, Git är ren och
+  `/api/health` samt Oddsets delhälsa svarar `ok`.
+- Fullvarvet skapade 15 rader före identitetsrättningen. Migreringen tog
+  backupen
+  `backend/data/backups/stryktips-2026-09-02-fore-championship-identitet.db`,
+  slog ihop exakt 2 par och gav 13 kanoniska matcher. Oddshistoriken var
+  oförändrad 583 134 → 583 134 rader, 0 aliasdubbletter kvar och
+  `integrity_check: ok`.
+- 12 kommande matcher är dubbelkopplade till Pinnacle och Kambi. Den enda
+  Kambi-only-raden var den redan startade Burnley–Middlesbrough, där
+  prematch-Pinnacle korrekt inte kunde hämtas efter avspark.
+- Pinnacle, Svenska Spel/Kambi, Expekt, Ninja och Smarkets rapporterade alla
+  grönt Championship-underlag. API:t visar 13 rader; respektive framtida
+  källutbud innehöll 12 matcher.
+- Burnley–Middlesbrough gav samtidigt 5 Flashscore-captures (minut 85–90 +
+  slutrad) och 4 FotMob-captures (minut 86–92). De observerades före den rena
+  starten 22:00Z och blir därför korrekt `transitional`, men verifierar att
+  båda livekedjorna känner igen ligan.
 
 ## Nästa kontroll
 
-Kör `cli.py lanklucka` efter första Championship-omgången som faktiskt varit
-live. Bekräftade presentationsskillnader ska in i `LIVE_TEAM_ALIASES`; okända
-par ska inte lösas med en generell fuzzy-regel. Målmodell/xG-historik är ett
-separat beslut efter täckningsaudit, inte en del av v12.
+Kör `cli.py lanklucka` efter första hela Championship-omgången som varit live
+efter v12-gränsen. Bekräftade presentationsskillnader ska in som explicita
+alias; okända par ska inte lösas med en generell fuzzy-regel.
+Målmodell/xG-historik är ett separat beslut efter täckningsaudit, inte en del
+av v12.
