@@ -41,10 +41,16 @@ Max-tester `mathmax-v1`/`reducedmax-v1` (Stryk 4968/Europa 2603→) ·
 matcher/60 dagar) · pooloptimerare v1 (nästa: färsk read-only-snapshot + full
 10 000-sökning; `final_only` får nominera, aldrig promovera).
 
-**Senast levererat.** 2026-09-02 (Claude): rött test rättat med
-klockinjektion, `tools/kontroll.sh` + pre-push-hook + `requirements.lock`,
-KAPPA-synklås backend↔frontend, den här dokumentstrukturen. 2026-08-31
-(Codex): X-risk v1 + matematiskt max v2. Allt äldre: `docs/status-historik.md`.
+**Senast levererat.** 2026-09-02 (Claude, granskningen): rött test rättat med
+klockinjektion; `tools/kontroll.sh` + pre-push-hook + `requirements.lock`;
+KAPPA-synklås backend↔frontend; dokumentstrukturen (ett statusblock, historik,
+`docs/overlamningar/`); tystnadsvakt `oddset_health` på Idag/`/api/health`/
+`kallhalsa` (UI, ingen ntfy); 30 tester för `derive`/`steam`/`bomben`/`clv`;
+`cli.py gater` (alla grindar på ett ställe); frontend-utbrytning (`src/lib/`,
+`src/components/`, `src/oddset/OddsetView.jsx`); CLAUDE.md halverad (1 274 →
+619 rader) med evidensen fryst i `docs/claude-md-bakgrund-2026-09-02.md`.
+2026-08-31 (Codex): X-risk v1 + matematiskt max v2. Allt äldre:
+`docs/status-historik.md`.
 
 ## Modellplan — vägen till en modell att lita på (efter backtest-domen)
 

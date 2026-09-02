@@ -6,11 +6,11 @@
    API-egenheter, domänformler, metodregler, UI-konventioner. Allt där gäller
    Codex likadant.
 2. `docs/plan.md` — **STATUS-SAMMANFATTNINGEN överst är projektets sanning**;
-   därefter den prioriterade WP-backloggen.
-3. `docs/overlamningar/overlamning-2026-08-16-dubbelkuponger.md` — AKTUELL överlämning:
-   dubbelkupongernas v2-kontrakt, evidensen från det verkliga A/B-spelet,
-   Topptips utan basspik och mobilflödet. Följ filens länkar bakåt för äldre
-   delsystem; 2026-07-16-versionens "Fallgropar" gäller fortfarande.
+   aktiv backlog i `docs/backlog.md` (avsnittet Aktivt).
+3. `docs/status-historik.md` och `docs/overlamningar/` — historik och
+   överlämningar; den aktuella står i statusblocket i `docs/plan.md`.
+   `docs/claude-md-bakgrund-2026-09-02.md` bär evidensen bakom
+   CLAUDE.md:s regler. 2026-07-16-versionens "Fallgropar" gäller fortfarande.
 4. `docs/granskning-2026-07-13.md` — granskningsevidens (fil:rad/DB) och
    acceptanskriterier per arbetspaket. `docs/db-atgarder.md` — logg över
    databas-åtgärder + processregeln.

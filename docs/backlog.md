@@ -15,23 +15,26 @@ inte per rad.
 Ur granskningen 2026-09-02 (Claude, mot `origin/main` = servern), i
 prioritetsordning. ⚖ = kräver Samans beslut.
 
-1. **Tystnadsvarningar i UI:t** (beslut 2026-09-02: UI räcker, ingen ntfy).
+1. ✅ (2026-09-02) **Tystnadsvarningar i UI:t** (beslut 2026-09-02: UI räcker, ingen ntfy).
    `/api/health` ska larma när en källa inte körts på N varv, när senaste
    snapshot är äldre än 2 h och när en produkt saknar samlad omgång; Idag
    visar det. Historiken motiverar det: Topptipset Dagens tyst i fem dygn
    (2026-08-04→09), AWS-DNS 302 varv utan att någon såg.
-2. **Tester för `bomben`, `steam`, `clv`, `derive`** — användarsynliga och
+2. ✅ (2026-09-02) **Tester för `bomben`, `steam`, `clv`, `derive`** — användarsynliga och
    helt otestade (0 testfiler refererar dem).
 3. ✅ (2026-09-02) **`cli.py gater`** — varje förregistrerad gate (V2.2, PH5 forward,
    maxtester, poolstyrka, radarblindtest, pooloptimerare) med n/krav/datum på
    ETT ställe. Skörda före nästa nya spår.
-4. **Frontend-utbrytning** — `OddsetView` (1 364 rader), `LabbV3` (989),
+4. ✅ (2026-09-02, första skivan: Oddset/lib/components) **Frontend-utbrytning** — `OddsetView` (1 364 rader), `LabbV3` (989),
    `HistorikV3` (723) till egna kataloger med ren logik i `.js` som
    `node --test` når; 13 frontendtester täcker i dag bara `playRec.js` och
    `sourceHealth.js`. Koordineras med Codex, som är aktiv i `App.jsx`.
-5. ⚖ **CLAUDE.md halveras** — berättelsen bakom varje regel flyttas till
+5. ✅ (2026-09-02) **CLAUDE.md halveras** — berättelsen bakom varje regel flyttas till
    länkade dokument; reglerna står kvar ordagrant.
-6. **Skörd av pågående mätningar** (passivt): se statusblocket i `plan.md`.
+6. **Skörd av pågående mätningar** — `cli.py gater` 2026-09-02: **PH4 pit-v4
+   Topptipset 79/40 har passerat out-of-time-kravet** (Stryk/Europa 6–11/40);
+   sharp-CLV MLS + Allsvenskan gröna, Conference League 1X2 ej stöd (n=89).
+   Kvar i utbrytningen: `LabbV3` (989 rader) och `HistorikV3` (723) ur AppV3.
    MODELLPLAN:en längst ned gäller i sak, men dess beslutsdatum (augusti) är
    passerade utan bokförd skörd — bocka av eller flytta dem.
 

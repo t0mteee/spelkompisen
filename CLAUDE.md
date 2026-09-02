@@ -1,191 +1,69 @@
 # Spelkompisen
 
 Personligt lokalt verktyg som kombinerar **SvS kompisen** (poolspels-analys: Stryktipset,
-Europatipset, Topptipset, Bomben) med en ny **Oddset-del**: enskilda matcher (Allsvenskan,
-norska Eliteserien, träningsmatcher till att börja med) med sharp-odds, oddsrörelser,
-egen modell och värdespels-tips (1X2, asian handicap, över/under, hörnor på sikt).
+Europatipset, Topptipset, Bomben) med en **Oddset-del**: enskilda matcher i 19 ligor med
+sharp-odds, oddsrörelser, egen modell och värdespels-tips (1X2, asian handicap,
+över/under, hörnor på sikt).
 
-**Läge (2026-08-21):** Etapp 0–5 KLARA + långt därutöver. Oddset-delen är i full drift:
-19 ligor (Allsvenskan/Superettan/Eliteserien/OBOS/Besta deild/MLS/träningsmatcher + CL/EL/
-Conference INKL. kval + Premier League/Serie A/La Liga/Bundesliga/**Ligue 1** + danska
-Superliga/belgiska Pro League/Primeira Liga/Bolivias Primera División — cuperna är
-två Pinnacle-ligor + två Kambi-vägar per nyckel,
-`pin_ids`/`kambi_paths` i oddset.py), 4 bokkällor +
-Pinnacle, kvalitetsviktade värdesignaler, steam-radar, xG-viktad Poisson-modell med
-DC-korrektion (amber, settlement-ankrad efter T — kalla den inte DC-MLE), frånvarodata, CLV-facit
-per tier med grönt-kriterium v2 (≥50 stängda OCH undre bootstrap-KI-gräns > 0, per
-liga/marknad/modellversion). **STATUS-SAMMANFATTNINGEN överst i `docs/plan.md` är
-sanningen — LÄS DEN FÖRST i ny session** (aktiv backlog i `docs/backlog.md`, historik i `docs/status-historik.md`; gransknings-
-evidens i `docs/granskning-2026-07-13.md`).
-Prediction-ledgern har dessutom en förregistrerad modell-mot-Pinnacle-close-grind
-för alla frysta modellvektorer; äldre 1X2-version är fälld som sämre än sharp.
-Matchvyn visar modell/Pinnacle/SvS i procent och pp på exakt samma lina.
-Hörnens Poisson-baslinje samlar framåt under egen marknadsversion; historiska
-hörnpriser får aldrig bakfyllas med dagens modell. Se
-`docs/modell-mot-close-2026-07-25.md`.
-Ninja/Altenar visas under `+ Fler odds` för 1X2, Ö/U och hörnor och får vara
-spelbar mjuk bok i sharp-värdemotorn. UI får bara säga `bekräftat kvar` när
-det oförändrade bokpriset återobserverats efter Pinnacles senaste prisändring;
-vanlig färskhet eller ett gammalt cachepris räcker inte.
-Aktiv radarversion är **`chance-gap-shadow-v11`** från 2026-08-21T22:00:00Z:
-enda ändringen mot v10 är att Ligue 1 kom in i scopet — trösklar, providers,
-källrankning och namnlänkning är oförändrade
-(`docs/radar-scope-v11-2026-08-21.md`). En ny liga ändrar populationen som kan
-producera en signal, och en utökning inne i en löpande version hade blandat två
-populationer i samma blindkohort. `live_settlement` bär en egen spärr som vägrar
-settla när radarversionen saknas i dess capture-tidslinje; den föll som avsett
-vid bytet och ska inte tas bort.
-Liveblindtestets ROI-pris är separat från prematchvärdemotorn. Från
-`chance-gap-shadow-v10` frågas SvS/Kambi, Ninja/Altenar och Pinnacles
-live-endpoints vid första Följer/Stark. Pinnacle får bara påverka spelet vid
-HTTP Age ≤90 s. Linan väljs först (färsk Pinnacle, annars Kambi, annars Ninja)
-och högsta Över-odds väljs sedan enbart på exakt samma lina. Samtliga
-källobservationer sparas i `oddset_live_signal_quote`; priser bakfylls aldrig.
-Spelade poolkupongers liverättning har en separat 1X2-kedja: Kambi först,
-Ninja därefter och Pinnacle sist. Pinnacle måste vara högst 90 sekunder
-gammalt enligt HTTP Age. När alla tre saknar komplett 1X2 används den tydligt
-märkta ställnings-/tidsmodellen; den är enbart en kupongchans och får aldrig
-påverka system, värde eller facit. `chance_live_source_counts` visar i UI
-vilken källa som faktiskt användes.
-PH5-/maxtestkuponger använder samma `pool_played.live_status`, men via den rent
-läsande `GET /api/pool/systems/live` och utan odds/chans/heja-på-raddetaljer.
-Det ger fastställda rätt, aktuellt läge, max nåbart och levande rader per
-13/12/11/10 medan omgången pågår. Frontend pollar var 30:e sekund endast när
-detaljen är öppen och synlig. `system_live_coupon` normaliserar både gamla
-kommaseparerade PH5-rader och de stora testernas kompakta rader; `events_order` är alltid
-kanon för kolumnmatchningen. Livebilden skriver aldrig settlement eller facit.
-Den underkända V2.1 är fortsatt vilande. Ett separat V2.2-experiment samlar
-Allsvenskan + Premier League/Serie A/La Liga/Bundesliga med WP9c
-i isolerad sharp-identitetskontroll. **Aktuellt fryst kontrakt är manifest v10**
-från 2026-08-21T22:10:00Z:
-`docs/model-v2.2-multileague-forward-manifest-v10.json`. V1/v2 är historik;
-v3 hann få 0 captures innan ett ofullständigt aliasfingeravtryck upptäcktes
-och ersattes; v4 bar 12 rader/2 avgjorda när de fyra Europaligornas
-lagnamnsalias utökades inför xG-bakfyllningen; v5 bar 1 rad/0 avgjorda när
-ClubElo-identiteten rättades och kalibreringen utökades; v6 bar 19 rader/8
-matcher när xG-retryn rättades (`MODEL_DATA_VERSION=5`); v7 bar sharp-versioner
-kopierade från v6 och föll därför stängt; v8 ersattes av v9 när
-`MODEL_DATA_VERSION` gick 5 → 6 (aliaskortslutningen som splittade Rayo
-Vallecano i La Ligas fit, plus providerordningen sofascore-först); v9 hann samla
-NOLL captures innan Ligue 1 kom in i `SOFA_UT` och tio franska alias skrevs.
-**`feature_version` hashar manifestets EGET experimentnamn** — läs alltså ut
-värdet EFTER att den nya manifestfilen finns, annars fryser du in ett värde som
-runtime aldrig kommer att producera. En ny kalibrering
-räknas som ändrad datagenererande process — `model_source_version` bär
-T per liga. Manifestets EGEN `change_policy` kräver då
-ett nytt manifest — en aliasändring i en liga som ingår i V2.2:s FIT_POOLS
-(inkl. matarligorna Championship/Serie B/Segunda/2. Bundesliga) är en ändrad
-datagenererande process. Äldre manifest blandas aldrig in. Det är inte en
-tränad modell och får inte påverka tips, notiser eller CLV.
-**Aktuell överlämning:**
-`docs/overlamningar/overlamning-2026-08-31-pool-xrisk.md` — gemensamt
-`pool-draw-risk-v1` för alla automatiska poolbyggare, point-in-time
-Pinnacle-totaler, nya forwardnycklar och matematiskt max v2 med exakt tre
-spikar + en halv + nio hela = 39 366 rader. Gamla benchmark-/PH5-/maxnycklar
-är pensionerade men oförändrade; favoritraden är fortsatt kontroll.
-Därefter `docs/pooloptimerare-v1-pilot-2026-08-30.md` — lokal, read-only
-Topptips-256-optimerare med förregistrerad 60/20/20-delning, exakt
-produktionskontroll och successiv gallring av högst 10 000 radportföljer.
-500-konfigurationspiloten är endast ett teknikbevis; Standard är oförändrad.
-Kör inte fullsökningen mot en levande DB eller den gamla 11 augusti-kopian —
-ta först en konsistent server-snapshot enligt rapportens nästa steg. Därefter
-`docs/overlamningar/overlamning-2026-08-29-importera-spelad-kupong.md` — återställning när
-”Spelad kupong” glömts: Historik kan förhandsgranska och bokföra en sparad
-Egna rader-fil i efterhand, med strikt produkt-/omgångskontroll,
-dubblettskydd och omedelbart facit när settlement redan finns. Därefter
-`docs/maxtester-2026-08-29.md` — historiskt v1-kontrakt för matematiskt
-41 472 (4 hel + 9 halv) och reducerat 20 000. V1 är ersatt framåt av
-2026-08-31-överlämningen ovan. Den tidigare 40 000-serien är en avslutad reducerad pilot;
-se `docs/max40-forward-2026-08-26.md`. Liverättning finns för alla serier;
-inga vanliga förslag eller riktiga spel påverkas. Därefter
-`docs/overlamningar/overlamning-2026-08-24-ph5-testvy.md` — separat 5 000-testvy med exakt
-kupong/facit/frysta odds och streck, X-diagnostik samt hardening av spelade
-kupongers gemensamma livebild. Därefter
-`docs/overlamningar/overlamning-2026-08-16-dubbelkuponger.md` — dubbelkupongernas skarpa
-v2-kontrakt efter verkligt A/B-spel, Topptips utan basspik och det förenklade
-mobilflödet. Därefter
-`docs/overlamningar/overlamning-2026-08-12-idag-och-familjer.md` — spelfamiljer (Topptipset
-är ETT spel överallt där något mäts eller visas), inställd omgång vs uppskjuten
-match, ombyggd Idag-vy, spelläge-etiketten och borttaget andra ankare i UI.
-Därefter `docs/macbook-server-2026-08-11.md` (drift på MacBooken) och
-`docs/overlamningar/overlamning-2026-08-10-prestanda.md` — startvägens prestanda
-(4 268 → 619 ms till första Oddset-lista i byggd mobilvy), vad som är cachat
-och varför. Idag-jobben får 650/1200 ms startfrist och rensas vid vybyte;
-ordinarie 5175 serverar byggd bundle, utveckling körs separat på 5181.
-Därefter `docs/overlamningar/overlamning-2026-08-09.md` — settlementens omprövningstid,
-ensidig träningsmatchslänkning, jackpotläckan mellan produkter, b1024 ur
-Topptipset-familjen och det TYSTA bortfallet av Topptipset Dagens (fem dygn
-utan insamling). Föregående överlämning
-`docs/overlamningar/overlamning-2026-08-07-powerrank.md` gäller nu bara som historik — dess arbete
-(radar v6/v7, sharp v8 closing-drift, Europaligorna fullt följda, MLS
-kalibrerad, powerrank-fliken). Powerranken är nu **`powerrank-v2`**: v1:s
-metodfel (poäng på ALLA matcher men xPts bara på xG-täckta, hopjämkat med
-skalningen `pts × n_xg / matches`) är rättat — poäng, mål och xPts mäts på
-EXAKT samma matcher, nämligen de med xG, och lag utan xG-matcher faller ur
-tabellen i stället för att visas med `–`. `MIN_MATCHES` prövas mot hela
-historiken, aldrig mot det säsongsfiltrerade urvalet.
-**xG är BAKFYLLT för Europaligorna 2026-08-07** (`scripts/backfill_xg_ligor.py`,
-61 min): PL/Serie A/La Liga 760 matcher och Bundesliga 611 — alla **100 %**,
-MLS 73 % → 82 %. Matchantalen är oförändrade, alltså inga dubbletter.
-Bakfyllning är tillåten för RESULTATSTATISTIK (ett avgjort resultat och dess
-xG är settlade fakta) men aldrig för priser, live-signaler eller presence, där
-observationstiden är en del av mätningen.
-**De fyra ligorna är MODELLIGOR sedan 2026-08-07** (Samans beslut efter
-bakfyllningen). Mätt mot Pinnacles stängning är de i linje med ligorna vi
-redan accepterat — PL ligger NÄRMAST marknaden av alla sju (logloss-gap
-+0,0035 mot Allsvenskans +0,0123). Modellen är sämre än marknaden i ALLA
-ligor; det är väntat och är själva skälet till att den är amber.
-De poolas MEDVETET INTE med sina matarligor: uppmätt försämrar poolning
-modellen i alla fyra (+0,0036 till +0,0125 logloss), eftersom matarligorna
-saknar xG. T kalibrerat per liga (PL 0,8, Serie A 0,7, La Liga 0,9,
-Bundesliga 0,95) — `_fetch_texts` läser nu även de klassiska säsongsfilerna,
-som bär samma stängningsodds. Modellversionen gick `m-67d028e9` →
-`m-e900ed90`; **sharp är oförändrad**, så sharp-CLV-facitet rörs inte.
-**`_xg_is_measured()`** förkastar xG-par där båda är exakt 0,00 eller där ett
-lag som GJORDE MÅL har 0,00 — Sofascore rapporterar saknad mätning som noll
-(samma fel som fällde den som livekälla). Ett mållöst lag med 0,00 lämnas
-orört: radera på omöjlighet, aldrig på osannolikhet.
-**`_fd_result_rows(..., div=)`** kontrollerar filens EGEN divisionskod:
-football-data serverade skotsk Championship på La Ligas säsongs-URL.
-**`oddset_model.elo_for()`** slår upp ClubElo på EXAKT nyckel eller VERIFIERAT
-alias — aldrig fuzzy. `_find_team`s delsträngsregel (utan likhetströskel) gav
-37 felaktiga länkar över modelligorna: `stuttgart`→`start` (IK Start, NOR,
-1295), `minnesota united`→`man united` (1915), `leicester`→`lillestrom`.
-Ingen tröskel kan separera dem från de KORREKTA delsträngsparen
-(`werder bremen`→`werder` 0,63), så fuzzy ska inte försöka. `ELO_TEAM_ALIAS`
-nådde tidigare bara V2-spåret och delas nu; bekräftat olika klubbar står i
-`ELO_REJECTED_LINKS`. Ett lag utan verifierad länk får INGEN Elo — för ett
-tunt lag betyder det ingen modell alls i stället för fel modell. ClubElo
-saknar just nu Bayern och Stuttgart helt (källan svarade inte vid kontroll;
-aliaset finns och börjar gälla när de dyker upp).
-Föregående Flashscore-överlämning är ersatt och gäller bara som historik.
-De fyra Europaligorna (PL, Serie A, La Liga, Bundesliga) är **FULLT FÖLJDA
-sedan 2026-08-07** inför säsongsstarten: sidoböcker, deep-marknader,
-värdesignaler, CLV och notiser precis som Allsvenskan. `research_only` är
-borta för dem och `RESEARCH_LEAGUE_KEYS` är tom. Spärren behövdes aldrig för
-SHARP-tiern — den är ren oddsjämförelse och har inget med V2.2:s modell-
-hypotes att göra; V2.2 kör vidare på sin EGEN `SCOPE_LEAGUES`. De var
-utanför `MODEL_LEAGUES` så länge de saknade xG — en xG-viktad modell utan xG
-vore sämre än ingen — och kom in 2026-08-07 när bakfyllningen gav 100 %.
-Mekanismen synlig≠actionable finns kvar även när ingen liga använder
-den (cuper och träningsmatcher visas och bär sharp-signaler utan modell). `_next_round_for_empty_leagues` (f.d. `_research_next_round`) gäller nu
-ALLA synliga ligor: under säsongsuppehåll visas nästa omgång i stället för
-en tom liga.
-Poolspår PH1–PH4 finns nu: historiskt settlement, framåtriktad presence-ledger
-och CDN-ålderskorrigerad `pit-v3`, kontrafaktiskt systemfacit samt fryst
-forward-gate. Det samlar
-data utan bakfyllning och påverkar ännu inte runtimeförslag. Nästa steg är att
-auditera de första riktiga v3-horisonterna, systemfrysningarna och settlementen;
-se `docs/pool-pit-v3-2026-07-25.md`.
-Ett separat `pool-strength-blend-v1` samlar från 2026-08-10 under
-`docs/pool-strength-forward-manifest-v1.json`: Pinnacle är orörd baslinje,
-90/10 Pinnacle/lagstyrka är enda kandidat och 80/20 är diagnostik. En rad
-fryses per match vid h24/h3/m20, även vid bortfall; ingen historisk
-rekonstruktion och inga system ändras. Status visas i **Historik → Poolmodell**
-och API:t är `/api/pool/strength-shadow` (som tar `family=1` — en
-familjenyckel är ett giltigt PRODUKTnamn men filtrerar exakt, så Stryk och
-Extra föll tyst bort utan flaggan). Modellversion, timing, identitet,
-blend eller gate ändras aldrig inne i samma manifest/shadowversion.
+**Läge: STATUS-blocket överst i `docs/plan.md` är sanningen — LÄS DET FÖRST i ny
+session.** Där står vad som är i drift, vilka versioner som gäller (radar, V2.2-manifest,
+modelldata, powerrank, PH3-generation) och vilka mätningar som pågår. Aktiv arbetslista:
+`docs/backlog.md` (avsnittet **Aktivt**). Historik: `docs/status-historik.md` och
+`docs/overlamningar/`. Granskningsevidens: `docs/granskning-2026-07-13.md`.
+Versionsnummer skrivs ALDRIG in här — de driftar (den här filen påstod v9 och v11 samtidigt).
+
+Den här filen är REGLERNA. Evidensen, mätningarna och incidenterna bakom varje regel
+ligger ordagrant i `docs/claude-md-bakgrund-2026-09-02.md` (fryst fulltext före
+bantningen 2026-09-02) — läs den när du undrar VARFÖR, inte varje session.
+
+## Stående regler ur lägesbeskrivningen
+
+- Modellen är en xG-viktad Poisson med DC-korrektion, settlement-ankrad efter T —
+  **kalla den inte DC-MLE**. Den är AMBER: sämre än Pinnacle i alla ligor, och det är
+  skälet till att den aldrig ger stödchip, lyfter spelkort eller påverkar edge/urval/
+  notiser/CLV.
+- Historiska hörnpriser får aldrig bakfyllas med dagens modell.
+- UI får bara säga `bekräftat kvar` när det oförändrade bokpriset återobserverats efter
+  Pinnacles senaste prisändring; vanlig färskhet eller ett gammalt cachepris räcker inte.
+- **En ny liga i radarscopet ändrar populationen** som kan producera en signal ⇒ ny
+  radarversion, aldrig en utökning inne i en löpande version. `live_settlement` vägrar
+  settla när radarversionen saknas i dess capture-tidslinje — spärren ska inte tas bort.
+- Liveblindtestets pris: SvS/Kambi, Ninja/Altenar och Pinnacles live-endpoints frågas vid
+  första Följer/Stark. **Pinnacle får bara påverka spelet vid HTTP Age ≤ 90 s.** Linan väljs
+  först (färsk Pinnacle, annars Kambi, annars Ninja), sedan högsta Över-odds på EXAKT samma
+  lina. Alla källobservationer sparas i `oddset_live_signal_quote`; priser bakfylls aldrig.
+- Spelade poolkupongers liverättning: 1X2-kedjan Kambi → Ninja → Pinnacle (Age ≤ 90 s).
+  Saknar alla tre komplett 1X2 används den märkta ställnings-/tidsmodellen — enbart som
+  kupongchans, aldrig som system, värde eller facit. `chance_live_source_counts` visar valet.
+- PH5-/maxtestkuponger liverättas via rent läsande `GET /api/pool/systems/live`;
+  `events_order` är alltid kanon för kolumnmatchningen. Livebilden skriver aldrig facit.
+- **V2.2** är en isolerad sharp-identitetskontroll under fryst manifest (aktuellt nummer i
+  plan.md). `feature_version` hashar manifestets EGET experimentnamn — läs ut värdet EFTER
+  att den nya manifestfilen finns. En ny kalibrering, en aliasändring i en FIT_POOLS-liga
+  (inkl. matarligorna Championship/Serie B/Segunda/2. Bundesliga) eller ändrad
+  `MODEL_DATA_VERSION` är en ändrad datagenererande process ⇒ nytt manifest. Äldre manifest
+  blandas aldrig in. Det är inte en tränad modell och får inte påverka tips, notiser eller
+  CLV. Före träningsgaten måste `p_v22 == p_sharp` exakt.
+- **Bakfyllning är tillåten för RESULTATSTATISTIK** (ett avgjort resultat och dess xG är
+  settlade fakta) **men aldrig för priser, live-signaler eller presence**, där
+  observationstiden är en del av mätningen.
+- Modelligorna poolas MEDVETET INTE med sina matarligor (uppmätt sämre — matarligorna saknar
+  xG). T är kalibrerat per liga; sharp-versionen rörs inte av en modellkalibrering.
+- `_xg_is_measured()` förkastar xG-par där båda är exakt 0,00 eller där ett lag som GJORDE
+  MÅL har 0,00 (Sofascore rapporterar saknad mätning som noll). Ett mållöst lag med 0,00
+  lämnas orört: **radera på omöjlighet, aldrig på osannolikhet.**
+- `_fd_result_rows(..., div=)` kontrollerar filens EGEN divisionskod.
+- `oddset_model.elo_for()` slår upp ClubElo på EXAKT nyckel eller VERIFIERAT alias
+  (`ELO_TEAM_ALIAS`, avvisningar i `ELO_REJECTED_LINKS`) — **aldrig fuzzy**. Ett lag utan
+  verifierad länk får INGEN Elo: ingen modell är bättre än fel modell.
+- Synlig ≠ actionable: cuper och träningsmatcher visas och bär sharp-signaler utan modell.
+  `_next_round_for_empty_leagues` visar nästa omgång under säsongsuppehåll.
+- `pool-strength-blend-v1`: Pinnacle orörd baslinje, 90/10 enda kandidat, 80/20 diagnostik.
+  Modellversion, timing, identitet, blend eller gate ändras aldrig inne i samma
+  manifest/shadowversion. `/api/pool/strength-shadow` tar `family=1` (en familjenyckel är
+  ett giltigt PRODUKTnamn men filtrerar exakt).
+- Powerranken (`powerrank-v2`) mäter poäng, mål och xPts på EXAKT samma matchmängd — de med
+  xG; lag utan xG-matcher visas inte. `MIN_MATCHES` prövas mot hela historiken.
 
 **Relationen till syskonprojekten:**
 - `/Users/saman/svs` (SvS kompisen, portar 8000/5173) — ursprunget, **FRYST ARKIV sedan
@@ -200,378 +78,137 @@ blend eller gate ändras aldrig inne i samma manifest/shadowversion.
 
 ```
 backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
-  app/svenskaspel.py  SvS pools-API-klient (PRODUCTS, GAME_GROUPS, Draw)
+  app/svenskaspel.py  SvS pools-API-klient (PRODUCTS, GAME_GROUPS, Draw, family_of)
   app/pinnacle.py     Pinnacle Arcadia (gratis guest-API), + derive.py (1X2 ur spread/total)
-  app/altenar.py      Ninja Casino/Altenar: publik listvy för 1X2 + mål och
-                      eventdetalj för huvudlinan totalt antal hörnor. Detaljen
-                      hämtas bara i deep-/snabbfönstret; alternativa hörnlinor
-                      finns i källan men lagras inte i book-lagret ännu
-  app/betsson.py      Publik Betsson-bootstrap/headerkontext (ej inkopplad källa;
-                      eventtabellen CloudFront-blockerad utanför browser —
-                      omverifierat 2026-07-25: context-details 200, events-table 403.
-                      KRÄVER brotli i venv, se transportregeln nedan)
+  app/altenar.py      Ninja Casino/Altenar: listvy 1X2 + mål, eventdetalj för huvudlinan
+                      totalt antal hörnor (bara i deep-/snabbfönstret)
+  app/betsson.py      Publik Betsson-bootstrap (ej inkopplad; events-table CloudFront-
+                      blockerad utanför browser; KRÄVER brotli, se transportregeln)
   app/analysis.py     fair_prob (power-metod), värde, taggar, speltyp, mover-flagga
-  app/builder.py      radbyggare: matematiskt/reducerat/garanti/SvS R-system/EV-topp
-  app/bomben.py       Poisson-målmodell för Bomben
+  app/builder.py      radbyggare: matematiskt/reducerat/garanti/SvS R-system/EV-topp; KAPPA
+  app/bomben.py       Poisson-målmodell för Bomben (amber, utanför CLV)
   app/storage.py      SQLite (data/stryktips.db): snapshots, sharp_snapshots, dedup, movement
+  app/oddset.py       Oddset-insamling (LEAGUES, BOOKS, collect, matches_payload)
+  app/oddset_value.py sharp-värdemotor, ANCHOR_SOURCES, drift_adjust, clv_report
+  app/oddset_ledger.py WP5-forskningsfacit: prediktioner frysta vid T−24h/T−3h/T−20m
+  app/oddset_model.py xG-viktad Poisson + DC, cached_fit, elo_for, powerrank
   app/oddset_v22.py   isolerad V2.2 feature-/shadowcapture (ej live-tips)
-  app/pool_settlement.py PH1: immutable poolfacit (append-once, payload-hash;
-                      backfill/migration i scripts/, läs-API /api/pool/history)
-  app/pool_dataset.py PH2: PIT-features per omgång/horisont (pit-v3, enbart
-                      observed_pit — no backfill) + separat presence-ledger
-                      och proveniensmärkt pool_draw_snapshot-serie
-  app/pool_played.py  SPELADE kuponger: 🎟-knappen eller en bekräftad import av
-                      sparad Egna rader-fil bokför att SAMAN själv lämnat in
-                      kupongen (lägger inga spel). Importen gissar aldrig
-                      produkt/omgång och är inte ett betalningskvitto.
-                      FACIT = settlementlagrets
-                      officiella `outcome` per eventNumber (samma kanon som PH3;
-                      struken match = SvS fastställda tecken, aldrig "rätt för
-                      alla") mot PUBLICERAD utdelning — kupongen låg i potten,
-                      så beloppen inkluderar den; utspädningen i PH3 gäller
-                      kontrafaktiska system och får ALDRIG återanvändas här.
-                      LIVESTATUS (aldrig facit) ur SvS draw-payload
-                      (`match.result` "Current" + `statusId`), tecken parade
-                      via `events_order`, så en oavgjord/struken match håller
-                      alla tecken öppna.
-                      **FÖRLÄNGNING (2026-08-11, följd live hela vägen på
-                      Apollon Limassol–Brann i Topptipset 4260).**
-                      RESULTATMODELLEN: `Halftime` + `Period2` = `Fulltime` =
-                      ORDINARIE tid; `Fulltime` + `Overtime` = `Current`.
-                      Uppmätt slutdata: 0–1 + 1–1 = 1–2 och 1–2 + 1–2 = 2–4.
-                      `Overtime` publiceras FÖRST när matchen är slut, så under
-                      förlängning finns ingen väg till ordinarie tid: `Current`
-                      bär förlängningsmålen (kl. 21:07 stod den i 2–3, alltså
-                      1–2 plus ett förlängningsmål) och `Halftime` går inte att
-                      låna — SvS skrev om den till 2–3 och sedan 2–4 mitt i
-                      matchen och rättade den till 0–1 först efteråt.
-                      **POOLREGELN (Samans besked 2026-08-11): poolspel
-                      fastställs på ordinarie 90 minuter, så en match i
-                      förlängning RÄKNAS SOM KLAR** — `final` =
-                      `regulation_over()` (slut ELLER förlängning). Osäkerhet om
-                      VILKET resultatet är får inte avgöra frågan om matchen är
-                      AVGJORD; den bärs av `sign_provisional`.
-                      **`sign_provisional` HAR TÄNDER (Codex 2026-08-12):**
-                      `_decided()` kräver `final` OCH icke-struken OCH
-                      icke-provisorisk, så ett obelagt förlängningstecken
-                      räknas som ÖPPET i radantal, `n_decided` och
-                      chansmotorn — matchen redovisas som spann i stället för
-                      gissning, och dess prematchpris (som kan stå på 99 %)
-                      används inte för att prissätta ett tecken vars facit inte
-                      är känt. `final` i matchdicten är oförändrad, så UI:t kan
-                      fortfarande säga "förlängning". Ordinarie tid
-                      läses i fallande ordning `Fulltime` → `Current` minus
-                      `Overtime` → **Flashscores per-match-feed `df_sur`**
-                      (`attach_regulation_time`, Samans beslut 2026-08-11: SvS
-                      har inte ordinarie tid under förlängning, Flashscore har)
-                      → `Current` (märkt). Flashscorevärdet får ALDRIG ligga
-                      över SvS ställning — mål kan bara TILLKOMMA i
-                      förlängningen, så ett högre värde är ett läsfel och
-                      tecknet lämnas orört. Källfel ändrar aldrig ett tecken.
-                      Är tecknet ändå obelagt redovisas radantalet som SPANN
-                      (`alive_min/max_per_level`), aldrig som en gissning
-                      presenterad som faktum: CSKA–Panathinaikos stod i Current
-                      1–2 med ordinarie tid 1–1, alltså X och inte 2 — 1 mot 7
-                      kvarvarande rader på en 256-radarskupong.
-                      Med ordinarie 2–2 och ett
-                      hemmamål i förlängningen visar Current 3–2, så utan de två
-                      första blir tecknet en etta i stället för kryss —
-                      markeringen finns för det, och rättas av sig själv när
-                      SvS publicerar. Det som ÄNDRAS utöver detta är prisjakten:
-                      `in_progress` följer `regulation_over()` (= slut ELLER
-                      förlängning), eftersom Kambi stänger 1X2 för ordinarie tid
-                      när ordinarie tid är slut. Utan det jagade chansmotorn ett
-                      livepris som per definition inte finns och satte noten
-                      "saknar odds" på en match som hade odds hela vägen.
-                      **LIVE-1X2-KÄLLOR (2026-08-19):** Kambi är första källa,
-                      Ninja/Altenars `GetLiveEvents` är reserv och Pinnacles
-                      per-matchup-moneyline är sista reserv. Ninja-parsern
-                      accepterar bara kanonisk matchresultatmarknad
-                      (`sportMarketId=70472`, ej `isAlt`) och kryss-id 2.
-                      Id 7 betyder `Ingen` på syntetiska nästa-mål-marknader
-                      och får ALDRIG bli X (driftfel 2026-08-25). Tre
-                      kompletta, öppna utfall krävs. Pinnaclebulken används för
-                      identitet; priset hämtas per barn och det färskaste
-                      öppna barnet väljs, men bara HTTP Age ≤90 s får räknas.
-                      Samma-sida krävs alltid. Ett ensidigt namnbevis kräver
-                      läsbar avspark på båda sidor, ≤30 min och EN kandidat.
-                      `probs_source`/`chance_live_source_counts` gör valet
-                      synligt. Alla källor borta ⇒ den märkta modellen ur
-                      ställning, tid och prematchpris; den får ALDRIG lämna
-                      kupongens read-only chansvy.
-                      `FINISHED_STATUS_IDS` bär nu även 32 ("Slut efter
-                      förlängning") — samma lucka som 33 gav 2026-08-08, och
-                      matchen räddades bara av att ett publicerat `Fulltime`
-                      också räknas som slut.
-                      **FULLTIME-NÄTET FÅR INTE KÖRA ÖVER KLOCKAN
-                      (2026-08-22).** Nätet finns för OKÄNDA statuskoder, inte
-                      som bevis. SvS publicerade ett `Fulltime` 0–0 för
-                      Nottingham–Leeds (Stryktipset 4967, event 4) medan
-                      matchen stod i `statusId 6` = "Första halvlek", 43
-                      minuter efter avspark och ensam bland omgångens tretton
-                      matcher. Sex spelade kuponger visade matchen som SLUT med
-                      tecknet X, räknade bort den ur radantalet och slutade
-                      jaga livepris. `match_finished`/`regulation_over` tar
-                      därför en valfri `now` och nätet gatas av
-                      `REGULATION_WALL_CLOCK_MIN` = 105 min (90 spelade + paus).
-                      Vetot är FYSIK, inte ännu en statuskod, och gäller BARA
-                      nätet — en uttalad slutstatus vinner alltid, annars vore
-                      ett trasigt `matchStart` nog för att öppna en avgjord
-                      match igen. Marginalen är den fysiska miniminivån och
-                      INTE settlementets 130: stoppa nätet när det är omöjligt,
-                      aldrig när det bara är osannolikt. Ett `Fulltime` under
-                      förlängning (Nijmegen–Olympiakos) passerar som förut.
-                      **STATUSKODER GISSAS ALDRIG (2026-08-12).**
-                      `EXTRA_TIME_STATUS_IDS` innehöll den gissade serien
-                      20–25. `statusId 23` betyder **"Uppskjuten"** (uppmätt på
-                      Topptipset 4261, D. Tolima–Independiente), alltså raka
-                      motsatsen: matchen spelas inte alls. `regulation_over()`
-                      blev därmed sann för en match som aldrig spelats —
-                      kupongen redovisade den som avgjord och tecknet lästes ur
-                      ett resultat som inte fanns. Bara 20 ("Första
-                      övertidsperioden") är observerad och serien krymper till
-                      den; skyddsnätet mot okända koder är KLARTEXTEN SvS
-                      skickar bredvid (`EXTRA_TIME_STATUS_WORDS`). Lägg aldrig
-                      in en kod i en statusmängd innan den observerats.
-                      `match_postponed()` är en egen fråga, matchen exponeras
-                      som `postponed`, och settlementets omprövning hoppar över
-                      den: en uppskjuten match blir aldrig färdigspelad och
-                      dess `matchStart` kan flyttas veckor fram. SvS lottar
-                      tecknet för en struken match FÖRST vid finalisering — tills
-                      dess är det okänt och kupongen håller matchen öppen.
-                      **INSTÄLLD OMGÅNG (2026-08-12):** SvS sätter
-                      `cancelled: true` på RESULTATET men lämnar `drawState` på
-                      `Finalized`. `settle_draw` skriver därför
-                      `draw_state='Cancelled'` (`CANCELLED_STATE`) och ledgern
-                      skiljer `cancelled` från `unresolvable` — en inställd
-                      omgång är inte en misslyckad mätning, den är ingen mätning
-                      alls. 56 av 8 324 omgångar migrerade 2026-08-12 efter
-                      verifiering mot källan; se `docs/db-atgarder.md`.
-                      **ATT MÄRKA RÄCKER INTE — KONSUMENTERNA MÅSTE EXKLUDERA
-                      (Codex 2026-08-12).** `/api/pool/history` räknar nu
-                      `total`, medelomsättning, median toppvinst och
-                      rollovers på icke-inställda omgångar; `archive_total`
-                      och `cancelled_count` redovisas separat och `draw=<nr>`
-                      når dem fortfarande. SvS publicerar NOLL vinnare på alla
-                      nivåer när en omgång ställs in, så de räknades annars
-                      som rullade potter: Topptipset-familjen visade 58
-                      rollovers mot rätta 5.
-                      `live_status` ger dessutom `matches` (liverättningen per
-                      match) och `cheer` (hur många rader som lever vid 1/X/2 —
-                      "vad ska jag heja på"). `alive` mot golvnivån är
-                      degenererad på Topptipset, där bara 8 rätt delar potten;
-                      `alive_varies` säger när kolumnen bär information
-  app/pool_system_ledger.py PH3: förregistrerade benchmarksystem fryses
-                      T−3h/T−20m i varvet, settlas kontrafaktiskt med egen
-                      vinnarutspädning; rollover utan vinnare = okänd ROI
-                      (/api/pool/systems; champion = dagens byggare).
-                      **GENERATION 2 sedan 2026-08-05:** budget
-                      144/256/512/1024 kr × risk säker/medel/tuff (vw 20/50/80)
-                      = 12 konfigurationer, champion `b256-medel`. Radpriset är
-                      1 kr för alla produkter, så budget = antal rader.
-                      **`benchmarks_for(product)` är ENDA källan till vad som
-                      mäts** (frysning, championrapport och översikt måste läsa
-                      samma familj).
-                      Researchfamiljerna ligger separat i
-                      `research_families_for()`: PH5 5 000, `mathmax` 41 472
-                      och `reducedmax` 20 000 får egna hälsolarm/översikter
-                      och får aldrig räknas som championutmanare. Gamla
-                      `max40` är pensionerad, visas enbart som historisk pilot.
-                      **SPELFAMILJ, INTE PRODUKTSLUG (2026-08-12):**
-                      `champion_report()` grupperar på `svenskaspel.family_of()`
-                      — Topptipset Dagens/Stryk/Extra är samma spel med samma
-                      benchmarkfamilj, så deras omgångar hör till SAMMA
-                      jämförelse. Att mäta dem var för sig delade underlaget i
-                      tre (4/2/1 parade omgångar) och gjorde varje del för tunn
-                      för grinden; ihopslaget blir det 7 per horisont.
-                      `_paired_draw_roi` parar på `(produkt, omgång)` eftersom
-                      familjen har tre oberoende nummerserier — utan produkten
-                      i nyckeln skulle Extra 1856 och Dagens 1856 para ihop sig.
-                      Utmanarmängden är SNITTET av medlemmarnas
-                      `benchmarks_for`, som skydd om en framtida grupp blandar
-                      spelformer. Produktslug, settlementidentitet och
-                      `config_key` är OFÖRÄNDRADE — familjen styr vad som mäts
-                      ihop och visas ihop, aldrig vad något heter i lagret.
-                      Topptipset-familjen har tak 512:
-                      8 matcher ⇒ 3^8 = 6 561 möjliga rader, så 1 024 rader är
-                      15,6 % av HELA utfallsrummet (mattbombning, och spelet
-                      har bara EN vinstnivå) mot 0,06 % på ett 13-matchsspel.
-                      Samma nyckel mätte två olika saker. Beslutat 2026-08-09
-                      EFTER att raderna var synliga — inte en ren
-                      förregistrering, se `docs/db-atgarder.md`.
-                      Generation 1 (`ev50-*`, `ev256-*`) är PENSIONERAD och
-                      blandas aldrig in — en config_key ändras aldrig i
-                      efterhand, så nya nycklar räcker (ingen migrering).
-                      Championen MÅSTE spegla appens budgetreglage: den stod
-                      på 50 kr medan reglaget stod på 128, så etiketten var
-                      osann. Promotion kräver BH-FDR över hela
-                      utmanarfamiljen (60 jämförelser) OCH ≥40 parade
-                      omgångar — `champion_report()`. `system_detail()` ger
-                      ett fryst system match för match mot facit med streck
-                      vid frysning och vid stopp; ingen ny insamling behövs
-  app/live_radar.py  shadow-radar för pågående matcher: TVÅ separata
-                      provider-serier (`LIVE_SOURCES`), högst 12 min gamla.
-                      **Flashscore är ANKARE sedan 2026-08-06; Sofascore är
-                      URKOPPLAD ur radarn** — den rapporterade xG som 0.0 i
-                      stället för att utelämna det, och en nolla ser ut som
-                      en mätning (Paide–SK Rapid: 0.0/0.0 mot Flashscores
-                      0.09/0.81). Sofascore samlar OFÖRÄNDRAT resultat,
-                      modellstatistik och frånvaro. Källan väljs på
-                      strukturell fälttäckning (aldrig på signalvärdet),
-                      därefter fast prioritet Flashscore→FotMob.
-                      Länk kräver unik liga/lag/avsparksträff; en olänkad
-                      färsk providerserie får eget kort.
-                      **Oddset-spärren för träningsmatcher** (`known_friendly`)
-                      prövar ETT lag entydigt när båda inte räcker: ett lag
-                      spelar en match i taget, så delar exakt EN Oddset-
-                      träningsmatch i samma tidslucka ett lag med providerns
-                      rad är det samma match. Uppmätt 2026-08-09 föll 15 av 27
-                      på tvåsidig namnlikhet, varav 6 uppenbart samma match
-                      (`Atl. Madrid`/`Atlético Madrid`, `Johor DT`/`Johor
-                      Darul Takzim`, `Ath Bilbao`, `Monaco`/`AS Monaco`) och
-                      noll tvetydiga. Manchester City och Chelsea föll på
-                      MOTSTÅNDARENS namn. Avspark måste vara känd på båda
-                      sidor och två kandidater ⇒ avslag. Spärren styr RÄCKVIDD,
-                      inte pris: ett falskt positivt kostar ett statistikanrop,
-                      aldrig ett odds på fel match. Aldrig automatiska
-                      spel eller runtime-modellinput.
-                      **NAMNLÄNKNING I TRE STEG** (`_linked_series`), där
-                      varje steg kräver EXAKT en kandidat: (1) strikt
-                      `_same_team` på båda lagen; (2) `_same_team_in_context`
-                      på båda (kortnamn, förkortning, grundningsår i mitten);
-                      (3) `_one_side_candidates` — ETT lag räcker, eftersom
-                      ett lag spelar en match i taget: delar två rader liga
-                      och exakt avspark och är ett lag samma, kan de omöjligen
-                      vara olika matcher. Steg 2–3 är säkra ENBART tack vare
-                      anropsstället och får aldrig användas fristående
-                      (`Inter` ↔ `Inter Miami` passerar namnregeln men delar
-                      aldrig avspark). Truppmarkörer (U23/B/women) spärrar i
-                      ALLA steg — `Inter` mot `Como` och `Inter U23` mot
-                      `Como` är två matcher. Steg 3 avskaffar aliasjakten för
-                      översättningar (`Austria Vienna` ↔ `Austria Wien`).
-                      `live_norm_team` prövar aliaset IGEN efter att
-                      landskoden strippats: `norm_team` slår upp på hela
-                      strängen, så `goteborg (swe)` missade varje alias och
-                      internationella matcher tappade tyst sina alias.
-                      `cli.py lanklucka` MÅSTE köra samma regler som länken
-  app/live_signal_ledger.py framåtriktad append-only-journal över den första
-                      synliga Följer/Stark-nivån per match × signaltyp:
-                      minut/ställning/mått + observerad öppen Kambi-live-Ö/U,
-                      normaltidsfacit och Asian-Över-ROI. Aldrig tipsinput
-  app/flashscore.py   liveprovider med `flashscore-live-v4`: publik pipe-feed,
-                      statisk publik
-                      headerkonstant (samma klass som Pinnacles gästnyckel);
-                      brotli KRÄVS. Minuten HÄRLEDS ur stadiets starttid
-                      (AC 12/13 + AO) — okänt stadium ⇒ None. Dagsfeeden är
-                      CDN-FRYST uppåt 2 min; ställningen räddas då ur
-                      per-match-feeden `df_sur` (`parse_summary`: BA/BB+BC/BD
-                      per halvlek, AT/AU-fallback, fältregel driftverifierad
-                      2026-08-02). Koherensvakten är RIKTAD åt båda hållen:
-                      ställning äldre än stats = farlig (20 s, fabricerar
-                      "hög xG men inget mål"), stats äldre än ställning =
-                      konservativ (180 s). Stadiebyte i `df_sur` censurerar
-                      minuten hellre än låter den ticka i fel stadium. Lyckad
-                      tom lista avslutar presence, transport-/parsefel aldrig.
-  app/flashscore_data.py Flashscore samlar modelldata PARALLELLT med
-                      Sofascore till `oddset_result_stats`; resultatkällan
-                      överlastas aldrig och `+fs` är avskaffat. xG väljs som
-                      ett helt hem/borta-par, hörnor som ett separat helt par,
-                      båda med explicit provider/event-id/observationstid.
-                      Ingen historisk Flashscore-bakfyllning; bara dagsfeeds.
-                      Frånvaro lagras separat per provider/status och tomt
-                      lyckat svar är en riktig observation.
-                      **Feeden har TVÅ paket** (mätt 2026-08-06 på 12 matcher):
-                      8/12 bar bara bas (possession/skott/på mål/utanför/
-                      blockerade/hörnor), 2/12 hela paketet med xG, xGOT,
-                      stora chanser och skott i box. xG SAKNAS alltså genuint
-                      för de flesta europacupkval — providerns gräns, inte
-                      parserns. `STAT_NAMES` läser nu även shots_off,
-                      shots_blocked, touches_box, saves och possession;
-                      `touches_box` ingick i `_stats_rank` utan att någon
-                      källa kunde fylla det. Possession läses med `_share`
-                      (`54%`), aldrig med `_f` — feedens övriga procenttal är
-                      härledda kvoter (`85% (271/319)`) där andelen inte är
-                      måttet.
-                      **KLOCKAN SAKNAS ALDRIG** (Samans krav 2026-08-06).
-                      `STAGE_FROZEN` bär etikett OCH spelad minut för stadier
-                      där klockan står stilla (38 = Paus, 45 spelade min) —
-                      minuten TICKAR inte där, men den finns, för annars
-                      returnerar `radar_signal` `no_clock` och matchen faller
-                      ur "starkt chansgap" i samma sekund domaren blåser av.
-                      `STAGE_LABEL` (bara frysta stadier) visas I KLOCKANS
-                      STÄLLE; `STAGE_NAME` (alla kända stadier) används BARA
-                      som reserv när minuten saknas helt, t.ex. när
-                      koherensvakten nollställt stadieklockan
-  app/fotmob.py       liveprovider med `fotmob-live-v2`: live-xG/xGOT/skott,
-                      även Oddset-spärrade friendlies. Ställningen tas ur samma
-                      eventdetalj som statistiken; äldre listställning får
-                      skilja högst 15 s innan hela listan/id-indexet omhämtas.
-                      Saknas koherent ställning sparas ingen rad. Egen tabell,
-                      egen presence och egen source-health.
+  app/oddset_health.py tystnadsdetektion: Oddset-varv, pool-basvarv, kärnkällor, liveradar
+  app/gater.py        alla förregistrerade grindar på ett ställe (cli.py gater)
+  app/pool_settlement.py PH1: immutable poolfacit (append-once, payload-hash; retry_after
+                      per rad; läs-API /api/pool/history)
+  app/pool_dataset.py PH2: PIT-features per omgång/horisont (pit-v4, enbart observed_pit —
+                      no backfill) + presence-ledger och proveniensmärkt pool_draw_snapshot
+  app/pool_played.py  SPELADE kuponger (🎟 eller bekräftad import av Egna rader-fil): bokför
+                      att SAMAN själv lämnat in kupongen, lägger inga spel. FACIT =
+                      settlementlagrets officiella outcome mot PUBLICERAD utdelning.
+                      LIVESTATUS ur SvS draw-payload — aldrig facit. match_finished()/
+                      regulation_over() är de ENDA definitionerna av "färdigspelad"
+  app/pool_system_ledger.py PH3: benchmarksystem frysta T−3h/T−20m, settlade kontrafaktiskt;
+                      benchmarks_for(product) är ENDA källan till vad som mäts;
+                      research_families_for() (PH5/mathmax/reducedmax) är aldrig utmanare
+  app/pool_health.py  poolens änd-till-änd-larm (snapshots, frysningar, settlement)
+  app/pool_strength_shadow.py pool-strength-blend-v1 (Historik → Poolmodell)
+  app/live_radar.py   shadow-radar för pågående matcher: Flashscore ankare, FotMob sekundär,
+                      Sofascore URKOPPLAD ur radarn (kvar för resultat/frånvaro)
+  app/live_signal_ledger.py append-only-journal över första Följer/Stark per match,
+                      låst livepris, normaltidsfacit, Över-ROI. Aldrig tipsinput
+  app/live_settlement.py radarmomentens facit per signalversion
+  app/flashscore.py   liveprovider (pipe-feed + per-match df_sur); brotli KRÄVS
+  app/flashscore_data.py Flashscore modelldata parallellt med Sofascore
+  app/fotmob.py       liveprovider: live-xG/xGOT/skott, egen presence/source-health
   app/main.py         API-endpoints + PRIZE_PLANS (officiella vinstplaner)
-  cli.py              show|spikar|snapshot|history|rad (snapshotvarvet settlar
-                      även nyss avgjorda poolomgångar via settle_recent)
-frontend/ React + Vite, mörkt tema. src/AppV3.jsx + AppV3.css är APPEN
-  (2026-09-02: `src/lib/` = ren logik utan React — `format.js`, `poolEv.js`
-  (KAPPA/evalRows/couponStats) — testad med `node --test`; `src/components/` =
-  `ui.jsx`, `SortableTable.jsx`, `charts.jsx`; `src/oddset/OddsetView.jsx` =
-  hela Oddset-vyn. App.jsx re-exporterar allt, så AppV3 importerar som förut.)
-  (enda gränssnittet sedan 2026-07-26 — klassiska v2-vyn är RIVEN): vyerna
-  Idag, Poolspel, Oddset, Historik och 🧪 Labb (bevisytan: alla mät-/
-  shadowspår som statuskort — inget där är tips). src/App.jsx + App.css är
-  KOMPONENTBIBLIOTEKET (AnalysisTable, SystemView, CouponPanel, OddsetView,
-  PlayRec, PlayedPanel m.fl. via exportblocket i slutet) — nya tunga
-  komponenter definieras där och monteras i AppV3. Tillstånd (kupong/omgång/
-  inställningar) ligger i localStorage `svs_state`. Oddset är uppdelat i
-  Matcher/Live/Värdespel/Rörelser; desktop använder delade `SortableTable`,
-  mobil samma sortering över kort. `SortableTable` kapar med `limit` EFTER
-  sorteringen — slicea aldrig `rows` före anropet, det ger en falsk topplista.
-  Idag är en lätt översikt: använd `/api/dashboard/oddset` och
-  `/api/oddset/predictions/summary`, aldrig de fulla Oddset-/ledger-rapporterna
-  där. `/api/pool/played?live=false` ger lokal kupongdata direkt; extern
-  livestatus är progressiv och får inte blockera första skärmen. Omladdning
-  börjar alltid i Idag (återinför inte `svs_v3_view`).
-  Oddset-vyn laddar progressivt: första listan är
-  `/api/oddset/matches?light=true&compact=true&movement=false&limit=40`;
-  svaret bär fortfarande `total_matches` och `league_counts`. Först efter
-  1,2 s berikas vyn med hela `compact=true`-listan. `compact` tar bara bort råa `pts`, aldrig
-  first/last/linjeskift; hela serien hämtas för en öppnad match via
-  `/api/oddset/movement?match_id=...`. Matcher renderas 40 åt gången efter
-  sortering. Återinför inte all historik eller alla cirka 190 rader i första
-  svar/paint.
-  Signalgruppsfacit och signallogg hör hemma i Labb, aldrig som en femte
-  Oddset-sektion.
-  **YTGRÄNSEN (2026-08-05): Historik = 100 % POOL, Labb = 100 % ODDS.**
-  Sammanhörande data får inte spridas över två vyer. Poolens prognosfel och
-  PH4-κ-fönster flyttades därför till Historik, och PH3-kortet togs bort ur
-  Labb (det dubblerade Historikens Systemfacit). Historik har EN produktväljare
-  överst som styr hela sidan — kuponger, systemfacit, prognos och omsättning.
-  Det gäller även poolens styrkemodell-shadow: dess täckning, logloss mot
-  Pinnacle och grind ligger i Historik → Poolmodell, aldrig i Labb.
-  Långa tabeller visar 20 rader med "visa alla". Ingen parameter göms i en
-  nyckelsträng: budget, strategi och värdevikt är egna kolumner. Horisonter
-  visas i minuter (180/20), aldrig som `h3`/`m20`. Se
-  `docs/historik-ui-2026-08-05.md` för före/efter-mätningarna.
-  **Labb ombyggt 2026-08-05 med samma metod** (`docs/labb-ui-nulage-2026-08-05.md`):
-  öppet läge visar bara AKTIVA versioner (aktiv-markeringen kommer från
-  respektive systems eget fingeravtryck — value-loggens och ledgerns
-  `s-`-namnrymder är OLIKA och får aldrig korsjämföras); versionshistorik
-  ligger bakom togglar med datumintervall, ROI/KI visas aldrig under
-  `ROI_MIN_N` (=10) observationer, och poolens forskningskort (pit-v4, PH5,
-  startOdds) renderas i Historik via `HISTORIK_RESEARCH`.
-start.sh / stop.sh    kör/stoppa backend + byggd frontend (8002 + 5175) — bara
-                      för lokal utveckling; biter INTE på serverns KeepAlive
-tools/tjanster.sh     drift på MacBook-servern: start/stopp/omstart av alla
-                      LaunchAgents, grupperade som Spelkompisen (4),
-                      Chartervakt, Bonusvakt och Server & övervakning (3).
-                      Logiken i tools/spelkompisen_tjanster.py delas med menyraden
-docs/plan.md          FÄRDPLANEN: status, datakällor, beslut — projektets sanning
+  cli.py              snapshot|pool-tick|live-tick|kallhalsa|gater|lanklucka|v22audit …
+frontend/ React + Vite, mörkt tema.
+  src/AppV3.jsx + AppV3.css  APPEN (enda gränssnittet sedan 2026-07-26): vyerna Idag,
+                      Poolspel, Oddset, Historik, 5 000-test, Max-tester, 🧪 Labb
+  src/App.jsx + App.css  KOMPONENTBIBLIOTEKET (AnalysisTable, SystemView, CouponPanel,
+                      PlayRec, PlayedPanel m.fl.) — re-exporterar även allt nedan
+  src/lib/            ren logik utan React, testad med node --test: format.js,
+                      poolEv.js (KAPPA/evalRows/couponStats/systemStats), playRec.js,
+                      poolSelection.js, sourceHealth.js
+  src/components/     ui.jsx (Loading/Empty/ErrorState, ErrBoundary, useStoredBool),
+                      SortableTable.jsx, charts.jsx
+  src/oddset/OddsetView.jsx  hela Oddset-vyn (Matcher/Live/Värdespel/Rörelser/Lagstyrka)
+start.sh / stop.sh    lokal utveckling (8002 + 5175); biter INTE på serverns KeepAlive
+tools/kontroll.sh     hela kontrollen före push; tools/githooks/pre-push kör den
+tools/tjanster.sh     drift på MacBook-servern: start/stopp/omstart av alla LaunchAgents
+docs/plan.md          STATUS + färdplan — projektets sanning
 docs/status-historik.md daterade statusblock (historik, aldrig nuvarande kontrakt)
 docs/overlamningar/   alla överlämningar (overlamning-<datum>-<ämne>.md)
-docs/backlog.md       AKTIV BACKLOG (2026-07-26): prioritering, pågående mätningar,
-                      parkerat/avfört — ändra prioritet bara med Samans godkännande
-docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (referens)
+docs/backlog.md       AKTIV BACKLOG — ändra prioritet bara med Samans godkännande
+docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning
+docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
 ```
+
+### Regler per modul (evidens: bakgrundsdokumentet, samma rubriker)
+
+**pool_played.py — resultat och status**
+- **POOLREGELN (Saman 2026-08-11): poolspel fastställs på ordinarie 90 minuter, så en
+  match i förlängning RÄKNAS SOM KLAR** — `final` = `regulation_over()` (slut ELLER
+  förlängning). Osäkerhet om VILKET resultatet är får inte avgöra om matchen är AVGJORD;
+  den bärs av `sign_provisional`, och `_decided()` kräver `final` OCH icke-struken OCH
+  icke-provisorisk. Ett obelagt tecken redovisas som SPANN (`alive_min/max_per_level`),
+  aldrig som en gissning presenterad som faktum.
+- Ordinarie tid läses `Fulltime` → `Current` minus `Overtime` → Flashscores `df_sur`
+  (`attach_regulation_time`) → `Current` (märkt). Flashscorevärdet får ALDRIG ligga över
+  SvS ställning; källfel ändrar aldrig ett tecken.
+- **STATUSKODER GISSAS ALDRIG.** Bara observerade koder får ligga i statusmängder
+  (`statusId 23` = "Uppskjuten", inte förlängning); klartexten SvS skickar bredvid är
+  skyddsnätet (`EXTRA_TIME_STATUS_WORDS`). `match_postponed()` är en egen fråga och
+  settlementets omprövning hoppar över den. `FINISHED_STATUS_IDS` bär 32 och 33.
+- **FULLTIME-NÄTET FÅR INTE KÖRA ÖVER KLOCKAN.** Nätet finns för OKÄNDA statuskoder, inte
+  som bevis: `match_finished`/`regulation_over` tar `now` och nätet gatas av
+  `REGULATION_WALL_CLOCK_MIN` = 105 min. Vetot är FYSIK och gäller BARA nätet — en
+  uttalad slutstatus vinner alltid. Stoppa när det är omöjligt, aldrig när det bara är
+  osannolikt (marginalen är inte settlementets 130).
+- **INSTÄLLD OMGÅNG:** `settle_draw` skriver `draw_state='Cancelled'`; ledgern skiljer
+  `cancelled` från `unresolvable`. **Att märka räcker inte — konsumenterna måste
+  exkludera** (`/api/pool/history` räknar på icke-inställda; `archive_total` separat).
+- Live-1X2-källor: Kambi först, Ninjas `GetLiveEvents` reserv (bara `sportMarketId=70472`,
+  ej `isAlt`, kryss-id 2 — id 7 betyder `Ingen` och får ALDRIG bli X), Pinnacle sist
+  (Age ≤ 90 s). Samma-sida krävs; ensidigt namnbevis kräver avspark på båda sidor, ≤ 30 min
+  och EN kandidat.
+
+**pool_system_ledger.py — PH3**
+- `benchmarks_for(product)` är ENDA källan till vad som mäts. Topptipset-familjen har tak
+  512 (3^8 = 6 561 rader; 1 024 vore mattbombning). En `config_key` ändras aldrig i
+  efterhand — nya nycklar räcker, ingen migrering. Championen MÅSTE spegla appens
+  budgetreglage. Promotion kräver BH-FDR över hela utmanarfamiljen OCH ≥ 40 parade omgångar.
+- **SPELFAMILJ, INTE PRODUKTSLUG:** `champion_report()` grupperar på `family_of()`;
+  `_paired_draw_roi` parar på `(produkt, omgång)`. Produktslug, settlementidentitet och
+  `config_key` är OFÖRÄNDRADE — familjen styr vad som mäts ihop, aldrig vad något heter.
+
+**live_radar.py / flashscore.py / fotmob.py — liveidentitet**
+- Källan väljs på strukturell fälttäckning (aldrig på signalvärdet), därefter fast
+  prioritet Flashscore → FotMob. En olänkad färsk providerserie får eget kort; gör aldrig
+  livevisningen beroende av att en källa först kan länkas till en annan providers rad.
+- **NAMNLÄNKNING I TRE STEG** (`_linked_series`), varje steg kräver EXAKT en kandidat:
+  (1) strikt `_same_team` på båda lagen; (2) `_same_team_in_context`; (3)
+  `_one_side_candidates` — ETT lag räcker när liga och exakt avspark delas. Steg 2–3 är
+  säkra ENBART tack vare anropsstället. Truppmarkörer (U23/B/women) spärrar i ALLA steg.
+  `cli.py lanklucka` MÅSTE köra samma regler som länken.
+- Träningsmatchspärren (`known_friendly`) styr RÄCKVIDD, inte pris: avspark känd på båda
+  sidor, ≤ 15 min ensidigt, två kandidater ⇒ avslag.
+- **KLOCKAN SAKNAS ALDRIG:** `STAGE_FROZEN` bär etikett OCH spelad minut för frysta
+  stadier; `STAGE_LABEL` visas i klockans ställe, `STAGE_NAME` bara som reserv. Minuten
+  HÄRLEDS ur stadiets starttid — okänt stadium ⇒ None.
+- Koherensvakten är RIKTAD: ställning äldre än stats = farlig (20 s), stats äldre än
+  ställning = konservativ (180 s). Stadiebyte censurerar minuten hellre än låter den
+  ticka fel. Lyckad tom lista avslutar presence; transport-/parsefel aldrig.
+- Possession läses med `_share`, aldrig `_f`. xG saknas genuint i de flesta
+  europacupkval (feeden har två paket) — providerns gräns, inte parserns.
+- `live_radar._same_team` styr TRE länkar (provider↔provider, livekort↔Oddset,
+  signal↔resultat). Presentationsskillnad ⇒ `LIVE_TEAM_ALIASES`; samma klubb i
+  resultathistoriken ⇒ Oddsets `TEAM_ALIASES`. Kända falska par skrivs explicit i
+  `LIVE_TEAM_REJECTED` — aldrig en generell regel (flerords-prefix gjorde LAFC = Galaxy).
+- **KOHORTREGELN:** en rad hör till vN bara om vN-KODEN producerade den OCH den
+  observerades i vN:s DEKLARERADE fönster — annars `transitional`, som ingår i INGEN
+  kohort. Rader flyttas ALDRIG till föregående kohort. `radar_version` MÅSTE ligga i
+  `_FLASHSCORE_VIEW_KEYS`/`_FOTMOB_VIEW_KEYS`. Settlement stämplar efter capturetid. En
+  ändrad datagenererande process kräver alltid ny signalversion. Provider-id är
+  ogenomskinlig STRÄNG överallt.
+- Proxysignalen är ETT ENHETSLÖST INDEX (`proxy_index`) och får aldrig uttryckas i mål.
 
 ## Kommandon
 
@@ -580,151 +217,68 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
   bara porten och launchd startar om tjänsten inom sekunder (`KeepAlive`).
   `tjanster.sh status|start|stopp|omstart <tjänst|all|spelkompisen>`;
   `stopp … --permanent` lägger till `launchctl disable` och överlever omstart.
-  Se `docs/AI-OVERLAMNING-SERVER.md` § 3.
+  Se `docs/AI-OVERLAMNING-SERVER.md` § 3. Omstart bygger INTE frontenden —
+  `cd frontend && npm run build` först.
 - Tester: `cd backend && .venv/bin/python -B -m unittest discover -s tests -v`.
 - **Hela kontrollen före push: `tools/kontroll.sh`** (backendtester + lint +
   frontendtester, `backend`/`frontend` som argument för en del). Pre-push-hooken
   i `tools/githooks/` kör samma sak; aktivera per klon med
   `git config core.hooksPath tools/githooks`, förbi medvetet med `SKIP_KONTROLL=1`.
   `backend/requirements.lock` är serverns frysta venv (`requirements.txt` är avsikten).
-- V2.2-status: `cd backend && .venv/bin/python -B cli.py v22audit`.
 - **Alla grindar på ett ställe: `cd backend && .venv/bin/python -B cli.py gater`**
-  — sharp-CLV, WP5-ledger, V2.2, radarblindtest, PH3-champion, PH5/maxtester,
-  poolstyrka, PH4 out-of-time. Läser varje spårs egen statusfunktion, räknar
-  inget om och beslutar inget. Kör den innan ett nytt spår startas.
-- Källhälsa/varvlucka: `cd backend && .venv/bin/python -B cli.py kallhalsa [timmar]`
-  (läser `oddset_source_health_log`; `—` i varvkolumnen = källan kördes inte).
-- **Dubblettjakt: `cd backend && .venv/bin/python -B cli.py lanklucka [timmar]`**
-  — providerpar med samma liga, samma avspark och hög namnlikhet som ändå INTE
-  länkar. Kör den efter varje ny liga/kvalomgång: fem namnfall upptäcktes på
-  ett dygn genom att Saman såg dubbletter i UI:t, vilket är fel ordning.
-  Bekräftade par går i `LIVE_TEAM_ALIASES` (kanonisk form = den i
-  `oddset_results`), bekräftat olika klubbar i `LIVE_TEAM_REJECTED`.
-- Live-radar manuellt prov: `cd backend && .venv/bin/python -B cli.py live-tick`
-  (shadowdata; påverkar inga tips/notiser). Varvet sparar även nya
-  beslutssignaler och settlar avslutade signaler append-once.
-- **Backend har INGEN auto-reload** — efter ändring:
+  — läser varje spårs egen statusfunktion, räknar inget om och beslutar inget. Kör den
+  innan ett nytt spår startas.
+- V2.2-status: `cli.py v22audit`. Källhälsa/varvlucka: `cli.py kallhalsa [timmar]`
+  (`—` i varvkolumnen = källan kördes inte; visar även Oddset- och poolhälsan).
+- **Dubblettjakt: `cli.py lanklucka [timmar]`** — providerpar med samma liga, samma
+  avspark och hög namnlikhet som ändå INTE länkar. Kör den efter varje ny liga/kvalomgång.
+  Bekräftade par går i `LIVE_TEAM_ALIASES`, bekräftat olika klubbar i `LIVE_TEAM_REJECTED`.
+- Live-radar manuellt prov: `cli.py live-tick` (shadowdata; påverkar inga tips/notiser).
+- **Backend har INGEN auto-reload** — efter ändring lokalt:
   `lsof -ti:8002 -sTCP:LISTEN | xargs kill -9; cd backend && nohup .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8002 &`
+  (på servern: `tools/tjanster.sh omstart backend`).
 - ALDRIG `pkill -f uvicorn` (dödar svs 8000 och vm 8001 — samma kommando).
   ALDRIG `lsof -ti:<port>` utan `-sTCP:LISTEN` (dödar annars webbläsare med öppna sockets).
 - Frontend nås via Tailscale/LAN (vite.config: `host:true, allowedHosts:true`).
-  `frontend` i `.claude/launch.json` bygger och serverar produktionsbunten på
-  5175. `frontend-dev` kör Vite/StrictMode på 5181 endast under utveckling.
-- **Insamling: två launchd-jobb är LADDade.**
-  `com.saman.spelkompisen.snapshot` kör Oddsets fullvarv på fasta :00/:30
-  (alla källor + Kambi-deep + modelldata) och därefter snabbvarv var 4:e min så länge någon
-  match startar inom 3 h (Pinnacle + böckernas 1X2 + SvS-deep för 3h-matcherna;
-  `FAST_WITHIN_H` i oddset.py), inom ~25 min budget.
-  `com.saman.spelkompisen.pool` kör ett separat kort varv var 5:e min:
-  `pool-tick` gör basinsamling var 30:e min och varje tick när ett poolspel
-  stänger inom 2 h; därefter samlar `live-tick` observerad live-xG/chansdata.
-  **SETTLEMENT KÖR PÅ VARJE TICK** (`_settle_pass`, 2026-08-08), även när inget
-  basvarv behövs: insamling kostar, facit gör det inte. Varje rad i
-  `pool_backfill_log` bär sin EGEN `retry_after`, härledd ur draw-payloaden —
-  matcher som rullar prövas när de rimligen är slut (avspark + 130 min), en
-  färdigspelad omgång var 15:e minut, tak 6 h. Den gamla fasta
-  6-timmarsbackoffen VAR hela fördröjningen: 100 % av 30 mätta
-  `not_finalized→ok`-gap låg över 5,5 h, median 6,21 h. Ett försök gjordes ofta
-  innan matcherna var färdigspelade — en spelad kupong är kandidat från
-  bokföringen — och blockerade då just det försök som hade lyckats. Höj inte
-  `SETTLE_PASS_MAX_DRAWS` (2/produkt, uppmätt 0,15 s tyst) utan att räkna om
-  radarns marginal. `pool_played.match_finished()` är EN delad definition av
-  "färdigspelad" för livekortet och omprövningstiden — skriv aldrig en parallell.
-  **`live-tick` förtätar sig själv** (två varv, 0 s och 120 s, budget 180 s —
-  `LIVE_DENSE_BUDGET_S`/`_INTERVAL_S` i cli.py), så radarn uppdateras varannan
-  minut utan ändrat launchd-intervall, och den slutar direkt när ingen livematch
-  har chansdata. Budgeten är räknad mot att `pool-tick` kan ta upp mot en minut
-  före radarn — ändra den inte utan att räkna om marginalen till nästa tick.
-  **Förtäta ALDRIG poolvarvet eller Oddset-varvet på samma sätt:** Pinnacles
-  bulk är CDN-cachad `max-age=905`, så anrop oftare än ~15 min returnerar samma
-  objekt — det kostar trafik utan en enda ny prispunkt. Radarns källor är
-  däremot färska (FotMob `max-age=10`, Sofascore live, Flashscore `Age` ~3 s).
-  Flashscores dagsfeed är 173 kB på tråden (1,4 MB avkodad) — en begäran per
-  varv, så den hämtas färsk varje gång i stället för att cachas med en
-  inaktuell ställning som följd. Varje liveprovider har egen presence och
-  source-health. Ett **lyckat** tomt roster avslutar tidigare kort direkt;
-  nät-/parsefel får aldrig göra det. `last_run` i API/UI är den äldsta av
-  `LIVE_SOURCES`-kontrollerna och är tom tills alla har kontrollerats —
-  Sofascore ingår inte längre och får inte hålla tillbaka stämpeln.
-  En färsk match med chansdata ska visas även om den andra källan saknar
-  den; `fotmob:<id>` respektive `flashscore:<id>` är då kortets namespacade
-  event-id. Gör aldrig livevisningen beroende av att en källa först kan
-  länkas till en annan providers rad.
-  Live-radarn är shadow/informationsstöd och får inte påverka tips, Kelly,
-  CLV, pushnotiser eller systemförslag utan ett nytt explicit beslut.
-  Signaljournalens blindkohort är FÖRSTA aktiva signalen per match (en
-  Följer→Stark-eskalering får finnas i diagnostiken men får inte dubblera
-  blindtestet). Minst 200 oddssatta+avgjorda signalmatcher, minst 60 dagar och
-  undre KI90 > 0 krävs före stöd; inga historiska liveodds bakfylls.
-  **Aktiv signalversion är `chance-gap-shadow-v9` från exakt
-  2026-08-09T18:00:00Z**. v9 ändrar bara scope: Bolivias Primera División
-  läggs till som ordinarie live-/sharp-liga. Besta deild fanns redan, men
-  v9 rättar FotMobs aktuella ligarubrik `Besta deildin` och lägger UT 188
-  explicit i radarscopet; Island blir därmed verifierat tvåkälligt.
-  Trösklar, providers, källrankning och identitet är oförändrade; metodnot:
-  `docs/radar-scope-v9-2026-08-09.md`. v8:s tre ligor och produktionskvitto
-  finns kvar i `docs/radar-scope-v8-2026-08-09.md`. v7:s proxysignal
-  (`docs/radar-proxy-v7-forregistrering-2026-08-07.md`) aktiverade
-  aktivering krävde `skott i box` — ett fält som bara finns i 43 % av
-  matcherna, nämligen exakt de som ändå har xG. Proxyn tillförde därför NOLL
-  matcher utöver xG-signalen medan 59 % aldrig kunde få någon signal alls.
-  Villkoret använder nu `farliga skott` = på mål + blockerade (100 %
-  täckning); TRÖSKELVÄRDENA ÄR OFÖRÄNDRADE — ett fält byts, ingen ny
-  frihetsgrad. Validerat: korrelation 0,890 mot skott i box och samma svar
-  vid tröskel ≥8 i 91 % av 1 342 observationer. Räckvidden gick 43 % → 100 %,
-  utlösningsfrekvensen 29 % av matcherna. Proxyn är ETT ENHETSLÖST INDEX
-  (`proxy_index`) och får aldrig uttryckas i mål — en regression av xG på
-  skottmåtten gav negativ hörnkoefficient och ett fel lika stort som
-  signalen. v6 (2026-08-06T16:45Z→) samlade fyra ändringar i samma process:
-  Sofascore urkopplad som livekälla, Flashscore som ankare, flerstegs
-  namnlänkning och fem nya måttpar (som även ändrar källrankningen). v5 (2026-08-03T06Z→) samlade i sin tur tre
-  identitetsfixar, riktad koherensvakt, `df_sur`-ställning och spegellänk med
-  transponering (`_mirrored_capture` — en spegelvänd providerserie uttrycks i
-  ankarets orientering, aldrig rå). v4 (2026-08-01T21Z→) och ogiltiga piloten
-  v3 (08–21Z) är historik; v2 <08Z. Settlement stämplar efter capturetid,
-  aldrig efter versionen som råkar vara aktiv när kön körs. En ändrad
-  datagenererande process kräver alltid ny signalversion.
-  **`radar_version` MÅSTE ligga i `_FLASHSCORE_VIEW_KEYS`/`_FOTMOB_VIEW_KEYS`**
-  — journalen läser radens egen version DÄR. Saknas den härleds kohorten ur
-  observerade växlingar, och varje rad efter den sista kända växlingen blir
-  felaktigt `transitional`, alltså raderad ur blindkohorten. Journalens
-  `_clock` läser signalens `basis` i stället för att härleda lånet på nytt.
-  **KOHORTREGELN (2026-08-05):** en rad hör till vN bara om vN-KODEN
-  producerade den OCH den observerades i vN:s DEKLARERADE fönster — annars
-  `transitional`, som ingår i INGEN kohort. Rader flyttas ALDRIG till
-  föregående kohort. `RADAR_*_STARTED_AT` är handskriven AVSIKT; koden byter
-  i samma sekund filen sparas (jobben kör ur arbetskopian), och de två gled
-  isär åt båda hållen tills 57 % av v4 var v5-producerad. Nya captures bär
-  `radar_version` PÅ RADEN; historik (NULL) härleds ur journalens frysta
-  `RADAR_OBSERVED_SWITCHES`, och inne i en växling blir raden transitional i
-  stället för gissad. Före bevishorisonten 2026-08-01T01:02:15Z finns ingen
-  journal — v2 är ovaliderad och duger inte som baslinje. Se
-  `docs/db-atgarder.md` 2026-08-05 och `scripts/migrera_radar_kohorter.py`.
-  Provider-id hanteras som ogenomskinlig STRÄNG i presence, journal och
-  settlement (Flashscores är alfanumeriskt: `SKg88Q3T`). Tabellen
-  `oddset_live_moment_settlement.event_id` är därför TEXT; ändringen görs
-  endast med `scripts/migrera_radar_event_id_text.py` + backup.
-  **Livelagnamn (2026-08-02):** `live_radar._same_team` styr TRE länkar —
-  provider↔provider (dubbletter), livekort↔Oddset (`no_canonical_match` = inget
-  live-odds) och signal↔resultat (facit). Ett namn som inte matchar ger därför
-  två journalkort där odds hamnar på den ena raden och facit på den andra;
-  matchen bidrar med NOLL till blindkohorten trots att båda delarna finns.
-  Ett par som bara skiljer sig i providerns PRESENTATION går i
-  `LIVE_TEAM_ALIASES`; ett par som är samma klubb även i resultathistoriken hör
-  hemma i Oddsets `TEAM_ALIASES` (modellidentitet) — se DB-åtgärden 2026-08-02,
-  där 588 dubblerade resultatrader slogs ihop.
-  Flerords-prefixregeln är farlig: `Los Angeles FC`
-  normaliseras till `los angeles` och blev därmed samma lag som
-  `Los Angeles Galaxy`. Kända falska par skrivs explicit i
-  `LIVE_TEAM_REJECTED` — samma princip som `TEAM_REJECTED_LINKS`, aldrig en
-  generell regel.
-  Notiser går i Oddset-varvet, bakom **notisvakten** (presence-set: larm kräver att
-  priset observerades i det aktuella lyckade varvet).
-- **WP2-prisregel:** `fetched_at` = prisförändring, `last_seen_at` = senaste
-  lyckade bekräftelse. Värde/modell/steam/facit kräver `available` och högst
-  45 min gammal bekräftelse. Pinnacles HTTP `Age` dras av före båda
-  tidsstämplarna; cacheobjekt äldre än 5 min öppnar inte notisgrinden.
-  Källfel får aldrig markera ett pris unavailable.
+  `frontend` i `.claude/launch.json` bygger och serverar produktionsbunten på 5175.
+  `frontend-dev` kör Vite/StrictMode på 5181 endast under utveckling.
+  **Dev-servern dubbelkör allt** (StrictMode) — mät alltid på den byggda bunten innan du
+  jagar en frontendbugg som är ett dev-artefakt.
+
+### Insamlingen (två launchd-jobb)
+
+- `com.saman.spelkompisen.snapshot`: Oddsets fullvarv på fasta :00/:30 (alla källor +
+  Kambi-deep + modelldata), därefter snabbvarv var 4:e min så länge någon match startar
+  inom 3 h (`FAST_WITHIN_H`), inom ~25 min budget.
+- `com.saman.spelkompisen.pool`: kort varv var 5:e min. `pool-tick` gör basinsamling var
+  30:e min och varje tick när ett poolspel stänger inom 2 h; därefter `live-tick`.
+  **SETTLEMENT KÖR PÅ VARJE TICK** (`_settle_pass`): insamling kostar, facit gör det inte.
+  Varje rad i `pool_backfill_log` bär sin EGEN `retry_after` (avspark + 130 min, färdig
+  omgång var 15:e min, tak 6 h). Höj inte `SETTLE_PASS_MAX_DRAWS` (2/produkt) utan att
+  räkna om radarns marginal. `pool_played.match_finished()` är EN delad definition —
+  skriv aldrig en parallell.
+- **`live-tick` förtätar sig själv** (`LIVE_DENSE_BUDGET_S`/`_INTERVAL_S` i cli.py) och
+  slutar direkt när ingen livematch har chansdata. Budgeten är räknad mot att `pool-tick`
+  kan ta upp mot en minut — ändra den inte utan att räkna om marginalen.
+- **Förtäta ALDRIG poolvarvet eller Oddset-varvet:** Pinnacles bulk är CDN-cachad
+  `max-age=905`, så anrop oftare än ~15 min returnerar samma objekt. Radarns källor är
+  färska (FotMob `max-age=10`, Flashscore `Age` ~3 s). Flashscores dagsfeed hämtas färsk
+  varje varv — cachad ställning är värre än trafiken.
+- Varje liveprovider har egen presence och source-health. Ett **lyckat** tomt roster
+  avslutar tidigare kort; nät-/parsefel får aldrig göra det. `last_run` är den äldsta av
+  `LIVE_SOURCES`-kontrollerna och tom tills alla kontrollerats.
+- Live-radarn är shadow och får inte påverka tips, Kelly, CLV, pushnotiser eller
+  systemförslag utan ett nytt explicit beslut. Blindkohorten är FÖRSTA aktiva signalen per
+  match; grinden är `BLIND_MIN_*` i `live_signal_ledger.py` och undre KI90 > 0; inga
+  historiska liveodds bakfylls.
+- Notiser går i Oddset-varvet bakom **notisvakten** (larm kräver att priset observerades
+  i det aktuella lyckade varvet). Notifieringsspåret är pausat på Samans begäran
+  2026-07-16 — återuppta inte utan besked. Driftlarm (tystnad) visas i UI:t, aldrig ntfy
+  (Samans beslut 2026-09-02).
+- **WP2-prisregel:** `fetched_at` = prisförändring, `last_seen_at` = senaste lyckade
+  bekräftelse. Värde/modell/steam/facit kräver `available` och högst 45 min gammal
+  bekräftelse. Pinnacles HTTP `Age` dras av före båda tidsstämplarna; cacheobjekt äldre än
+  5 min öppnar inte notisgrinden. Källfel får aldrig markera ett pris unavailable.
 
 ### 🕐 OBSERVATIONSTIDSREGELN — läs innan du skriver en ny insamlare
 
@@ -747,105 +301,66 @@ observationsögonblicket används som observationstid.**
    priset.
 6. **En källa vi inte frågade är ingen observation.** Dubbeltrafikspärren
    returnerar tomma `hits`/`status` UTAN fel; `status.get(event, "not_listed")`
-   gjorde då "vi frågade inte" till "Pinnacle listar inte matchen" — 52 % av
-   poolens sharp-ticks blev falska frånvaroobservationer på ett dygn (0 % dagen
-   före). Spärren får förbigås bara i ett öppet horisontfönster
-   (`pool_dataset.horizon_window_open`), eftersom en horisont observeras en enda
-   gång och aldrig får bakfyllas. Se `docs/m20-och-falsk-franvaro-2026-07-25.md`.
+   gjorde "vi frågade inte" till "Pinnacle listar inte matchen". Spärren får förbigås
+   bara i ett öppet horisontfönster (`pool_dataset.horizon_window_open`), eftersom en
+   horisont observeras en enda gång och aldrig får bakfyllas.
 7. **En latest-state-tabell är inget facit på att en källa kördes.**
-   `oddset_source_health` har PK `(source, league, scope)` och skriver över sig
-   själv — den svarar bara "vad sa källan sist". `oddset_source_health_log`
-   (2026-08-02) är append-only med `checked_at` i nyckeln och är den enda som
-   får bevisa att en källa kontrollerades i ett visst varv. Beskärs 30 dygn på
-   djupvarvet. Samma princip som presence-ledgern: skriv en rad per kontroll,
-   annars går "vi frågade och fick tomt" inte att skilja från "vi frågade
-   aldrig".
-8. **`Z` betyder UTC, inte bara ett suffix.** En offsetmedveten tid måste
-   konverteras med `astimezone(timezone.utc)` innan den formateras med `Z`.
-   Europatipset 2597 fick annars `21:25Z` av `21:25+02` fast rätt tid var
-   `19:25Z`, vilket gömde publicerad utdelning i exakt två timmar.
+   `oddset_source_health` skriver över sig själv. `oddset_source_health_log` är
+   append-only med `checked_at` i nyckeln och är den enda som får bevisa att en källa
+   kontrollerades i ett visst varv. Skriv en rad per kontroll, annars går "vi frågade
+   och fick tomt" inte att skilja från "vi frågade aldrig".
+8. **`Z` betyder UTC, inte bara ett suffix.** En offsetmedveten tid måste konverteras
+   med `astimezone(timezone.utc)` innan den formateras med `Z`.
+9. **Klockan injiceras, aldrig gömd i SQL** (`'now'`) eller i en funktion ett test inte
+   kan styra — annars får testet ett bäst-före-datum (main var röd 2026-09-02 för att en
+   "färsk" rad hunnit bli 31 dagar).
 
 ### 📦 TRANSPORTREGELN — status 200 betyder inte läsbar kropp
 
 `brotli` MÅSTE finnas i venv:et (`requirements.txt`). CloudFront svarar
 `content-encoding: br` även på `Accept-Encoding: gzip`, och httpx avkodar br
 bara om paketet är installerat — annars kommer kroppen tillbaka som binärt
-skräp med status 200. Betsson-bootstrapen dog i drift 2026-07-25 med "saknar
-sportsbookBrandId" på en fullt fungerande sida, medan de fixturbaserade
-testerna var gröna. **En parse som misslyckas på 200 är ett transportfel
+skräp med status 200. **En parse som misslyckas på 200 är ett transportfel
 tills motsatsen är bevisad** — kontrollera `content-encoding` innan du drar
 slutsatsen att sidan ändrats eller källan blockerar.
 
 ### ⚡ MODELLFITTEN CACHAS — rör inte numeriken för att vinna tid
 
-`oddset_model.cached_fit()`/`cached_results()` är ENDA vägen till en ligafit i
-ett HTTP-svar. Fitten refittades tidigare per request: profilen på
-`/api/oddset/matches` visade `attach_model` 1,087 s av 1,331 s (82 %), och
-`powerrank?league=all` byggde ELVA egna fits (2,2 s) parallellt med
-matchhämtningen. Underlaget ändras bara när varvet skriver nya resultat.
-
-Nyckeln är `(db_path, resultat-datastämpel, dagens datum)` + 1 h TTL.
-Databasen MÅSTE ingå — två tomma DB:er ger annars samma fingeravtryck och
-delar fit. TTL:n är skyddsnät: stämpeln fångar tillägg, inte uppdateringar på
-plats. Den cachade basfitten returneras alltid som en isolerad deepcopy:
-`_ensure_priors` muterar requestens kopia och får aldrig förorena nästa svar.
-Modellen är amber, så upp till en timmes inaktualitet vid uppdatering på plats
-kostar inget.
+`oddset_model.cached_fit()`/`cached_results()` är ENDA vägen till en ligafit i ett
+HTTP-svar. Nyckeln är `(db_path, resultat-datastämpel, dagens datum)` + 1 h TTL —
+databasen MÅSTE ingå (två tomma DB:er ger annars samma fingeravtryck). Den cachade
+basfitten returneras alltid som isolerad deepcopy; `_ensure_priors` får aldrig förorena
+nästa svar.
 
 Optimera ALDRIG `_anchor_total`/`dc_matrix` genom att ändra konvergens eller
 iterationer — det ändrar modellens utdata, alltså `model_version`, och
 nollställer dess facitgrupp. Cachning är gratis; numerik är det inte.
 
-**`UI_HIDDEN_SOURCES`** (oddset.py) döljer källor i API-payloaden — i dag
-`smarkets`, som varken är spelbar bok eller ankare sedan 2026-08-07 och kostade
-116 kB (10 %) per listhämtning. Att DÖLJA är inte att AVSPÄRRA: spärren i
-`ANCHOR_SOURCES` står kvar, insamlingen fortsätter för promotionsregeln, och
-den INTERNA payloaden till WP5-ledgern strippas aldrig (det vore en ändrad
-förregistrerad process). Låst av
-`test_dold_kalla_forsvinner_ur_api_men_inte_ur_ledgerns_payload`.
-
-**Dev-servern dubbelkör allt.** `<StrictMode>` + `npm run dev` gör att varje
-effekt körs två gånger, så Oddset-vyn hämtar matcher, powerrank, notiser och
-radar TVÅ gånger vid mount. Uppmätt första paint: 2 110 ms på dev mot
-**619 ms till första listan på den byggda bunten** efter Idag-fristen
-(`npm run serve`, port 5175). Ordinarie `start.sh` kör den byggda bunten;
-dev-servern hör hemma på 5181. Ta med det innan du jagar en frontendbugg som
-är ett dev-artefakt.
+**`UI_HIDDEN_SOURCES`** (oddset.py) döljer källor i API-payloaden (i dag `smarkets`).
+Att DÖLJA är inte att AVSPÄRRA: spärren i `ANCHOR_SOURCES` står kvar, insamlingen
+fortsätter för promotionsregeln, och den INTERNA payloaden till WP5-ledgern strippas
+aldrig. Låst av `test_dold_kalla_forsvinner_ur_api_men_inte_ur_ledgerns_payload`.
 
 ### 🎯 ANKARE ≠ BOK
 
 `BOOKS` i oddset.py styr INSAMLINGEN. `oddset_value.ANCHOR_SOURCES` styr
-VÄRDERINGEN. Båda behövs: `attach_value` byggde tidigare sin boklista som
-"allt utom pinnacle", så Smarkets blev automatiskt en bok att hitta värde hos
-trots att den låg utanför `BOOKS` — 192 felaktiga flaggor innan det upptäcktes.
-Lägger du till en sharp-referens (börs, andra sharp-böcker) MÅSTE den in i
-`ANCHOR_SOURCES`, annars förorenar den CLV-facitet. Spärren är låst av
-`tests/test_oddset_value.py::AnchorSourceTests` sedan 2026-07-25.
+VÄRDERINGEN. Båda behövs. Lägger du till en sharp-referens (börs, andra sharp-böcker)
+MÅSTE den in i `ANCHOR_SOURCES`, annars förorenar den CLV-facitet. Spärren är låst av
+`tests/test_oddset_value.py::AnchorSourceTests`.
 
-**CLOSING-DRIFT (v8, 2026-08-07):** `fair` är inte Pinnacles pris NU utan en
-skattning av var det STÄNGER. Mätt på 10 908 parade observationer driftar
-Pinnacle systematiskt per band: favoriter −0,61 pp, outsiders +0,32 pp,
-mitten inte alls — konstant mellan T−24h och T−3h, ~5× mindre vid T−20m.
-Följden i facitet var att favoritflaggor gav +0,29 % close-EV (KI rymmer
-noll) mot outsiders +5,96 %. `drift_adjust` korrigerar per band i två
-tidsregimer; bandet sätts på den OJUSTERADE sannolikheten (annars cirkulärt)
-och summan normaliseras INTE om (det är en nivåkorrigering, ingen devigering).
-Detta är INTE momentum — korrelationen tidig/sen rörelse är +0,020, R²=0,000.
-Se `docs/closing-drift-v8-forregistrering-2026-08-07.md`.
+**CLOSING-DRIFT (sharp v8):** `fair` är inte Pinnacles pris NU utan en skattning av
+var det STÄNGER. `drift_adjust` korrigerar per band (favoriter ned, outsiders upp) i två
+tidsregimer; bandet sätts på den OJUSTERADE sannolikheten (annars cirkulärt) och summan
+normaliseras INTE om. Detta är INTE momentum. Förregistrering:
+`docs/closing-drift-v8-forregistrering-2026-08-07.md`.
 
-Andra ankaret är BORTKOPPLAT 2026-08-07: Smarkets har 56 030 priser på 1X2
-och NOLL på AH/Ö/U/hörnor, så den kunde bara mäta 24 % av flaggorna och 271
-frånvaronoteringar var brus om ett känt hål. **Spärren i `ANCHOR_SOURCES`
-står kvar** — den är en SÄKERHETSSPÄRR, inte en användning: utan den blir
-Smarkets en spelbar bok igen (184 av 476 felaktiga flaggor 2026-07-25).
-Historiska rader: andra ankaret (`ANCHOR2_SOURCE`) MÄTTES i skugga på varje flagga
-(`anchor2_*` i `oddset_value_log`, ⚓-raden i Signal-loggen) men får ALDRIG
-påverka urval, edge, q eller notiser: en selektionsändring byter
-`signal_version` och nollställer facitgruppen. Promotion till gate sker bara
-enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
+Andra ankaret (Smarkets) är BORTKOPPLAT 2026-08-07. **Spärren i `ANCHOR_SOURCES` står
+kvar** — en SÄKERHETSSPÄRR, inte en användning: utan den blir Smarkets en spelbar bok
+igen. `anchor2_*`-kolumnerna är historik och får ALDRIG påverka urval, edge, q eller
+notiser; promotion sker bara enligt `docs/tva-ankare-2026-07-25.md`.
+
 - Push-notiser: `app/notify.py` via ntfy.sh, kräver `NTFY_TOPIC` i gitignore:ade
-  `backend/.env`. Använd ett EGET topic (inte samma som svs — annars dubbla notiser).
-  Notifieringsspåret är pausat på Samans begäran 2026-07-16 — återuppta inte utan besked.
+  `backend/.env`. Använd ett EGET topic (inte samma som svs).
 
 ## Poolspelen (ärvt från svs — allt gäller oförändrat)
 
@@ -856,54 +371,31 @@ enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
 - Slugs: stryktipset, europatipset (har listing); topptipset, topptipsetstryk, topptipsetextra
   (pid 25/23/24, INGEN listing → nummerscanning med seed i meta-tabellen). Topptipset-fliken
   aggregerar alla tre via `GAME_GROUPS`; varje omgång bär sin egen `product`-slug.
-  **Scanhintet ägs av `Storage.seed_hint()`/`store_seed()`** och MÅSTE användas
-  av både API och insamlingsvarv — `_scan_draws` tittar bara 80 nummer framåt.
-  `cli.py` körde på kodens statiska seed (4177) medan `main.py` läste meta
-  (4259), så Topptipset Dagens 4256+ låg utanför varvets scanfönster: appen
-  visade omgångarna, varvet slutade TYST samla dem 2026-08-04. Stryk och Extra
-  låg kvar innanför fönstret och dolde felet. Varvet skriver tillbaka hintet
-  själv, och hintet går bara FRAMÅT.
-  **ANKARET ≠ HINTET (2026-08-14).** `seed_hint()` returnerar SCANANKARET:
-  högsta sedda omgång, men aldrig så högt att en omgång vi vet är öppen faller
-  under `_scan_draws` fönster (`back=8` bakåt). `stored_seed()` är det RÅA
-  hintet och är det `store_seed()` jämför mot — annars kan ett kort
-  scanresultat skriva ner hintet permanent. Bakgrund: hintet stod på 4275
-  medan Topptipset 4264 var öppen och stängde samma dag — elva nummer mot
-  `back=8` — så 4264–4266 blev osynliga för varvet: inga snapshots och NOLL
-  PH3-frysningar, medan appen visade dem. Samma fel som 2026-07-24, då `back`
-  höjdes 4 → 8. **Höj inte `back` en tredje gång** — det är en gissning om SvS
-  publiceringstakt som slagit fel två gånger. Golvet är mätt i stället och
-  självläker: en avgjord omgång slutar dra ner ankaret.
-  Golvet räknar bara omgångar som RIMLIGEN är öppna: `state='Open'` OCH
-  spelstopp inom `SCAN_LIVE_GRACE_H` (24 h) bakåt. Utan tidsvillkoret pinnade
-  61 spökrader ankaret på sin bound — rader som stängt medan de låg utanför
-  fönstret och därför aldrig fick sitt tillstånd uppdaterat.
-  `Storage.sync_draw_states()` skriver därför tillståndet för ALLA listade
-  omgångar, inte bara de öppna varvet snapshottar; listningen bär det redan,
-  så det kostar inget extra anrop. `SCAN_ANCHOR_MAX_BACK` (40) är sista
-  skyddet mot en omgång som fastnat med spelstopp i framtiden.
-  En förlorad h3-frysning går ALDRIG att bakfylla — den sparas som
-  `timely=0` och räknas därmed inte i facitet.
+  **Scanhintet ägs av `Storage.seed_hint()`/`store_seed()`** och MÅSTE användas av både
+  API och insamlingsvarv — `_scan_draws` tittar bara 80 nummer framåt. Hintet går bara
+  FRAMÅT. **ANKARET ≠ HINTET:** `seed_hint()` returnerar SCANANKARET (aldrig så högt att en
+  öppen omgång faller under `back=8`); `stored_seed()` är det RÅA hintet som `store_seed()`
+  jämför mot och som poolhälsan larmar på. Golvet räknar bara omgångar som RIMLIGEN är
+  öppna (`state='Open'` OCH spelstopp inom `SCAN_LIVE_GRACE_H`); `sync_draw_states()`
+  skriver tillståndet för ALLA listade omgångar. **Höj inte `back` en tredje gång.**
+  En förlorad h3-frysning går ALDRIG att bakfylla — `timely=0`, räknas inte i facitet.
 - Svenska decimaler: "5,50" → 5.50 (`_f` i svenskaspel.py). `svenskaFolket` = streck %,
   `currentNetSale` = omsättning, `drawEvents[].match.participants[].isoCode` = flaggor.
 - `/draws/{nr}/result` ger `distribution` (faktiska vinstnivåer/utdelningar).
 - **Jackpot**: `/draw/1/jackpots` (matcha på productId + drawNumber — `fund` på draws är
   opålitligt). Belopp som svensk decimalsträng ("6000000,00").
-- Vinstplaner OMMÄTTA 2026-07-24 mot settlementlagret (150 omgångar/produkt):
-  **Stryktipset** 40/15/12/25, **Europatipset har EGEN plan** 39/**22**/12/25 —
-  den gamla koden kopierade Stryktipsets och underskattade Europas 12-rättspott
-  med 47 %. Splitsen summerar till < 1 (Stryk 0,92, Europa 0,98); resten går
-  till jackpotfonder. Använd `_payout_ratio()` (= ratio × Σsplits) för allt som
-  visas som återbetalning: Stryk **59,8 %**, Europa **63,7 %**, Topptipset 70 %.
-  Break-even mot fältet är därmed +67 % (Stryk), inte +54 %. `/api/payouts`
-  svarar med `payout_ratio`, `hurdle`, `product` och `guarantees`.
-- **Garantier** (`guaranteedJackpots`, t.ex. ensamvinnargaranti 10 Mkr) läses av
-  `get_guarantees()` och visas i UI men går ALDRIG in i EV — villkoren är inte
-  verifierade mot SvS regler. `get_jackpot()` summerar bara rullpotten.
-- **Strukna matcher räknas normalt** (uppmätt: mest streckade tecknet vinner
-  52,8 % i 593 strukna mot 52,1 % i 75 514 ostrukna; inga extra toppvinnare per
-  omsatt krona). Tvinga aldrig helgardering på dem — det tredubblar kostnaden.
-  Topptipset 70 %, bara 8 rätt delar potten. Finns i `PRIZE_PLANS` i main.py.
+- Vinstplaner OMMÄTTA 2026-07-24 mot settlementlagret:
+  **Stryktipset** 40/15/12/25, **Europatipset har EGEN plan** 39/**22**/12/25.
+  Splitsen summerar till < 1 (Stryk 0,92, Europa 0,98); resten går till jackpotfonder.
+  Använd `_payout_ratio()` (= ratio × Σsplits) för allt som visas som återbetalning:
+  Stryk **59,8 %**, Europa **63,7 %**, Topptipset 70 %. Break-even mot fältet är därmed
+  +67 % (Stryk). `/api/payouts` svarar med `payout_ratio`, `hurdle`, `product`, `guarantees`.
+- **Garantier** (`guaranteedJackpots`) läses av `get_guarantees()` och visas i UI men går
+  ALDRIG in i EV — villkoren är inte verifierade mot SvS regler. `get_jackpot()` summerar
+  bara rullpotten. `/jackpots` hämtas EN gång per payouts-anrop; **cachen ligger i
+  API-lagret, inte i klienten** — varvet anropar utan `data` och observerar färskt.
+- **Strukna matcher räknas normalt** (uppmätt: ingen fördel). Tvinga aldrig helgardering
+  på dem. Topptipset 70 %, bara 8 rätt delar potten. Finns i `PRIZE_PLANS` i main.py.
 
 ### Pinnacle (sharp-odds, gratis)
 
@@ -911,19 +403,11 @@ enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
   soccer = sport 29. `/sports/29/matchups` + `/sports/29/markets/straight` (moneyline period 0).
   Amerikanska odds → decimal. Matchning via ISO/pycountry + fuzzy + tidsfönster + spegling 1↔2.
 - Saknas moneyline härleds 1X2 ur spread/total (derive.py) — märks `P~` i UI.
-- **CDN-CACHE (uppmätt 2026-07-24):** bulk-endpointerna svarar
-  `cache-control: public, max-age=905` och objektet är ofta redan flera minuter
-  gammalt (observerat `age` 469–539 s). **Hämtningstid ≠ pristid** — samma
-  klass av fel som pit-v1:s förändringstid ≠ observationstid. `Pinnacle`
-  exponerar `last_age_s`; sedan 2026-07-25 drar både Oddset-färskhet och
-  poolens PIT-capture av den. Liveverifiering: hämtning 23:15:31,
-  `Age=338` ⇒ observation 23:09:53. Kadenskonsekvens: snabbvarv
-  oftare än ~15 min ger SAMMA objekt igen. Per-matchup-endpointen
-  (`/matchups/{id}/markets/straight`) är däremot liten (8 kB) och är den enda
-  som ger LIVE-priser — `/markets/related/straight` returnerar tyst FRYSTA
-  prematch-marknader (lätt fälla).
+- **CDN-CACHE:** bulk-endpointerna svarar `max-age=905` och objektet är ofta redan flera
+  minuter gammalt. `Pinnacle` exponerar `last_age_s`; Oddset-färskhet och poolens PIT-capture
+  drar av den. Per-matchup-endpointen (`/matchups/{id}/markets/straight`) är den enda som
+  ger LIVE-priser — `/markets/related/straight` returnerar tyst FRYSTA prematch-marknader.
 - OBS (vm-lärdom): Arcadia Cloudflare-blockar i perioder på IP-nivå — headers/TLS hjälper EJ.
-  vm:s fallback via the-odds-api är mönstret om det blir akut.
 
 ### Domänmodell (kärnformler)
 
@@ -933,141 +417,93 @@ enligt den förregistrerade regeln i `docs/tva-ankare-2026-07-25.md`.
 - **EV per rad** (poolspel): P(rad) × utdelning där utdelning = pott_nivå / (fält × P_folk(rad) + 1),
   cappad vid potten. Jackpot/rullpott läggs på toppnivån **före radvalet**.
   Medvinnare per nivå via Poisson-binomial. +1 = du själv.
-  `evalRows` (frontend) och `build_ev_system` (backend) — håll dem konsistenta.
-- **κ för poolmedvinnare** skattas som `Σ faktiska vinnare / Σ prognos` med
-  omgången som bootstrap-block, aldrig som medel/geometriskt medel av enskilda
-  kvoter. **PH4-analysen 2026-07-24 (`docs/ph4-analys-2026-07-24.md`,
-  7 754 omgångar) mätte κ>1 överallt** (4–29 %; U-formad folkkorrelation =
-  fetare svansar; favoriter överstreckade). Sedan 2026-07-24 är κ per produkt
-  och nivå INKOPPLAD i radvalet: `builder.KAPPA` + `KAPPA` i App.jsx måste
-  hållas identiska. Sedan 2026-07-28 även i PORTFÖLJSIMULERINGEN
-  (`pool_mc kappa_by_tier` via /api/system) — alla tre värderingsvägarna
-  ska berätta samma sanning. κ>1 sänker EV — korrektionen kan aldrig blåsa
-  upp förväntningar, och PH3-ledgern mäter nu champion MED κ.
-- **Streck-golv:** `builder._pq` och frontendens `folkProb` golvar folkets
-  sannolikhet vid 0,001. Utan golv gav streck = 0 utdelning = hela potten.
-- **Pool-PIT presence-regel:** `snapshots`/`sharp_snapshots` är ENBART
-  förändringsserier. Endast `pool_market_capture` får bevisa att en källa var
-  observerad vid T−24h/T−3h/T−20m; gamla `pit-v1`/PH0-laggar får aldrig
-  omtolkas till presence. `pool-streckmove-v1`/`pit-v2` hann aldrig
-  forward-scoras och är historiskt fryst. Aktuellt experiment finns i
-  `docs/pool-ph4-forward-manifest-v2.json` och börjar rent med `pit-v3`;
-  captures före `FEATURE_START_AT` får aldrig bakfyllas in.
+  `evalRows` (frontend, `src/lib/poolEv.js`) och `build_ev_system` (backend) — håll dem konsistenta.
+- **κ för poolmedvinnare** skattas som `Σ faktiska vinnare / Σ prognos` med omgången som
+  bootstrap-block. κ per produkt och nivå är INKOPPLAD i radvalet, portföljsimuleringen
+  (`pool_mc kappa_by_tier`) och PH3-ledgern: `builder.KAPPA` och `KAPPA` i
+  `src/lib/poolEv.js` MÅSTE vara identiska — låst av `tests/test_kappa_synk.py`. κ>1 sänker
+  EV — korrektionen kan aldrig blåsa upp förväntningar.
+- **Streck-golv:** `builder._pq` och frontendens `folkProb` golvar folkets sannolikhet vid
+  0,001. Utan golv gav streck = 0 utdelning = hela potten.
+- **Pool-PIT presence-regel:** `snapshots`/`sharp_snapshots` är ENBART förändringsserier.
+  Endast `pool_market_capture` får bevisa att en källa var observerad vid T−24h/T−3h/T−20m;
+  gamla laggar får aldrig omtolkas till presence. Captures före `FEATURE_START_AT` får
+  aldrig bakfyllas in.
 - **Värderader**: score = P(rad)^k × EV(rad) där k = 2·(1−value_weight); reglaget är enda
   risk-axeln (strategin sätter bara startpunkten 20/50/80).
+- **X-skydd (`pool-draw-risk-v1`):** vid Pinnacle-total ≤ 2,25 skyddas X från 29,5 %
+  (32 % utan total) i ALLA automatiska systembyggen. Totalen sparas point-in-time.
 - **RLM**: folket och devigad sharp åt olika håll (◆ smart pengar / ⚠ fadea).
 - **Streck-allokering** (`_size_to_budget`): värde/kostnads-girig per Δlog(täckt sannolikhet)/Δlog(rader).
-- **Steam** (`app/steam.py`): devigade sannolikhetsskift (pp) över 6/24/72 h; 🔥 + ntfy på
+- **Steam** (`app/steam.py`): devigade sannolikhetsskift (pp) över 6/24/72 h; 🔥 på
   24h-skiftet (≥3,5 pp markant, ≥6 pp stark). `movement_with_steam` är delade helpern.
 - Bomben: kolumn-baserad byggare (rader = manuell ifyllnad = fil = kostnad), Poisson-modell,
   hålls utanför CLV-facitet (modell-härledd). INGEN exakt-rad-reducering.
-- Projicerad slutomsättning: `_projected_turnover` i main.py — sedan 2026-07-28
-  median av senaste 8 avgjorda omgångar med SAMMA spelstoppsveckodag ur LOKALA
-  `pool_draw_settlement` (0 nätverk; Europatipsets onsdag ≠ söndag), fallback
-  senaste-6 redovisad i `projection_basis`. EV-/färgsystem räknar mot
-  prognosen; EV mot dagens omsättning är glädjesiffror. Jackpotläge saknas
-  medvetet (ingen jackpotkolumn i settlementlagret).
-  **Byggaren (`systemStats`) värderar alltid mot prognosen, kupongen
-  (`couponStats`) mot LIVE tills användaren trycker `→ prognos`** — därför
-  visar de två panelerna olika tal på samma system, och skillnaden är exakt
-  omsättningskvoten. Det är avsiktligt, men måste sägas ut i UI:t.
-  `PayoutTable` härleder omsättning OCH etikett ur `s.turnover`, dvs. den
-  potterna faktiskt byggdes med; skicka aldrig in omsättningen separat
-  (2026-08-06 beskrev byggarens fottext prognospotter som `live`).
+- Projicerad slutomsättning: `_projected_turnover` — median av senaste 8 avgjorda omgångar
+  med SAMMA spelstoppsveckodag ur LOKALA `pool_draw_settlement`. EV-/färgsystem räknar mot
+  prognosen; EV mot dagens omsättning är glädjesiffror. **Byggaren (`systemStats`) värderar
+  alltid mot prognosen, kupongen (`couponStats`) mot LIVE tills användaren trycker
+  `→ prognos`** — avsiktligt, men måste sägas ut i UI:t. `PayoutTable` härleder omsättning
+  OCH etikett ur `s.turnover`; skicka aldrig in omsättningen separat.
+- **Chansmotorn räknar EXAKT** (klotunion, `_ball_union_probabilities`), inte simulerat;
+  Monte Carlo bara när klotet inte ryms i `CHANCE_BALL_MAX_CANDIDATES`. `_round_chance`
+  behåller minst tre värdesiffror. Varje match utan livepris TREDUBBLAR arbetet — mät
+  alltid med `chance_unpriced` i handen.
 
 ### Export till Svenska Spel ("Egna rader")
 
 - `.txt` (CRLF) med obligatorisk rubrikrad: Stryktipset/Europatipset = produktnamnet;
   Topptipset = `Topptipset[,Stryk|,Europa],Omg=<nr>,Insats=<1–10>`. Därefter `E,1,X,2,...`.
-- Exportera alltid konkreta enumererade rader (E), aldrig M-system.
+- Exportera alltid konkreta enumererade rader (E), aldrig M-system. SvS filspec: högst
+  10 000 rader per fil och 20 000 kr insats.
 - Uppladdning på `spela.svenskaspel.se/{produkt}/externa-systemspel`.
-- Om 🎟-knappen glömdes kan samma sparade fil importeras i Historik. API:t
-  `/api/pool/played/import/preview` skriver inget; först en uttrycklig
-  bekräftelse till `/api/pool/played/import` skapar ledgerraden. Filnamnets
-  omgång används för Stryk/Europa eftersom deras rubrik saknar `Omg`; en
-  omdöpt fil kräver manuellt omgångsnummer och konflikt faller stängt.
+- Om 🎟-knappen glömdes kan samma sparade fil importeras i Historik:
+  `/api/pool/played/import/preview` skriver inget; först `/api/pool/played/import` skapar
+  ledgerraden. Filnamnets omgång används för Stryk/Europa; omdöpt fil kräver manuellt
+  omgångsnummer och konflikt faller stängt.
 - R 4-0-9 / R 0-7-16 / R 4-4-144 är exakta Hamming-täckningar; R 3-3-24 är greedy (38 rader).
 
 ### CLV-facit (signalvalidering)
 
-- **Modelldata v6:** `oddset_results` bär bara matchidentitet och normaltids-
-  resultat. En komplett football-data-rad vinner atomiskt som resultatfacit
-  (källa, råa lagnamn, hemma- och bortamål som ett paket). xG och hörnor bor i
-  `oddset_result_stats`: välj alltid ett komplett hem/borta-par per
-  statistikfamilj och redovisa `xg_provider*` respektive
-  `corners_provider*`; blanda aldrig fält mellan providers. Flashscore och
-  Sofascore samlas parallellt. Frånvaro har provider i primärnyckeln,
-  namespacade spelar-id:n och status `observed`/`unavailable`; transportfel är
-  aldrig `unavailable`, medan ett lyckat tomt svar är en riktig observation.
-  `MODEL_DATA_VERSION=6` och V2.2-manifest v10 isolerar äldre kohorter.
-  **`RESULT_STATS_PRIORITY` är `sofascore` FÖRE `flashscore`** sedan
-  2026-08-21: på 47 matcher där båda mätt ligger Flashscore −0,19 xG per lag
-  (median 0,00, sd 0,38, max 1,99; bara 63 % inom ±0,10). Flashscore vann alla
-  47 och började samla först 2026-08-06, alltså uteslutande på de NYASTE
-  matcherna (45 % av Allsvenskans 40 senaste). Fitten är tidsviktad, så exakt
-  de tyngst vägande matcherna bytte xG-skala — modellen läste ett anfallstapp
-  som bara var ett källbyte. Flashscore står kvar som korskontroll och som
-  fallback när Sofascore genuint saknar matchen.
-  **Ett verifierat alias vinner över "namnet finns redan i canon"** när även
-  aliasets mål är kanoniskt: football-data skrev `Rayo Vallecano` EN gång och
-  `Vallecano` 77 gånger, och den enda raden lyfte in varianten i canon så att
-  kortslutningen returnerade namnet oförändrat. Följden var 76 dubblettmatcher
-  i La Ligas fit. Undantaget berör uppmätt exakt ETT par över alla aliasligor.
-
-- `app/clv.py` + `value_log`-tabellen: gröna värde-kvoter (≥1.08) / sharp-edge (≥2 %) loggas
-  first/best per selektion; stängning = devigad Pinnacle; facit från resultat-API:t.
-- **Utfalls-facit för Oddset-flaggor (P2, 2026-07-28):** `oddset_value_log`
-  har `outcome`/`outcome_key`; `resolve_outcomes` settlar 1X2 via modell-
-  spårets join (alias, ±1 dygn, tvetydighet ⇒ ingen gissning). Resultat-ROI/
-  träff är DISPLAY (🎯 i Signal-loggen) — grindarna ägs av close-EV. Ligor
-  utan football-data får resultat via `RESULT_ONLY_UT` (Sofascore, normaltid,
-  INGA statistik-anrop; en EGEN tabell — SOFA_UT ingår i wp9c-/V2.2-
-  fingeravtrycken och rörs bara vid omfrysning).
+- **Modelldata:** `oddset_results` bär bara matchidentitet och normaltidsresultat (en
+  komplett football-data-rad vinner atomiskt). xG och hörnor bor i `oddset_result_stats`:
+  alltid ett komplett hem/borta-par per statistikfamilj med `*_provider*`; blanda aldrig
+  fält mellan providers. `RESULT_STATS_PRIORITY` är `sofascore` FÖRE `flashscore`
+  (Flashscore mäter systematiskt lägre xG; kvar som korskontroll/fallback). Frånvaro har
+  provider i primärnyckeln; transportfel är aldrig `unavailable`, ett lyckat tomt svar är
+  en riktig observation. Ett verifierat alias vinner över "namnet finns redan i canon".
+- `app/clv.py` + `value_log`: poolens gröna värde-kvoter (≥1.08) / sharp-edge (≥2 %)
+  loggas first/best per selektion; stängning = sista devigade Pinnacle FÖRE avspark.
+- **Utfalls-facit för Oddset-flaggor:** resultat-ROI/träff är DISPLAY — grindarna ägs av
+  close-EV. Ligor utan football-data får resultat via `RESULT_ONLY_UT` (egen tabell; ingår
+  i V2.2-fingeravtrycken och rörs bara vid omfrysning).
 - **Metodregel (dyrast lärdom från vm):** ENDAST marknadspriser får logga flaggor —
-  modellhärledda sannolikheter förorenar facitet. Sedan 2026-07-24 gäller den
-  även UI:t: amber-modellen mäter −4,2 % close-EV (KI utan noll) och får därför
-  inte ge stödchip eller lyfta ett spelkort till "★ starkast stödd".
-- **Statistikregler för facitet (2026-07-24, efter att +6,6 % visade sig vara
-  +2,65 %):** (1) `oddset_clv_rows()` utan `limit` = hela historiken — trunkering
-  ger survivorship; (2) huvudsiffra och KI måste vara SAMMA estimand
-  (`avg_close_ev` är winsoriserad som KI:t, `avg_close_ev_raw` visas separat);
-  (3) censurerade linjeflyttar räknas (`n_censored`, `resolved_share`) och
-  blockerar grönt om de utgör majoriteten av de stängbara flaggorna;
-  (4) statusbeslut (candidate/green) körs på förregistrerad kadens
-  `EVAL_INTERVAL_H` = 1 vecka — utvärdering vid varje 30-minutersvarv är
-  sekventiell testning och lyser förr eller senare grönt på brus.
-- Oddset-facitets identitet är match + marknad + tecken + normaliserad lina +
-  semantisk signalversion. Stäng alltid mot flaggans lina när ett färskt pris
-  finns; spara annars slutlinans delta som `linje flyttad` utan fabricerat
-  close-EV. Positivt `line_move_score` betyder rörelse med selektionen.
-- `scripts/close_drift_facit.py` och `close_drift_facit_v2.py` väljer en
-  **exakt** `signal_version` (default = aktuell sharp-version). Nycklar och
-  linjeflyttsjoin innehåller versionen; rapporter får aldrig slå ihop eller
-  korsjoina historiska versioner.
-- WP5-ledgern (`app/oddset_ledger.py`) är forskningsfacitet: alla prediktioner
-  och oflaggade kontroller fryses vid T−24 h/T−3 h/T−20 min. Bakfyll aldrig en
-  missad horisont; capture-markören bevarar även tomt källutfall. Endast captures
-  inom 45/15/10 min timingtolerans får bidra till candidate/green.
-- Primära grupper är sharp × 1X2 × Allsvenskan/Superettan/Eliteserien/OBOS/
-  MLS. Träningsmatcher och alla andra grupper är utforskande och kräver
-  BH-FDR 10 %. Candidate är sticky; green kräver out-of-time-data efter
-  candidate-datumet. Aggregat får aldrig ändra gruppstatus.
-- V2.2-shadow (`app/oddset_v22.py`) får bara samla de fem manifestligorna/1X2.
-  PL/Serie A/La Liga/Bundesliga är `research_only` men SYNS sedan 2026-07-24 i
-  ordinarie vyn (`visible_in_ui`, 🔬-märkta): odds/prisålder/rörelser visas,
-  UI-payloaden strippar värde-/modellfält och `_research_next_round` visar
-  nästa omgång under säsongsuppehåll. Actionability är oförändrat avstängd —
-  inga värdesignaler/Kelly/notiser/CLV/ordinarie model-captures. Före
-  träningsgaten måste `p_v22 == p_sharp` exakt; tabellen läses inte av
-  värde-, notis-, CLV- eller ordinarie UI-vägar.
+  modellhärledda sannolikheter förorenar facitet. Gäller även UI:t: amber-modellen får inte
+  ge stödchip eller lyfta ett spelkort till "★ starkast stödd".
+- **Statistikregler för facitet:** (1) `oddset_clv_rows()` utan `limit` = hela historiken —
+  trunkering ger survivorship; (2) huvudsiffra och KI måste vara SAMMA estimand
+  (`avg_close_ev` winsoriserad som KI:t, `avg_close_ev_raw` separat); (3) censurerade
+  linjeflyttar räknas (`n_censored`, `resolved_share`) och blockerar grönt om de är
+  majoriteten; (4) statusbeslut (candidate/green) körs på förregistrerad kadens
+  `EVAL_INTERVAL_H` = 1 vecka — utvärdering varje varv är sekventiell testning.
+- Grönt-kriterium v2: ≥ `GREEN_MIN_N` (50) stängda OCH undre bootstrap-KI-gräns > 0
+  (kluster per match), per liga/marknad/modellversion. **Grönt beslutas per signalgrupp,
+  aldrig per tier/aggregat.**
+- Facitets identitet är match + marknad + tecken + normaliserad lina + semantisk
+  signalversion. Stäng mot flaggans lina när ett färskt pris finns; annars `linje flyttad`
+  utan fabricerat close-EV. Rapporter får aldrig slå ihop eller korsjoina versioner.
+- WP5-ledgern (`app/oddset_ledger.py`): alla prediktioner och oflaggade kontroller fryses
+  vid T−24 h/T−3 h/T−20 min. Bakfyll aldrig en missad horisont. Endast captures inom
+  45/15/10 min timingtolerans bidrar till candidate/green. Primära grupper är sharp × 1X2 ×
+  Allsvenskan/Superettan/Eliteserien/OBOS/MLS; övriga kräver BH-FDR 10 %. Candidate är
+  sticky; green kräver out-of-time-data. Aggregat får aldrig ändra gruppstatus.
+- Versionspolicy: `signal_version` (s-/m-fingeravtryck) grupperar facitet, `git_hash` ger
+  reproducerbarhet — docs/UI-commits får inte fragmentera facitet.
 
-## Oddset-delen (byggs nu — se docs/plan.md för detaljer)
+## Oddset-delen
 
-- Mönsterkälla: `/Users/saman/vm/backend/app/` — `pinnacle.py` (AH/ÖU/hörn-specials via
-  units='Corners'), Kambi-klienten (Svenska Spel Sport, operator `svenskaspel`, milliodds:
-  1420=1.42, line i milli: 2500=2.5), `value.py`/`service.value_screen` (power-devig sharp
-  vs bok), `model.py` (Dixon-Coles, μ KALIBRERAS mot sharp ÖU-linje ≈ median), steam/CLV/
-  notify-mönstren, `elo.py` (ClubElo), `oddsapi.py` (the-odds-api, vilande).
+- Mönsterkälla: `/Users/saman/vm/backend/app/` (Pinnacle AH/ÖU/hörnor, Kambi-klienten med
+  milliodds 1420=1.42 och line 2500=2.5, värdescreen, Dixon-Coles, steam/CLV/notify, ClubElo).
 - Enbart gratiskällor (användarbeslut 2026-07-12); rena betalspår = framtida projekt.
 
 ### 🚧 KÄLLGRÄNSEN (Samans beslut 2026-07-25: flyttad så långt den går)
@@ -1091,23 +527,33 @@ att framstå som en inloggad/verifierad klient · skapa konton eller logga in.
 **Tumregel:** en endpoint som svarar 401/403 *därför att en utmaning eller
 session saknas* förblir stängd. En som svarar med data givet publika konstanter
 är öppen. bet365, Coolbet, Betano och Betssons `events-table` ligger bakom det
-förra.
+förra. AWS Lightsail Stockholm är avfärdat som serverplats (Sofascore 403 på alla
+modellvägar) — se `docs/serverfragan-avslutad-2026-08-11.md`.
 
 **Miljöanteckning:** behörighetsklassaren blockerar skript som söker tokens i
 JS-buntar (det läser som token-skörd) även när gränsen tillåter det. Behövs det
-måste Saman lägga in en Bash-behörighetsregel — se
-`docs/live-kallor-2026-07-25.md`.
+måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-07-25.md`.
+
 - Tier-regel för tips: **sharp-ankrat = actionable (grönt, in i CLV); modell-utan-sharp =
   amber (bakom toggle, UR CLV)** — vm bevisade tre gånger att modell-edges utan sharp-ankare
-  blir systematiskt uppblåsta (DC alt-totaler +40–55 %, hörnor +120 % okalibrerat).
-- Metodregler från granskningen 2026-07-13/16 (`docs/granskning-2026-07-13.md`):
-  asiatiska sannolikheter alltid settlement-aware (push/half-win) även i ankring;
-  notiser kräver närvaro-bekräftat bokpris (✅ notisvakten); alla prediktioner loggas vid
-  fasta horisonter med modellversion — flaggor är urval för handling, inte
-  utvärderingsunderlag; **grönt beslutas per signalgrupp, aldrig per tier/aggregat**;
-  versionspolicy: `signal_version` (s-/m-fingeravtryck) grupperar facitet, `git_hash`
-  ger reproducerbarhet — docs/UI-commits får inte fragmentera facitet.
+  blir systematiskt uppblåsta.
+- Metodregler från granskningen 2026-07-13/16: asiatiska sannolikheter alltid
+  settlement-aware (push/half-win) även i ankring; notiser kräver närvaro-bekräftat bokpris;
+  alla prediktioner loggas vid fasta horisonter med modellversion — flaggor är urval för
+  handling, inte utvärderingsunderlag.
 - **DB-ändringar = skript + backup + rapport** (`docs/db-atgarder.md`) — aldrig ad-hoc-SQL.
+  Kopiera aldrig en aktiv SQLite-fil med filkopiering — använd `.backup`.
+- Odds-eventidentitet: minsta laglikhet 0,55 på BÅDA sidor och parscore ≥0,75.
+  `pinnacle_id`/`kambi_id` är write-once, globalt unika och får aldrig bytas via fuzzy.
+  Samtidiga prisvarianter eller id-krock ger `data_conflict`: visa råodds diagnostiskt men
+  stoppa värde, steam, modell, ledger, CLV och notiser (`docs/oddset-identitetsaudit-2026-07-26.md`).
+- Resultatidentitet: fuzzy auto-merge kräver >0,75 och ALLA sådana länkar ska synas i
+  `cli.py modeldata` tills de flyttats till `TEAM_ALIAS`/meta. 0,55–0,75 mergas aldrig.
+  Kända falska par i `TEAM_REJECTED_LINKS`.
+- Frånvaro: `oddset_absence_capture` + `oddset_absence_player` är PIT-historiken; capture
+  skrivs även för en lyckad tom lista. ClubElo: `oddset_elo_capture`/`_rating` är
+  observerade dagrankingar, `oddset_elo_history` providerintervall för `as_of`-läsning —
+  retroanalys får aldrig använda dagens ranking; timeout/502 ska förbli retrybart.
 
 ## UI-konventioner
 
@@ -1116,81 +562,42 @@ måste Saman lägga in en Bash-behörighetsregel — se
 - Mobil: ALLT i `@media (max-width:760px)` — desktop får inte ändras. OBS:
   `td:first-child`-regler måste exkludera `.chartrow`.
 - Alla GET-fetch: `cache:'no-store'` + `&_t=${Date.now()}` (annars cachar webbläsare/iOS).
-- Tillstånd sparas i `localStorage` (`svs_state`); bootstrap återställer.
+- Tillstånd sparas i `localStorage` (`svs_state`); bootstrap återställer. Omladdning
+  börjar alltid i Idag (återinför inte `svs_v3_view`).
 - Inga `cursor: help`-frågetecken; förklaringar som title-tooltips.
 - Oddset-delen: röd = oddset NER (ökad vinstchans), grön = UPP (vm-konvention).
-- Oddset har FEM persisterade sub-tabbar. Antalen (live/värdespel/rörelser)
-  står PÅ flikarna sedan 2026-08-14 och är därmed alltid synliga; den separata
-  räknarraden upprepade tabbnamnen och åt en hel rad överst på mobil, så den
-  är dold där men står kvar på desktop för live-signalernas "att granska".
-  Verktygsraden (Modell, notiser, Datakällor, Fler odds) ligger bakom ⚙ på
-  mobil — kvar synliga är Bara signaler, hämtningstid och Färska odds.
-  Ligachipsen svepas i sidled med tonad högerkant, så en avklippt liga läses
-  som "det finns mer" och inte som ett renderingsfel.
-  **🏋 Lagstyrka (`powerrank-v2`, 2026-08-07)** visar modellens egen powerrank
-  per liga: `att`/`def` ur samma `fit_league` som prognoserna använder (aldrig
-  en parallell skattning), plus xPts ur matchernas xG och avvikelsen mot
-  faktiska poäng — positivt = laget har tagit mer än chanserna motiverar och
-  är kandidat för nedgång. **Poäng, mål och xPts mäts på EXAKT samma
-  matchmängd: de med observerad xG.** En match utan xG bidrar med ingenting,
-  och ett lag utan xG-matcher visas inte alls — v1:s skalning
-  `pts × n_xg / matches` antog att poängen fördelade sig jämnt över täckta
-  och otäckta matcher och gjorde avvikelsen till en approximation. Ingen
-  bakfyllning här; xG kommer ur `oddset_result_stats`.
-  `season_of()` avgör säsongsetikett på `FD_SEASON_CODES` (höst/vår ⇒
-  `2025/26`, annars kalenderår) — återanvänd den listan, skriv aldrig en
-  parallell. Säsongsvalet gäller BARA de räknade kolumnerna: fitten ser alltid
-  hela poolen med tidsvikt, och `MIN_MATCHES` prövas mot hela historiken så
-  tabellen inte är tom två månader varje säsongsstart.
-  `#` är styrkerank, INTE tabellplacering — avsiktligt, annars vore den bara
-  tabellen igen. Visningsnamnet (`name`) väljs bland RÅA namn: diakriter
-  först, sedan längst, och oddssidans namn (`Storage.oddset_team_names`)
-  läggs till som variant eftersom football-data strippar diakriter
-  (`Djurgarden` → `Djurgårdens IF`). Uppslaget kräver exakt normaliserad
-  nyckel — aldrig fuzzy, fel klubbnamn är värre än ett tråkigt.
-  Ranken syns även som chip i matchraden, uppslaget
-  på RÅA lagnamn (`aliases`), aldrig på substräng när ett exakt alias finns.
-  Allt detta är **AMBER**: uppmätt förutsäger modellen inte Pinnacles drift
-  till stängning (r = −0,120, 90 % KI [−0,252, +0,034]), så ranken får inte
-  ge stödchip, lyfta ett spelkort eller påverka edge, urval eller notiser.
-  Poolens nya styrkeblend är därför ett isolerat facitspår, inte ett undantag:
-  den får först mäta 90/10 mot Pinnacle och därefter passera en separat
-  system-shadow innan byggaren ens kan övervägas.
-  Jämförbara listor använder EN `SortableTable`: rubrikklick på desktop,
-  sortval + samma kortordning på mobil. Matcher-fliken har TVÅ persisterade
-  filter — Dölj/Visa startade och **Dölj/Visa utan odds** — och INGET av dem
-  får filtrera Live eller signalflikarna. Skapa aldrig tabbspecifika kopior.
-  **"Utan odds" (2026-08-14) är PÅ som standard** (`svs_oddset_hide_no_odds`,
-  omvänd default mot startade-filtret) och döljer matcher där ingen bok i
-  `PLAYABLE_BOOKS` (`svenskaspel`/`expekt`/`ninjacasino`) har ett pris —
-  28 av 190 vid införandet, mest småskaliga träningsmatcher plus omgångar där
-  boken inte öppnat. Skälet är MÄTT och inte principiellt: på just de
-  matcherna tar Pinnacle ~11,5 % marginal på 1X2 mot ~5,6 % i övrigt, medan
-  uppmätt closing-drift är 0,3–0,6 pp. Värdemotorn kan dessutom aldrig hitta
-  edge mot Pinnacle, eftersom `fair` ÄR Pinnacles devigade pris. Filtret är
-  RENT VISUELLT — insamlingen kör i `com.saman.spelkompisen.snapshot` och
-  `matches_payload()` skriver ingenting; en dold match fortsätter samla
-  priser, prediction-captures och rörelser, och syns kvar under Rörelser.
-- Labb äger validering och fulla loggar. Oddset är beslutsytan; Labb är
-  bevisytan. Stora loggar visas stegvis (200 rader) så mobilen inte låser sig.
-- Frånvaro: `oddset_absence_capture` + `oddset_absence_player` är PIT-historiken;
-  capture skrivs även för en lyckad tom lista. Sofascore `player.id` och position
-  bevaras. `meta oddset_abs:*` är bara senaste-payload för bakåtkompatibilitet.
-- ClubElo: `oddset_elo_capture`/`oddset_elo_rating` är observerade dagrankingar;
-  `oddset_elo_history` är providerintervall för historisk `as_of`-läsning.
-  Retroanalys får aldrig använda dagens meta-ranking. Backfill markerar bara en
-  klubb klar efter ett entydigt lyckat svar; timeout/502 ska förbli retrybart.
-- Resultatidentitet: fuzzy auto-merge kräver >0,75 och ALLA sådana länkar ska
-  synas i `cli.py modeldata` tills de flyttats till `TEAM_ALIAS`/meta. Förslag i
-  0,55–0,75 mergas aldrig. Kända falska par läggs i `TEAM_REJECTED_LINKS` och
-  redovisas som verifierade avvisningar (Egersund ≠ Haugesund).
-- Odds-eventidentitet (incident 2026-07-26): minsta laglikhet 0,55 gäller på
-  BÅDA sidor och parscore ≥0,75. `pinnacle_id`/`kambi_id` är write-once,
-  globalt unika och får aldrig bytas via fuzzy-matchning. `pin:<id>` respektive
-  `svs:<id>` måste stämma med sin provideridentitet. Samtidiga prisvarianter
-  eller suffix/id-krock ger `data_conflict`: visa råodds diagnostiskt men
-  stoppa värde, steam, modell, ledger, CLV och notiser. Full audit:
-  `docs/oddset-identitetsaudit-2026-07-26.md`.
+- **Idag** är en lätt översikt: `/api/dashboard/oddset`, `/api/oddset/predictions/summary`
+  och `/api/pool/played?live=false` — aldrig de fulla rapporterna. Idag startar inget
+  nätarbete de första 650 ms; sekundära kort väntar 1 200 ms; timers och requests rensas
+  vid vybyte. Driftlarm (pool, V2.2, Oddset-tystnad) visas överst på Idag.
+- **Oddset** laddar progressivt: `/api/oddset/matches?light=true&compact=true&movement=false&limit=40`
+  först, hela `compact=true`-listan efter 1,2 s; råa `pts` bara för öppnad match via
+  `/api/oddset/movement`. 40 matcher renderas åt gången. Återinför inte all historik i
+  första svaret. Oddset har FEM persisterade sub-tabbar med antalen på flikarna.
+  Matcher-fliken har TVÅ persisterade filter — Dölj/Visa startade och **Dölj/Visa utan
+  odds** (PÅ som standard, `PLAYABLE_BOOKS`) — och INGET av dem får filtrera Live eller
+  signalflikarna. Filtret är RENT VISUELLT: insamlingen fortsätter. Signalgruppsfacit och
+  signallogg hör hemma i Labb, aldrig som en femte Oddset-sektion.
+- **🏋 Lagstyrka** visar `att`/`def` ur samma `fit_league` som prognoserna (aldrig en
+  parallell skattning). `season_of()` på `FD_SEASON_CODES` avgör säsongsetikett —
+  återanvänd den. `#` är styrkerank, INTE tabellplacering. Visningsnamn väljs bland RÅA
+  namn (diakriter först) — exakt normaliserad nyckel, aldrig fuzzy. Allt AMBER.
+- Jämförbara listor använder EN `SortableTable` (`src/components/`): rubrikklick på
+  desktop, sortval + samma kortordning på mobil. `limit` kapar EFTER sorteringen — slicea
+  aldrig `rows` före anropet. Skapa aldrig tabbspecifika kopior.
+- **YTGRÄNSEN: Historik = 100 % POOL, Labb = 100 % ODDS.** Sammanhörande data får inte
+  spridas över två vyer. Historik har EN produktväljare överst som styr hela sidan.
+  Poolens styrkemodell-shadow ligger i Historik → Poolmodell, aldrig i Labb.
+- Långa tabeller visar 20 rader med "visa alla". Ingen parameter göms i en nyckelsträng:
+  budget, strategi och värdevikt är egna kolumner. Horisonter visas i minuter (180/20),
+  aldrig som `h3`/`m20`.
+- Labb äger validering och fulla loggar; öppet läge visar bara AKTIVA versioner
+  (aktiv-markeringen kommer från respektive systems eget fingeravtryck — value-loggens
+  och ledgerns `s-`-namnrymder är OLIKA och får aldrig korsjämföras). ROI/KI visas aldrig
+  under `ROI_MIN_N` (=10). Stora loggar visas stegvis (200 rader).
+- Spelade kuponger: `PlayedPanel` hämtar i TRE steg (`live=false` → `live=true&chance=false`
+  → fullt svar); livebilden är single-flight (20 s) och ett sent svar får inte skriva över
+  en nyare uppdatering.
 
 ## Regler
 
@@ -1202,73 +609,11 @@ måste Saman lägga in en Bash-behörighetsregel — se
   ändrat, aldrig `git add .`, aldrig `backend/data/` och aldrig hemligheter, och
   rör inte andras ocommittade ändringar i arbetskatalogen. Commit-meddelanden på
   svenska, imperativ rubrik, avsluta med `Co-Authored-By: Claude <modell>`.
+  Pusha genom hooken; `SKIP_KONTROLL=1` bara för rena dokumentationspushar.
 - API-nycklar i gitignore:ad `backend/.env` (ODDS_API_KEY finns, the-odds-api är vilande).
 - Rör ALDRIG `/Users/saman/svs` eller `/Users/saman/vm` från detta projekt.
-- Uppdatera STATUS-blocket i `docs/plan.md` när en etapp/delmål blir klar.
-
-### 🚀 STARTVÄGEN — vad som är cachat och varför
-
-Uppmätt 2026-08-10, kall appstart rakt till Oddset: **4 268 ms → 945 ms**.
-Ingen numerik ändrad; allt är arbete som inte behövde göras om.
-
-- **Omgångslistningen delas med varvet.** `/api/draws` cachar per SLUG
-  (`Storage.draws_cache_get/put`), och `cmd_snapshot` skriver dit det den ändå
-  hämtat. Ett kallt `draws?product=topptipset` mättes till 1 616 ms
-  (nummerscanning × 3 slugs) mot 36 ms varmt. TTL 1800 s, satt för att täcka
-  basvarvets 30-minutersintervall — inte av artighet.
-- **`/jackpots` hämtas en gång per payouts-anrop.** `get_jackpot` och
-  `get_guarantees` gjorde varsin identisk hämtning, och startsidan frågar för
-  tre produkter: sex hämtningar av samma objekt. Båda tar nu en valfri
-  `data`-payload. **Cachen ligger i API-lagret, inte i klienten** — varvet
-  anropar utan `data` och observerar färskt, eftersom PIT-serien stämplar
-  observationstid.
-- **Ligafitten**, se avsnittet ovan.
-
-**Spelade kupongers liverättning, uppmätt 2026-08-22** (sex öppna kuponger,
-nitton rullande matcher): hela svaret tog **49 s**. Två orsaker, båda åtgärdade:
-
-- `altenar.live_events` frågade varje liveliga i ett EGET anrop, sekventiellt.
-  En lördagseftermiddag är det **85 ligor × 0,09 s = 7,7 s** — för att prissätta
-  som mest fyra matcher. Anropen är oberoende och görs nu samtidigt
-  (`LIVE_CHAMP_WORKERS` = 8). Antalet anrop är OFÖRÄNDRAT; det är ordningen som
-  ändras, inte trafiken. Raderna sätts in på ligans egen plats så att utdatan
-  förblir deterministisk. `attach_live_odds` 8,9 → 2,4 s.
-- Chansmotorn räknar över hela utfallsrummet och kostade ~10 s för sex kuponger
-  (fyra med 13 oavgjorda matcher ⇒ Monte Carlo, 20 000 dragningar × upp till
-  1 024 mönster). Den låg i SAMMA svar som livestatusen, så hela kortet väntade
-  på det dyraste — var 60:e sekund, alltså i praktiken permanent laddande.
-  `PlayedPanel` hämtar nu i TRE steg: `live=false` (0,08 s) →
-  `live=true&chance=false` (4 s) → fullt svar. Endpointen hade redan
-  `chance`-flaggan; det var frontend som inte använde den.
-
-**Chansmotorn räknar EXAKT sedan 2026-08-22, inte simulerat.** Monte Carlo över
-20 000 dragningar redovisade toppnivån som exakt `0,0 %` medan samtliga tretton
-matcher var oavgjorda — noll träffar av 20 000 är inte samma sak som omöjligt,
-och UI:t visar `0%` just för exakt noll (`<0,1%` för allt annat smått). Det var
-alltså en lögn om det enda tal man tittar på.
-
-Nyckeln: att nå nivån L betyder att utfallet ligger inom Hamming-avstånd
-`secure + k − L` från någon rad. Massan i UNIONEN av radernas klot räknas upp
-direkt (`_ball_union_probabilities`), och för de nivåer som betyder något är
-klotet litet — med 13 matcher rymmer radie 0 en punkt, radie 1 tjugosju, radie 2
-tvåhundratrettionio. Exakt kostar därför 3,1 miljoner kandidater mot
-simuleringens 20,5 miljoner. Verifierat mot uttömmande uppräkning av hela 3^k
-i `test_klotunionen_ar_exakt_lika_med_full_uppräkning`. Simuleringen finns kvar
-för system där klotet inte ryms i `CHANCE_BALL_MAX_CANDIDATES`, och för de fall
-där någon sannolikhet är exakt noll (vikten divideras fram).
-
-`_round_chance` behåller minst tre värdesiffror — `round(x, 6)` skrev 3e-07 som
-0,0 och återinförde felet i sista ledet.
-
-Uppmätt: 9,8 → 5,0 s för sex kuponger. Kvar är TVÅ saker att veta:
-CPU-bundet Python i en synkron endpoint konkurrerar i trådpoolen (5 s i process
-blir 8–19 s över HTTP), och **varje match utan livepris TREDUBBLAR arbetet** —
-intervallet betingas på hur den matchen går, så två oprissatta matcher är nio
-körningar. Kambi stänger 1X2 i sekunder vid farliga lägen, så det slår till
-oregelbundet. Mät därför alltid med `chance_unpriced` i handen.
-
-**Det som återstår är samtidighet, inte enskild långsamhet.** Varje endpoint är
-20–180 ms ensam men 1 500–1 800 ms när 43 anrop startar samtidigt. Appen öppnas
-på Idag, vars hämtningar redan är i luften när man trycker Oddset. Nästa steg
-är att avbryta föregående vys hämtningar vid vybyte (`AbortController` i
-`AppV3`:s `get`/`getDetail`), inte att lägga till fler cachar.
+- **Uppdatera STATUS-blocket i `docs/plan.md` när en etapp/delmål blir klar — skriv över,
+  stapla inte;** flytta det gamla blocket överst i `docs/status-historik.md`.
+- En agent i taget i serverns arbetskatalog. Kör aldrig samma datainsamlare samtidigt på
+  två datorer (`docs/AI-OVERLAMNING-SERVER.md`).
+- Kör `cli.py gater` innan ett nytt shadow-spår startas: skörda det som är moget först.
