@@ -308,6 +308,14 @@ TEAM_ALIASES = {
     # Förkortningar:
     "la galaxy": "los angeles galaxy",
     "atlanta utd": "atlanta united",
+    # Championship-premiärvarvet i drift 2026-09-02: Pinnacle använder de
+    # fulla klubbnamnen, Kambi de vedertagna kortnamnen. Båda paren hade
+    # samma liga, motståndare och exakta avspark men föll under sidogränsen
+    # och skapade varsin dubblettrad. Explicita par är säkrare än att lätta
+    # den globala fuzzy-tröskeln (QPR är bara tre bokstäver).
+    "queens park rangers": "qpr",
+    "birmingham city": "birmingham",
+    "wolverhampton": "wolves",
     # 2026-08-05, samma klass som 588-radersfyndet ovan: football-data skriver
     # `Leicester` (84 rader), Sofascore `Leicester City` (2 rader,
     # träningsmatcher). Kanonisk form är den entydigt dominerande i

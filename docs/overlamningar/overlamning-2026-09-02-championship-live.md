@@ -18,6 +18,13 @@ scope i liveradarn.
   `2026-09-02T22:00:00Z` och explicit settlementspärr.
 - Championship har normal liveprioritet 0 och kan inte klippas som en
   träningsmatch.
+- Första produktionsvarvet hittade providerparen
+  `Queens Park Rangers`/`QPR` och
+  `Birmingham City`–`Wolverhampton`/`Birmingham`–`Wolves`. Explicita alias
+  stoppar nya dubbletter; det spårbara engångsskriptet
+  `backend/scripts/migrera_championship_identitet.py` slår ihop de två redan
+  skapade raderna efter backup och vägrar om annat än oddshistorik hunnit
+  referera till dem.
 - Dynamiska liga-/UI-listor får den nya ligan utan en frontendkopia.
 
 Alla provideridentiteter verifierades mot aktuella publika svar före

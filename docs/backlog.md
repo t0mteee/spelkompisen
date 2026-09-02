@@ -82,7 +82,9 @@ prioritetsordning. ⚖ = kräver Samans beslut.
 13. ✅ (2026-09-02) **Championship i Oddset och live.** Verifierade
     provideridentiteter hos Pinnacle/Kambi/Ninja/Smarkets/Flashscore/FotMob,
     fullt synlig och actionable liga samt ren radarkohort v12 från
-    2026-09-02T22:00Z. Football-data `E1` fortsätter ge resultat;
+    2026-09-02T22:00Z. Första fullvarvet gav två bekräftade
+    kortnamnsdubbletter; explicita alias och en backupad engångsmigrering
+    stänger dem utan att lätta fuzzy-regeln. Football-data `E1` fortsätter ge resultat;
     `MODEL_LEAGUES` och V2.2 är avsiktligt orörda tills separat täckningsaudit
     och kalibrering finns. Följ upp första riktiga liveomgången med
     `cli.py lanklucka`; se `docs/radar-scope-v12-2026-09-02.md`.

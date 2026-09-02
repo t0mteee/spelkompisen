@@ -869,13 +869,23 @@ class MultiSourceLeagueTests(unittest.TestCase):
         self.assertEqual(4, len([m for m in ms if m["league"] == "cuptest"]))
 
     def test_alias_kollapsar_forkortning_och_felstavning(self) -> None:
-        """IBV-fallet: Pinnacle 'IBV' och Kambi 'ÍB Vestmennaeyjar' ska bli
-        samma identitet. Aliaset sitter SIST i norm_team så exakta, fuzzy
-        och radarjämförelser alla ser kanoniskt namn."""
+        """Verifierade providerpar ska bli samma identitet.
+
+        Aliaset sitter SIST i norm_team så exakta, fuzzy och
+        radarjämförelser alla ser kanoniskt namn.
+        """
         self.assertEqual("vestmannaeyjar", oddset.norm_team("IBV"))
         self.assertEqual("vestmannaeyjar",
                          oddset.norm_team("ÍB Vestmennaeyjar"))
         self.assertEqual(1.0, oddset._team_sim("IBV", "ÍB Vestmennaeyjar"))
+        self.assertEqual(1.0, oddset._team_sim(
+            "Queens Park Rangers", "QPR"))
+        self.assertEqual(1.0, oddset._team_sim(
+            "Birmingham City", "Birmingham"))
+        self.assertEqual(1.0, oddset._team_sim(
+            "Wolverhampton", "Wolves"))
+        self.assertEqual(1.0, oddset._team_pair_score(
+            "Birmingham City", "Wolverhampton", "Birmingham", "Wolves"))
         # Okända namn passerar orörda — listan är observerade par, ingen regel.
         self.assertEqual("fram reykjavik", oddset.norm_team("Fram Reykjavík"))
 

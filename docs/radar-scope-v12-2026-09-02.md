@@ -35,6 +35,13 @@ Kontrollbevis i det aktuella utbudet:
 - FotMob: exakt `(ccode, name) = (ENG, Championship)`; skotska Championship
   delar namn men har `SCO` och kan därför inte läcka in.
 
+Första produktionsvarvet skapade 15 rader och avslöjade två rena
+presentationspar trots samma liga, motståndare och avspark:
+`Queens Park Rangers`/`QPR` samt
+`Birmingham City`–`Wolverhampton`/`Birmingham`–`Wolves`. De tre namnen har
+lagts som explicita alias före v12:s rena start. Den globala fuzzy-tröskeln
+har inte lättats.
+
 ## Vad som ändras
 
 - Championship blir synlig och actionable i Oddset med Pinnacle, SvS/Kambi,
@@ -70,7 +77,7 @@ vägrar som tidigare att settla en okänd radarversion.
 Efter driftsättning ska följande kontrolleras:
 
 1. ett fullvarv skapar Championship-matcher och priser från tillgängliga
-   källor utan identitetskonflikt;
+   källor utan kvarvarande identitetskonflikt;
 2. nästa pågående Championship-match ger presence/capture från Flashscore
    och/eller FotMob;
 3. `cli.py lanklucka` körs efter första riktiga liveomgången;
