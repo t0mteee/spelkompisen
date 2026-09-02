@@ -1,0 +1,6 @@
+#!/bin/bash
+# Kör hela kontrollen före varje push. Aktiveras per klon med
+#   git config core.hooksPath tools/githooks
+# Hoppa över MEDVETET (t.ex. ren dokumentationspush):  SKIP_KONTROLL=1 git push
+[ "${SKIP_KONTROLL:-0}" = 1 ] && exit 0
+exec "$(git rev-parse --show-toplevel)/tools/kontroll.sh"

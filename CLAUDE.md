@@ -576,6 +576,11 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
   `stopp … --permanent` lägger till `launchctl disable` och överlever omstart.
   Se `docs/AI-OVERLAMNING-SERVER.md` § 3.
 - Tester: `cd backend && .venv/bin/python -B -m unittest discover -s tests -v`.
+- **Hela kontrollen före push: `tools/kontroll.sh`** (backendtester + lint +
+  frontendtester, `backend`/`frontend` som argument för en del). Pre-push-hooken
+  i `tools/githooks/` kör samma sak; aktivera per klon med
+  `git config core.hooksPath tools/githooks`, förbi medvetet med `SKIP_KONTROLL=1`.
+  `backend/requirements.lock` är serverns frysta venv (`requirements.txt` är avsikten).
 - V2.2-status: `cd backend && .venv/bin/python -B cli.py v22audit`.
 - Källhälsa/varvlucka: `cd backend && .venv/bin/python -B cli.py kallhalsa [timmar]`
   (läser `oddset_source_health_log`; `—` i varvkolumnen = källan kördes inte).
