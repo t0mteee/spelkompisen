@@ -214,14 +214,18 @@ def _analyze(product: str, draw_number: int | None = None):
 def health():
     # HTTP-processen kan vara frisk samtidigt som en hel poolprodukt slutat
     # samlas. Returnera därför även den rent lokala änd-till-änd-kontrollen.
-    from . import oddset_v22, pool_health
+    from . import oddset_health, oddset_v22, pool_health
     store = Storage()
     try:
         pools = pool_health.report(store)
         v22 = oddset_v22.health(store)
-        healthy = pools["status"] == "ok" and v22["status"] == "ok"
+        # Tystnad i Oddset-varvet, liveradarn eller pooltick-jobbet: samma
+        # änd-till-änd-princip som poolhälsan, helt lokalt utan anrop.
+        oddset = oddset_health.report(store)
+        healthy = (pools["status"] == "ok" and v22["status"] == "ok"
+                   and oddset["status"] == "ok")
         return {"status": "ok" if healthy else "degraded",
-                "pools": pools, "v22": v22}
+                "pools": pools, "v22": v22, "oddset": oddset}
     finally:
         store.close()
 

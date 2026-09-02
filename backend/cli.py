@@ -1232,12 +1232,14 @@ def main() -> None:
         finally:
             store.close()
     elif cmd == "kallhalsa":
+        from app import oddset_health
         from app.pool_health import format_report as format_pool_health
         from app.pool_health import report as pool_health_report
         store = Storage()
         try:
             timmar = next((int(a) for a in rest if a.isdigit()), 6)
             print(format_source_health(store, hours=timmar))
+            print("\n" + oddset_health.format_report(oddset_health.report(store)))
             print("\n" + format_pool_health(pool_health_report(store)))
         finally:
             store.close()

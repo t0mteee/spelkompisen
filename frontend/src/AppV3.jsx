@@ -362,6 +362,8 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
   const poolErrors = poolIssues.filter((issue) => issue.level !== 'warning')
   const poolWarnings = poolIssues.filter((issue) => issue.level === 'warning')
   const v22Issues = health?.v22?.issues || []
+  // Tystnad i Oddset-varvet, liveradarn eller pooltick (oddset_health).
+  const oddsetIssues = health?.oddset?.issues || []
   // Spelstoppen ligger i spelstoppsordning, inte i produktordning — kortet
   // svarar på "vad stänger härnäst". Grupper utan öppen omgång hamnar sist.
   const stops = [...(pool || [])].sort((a, b) => {
@@ -402,6 +404,17 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
           {v22Issues.map((issue, i) => (
             <span key={`${issue.kind}-${i}`}>{issue.message}</span>
           ))}
+        </div>
+      )}
+      {oddsetIssues.length > 0 && (
+        <div className="v3alert" role="alert">
+          <b>⚠️ Oddset-/liveinsamlingen är tyst eller felar</b>
+          {oddsetIssues.slice(0, 4).map((issue, i) => (
+            <span key={`${issue.source}-${issue.kind}-${i}`}>
+              {issue.source}: {issue.message}
+            </span>
+          ))}
+          {oddsetIssues.length > 4 && <span>+{oddsetIssues.length - 4} ytterligare</span>}
         </div>
       )}
       {/* Toppraden har egna kolumnbredder: spelstoppen staplas en per rad och
