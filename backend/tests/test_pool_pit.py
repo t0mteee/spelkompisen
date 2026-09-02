@@ -1082,6 +1082,12 @@ class PitTotalTests(unittest.TestCase):
             "INSERT INTO draws (product, draw_number, state, reg_close_time) "
             "VALUES ('topptipset', 100, 'Open', ?)", (self.close.isoformat(),))
         self.store.conn.commit()
+        # Seriens fönster injiceras (klockregeln): testet ska inte få ett
+        # bäst-före-datum av att driftfönstret ligger efter testklockan.
+        window = patch.object(pool_dataset, "TOTAL_FEATURE_START_AT",
+                              _iso(NOW - dt.timedelta(days=30)))
+        window.start()
+        self.addCleanup(window.stop)
 
     def tearDown(self):
         self.store.close()
@@ -1139,6 +1145,24 @@ class PitTotalTests(unittest.TestCase):
         # pit-v4 rörs inte av syskonserien.
         self.assertEqual(0, self.store.conn.execute(
             "SELECT COUNT(*) FROM pool_pit_match_features").fetchone()[0])
+
+    def test_horisont_fore_seriens_fonster_far_ingen_rad(self):
+        # Capture OCH total finns, men horisontens as-of ligger före seriens
+        # deklarerade fönster ⇒ ingen rad alls, inte ens "capture utan total".
+        # (Så här skrevs 487 rader utanför fönstret 2026-09-02 — städade.)
+        early = self.close - dt.timedelta(hours=3, minutes=5)
+        self._capture(1, early)
+        self._total(1, early, 2.5, 1.90, 1.95)
+        with patch.object(pool_dataset, "TOTAL_FEATURE_START_AT",
+                          _iso(NOW + dt.timedelta(days=1))):
+            rep = pool_dataset.build_total_draw(
+                self.store, "topptipset", 100, self.close.isoformat(), now=NOW)
+        self.assertEqual(0, rep["built"])
+        self.assertEqual([], self._rows("h3") + self._rows("m20"))
+        # Samma data inom fönstret ⇒ rad. Skillnaden är enbart fönstret.
+        rep = pool_dataset.build_total_draw(
+            self.store, "topptipset", 100, self.close.isoformat(), now=NOW)
+        self.assertGreater(rep["built"], 0)
 
     def test_utan_capture_ingen_rad_och_idempotent(self):
         early = self.close - dt.timedelta(hours=3, minutes=5)

@@ -38,6 +38,11 @@ FEATURE_VERSION = "pit-v4"
 # docs/pool-pit-total-v1-2026-09-02.md). Egen version så pit-v4 aldrig får
 # en ändrad datagenererande process av att en kolumn tillkommer.
 TOTAL_FEATURE_VERSION = "pit-total-v1"
+# Seriens deklarerade fönster (driftsättningen). Horisonter vars as-of ligger
+# före den här tiden får INGEN rad — inte ens en "capture utan total"-rad:
+# sådana rader skulle betyda "serien fanns inte än", inte "Pinnacle saknade
+# total", och kohortregeln säger att rader före fönstret hör till ingen kohort.
+TOTAL_FEATURE_START_AT = "2026-09-02T16:00:00Z"
 COHORT = "observed_pit"
 FEATURE_START_AT = "2026-07-25T16:00:00Z"
 HORIZONS = {"h24": 1440, "h3": 180, "m20": 20}
@@ -485,6 +490,9 @@ def build_total_draw(store: Storage, product: str, draw_number: int,
             report["skipped"] += 1
             continue
         asof = _iso(cutoff_dt)
+        if asof < TOTAL_FEATURE_START_AT:
+            report["skipped"] += 1        # före seriens fönster — aldrig bakfyllt
+            continue
         tolerance = TIMING_TOLERANCE_MIN[horizon]
         sharp_captures = _captures(store, product, draw_number, "sharp", asof)
         if not sharp_captures:

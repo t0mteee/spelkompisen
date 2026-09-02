@@ -1668,3 +1668,26 @@ förregistrerad i `main.py` innan en jackpotdimension får prövas.
 **Samma dag, ingen migrering:** `pool_pit_total_features` (pit-total-v1) är en
 ny tabell som bara fylls framåt av `pool_dataset.build_total_draw`; inga
 historiska totaler bakfylls.
+
+## 2026-09-02 (kväll) — pit-total-v1: rader före seriens fönster borttagna
+
+**Vad hände.** Pool-ticken på servern kör alltid arbetskatalogens kod, så
+`build_total_draw` var i drift ~50 minuter efter att den skrivits — före
+commit och före fönsterspärren. Första `build_recent` byggde då alla passerade
+horisonter för de senaste omgångarna: **487 rader** med as-of från 2026-08-25,
+varav 459 `total_eligible=0` som betydde "serien fanns inte än", inte "Pinnacle
+saknade total". Enligt kohortregeln hör rader före det deklarerade fönstret
+till ingen kohort.
+
+**Åtgärd.** `pool_dataset.TOTAL_FEATURE_START_AT = "2026-09-02T16:00:00Z"`
+gatar byggaren (horisont med as-of före fönstret ⇒ ingen rad).
+`scripts/migrera_pit_total_fonster.py --skarp` tog bort de 487 raderna.
+
+- Backup före skrivning: `data/stryktips-backup-pittotal-20260902-180633.db`.
+- Efterkontroll: 0 rader kvar i `pool_pit_total_features`; pit-v4, captures
+  och `sharp_total_snapshots` orörda.
+- Serien börjar därmed ärligt vid driftsättningen; första riktiga rader väntas
+  från omgångar vars horisonter passerar efter 16:00Z den 2 september.
+
+Lärdom (även i minnet): skriv fönsterspärren FÖRST i en ny insamlare/byggare
+på servern — ticken väntar inte på commit.

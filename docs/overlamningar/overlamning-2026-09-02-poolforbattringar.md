@@ -56,7 +56,10 @@ blir noll. Tiden 9,8 → 5,0 s i process; resten är en synkron CPU-endpoint.
   byggd av `pool_dataset.build_total_draw` i varje `build_recent`. Presence-
   regeln är pit-v4:s `sharp_eligible`; totalen är senaste punkt ≤ capture.
   Capture utan total ⇒ rad med `total_eligible=0`; ingen capture ⇒ ingen rad.
-  Aldrig bakfylld. pit-v4 orörd.
+  Aldrig bakfylld: `TOTAL_FEATURE_START_AT = 2026-09-02T16:00:00Z` är seriens
+  deklarerade fönster; horisonter med as-of före det får ingen rad. (Första
+  ticken hann skriva 487 rader före fönstret innan spärren fanns — städade
+  med backup, se `docs/db-atgarder.md`.) pit-v4 orörd.
 - Skörd: ≥ 40 Topptipsomgångar med total på alla åtta; frågan är
   förregistrerad i `docs/pool-pit-total-v1-2026-09-02.md`.
 
