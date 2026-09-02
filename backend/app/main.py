@@ -814,6 +814,7 @@ def pool_mathmax_overview():
 def pool_poolopt_overview():
     """Pooloptimerare v1 forward: tre research-only-armar på 256 rader
     (docs/poolopt-v1-forward-2026-09-02.md). Läser bara ledgern."""
+    from . import pool_system_ledger
     store = Storage()
     try:
         return pool_system_ledger.poolopt_overview(store)
