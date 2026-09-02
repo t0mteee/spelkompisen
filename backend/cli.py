@@ -1231,6 +1231,13 @@ def main() -> None:
                             walk, "live_development")))
         finally:
             store.close()
+    elif cmd == "gater":
+        from app import gater
+        store = Storage()
+        try:
+            print(gater.format_report(gater.report(store)))
+        finally:
+            store.close()
     elif cmd == "kallhalsa":
         from app import oddset_health
         from app.pool_health import format_report as format_pool_health

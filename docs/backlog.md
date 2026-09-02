@@ -22,7 +22,7 @@ prioritetsordning. ⚖ = kräver Samans beslut.
    (2026-08-04→09), AWS-DNS 302 varv utan att någon såg.
 2. **Tester för `bomben`, `steam`, `clv`, `derive`** — användarsynliga och
    helt otestade (0 testfiler refererar dem).
-3. **`cli.py gater`** — varje förregistrerad gate (V2.2, PH5 forward,
+3. ✅ (2026-09-02) **`cli.py gater`** — varje förregistrerad gate (V2.2, PH5 forward,
    maxtester, poolstyrka, radarblindtest, pooloptimerare) med n/krav/datum på
    ETT ställe. Skörda före nästa nya spår.
 4. **Frontend-utbrytning** — `OddsetView` (1 364 rader), `LabbV3` (989),

@@ -584,6 +584,10 @@ docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (ref
   `git config core.hooksPath tools/githooks`, förbi medvetet med `SKIP_KONTROLL=1`.
   `backend/requirements.lock` är serverns frysta venv (`requirements.txt` är avsikten).
 - V2.2-status: `cd backend && .venv/bin/python -B cli.py v22audit`.
+- **Alla grindar på ett ställe: `cd backend && .venv/bin/python -B cli.py gater`**
+  — sharp-CLV, WP5-ledger, V2.2, radarblindtest, PH3-champion, PH5/maxtester,
+  poolstyrka, PH4 out-of-time. Läser varje spårs egen statusfunktion, räknar
+  inget om och beslutar inget. Kör den innan ett nytt spår startas.
 - Källhälsa/varvlucka: `cd backend && .venv/bin/python -B cli.py kallhalsa [timmar]`
   (läser `oddset_source_health_log`; `—` i varvkolumnen = källan kördes inte).
 - **Dubblettjakt: `cd backend && .venv/bin/python -B cli.py lanklucka [timmar]`**
