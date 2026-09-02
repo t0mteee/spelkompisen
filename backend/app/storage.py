@@ -2186,11 +2186,20 @@ class Storage:
         return [dict(r) | {"ok": bool(r["ok"])}
                 for r in self.conn.execute(sql, args).fetchall()]
 
-    def oddset_prune_source_health_log(self, keep_days: int = 30) -> int:
-        """Beskär historiken. 84 kombinationer × varje varv växer annars fort."""
+    def oddset_prune_source_health_log(self, keep_days: int = 30,
+                                       now: dt.datetime | None = None) -> int:
+        """Beskär historiken. 84 kombinationer × varje varv växer annars fort.
+
+        Gränsen räknas från ett injicerat `now`, aldrig från SQL:ens egen
+        klocka: ett test med fasta datum får annars ett bäst-före-datum och
+        blir rött den dag raderna hunnit bli äldre än `keep_days`.
+        """
+        now = now or dt.datetime.now(dt.timezone.utc)
+        if now.tzinfo is not None:
+            now = now.astimezone(dt.timezone.utc)
+        cutoff = (now - dt.timedelta(days=int(keep_days))).strftime("%Y-%m-%dT%H:%M:%SZ")
         cur = self.conn.execute(
-            "DELETE FROM oddset_source_health_log WHERE checked_at < "
-            "strftime('%Y-%m-%dT%H:%M:%SZ', 'now', ?)", (f"-{int(keep_days)} days",))
+            "DELETE FROM oddset_source_health_log WHERE checked_at < ?", (cutoff,))
         self._commit()
         return cur.rowcount or 0
 

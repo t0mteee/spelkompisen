@@ -1,3 +1,4 @@
+import datetime as dt
 import tempfile
 import unittest
 from pathlib import Path
@@ -397,8 +398,10 @@ class OddsetSourceHealthHistoryTests(unittest.TestCase):
             "pinnacle", "allsvenskan", "1x2", "2026-08-02T12:00:00Z", True, 9)
         self.assertEqual(1, len(self.store.oddset_source_health_history(
             since="2026-07-01T00:00:00Z")))
-        # Gammal rad beskärs, färsk lämnas kvar.
-        self.assertEqual(1, self.store.oddset_prune_source_health_log(keep_days=30))
+        # Gammal rad beskärs, färsk lämnas kvar. Klockan injiceras: med SQL:ens
+        # egen 'now' blev testet rött 2026-09-02 när den färska raden fyllt 31 dagar.
+        self.assertEqual(1, self.store.oddset_prune_source_health_log(
+            keep_days=30, now=dt.datetime(2026, 8, 10, tzinfo=dt.timezone.utc)))
         kvar = self.store.oddset_source_health_history(source="pinnacle")
         self.assertEqual(["2026-08-02T12:00:00Z"], [r["checked_at"] for r in kvar])
         # Latest-state rörs aldrig av beskärningen.
