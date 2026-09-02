@@ -7,7 +7,7 @@
    Codex likadant.
 2. `docs/plan.md` — **STATUS-SAMMANFATTNINGEN överst är projektets sanning**;
    därefter den prioriterade WP-backloggen.
-3. `docs/overlamning-2026-08-16-dubbelkuponger.md` — AKTUELL överlämning:
+3. `docs/overlamningar/overlamning-2026-08-16-dubbelkuponger.md` — AKTUELL överlämning:
    dubbelkupongernas v2-kontrakt, evidensen från det verkliga A/B-spelet,
    Topptips utan basspik och mobilflödet. Följ filens länkar bakåt för äldre
    delsystem; 2026-07-16-versionens "Fallgropar" gäller fortfarande.

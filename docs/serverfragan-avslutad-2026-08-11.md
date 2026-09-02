@@ -125,7 +125,7 @@ procent transport-OK och högst fem procent körningar med lokala DNS-fel.
   (två körningar; den sista är efter Flashscore-rättningen).
 - Testverktyg: `backend/scripts/kalltest_ip.py`.
 - Enhetstester: `backend/tests/test_kalltest_ip.py`.
-- Ursprunglig öppna tråd: `docs/overlamning-2026-08-01-flashscore.md`,
+- Ursprunglig öppna tråd: `docs/overlamningar/overlamning-2026-08-01-flashscore.md`,
   punkt 2.
 
 **Båda instanserna är avvecklade 2026-08-12** (Saman, i Lightsail-konsolen).

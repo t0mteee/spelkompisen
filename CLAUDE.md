@@ -15,7 +15,7 @@ Pinnacle, kvalitetsviktade värdesignaler, steam-radar, xG-viktad Poisson-modell
 DC-korrektion (amber, settlement-ankrad efter T — kalla den inte DC-MLE), frånvarodata, CLV-facit
 per tier med grönt-kriterium v2 (≥50 stängda OCH undre bootstrap-KI-gräns > 0, per
 liga/marknad/modellversion). **STATUS-SAMMANFATTNINGEN överst i `docs/plan.md` är
-sanningen — LÄS DEN FÖRST i ny session** (+ WP-backloggen där, prioriterad; gransknings-
+sanningen — LÄS DEN FÖRST i ny session** (aktiv backlog i `docs/backlog.md`, historik i `docs/status-historik.md`; gransknings-
 evidens i `docs/granskning-2026-07-13.md`).
 Prediction-ledgern har dessutom en förregistrerad modell-mot-Pinnacle-close-grind
 för alla frysta modellvektorer; äldre 1X2-version är fälld som sämre än sharp.
@@ -78,7 +78,7 @@ ett nytt manifest — en aliasändring i en liga som ingår i V2.2:s FIT_POOLS
 datagenererande process. Äldre manifest blandas aldrig in. Det är inte en
 tränad modell och får inte påverka tips, notiser eller CLV.
 **Aktuell överlämning:**
-`docs/overlamning-2026-08-31-pool-xrisk.md` — gemensamt
+`docs/overlamningar/overlamning-2026-08-31-pool-xrisk.md` — gemensamt
 `pool-draw-risk-v1` för alla automatiska poolbyggare, point-in-time
 Pinnacle-totaler, nya forwardnycklar och matematiskt max v2 med exakt tre
 spikar + en halv + nio hela = 39 366 rader. Gamla benchmark-/PH5-/maxnycklar
@@ -89,7 +89,7 @@ produktionskontroll och successiv gallring av högst 10 000 radportföljer.
 500-konfigurationspiloten är endast ett teknikbevis; Standard är oförändrad.
 Kör inte fullsökningen mot en levande DB eller den gamla 11 augusti-kopian —
 ta först en konsistent server-snapshot enligt rapportens nästa steg. Därefter
-`docs/overlamning-2026-08-29-importera-spelad-kupong.md` — återställning när
+`docs/overlamningar/overlamning-2026-08-29-importera-spelad-kupong.md` — återställning när
 ”Spelad kupong” glömts: Historik kan förhandsgranska och bokföra en sparad
 Egna rader-fil i efterhand, med strikt produkt-/omgångskontroll,
 dubblettskydd och omedelbart facit när settlement redan finns. Därefter
@@ -98,25 +98,25 @@ dubblettskydd och omedelbart facit när settlement redan finns. Därefter
 2026-08-31-överlämningen ovan. Den tidigare 40 000-serien är en avslutad reducerad pilot;
 se `docs/max40-forward-2026-08-26.md`. Liverättning finns för alla serier;
 inga vanliga förslag eller riktiga spel påverkas. Därefter
-`docs/overlamning-2026-08-24-ph5-testvy.md` — separat 5 000-testvy med exakt
+`docs/overlamningar/overlamning-2026-08-24-ph5-testvy.md` — separat 5 000-testvy med exakt
 kupong/facit/frysta odds och streck, X-diagnostik samt hardening av spelade
 kupongers gemensamma livebild. Därefter
-`docs/overlamning-2026-08-16-dubbelkuponger.md` — dubbelkupongernas skarpa
+`docs/overlamningar/overlamning-2026-08-16-dubbelkuponger.md` — dubbelkupongernas skarpa
 v2-kontrakt efter verkligt A/B-spel, Topptips utan basspik och det förenklade
 mobilflödet. Därefter
-`docs/overlamning-2026-08-12-idag-och-familjer.md` — spelfamiljer (Topptipset
+`docs/overlamningar/overlamning-2026-08-12-idag-och-familjer.md` — spelfamiljer (Topptipset
 är ETT spel överallt där något mäts eller visas), inställd omgång vs uppskjuten
 match, ombyggd Idag-vy, spelläge-etiketten och borttaget andra ankare i UI.
 Därefter `docs/macbook-server-2026-08-11.md` (drift på MacBooken) och
-`docs/overlamning-2026-08-10-prestanda.md` — startvägens prestanda
+`docs/overlamningar/overlamning-2026-08-10-prestanda.md` — startvägens prestanda
 (4 268 → 619 ms till första Oddset-lista i byggd mobilvy), vad som är cachat
 och varför. Idag-jobben får 650/1200 ms startfrist och rensas vid vybyte;
 ordinarie 5175 serverar byggd bundle, utveckling körs separat på 5181.
-Därefter `docs/overlamning-2026-08-09.md` — settlementens omprövningstid,
+Därefter `docs/overlamningar/overlamning-2026-08-09.md` — settlementens omprövningstid,
 ensidig träningsmatchslänkning, jackpotläckan mellan produkter, b1024 ur
 Topptipset-familjen och det TYSTA bortfallet av Topptipset Dagens (fem dygn
 utan insamling). Föregående överlämning
-`docs/overlamning-2026-08-07-powerrank.md` gäller nu bara som historik — dess arbete
+`docs/overlamningar/overlamning-2026-08-07-powerrank.md` gäller nu bara som historik — dess arbete
 (radar v6/v7, sharp v8 closing-drift, Europaligorna fullt följda, MLS
 kalibrerad, powerrank-fliken). Powerranken är nu **`powerrank-v2`**: v1:s
 metodfel (poäng på ALLA matcher men xPts bara på xG-täckta, hopjämkat med
@@ -562,6 +562,8 @@ tools/tjanster.sh     drift på MacBook-servern: start/stopp/omstart av alla
                       Chartervakt, Bonusvakt och Server & övervakning (3).
                       Logiken i tools/spelkompisen_tjanster.py delas med menyraden
 docs/plan.md          FÄRDPLANEN: status, datakällor, beslut — projektets sanning
+docs/status-historik.md daterade statusblock (historik, aldrig nuvarande kontrakt)
+docs/overlamningar/   alla överlämningar (overlamning-<datum>-<ämne>.md)
 docs/backlog.md       AKTIV BACKLOG (2026-07-26): prioritering, pågående mätningar,
                       parkerat/avfört — ändra prioritet bara med Samans godkännande
 docs/forbattringar.md ARKIV: svs-ärvda lärdomar + bokkälls-kartläggning (referens)

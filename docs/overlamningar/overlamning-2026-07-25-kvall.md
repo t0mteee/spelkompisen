@@ -1,7 +1,7 @@
 # Överlämning inför reset — 2026-07-25 (Claude Fable 5)
 
 **Läs denna först, sedan `CLAUDE.md` och STATUS-blocket i `docs/plan.md`.**
-Tidigare pass: `docs/overlamning-2026-07-25.md` (natten 24→25 + Codex-uppföljning).
+Tidigare pass: `docs/overlamningar/overlamning-2026-07-25.md` (natten 24→25 + Codex-uppföljning).
 
 ## Senaste Codex-tillägg — ännu inte committat
 

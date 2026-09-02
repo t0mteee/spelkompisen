@@ -1,13 +1,39 @@
 # Backlog — aktuell prioritering
 
-**Skapad 2026-07-26, status uppdaterad 2026-08-10 — aktiv arbetslista
-i "MODELLPLAN" längst ned; arbetsordningen där kräver Samans godkännande.**
+**Skapad 2026-07-26, uppdaterad 2026-09-02 — aktiv arbetslista i avsnittet
+Aktivt direkt nedan; allt under det är levererat eller historik.
+Arbetsordningen kräver Samans godkännande.**
 Detta är projektets enda aktiva backlog. `docs/forbattringar.md` är arkiv (svs-ärvda lärdomar + bokkälls-
-kartläggningen), WP-listan i `docs/plan.md` är historik över avslutat arbete.
+kartläggningen), den gamla WP-listan ligger i `docs/status-historik.md` som historik över avslutat arbete.
 
 Metodreglerna i `CLAUDE.md` (observationstid, ANKARE ≠ BOK, transportregeln,
 signalversions-disciplin, källgränsen) gäller varje punkt nedan och upprepas
 inte per rad.
+
+## Aktivt (2026-09-02)
+
+Ur granskningen 2026-09-02 (Claude, mot `origin/main` = servern), i
+prioritetsordning. ⚖ = kräver Samans beslut.
+
+1. **Tystnadsvarningar i UI:t** (beslut 2026-09-02: UI räcker, ingen ntfy).
+   `/api/health` ska larma när en källa inte körts på N varv, när senaste
+   snapshot är äldre än 2 h och när en produkt saknar samlad omgång; Idag
+   visar det. Historiken motiverar det: Topptipset Dagens tyst i fem dygn
+   (2026-08-04→09), AWS-DNS 302 varv utan att någon såg.
+2. **Tester för `bomben`, `steam`, `clv`, `derive`** — användarsynliga och
+   helt otestade (0 testfiler refererar dem).
+3. **`cli.py gater`** — varje förregistrerad gate (V2.2, PH5 forward,
+   maxtester, poolstyrka, radarblindtest, pooloptimerare) med n/krav/datum på
+   ETT ställe. Skörda före nästa nya spår.
+4. **Frontend-utbrytning** — `OddsetView` (1 364 rader), `LabbV3` (989),
+   `HistorikV3` (723) till egna kataloger med ren logik i `.js` som
+   `node --test` når; 13 frontendtester täcker i dag bara `playRec.js` och
+   `sourceHealth.js`. Koordineras med Codex, som är aktiv i `App.jsx`.
+5. ⚖ **CLAUDE.md halveras** — berättelsen bakom varje regel flyttas till
+   länkade dokument; reglerna står kvar ordagrant.
+6. **Skörd av pågående mätningar** (passivt): se statusblocket i `plan.md`.
+   MODELLPLAN:en längst ned gäller i sak, men dess beslutsdatum (augusti) är
+   passerade utan bokförd skörd — bocka av eller flytta dem.
 
 ## 2026-08-11 — AWS korrekt omtestat och avfärdat
 
@@ -99,7 +125,7 @@ inte per rad.
   signaltrösklar ändrades (`docs/radar-scope-v8-2026-08-09.md`).
 - **✅ Larm när en poolprodukt slutar samlas.** Topptipset Dagens var TYST utan
   insamling i fem dygn (scanhintet mot kodens statiska seed — se
-  `docs/overlamning-2026-08-09.md` punkt 5). `pool_health` kontrollerar nu
+  `docs/overlamningar/overlamning-2026-08-09.md` punkt 5). `pool_health` kontrollerar nu
   slutartefakterna i stället för att lita på att rätt funktion anropades:
   snapshot per öppen omgång, färskhetskadens, komplett PH3-familj efter
   horisonten, scanhint som ligger bakom och passerad settlement-retry. Syns i

@@ -1,7 +1,7 @@
 # Överlämning 2026-08-01 — Codex hardening: live v4 och modelldata v4
 
 Detta är den **aktuella överlämningen**. Den ersätter
-`docs/overlamning-2026-08-01-flashscore.md`, vars observationer behålls som
+`docs/overlamningar/overlamning-2026-08-01-flashscore.md`, vars observationer behålls som
 historik men vars källordning, v3-status och modelldatalager inte längre är
 aktuella. Läs även STATUS-blocket överst i `docs/plan.md`.
 

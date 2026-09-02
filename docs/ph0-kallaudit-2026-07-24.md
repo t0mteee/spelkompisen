@@ -8,7 +8,7 @@
 > `docs/pool-pit-v2-2026-07-24.md`. Kohort B:s API-/slutvärdesfynd påverkas
 > inte av korrigeringen.
 
-Läsande audit enligt `docs/overlamning-till-claude-2026-07-24.md`. Skript:
+Läsande audit enligt `docs/overlamningar/overlamning-till-claude-2026-07-24.md`. Skript:
 `backend/scripts/ph0_kallaudit.py`; rådata per omgång och prov i
 `docs/ph0-kallaudit-2026-07-24.json`. Inga modell- eller DB-ändringar.
 157 API-requests med 0,35 s throttling, **0 × 429, 0 transportfel** —

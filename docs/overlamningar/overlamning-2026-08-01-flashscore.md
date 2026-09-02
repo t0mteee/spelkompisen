@@ -3,7 +3,7 @@
 > **ERSATT SAMMA DAG.** Detta dokument beskriver den första Flashscore-piloten
 > och behålls endast som historik. v3, den gamla källordningen och
 > “första observationen vinner” får inte användas som aktuella instruktioner.
-> Läs `docs/overlamning-2026-08-01-codex-hardening.md` och STATUS-blocket i
+> Läs `docs/overlamningar/overlamning-2026-08-01-codex-hardening.md` och STATUS-blocket i
 > `docs/plan.md` i stället.
 
 ## Vad som hände (fyra leveranser)

@@ -1,9 +1,9 @@
 # Överlämning/changelog för Codex — 2026-07-23
 
 **Historik:** aktuell arbetsöverlämning finns i
-`docs/overlamning-till-claude-2026-07-24.md`.
+`docs/overlamningar/overlamning-till-claude-2026-07-24.md`.
 
-Ersätter `docs/overlamning-2026-07-16.md` som aktuell ingång (den gamla ligger
+Ersätter `docs/overlamningar/overlamning-2026-07-16.md` som aktuell ingång (den gamla ligger
 kvar som historik — dess "Fallgropar"-avsnitt gäller fortfarande ordagrant).
 Sanningskällor i ordning: `docs/plan.md` (STATUS överst) → `docs/db-atgarder.md`
 → git-loggen (svenska, per arbetspaket).

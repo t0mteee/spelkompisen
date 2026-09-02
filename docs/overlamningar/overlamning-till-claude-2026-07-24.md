@@ -2,7 +2,7 @@
 
 Detta är den aktuella arbetsöverlämningen till Claude. Läs först
 `CLAUDE.md` och statusblocket överst i `docs/plan.md`. Använd
-`docs/overlamning-2026-07-23.md` som historisk changelog; duplicera inte dess
+`docs/overlamningar/overlamning-2026-07-23.md` som historisk changelog; duplicera inte dess
 äldre detaljer här.
 
 > **Codex 2026-07-24 — aktuell överlämning, läs denna ruta först.**
