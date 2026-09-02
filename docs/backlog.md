@@ -42,7 +42,8 @@ prioritetsordning. ⚖ = kräver Samans beslut.
    marknadspriset vid h3. Caveat: c/d/f rapporterar `converged_folds 0/48`
    inom manifestets 800 iterationer — en omprövning av konvergensen kräver nytt
    manifest, aldrig en ändring i v3. Övriga produkter 5–11/40. Beslut: Saman.
-   Kvar i utbrytningen: `LabbV3` (989 rader) och `HistorikV3` (723) ur AppV3.
+   Utbrytningen klar 2026-09-02: AppV3 3 823 → 1 164 rader (`src/historik/`,
+   `src/labb/`, `lib/api.js`, `lib/labels.js`, `components/badges.jsx`).
    MODELLPLAN:en längst ned gäller i sak, men dess beslutsdatum (augusti) är
    passerade utan bokförd skörd — bocka av eller flytta dem.
 

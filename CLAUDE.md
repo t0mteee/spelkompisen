@@ -120,15 +120,19 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/main.py         API-endpoints + PRIZE_PLANS (officiella vinstplaner)
   cli.py              snapshot|pool-tick|live-tick|kallhalsa|gater|lanklucka|v22audit …
 frontend/ React + Vite, mörkt tema.
-  src/AppV3.jsx + AppV3.css  APPEN (enda gränssnittet sedan 2026-07-26): vyerna Idag,
-                      Poolspel, Oddset, Historik, 5 000-test, Max-tester, 🧪 Labb
+  src/AppV3.jsx + AppV3.css  APPEN (enda gränssnittet sedan 2026-07-26): skalet,
+                      Idag (DashboardV3) och Poolspel (PoolV3); övriga vyer monteras från
+  src/historik/       HistorikV3, SystemDetail (+ SystemGroupsTable, liverättning),
+                      ForwardTestV3 (5 000-test, Max-tester)
+  src/labb/LabbV3.jsx  Labb = 100 % odds
   src/App.jsx + App.css  KOMPONENTBIBLIOTEKET (AnalysisTable, SystemView, CouponPanel,
                       PlayRec, PlayedPanel m.fl.) — re-exporterar även allt nedan
   src/lib/            ren logik utan React, testad med node --test: format.js,
-                      poolEv.js (KAPPA/evalRows/couponStats/systemStats), playRec.js,
-                      poolSelection.js, sourceHealth.js
+                      poolEv.js (KAPPA/evalRows/couponStats/systemStats), api.js
+                      (get/getDetail/readState), labels.js (produkt-/familjetabeller,
+                      LABB_*/HISTORIK_RESEARCH), playRec.js, poolSelection.js, sourceHealth.js
   src/components/     ui.jsx (Loading/Empty/ErrorState, ErrBoundary, useStoredBool),
-                      SortableTable.jsx, charts.jsx
+                      SortableTable.jsx, charts.jsx, badges.jsx (MiniSpark/BuildBadge/LabbPill)
   src/oddset/OddsetView.jsx  hela Oddset-vyn (Matcher/Live/Värdespel/Rörelser/Lagstyrka)
 start.sh / stop.sh    lokal utveckling (8002 + 5175); biter INTE på serverns KeepAlive
 tools/kontroll.sh     hela kontrollen före push; tools/githooks/pre-push kör den

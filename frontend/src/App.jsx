@@ -3,6 +3,7 @@ import './App.css'
 import { payoutMatchesSelection } from './poolSelection.js'
 import { kompaktKr, playRecommendation, projectionBasisText } from './playRec.js'
 import { fmt, timeAgo, fmtTs, fmtClose, fmtFetched, fmtStart, kr, pct } from './lib/format.js'
+import { VARIANT, FAMILY } from './lib/families.js'
 import { folkProb, couponStats, systemStats } from './lib/poolEv.js'
 import { useStoredBool, LoadingState, EmptyState, ErrorState, ErrBoundary } from './components/ui.jsx'
 import { useSortedRows, SortableTable } from './components/SortableTable.jsx'
@@ -602,15 +603,6 @@ const GAMES = [
   { id: 'oddset', label: 'Oddset' },
 ]
 
-const VARIANT = {
-  topptipset: 'Dagens', topptipsetstryk: 'Stryk', topptipsetextra: 'Extra',
-}
-/* Topptipset Dagens/Stryk/Extra är samma spel — åtta matcher, samma vinstplan,
-   samma benchmarkfamilj — bara olika omgångsserier under olika namn hos
-   Svenska Spel. FAMILY samlar dem i VISNINGEN; produktslug, settlementidentitet
-   och config_key är oförändrade. Bor här och inte i AppV3 eftersom både
-   komponentbiblioteket (PlayedPanel) och appskalet behöver den. */
-const FAMILY = (p) => (String(p || '').startsWith('topptipset') ? 'topptipset' : p)
 // djuplänk till rätt omgång på Svenska Spel (du fyller i/lämnar in själv där)
 const SVS_PID = { topptipset: 25, topptipsetstryk: 23, topptipsetextra: 24 }
 function svsUrl(product, draw) {
