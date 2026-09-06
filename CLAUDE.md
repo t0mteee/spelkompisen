@@ -616,6 +616,12 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
   (aktiv-markeringen kommer från respektive systems eget fingeravtryck — value-loggens
   och ledgerns `s-`-namnrymder är OLIKA och får aldrig korsjämföras). ROI/KI visas aldrig
   under `ROI_MIN_N` (=10). Stora loggar visas stegvis (200 rader).
+- **5 000-test/Max-tester:** listan visar liveläge per öppen kupong ur
+  `/api/pool/systems/live-overview?family=` (samma `live_status` som detaljkortet,
+  en omgång hämtas en gång, pollas var 30:e s bara medan fliken är synlig) och en
+  summering per arm/metod × frystid ur översiktens `groups` (hela serien; kronor
+  bara för komplett utdelning). `pots` är omgångens POTT per nivå — kalla det
+  aldrig utdelning. I kupongdetaljen skriver ett rött rätt tecken ut "✗ ej streckat".
 - Spelade kuponger: `PlayedPanel` hämtar i TRE steg (`live=false` → `live=true&chance=false`
   → fullt svar); livebilden är single-flight (20 s) och ett sent svar får inte skriva över
   en nyare uppdatering.

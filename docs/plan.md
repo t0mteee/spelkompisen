@@ -62,7 +62,9 @@ nominerade till forward. Sannolikhetsbas retro (pit-v4): identiskt facit 21/21
 träffar på 77 omg, Pinnacle täcker Topptipset vid h3 i bara 18/87 omg (m20
 56/88). Se `docs/overlamningar/overlamning-2026-09-02-poolforbattringar.md`.
 
-**Senast levererat.** 2026-09-06 natt (Codex): utvärdering av Stryktipset
+**Senast levererat.** 2026-09-06 (Claude): liveläge per öppen testkupong i 5 000-test/Max-tester-listan,
+summering per arm × frystid (saldo, träffar per nivå, ROI) och "✗ ej streckat" i
+kupongdetaljen (`/api/pool/systems/live-overview`, `research_groups`). 2026-09-06 natt (Codex): utvärdering av Stryktipset
 4969, både egna kuponger och stora frysta tester. Konstaterade hårda
 teckenbortval, koncentrerat kombinationsurval och 3/13 matcher utan
 sharp/total vid frysning. Balanserat 5 000 h3 gav trots allt 12 rätt och
