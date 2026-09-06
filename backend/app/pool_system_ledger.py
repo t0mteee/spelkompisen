@@ -1619,7 +1619,10 @@ def research_groups(tests: list[dict]) -> list[dict]:
         label = test.get("label") or test["method"]
         key = (label, test["horizon"])
         group = groups.setdefault(key, {
-            "key": f"{label}:{test['horizon']}", "label": label,
+            "key": f"{label}:{test['horizon']}",
+            # `label` bara när armen har en egen etikett; PH5:s metoder
+            # namnges av frontendens PH5_METHOD_LABEL via `method`.
+            "label": test.get("label"),
             "method": test["method"], "horizon": test["horizon"],
             "horizon_minutes": test.get("horizon_minutes"),
             "levels": _levels_for(test["product"]),
@@ -1649,7 +1652,7 @@ def research_groups(tests: list[dict]) -> list[dict]:
         group["roi"] = (round((group["payout_kr"] - group["cost_kr"]) / group["cost_kr"], 4)
                         if group["cost_kr"] else None)
         out.append(group)
-    out.sort(key=lambda g: (g["label"], -(g["horizon_minutes"] or 0)))
+    out.sort(key=lambda g: (g["label"] or g["method"], -(g["horizon_minutes"] or 0)))
     return out
 
 

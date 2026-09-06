@@ -294,7 +294,7 @@ function GroupSummary({ groups, isMaxTest }) {
       <thead><tr><th>Kategori</th><th>Kuponger</th><th>Spelat</th><th>Inspelat</th><th>Saldo</th>
         {levels.map((level) => <th key={level}>{level} rätt</th>)}<th>ROI</th></tr></thead>
       <tbody>{groups.map((group) => <tr key={group.key}>
-        <td><b>{group.label}</b> · {group.horizon_minutes != null ? `${group.horizon_minutes} min` : group.horizon}</td>
+        <td><b>{forwardTestLabel(group)}</b> · {group.horizon_minutes != null ? `${group.horizon_minutes} min` : group.horizon}</td>
         <td>{group.n_settled} med facit{group.n_open ? ` · ${group.n_open} öppna` : ''}
           {group.n_active !== group.n ? ` · ${group.n - group.n_active} äldre nyckel` : ''}</td>
         <td>{kr(group.cost_kr)}</td>
