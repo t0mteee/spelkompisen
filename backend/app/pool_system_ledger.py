@@ -1355,6 +1355,7 @@ def _research_overview(
     active = [test for test in tests if not test["retired"]]
     for unmatched in pending_pairs.values():
         unmatched.pop("_row_keys", None)
+    groups = research_groups(tests)
 
     model_tests = [test for test in active if test["method"] == "varderader"]
     evaluable = [test for test in active if test["timely"]
@@ -1395,6 +1396,8 @@ def _research_overview(
         },
         "configs": [dict(config) for config in configs],
         "products": list(products),
+        # Per testkategori (arm/metod × frystid): saldo, träffar per nivå, ROI.
+        "groups": groups,
         "start_draws": dict(start_draws),
         "horizons": {
             key: {"minutes": value[0], "tolerance_min": value[1]}
@@ -1593,3 +1596,115 @@ def summary(store: Storage) -> dict:
                          for k, v in FREEZE_HORIZONS.items()},
             "groups": out, "recent": recent,
             "champion_report": champion_report(store)}
+
+
+# ── Summering per testkategori och liveläge utan att öppna kupongen ─────────
+
+def _levels_for(product: str) -> list[int]:
+    return [8] if product in EIGHT_MATCH_PRODUCTS else [13, 12, 11, 10]
+
+
+def research_groups(tests: list[dict]) -> list[dict]:
+    """Saldo, träffar per vinstnivå och ROI per (arm/metod × frystid).
+
+    Räknar över HELA serien, inklusive pensionerade nycklar — omnyckeln
+    2026-08-31 startade om de aktiva räknarna, men det som frystes och rättades
+    före den är fortfarande verkliga testkuponger. `n_active` visar hur många
+    som hör till den nu gällande nyckeln. Träffar per nivå räknas på varje
+    kupong med känt facit (`correct_max`); kronor och ROI bara på dem med
+    komplett utdelning, samma definition som `summary.evaluated`.
+    """
+    groups: dict[tuple, dict] = {}
+    for test in tests:
+        label = test.get("label") or test["method"]
+        key = (label, test["horizon"])
+        group = groups.setdefault(key, {
+            "key": f"{label}:{test['horizon']}", "label": label,
+            "method": test["method"], "horizon": test["horizon"],
+            "horizon_minutes": test.get("horizon_minutes"),
+            "levels": _levels_for(test["product"]),
+            "n": 0, "n_active": 0, "n_open": 0, "n_facit": 0, "n_settled": 0,
+            "cost_kr": 0.0, "payout_kr": 0.0, "hits": {},
+        })
+        group["n"] += 1
+        if not test["retired"]:
+            group["n_active"] += 1
+        if test["correct_max"] is None:
+            group["n_open"] += 1
+            continue
+        group["n_facit"] += 1
+        level = int(test["correct_max"])
+        if level in group["levels"]:
+            group["hits"][level] = group["hits"].get(level, 0) + 1
+        if test["timely"] and test["payout_complete"] is True:
+            group["n_settled"] += 1
+            group["cost_kr"] += float(test["cost_kr"] or 0)
+            group["payout_kr"] += float(test["payout_kr"] or 0)
+    out = []
+    for group in groups.values():
+        group["hits"] = {level: group["hits"].get(level, 0) for level in group["levels"]}
+        group["cost_kr"] = round(group["cost_kr"], 2)
+        group["payout_kr"] = round(group["payout_kr"], 2)
+        group["balance_kr"] = round(group["payout_kr"] - group["cost_kr"], 2)
+        group["roi"] = (round((group["payout_kr"] - group["cost_kr"]) / group["cost_kr"], 4)
+                        if group["cost_kr"] else None)
+        out.append(group)
+    out.sort(key=lambda g: (g["label"], -(g["horizon_minutes"] or 0)))
+    return out
+
+
+RESEARCH_FAMILY_CONFIGS: dict[str, tuple[dict, ...]] = {
+    "ph5": (*PH5_FORWARD_CONFIGS, *PH5_RETIRED_CONFIGS),
+    "mathmax": (*MATHMAX_FORWARD_CONFIGS, *MATHMAX_RETIRED_CONFIGS),
+    "reducedmax": (*REDUCEDMAX_FORWARD_CONFIGS, *REDUCEDMAX_RETIRED_CONFIGS),
+    "poolopt": POOLOPT_FORWARD_CONFIGS,
+}
+
+LIVE_OVERVIEW_KEYS = ("n_events", "n_decided", "all_decided", "best_secure",
+                      "current_known", "current_best", "max_possible",
+                      "out_of_contention", "alive_per_level",
+                      "alive_min_per_level", "alive_max_per_level")
+
+
+def research_live_overview(store: Storage, family: str, states_for) -> dict:
+    """Liveläge för ALLA öppna testkuponger i en familj, utan att öppna dem.
+
+    `states_for(draw_keys)` levererar `(states_by_draw, errors_by_draw)` —
+    i drift `main._pool_live_states` (single-flight, 20 s), i test en attrapp.
+    En omgång hämtas en gång oavsett hur många armar som är frysta på den.
+    Samma `pool_played.live_status` som detaljkortet, utan radlistor och utan
+    oddsbaserad chans: det här är läget, aldrig facit och aldrig utdelning.
+    """
+    from . import pool_played
+    configs = RESEARCH_FAMILY_CONFIGS.get(family)
+    if configs is None:
+        raise ValueError(f"okänd researchfamilj: {family}")
+    keys = tuple(config["key"] for config in configs)
+    marks = ",".join("?" for _ in keys)
+    open_rows = store.conn.execute(
+        "SELECT product, draw_number, horizon, config_key FROM pool_system_ledger "
+        f"WHERE config_key IN ({marks}) AND settled_at IS NULL "
+        "ORDER BY product, draw_number, horizon, config_key", keys).fetchall()
+    draw_keys = sorted({(row[0], int(row[1])) for row in open_rows})
+    states_by_draw, errors_by_draw = states_for(draw_keys) if draw_keys else ({}, {})
+    tests, errors = [], {}
+    for product, draw_number, horizon, config_key in open_rows:
+        key = (product, int(draw_number))
+        label = f"{product}:{draw_number}"
+        if key in errors_by_draw:
+            errors[label] = str(errors_by_draw[key])
+            continue
+        states = states_by_draw.get(key)
+        if states is None:
+            errors[label] = "omgångens livestatus saknas"
+            continue
+        coupon = system_live_coupon(store, product, int(draw_number), horizon, config_key)
+        if coupon is None or coupon["settled"]:
+            continue
+        live = pool_played.live_status(coupon, states, include_chance=False,
+                                       include_row_details=False)
+        tests.append({"product": product, "draw_number": int(draw_number),
+                      "horizon": horizon, "config_key": config_key,
+                      **{name: live.get(name) for name in LIVE_OVERVIEW_KEYS}})
+    return {"family": family, "tests": tests, "errors": errors,
+            "draws": [f"{product}:{draw}" for product, draw in draw_keys]}

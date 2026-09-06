@@ -23,6 +23,46 @@ export function ForwardTestV3({ family }) {
       .catch((reason) => { if (current) setError(String(reason)) })
     return () => { current = false }
   }, [meta.endpoint])
+  // Liveläge för alla öppna testkuponger i listan, utan att öppna dem:
+  // en hämtning per familj var 30:e sekund medan fliken är synlig, samma
+  // livebild som detaljkortet. Försvinner en kupong ur livesvaret har
+  // settlementjobbet rättat den — då hämtas översikten om en gång.
+  const [live, setLive] = useState(null)
+  const [liveErr, setLiveErr] = useState(null)
+  const openCount = (data?.tests || []).filter((test) => test.correct_max == null).length
+  useEffect(() => {
+    if (!openCount || meta.archived) return undefined
+    let current = true
+    let pending = false
+    let controller = null
+    const refresh = () => {
+      if (!current || pending || document.visibilityState === 'hidden') return
+      pending = true
+      controller = new AbortController()
+      get(`/api/pool/systems/live-overview?family=${family}`, { signal: controller.signal })
+        .then((value) => {
+          if (!current) return
+          setLive(value)
+          setLiveErr(null)
+          if ((value.tests || []).length < openCount) {
+            get(meta.endpoint).then((fresh) => { if (current) setData(fresh) }).catch(() => {})
+          }
+        })
+        .catch((reason) => {
+          if (current && reason?.name !== 'AbortError') setLiveErr(String(reason))
+        })
+        .finally(() => { pending = false })
+    }
+    refresh()
+    const timer = window.setInterval(refresh, 30000)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      current = false
+      controller?.abort()
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [family, openCount, meta.archived, meta.endpoint])
   if (error) return <ErrorState message={error} />
   if (!data) return <LoadingState label={meta.loading} />
 
@@ -40,6 +80,9 @@ export function ForwardTestV3({ family }) {
   const retiredCount = (data.tests || []).filter((test) => test.retired).length
   const starts = Object.entries(data.start_draws || {}).map(([product, draw]) => (
     `${PRODUCT_LABEL[product] || product} #${draw}`)).join(' · ')
+  const liveEntries = Object.fromEntries((live?.tests || []).map((test) => [
+    `${test.product}:${test.draw_number}:${test.horizon}:${test.config_key}`, test]))
+  const liveErrors = live?.errors || {}
 
   return (
     <div className="v3ph5">
@@ -116,6 +159,8 @@ export function ForwardTestV3({ family }) {
               : `${Math.round(summary.average_overlap * 100)} %`}</b>.</>}</p>
       </details> : null}
 
+      <GroupSummary groups={data.groups} isMaxTest={isMaxTest} />
+
       <div className="v3card">
         <div className="v3cardhead"><h3>Alla frysta {meta.rowLabel}-kuponger</h3>
           <span className="v3hint">{tests.length} av {(data.tests || []).length}
@@ -166,7 +211,12 @@ export function ForwardTestV3({ family }) {
                   <td>#{test.draw_number}</td>
                   <td>{horizonLabel(test)}{test.timely ? '' : ' · sen'}</td>
                   <td>{forwardTestLabel(test)}</td>
-                  <td>{test.correct_max == null ? 'Öppna för liverättning'
+                  <td>{test.correct_max == null
+                    ? <LiveCell
+                        entry={liveEntries[`${test.product}:${test.draw_number}:${test.horizon}:${test.config_key}`]}
+                        pot={live?.pots?.[`${test.product}:${test.draw_number}`]}
+                        error={liveErr || liveErrors[`${test.product}:${test.draw_number}`]}
+                        waiting={!live && !meta.archived} />
                     : test.payout_complete === false
                       ? `${test.correct_max} rätt · utdelning okänd`
                       : <><b>{test.correct_max} rätt</b> · {kr(test.payout_kr)} ·{' '}
@@ -195,5 +245,63 @@ export function MaxTestsV3() {
         onClick={() => setFamily('reducedmax')}>Reducerat 20 000</button>
     </div>
     <ForwardTestV3 key={family} family={family} />
+  </div>
+}
+
+/* Liveläget för EN öppen testkupong i listan. Samma tal som detaljkortets
+   liverättning: fastställda rätt, läget om det slutar som nu, max nåbart och
+   hur många rader som fortfarande kan nå varje vinstnivå. Potten är
+   omgångens pott per nivå — inte en utdelning; hur många som delar den vet
+   ingen förrän SvS publicerat. */
+function LiveCell({ entry, pot, error, waiting }) {
+  if (!entry) {
+    if (error) return <span className="v3hint" title={error}>liveläge otillgängligt · öppna kupongen</span>
+    return <span className="v3hint">{waiting ? 'hämtar liveläge…' : 'Öppna för liverättning'}</span>
+  }
+  const living = Object.entries(entry.alive_per_level || {})
+    .map(([level, count]) => [Number(level), Number(count)])
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[0] - a[0])
+  const top = living[0]
+  const potKr = top ? pot?.per_level?.[top[0]] : null
+  const started = entry.n_decided > 0 || entry.current_known > 0
+  return <div className="v3livecell">
+    <div>
+      <b>{entry.best_secure} fastställt</b>
+      {entry.current_known > 0 && entry.current_best != null
+        && <> · läge <b>{entry.current_best}</b>/{entry.current_known}</>}
+      {' '}· max {entry.max_possible} · {entry.n_decided}/{entry.n_events} avgjorda
+    </div>
+    <div className="v3hint">{!started ? 'omgången har inte startat'
+      : entry.out_of_contention ? 'ingen rad kan längre nå någon vinstnivå'
+        : !living.length ? 'inga rader lever'
+          : <>lever: {living.map(([level, count]) => `${level} rätt → ${count.toLocaleString('sv-SE')} rader`).join(' · ')}
+            {potKr ? <> · pott {top[0]} rätt ≈ {kr(potKr)} <span title="Omgångens pott per nivå ur senaste snapshot (omsättning × vinstplan, jackpot på toppnivån). Delas med alla vinnare — ingen prognos på utdelning per rad.">(delas)</span></> : null}</>}</div>
+  </div>
+}
+
+/* Summering per arm/metod × frystid över HELA serien: saldo, träffar per
+   vinstnivå (bästa rad) och ROI. Kronor och ROI räknas bara på kuponger med
+   komplett utdelning; träffar på varje kupong med känt facit. Pensionerade
+   nycklar (omnyckeln 2026-08-31) ingår men redovisas separat i antalet. */
+function GroupSummary({ groups, isMaxTest }) {
+  if (!groups?.length) return null
+  const levels = groups[0].levels || []
+  return <div className="v3card">
+    <div className="v3cardhead"><h3>Summering per {isMaxTest ? 'arm' : 'metod'} och frystid</h3>
+      <span className="v3hint">hela serien · kronor bara för kuponger med komplett utdelning · träffar = bästa rad</span></div>
+    <div className="v3histtablewrap"><table className="v3histtable v3groupsummary">
+      <thead><tr><th>Kategori</th><th>Kuponger</th><th>Spelat</th><th>Inspelat</th><th>Saldo</th>
+        {levels.map((level) => <th key={level}>{level} rätt</th>)}<th>ROI</th></tr></thead>
+      <tbody>{groups.map((group) => <tr key={group.key}>
+        <td><b>{group.label}</b> · {group.horizon_minutes != null ? `${group.horizon_minutes} min` : group.horizon}</td>
+        <td>{group.n_settled} med facit{group.n_open ? ` · ${group.n_open} öppna` : ''}
+          {group.n_active !== group.n ? ` · ${group.n - group.n_active} äldre nyckel` : ''}</td>
+        <td>{kr(group.cost_kr)}</td>
+        <td>{kr(group.payout_kr)}</td>
+        <td className={roiCls(group.balance_kr)}>{group.balance_kr > 0 ? '+' : ''}{kr(group.balance_kr)}</td>
+        {levels.map((level) => <td key={level}>{group.hits?.[level] || 0}</td>)}
+        <td className={roiCls(group.roi)}>{group.roi == null ? '–' : pctSigned(group.roi)}</td>
+      </tr>)}</tbody></table></div>
   </div>
 }

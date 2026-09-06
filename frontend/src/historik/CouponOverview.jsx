@@ -8,8 +8,9 @@ export function CouponOverview({ events, nRows, liveByEvent = {}, showMarket = t
   return <section className="coupon-overview" aria-label="Kupong match för match">
     <p className="v3hint">{math ? 'Matematiskt system: alla kombinationer ingår.'
       : 'Reducerat system: markerade tecken ingår, men inte alla kombinationer.'}
-      {' '}Grön ram = rätt resultat som finns med. Röd ram = rätt resultat som saknas.
-      Streckad ram = aktuell ställning, ännu inte slutresultat.</p>
+      {' '}Grön ram ✓ = rätt resultat som var streckat. Röd ram ✗ = rätt resultat som
+      <b> inte var streckat</b> — tecknet saknas helt i kupongen, det är därför matchen
+      blev fel. Ifylld ruta = streckat tecken. Streckad ram = aktuell ställning, ännu inte slutresultat.</p>
     {events.map((event) => {
       const live = liveByEvent[event.event_number]
       // En struken match kan ha ett officiellt lottat tecken: visa det,
@@ -31,7 +32,7 @@ export function CouponOverview({ events, nRows, liveByEvent = {}, showMarket = t
               ? provisional ? 'provisional' : selected ? 'correct' : 'missed' : ''}`}
               aria-label={`${sign}${selected ? ', med' : ', saknas'}${correct
                 ? provisional ? ', aktuell ställning' : ', rätt resultat' : ''}`}>
-              <b>{sign}</b>{correct && !provisional && <i>{selected ? '✓' : '✗'}</i>}
+              <b>{sign}</b>{correct && !provisional && <i>{selected ? '✓' : '✗ ej streckat'}</i>}
             </span>
           })}
         </div>

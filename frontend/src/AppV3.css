@@ -38,6 +38,11 @@
 .coupon-sign.missed { border: 2px solid #f48383; background: #492b31; color: #ffd0d0; }
 .coupon-sign.provisional { border: 2px dashed #edc66d; }
 .coupon-sign i { font-style: normal; font-size: 11px; }
+.coupon-sign.missed { flex-wrap: wrap; row-gap: 0; }
+.coupon-sign.missed i { flex-basis: 100%; text-align: center; font-size: 9px; line-height: 1.1; }
+.v3livecell { display: grid; gap: 2px; font-size: 12px; }
+.v3livecell .v3hint { font-size: 11px; }
+.v3groupsummary td:first-child { white-space: nowrap; }
 .coupon-market { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
 .coupon-market summary, .v3systemrows > summary { cursor: pointer; padding: 6px 0; }
 .coupon-market table { width: 100%; table-layout: fixed; border-collapse: collapse; }

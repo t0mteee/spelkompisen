@@ -777,6 +777,54 @@ def pool_system_live(product: str, draw: int, horizon: str, config: str):
         store.close()
 
 
+@app.get("/api/pool/systems/live-overview")
+def pool_systems_live_overview(family: str):
+    """Liveläge för alla öppna testkuponger i en researchfamilj — i listan,
+    utan att öppna dem. Samma statusmotor och 20-sekunderslivebild som
+    detaljkortet; en omgång hämtas en gång oavsett antal armar.
+
+    `pots` är omgångens POTT per vinstnivå ur senaste snapshot (omsättning ×
+    vinstplan, jackpot på toppnivån) — inte en utdelning: hur många som delar
+    den vet ingen förrän SvS publicerat. Etiketten i UI:t måste säga pott.
+    """
+    from . import pool_system_ledger
+    if family not in pool_system_ledger.RESEARCH_FAMILY_CONFIGS:
+        raise HTTPException(400, f"okänd researchfamilj: {family}")
+    store = Storage()
+    try:
+        report = pool_system_ledger.research_live_overview(
+            store, family,
+            lambda keys: _pool_live_states(store, keys, include_odds=False))
+        pots = {}
+        for entry in report["draws"]:
+            product, draw = entry.rsplit(":", 1)
+            plan = PRIZE_PLANS.get(product)
+            row = store.conn.execute(
+                "SELECT net_sale, jackpot, fetched_at FROM pool_draw_snapshot "
+                "WHERE product=? AND draw_number=? ORDER BY fetched_at DESC LIMIT 1",
+                (product, int(draw))).fetchone()
+            if not plan or not row or not row[0]:
+                continue
+            turnover, jackpot = float(row[0] or 0), float(row[1] or 0)
+            per_level = {int(c): round(turnover * plan["ratio"] * s)
+                         for c, s in plan["splits"].items()}
+            per_level[max(per_level)] += round(jackpot)
+            pots[entry] = {"turnover": turnover, "jackpot": jackpot,
+                           "observed_at": row[2], "per_level": per_level}
+        report["pots"] = pots
+        report["observed_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
+        return report
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001 — källfel ska bli begripligt 503
+        logger.warning("Liveöversikt misslyckades för %s", family, exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="Liverättningen är tillfälligt otillgänglig") from exc
+    finally:
+        store.close()
+
+
 @app.get("/api/pool/ph5")
 def pool_ph5_overview():
     """Separat, lätt översikt för researchtestet med exakt 5 000 rader."""
