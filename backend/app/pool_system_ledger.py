@@ -499,10 +499,12 @@ def _ph5_control_rows(analysis: DrawAnalysis, config: dict,
     if method in ("folkrad", "favoritrad"):
         return _ph5_binary_rows(analysis, target, method)
     if method == "maxev":
-        # Samma byggare, enda skillnaden är balansknappen: k = 2·(1−vw), så
+        # Samma byggare, annan balansknapp: k = 2·(1−vw), så
         # vw=1.0 ger k=0 och alltså ren EV utan träffchansdämpning. Den delar
-        # kandidatuniversum och vinstplan med ordinarie medel, vilket är hela
-        # poängen — skillnaden i facit ÄR knappens effekt.
+        # vinstplan med ordinarie medel men INTE nödvändigtvis dess kandidater:
+        # value_weight påverkar även ev_candidate_signs. Denna frysta arm
+        # använder dessutom jackpot=0; medel kan ha faktisk jackpot.
+        # Tolka därför inte jämförelsen som en isolerad radvalsablation.
         system = build_ev_system(
             analysis, "maxev", config["budget"], row_price=row_price,
             value_weight=1.0, plan=_prize_plan(analysis.product),

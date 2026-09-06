@@ -1,11 +1,14 @@
 // Ett fryst system mot facit: liverättning, detalj och gruppertabell.
 // Bruten ur AppV3.jsx 2026-09-02.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { CouponOverview } from './CouponOverview.jsx'
+import { coverageResult, visibleResearch } from '../lib/couponView.js'
 import { get } from '../lib/api.js'
 import { PRODUCT_LABEL, RESEARCH_FAMILY_LABEL, fmtDay, STRATEGY_LABEL, horizonLabel, pctSigned, roiCls, marketTimeLabel, PH5_METHOD_LABEL } from '../lib/labels.js'
 import { LoadingState, EmptyState, ErrorState, kr, SortableTable } from '../App.jsx'
 
-export function SystemLiveCorrection({ live, error, observedAt }) {
+export function SystemLiveCorrection({ live, error, observedAt, compact = false }) {
   if (!live) return (
     <div className={`v3syslive ${error ? 'error' : ''}`}>
       <b>{error ? 'Liverättningen är tillfälligt otillgänglig' : 'Hämtar liverättning…'}</b>
@@ -60,7 +63,7 @@ export function SystemLiveCorrection({ live, error, observedAt }) {
         <div className="v3note">Radantalet visas som ett spann eftersom ordinarie tids
           resultat ännu inte är belagt för {live.alive_unproven.join(', ')}.</div>
       )}
-      <div className="v3syslivematches">
+      {!compact && <div className="v3syslivematches">
         {(live.matches || []).map((match) => (
           <div key={match.col} className={`v3syslivematch${match.final ? ' final' : ''}`}>
             <span className="v3hint">{match.col}</span>
@@ -71,7 +74,7 @@ export function SystemLiveCorrection({ live, error, observedAt }) {
             <span className="v3hint">{status(match)}</span>
           </div>
         ))}
-      </div>
+      </div>}
       <p className="v3hint">”Fastställt” räknar bara matcher vars tecken står fast.
         ”Läget nu” använder även pågående ställningar. Slutligt facit och
         simulerad utdelning sätts fortfarande först från Svenska Spels officiella resultat.</p>
@@ -81,6 +84,19 @@ export function SystemLiveCorrection({ live, error, observedAt }) {
 /* Ett fryst system match för match: täckte vi tecknet som gick in, och hur
    stod folkets streck vid frysningen mot vid spelstopp? */
 export function SystemDetail({ product, draw, horizon, config, onClose }) {
+  const dialogRef = useRef(null)
+  useEffect(() => {
+    const previous = document.activeElement
+    const dialog = dialogRef.current
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    dialog.showModal()
+    return () => {
+      dialog.close()
+      document.body.style.overflow = overflow
+      previous?.focus?.({ preventScroll: true })
+    }
+  }, [])
   const [d, setD] = useState(null)
   const [err, setErr] = useState(null)
   const [live, setLive] = useState(null)
@@ -139,13 +155,7 @@ export function SystemDetail({ product, draw, horizon, config, onClose }) {
       document.removeEventListener('visibilitychange', refresh)
     }
   }, [d?.available, d?.facit_complete, product, draw, horizon, config])
-  const move = (e, sign) => {
-    const a = e.streck_at_freeze?.[sign], b = e.streck_at_close?.[sign]
-    if (a == null || b == null || a === b) return null
-    const diff = b - a
-    return <span className={diff > 0 ? 'v3neg' : 'v3pos'}> ({diff > 0 ? '+' : ''}{diff})</span>
-  }
-  const pageSize = 100
+  const pageSize = 20
   const rows = d?.rows || []
   const searchedRow = rowNumber === '' ? null
     : rows.find((row) => row.index === Number(rowNumber))
@@ -156,21 +166,6 @@ export function SystemDetail({ product, draw, horizon, config, onClose }) {
   const distribution = Object.entries(d?.correct_dist || {})
     .map(([correct, count]) => [Number(correct), Number(count)])
     .sort((a, b) => b[0] - a[0])
-  const signWeights = (event) => ['1', 'X', '2'].map((sign) => {
-    const share = event.sign_shares?.[sign]
-    return `${sign} ${share == null ? '–' : `${Math.round(share * 100)} %`}`
-  }).join(' · ')
-  const oddsLine = (event, key) => ['1', 'X', '2'].map((sign) => {
-    const odds = event[key]?.[sign]
-    return `${sign} ${odds == null ? '–' : Number(odds).toFixed(2)}`
-  }).join(' · ')
-  const marketTime = (iso) => {
-    if (!iso) return null
-    const parsed = new Date(iso)
-    return Number.isNaN(parsed.getTime()) ? iso : parsed.toLocaleString('sv-SE', {
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-    })
-  }
   const liveByEvent = Object.fromEntries(
     (live?.matches || []).map((match) => [match.event, match]))
   const liveByColumn = Object.fromEntries(
@@ -187,13 +182,16 @@ export function SystemDetail({ product, draw, horizon, config, onClose }) {
     }
     return { secure, possible }
   }
-  return (
+  const coverage = coverageResult(d?.events || [], d?.correct_max, d?.facit_complete)
+  return createPortal(
+    <dialog ref={dialogRef} className="coupon-dialog" aria-label="Fryst kupong och facit"
+      onCancel={(event) => { event.preventDefault(); onClose() }}>
     <div className="v3sysdetail" id="hist-system-detail">
       <div className="v3sysdetailhead">
         <b>{PRODUCT_LABEL[product] || product} · omgång {draw} · {d
           ? `${d.research ? `${RESEARCH_FAMILY_LABEL[d.research_family]
             || '🧪 Researchtest'} · ` : ''}${d.research
-            ? d.label || PH5_METHOD_LABEL[d.method] || d.method
+            ? (d.method === 'byggarslump' ? PH5_METHOD_LABEL[d.method] : d.label || PH5_METHOD_LABEL[d.method] || d.method)
             : STRATEGY_LABEL[d.strategy] || d.strategy || 'testsystem'}`
           : 'testsystem'}</b>
         <button className="v3more" onClick={onClose}>stäng ✕</button>
@@ -219,97 +217,17 @@ export function SystemDetail({ product, draw, horizon, config, onClose }) {
                 : `${kr(d.payout_kr)} · ${pctSigned(d.roi)}`}</span>
           </div>
           {!d.facit_complete && <SystemLiveCorrection live={live}
-            error={liveErr} observedAt={liveObservedAt} />}
-          {d.x_summary && (
-            <div className="v3xsummary">
-              <b>X-kontroll</b>
-              <span>Kryss utgör {d.x_summary.row_share == null ? '–'
-                : `${Math.round(d.x_summary.row_share * 100)} %`} av alla tecken
-                i systemets {d.n_rows.toLocaleString('sv-SE')} rader.</span>
-              <span>{d.x_summary.omitted} matcher saknar X helt
-                {d.x_summary.thin ? ` · ${d.x_summary.thin} har under 10 % X` : ''}.</span>
-              {d.facit_complete && <span className={d.x_summary.x_outcomes_omitted
-                ? 'v3neg' : 'v3hint'}>{d.x_summary.x_outcomes} matcher slutade X
-                {' '}· {d.x_summary.x_outcomes_omitted} av dem saknades helt.</span>}
-            </div>
-          )}
-          <div className="v3histtablewrap">
-            <table className="v3histtable v3sysfacit">
-              <thead><tr>
-                <th>#</th><th>Match</th><th>Läge / facit</th><th>Teckenvikt</th>
-                <th title="Pinnacles/sharp odds, senast observerade före frysningen.">Sharpodds vid frysning</th>
-                <th title="Svenska Spels odds och folkets streck när systemet frystes.">SvS odds · streck</th>
-                <th title="Folkets procent när systemet frystes, och förändringen
-                  fram till spelstopp.">Streck vid frysning → stopp</th>
-              </tr></thead>
-              <tbody>
-                {d.events.map((e) => {
-                  const liveEvent = liveByEvent[e.event_number]
-                  return <tr key={e.event_number}
-                    className={e.hit === false ? 'v3sysmiss' : ''}>
-                    <td>{e.event_number}</td>
-                    <td>{e.home && e.away ? `${e.home} – ${e.away}`
-                      : e.description || liveEvent?.description
-                        || [liveEvent?.home, liveEvent?.away].filter(Boolean).join(' – ')
-                        || `Match ${e.event_number}`}
-                      {e.market_observed_at && <span className="v3markettime">
-                        prisbild mätt {marketTime(e.market_observed_at)}</span>}
-                    </td>
-                    <td className="v3outcome">
-                      {e.cancelled ? '⚠️' : e.outcome || (liveEvent
-                        ? <><b>{liveEvent.score || '–'}</b>{liveEvent.sign
-                          ? ` · ${liveEvent.sign}` : ''}<span className="v3markettime">
-                          {liveEvent.final ? 'slut' : liveEvent.in_progress
-                            ? liveEvent.status_text || 'pågår' : 'ej startad'}</span></>
-                        : '–')}</td>
-                    <td className={e.x_omitted ? 'v3xmissing' : ''}>
-                      {signWeights(e)}{e.hit === false
-                      ? <span className="v3neg" title="Systemet spelade inte det
-                        tecken som gick in — inget av raderna kunde bli rätt här."> ✗</span>
-                      : e.hit ? ' ✓' : ''}
-                      {e.x_omitted && <span className="v3xflag"> X saknas</span>}
-                    </td>
-                    <td className="v3oddsline">
-                      {oddsLine(e, 'sharp_odds_at_freeze')}
-                      {e.total_at_freeze && <span className="v3markettime">
-                        Ö/U {Number(e.total_at_freeze.line).toLocaleString('sv-SE')}
-                        {' · '}O {Number(e.total_at_freeze.O).toFixed(2)}
-                        {' · '}U {Number(e.total_at_freeze.U).toFixed(2)}
-                      </span>}
-                      {e.draw_risk?.protected && <span className="v3xflag"
-                        title={e.draw_risk.applied
-                          ? 'Den frysta byggaren använde X-skyddet i den här matchen.'
-                          : 'Historisk kupong: den nya regeln var inte aktiv, men matchen hade kvalificerat.'}>
-                        {e.draw_risk.applied ? 'X-skydd' : 'ny regel: X-skydd'}
-                        {' '}{Math.round((e.draw_risk.x_probability || 0) * 100)} %
-                      </span>}
-                    </td>
-                    <td className="v3oddsline">
-                      {['1', 'X', '2'].map((s) => (
-                        <span key={s}>{s} {e.odds_at_freeze?.[s] == null ? '–'
-                          : Number(e.odds_at_freeze[s]).toFixed(2)} ·{' '}
-                          {e.streck_at_freeze?.[s] ?? '–'} % </span>
-                      ))}
-                    </td>
-                    <td className="v3hint">
-                      {['1', 'X', '2'].map((s) => (
-                        <span key={s} className={e.outcome === s ? 'v3streckhit' : ''}>
-                          {s} {e.streck_at_freeze?.[s] ?? '–'}{move(e, s)}{' '}
-                        </span>
-                      ))}
-                    </td>
-                  </tr>
-                })}
-              </tbody>
-            </table>
-          </div>
-          <span className="v3hint">Teckenvikt visar hur stor del av systemets
-            {` ${d.n_rows.toLocaleString('sv-SE')} `}rader som använder 1, X respektive 2 — betydligt mer informativt
-            än att ett tecken råkar finnas på minst en rad. Ett ✗ betyder att
-            facittecknet saknades helt. Oddsen och strecken är sista sparade
-            observationen före frysningen; de läses aldrig in i efterhand.</span>
+            error={liveErr} observedAt={liveObservedAt} compact />}
+          {coverage && <p className="v3note">
+            {coverage.missing ? `${coverage.missing} ${coverage.missing === 1 ? 'rätt tecken saknades' : 'rätta tecken saknades'} helt. ` : 'Alla rätta tecken fanns med. '}
+            {coverage.reductionLoss > 0
+              ? `Tecknen kunde ge ${coverage.ceiling} rätt, men bästa sparade raden fick ${d.correct_max}. Rätt kombination reducerades bort.`
+              : 'Systemet nådde det bästa resultat som de valda tecknen tillät.'}
+          </p>}
+          <CouponOverview events={d.events} nRows={d.n_rows} liveByEvent={liveByEvent} />
           {rows.length > 0 && (
-            <section className="v3systemrows" aria-label="Testsystemets exakta rader">
+            <details className="v3systemrows">
+              <summary>Se enskilda rader och vinstfördelning ({rows.length.toLocaleString('sv-SE')} rader)</summary>
               <div className="v3systemrowshead">
                 <div>
                   <h4>Exakta rader mot facit</h4>
@@ -352,7 +270,7 @@ export function SystemDetail({ product, draw, horizon, config, onClose }) {
                   return <div className="v3systemrow" key={row.index}>
                     <span className="v3systemrowindex">#{row.index}</span>
                     <div className="v3systemsigns" aria-label={`Rad ${row.index}: ${row.signs}`}
-                      style={{ gridTemplateColumns: `repeat(${d.events.length}, minmax(19px, 1fr))` }}>
+                      style={{ gridTemplateColumns: `repeat(${d.events.length}, minmax(0, 1fr))` }}>
                       {row.signs.split('').map((sign, index) => {
                         const match = liveByColumn[index + 1]
                         const liveClass = !match?.sign ? ''
@@ -385,11 +303,12 @@ export function SystemDetail({ product, draw, horizon, config, onClose }) {
                     onClick={() => setRowPage((page) => Math.min(pageCount - 1, page + 1))}>Nästa →</button>
                 </div>
               )}
-            </section>
+            </details>
           )}
         </>
       )}
     </div>
+    </dialog>, document.body
   )
 }
 /* En grupp är en simulerad konfiguration över flera omgångar, inte en spelad
@@ -400,7 +319,7 @@ export function SystemGroupsTable({ id, groups, limit = null, onOpenLatest = nul
     <SortableTable id={id} className="v3histtable"
       wrapperClassName="v3histtablewrap"
       defaultSort={{ key: 'latest_frozen', dir: 'desc' }}
-      rows={groups} limit={limit}
+      rows={groups.filter(visibleResearch)} limit={limit}
       columns={[
         { key: 'product', label: 'Spel', defaultDir: 'asc',
           value: (g) => PRODUCT_LABEL[g.product] || g.product },

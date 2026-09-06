@@ -1,3 +1,5 @@
+import { CouponOverview } from './historik/CouponOverview.jsx'
+import { selectionReason } from './lib/couponView.js'
 import { Fragment, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import './App.css'
 import { payoutMatchesSelection } from './poolSelection.js'
@@ -430,7 +432,7 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse, label = null,
     <p className="hint build-honesty">
       PH5-ablation (3 976 omgångar, 2026-07-26): radvalsmetoden ger ingen påvisad
       fördel mot folk-/favoritrad på 13-matchsspel vid budgetar upp till 512 rader
-      — täckningen är för gles. På Topptipset-spelen är fördelen bevisad (+7–15 pp).
+      — täckningen är för gles. Historiska träffresultat är inte belägg för framtida vinst.
     </p>
   )
   if (!sys) return honest13 || null
@@ -455,9 +457,9 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse, label = null,
         <strong>{sys.system_type}</strong> · {sys.strategy} ·
         <span className="rows"> {sys.num_rows} rader = {sys.cost} kr</span>
         <button className="primary useb" onClick={onUse}>{actionLabel}</button>
-        <span className="note"> {sys.note}</span>
+        <span className="note"> {selectionReason(sys.note)}</span>
       </div>
-      {sys.rule && <div className="rule">{sys.rule}</div>}
+      {sys.rule && <div className="rule">{selectionReason(sys.rule)}</div>}
       {sys.system_type === 'färgreducerat' && sys.color_bounds && onRecalc && (
         <ColorLab key={sys.rule} sys={sys} onRecalc={onRecalc} />
       )}
@@ -496,7 +498,7 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse, label = null,
             Matchutfall dras från fair-sannolikheterna. Medvinnare beräknas som
             Poisson kring utfallets faktiska streckkombination;
             {mc.top_tier_kappa_by_x
-              ? ' Radform v1 använder separat κ för 0, 1, 2, 3 och 4+ X.'
+              ? ' Radform v1 använder en alternativ medvinnarmodell.'
               : ` κ=${mc.kappa.toFixed(2)} är fortsatt konservativt.`}
             {' '}Percentiler beskriver risk, inte en garanterad utdelning.
           </div>
@@ -562,12 +564,12 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse, label = null,
                     {i > 0 ? '  ' : ''}
                     <span className={p.colors?.[s] === 'blå' ? 'sg-bla' : p.colors?.[s] === 'gul' ? 'sg-gul' : ''}
                       title={p.colors?.[s] ? `${p.colors[s]} färg i färgregeln` : undefined}>{s}</span>
-                    {signCounts && p.signs.length > 1 && signCounts[pi]?.[s] != null
+                    {signCounts && fullCombos > sys.num_rows && p.signs.length > 1 && signCounts[pi]?.[s] != null
                       && <em className="signcnt" title={`${s} spelas i ${signCounts[pi][s]} av ${sys.num_rows} rader`}>×{signCounts[pi][s]}</em>}
                   </Fragment>
                 ))}
               </td>
-              <td className="rec">{p.reason}</td>
+              <td className="rec">{selectionReason(p.reason)}</td>
             </tr>
           ))}
         </tbody>
@@ -1435,7 +1437,7 @@ function PlayedCouponDetail({ coupon, onClose }) {
         aria-labelledby="played-detail-title" onMouseDown={(event) => event.stopPropagation()}>
         <header className="played-detail-head">
           <div>
-            <span>Rättad testkupong</span>
+            <span>Din sparade kupong</span>
             <h3 id="played-detail-title">{couponTitle(coupon)}</h3>
             <p>{couponDate(coupon)} · {coupon.n_rows} rader · {kr(coupon.cost_kr)}</p>
           </div>
@@ -1458,16 +1460,11 @@ function PlayedCouponDetail({ coupon, onClose }) {
             )}
             <section>
               <h4>Officiellt facit, match för match</h4>
-              <div className="played-facit-grid">
-                {events.map((event) => (
-                  <div key={event.column} className="played-facit-match">
-                    <span>{event.column}</span>
-                    <b>{eventName(event)}</b>
-                    <em className={event.outcome ? 'known' : ''}>{event.outcome || '?'}</em>
-                    {event.cancelled && <small>struken · fastställt tecken</small>}
-                  </div>
-                ))}
-              </div>
+              <CouponOverview nRows={rows.length} showMarket={false}
+                events={events.map((event, index) => ({ ...event,
+                  event_number: event.column,
+                  covered: ['1', 'X', '2'].filter(sign => rows.some(row => row.signs[index] === sign)),
+                }))} />
             </section>
             <section>
               <h4>Så fördelades raderna</h4>

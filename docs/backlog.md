@@ -12,6 +12,14 @@ inte per rad.
 
 ## Aktivt (2026-09-02)
 
+**Tillägg 2026-09-06 efter Samans poolutvärdering:** UI-paketet och
+read-only-auditen av Stryktipset 4969 är levererade. Nästa föreslagna
+arbete: förklara 3/13 sharp-/totalluckor (särskilt Brighton och Millwall),
+därefter mäta hårda teckenbortval och kombinationskoncentration över
+befintlig historik. Inga nya modellarmar startas på dagens facit; tidigare
+gater gäller. Detaljer, prioritering och metodkrav i
+`docs/overlamningar/overlamning-2026-09-05-poolutvardering-mobil.md`.
+
 Ur granskningen 2026-09-02 (Claude, mot `origin/main` = servern), i
 prioritetsordning. ⚖ = kräver Samans beslut.
 

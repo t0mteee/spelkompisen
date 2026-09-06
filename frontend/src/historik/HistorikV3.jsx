@@ -1,3 +1,4 @@
+import { visibleResearch } from '../lib/couponView.js'
 // Historik = 100 % POOL (ytgränsen 2026-08-05). Bruten ur AppV3.jsx 2026-09-02.
 import { useEffect, useState } from 'react'
 import { get } from '../lib/api.js'
@@ -90,10 +91,6 @@ export function HistorikV3({ initialProduct, focus }) {
 
   const showSystemDetail = (row) => {
     setOpenSystem(row)
-    // Detaljen ligger efter grupptabellen. Flytta användaren dit även när
-    // testet öppnas från en grupp högt upp på sidan.
-    setTimeout(() => document.getElementById('hist-system-detail')
-      ?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
   }
   const showLatestGroupTest = (group) => showSystemDetail({
     product: group.latest_product || group.product,
@@ -144,7 +141,7 @@ export function HistorikV3({ initialProduct, focus }) {
     }
     return [...out.values()]
   }
-  const allGroups = mergeFamily((systems?.groups || []).filter(inScope))
+  const allGroups = mergeFamily((systems?.groups || []).filter(visibleResearch).filter(inScope))
   const activeGroupBase = allGroups.filter((g) => !g.retired)
   const retiredGroupBase = allGroups.filter((g) => g.retired)
   const groupMatches = (g) => (
@@ -170,7 +167,7 @@ export function HistorikV3({ initialProduct, focus }) {
     (current) => ({ ...current, [key]: value }))
   const champRows = (systems?.champion_report?.rows || []).filter(inScope)
   const recent = (systems?.recent || [])
-    .filter(inScope).filter((r) => showRetired || !r.retired)
+    .filter(visibleResearch).filter(inScope).filter((r) => showRetired || !r.retired)
 
   return (
     <div className="v3hist">

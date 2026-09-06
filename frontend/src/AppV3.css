@@ -9,6 +9,93 @@
   flex-direction: column;
 }
 
+/* Kupongen först. Dialogen har en enda lodrät rullyta på telefonen. */
+.coupon-dialog {
+  --v3acc: #3fb9a5;
+  width: min(800px, calc(100% - 24px)); max-height: calc(100dvh - 24px);
+  box-sizing: border-box; padding: 0; border: 1px solid var(--line);
+  border-radius: 12px; background: var(--panel); color: var(--text);
+  overscroll-behavior: contain;
+}
+.coupon-dialog::backdrop { background: #000a; }
+.coupon-dialog .v3sysdetail { margin: 0; border: 0; border-radius: 0; padding: 16px; }
+.coupon-dialog .v3sysdetailhead {
+  position: sticky; top: -16px; z-index: 2; padding: 12px 0;
+  background: var(--panel2); align-items: flex-start;
+}
+.coupon-dialog .v3sysdetailhead button { min-height: 40px; flex-shrink: 0; }
+.coupon-overview { display: grid; gap: 8px; }
+.coupon-match { display: grid; grid-template-columns: minmax(0,1fr) 144px;
+  gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
+.coupon-match-name { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.coupon-match-name > span { color: var(--muted); flex-shrink: 0; }
+.coupon-match-name b { overflow-wrap: anywhere; }
+.coupon-signboxes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.coupon-sign { display: flex; justify-content: center; align-items: center; gap: 2px;
+  min-height: 34px; border: 1px solid var(--line); border-radius: 5px; color: var(--muted); }
+.coupon-sign.selected { background: var(--panel2); color: var(--text); border-color: #77858f; }
+.coupon-sign.correct { border: 2px solid #65d9a0; background: #224639; color: #c9ffe4; }
+.coupon-sign.missed { border: 2px solid #f48383; background: #492b31; color: #ffd0d0; }
+.coupon-sign.provisional { border: 2px dashed #edc66d; }
+.coupon-sign i { font-style: normal; font-size: 11px; }
+.coupon-market { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
+.coupon-market summary, .v3systemrows > summary { cursor: pointer; padding: 6px 0; }
+.coupon-market table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.coupon-market th, .coupon-market td { padding: 6px 2px; text-align: center; }
+.coupon-market th:first-child { width: 32%; text-align: left; }
+.coupon-confirmation { position: fixed; bottom: max(12px, env(safe-area-inset-bottom));
+  left: 50%; transform: translateX(-50%); z-index: 100; display: flex; align-items: center;
+  gap: 8px; width: max-content; max-width: calc(100% - 24px); box-sizing: border-box;
+  background: var(--panel2); border: 1px solid #65d9a0; border-radius: 10px;
+  padding: 10px; box-shadow: 0 6px 30px #0008; }
+.coupon-confirmation button { min-height: 40px; }
+.v3mobilelabel { display: none; }
+.v3ph5 details > summary { cursor: pointer; font-weight: 700; padding: 4px 0; }
+.v3 .buildbar, .v3 #kupong { overflow-anchor: none; }
+
+@media (max-width: 760px) {
+  .coupon-dialog { width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh;
+    margin: 0; border: 0; border-radius: 0; }
+  .coupon-dialog .v3sysdetail { padding: 10px; }
+  .coupon-dialog .v3sysdetailhead { top: -10px; font-size: 13px; }
+  .coupon-match { grid-template-columns: minmax(0,1fr) 117px; padding: 8px; gap: 6px; }
+  .coupon-match-name { font-size: 12px; gap: 5px; }
+  .coupon-signboxes { gap: 3px; }
+  .coupon-confirmation { font-size: 12px; }
+  .v3 input, .v3 select, .coupon-dialog input { font-size: 16px; }
+  .coupon-dialog .v3systemrow, .played-detail .played-row-result {
+    min-width: 0; grid-template-columns: 1fr auto auto; gap: 6px; padding: 8px 4px; }
+  .coupon-dialog .v3systemsigns, .played-detail .played-row-signs {
+    grid-row: 2; grid-column: 1 / -1; min-width: 0;
+    grid-template-columns: repeat(var(--played-cols, 13), minmax(0, 1fr)); }
+  .coupon-dialog .v3systemsigns span, .played-detail .played-row-signs span {
+    min-width: 0; min-height: 27px; font-size: 12px; }
+  .coupon-dialog .v3systemrowlist { overflow: visible; }
+  .coupon-dialog .v3rowpager { flex-wrap: wrap; }
+  .v3ph5 .v3ph5table { min-width: 0; width: 100%; }
+  .v3ph5table thead { display: none; }
+  .v3ph5table tbody { display: grid; gap: 10px; }
+  .v3ph5table tr { display: grid; grid-template-columns: 1fr 1fr; padding: 8px;
+    border: 1px solid var(--line); border-radius: 8px; }
+  .v3ph5table td { white-space: normal; border: 0; padding: 4px; }
+  .v3ph5table td:nth-child(n+5) { grid-column: 1 / -1; }
+  .v3ph5table td:last-child button { width: 100%; min-height: 40px; }
+  .v3ph5table td:nth-child(4)::before { content: 'Före stopp: '; color: var(--muted); }
+  .v3mobilelabel { display: inline; color: var(--muted); }
+  .v3 .buildbar .system .grid.compact { display: table; overflow: visible; white-space: normal; }
+  .system .grid.compact thead { display: none; }
+  .system .grid.compact tbody { display: grid; gap: 8px; }
+  .system .grid.compact tr { display: grid; grid-template-columns: 20px minmax(0,1fr) auto;
+    border-bottom: 1px solid var(--line); }
+  .system .grid.compact td { padding: 5px 2px; min-width: 0; white-space: normal; }
+  .system .grid.compact .signs { grid-column: 2 / -1; }
+  .system .grid.compact .rec { grid-column: 2 / -1; font-size: 11px; }
+  .v3 .rowx-grid { max-height: none; overflow: visible; }
+  .v3 .rowx-row { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 8px 0; }
+  .v3 .rowx-signs { grid-column: 1 / -1; display: flex; gap: 2px; }
+  .v3 .rowx-signs em { flex: 1; min-width: 0; margin: 0; padding: 3px 0; text-align: center; }
+}
+
 /* ---------- topbar ---------- */
 .v3top {
   position: sticky; top: 0; z-index: 40;

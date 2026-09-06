@@ -29,11 +29,11 @@ const ROW_MODELS = [
   },
   {
     id: 'hit', label: 'Träffsäkrare',
-    note: 'Värdevikt 0. Fler topprätt i historiska 256/512-test, men oftare folkligare rader och lägre utdelning per träff. Inte ett X-skydd.',
+    note: 'Värdevikt 0. Fler topprätt i historiska 256/512-test, men oftare folkligare rader och lägre utdelning per träff.',
   },
   {
     id: 'row_shape_v1', label: 'Radform v1 · test',
-    note: 'Topptips-test som justerar väntade medvinnare efter antal X. Endast valbar vid 384 kr; fördelen höll inte vid 256/512.',
+    note: 'Topptips-test med alternativ uppskattning av medvinnare. Endast valbar vid 384 kr; fördelen höll inte vid 256/512.',
   },
 ]
 const ROW_MODEL_LABEL = Object.fromEntries(ROW_MODELS.map((model) => [model.id, model.label]))
@@ -776,9 +776,11 @@ function PoolV3() {
     })
   }
   const clearCoupon = () => {
+    setCouponNotice(null)
     setPicks({}); setPickRows(null); setCouponVariant(null); setCouponModel(null)
     setCouponValueWeight(null)
   }
+  const [couponNotice, setCouponNotice] = useState(null)
   const selectSystem = (chosenSystem, variantLabel) => {
     if (!analysis || !chosenSystem?.picks) return
     const p = {}
@@ -789,15 +791,7 @@ function PoolV3() {
     setCouponVariant(variantLabel)
     setCouponModel(chosenSystem.row_model || 'standard')
     setCouponValueWeight(chosenSystem.effective_value_weight ?? effectiveValueWeight / 100)
-    // scrollIntoView får även flytta sidan horisontellt. När den breda
-    // kupongtabellen nyss mountats ser det på mobil ut som att sidan zoomar.
-    // Vänta tills layouten satt sig och flytta bara Y-led.
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const coupon = document.getElementById('kupong')
-      if (!coupon) return
-      const top = coupon.getBoundingClientRect().top + window.scrollY - 8
-      window.scrollTo({ top, left: 0, behavior: 'smooth' })
-    }))
+    setCouponNotice({ label: variantLabel, product, draw })
   }
 
   const nMatches = analysis?.matches?.length || 0
@@ -1036,6 +1030,17 @@ function PoolV3() {
             </section>
 
             <section id="kupong">
+              {couponNotice?.product === product && couponNotice?.draw === draw && <div className="coupon-confirmation" role="status">
+                <span>✓ {couponNotice.label} ligger i kupongen</span>
+                <button onClick={() => {
+                  document.activeElement?.blur()
+                  const coupon = document.getElementById('kupong')
+                  if (coupon) window.scrollTo({ top: coupon.getBoundingClientRect().top
+                    + window.scrollY - 12, left: 0, behavior: 'auto' })
+                  setCouponNotice(null)
+                }}>Visa kupongen</button>
+                <button aria-label="Stäng bekräftelsen" onClick={() => setCouponNotice(null)}>✕</button>
+              </div>}
               <h2>Din kupong{couponVariant ? ` · ${couponVariant}` : ''}
                 {couponModel && couponModel !== 'standard'
                   ? ` · ${ROW_MODEL_LABEL[couponModel] || couponModel}` : ''}

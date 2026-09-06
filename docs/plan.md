@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-09-02, natt) — läs detta först i ny session
+## STATUS (2026-09-06, natt) — läs detta först i ny session
 
 Det här blocket **ersätts** vid varje leverans — skriv över, stapla inte.
 Tidigare statusblock ligger daterade och ordagranna i
@@ -62,17 +62,21 @@ nominerade till forward. Sannolikhetsbas retro (pit-v4): identiskt facit 21/21
 träffar på 77 omg, Pinnacle täcker Topptipset vid h3 i bara 18/87 omg (m20
 56/88). Se `docs/overlamningar/overlamning-2026-09-02-poolforbattringar.md`.
 
-**Senast levererat.** 2026-09-02 natt (Codex): Championship fullt följd hos
-Pinnacle, Kambi, Ninja, Smarkets, Flashscore och FotMob; ren livekohort v12,
-två verifierade kortnamnsdubbletter backupat hopslagna 15→13 utan oddsförlust,
-produktions-API och båda livekällor verifierade; ingen modellpromotion eller
-bakfyllning. 2026-09-02 kväll (Claude): exakt chansmotor; PH4-skörd;
-optimerarens fullsökning + forwardfamilj `poolopt` (`app/pool_optimizer.py`);
-`prob_base` i EV-byggaren + PH3-utmanare; `pit-total-v1`; `jackpot_close` +
-migrering; Historik visar jackpot-prognosträff och alla nya spår. 2026-09-02
-dag: tystnadsvakt i UI, `cli.py gater`, frontend-utbrytning, CLAUDE.md
-halverad. 2026-08-31 (Codex): X-risk v1 + matematiskt max v2. Allt äldre:
-`docs/status-historik.md`.
+**Senast levererat.** 2026-09-06 natt (Codex): utvärdering av Stryktipset
+4969, både egna kuponger och stora frysta tester. Konstaterade hårda
+teckenbortval, koncentrerat kombinationsurval och 3/13 matcher utan
+sharp/total vid frysning. Balanserat 5 000 h3 gav trots allt 12 rätt och
+cirka 29 528 kr simulerat tillbaka; slumpkontrollen 13 och cirka 747 568 kr.
+Ingen modellpromotion eller ny kohort på ett enstaka utfall.
+Kupongvisare med 1/X/2-rutor och inramat facit, mobilkort/dialog,
+utvikbara odds/streck, X-diagnostik bort ur UI (O/U-regel kvar), gamla
+40 000 reducerade piloten dold utan DB-radering. Bekräftelse + explicit
+”Visa kupongen” ersätter automatisk scroll. Full utvärdering, nästa
+arbetsordning och verifiering:
+`docs/overlamningar/overlamning-2026-09-05-poolutvardering-mobil.md`.
+Maskinläsbar evidens: `docs/pool-audit-2026-09-05.json`.
+Befintliga gater gäller fortsatt; dataluckor och urvalsstabilitet granskas
+före nya modellspår. Tidigare leveranser: `docs/status-historik.md`.
 
 ## Modellplan — vägen till en modell att lita på (efter backtest-domen)
 

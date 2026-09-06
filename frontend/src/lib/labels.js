@@ -118,7 +118,7 @@ export const marketTimeLabel = (iso) => {
 }
 export const PH5_METHOD_LABEL = {
   varderader: 'Värderader',
-  byggarslump: 'Byggarslump',
+  byggarslump: 'Slumpurval',
   favoritrad: 'Favoritrad',
   maxev: 'Max-EV',
   folkrad: 'Folkrad (avslutad)',
@@ -153,7 +153,8 @@ export const FORWARD_TEST = {
     paired: true,
   },
 }
-export const forwardTestLabel = (test) => test.label || PH5_METHOD_LABEL[test.method] || test.method
+export const forwardTestLabel = (test) => test.method === 'byggarslump'
+  ? 'Slumpurval' : test.label || PH5_METHOD_LABEL[test.method] || test.method
 export const forwardTestFilterKey = (test) => test.label || test.method
 export const LABB_STATUS = {
   samlar: ['SAMLAR', 'Serien växer och utvärderas bara på sin förregistrerade kadens — inga beslut i förtid.'],
@@ -204,13 +205,13 @@ export const HISTORIK_RESEARCH = [
     text: 'Topptipset skördad (48 forward-omgångar): streck + streckrörelse slår inte ren Pinnacle vid h3 (Δlogloss +0,013, KI90 täcker noll). Promotion nej. Stryk/Europa samlar vidare.',
     doc: 'docs/ph4-forward-status.json' },
   { icon: '🔬', title: 'Pooloptimerare v1 · 10 000 konfigurationer', date: '2026-09-02', status: 'samlar',
-    text: 'Ingen arm slog Standard på ROI i den historiska slutauditen (402 omg). Tre armar (träff/balans/X-kvot) fryses framåt som research-only från Topptipset 4309.',
+    text: 'Ingen arm slog Standard på ROI i den historiska slutauditen (402 omg). Tre armar (träff/balans/radform) fryses framåt som research-only från Topptipset 4309.',
     doc: 'docs/poolopt-v1-forward-2026-09-02.md' },
   { icon: '⚖️', title: 'Sannolikhetsbas SvS vs Pinnacle', date: '2026-09-02', status: 'samlar',
     text: 'EV-byggaren rankar på SvS-odds men väljer kandidater på Pinnacle. Retro på pit-v4: identiskt facit (21/21 träffar) på 77 omg; radvalen skiljer i 22 % (h3) / 68 % (m20). Utmanaren dr1-b256-medel-sharp mäts framåt i PH3.',
     doc: 'docs/ph3-sannolikhetsbas-v1-2026-09-02.md' },
   { icon: '📏', title: 'pit-total-v1 · Pinnacles huvudtotal', date: '2026-09-02', status: 'samlar',
-    text: 'Syskonserie till pit-v4: totalen fryst vid h24/h3/m20. Frågan "bär totalen P(X) utöver X-priset?" ställs vid ≥40 Topptipsomgångar med total på alla åtta.',
+    text: 'Syskonserie till pit-v4: totalen fryst vid h24/h3/m20. Totalens bidrag utöver 1X2-priserna utvärderas vid ≥40 Topptipsomgångar med total på alla åtta.',
     doc: 'docs/pool-pit-total-v1-2026-09-02.md' },
   { icon: '🎟️', title: 'PH5 256/512 rader', date: '2026-07-26', status: 'fals',
     text: 'Värderader ger ingen påvisad fördel på 13-matchsspel ens vid 512 rader.',

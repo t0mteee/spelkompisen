@@ -23,15 +23,6 @@ export function ForwardTestV3({ family }) {
       .catch((reason) => { if (current) setError(String(reason)) })
     return () => { current = false }
   }, [meta.endpoint])
-  useEffect(() => {
-    if (!openSystem) return undefined
-    const frame = window.requestAnimationFrame(() => {
-      document.getElementById('hist-system-detail')?.scrollIntoView({
-        behavior: 'smooth', block: 'start',
-      })
-    })
-    return () => window.cancelAnimationFrame(frame)
-  }, [openSystem])
   if (error) return <ErrorState message={error} />
   if (!data) return <LoadingState label={meta.loading} />
 
@@ -58,7 +49,7 @@ export function ForwardTestV3({ family }) {
             : 'FRAMÅTRIKTAT BLINDTEST · INGA RIKTIGA INSATSER'}</span>
           <h1>{meta.title}</h1>
           <p>Här går varje automatisk testkupong att öppna exakt som den frystes
-            före spelstopp — samtliga {meta.rowLabel} rader, odds, streck, teckenvikt och
+            före spelstopp — samtliga {meta.rowLabel} rader, odds, streck och
             liverättning medan omgången pågår samt slutligt facit på samma ställe.</p>
         </div>
       </section>
@@ -76,8 +67,8 @@ export function ForwardTestV3({ family }) {
             : meta.paired ? summary.paired_freezes || 0 : summary.methods || 0}</b></div>
       </div>
 
-      <div className="v3card v3ph5explain">
-        <div className="v3cardhead"><h3>Så ska testet läsas</h3></div>
+      <details className="v3card v3ph5explain">
+        <summary>Så fungerar testet och metoderna</summary>
         {isMaxTest ? <>
           <p>Två modellarmar får exakt samma {meta.rowLabel}-radersbudget, marknadsdata
             och frysningstid. <b>EV medel</b> balanserar sannolikhet och värde;
@@ -91,20 +82,20 @@ export function ForwardTestV3({ family }) {
           </div>
         </> : <>
           <p>Fyra olika metoder får samma budget och fryses både tre timmar och
-            tjugo minuter före stopp. Det gör jämförelsen rättvis. Resultatet är
+            tjugo minuter före stopp. Jämför metoder inom samma omgång och frystid; tiderna är inte oberoende försök. Resultatet är
             kontrafaktiskt: systemet lämnades aldrig in, så kronor och ROI visar
             vad testet uppskattas ha gett — inte pengar som vunnits eller förlorats.</p>
           <div className="v3ph5methods">
             <span><b>Värderader</b> appens balanserade modell</span>
             <span><b>Max-EV</b> prioriterar värde hårdast</span>
             <span><b>Favoritrad</b> marknadens sannolikaste tecken</span>
-            <span><b>Byggarslump</b> slumpkontroll ur samma kandidater</span>
+            <span><b>Slumpurval</b> samma tillåtna tecken som Värderader, men raderna lottas utan EV-rankning</span>
           </div>
         </>}
-      </div>
+      </details>
 
-      {isMaxTest ? <div className="v3card v3ph5xnote">
-        <div className="v3cardhead"><h3>Vad ”max” betyder här</h3></div>
+      {isMaxTest ? <details className="v3card v3ph5xnote">
+        <summary>Systemstorlek och teststart</summary>
         {family === 'mathmax' ? <p>Detta är ett äkta matematiskt M-system:
           <b> 3 spikar × 1 halvgardering × 9 helgarderingar = 39 366 unika rader</b>.
           Alla kombinationer av de valda tecknen ingår; inget radurval reduceras bort.
@@ -123,21 +114,7 @@ export function ForwardTestV3({ family }) {
             Genomsnittlig exakt radöverlapp hittills: <b>{summary.average_overlap == null
               ? 'väntar på första kompletta par'
               : `${Math.round(summary.average_overlap * 100)} %`}</b>.</>}</p>
-      </div> : <div className="v3card v3ph5xnote">
-        <div className="v3cardhead"><h3>Är X systematiskt underviktat?</h3></div>
-        <p>Det är en rimlig misstanke, särskilt när ett binärt 1–2-hörn väljs.
-          Vi ändrar inte den pågående PH5-v3-kohorten i efterhand. I stället
-          mäter sidan nu X-andelen i varje kupong och markerar varje match där
-          X saknas helt eller får mindre än 10 procent av raderna.</p>
-        <p><b>Appens Värderader hittills:</b> X har saknats i{' '}
-          {summary.model_x_omitted_events || 0} frysta matchbeslut. Av{' '}
-          {summary.model_x_outcomes || 0} observerade X-facit saknades X helt i{' '}
-          <span className={summary.model_x_outcomes_omitted ? 'v3neg' : 'v3pos'}>
-            {summary.model_x_outcomes_omitted || 0}</span>. Samma match kan
-          räknas vid både tre timmar och tjugo minuter; detta är diagnostik,
-          ännu inget statistiskt modellbeslut. Kontrollerna visas separat i
-          tabellen och blandas inte in i den här siffran.</p>
-      </div>}
+      </details> : null}
 
       <div className="v3card">
         <div className="v3cardhead"><h3>Alla frysta {meta.rowLabel}-kuponger</h3>
@@ -179,7 +156,7 @@ export function ForwardTestV3({ family }) {
                 : `Testet startar framåt: ${starts || 'nästa ofrysta omgång'}.`} />
           : <div className="v3histtablewrap"><table className="v3histtable v3ph5table">
               <thead><tr><th>Datum</th><th>Spel</th><th>Omgång</th><th>Fryst</th>
-                <th>{meta.filterLabel}</th><th>Facit</th><th>X-vikt</th>
+                <th>{meta.filterLabel}</th><th>Facit</th>
                 {meta.paired && <th>Paröverlapp</th>}<th>Kupong</th></tr></thead>
               <tbody>{tests.map((test) => (
                 <tr key={`${test.product}:${test.draw_number}:${test.horizon}:${test.config_key}`}
@@ -194,10 +171,7 @@ export function ForwardTestV3({ family }) {
                       ? `${test.correct_max} rätt · utdelning okänd`
                       : <><b>{test.correct_max} rätt</b> · {kr(test.payout_kr)} ·{' '}
                           <span className={roiCls(test.roi)}>{pctSigned(test.roi)}</span></>}</td>
-                  <td className={test.x_outcomes_omitted ? 'v3neg' : ''}>
-                    {test.x_share == null ? '–' : `${Math.round(test.x_share * 100)} %`}
-                    {test.x_omitted_events ? ` · saknas i ${test.x_omitted_events}` : ''}</td>
-                  {meta.paired && <td>{test.paired_overlap == null ? 'Väntar par'
+                  {meta.paired && <td><span className="v3mobilelabel">Överlapp med andra armen: </span>{test.paired_overlap == null ? 'Väntar par'
                     : <>{Math.round(test.paired_overlap * 100)} %
                       {test.unique_rows != null && ` · ${test.unique_rows.toLocaleString('sv-SE')} unika`}</>}</td>}
                   <td><button className="v3more" onClick={() => setOpenSystem(test)}>
@@ -219,9 +193,7 @@ export function MaxTestsV3() {
         onClick={() => setFamily('mathmax')}>Matematiskt 39 366</button>
       <button className={family === 'reducedmax' ? 'on' : ''}
         onClick={() => setFamily('reducedmax')}>Reducerat 20 000</button>
-      <button className={family === 'max40' ? 'on' : ''}
-        onClick={() => setFamily('max40')}>40 000-pilot · avslutad</button>
     </div>
-    <ForwardTestV3 family={family} />
+    <ForwardTestV3 key={family} family={family} />
   </div>
 }
