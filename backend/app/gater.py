@@ -14,13 +14,30 @@ Regler:
     poängen är att se ALLA grindar, även när en modul ligger nere.
   * Statusbeslut (candidate/green) fattas på förregistrerad kadens i
     respektive ledger; det här är en avläsning, inte ett beslut.
+
+Statusorden (2026-09-13) är EN trappa för alla spår, så att mätbar volym
+aldrig ser ut som ett beslut:
+  samlar → underlag klart → granskad: stöd | ej stöd → infört | avslutad.
+  `underlag klart` betyder bara att den förregistrerade prövningen får köras.
+  `granskad` kräver en sparad artefakt (PH4: `docs/ph4-forward-status.json`),
+  aldrig en omräkning här. `aggregat` är information utan beslutsvärde —
+  grönt beslutas per signalgrupp, aldrig per tier. `fel` = kunde inte läsas.
+  Researchraderna räknar OBEROENDE, PARADE omgångar (`research_gate`), aldrig
+  kuponger: fyra metoder × två frystider på en omgång är åtta kuponger.
 """
 from __future__ import annotations
 
 import datetime as dt
+import json
+from pathlib import Path
 from typing import Callable, Optional
 
 from .storage import Storage
+
+# Skördeartefakten från `scripts/ph4_ablationer.py`. Finns den, är PH4 granskad
+# för de produkter som hade tillräckligt underlag vid skörden — oavsett hur
+# många omgångar räknaren visar i dag. Omprövning kräver nytt manifest.
+PH4_STATUS_PATH = Path(__file__).resolve().parents[2] / "docs" / "ph4-forward-status.json"
 
 
 def _row(spar: str, namn: str, status: str, *, n=None, krav=None,
@@ -46,11 +63,13 @@ def _sharp_clv(store: Storage) -> list[dict]:
     from .oddset_value import GREEN_MIN_N, clv_report
     rep = clv_report(store)
     tier = rep["sharp"]
-    out = [_row("sharp-clv", "sharp × alla (tier)",
-                "grön" if tier["green_ready"] else
-                "samlar" if tier["n_resolved"] < GREEN_MIN_N else "ej stöd",
+    # Tier-summan visas som INFORMATION: grönt beslutas per liga × marknad ×
+    # version (CLAUDE.md), så ett grönt aggregat är aldrig ett beslut.
+    out = [_row("sharp-clv", "sharp × alla (tier)", "aggregat",
                 n=tier["n_resolved"], krav=GREEN_MIN_N, ci=tier["ci"],
-                anm=f"close-EV {tier['avg_close_ev']}" if tier["avg_close_ev"] is not None else "")]
+                anm="beslut per liga × marknad, aldrig per tier"
+                    + (f" · close-EV {tier['avg_close_ev']}"
+                       if tier["avg_close_ev"] is not None else ""))]
     groups = [g for g in rep["groups"] if g["tier"] == "sharp" and g["active"]
               and g["n_resolved"] >= 10]
     for g in sorted(groups, key=lambda g: -g["n_resolved"])[:12]:
@@ -83,7 +102,8 @@ def _v22(store: Storage) -> list[dict]:
                 if v["settled_eligible_unique_matches"] < h["training_min_per_league"]]
         ready = (h["settled_eligible_unique_matches"] >= h["training_min_matches"]
                  and h["span_days"] >= h["training_min_span_days"] and not thin)
-        out.append(_row("v2.2", f"träningsgate {horizon}", "klar" if ready else "samlar",
+        out.append(_row("v2.2", f"träningsgate {horizon}",
+                        "underlag klart" if ready else "samlar",
                         n=h["settled_eligible_unique_matches"], krav=h["training_min_matches"],
                         dagar=h["span_days"], dagar_krav=h["training_min_span_days"],
                         anm=(f"under {h['training_min_per_league']}/liga: {', '.join(thin)}"
@@ -130,25 +150,53 @@ def _ph3_champion(store: Storage) -> list[dict]:
 
 
 def _research(store: Storage) -> list[dict]:
+    """En rad per produkt/familj × frystid (× arm för poolopt): parade
+    oberoende omgångar mot familjens egen grind, bortfall per orsak."""
     from . import pool_system_ledger as psl
     out = []
-    for spar, fn, doc in (("ph5-forward", psl.ph5_overview, "docs/ph5-forward-2026-08-15.md"),
-                          ("mathmax-v1", psl.mathmax_overview, "docs/maxtester-2026-08-29.md"),
-                          ("reducedmax-v1", psl.reducedmax_overview, "docs/maxtester-2026-08-29.md"),
-                          ("poolopt-v1", psl.poolopt_overview, "docs/poolopt-v1-forward-2026-09-02.md"),
-                          ("max40 (avslutad)", psl.max40_overview, "docs/max40-forward-2026-08-26.md")):
+    for family in ("ph5", "mathmax", "reducedmax", "poolopt", "max40"):
         try:
-            s = fn(store)["summary"]
-            # `draws/freezes/evaluated` gäller AKTIVA nycklar; serierna
-            # omnycklades 2026-08-31 (X-risk v1), så de startar om från noll
-            # medan `all_*` bär hela serien inklusive pensionerade nycklar.
-            out.append(_row(spar, "frysningar/facit (aktiva nycklar)", "samlar",
-                            n=s["evaluated"], krav=None,
-                            anm=f"aktiva: {s['draws']} omg · {s['freezes']} frysta · "
-                                f"{s['evaluated']} facit — hela serien: {s['all_draws']} omg · "
-                                f"{s['all_freezes']} frysta · {s['all_evaluated']} facit · grind i {doc}"))
+            rep = psl.research_gate(store, family)
         except Exception as exc:  # noqa: BLE001
-            out.append(_row(spar, "(kunde inte läsas)", "fel", anm=str(exc)[:120]))
+            out.append(_row(family, "(kunde inte läsas)", "fel", anm=str(exc)[:120]))
+            continue
+        spar = (rep["version"] or family) + (" (avslutad)" if rep["closed"] else "")
+        if not rep["cells"]:
+            out.append(_row(spar, "inga frysningar ännu",
+                            "avslutad" if rep["closed"] else "samlar",
+                            n=0, krav=rep["required"], anm=f"grind i {rep['doc']}"))
+            continue
+        for c in rep["cells"]:
+            namn = f"{c['unit']} {c['horizon_minutes']} min"
+            if c["arm"]:
+                namn += f" · {c['arm_label']}"
+            bortfall = ", ".join(f"{k} {v}" for k, v in c["dropout"].items() if v) or "inget"
+            anm = (f"{c['forward_draws']} frysta omg · {c['settled_draws']} rättade · "
+                   f"{c['open_draws']} öppna · bortfall: {bortfall}")
+            if c["note"]:
+                anm += f" · {c['note']}"
+            if rep["end_after_forward_draws"]:
+                anm += f" · avslut vid {rep['end_after_forward_draws']} frysta omg"
+            anm += f" · prövning enligt {rep['doc']}"
+            out.append(_row(spar, namn, c["status"], n=c["paired_draws"],
+                            krav=rep["required"], anm=anm))
+    return out
+
+
+def _pit_total(store: Storage) -> list[dict]:
+    from .pool_dataset import total_gate
+    rep = total_gate(store)
+    out = []
+    for horizon, h in rep["horizons"].items():
+        status = ("underlag klart" if h["complete"] >= rep["required_complete_draws"]
+                  else "samlar")
+        anm = (f"{h['observed']} Topptipsomgångar observerade · "
+               f"{h['eligible_rows']}/{h['rows']} matcher med total")
+        if h["other_observed"]:
+            anm += f" · 13-matchsspel {h['other_observed']} omg (utanför grinden)"
+        anm += f" · skörd enligt {rep['doc']}"
+        out.append(_row(rep["feature_version"], f"total på alla 8 · {horizon}", status,
+                        n=h["complete"], krav=rep["required_complete_draws"], anm=anm))
     return out
 
 
@@ -163,7 +211,7 @@ def _strength(store: Storage) -> list[dict]:
         represented = sum(n >= gate["minimum_settled_per_league"]
                           for n in h["league_counts"].values())
         out.append(_row("poolstyrka", f"horisont {horizon}",
-                        "klar" if h["data_ready"] else "samlar",
+                        "underlag klart" if h["data_ready"] else "samlar",
                         n=h["settled"], krav=gate["minimum_settled_events_per_horizon"],
                         dagar=h["span_days"], dagar_krav=gate["minimum_span_days"],
                         anm=f"{represented}/{gate['minimum_represented_leagues']} ligor "
@@ -171,14 +219,47 @@ def _strength(store: Storage) -> list[dict]:
     return out
 
 
+def _ph4_harvest() -> Optional[dict]:
+    """Skördeartefakten, om den finns: vilka produkter som var granskade och hur."""
+    try:
+        d = json.loads(PH4_STATUS_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    gate = d.get("promotion_gate") or {}
+    candidate = gate.get("candidate")
+    harvested_n = {}
+    for product, p in (d.get("products") or {}).items():
+        try:
+            harvested_n[product] = p["forward"][candidate]["n_eval_draws"]
+        except (KeyError, TypeError):
+            pass
+    return {"checks": gate.get("checks") or {}, "candidate": candidate,
+            "harvested_at": d.get("harvested_at"), "harvested_n": harvested_n,
+            "artifact": PH4_STATUS_PATH.name}
+
+
 def _ph4_oot(store: Storage) -> list[dict]:
     # Samma beräkning som Historik → prognos använder; ingen egen SQL här.
     from .main import turnover_prognos
     rep = turnover_prognos()
-    return [_row("ph4-pit-v4", f"out-of-time {product}",
-                 "klar" if v["ph4_oot"] >= v["ph4_oot_krav"] else "samlar",
-                 n=v["ph4_oot"], krav=v["ph4_oot_krav"])
-            for product, v in rep.items() if isinstance(v, dict) and "ph4_oot" in v]
+    harvest = _ph4_harvest()
+    out = []
+    for product, v in rep.items():
+        if not (isinstance(v, dict) and "ph4_oot" in v):
+            continue
+        status = "underlag klart" if v["ph4_oot"] >= v["ph4_oot_krav"] else "samlar"
+        anm = ""
+        check = (harvest["checks"].get(product) if harvest else None) or {}
+        if check.get("enough_forward_draws"):
+            status = "granskad: stöd" if check.get("ci_entirely_better") else "granskad: ej stöd"
+            n_then = harvest["harvested_n"].get(product)
+            anm = (f"skördad {(harvest['harvested_at'] or 'datum saknas')[:10]}"
+                   + (f" vid {n_then} omg" if n_then is not None else "")
+                   + f" · kandidat {harvest['candidate']} · {harvest['artifact']}"
+                   " · omprövning kräver nytt manifest")
+        out.append(_row("ph4-pit-v4", f"out-of-time {product}", status,
+                        n=v["ph4_oot"], krav=v["ph4_oot_krav"], anm=anm))
+    return out
 
 
 def report(store: Storage, *, now: Optional[dt.datetime] = None) -> dict:
@@ -190,6 +271,7 @@ def report(store: Storage, *, now: Optional[dt.datetime] = None) -> dict:
                          ("radar-blindtest", lambda: _radar_blind(store)),
                          ("ph3-champion", lambda: _ph3_champion(store)),
                          ("research", lambda: _research(store)),
+                         ("pit-total-v1", lambda: _pit_total(store)),
                          ("poolstyrka", lambda: _strength(store)),
                          ("ph4-pit-v4", lambda: _ph4_oot(store))):
         _safe(rows, spar, loader)
@@ -212,15 +294,17 @@ def _ci(ci) -> str:
 
 def format_report(payload: dict) -> str:
     out = [f"GRINDAR — {payload['checked_at']} · {payload['note']}", ""]
-    out.append(f"  {'spår':16} {'grind':38} {'status':14} {'n/krav':>10} {'dagar':>8} {'KI':20} anm")
+    out.append(f"  {'spår':20} {'grind':38} {'status':18} {'n/krav':>10} {'dagar':>8} {'KI':20} anm")
     last = None
     for g in payload["gates"]:
         if g["spar"] != last:
             out.append("")
             last = g["spar"]
-        out.append(f"  {g['spar']:16} {g['namn'][:38]:38} {g['status']:14} "
+        out.append(f"  {g['spar'][:20]:20} {g['namn'][:38]:38} {g['status']:18} "
                    f"{_frac(g['n'], g['krav']):>10} {_frac(g['dagar'], g['dagar_krav']):>8} "
                    f"{_ci(g['ci']):20} {g['anm']}")
     fel = [g for g in payload["gates"] if g["status"] == "fel"]
-    out += ["", f"  {len(payload['gates'])} grindar · {len(fel)} kunde inte läsas"]
+    out += ["", f"  {len(payload['gates'])} grindar · {len(fel)} kunde inte läsas",
+            "  status: samlar → underlag klart → granskad: stöd|ej stöd → infört|avslutad · "
+            "aggregat = information, inget beslut"]
     return "\n".join(out)

@@ -559,3 +559,43 @@ def build_recent(store: Storage, product: Optional[str] = None,
         total["total_built"] += rep_total["built"]
         total["total_skipped"] += rep_total["skipped"]
     return total
+
+
+# Skörden är förregistrerad i docs/pool-pit-total-v1-2026-09-02.md: tidigast
+# vid ≥ 40 Topptipsomgångar med `total_eligible` på alla 8 matcher. Avskrift,
+# ingen ny tröskel.
+TOTAL_GATE_MIN_COMPLETE_DRAWS = 40
+
+
+def total_gate(store: Storage) -> dict:
+    """pit-total-v1:s grind, avläst per horisont (för `cli.py gater`).
+
+    `observed` = Topptipsomgångar med minst en rad (vi frågade Pinnacle vid
+    as-of); `complete` = åttamatchsomgångar där alla 8 rader har
+    `total_eligible=1`. Skillnaden ÄR täckningsbristen: en rad med
+    `total_eligible=0` betyder att Pinnacle lästes men saknade total för
+    matchen. 13-matchsspelen räknas separat som information — grinden gäller
+    Topptipset-familjen. Inget beslut fattas här.
+    """
+    from .pool_system_ledger import EIGHT_MATCH_PRODUCTS
+    horizons = {h: {"observed": 0, "complete": 0, "rows": 0, "eligible_rows": 0,
+                    "other_observed": 0} for h in HORIZONS}
+    for horizon, product, _draw, n_rows, n_eligible in store.conn.execute(
+            "SELECT horizon, product, draw_number, COUNT(*), SUM(total_eligible) "
+            "FROM pool_pit_total_features WHERE feature_version=? "
+            "GROUP BY horizon, product, draw_number", (TOTAL_FEATURE_VERSION,)):
+        h = horizons.get(horizon)
+        if h is None:
+            continue
+        if product not in EIGHT_MATCH_PRODUCTS:
+            h["other_observed"] += 1
+            continue
+        h["observed"] += 1
+        h["rows"] += int(n_rows)
+        h["eligible_rows"] += int(n_eligible or 0)
+        if int(n_rows) == 8 and int(n_eligible or 0) == 8:
+            h["complete"] += 1
+    return {"feature_version": TOTAL_FEATURE_VERSION,
+            "started_at": TOTAL_FEATURE_START_AT,
+            "required_complete_draws": TOTAL_GATE_MIN_COMPLETE_DRAWS,
+            "doc": "docs/pool-pit-total-v1-2026-09-02.md", "horizons": horizons}

@@ -255,7 +255,7 @@ testning.
 | **pit-v4 forward** (`pool-streckmove-v3`) | 4 omgångar | ≥ 40 out-of-time-omgångar per produkt med hela KI90 < 0 |
 | **Sharp-CLV-facitet** | historiskt aggregat +2,3 % [1,1..3,4], 272 stängda efter sanering; ny aktiv `s-95e14fca` börjar från nästa capture | veckokadens (`EVAL_INTERVAL_H`), aldrig per varv; grönt beslutas per liga × marknad × version |
 | **V2.2 flerliga-shadow v6** | ren samling från 2026-08-07T14:20Z; v4 12/2 och v5 1/0 är stängda historiska kohorter | träningsgate 300 kompletta avgjorda/horisont, ≥ 50/liga, ≥ 42 dagar |
-| **Live-radar två källor v9** (shadow) | Flashscore ankare + FotMob; Sofascore urkopplad. 18-ligorsscope, v9 rent från 2026-08-09T18:00Z | prediktiv lyft separat; blind Över-ROI ≥200 oddssatta+avgjorda, ≥60 dagar och undre KI90 > 0 — `docs/live-radar-2026-07-25.md` |
+| **Live-radar två källor v9** (shadow) | Flashscore ankare + FotMob; Sofascore urkopplad. 18-ligorsscope, v9 rent från 2026-08-09T18:00Z | prediktiv lyft separat; blind Över-ROI ≥200 oddssatta+avgjorda, ≥30 dygns spann OCH ≥20 matchdygn (Samans beslut 2026-08-18, `live_signal_ledger.BLIND_MIN_*`; det gamla 60-dygnskravet mätte spann, inte spridning) och undre KI90 > 0 — `docs/live-radar-2026-07-25.md` |
 
 ## B. Fixar ur granskningen 2026-07-26 — ✅ GENOMFÖRDA samma dag (godkända)
 

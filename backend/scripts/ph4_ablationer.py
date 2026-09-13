@@ -29,6 +29,7 @@ hypotesgenererande rapporten ph4-ablationer-2026-07-24.json skrivs aldrig över.
 """
 from __future__ import annotations
 
+import datetime as dt
 import json
 import math
 import random
@@ -356,6 +357,9 @@ def main() -> None:
                 for p, c in checks.items() if p != primary)
         ),
     }
+    # Skördedatum i artefakten: `cli.py gater` visar en granskad produkt som
+    # granskad oavsett hur räknaren står i dag — omprövning kräver nytt manifest.
+    report["harvested_at"] = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     OUT.write_text(json.dumps(report, ensure_ascii=False, indent=1),
                    encoding="utf-8")
     print(f"Promotion: {'JA' if report['promotion_gate']['passes'] else 'NEJ'}")

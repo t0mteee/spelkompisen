@@ -1711,3 +1711,139 @@ def research_live_overview(store: Storage, family: str, states_for) -> dict:
                       **{name: live.get(name) for name in LIVE_OVERVIEW_KEYS}})
     return {"family": family, "tests": tests, "errors": errors,
             "draws": [f"{product}:{draw}" for product, draw in draw_keys]}
+
+
+# ── Förregistrerade researchgrindar — avläsning för `cli.py gater` ────────
+# Trösklarna är AVSKRIFTER ur respektive förregistrering (källa i `doc`),
+# inga nya. `pair` säger vad "parad omgång" betyder för familjen:
+#   all_active — alla aktiva armar frysta tidsriktigt och rättade med komplett
+#                utdelning på samma produkt × omgång × horisont (PH5: värderader
+#                mot alla tre kontrollerna; maxtesterna: ev50 mot ev80).
+#   champion   — armen och championen `dr1-b256-medel` på samma omgång och
+#                horisont (pooloptimeraren mäts mot championen, inte inbördes).
+# `unit` säger vad en OBEROENDE omgång räknas per: produkt (Stryk och Europa är
+# två serier som aldrig delar underlag) eller familj (Topptipset Dagens/Stryk/
+# Extra är ETT spel i all redovisning, `svenskaspel.family_of`).
+RESEARCH_GATES: dict[str, dict] = {
+    "ph5": {"doc": "docs/ph5-forward-2026-08-15.md", "min_paired_draws": 40,
+            "pair": "all_active", "unit": "product"},
+    "mathmax": {"doc": "docs/maxtester-2026-08-29.md", "min_paired_draws": 40,
+                "preliminary_from": 10, "pair": "all_active", "unit": "product"},
+    "reducedmax": {"doc": "docs/maxtester-2026-08-29.md", "min_paired_draws": 40,
+                   "preliminary_from": 10, "pair": "all_active", "unit": "product"},
+    "poolopt": {"doc": "docs/poolopt-v1-forward-2026-09-02.md", "min_paired_draws": 40,
+                "pair": "champion", "unit": "family", "per_arm": True,
+                "end_after_forward_draws": 120},
+    "max40": {"doc": "docs/max40-forward-2026-08-26.md", "closed": True,
+              "pair": "all_active", "unit": "product"},
+}
+
+
+def research_version(keys) -> Optional[str]:
+    """`ph5-v4-dr1-b5000-medel` → `ph5-v4`. Versionen bärs av nyckeln, aldrig
+    av en etikett — etiketter kan heta samma sak över versioner."""
+    import re
+    for key in keys:
+        m = re.match(r"^([a-z0-9]+-v\d+)", key)
+        if m:
+            return m.group(1)
+    return None
+
+
+def _unit_of(product: str, unit: str) -> str:
+    if unit == "family":
+        from .svenskaspel import family_of
+        return family_of(product)
+    return product
+
+
+def research_gate(store: Storage, family: str) -> dict:
+    """Familjens förregistrerade grind, AVLÄST i oberoende omgångar.
+
+    Fyra metoder × två frystider på samma omgång är åtta kuponger men EN
+    omgång; grinden räknar omgångar. "Parad" följer familjens egen definition
+    (`RESEARCH_GATES[family]["pair"]`), och varje rättad omgång som inte är
+    parad redovisas med sin orsak, så att `samlar 3/40` går att skilja från
+    "3 av 9 frysta omgångar dög". Inget beslut fattas här: `underlag klart`
+    betyder att den förregistrerade parade rapporten får köras, inget mer.
+    """
+    gate = RESEARCH_GATES[family]
+    configs = (MAX40_RETIRED_CONFIGS if family == "max40"
+               else RESEARCH_FAMILY_CONFIGS[family])
+    active = [c for c in configs if not _bench(c["key"])["retired"]] or list(configs)
+    keys = tuple(c["key"] for c in active)
+    labels = {c["key"]: c.get("label") or c.get("method") or c["key"] for c in active}
+    per_arm = bool(gate.get("per_arm"))
+    pair_champion = gate["pair"] == "champion"
+    query_keys = (*keys, CHAMPION_KEY) if pair_champion else keys
+    marks = ",".join("?" for _ in query_keys)
+    cells: dict[tuple, dict[tuple, dict[str, dict]]] = {}
+    champion: dict[tuple, dict] = {}
+    for product, draw, horizon, key, timely, correct_max, payout_complete in store.conn.execute(
+            "SELECT product, draw_number, horizon, config_key, timely, correct_max, "
+            f"payout_complete FROM pool_system_ledger WHERE config_key IN ({marks})",
+            query_keys):
+        if horizon not in FREEZE_HORIZONS:
+            continue
+        row = {"timely": bool(timely), "open": correct_max is None,
+               "complete": bool(payout_complete) if payout_complete is not None else False}
+        if pair_champion and key == CHAMPION_KEY:
+            champion[(product, int(draw), horizon)] = row
+            continue
+        cell = cells.setdefault((_unit_of(product, gate["unit"]), horizon,
+                                 key if per_arm else None), {})
+        cell.setdefault((product, int(draw)), {})[key] = row
+
+    required = gate.get("min_paired_draws")
+    out = []
+    for (unit, horizon, arm), draws in sorted(
+            cells.items(),
+            key=lambda kv: (kv[0][0], -FREEZE_HORIZONS[kv[0][1]][0], kv[0][2] or "")):
+        missing_label = "saknad champion" if pair_champion else "saknad arm"
+        dropout = {missing_label: 0, "sen frysning": 0, "utdelning ej komplett": 0}
+        open_draws = settled = paired = 0
+        for (product, draw), rows in draws.items():
+            if pair_champion:
+                partner = champion.get((product, draw, horizon))
+                members = [rows[arm]] + ([partner] if partner else [])
+                missing = partner is None
+            else:
+                members = [rows[k] for k in keys if k in rows]
+                missing = len(members) < len(keys)
+            if any(m["open"] for m in members):
+                open_draws += 1
+                continue
+            settled += 1
+            if missing:
+                dropout[missing_label] += 1
+            elif not all(m["timely"] for m in members):
+                dropout["sen frysning"] += 1
+            elif not all(m["complete"] for m in members):
+                dropout["utdelning ej komplett"] += 1
+            else:
+                paired += 1
+        note = ""
+        if gate.get("closed"):
+            status = "avslutad"
+        elif required is not None and paired >= required:
+            status = "underlag klart"
+        else:
+            status = "samlar"
+            end_after = gate.get("end_after_forward_draws")
+            if end_after and len(draws) >= end_after:
+                status = "avslutsgräns nådd"
+            prelim = gate.get("preliminary_from")
+            if prelim and paired >= prelim:
+                note = f"preliminärt från {prelim} par"
+        out.append({"unit": unit, "horizon": horizon,
+                    "horizon_minutes": FREEZE_HORIZONS[horizon][0],
+                    "arm": arm, "arm_label": labels.get(arm) if arm else None,
+                    "forward_draws": len(draws), "open_draws": open_draws,
+                    "settled_draws": settled, "paired_draws": paired,
+                    "dropout": dropout, "status": status, "note": note})
+    return {"family": family, "version": research_version(keys), "doc": gate["doc"],
+            "required": required, "closed": bool(gate.get("closed")),
+            "pair": gate["pair"], "unit": gate["unit"],
+            "end_after_forward_draws": gate.get("end_after_forward_draws"),
+            "preliminary_from": gate.get("preliminary_from"),
+            "active_keys": list(keys), "cells": out}

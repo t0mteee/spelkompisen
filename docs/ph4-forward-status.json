@@ -427,5 +427,7 @@
    }
   },
   "passes": false
- }
+ },
+ "harvested_at": "2026-09-02T10:58:04Z",
+ "harvested_at_note": "commit-tid för 0acdea1 (skörden 2026-09-02); skriptet skrev inget datum före 2026-09-13, därefter sätts fältet av körningen"
 }
