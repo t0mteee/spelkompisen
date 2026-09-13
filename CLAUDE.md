@@ -242,7 +242,16 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
   `backend/requirements.lock` är serverns frysta venv (`requirements.txt` är avsikten).
 - **Alla grindar på ett ställe: `cd backend && .venv/bin/python -B cli.py gater`**
   — läser varje spårs egen statusfunktion, räknar inget om och beslutar inget. Kör den
-  innan ett nytt spår startas.
+  innan ett nytt spår startas. Researchraderna räknar PARADE OBEROENDE omgångar mot
+  familjens egen förregistrering (`pool_system_ledger.RESEARCH_GATES`, avskrifter —
+  aldrig nya trösklar), aldrig kuponger. Statusorden är EN trappa: samlar → underlag
+  klart → granskad: stöd|ej stöd → infört|avslutad; `aggregat` är information (tier-
+  summan i sharp-CLV beslutar inget). PH4:s granskning läses ur
+  `docs/ph4-forward-status.json` (`harvested_at`), inte ur dagens räknare.
+- **Pooltäckning:** `cd backend && .venv/bin/python -B scripts/pool_tackning_rapport.py`
+  (read-only) klassar varje match × horisont: ok / aldrig_matchad / listad_sent /
+  capture_sen / ingen_capture / pit_byggd_fore_capture, Ö/U bara där 1X2 var ok, och
+  spelar upp poolmatcharen offline. Kör den efter varje ändring i poolens insamling.
 - V2.2-status: `cli.py v22audit`. Källhälsa/varvlucka: `cli.py kallhalsa [timmar]`
   (`—` i varvkolumnen = källan kördes inte; visar även Oddset- och poolhälsan).
 - **Dubblettjakt: `cli.py lanklucka [timmar]`** — providerpar med samma liga, samma
@@ -619,9 +628,13 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
 - **5 000-test/Max-tester:** listan visar liveläge per öppen kupong ur
   `/api/pool/systems/live-overview?family=` (samma `live_status` som detaljkortet,
   en omgång hämtas en gång, pollas var 30:e s bara medan fliken är synlig) och en
-  summering per arm/metod × frystid ur översiktens `groups` (hela serien; kronor
-  bara för komplett utdelning). `pots` är omgångens POTT per nivå — kalla det
-  aldrig utdelning. I kupongdetaljen skriver ett rött rätt tecken ut "✗ ej streckat".
+  summering per PRODUKT × exakt nyckel × frystid ur översiktens `groups`
+  (`key` = `product:config_key:horizon`; etiketter är inte identiteter — äldre och
+  aktuella nycklar kan heta samma sak). SAMMA filter styr lista, KPI och summering;
+  "Aktuell version" är standard och arkivet ett explicit val. Kronor bara för
+  tidsriktig kupong med komplett utdelning, ROI först vid `ROI_MIN_N`. `pots` är
+  omgångens POTT per nivå — kalla det aldrig utdelning. I kupongdetaljen skriver ett
+  rött rätt tecken ut "✗ ej streckat".
 - Spelade kuponger: `PlayedPanel` hämtar i TRE steg (`live=false` → `live=true&chance=false`
   → fullt svar); livebilden är single-flight (20 s) och ett sent svar får inte skriva över
   en nyare uppdatering.

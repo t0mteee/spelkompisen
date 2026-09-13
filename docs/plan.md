@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-09-13, granskning; drift oförändrad) — läs detta först i ny session
+## STATUS (2026-09-13, kväll — del A levererad) — läs detta först i ny session
 
 Det här blocket **ersätts** vid varje leverans — skriv över, stapla inte.
 Tidigare statusblock ligger daterade och ordagranna i
@@ -10,7 +10,7 @@ arbetslista: `docs/backlog.md` (avsnittet **Aktivt** överst).
 **Drift.** Allt kör på MacBook-servern `192.168.50.100` (backend 8002, byggd
 frontend 5175, launchd: snapshot/pool/kalltest + Chartervakt/Bonusvakt);
 se `docs/macbook-server-2026-08-11.md` och `docs/AI-OVERLAMNING-SERVER.md`.
-Kontroll före push: `tools/kontroll.sh` (900+ backendtester, eslint, 13
+Kontroll före push: `tools/kontroll.sh` (900+ backendtester, eslint, 30
 frontendtester, ~90 s) — pre-push-hooken i `tools/githooks/` kör den.
 `backend/requirements.lock` är serverns frysta venv.
 
@@ -52,9 +52,11 @@ prissatta/avgjorda matcher, 30 dygns spann och 20 matchdygn) · **PH3 sannolikhe
 grind 40 parade omg) · **pooloptimerare v1 forward** (`poolopt` research-
 familj: träff/balans/X-kvot à 256 rader, Topptipset 4309/Stryk 979/Extra 1864→,
 grind 40 parade omg mot championen, avslut 120) · **pit-total-v1** (grind ≥ 40
-Topptipsomgångar med total på alla åtta) · PH4 pit-v4 Stryk/Europa (6–11/40).
-`cli.py gater` är översikten men saknar ännu pit-total-grinden och korrekt
-researchstatus; se granskningen nedan.
+Topptipsomgångar med total på alla åtta) · PH4 pit-v4 Stryk/Europa (8–14/40).
+`cli.py gater` läser allihop, inkl. pit-total, i PARADE OBEROENDE omgångar mot
+respektive förregistrering, med statustrappan samlar → underlag klart →
+granskad: stöd|ej stöd → infört|avslutad (PH4 Topptipset visas granskad ur
+`docs/ph4-forward-status.json`).
 
 **Skördat 2026-09-02.** PH4 Topptipset: streck + streckrörelse slår INTE ren
 Pinnacle vid h3 — promotion nej. Pooloptimerare v1 fullsökning (10 000 konf.,
@@ -63,24 +65,21 @@ nominerade till forward. Sannolikhetsbas retro (pit-v4): identiskt facit 21/21
 träffar på 77 omg, Pinnacle täcker Topptipset vid h3 i bara 18/87 omg (m20
 56/88). Se `docs/overlamningar/overlamning-2026-09-02-poolforbattringar.md`.
 
-**Senast granskat, 2026-09-13 (Codex).** Drift `dba6f16`, read-only data-
-och UI-genomgång. PH3 Topptipset 29/30 rättade omgångar per horisont;
-Pinnacle-utmanaren 26 och poolopt 24 per arm/horisont före strikt parad
-beslutsgranskning. Aktuella 5 000-/maxversioner har bara 2 Stryk + 3 Europa
-rättade omgångar. Ingen ny modellpromotion. Verifierat: `_bench` saknar
-poolopt/Pinnacle-utmanarens registerposter; testöversikter blandar aktiva
-räknare med arkivsummeringar och filtren styr inte allt. Ö/U-seriens
-kompletthet i ordinarie Topptipset är 2/22 vid 180 min och 8/22 vid 20 min.
-Föreslagen ordning: korrekta räknare/täckningsdiagnostik → Mina kuponger +
-Tester → personlig Idag → befintliga modellgrindar och bortfallsanalys.
-**Plan, inte godkänd ny arbetsordning eller genomförd UI-/modelländring.**
-Detaljer, evidens, acceptans och handover:
-`docs/overlamningar/overlamning-2026-09-13-modell-ui-plan.md`.
-
-**Senast driftsatt, 2026-09-06.** Claude: liveöversikt och metodsummering i
-5 000-/maxtester. Codex: poolutvärdering och mobil kupongvisare, äldre
-40 000-pilot dold. Full föregående status i `docs/status-historik.md`;
-leveransrapport `docs/overlamningar/overlamning-2026-09-05-poolutvardering-mobil.md`.
+**Senast levererat, 2026-09-13.** Codex granskade driften (`dba6f16`) och lade
+en plan: `docs/overlamningar/overlamning-2026-09-13-modell-ui-plan.md` —
+**del B/C (Mina kuponger, Tester, personlig Idag) är förslag som väntar på
+Samans beslut**, del A är levererad. Codex: registret `_bench` känner poolopt
+och Pinnacle-utmanaren, `research_groups` per produkt × nyckel × frystid, ett
+filterkontrakt i 5 000-/maxtester (`f3d600a`, driftsatt av Claude samma
+kväll). Claude: `cli.py gater` komplett (`49bbe1b`) och **täckningsrapporten**
+`docs/pool-tackning-2026-09-13.md` (`scripts/pool_tackning_rapport.py`,
+read-only). Fynd: Ö/U-luckan ÄR 1X2-luckan; Topptipset har giltig sharp i
+12 % av matcherna vid 180 min; tre mekanismer i insamlingen — horisontfönstret
+tvingar Pinnacle EFTER as-of, den globala spärren ger bara första produkten
+ordinarie captures, featurebygget hinner före fönstercapturen — plus fyra par
+som poolmatcharen fäller. **⚖ Fem beslut (a–e) i
+`docs/overlamningar/overlamning-2026-09-13-pooltackning.md`; ingen tids- eller
+providerregel är ändrad.** Föregående leveranser i `docs/status-historik.md`.
 
 ## Modellplan — vägen till en modell att lita på (efter backtest-domen)
 

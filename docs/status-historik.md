@@ -1,5 +1,88 @@
 # Statushistorik — daterade statusblock ur `docs/plan.md`
 
+## Statusblock 2026-09-13 (granskning, Codex) — ersatt 2026-09-13 (kväll)
+
+
+Det här blocket **ersätts** vid varje leverans — skriv över, stapla inte.
+Tidigare statusblock ligger daterade och ordagranna i
+`docs/status-historik.md`. Överlämningar: `docs/overlamningar/`. Aktiv
+arbetslista: `docs/backlog.md` (avsnittet **Aktivt** överst).
+
+**Drift.** Allt kör på MacBook-servern `192.168.50.100` (backend 8002, byggd
+frontend 5175, launchd: snapshot/pool/kalltest + Chartervakt/Bonusvakt);
+se `docs/macbook-server-2026-08-11.md` och `docs/AI-OVERLAMNING-SERVER.md`.
+Kontroll före push: `tools/kontroll.sh` (900+ backendtester, eslint, 13
+frontendtester, ~90 s) — pre-push-hooken i `tools/githooks/` kör den.
+`backend/requirements.lock` är serverns frysta venv.
+
+**Kontrakt som gäller nu.**
+- **Live-radar** `chance-gap-shadow-v12` (Championship i scope från
+  2026-09-02T22:00Z; Ligue 1 sedan v11;
+  v10 från 2026-08-18 låser bästa färska överpris från Kambi/Ninja/Pinnacle,
+  Pinnacle bara vid Age ≤ 90 s). Flashscore ankare, FotMob sekundär, Sofascore
+  urkopplad ur radarn men kvar för resultatstatistik/frånvaro.
+- **V2.2** samlar under manifest v10
+  (`docs/model-v2.2-multileague-forward-manifest-v10.json`), sharp
+  `s-2f14f9a6`; `/api/health` bevakar versionskontraktet. Aldrig tipsinput.
+- **Modell** (amber, sämre än Pinnacle i alla ligor): modelldata v5,
+  `powerrank-v2`. Modelligor: Allsvenskan/Superettan/Eliteserien/OBOS/MLS +
+  PL/Serie A/La Liga/Bundesliga. Ligue 1 samlas (621/622 med xG) men står
+  utanför `MODEL_LEAGUES` tills temperaturen kalibrerats. Championship är nu
+  fullt följd för odds/live men står också utanför målmodellen; football-data
+  `E1` fortsätter ge resultat.
+- **Pool.** `pool-draw-risk-v1`: X skyddas ≥ 29,5 % vid Pinnacle-total ≤ 2,25
+  (32 % utan total) i ALLA automatiska byggen. Matematiskt max v2 = 3 spikar +
+  1 halv + 9 hela = 39 366 rader. PH3 gen 2, champion `dr1-b256-medel`
+  (sannolikhetsbas SvS), Topptipset-familjen tak 512 och **en tionde nyckel
+  sedan 2026-09-02: `dr1-b256-medel-sharp`** (samma byggare, Pinnacle först).
+  Radprofiler Standard/Träffsäkrare/Radform v1·test. Topptipset Dagens/Stryk/
+  Extra är ETT spel i all redovisning (`family_of`). Chansmotorn räknar EXAKT
+  (klotunion). Spelade kuponger liverättas från tre 1X2-källor; glömda
+  kuponger kan importeras ur radfil.
+- **PIT-serier.** `pit-v4` (1X2/streck) + **`pit-total-v1`** (Pinnacles
+  huvudtotal, syskonserie sedan 2026-09-02, aldrig bakfylld).
+  `pool_draw_settlement.jackpot_close` = senast verifierade jackpot före
+  stängning (9 omgångar bakfyllda ur egna snapshots; prognosen jackpotblind
+  tills `JACKPOT_MODEL_MIN_N` = 30/produkt).
+
+**Pågående mätningar — passiva. Läs på kadens, bygg inget nytt före skörd.**
+V2.2-gaten · PH5 forward (5 000 rader; Stryk 4966→, Europa 2600→) ·
+Max-tester `mathmax-v2`/`reducedmax-v2` (Stryk 4969/Europa 2604→) ·
+`pool-strength-blend-v1` (Historik → Poolmodell) · radarens blindtest (200
+prissatta/avgjorda matcher, 30 dygns spann och 20 matchdygn) · **PH3 sannolikhetsbas** (`dr1-b256-medel-sharp`, Topptipset,
+grind 40 parade omg) · **pooloptimerare v1 forward** (`poolopt` research-
+familj: träff/balans/X-kvot à 256 rader, Topptipset 4309/Stryk 979/Extra 1864→,
+grind 40 parade omg mot championen, avslut 120) · **pit-total-v1** (grind ≥ 40
+Topptipsomgångar med total på alla åtta) · PH4 pit-v4 Stryk/Europa (6–11/40).
+`cli.py gater` är översikten men saknar ännu pit-total-grinden och korrekt
+researchstatus; se granskningen nedan.
+
+**Skördat 2026-09-02.** PH4 Topptipset: streck + streckrörelse slår INTE ren
+Pinnacle vid h3 — promotion nej. Pooloptimerare v1 fullsökning (10 000 konf.,
+2 006 omg): ingen arm slog Standard på ROI i slutauditen (402 omg); tre armar
+nominerade till forward. Sannolikhetsbas retro (pit-v4): identiskt facit 21/21
+träffar på 77 omg, Pinnacle täcker Topptipset vid h3 i bara 18/87 omg (m20
+56/88). Se `docs/overlamningar/overlamning-2026-09-02-poolforbattringar.md`.
+
+**Senast granskat, 2026-09-13 (Codex).** Drift `dba6f16`, read-only data-
+och UI-genomgång. PH3 Topptipset 29/30 rättade omgångar per horisont;
+Pinnacle-utmanaren 26 och poolopt 24 per arm/horisont före strikt parad
+beslutsgranskning. Aktuella 5 000-/maxversioner har bara 2 Stryk + 3 Europa
+rättade omgångar. Ingen ny modellpromotion. Verifierat: `_bench` saknar
+poolopt/Pinnacle-utmanarens registerposter; testöversikter blandar aktiva
+räknare med arkivsummeringar och filtren styr inte allt. Ö/U-seriens
+kompletthet i ordinarie Topptipset är 2/22 vid 180 min och 8/22 vid 20 min.
+Föreslagen ordning: korrekta räknare/täckningsdiagnostik → Mina kuponger +
+Tester → personlig Idag → befintliga modellgrindar och bortfallsanalys.
+**Plan, inte godkänd ny arbetsordning eller genomförd UI-/modelländring.**
+Detaljer, evidens, acceptans och handover:
+`docs/overlamningar/overlamning-2026-09-13-modell-ui-plan.md`.
+
+**Senast driftsatt, 2026-09-06.** Claude: liveöversikt och metodsummering i
+5 000-/maxtester. Codex: poolutvärdering och mobil kupongvisare, äldre
+40 000-pilot dold. Full föregående status i `docs/status-historik.md`;
+leveransrapport `docs/overlamningar/overlamning-2026-09-05-poolutvardering-mobil.md`.
+
 ## Statusblock 2026-09-06 (natt) — ersatt 2026-09-13
 
 Det här blocket **ersätts** vid varje leverans — skriv över, stapla inte.

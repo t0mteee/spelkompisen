@@ -97,6 +97,29 @@ prioritetsordning. ⚖ = kräver Samans beslut.
     och kalibrering finns. Följ upp första riktiga liveomgången med
     `cli.py lanklucka`; se `docs/radar-scope-v12-2026-09-02.md`.
 
+14. ✅ (2026-09-13) **Codex del A-1 driftsatt** — `_bench` känner poolopt och
+    Pinnacle-utmanaren, `research_groups` per produkt × nyckel × frystid, ett
+    filterkontrakt för lista/KPI/summering i 5 000-/maxtester (`f3d600a`, Codex;
+    pull, build och omstart av Claude samma kväll).
+15. ✅ (2026-09-13) **`cli.py gater` komplett** (`49bbe1b`): researchraderna
+    räknar parade OBEROENDE omgångar mot familjens egen grind
+    (`RESEARCH_GATES`), pit-total-grinden finns, PH4 Topptipset visas
+    "granskad: ej stöd" ur artefakten, tier-raden är aggregat. Statustrappa
+    samlar → underlag klart → granskad → infört/avslutad.
+16. ✅ (2026-09-13) **Täckningsrapport** `docs/pool-tackning-2026-09-13.md`
+    (`scripts/pool_tackning_rapport.py`, read-only, körbar igen). Fynd: Ö/U-luckan
+    ÄR 1X2-luckan; Topptipset 12 % giltig sharp vid 180 min; tre mekanismer i
+    insamlingen (fönstret tvingar Pinnacle EFTER as-of, global spärr ⇒ bara
+    första produkten får ordinarie captures, bygget hinner före fönstercapturen)
+    plus fyra par som poolmatcharen fäller (Brighton–Leeds, Nottingham–Tottenham,
+    Man United–Sabah, Mainz–Frankfurt). 20-minutersobservationen löser inga av de
+    aldrig matchade. **⚖ Fem beslut (a–e) i
+    `docs/overlamningar/overlamning-2026-09-13-pooltackning.md`** — ingen tids-
+    eller providerregel ändrad; rekommendation: c → a → b under ny featureversion.
+17. ⚖ **Codex UI-plan del B/C** (Mina kuponger, Tester som katalog, personlig
+    Idag) ändrar navigationskonventionen och ytgränsen Historik = pool; väntar
+    på Samans beslut. `docs/overlamningar/overlamning-2026-09-13-modell-ui-plan.md`.
+
 ## 2026-08-11 — AWS korrekt omtestat och avfärdat
 
 - **❌ AWS Lightsail Stockholm är avfärdat.** En ny adress (`51.20.96.34`)

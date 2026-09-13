@@ -1,0 +1,2144 @@
+{
+ "generated_at": "2026-09-13T14:42:11Z",
+ "since": "2026-08-15",
+ "feature_version": "pit-v4",
+ "total_feature_version": "pit-total-v1",
+ "n_records": 2307,
+ "per_product_horizon": {
+  "topptipset:h24": {
+   "ingen_capture": 304,
+   "capture_sen": 53,
+   "listad_sent": 7,
+   "ok": 112,
+   "aldrig_matchad": 13,
+   "pit_byggd_fore_capture": 7
+  },
+  "topptipset:h3": {
+   "ingen_capture": 24,
+   "capture_sen": 354,
+   "aldrig_matchad": 37,
+   "ok": 60,
+   "listad_sent": 6,
+   "pit_byggd_fore_capture": 15
+  },
+  "topptipset:m20": {
+   "capture_sen": 148,
+   "ok": 294,
+   "aldrig_matchad": 38,
+   "ingen_capture": 16
+  },
+  "stryktipset:h24": {
+   "ok": 47,
+   "aldrig_matchad": 18
+  },
+  "stryktipset:h3": {
+   "ok": 35,
+   "aldrig_matchad": 18,
+   "capture_sen": 12
+  },
+  "stryktipset:m20": {
+   "capture_sen": 8,
+   "aldrig_matchad": 18,
+   "ok": 39
+  },
+  "topptipsetstryk:h24": {
+   "capture_sen": 22,
+   "aldrig_matchad": 14,
+   "ok": 4
+  },
+  "topptipsetstryk:h3": {
+   "ok": 18,
+   "aldrig_matchad": 14,
+   "capture_sen": 8
+  },
+  "topptipsetstryk:m20": {
+   "capture_sen": 5,
+   "aldrig_matchad": 14,
+   "ok": 21
+  },
+  "europatipset:h24": {
+   "capture_sen": 13,
+   "ok": 82,
+   "aldrig_matchad": 9
+  },
+  "europatipset:h3": {
+   "ok": 50,
+   "capture_sen": 45,
+   "aldrig_matchad": 9
+  },
+  "europatipset:m20": {
+   "capture_sen": 38,
+   "aldrig_matchad": 9,
+   "ok": 57
+  },
+  "topptipsetextra:h24": {
+   "capture_sen": 22,
+   "ok": 29,
+   "aldrig_matchad": 5,
+   "ingen_capture": 8
+  },
+  "topptipsetextra:h3": {
+   "ok": 14,
+   "capture_sen": 43,
+   "aldrig_matchad": 7
+  },
+  "topptipsetextra:m20": {
+   "capture_sen": 29,
+   "aldrig_matchad": 7,
+   "ok": 28
+  }
+ },
+ "per_product_horizon_forward": {
+  "europatipset:h24": {
+   "ok": 33,
+   "aldrig_matchad": 6
+  },
+  "europatipset:h3": {
+   "capture_sen": 20,
+   "aldrig_matchad": 6,
+   "ok": 13
+  },
+  "europatipset:m20": {
+   "ok": 20,
+   "aldrig_matchad": 6,
+   "capture_sen": 13
+  },
+  "topptipset:h24": {
+   "ingen_capture": 104,
+   "capture_sen": 24,
+   "ok": 28,
+   "aldrig_matchad": 5,
+   "pit_byggd_fore_capture": 7
+  },
+  "topptipset:h3": {
+   "ingen_capture": 8,
+   "capture_sen": 117,
+   "aldrig_matchad": 12,
+   "ok": 16,
+   "pit_byggd_fore_capture": 15
+  },
+  "topptipset:m20": {
+   "ingen_capture": 8,
+   "ok": 95,
+   "capture_sen": 53,
+   "aldrig_matchad": 12
+  },
+  "topptipsetstryk:h24": {
+   "capture_sen": 13,
+   "aldrig_matchad": 3
+  },
+  "topptipsetstryk:h3": {
+   "ok": 5,
+   "aldrig_matchad": 3,
+   "capture_sen": 8
+  },
+  "topptipsetstryk:m20": {
+   "ok": 13,
+   "aldrig_matchad": 3
+  },
+  "stryktipset:h24": {
+   "ok": 22,
+   "aldrig_matchad": 4
+  },
+  "stryktipset:h3": {
+   "ok": 10,
+   "aldrig_matchad": 4,
+   "capture_sen": 12
+  },
+  "stryktipset:m20": {
+   "ok": 22,
+   "aldrig_matchad": 4
+  },
+  "topptipsetextra:h24": {
+   "capture_sen": 14,
+   "aldrig_matchad": 2
+  },
+  "topptipsetextra:h3": {
+   "capture_sen": 8,
+   "ok": 6,
+   "aldrig_matchad": 2
+  },
+  "topptipsetextra:m20": {
+   "capture_sen": 14,
+   "aldrig_matchad": 2
+  }
+ },
+ "total_per_product_horizon": {
+  "topptipset:m20": {
+   "ingen_rad": 192,
+   "total_ok": 102
+  },
+  "stryktipset:h24": {
+   "ingen_rad": 25,
+   "total_ok": 22
+  },
+  "stryktipset:h3": {
+   "ingen_rad": 25,
+   "total_ok": 10
+  },
+  "topptipsetstryk:h3": {
+   "ingen_rad": 13,
+   "total_ok": 5
+  },
+  "europatipset:h3": {
+   "ingen_rad": 37,
+   "total_ok": 13
+  },
+  "topptipsetextra:h3": {
+   "ingen_rad": 8,
+   "total_ok": 6
+  },
+  "topptipset:h24": {
+   "ingen_rad": 84,
+   "total_ok": 28
+  },
+  "topptipset:h3": {
+   "ingen_rad": 37,
+   "total_ok": 23
+  },
+  "topptipsetextra:h24": {
+   "ingen_rad": 29
+  },
+  "europatipset:h24": {
+   "ingen_rad": 58,
+   "total_ok": 24
+  },
+  "stryktipset:m20": {
+   "ingen_rad": 17,
+   "total_ok": 22
+  },
+  "topptipsetstryk:h24": {
+   "ingen_rad": 4
+  },
+  "topptipsetstryk:m20": {
+   "ingen_rad": 8,
+   "total_ok": 13
+  },
+  "topptipsetextra:m20": {
+   "ingen_rad": 22,
+   "total_ok": 6
+  },
+  "europatipset:m20": {
+   "ingen_rad": 37,
+   "total_ok": 20
+  }
+ },
+ "h3_to_m20": {
+  "ingen_capture→capture_sen": 8,
+  "capture_sen→ok": 309,
+  "aldrig_matchad→aldrig_matchad": 85,
+  "ok→capture_sen": 68,
+  "capture_sen→capture_sen": 152,
+  "ok→ok": 109,
+  "listad_sent→ok": 6,
+  "ingen_capture→ingen_capture": 16,
+  "capture_sen→aldrig_matchad": 1,
+  "pit_byggd_fore_capture→ok": 15
+ },
+ "complete_draws": {
+  "topptipset:h24": {
+   "omgångar": 62,
+   "alla_1x2": 6,
+   "alla_total": 1
+  },
+  "topptipset:h3": {
+   "omgångar": 62,
+   "alla_1x2": 4,
+   "alla_total": 2
+  },
+  "topptipset:m20": {
+   "omgångar": 62,
+   "alla_1x2": 24,
+   "alla_total": 8
+  },
+  "stryktipset:h24": {
+   "omgångar": 5,
+   "alla_1x2": 0,
+   "alla_total": 0
+  },
+  "stryktipset:h3": {
+   "omgångar": 5,
+   "alla_1x2": 0,
+   "alla_total": 0
+  },
+  "stryktipset:m20": {
+   "omgångar": 5,
+   "alla_1x2": 0,
+   "alla_total": 0
+  },
+  "topptipsetstryk:h24": {
+   "omgångar": 5,
+   "alla_1x2": 0,
+   "alla_total": 0
+  },
+  "topptipsetstryk:h3": {
+   "omgångar": 5,
+   "alla_1x2": 0,
+   "alla_total": 0
+  },
+  "topptipsetstryk:m20": {
+   "omgångar": 5,
+   "alla_1x2": 1,
+   "alla_total": 1
+  },
+  "europatipset:h24": {
+   "omgångar": 8,
+   "alla_1x2": 3,
+   "alla_total": 1
+  },
+  "europatipset:h3": {
+   "omgångar": 8,
+   "alla_1x2": 3,
+   "alla_total": 1
+  },
+  "europatipset:m20": {
+   "omgångar": 8,
+   "alla_1x2": 2,
+   "alla_total": 0
+  },
+  "topptipsetextra:h24": {
+   "omgångar": 8,
+   "alla_1x2": 2,
+   "alla_total": 0
+  },
+  "topptipsetextra:h3": {
+   "omgångar": 8,
+   "alla_1x2": 1,
+   "alla_total": 0
+  },
+  "topptipsetextra:m20": {
+   "omgångar": 8,
+   "alla_1x2": 2,
+   "alla_total": 0
+  }
+ },
+ "per_league_m20": {
+  "utanför Oddset": {
+   "capture_sen": 84,
+   "aldrig_matchad": 58,
+   "ok": 180,
+   "ingen_capture": 12
+  },
+  "allsvenskan": {
+   "ok": 26,
+   "capture_sen": 17
+  },
+  "superettan": {
+   "ok": 13,
+   "capture_sen": 8
+  },
+  "la_liga": {
+   "ok": 24,
+   "capture_sen": 19,
+   "ingen_capture": 1
+  },
+  "primeira_liga": {
+   "ok": 4,
+   "capture_sen": 1
+  },
+  "belgian_pro_league": {
+   "ok": 7,
+   "capture_sen": 5
+  },
+  "mls": {
+   "capture_sen": 29,
+   "ok": 36,
+   "ingen_capture": 1
+  },
+  "danish_superliga": {
+   "capture_sen": 3,
+   "ok": 2
+  },
+  "eliteserien": {
+   "capture_sen": 1
+  },
+  "champions_league": {
+   "ok": 13,
+   "capture_sen": 13,
+   "aldrig_matchad": 3
+  },
+  "europa_league": {
+   "capture_sen": 8,
+   "aldrig_matchad": 2,
+   "ok": 8
+  },
+  "conference_league": {
+   "capture_sen": 10,
+   "ok": 12
+  },
+  "serie_a": {
+   "ingen_capture": 2,
+   "ok": 23,
+   "capture_sen": 13,
+   "aldrig_matchad": 3
+  },
+  "premier_league": {
+   "ok": 48,
+   "aldrig_matchad": 12,
+   "capture_sen": 5
+  },
+  "ligue_1": {
+   "ok": 20,
+   "capture_sen": 4
+  },
+  "bundesliga": {
+   "ok": 5,
+   "capture_sen": 3,
+   "aldrig_matchad": 1
+  },
+  "championship": {
+   "ok": 18,
+   "aldrig_matchad": 7,
+   "capture_sen": 5
+  }
+ },
+ "replay_outcomes": {
+  "ingen Pinnacle-rad hos Oddset": 63,
+  "listad före spelstopp, Pinnacles namnform ej sparad": 17,
+  "korrekt par fälls av tröskeln": 6
+ },
+ "replay_outcomes_unique": {
+  "ingen Pinnacle-rad hos Oddset": 51,
+  "listad före spelstopp, Pinnacles namnform ej sparad": 9,
+  "korrekt par fälls av tröskeln": 4
+ },
+ "unique_never_matched": 64,
+ "observation_windows": {
+  "topptipset:h24": {
+   "omgångar": 75,
+   "före as-of (räknas)": 22,
+   "bara efter as-of (räknas inte)": 50,
+   "ingen i fönstret": 3
+  },
+  "topptipset:h3": {
+   "omgångar": 75,
+   "före as-of (räknas)": 16,
+   "bara efter as-of (räknas inte)": 56,
+   "ingen i fönstret": 3
+  },
+  "topptipset:m20": {
+   "omgångar": 75,
+   "före as-of (räknas)": 48,
+   "bara efter as-of (räknas inte)": 25,
+   "ingen i fönstret": 2
+  },
+  "stryktipset:h24": {
+   "omgångar": 5,
+   "före as-of (räknas)": 5,
+   "bara efter as-of (räknas inte)": 0,
+   "ingen i fönstret": 0
+  },
+  "stryktipset:h3": {
+   "omgångar": 5,
+   "före as-of (räknas)": 4,
+   "bara efter as-of (räknas inte)": 1,
+   "ingen i fönstret": 0
+  },
+  "stryktipset:m20": {
+   "omgångar": 5,
+   "före as-of (räknas)": 4,
+   "bara efter as-of (räknas inte)": 1,
+   "ingen i fönstret": 0
+  },
+  "europatipset:h24": {
+   "omgångar": 8,
+   "före as-of (räknas)": 7,
+   "bara efter as-of (räknas inte)": 1,
+   "ingen i fönstret": 0
+  },
+  "europatipset:h3": {
+   "omgångar": 8,
+   "före as-of (räknas)": 4,
+   "bara efter as-of (räknas inte)": 4,
+   "ingen i fönstret": 0
+  },
+  "europatipset:m20": {
+   "omgångar": 8,
+   "före as-of (räknas)": 5,
+   "bara efter as-of (räknas inte)": 3,
+   "ingen i fönstret": 0
+  }
+ },
+ "cadence": {
+  "topptipset": {
+   "dygn": 31,
+   "median_per_dygn": 14,
+   "max_per_dygn": 29
+  },
+  "stryktipset": {
+   "dygn": 32,
+   "median_per_dygn": 48,
+   "max_per_dygn": 55
+  },
+  "topptipsetstryk": {
+   "dygn": 20,
+   "median_per_dygn": 2,
+   "max_per_dygn": 7
+  },
+  "europatipset": {
+   "dygn": 25,
+   "median_per_dygn": 6,
+   "max_per_dygn": 40
+  },
+  "topptipsetextra": {
+   "dygn": 20,
+   "median_per_dygn": 3,
+   "max_per_dygn": 10
+  }
+ },
+ "never_matched_m20": [
+  {
+   "product": "topptipset",
+   "draw": 4267,
+   "event": 7,
+   "home": "Bolton",
+   "away": "Preston",
+   "start": "2026-08-15T13:30:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-15T10:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4966,
+   "event": 3,
+   "home": "Charlton",
+   "away": "Derby",
+   "start": "2026-08-15T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-15T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4966,
+   "event": 7,
+   "home": "Stoke",
+   "away": "Swansea",
+   "start": "2026-08-15T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-15T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4966,
+   "event": 8,
+   "home": "Blackpool",
+   "away": "Wycombe",
+   "start": "2026-08-15T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-15T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4966,
+   "event": 11,
+   "home": "Cambridge",
+   "away": "Wigan",
+   "start": "2026-08-15T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-15T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4966,
+   "event": 13,
+   "home": "Plymouth",
+   "away": "Stockport",
+   "start": "2026-08-15T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-15T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw": 976,
+   "event": 3,
+   "home": "Charlton",
+   "away": "Derby",
+   "start": "2026-08-15T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-15T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw": 976,
+   "event": 7,
+   "home": "Stoke",
+   "away": "Swansea",
+   "start": "2026-08-15T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-15T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw": 976,
+   "event": 8,
+   "home": "Blackpool",
+   "away": "Wycombe",
+   "start": "2026-08-15T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-15T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4268,
+   "event": 3,
+   "home": "Fortuna Sittard",
+   "away": "Cambuur",
+   "start": "2026-08-15T21:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-15T18:09:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4271,
+   "event": 7,
+   "home": "Santos Laguna",
+   "away": "Chivas",
+   "start": "2026-08-17T03:10:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-16T21:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4273,
+   "event": 3,
+   "home": "Gimnasia y Esgrima Mendoza",
+   "away": "Talleres",
+   "start": "2026-08-18T02:30:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-17T21:54:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4278,
+   "event": 5,
+   "home": "Hapoel Be`er Sheva FC",
+   "away": "Sabah Masazir",
+   "start": "2026-08-19T21:00:00+02:00",
+   "cancelled": false,
+   "league": "champions_league",
+   "horizon": "m20",
+   "asof": "2026-08-19T18:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "pinnacle": "Hapoel Beer Sheva - Sabah FK",
+    "liga": "champions_league",
+    "pinnacle_first_odds": "2026-08-12T08:52:56Z",
+    "utfall": "listad före spelstopp, Pinnacles namnform ej sparad"
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw": 1859,
+   "event": 3,
+   "home": "KF Egnatia",
+   "away": "Lilleström",
+   "start": "2026-08-20T19:00:00+02:00",
+   "cancelled": false,
+   "league": "europa_league",
+   "horizon": "m20",
+   "asof": "2026-08-20T16:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "pinnacle": "FK Egnatia - Lillestrøm",
+    "liga": "europa_league",
+    "pinnacle_first_odds": "2026-08-15T13:57:52Z",
+    "utfall": "listad före spelstopp, Pinnacles namnform ej sparad"
+   }
+  },
+  {
+   "product": "europatipset",
+   "draw": 2600,
+   "event": 3,
+   "home": "KF Egnatia",
+   "away": "Lilleström",
+   "start": "2026-08-20T19:00:00+02:00",
+   "cancelled": false,
+   "league": "europa_league",
+   "horizon": "m20",
+   "asof": "2026-08-20T16:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "pinnacle": "FK Egnatia - Lillestrøm",
+    "liga": "europa_league",
+    "pinnacle_first_odds": "2026-08-15T13:57:52Z",
+    "utfall": "listad före spelstopp, Pinnacles namnform ej sparad"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4280,
+   "event": 5,
+   "home": "Athletic Club",
+   "away": "CR Brasil",
+   "start": "2026-08-21T00:30:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-20T21:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4280,
+   "event": 6,
+   "home": "Novorizontino",
+   "away": "America",
+   "start": "2026-08-21T01:30:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-20T21:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4283,
+   "event": 2,
+   "home": "Alianza FC Valledupar",
+   "away": "Pereira",
+   "start": "2026-08-22T02:30:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-21T22:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4967,
+   "event": 4,
+   "home": "Nottingham",
+   "away": "Leeds",
+   "start": "2026-08-22T16:00:00+02:00",
+   "cancelled": false,
+   "league": "premier_league",
+   "horizon": "m20",
+   "asof": "2026-08-22T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "pinnacle": "Nottingham - Leeds",
+    "liga": "premier_league",
+    "pinnacle_first_odds": "2026-07-23T21:47:13Z",
+    "utfall": "listad före spelstopp, Pinnacles namnform ej sparad"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4967,
+   "event": 6,
+   "home": "Derby",
+   "away": "Cardiff",
+   "start": "2026-08-22T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-22T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4967,
+   "event": 7,
+   "home": "Preston",
+   "away": "Wolverhampton",
+   "start": "2026-08-22T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-22T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4967,
+   "event": 8,
+   "home": "Queens Park Rangers",
+   "away": "Bolton",
+   "start": "2026-08-22T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-22T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4967,
+   "event": 11,
+   "home": "West Ham",
+   "away": "Charlton",
+   "start": "2026-08-22T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-22T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw": 977,
+   "event": 4,
+   "home": "Nottingham",
+   "away": "Leeds",
+   "start": "2026-08-22T16:00:00+02:00",
+   "cancelled": false,
+   "league": "premier_league",
+   "horizon": "m20",
+   "asof": "2026-08-22T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "pinnacle": "Nottingham - Leeds",
+    "liga": "premier_league",
+    "pinnacle_first_odds": "2026-07-23T21:47:13Z",
+    "utfall": "listad före spelstopp, Pinnacles namnform ej sparad"
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw": 977,
+   "event": 6,
+   "home": "Derby",
+   "away": "Cardiff",
+   "start": "2026-08-22T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-22T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw": 977,
+   "event": 7,
+   "home": "Preston",
+   "away": "Wolverhampton",
+   "start": "2026-08-22T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-22T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw": 977,
+   "event": 8,
+   "home": "Queens Park Rangers",
+   "away": "Bolton",
+   "start": "2026-08-22T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-22T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4288,
+   "event": 6,
+   "home": "Junior",
+   "away": "Once Caldas",
+   "start": "2026-08-24T03:15:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-23T21:54:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4290,
+   "event": 5,
+   "home": "Talleres",
+   "away": "Rosario",
+   "start": "2026-08-25T02:15:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-24T21:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4290,
+   "event": 7,
+   "home": "Everton",
+   "away": "Universidad de Concepcion",
+   "start": "2026-08-25T01:30:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-24T21:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4292,
+   "event": 4,
+   "home": "Stoke",
+   "away": "Hull",
+   "start": "2026-08-25T20:45:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-25T18:24:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4292,
+   "event": 6,
+   "home": "Nottingham",
+   "away": "Leeds",
+   "start": "2026-08-25T21:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-25T18:24:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4293,
+   "event": 3,
+   "home": "Juventude",
+   "away": "CR Brasil",
+   "start": "2026-08-26T00:30:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-25T22:09:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4294,
+   "event": 7,
+   "home": "Preston",
+   "away": "Everton",
+   "start": "2026-08-26T21:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-26T18:24:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4295,
+   "event": 1,
+   "home": "River Plate",
+   "away": "Santa Fe",
+   "start": "2026-08-27T02:30:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-26T21:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4295,
+   "event": 5,
+   "home": "América De Cali",
+   "away": "Junior",
+   "start": "2026-08-27T01:20:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-26T21:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4968,
+   "event": 1,
+   "home": "Tottenham",
+   "away": "Newcastle",
+   "start": "2026-08-29T18:30:00+02:00",
+   "cancelled": false,
+   "league": "premier_league",
+   "horizon": "m20",
+   "asof": "2026-08-29T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "pinnacle": "Tottenham - Newcastle United",
+    "liga": "premier_league",
+    "pinnacle_first_odds": "2026-08-22T20:22:06Z",
+    "utfall": "listad före spelstopp, Pinnacles namnform ej sparad"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4968,
+   "event": 3,
+   "home": "Coventry",
+   "away": "Hull",
+   "start": "2026-08-29T16:00:00+02:00",
+   "cancelled": false,
+   "league": "premier_league",
+   "horizon": "m20",
+   "asof": "2026-08-29T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "pinnacle": "Coventry City - Hull",
+    "liga": "premier_league",
+    "pinnacle_first_odds": "2026-08-22T19:51:54Z",
+    "utfall": "listad före spelstopp, Pinnacles namnform ej sparad"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4968,
+   "event": 5,
+   "home": "Bolton",
+   "away": "Lincoln",
+   "start": "2026-08-29T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-29T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4968,
+   "event": 8,
+   "home": "Charlton",
+   "away": "Preston",
+   "start": "2026-08-29T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-29T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw": 978,
+   "event": 1,
+   "home": "Tottenham",
+   "away": "Newcastle",
+   "start": "2026-08-29T18:30:00+02:00",
+   "cancelled": false,
+   "league": "premier_league",
+   "horizon": "m20",
+   "asof": "2026-08-29T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "pinnacle": "Tottenham - Newcastle United",
+    "liga": "premier_league",
+    "pinnacle_first_odds": "2026-08-22T20:22:06Z",
+    "utfall": "listad före spelstopp, Pinnacles namnform ej sparad"
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw": 978,
+   "event": 3,
+   "home": "Coventry",
+   "away": "Hull",
+   "start": "2026-08-29T16:00:00+02:00",
+   "cancelled": false,
+   "league": "premier_league",
+   "horizon": "m20",
+   "asof": "2026-08-29T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "pinnacle": "Coventry City - Hull",
+    "liga": "premier_league",
+    "pinnacle_first_odds": "2026-08-22T19:51:54Z",
+    "utfall": "listad före spelstopp, Pinnacles namnform ej sparad"
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw": 978,
+   "event": 5,
+   "home": "Bolton",
+   "away": "Lincoln",
+   "start": "2026-08-29T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-29T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw": 978,
+   "event": 8,
+   "home": "Charlton",
+   "away": "Preston",
+   "start": "2026-08-29T16:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-29T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw": 1862,
+   "event": 3,
+   "home": "Leeds",
+   "away": "Brentford",
+   "start": "2026-08-30T15:00:00+02:00",
+   "cancelled": false,
+   "league": "premier_league",
+   "horizon": "m20",
+   "asof": "2026-08-30T12:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "pinnacle": "Leeds - Brentford",
+    "liga": "premier_league",
+    "pinnacle_first_odds": "2026-08-22T20:22:06Z",
+    "utfall": "listad före spelstopp, Pinnacles namnform ej sparad"
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw": 1862,
+   "event": 6,
+   "home": "Cagliari",
+   "away": "Inter",
+   "start": "2026-08-30T20:45:00+02:00",
+   "cancelled": false,
+   "league": "serie_a",
+   "horizon": "m20",
+   "asof": "2026-08-30T12:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "pinnacle": "Cagliari - Inter",
+    "liga": "serie_a",
+    "pinnacle_first_odds": "2026-08-23T15:31:22Z",
+    "utfall": "listad före spelstopp, Pinnacles namnform ej sparad"
+   }
+  },
+  {
+   "product": "europatipset",
+   "draw": 2603,
+   "event": 3,
+   "home": "Leeds",
+   "away": "Brentford",
+   "start": "2026-08-30T15:00:00+02:00",
+   "cancelled": false,
+   "league": "premier_league",
+   "horizon": "m20",
+   "asof": "2026-08-30T12:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "pinnacle": "Leeds - Brentford",
+    "liga": "premier_league",
+    "pinnacle_first_odds": "2026-08-22T20:22:06Z",
+    "utfall": "listad före spelstopp, Pinnacles namnform ej sparad"
+   }
+  },
+  {
+   "product": "europatipset",
+   "draw": 2603,
+   "event": 6,
+   "home": "Cagliari",
+   "away": "Inter",
+   "start": "2026-08-30T20:45:00+02:00",
+   "cancelled": false,
+   "league": "serie_a",
+   "horizon": "m20",
+   "asof": "2026-08-30T12:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "pinnacle": "Cagliari - Inter",
+    "liga": "serie_a",
+    "pinnacle_first_odds": "2026-08-23T15:31:22Z",
+    "utfall": "listad före spelstopp, Pinnacles namnform ej sparad"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4305,
+   "event": 1,
+   "home": "Cagliari",
+   "away": "Inter",
+   "start": "2026-08-30T20:45:00+02:00",
+   "cancelled": false,
+   "league": "serie_a",
+   "horizon": "m20",
+   "asof": "2026-08-30T18:24:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "pinnacle": "Cagliari - Inter",
+    "liga": "serie_a",
+    "pinnacle_first_odds": "2026-08-23T15:31:22Z",
+    "utfall": "listad före spelstopp, Pinnacles namnform ej sparad"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4301,
+   "event": 7,
+   "home": "Toluca",
+   "away": "Juarez",
+   "start": "2026-08-31T02:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-30T21:54:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4303,
+   "event": 7,
+   "home": "Deportivo Pasto",
+   "away": "Pereira",
+   "start": "2026-09-01T01:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-31T21:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4303,
+   "event": 8,
+   "home": "Deportes Tolima",
+   "away": "Cucuta Deportivo",
+   "start": "2026-09-01T03:05:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-08-31T21:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4306,
+   "event": 3,
+   "home": "Stoke",
+   "away": "Norwich",
+   "start": "2026-09-01T21:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-01T18:24:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4306,
+   "event": 4,
+   "home": "Sheffield U",
+   "away": "Bolton",
+   "start": "2026-09-01T20:45:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-01T18:24:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4306,
+   "event": 6,
+   "home": "Portsmouth",
+   "away": "Derby",
+   "start": "2026-09-01T20:45:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-01T18:24:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4306,
+   "event": 8,
+   "home": "Preston",
+   "away": "Bristol City",
+   "start": "2026-09-01T20:45:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-01T18:24:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "europatipset",
+   "draw": 2604,
+   "event": 4,
+   "home": "West Bromwich",
+   "away": "Charlton",
+   "start": "2026-09-02T20:45:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-02T18:09:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "europatipset",
+   "draw": 2604,
+   "event": 7,
+   "home": "Luton",
+   "away": "Stockport",
+   "start": "2026-09-02T20:45:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-02T18:09:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "europatipset",
+   "draw": 2604,
+   "event": 9,
+   "home": "Wigan",
+   "away": "Milton Keynes Dons",
+   "start": "2026-09-02T20:45:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-02T18:09:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "europatipset",
+   "draw": 2604,
+   "event": 13,
+   "home": "St. Truidense",
+   "away": "Royale Union SG",
+   "start": "2026-09-02T20:30:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-02T18:09:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw": 1863,
+   "event": 4,
+   "home": "West Bromwich",
+   "away": "Charlton",
+   "start": "2026-09-02T20:45:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-02T18:24:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw": 1863,
+   "event": 7,
+   "home": "Luton",
+   "away": "Stockport",
+   "start": "2026-09-02T20:45:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-02T18:24:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4308,
+   "event": 5,
+   "home": "Santa Fe",
+   "away": "Millonarios",
+   "start": "2026-09-03T03:25:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-02T21:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": false,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4319,
+   "event": 6,
+   "home": "CR Brasil",
+   "away": "America",
+   "start": "2026-09-05T02:30:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-04T21:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw": 979,
+   "event": 2,
+   "home": "Brighton",
+   "away": "Leeds",
+   "start": "2026-09-05T16:00:00+02:00",
+   "cancelled": false,
+   "league": "premier_league",
+   "horizon": "m20",
+   "asof": "2026-09-05T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "pinnacle": "Brighton - Leeds United",
+    "liga": "premier_league",
+    "pinnacle_first_odds": "2026-08-24T08:51:02Z",
+    "utfall": "korrekt par fälls av tröskeln",
+    "sidor": [
+     1.0,
+     0.588
+    ],
+    "kombinerat": 0.794,
+    "tröskel": "sida ≥ 0.6, kombinerat ≥ 0.72"
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw": 979,
+   "event": 5,
+   "home": "Nottingham",
+   "away": "Tottenham",
+   "start": "2026-09-05T16:00:00+02:00",
+   "cancelled": false,
+   "league": "premier_league",
+   "horizon": "m20",
+   "asof": "2026-09-05T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "pinnacle": "Nottingham Forest - Tottenham Hotspur",
+    "liga": "premier_league",
+    "pinnacle_first_odds": "2026-08-24T08:51:02Z",
+    "utfall": "korrekt par fälls av tröskeln",
+    "sidor": [
+     0.741,
+     0.692
+    ],
+    "kombinerat": 0.716,
+    "tröskel": "sida ≥ 0.6, kombinerat ≥ 0.72"
+   }
+  },
+  {
+   "product": "topptipsetstryk",
+   "draw": 979,
+   "event": 8,
+   "home": "Millwall",
+   "away": "Bolton",
+   "start": "2026-09-05T16:00:00+02:00",
+   "cancelled": false,
+   "league": "championship",
+   "horizon": "m20",
+   "asof": "2026-09-05T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "pinnacle": "Millwall - Bolton",
+    "liga": "championship",
+    "pinnacle_first_odds": "2026-09-02T20:38:50Z",
+    "utfall": "listad före spelstopp, Pinnacles namnform ej sparad"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4969,
+   "event": 2,
+   "home": "Brighton",
+   "away": "Leeds",
+   "start": "2026-09-05T16:00:00+02:00",
+   "cancelled": false,
+   "league": "premier_league",
+   "horizon": "m20",
+   "asof": "2026-09-05T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "pinnacle": "Brighton - Leeds United",
+    "liga": "premier_league",
+    "pinnacle_first_odds": "2026-08-24T08:51:02Z",
+    "utfall": "korrekt par fälls av tröskeln",
+    "sidor": [
+     1.0,
+     0.588
+    ],
+    "kombinerat": 0.794,
+    "tröskel": "sida ≥ 0.6, kombinerat ≥ 0.72"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4969,
+   "event": 5,
+   "home": "Nottingham",
+   "away": "Tottenham",
+   "start": "2026-09-05T16:00:00+02:00",
+   "cancelled": false,
+   "league": "premier_league",
+   "horizon": "m20",
+   "asof": "2026-09-05T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "pinnacle": "Nottingham Forest - Tottenham Hotspur",
+    "liga": "premier_league",
+    "pinnacle_first_odds": "2026-08-24T08:51:02Z",
+    "utfall": "korrekt par fälls av tröskeln",
+    "sidor": [
+     0.741,
+     0.692
+    ],
+    "kombinerat": 0.716,
+    "tröskel": "sida ≥ 0.6, kombinerat ≥ 0.72"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4969,
+   "event": 8,
+   "home": "Millwall",
+   "away": "Bolton",
+   "start": "2026-09-05T16:00:00+02:00",
+   "cancelled": false,
+   "league": "championship",
+   "horizon": "m20",
+   "asof": "2026-09-05T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "pinnacle": "Millwall - Bolton",
+    "liga": "championship",
+    "pinnacle_first_odds": "2026-09-02T20:38:50Z",
+    "utfall": "listad före spelstopp, Pinnacles namnform ej sparad"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4316,
+   "event": 4,
+   "home": "Pereira",
+   "away": "Millonarios",
+   "start": "2026-09-07T01:10:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-06T21:54:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4316,
+   "event": 8,
+   "home": "FBC Melgar",
+   "away": "ADT Tarma",
+   "start": "2026-09-07T01:30:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-06T21:54:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4320,
+   "event": 1,
+   "home": "Real Madrid",
+   "away": "Inter",
+   "start": "2026-09-08T21:00:00+02:00",
+   "cancelled": false,
+   "league": "champions_league",
+   "horizon": "m20",
+   "asof": "2026-09-08T18:24:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "pinnacle": "Real Madrid - Inter",
+    "liga": "champions_league",
+    "pinnacle_first_odds": "2026-08-29T17:23:22Z",
+    "utfall": "listad före spelstopp, Pinnacles namnform ej sparad"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4321,
+   "event": 2,
+   "home": "Santa Fe",
+   "away": "Vasco da Gama",
+   "start": "2026-09-09T00:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-08T21:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4321,
+   "event": 8,
+   "home": "Gwangju FC",
+   "away": "Jeju United FC",
+   "start": "2026-09-09T12:30:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-08T21:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "europatipset",
+   "draw": 2606,
+   "event": 5,
+   "home": "Chelsea",
+   "away": "Leeds",
+   "start": "2026-09-09T21:15:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-09T16:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "europatipset",
+   "draw": 2606,
+   "event": 7,
+   "home": "Derby",
+   "away": "West Bromwich",
+   "start": "2026-09-09T20:45:00+02:00",
+   "cancelled": false,
+   "league": "championship",
+   "horizon": "m20",
+   "asof": "2026-09-09T16:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw": 1865,
+   "event": 5,
+   "home": "Chelsea",
+   "away": "Leeds",
+   "start": "2026-09-09T21:15:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-09T18:24:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipsetextra",
+   "draw": 1865,
+   "event": 7,
+   "home": "Derby",
+   "away": "West Bromwich",
+   "start": "2026-09-09T20:45:00+02:00",
+   "cancelled": false,
+   "league": "championship",
+   "horizon": "m20",
+   "asof": "2026-09-09T18:24:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4323,
+   "event": 2,
+   "home": "Manchester United",
+   "away": "Sabah Masazir",
+   "start": "2026-09-10T21:00:00+02:00",
+   "cancelled": false,
+   "league": "champions_league",
+   "horizon": "m20",
+   "asof": "2026-09-10T16:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "pinnacle": "Manchester United - Sabah FK",
+    "liga": "champions_league",
+    "pinnacle_first_odds": "2026-08-29T17:23:22Z",
+    "utfall": "korrekt par fälls av tröskeln",
+    "sidor": [
+     1.0,
+     0.556
+    ],
+    "kombinerat": 0.778,
+    "tröskel": "sida ≥ 0.6, kombinerat ≥ 0.72"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4327,
+   "event": 5,
+   "home": "Santa Fe",
+   "away": "Deportes Tolima",
+   "start": "2026-09-12T03:30:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-11T21:54:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4328,
+   "event": 2,
+   "home": "Bolton",
+   "away": "Cardiff",
+   "start": "2026-09-12T13:30:00+02:00",
+   "cancelled": false,
+   "league": "championship",
+   "horizon": "m20",
+   "asof": "2026-09-12T11:09:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4328,
+   "event": 3,
+   "home": "Derby",
+   "away": "Birmingham",
+   "start": "2026-09-12T13:30:00+02:00",
+   "cancelled": false,
+   "league": "championship",
+   "horizon": "m20",
+   "asof": "2026-09-12T11:09:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4328,
+   "event": 8,
+   "home": "Mainz",
+   "away": "Frankfurt",
+   "start": "2026-09-12T15:30:00+02:00",
+   "cancelled": false,
+   "league": "bundesliga",
+   "horizon": "m20",
+   "asof": "2026-09-12T11:09:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "pinnacle": "Mainz 05 - Eintracht Frankfurt",
+    "liga": "bundesliga",
+    "pinnacle_first_odds": "2026-08-30T21:22:56Z",
+    "utfall": "korrekt par fälls av tröskeln",
+    "sidor": [
+     0.769,
+     0.643
+    ],
+    "kombinerat": 0.706,
+    "tröskel": "sida ≥ 0.6, kombinerat ≥ 0.72"
+   }
+  },
+  {
+   "product": "stryktipset",
+   "draw": 4970,
+   "event": 11,
+   "home": "Preston",
+   "away": "Lincoln",
+   "start": "2026-09-12T16:00:00+02:00",
+   "cancelled": false,
+   "league": "championship",
+   "horizon": "m20",
+   "asof": "2026-09-12T13:39:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  },
+  {
+   "product": "topptipset",
+   "draw": 4329,
+   "event": 8,
+   "home": "Cambuur",
+   "away": "Nijmegen",
+   "start": "2026-09-12T21:00:00+02:00",
+   "cancelled": false,
+   "league": "utanför Oddset",
+   "horizon": "m20",
+   "asof": "2026-09-12T18:24:00Z",
+   "cls": "aldrig_matchad",
+   "total": null,
+   "forward": true,
+   "replay": {
+    "utfall": "ingen Pinnacle-rad hos Oddset"
+   }
+  }
+ ]
+}
