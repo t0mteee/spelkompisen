@@ -116,9 +116,12 @@ prioritetsordning. ⚖ = kräver Samans beslut.
     aldrig matchade. **⚖ Fem beslut (a–e) i
     `docs/overlamningar/overlamning-2026-09-13-pooltackning.md`** — ingen tids-
     eller providerregel ändrad; rekommendation: c → a → b under ny featureversion.
-17. ⚖ **Codex UI-plan del B/C** (Mina kuponger, Tester som katalog, personlig
-    Idag) ändrar navigationskonventionen och ytgränsen Historik = pool; väntar
-    på Samans beslut. `docs/overlamningar/overlamning-2026-09-13-modell-ui-plan.md`.
+17. ✅ (2026-09-13) **Codex UI-plan del B/C levererad** (Claude). Samans val:
+    underflikar i Historik — Mina kuponger · Tester · Facit & prognos; toppraden
+    tillbaka på fem flikar. Testkatalog ur `/api/pool/tests` (gater-raderna),
+    omgångsvy i 5 000-/maxtester, direktlänkar via hash, Idag med egna kuponger
+    överst och testnyheter. `docs/overlamningar/overlamning-2026-09-13-mina-kuponger-tester.md`.
+    ⚖ Kvar: besluten a–e i punkt 16.
 
 ## 2026-08-11 — AWS korrekt omtestat och avfärdat
 

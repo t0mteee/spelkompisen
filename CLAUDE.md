@@ -95,6 +95,7 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/oddset_v22.py   isolerad V2.2 feature-/shadowcapture (ej live-tips)
   app/oddset_health.py tystnadsdetektion: Oddset-varv, pool-basvarv, kärnkällor, liveradar
   app/gater.py        alla förregistrerade grindar på ett ställe (cli.py gater)
+  app/pool_tests.py   testkatalogen för UI:t (/api/pool/tests): gater-raderna per experiment
   app/pool_settlement.py PH1: immutable poolfacit (append-once, payload-hash; retry_after
                       per rad; läs-API /api/pool/history)
   app/pool_dataset.py PH2: PIT-features per omgång/horisont (pit-v4, enbart observed_pit —
@@ -125,15 +126,21 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
 frontend/ React + Vite, mörkt tema.
   src/AppV3.jsx + AppV3.css  APPEN (enda gränssnittet sedan 2026-07-26): skalet,
                       Idag (DashboardV3) och Poolspel (PoolV3); övriga vyer monteras från
-  src/historik/       HistorikV3, SystemDetail (+ SystemGroupsTable, liverättning),
-                      ForwardTestV3 (5 000-test, Max-tester)
+  src/historik/       HistorikHub (underflikarna Mina kuponger · Tester · Facit & prognos,
+                      2026-09-13), MinaKuponger + PlayedCoupon (livekort/detalj/import) +
+                      usePlayedCoupons (trestegsladdning), Tester (katalogen ur
+                      /api/pool/tests) + SystemfacitCard + PoolmodellCard, ForwardTestV3
+                      (5 000-test/maxtester/poolopt, omgångsvy), HistorikV3 (Facit &
+                      prognos), SystemDetail (+ SystemGroupsTable, liverättning)
   src/labb/LabbV3.jsx  Labb = 100 % odds
   src/App.jsx + App.css  KOMPONENTBIBLIOTEKET (AnalysisTable, SystemView, CouponPanel,
-                      PlayRec, PlayedPanel m.fl.) — re-exporterar även allt nedan
+                      PlayRec m.fl.) — re-exporterar även allt nedan
   src/lib/            ren logik utan React, testad med node --test: format.js,
                       poolEv.js (KAPPA/evalRows/couponStats/systemStats), api.js
                       (get/getDetail/readState), labels.js (produkt-/familjetabeller,
-                      LABB_*/HISTORIK_RESEARCH), playRec.js, poolSelection.js, sourceHealth.js
+                      LABB_*/HISTORIK_RESEARCH), routes.js (hash-rutter/direktlänkar),
+                      coupons.js (kupongstatus/filter/summering), tests.js (testkatalogens
+                      status/nyheter), playRec.js, poolSelection.js, sourceHealth.js
   src/components/     ui.jsx (Loading/Empty/ErrorState, ErrBoundary, useStoredBool),
                       SortableTable.jsx, charts.jsx, badges.jsx (MiniSpark/BuildBadge/LabbPill)
   src/oddset/OddsetView.jsx  hela Oddset-vyn (Matcher/Live/Värdespel/Rörelser/Lagstyrka)
@@ -593,11 +600,17 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
   `td:first-child`-regler måste exkludera `.chartrow`.
 - Alla GET-fetch: `cache:'no-store'` + `&_t=${Date.now()}` (annars cachar webbläsare/iOS).
 - Tillstånd sparas i `localStorage` (`svs_state`); bootstrap återställer. Omladdning
-  börjar alltid i Idag (återinför inte `svs_v3_view`).
+  börjar i Idag när adressen saknar hash (återinför inte `svs_v3_view`). En hash är
+  DIREKTLÄNKSKONTRAKTET (`lib/routes.js`, 2026-09-13): `#/kuponger[/id]`,
+  `#/tester[/test[/produkt/omg/horisont/nyckel]]`, `#/facit[/spel]`, `#/pool`,
+  `#/oddset[/fokus]`, `#/labb` öppnar direkt där, även efter omladdning. Navigering
+  pushar hash; stäng/"← Tillbaka" backar i webbläsarhistoriken.
 - Inga `cursor: help`-frågetecken; förklaringar som title-tooltips.
 - Oddset-delen: röd = oddset NER (ökad vinstchans), grön = UPP (vm-konvention).
 - **Idag** är en lätt översikt: `/api/dashboard/oddset`, `/api/oddset/predictions/summary`
-  och `/api/pool/played?live=false` — aldrig de fulla rapporterna. Idag startar inget
+  och `/api/pool/played?live=false` — aldrig de fulla rapporterna. Idag visar Mina kuponger
+  ÖVERST (pågående med lätt livebild, nya egna resultat inom 7 dygn) och ett Tester-kort
+  med bara nyheter ur `/api/pool/tests` (underlag klart/granskad), aldrig `/api/pool/systems`. Idag startar inget
   nätarbete de första 650 ms; sekundära kort väntar 1 200 ms; timers och requests rensas
   vid vybyte. Driftlarm (pool, V2.2, Oddset-tystnad) visas överst på Idag.
 - **Oddset** laddar progressivt: `/api/oddset/matches?light=true&compact=true&movement=false&limit=40`
@@ -616,7 +629,12 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
   desktop, sortval + samma kortordning på mobil. `limit` kapar EFTER sorteringen — slicea
   aldrig `rows` före anropet. Skapa aldrig tabbspecifika kopior.
 - **YTGRÄNSEN: Historik = 100 % POOL, Labb = 100 % ODDS.** Sammanhörande data får inte
-  spridas över två vyer. Historik har EN produktväljare överst som styr hela sidan.
+  spridas över två vyer. Historik har sedan 2026-09-13 TRE underflikar: **Mina kuponger**
+  (verkligt spelade; öppnas först), **Tester** (katalogen ur `/api/pool/tests`, en rad
+  per experiment med samma statustrappa som `cli.py gater`; 5 000-test, Max-tester,
+  poolopt, Standardjämförelsen och Poolstyrka bor här) och **Facit & prognos** (EN
+  produktväljare styr prognos och omsättning). Blanda aldrig verkliga pengar
+  (Mina kuponger) med simulerade (Tester) i samma summering.
   Poolens styrkemodell-shadow ligger i Historik → Poolmodell, aldrig i Labb.
 - Långa tabeller visar 20 rader med "visa alla". Ingen parameter göms i en nyckelsträng:
   budget, strategi och värdevikt är egna kolumner. Horisonter visas i minuter (180/20),
@@ -625,7 +643,9 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
   (aktiv-markeringen kommer från respektive systems eget fingeravtryck — value-loggens
   och ledgerns `s-`-namnrymder är OLIKA och får aldrig korsjämföras). ROI/KI visas aldrig
   under `ROI_MIN_N` (=10). Stora loggar visas stegvis (200 rader).
-- **5 000-test/Max-tester:** listan visar liveläge per öppen kupong ur
+- **Tester → 5 000-test/Max-tester:** omgångsvyn är standard (datum, spel och omgång EN
+  gång, sedan en rad per metod × frystid; 20 omgångar först), Kuponger och Jämför
+  metoder som val. Listan visar liveläge per öppen kupong ur
   `/api/pool/systems/live-overview?family=` (samma `live_status` som detaljkortet,
   en omgång hämtas en gång, pollas var 30:e s bara medan fliken är synlig) och en
   summering per PRODUKT × exakt nyckel × frystid ur översiktens `groups`
@@ -635,7 +655,7 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
   tidsriktig kupong med komplett utdelning, ROI först vid `ROI_MIN_N`. `pots` är
   omgångens POTT per nivå — kalla det aldrig utdelning. I kupongdetaljen skriver ett
   rött rätt tecken ut "✗ ej streckat".
-- Spelade kuponger: `PlayedPanel` hämtar i TRE steg (`live=false` → `live=true&chance=false`
+- Spelade kuponger: `usePlayedCoupons` hämtar i TRE steg (`live=false` → `live=true&chance=false`
   → fullt svar); livebilden är single-flight (20 s) och ett sent svar får inte skriva över
   en nyare uppdatering.
 

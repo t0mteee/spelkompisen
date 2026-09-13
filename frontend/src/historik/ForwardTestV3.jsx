@@ -1,24 +1,33 @@
-// 5 000-test och Max-tester (research-only forwardserier).
-// Bruten ur AppV3.jsx 2026-09-02.
+// Researchserierna (5 000-test, maxtester, poolopt, 40 000-pilot): EN rad är
+// EN exakt fryst kupong. Monteras i Historik → Tester. Bruten ur AppV3.jsx
+// 2026-09-02; omgångsvy som standard och ruttstyrd detalj 2026-09-13.
 import { useEffect, useState } from 'react'
 import { get } from '../lib/api.js'
 import { PRODUCT_LABEL, fmtDay, horizonLabel, pctSigned, roiCls, FORWARD_TEST, forwardTestLabel, forwardTestFilterKey, ROI_MIN_N } from '../lib/labels.js'
-import { SystemDetail } from '../historik/SystemDetail.jsx'
+import { SystemDetail } from './SystemDetail.jsx'
 import { SortableTable } from '../components/SortableTable.jsx'
 import { forwardView } from '../lib/forwardTests.js'
 import { LoadingState, EmptyState, ErrorState, kr } from '../App.jsx'
 
-/* Researchserierna har egna uppgifter och ska därför inte ligga gömda bland
-   Historiks hundratals benchmarkgrupper. En tabellrad är EN exakt fryst
-   kupong. Själva raderna hämtas först när användaren öppnar testet. */
-export function ForwardTestV3({ family }) {
+const VIEW_KEY = 'svs_forward_view'
+const VIEWS = ['omgangar', 'kuponger', 'metoder']
+const readView = () => {
+  try { const v = localStorage.getItem(VIEW_KEY); return VIEWS.includes(v) ? v : 'omgangar' } catch { return 'omgangar' }
+}
+
+export function ForwardTestV3({ family, open = null, onOpenCoupon = null, onCloseCoupon = null }) {
   const meta = FORWARD_TEST[family]
   const isMaxTest = family !== 'ph5'
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
-  const [openSystem, setOpenSystem] = useState(null)
+  // Öppen kupong: rutten styr när föräldern skickar `open`, annars lokalt.
+  const [localOpen, setLocalOpen] = useState(null)
+  const openSystem = open || localOpen
+  const openCoupon = (test) => { setLocalOpen(test); onOpenCoupon?.(test) }
+  const closeCoupon = () => { setLocalOpen(null); onCloseCoupon?.() }
   const [filters, setFilters] = useState({ product: 'alla', horizon: 'alla', method: 'alla',
     version: meta.archived ? 'aldre' : 'aktuell' })
+  const [mode, setMode] = useState(readView)
   const [limit, setLimit] = useState(20)
   useEffect(() => {
     let current = true
@@ -76,6 +85,10 @@ export function ForwardTestV3({ family }) {
     setFilters((current) => ({ ...current, [key]: value }))
     setLimit(20)
   }
+  const chooseMode = (next) => {
+    setMode(next); setLimit(20)
+    try { localStorage.setItem(VIEW_KEY, next) } catch { /* ok */ }
+  }
   const methodSource = (data.tests || []).length ? data.tests : data.configs || []
   const methods = [...new Map(methodSource.map((test) => [
     forwardTestFilterKey(test), forwardTestLabel(test),
@@ -86,6 +99,31 @@ export function ForwardTestV3({ family }) {
   const liveEntries = Object.fromEntries((live?.tests || []).map((test) => [
     `${test.product}:${test.draw_number}:${test.horizon}:${test.config_key}`, test]))
   const liveErrors = live?.errors || {}
+  const testKey = (test) => `${test.product}:${test.draw_number}:${test.horizon}:${test.config_key}`
+  const facitCell = (test) => (test.correct_max == null
+    ? <LiveCell entry={liveEntries[testKey(test)]}
+        pot={live?.pots?.[`${test.product}:${test.draw_number}`]}
+        error={liveErr || liveErrors[`${test.product}:${test.draw_number}`]}
+        waiting={!live && !meta.archived} />
+    : test.payout_complete !== true
+      ? `${test.correct_max} rätt · utdelning okänd`
+      : <><b>{test.correct_max} rätt</b> · {kr(test.payout_kr)} ·{' '}
+          <span className={roiCls(test.roi)}>{pctSigned(test.roi)}</span></>)
+  // Omgångsvyn: datum, spel och omgång EN gång, därefter en kompakt rad per
+  // metod × frystid. Flera metoder på samma omgång är inte oberoende försök.
+  const drawGroups = (() => {
+    const map = new Map()
+    for (const test of tests) {
+      const key = `${test.product}:${test.draw_number}`
+      if (!map.has(key)) {
+        map.set(key, { key, product: test.product, draw_number: test.draw_number,
+          close: test.close || test.frozen_at, tests: [] })
+      }
+      map.get(key).tests.push(test)
+    }
+    return [...map.values()].sort((a, b) => new Date(b.close || 0) - new Date(a.close || 0))
+  })()
+  const shownGroups = drawGroups.slice(0, limit)
   const columns = [
     { key: 'date', label: 'Datum', value: (test) => test.close || test.frozen_at },
     { key: 'product', label: 'Spel', value: (test) => PRODUCT_LABEL[test.product] || test.product },
@@ -99,16 +137,6 @@ export function ForwardTestV3({ family }) {
 
   return (
     <div className="v3ph5">
-      <section className={`v3hero v3ph5hero ${isMaxTest ? 'v3max40hero' : ''}`}>
-        <div>
-          <span className="v3eyebrow">{meta.archived ? 'HISTORISK PILOT · INGA RIKTIGA INSATSER'
-            : 'FRAMÅTRIKTAT BLINDTEST · INGA RIKTIGA INSATSER'}</span>
-          <h1>{meta.title}</h1>
-          <p>Följ kupongerna live eller öppna exakt radurval, sparade odds och slutresultat.
-            Alla belopp är simulerade.</p>
-        </div>
-      </section>
-
       <details className="v3card v3ph5explain">
         <summary>Så fungerar testet och metoderna</summary>
         {isMaxTest ? <>
@@ -134,27 +162,20 @@ export function ForwardTestV3({ family }) {
             <span><b>Slumpurval</b> samma tillåtna tecken som Värderader, men raderna lottas utan EV-rankning</span>
           </div>
         </>}
+        {isMaxTest && <>
+          {family === 'mathmax' ? <p>Detta är ett äkta matematiskt M-system:
+            <b> 3 spikar × 1 halvgardering × 9 helgarderingar = 39 366 unika rader</b>.
+            Alla kombinationer av de valda tecknen ingår; inget radurval reduceras bort.</p>
+            : family === 'reducedmax' ? <p>Detta är det största reducerade test som passar
+              vår faktiska externa radväg: <b>20 000 rader, alltså 20 000 kr totalt</b>.
+              Testet lämnar aldrig in något automatiskt.</p>
+              : family === 'max40' ? <p>40 000-piloten rankade 40 000 enskilda rader ur hela
+                3¹³-rummet och var alltså reducerad till sin konstruktion. Den avslutades när
+                de officiella leveransgränserna verifierades.</p> : null}
+          <p><b>{meta.archived ? 'Historisk start' : 'Start utan bakfyllning'}:</b>{' '}
+            {starts || '–'}. {meta.archived ? 'Inga nya frysningar görs.' : 'Armarna fryses tre timmar och tjugo minuter före stopp.'}</p>
+        </>}
       </details>
-
-      {isMaxTest ? <details className="v3card v3ph5xnote">
-        <summary>Systemstorlek och teststart</summary>
-        {family === 'mathmax' ? <p>Detta är ett äkta matematiskt M-system:
-          <b> 3 spikar × 1 halvgardering × 9 helgarderingar = 39 366 unika rader</b>.
-          Alla kombinationer av de valda tecknen ingår; inget radurval reduceras bort.
-          Det ska återskapas som M-system hos Svenska Spel, inte laddas upp som
-          en enda extern E-radfil.</p> : family === 'reducedmax' ? <p>Detta är
-          det största reducerade test som passar vår faktiska externa radväg:
-          <b> 20 000 rader, alltså 20 000 kr totalt</b>. En manuell uppladdning måste delas i
-          två separata E-filer med högst 10 000 rader i varje. Testet lämnar
-          aldrig in något automatiskt.</p> : <p>40 000-piloten rankade 40 000
-          enskilda rader ur hela 3¹³-rummet och var alltså reducerad till sin
-          konstruktion. Den avslutades när de officiella leveransgränserna
-          verifierades. Redan frysta kuponger ligger kvar för revision.</p>}
-        <p><b>{meta.archived ? 'Historisk start' : 'Start utan bakfyllning'}:</b>{' '}
-          {starts || '–'}. {meta.archived ? 'Inga nya frysningar görs.' : <>
-            Båda armarna fryses tre timmar och tjugo minuter före stopp.
-            Överlapp med andra armen visas per kupong i listan.</>}</p>
-      </details> : null}
 
       <div className="v3card">
         <div className="v3cardhead"><h3>Testkuponger</h3>
@@ -193,70 +214,80 @@ export function ForwardTestV3({ family }) {
           <div><span>Med matchfacit</span><b>{view.facit}</b></div>
           <div><span>Med utvärderbart belopp</span><b>{view.evaluated}</b></div>
         </div>
-        <GroupSummary groups={groups} isMaxTest={isMaxTest} />
-        <p className="v3hint">Visar {Math.min(limit, tests.length)} av {tests.length} kuponger.
-          Flera metoder och frystider på samma omgång är inte oberoende försök.</p>
+        <div className="v3subnav v3viewtoggle" aria-label="Visning">
+          {[['omgangar', 'Omgångar'], ['kuponger', 'Kuponger'],
+            ['metoder', isMaxTest ? 'Jämför armar' : 'Jämför metoder']].map(([id, label]) => (
+            <button key={id} className={mode === id ? 'on' : ''} onClick={() => chooseMode(id)}>{label}</button>
+          ))}
+        </div>
 
         {openSystem && <SystemDetail
-          key={`${openSystem.product}:${openSystem.draw_number}:${openSystem.horizon}:${openSystem.config_key}`}
+          key={testKey(openSystem)}
           product={openSystem.product} draw={openSystem.draw_number}
           horizon={openSystem.horizon} config={openSystem.config_key}
-          onClose={() => setOpenSystem(null)} />}
+          onClose={closeCoupon} />}
 
-        {!tests.length
-          ? <EmptyState
-              title={(data.tests || []).length
-                ? "Inga tester matchar filtren"
-                : "Väntar på första frysningen"}
-              detail={(data.tests || []).length ? undefined
-                : `Testet startar framåt: ${starts || 'nästa ofrysta omgång'}.`} />
-          : <SortableTable id={`forward-${family}`} rows={tests} columns={columns}
-              defaultSort={{ key: 'date', dir: 'desc' }} limit={limit}
-              wrapperClassName="v3histtablewrap" className="v3histtable v3ph5table"
-              renderRow={(test) => (
-                <tr key={`${test.product}:${test.draw_number}:${test.horizon}:${test.config_key}`}
-                  className={test.retired ? 'v3retired' : ''}>
-                  <td>{test.close ? fmtDay(test.close) : fmtDay(test.frozen_at)}</td>
-                  <td>{PRODUCT_LABEL[test.product] || test.product}</td>
-                  <td>#{test.draw_number}</td>
-                  <td>{horizonLabel(test)}{test.timely ? '' : ' · sen'}</td>
-                  <td>{forwardTestLabel(test)}{test.retired && <small title={test.config_key}> · äldre testversion</small>}</td>
-                  <td>{test.correct_max == null
-                    ? <LiveCell
-                        entry={liveEntries[`${test.product}:${test.draw_number}:${test.horizon}:${test.config_key}`]}
-                        pot={live?.pots?.[`${test.product}:${test.draw_number}`]}
-                        error={liveErr || liveErrors[`${test.product}:${test.draw_number}`]}
-                        waiting={!live && !meta.archived} />
-                    : test.payout_complete !== true
-                      ? `${test.correct_max} rätt · utdelning okänd`
-                      : <><b>{test.correct_max} rätt</b> · {kr(test.payout_kr)} ·{' '}
-                          <span className={roiCls(test.roi)}>{pctSigned(test.roi)}</span></>}</td>
-                  {meta.paired && <td><span className="v3mobilelabel">Överlapp med andra armen: </span>{test.paired_overlap == null ? 'Väntar par'
-                    : <>{Math.round(test.paired_overlap * 100)} %
-                      {test.unique_rows != null && ` · ${test.unique_rows.toLocaleString('sv-SE')} unika`}</>}</td>}
-                  <td><button className="v3more" onClick={() => setOpenSystem(test)}>
-                    Visa exakt kupong</button></td>
-                </tr>
-              )} />}
-        {tests.length > limit && <button className="v3more" onClick={() => setLimit((value) => value + 20)}>
-          Visa 20 till</button>}
+        {mode === 'metoder' && <GroupSummary groups={groups} isMaxTest={isMaxTest} />}
+        {mode !== 'metoder' && !tests.length && (
+          <EmptyState
+            title={(data.tests || []).length ? 'Inga tester matchar filtren' : 'Väntar på första frysningen'}
+            detail={(data.tests || []).length ? undefined
+              : `Testet startar framåt: ${starts || 'nästa ofrysta omgång'}.`} />
+        )}
+        {mode === 'omgangar' && tests.length > 0 && <>
+          <p className="v3hint">Visar {Math.min(limit, drawGroups.length)} av {drawGroups.length} omgångar.
+            Flera metoder och frystider på samma omgång är inte oberoende försök.</p>
+          {shownGroups.map((group) => (
+            <section key={group.key} className="v3drawblock" aria-label={`${PRODUCT_LABEL[group.product] || group.product} ${group.draw_number}`}>
+              <div className="v3drawblockhead">
+                <b>{PRODUCT_LABEL[group.product] || group.product} #{group.draw_number}</b>
+                <span className="v3hint">{fmtDay(group.close)}</span>
+                {group.tests.some((test) => test.correct_max == null)
+                  ? <span className="v3kstatus live">öppen</span>
+                  : <span className="v3kstatus rattad">rättad</span>}
+              </div>
+              <div className="v3drawrows">
+                {[...group.tests].sort((a, b) => ((b.horizon_minutes || 0) - (a.horizon_minutes || 0))
+                  || forwardTestLabel(a).localeCompare(forwardTestLabel(b), 'sv')).map((test) => (
+                  <div key={testKey(test)} className={`v3drawrow${test.retired ? ' v3retired' : ''}`}>
+                    <span><b>{forwardTestLabel(test)}</b>{test.retired && <small title={test.config_key}> · äldre version</small>}</span>
+                    <span>{horizonLabel(test)}{test.timely ? '' : ' · sen'}</span>
+                    <span>{facitCell(test)}{meta.paired && test.paired_overlap != null
+                      && <span className="v3hint"> · överlapp {Math.round(test.paired_overlap * 100)} %</span>}</span>
+                    <button className="v3more" onClick={() => openCoupon(test)}>Kupong</button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))}
+          {drawGroups.length > limit && <button className="v3more" onClick={() => setLimit((value) => value + 20)}>
+            Visa 20 till</button>}
+        </>}
+        {mode === 'kuponger' && tests.length > 0 && <>
+          <p className="v3hint">Visar {Math.min(limit, tests.length)} av {tests.length} kuponger.</p>
+          <SortableTable id={`forward-${family}`} rows={tests} columns={columns}
+            defaultSort={{ key: 'date', dir: 'desc' }} limit={limit}
+            wrapperClassName="v3histtablewrap" className="v3histtable v3ph5table"
+            renderRow={(test) => (
+              <tr key={testKey(test)} className={test.retired ? 'v3retired' : ''}>
+                <td>{test.close ? fmtDay(test.close) : fmtDay(test.frozen_at)}</td>
+                <td>{PRODUCT_LABEL[test.product] || test.product}</td>
+                <td>#{test.draw_number}</td>
+                <td>{horizonLabel(test)}{test.timely ? '' : ' · sen'}</td>
+                <td>{forwardTestLabel(test)}{test.retired && <small title={test.config_key}> · äldre testversion</small>}</td>
+                <td>{facitCell(test)}</td>
+                {meta.paired && <td><span className="v3mobilelabel">Överlapp med andra armen: </span>{test.paired_overlap == null ? 'Väntar par'
+                  : <>{Math.round(test.paired_overlap * 100)} %
+                    {test.unique_rows != null && ` · ${test.unique_rows.toLocaleString('sv-SE')} unika`}</>}</td>}
+                <td><button className="v3more" onClick={() => openCoupon(test)}>Visa exakt kupong</button></td>
+              </tr>
+            )} />
+          {tests.length > limit && <button className="v3more" onClick={() => setLimit((value) => value + 20)}>
+            Visa 20 till</button>}
+        </>}
       </div>
-
     </div>
   )
-}
-export function Ph5V3() { return <ForwardTestV3 family="ph5" /> }
-export function MaxTestsV3() {
-  const [family, setFamily] = useState('mathmax')
-  return <div>
-    <div className="v3subnav v3maxtabs" aria-label="Välj maxtest">
-      <button className={family === 'mathmax' ? 'on' : ''}
-        onClick={() => setFamily('mathmax')}>Matematiskt 39 366</button>
-      <button className={family === 'reducedmax' ? 'on' : ''}
-        onClick={() => setFamily('reducedmax')}>Reducerat 20 000</button>
-    </div>
-    <ForwardTestV3 key={family} family={family} />
-  </div>
 }
 
 /* Liveläget för EN öppen testkupong i listan. Samma tal som detaljkortets
@@ -294,11 +325,10 @@ function LiveCell({ entry, pot, error, waiting }) {
 /* Backendens separata produkt-/konfigurationsgrupper, samma filter som
    listan. Belopp och träffar kommer oförändrade från backend. */
 function GroupSummary({ groups, isMaxTest }) {
-  if (!groups?.length) return null
+  if (!groups?.length) return <EmptyState title="Inga grupper matchar filtren" />
   const levels = groups[0].levels || []
-  return <details className="v3ph5explain">
-    <summary>Jämför {isMaxTest ? 'armar' : 'metoder'} · belopp och träffar</summary>
-    <p className="v3hint">Valda filter · varje produkt och testversion separat.
+  return <div className="v3groupsummarybox">
+    <p className="v3hint">Jämför {isMaxTest ? 'armar' : 'metoder'} · valda filter · varje produkt och testversion separat.
       Belopp kräver tidsriktig frysning och komplett utdelning; träffar räknar bästa rad per kupong.
       ROI visas från {ROI_MIN_N} utvärderbara omgångar, vilket inte i sig är stöd för modellen.</p>
     <div className="v3histtablewrap"><table className="v3histtable v3groupsummary">
@@ -317,5 +347,5 @@ function GroupSummary({ groups, isMaxTest }) {
           {group.n_settled < ROI_MIN_N ? `${group.n_settled}/${ROI_MIN_N} omgångar`
             : group.roi == null ? '–' : pctSigned(group.roi)}</td>
       </tr>)}</tbody></table></div>
-  </details>
+  </div>
 }

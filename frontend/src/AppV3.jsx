@@ -5,9 +5,13 @@
 import './AppV3.css'
 import { useEffect, useRef, useState } from 'react'
 import { get, getDetail, readState } from './lib/api.js'
-import { POOL_GAMES, FAMILY_LABEL, HIST_FAMILIES, IS_FAMILY, ROI_MIN_N, hoursTo, closesIn, fmtDay, fmtKickoff, oddsSkift, selLabel3 } from './lib/labels.js'
-import { Ph5V3, MaxTestsV3 } from './historik/ForwardTestV3.jsx'
-import { HistorikV3 } from './historik/HistorikV3.jsx'
+import { POOL_GAMES, FAMILY_LABEL, HIST_FAMILIES, IS_FAMILY, hoursTo, closesIn, fmtDay, fmtKickoff, oddsSkift, selLabel3 } from './lib/labels.js'
+import { HistorikHub } from './historik/HistorikHub.jsx'
+import { StatusChip, LagText } from './historik/MinaKuponger.jsx'
+import { StatusPill } from './historik/Tester.jsx'
+import { parseRoute, formatRoute } from './lib/routes.js'
+import { recentlySettled } from './lib/coupons.js'
+import { newsworthy, progressText } from './lib/tests.js'
 import { LabbV3 } from './labb/LabbV3.jsx'
 import { AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel, BombenView, OddsetView, Legend, Collection, LoadingState, ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS, SYSTEM_BASE, SYSTEM_SVS, FAMILY, kr, fmtClose, PlayRec, oddsetBestValue } from './App.jsx'
 import { beginRequest, payoutMatchesSelection, requestIsCurrent, uniqueDraws } from './poolSelection.js'
@@ -18,8 +22,6 @@ const VIEWS = [
   { id: 'pool', label: 'Poolspel', icon: '🎟️' },
   { id: 'oddset', label: 'Oddset', icon: '⚡' },
   { id: 'historik', label: 'Historik', icon: '🗄' },
-  { id: 'ph5', label: '5 000-test', icon: '🧪' },
-  { id: 'maxtest', label: 'Max-tester', icon: '🚀' },
   { id: 'labb', label: 'Labb', icon: '🔬' },
 ]
 const ROW_MODELS = [
@@ -37,12 +39,12 @@ const ROW_MODELS = [
   },
 ]
 const ROW_MODEL_LABEL = Object.fromEntries(ROW_MODELS.map((model) => [model.id, model.label]))
-function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
+function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponger, openTester }) {
   const [pool, setPool] = useState(null)
   const [oddset, setOddset] = useState(null)
   const [ledger, setLedger] = useState(null)
   const [hist, setHist] = useState(null)
-  const [systems, setSystems] = useState(null)
+  const [tests, setTests] = useState(null)
   const [played, setPlayed] = useState(null)
   const [health, setHealth] = useState(null)
   const loadSeq = useRef(0)
@@ -119,7 +121,7 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
     // synkrona backendjobb hamnar aldrig framför Oddsets första svar.
     defer(() => {
       guarded(request('/api/oddset/predictions/summary'), setLedger)
-      guarded(request('/api/pool/systems'), setSystems)
+      guarded(request('/api/pool/tests'), setTests)
       guarded(request('/api/health'), setHealth)
       guarded(request('/api/pool/played?live=false'), (data) => {
         setPlayed(data)
@@ -265,6 +267,35 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
       {/* Toppraden har egna kolumnbredder: spelstoppen staplas en per rad och
           behöver bara en smal spalt, vilket ger värde- och rörelselistorna
           plats för liga, avspark och pris på samma rad. */}
+      {/* Mina kuponger först (2026-09-13): det man faktiskt följer. Lätt
+          livebild (ingen chansberäkning); allt annat bakom "alla →". */}
+      {played && (played.coupons || []).length > 0 && (() => {
+        const open = played.coupons.filter((c) => !c.settled_at)
+        const recent = recentlySettled(played.coupons, 7)
+        return (
+          <div className="v3card v3minakuponger">
+            <div className="v3cardhead"><h3>🎟️ Mina kuponger</h3>
+              <span className="v3hint">{open.length ? `${open.length} pågående` : 'inga pågående'}
+                {recent.length ? ` · ${recent.length} ${recent.length === 1 ? 'nytt resultat' : 'nya resultat'}` : ''}</span>
+              <button className="v3more" onClick={() => openKuponger()}>alla →</button></div>
+            {open.slice(0, 4).map((c) => (
+              <button key={c.id} className="v3couponrow" onClick={() => openKuponger(c.id)}>
+                <span><b>{FAMILY_LABEL[FAMILY(c.product)] || c.product} #{c.draw_number}</b><StatusChip coupon={c} /></span>
+                <span className="v3hint">{c.n_rows} rader · {kr(c.cost_kr)} · <LagText coupon={c} /></span>
+              </button>
+            ))}
+            {open.length > 4 && <span className="v3hint">+{open.length - 4} pågående till</span>}
+            {recent.slice(0, 3).map((c) => (
+              <button key={`r${c.id}`} className="v3couponrow" onClick={() => openKuponger(c.id)}>
+                <span><b>{FAMILY_LABEL[FAMILY(c.product)] || c.product} #{c.draw_number}</b>
+                  <span className="v3kstatus rattad">nytt resultat</span></span>
+                <span className="v3hint">bäst {c.correct_max} rätt · {c.payout_complete
+                  ? `${kr(c.payout_kr)} tillbaka på ${kr(c.cost_kr)}` : 'utdelning väntar'}</span>
+              </button>
+            ))}
+          </div>
+        )
+      })()}
       <div className="v3toprow">
         <div className="v3card">
           <div className="v3cardhead"><h3>🎟️ Nästa spelstopp</h3>
@@ -374,37 +405,6 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
       </div>
 
       <div className="v3grid">
-        {(played?.coupons || []).some((c) => !c.settled_at) && (
-          <div className="v3card">
-            <div className="v3cardhead"><h3>🎟️ Dina kuponger</h3>
-              <button className="v3more" onClick={() => openHistorik()}>facit →</button></div>
-            {played.coupons.filter((c) => !c.settled_at).slice(0, 4).map((c) => {
-              const live = c.live || {}
-              const alive = Object.entries(live.alive_per_level || {})
-                .map(([lvl, n]) => [Number(lvl), n])
-                .filter(([, n]) => n > 0).sort((a, b) => b[0] - a[0])[0]
-              return (
-                <div key={`${c.product}-${c.draw_number}-${c.rows_hash}`} className="v3row">
-                  <b>{FAMILY_LABEL[FAMILY(c.product)] || c.product} {c.draw_number}</b>
-                  <span className="v3hint">
-                    {c.n_rows} rader ({kr(c.cost_kr)}) · {live.n_decided ?? '–'}/{live.n_events ?? '–'} avgjorda
-                    · fastställt {live.best_secure ?? '–'} rätt
-                    {live.current_known > 0 && live.current_best != null
-                      ? ` · läget nu ${live.current_best}/${live.current_known}` : ''}
-                    {alive ? ` · ${alive[1]} rad${alive[1] > 1 ? 'er' : ''} vid liv för ${alive[0]}` : ''}
-                  </span>
-                </div>)
-            })}
-            {played?.summary?.n_settled > 0 && (
-              <span className="v3hint">
-                Facit hittills: {played.summary.n_settled} settlade · insats {kr(played.summary.spent_kr)} ·
-                utdelning {kr(played.summary.won_kr)}
-                {played.summary.roi != null ? ` · ROI ${Math.round(played.summary.roi * 100)} %` : ''}
-              </span>
-            )}
-          </div>
-        )}
-
         {/* Forskningsligor är DOLD så länge ingen liga är aktiv (2026-08-12:
             RESEARCH_LEAGUE_KEYS är tom). Kortet är inte borttaget — mekanismen
             synlig≠actionable finns kvar och kortet kommer tillbaka av sig självt
@@ -453,72 +453,23 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb }) {
         </div>
 
         <div className="v3card">
-          <div className="v3cardhead"><h3>📋 Systemfacit</h3>
-            <button className="v3more" onClick={() => openHistorik(null, 'system')}>följ →</button></div>
-          {(() => {
-            const groups = systems?.groups || []
-            const frozen = groups.reduce((s, g) => s + g.n_frozen, 0)
-            const settled = groups.reduce((s, g) => s + g.n_settled, 0)
-            if (!frozen) {
-              return <span className="v3hint">Byggarens förslag (50 kr Värderader m.fl.)
-                fryses automatiskt vid T−3 h och T−20 min före varje spelstopp och
-                rättas mot utfall och utspädd utdelningsestimering. Väntar på
-                första frysningen.</span>
-            }
-            // En rad per PRODUKT, inte per produkt × horisont. config_key är
-            // alltid championen och stod förut utskriven på var och en av de
-            // tio raderna, vilket radbröt dem. Nu står den en gång i foten.
-            const perProduct = new Map()
-            for (const g of groups.filter((x) => x.primary)) {
-              // Topptipsets tre slugs är samma spel och slås ihop till en rad.
-              const key = FAMILY(g.product)
-              const cur = perProduct.get(key)
-                || { product: key, n_frozen: 0, n_evaluable: 0, n_settled: 0,
-                     cost_kr: 0, payout_kr: 0, horizons: new Set() }
-              cur.n_frozen += g.n_frozen
-              cur.n_evaluable += g.n_evaluable
-              cur.n_settled += g.n_settled
-              // ROI aggregeras över KRONOR, aldrig som medel av gruppernas
-              // ROI — en grupp med två omgångar skulle annars väga lika tungt
-              // som en med tjugo.
-              cur.cost_kr += g.cost_kr || 0
-              cur.payout_kr += g.payout_kr || 0
-              if (g.horizon_minutes != null) cur.horizons.add(g.horizon_minutes)
-              perProduct.set(key, cur)
-            }
-            // Deterministisk ordning — förut kom raderna i API-ordning och såg
-            // slumpmässiga ut. Mest rättat först, produktnamn som tiebreak.
-            const rows = [...perProduct.values()].sort((a, b) =>
-              (b.n_settled - a.n_settled) || a.product.localeCompare(b.product, 'sv'))
-            const horisonter = [...new Set(rows.flatMap((r) => [...r.horizons]))].sort((a, b) => b - a)
-            return (
-              <>
-                {rows.map((r) => {
-                  // ROI döljs under ROI_MIN_N. En rättad omgång gav +898 %,
-                  // vilket är brus presenterat som facit. Samma regel som Labb.
-                  const moget = r.n_evaluable >= ROI_MIN_N && r.cost_kr > 0
-                  const roi = moget ? r.payout_kr / r.cost_kr - 1 : null
-                  return (
-                    <div key={r.product} className="v3row">
-                      <b>{FAMILY_LABEL[r.product] || r.product}</b>
-                      <span className="v3hint">{r.n_frozen} frysta · {r.n_settled} rättade</span>
-                      {roi != null
-                        ? <span className={roi >= 0 ? 'v3edge' : 'v3steam'}
-                          title={`Insats ${kr(r.cost_kr)} · utdelning ${kr(r.payout_kr)} över ${r.n_evaluable} jämförbara frysningar. Kontrafaktiskt system med egen vinnarutspädning — inte spelade pengar.`}>
-                          {roi >= 0 ? '+' : ''}{Math.round(roi * 100)} %</span>
-                        : <span className="v3hint">ROI vid {ROI_MIN_N}</span>}
-                    </div>
-                  )
-                })}
-                {/* Raderna räknar championfamiljen, `frozen`/`settled` HELA
-                    benchmarkregistret (utmanare och pensionerade nycklar).
-                    Skilj dem åt — annars summerar inte foten till raderna. */}
-                <span className="v3hint">{systems?.champion_key || 'champion'} ·
-                  {' '}fryses {horisonter.length ? horisonter.join(' och ') : '180 och 20'} min före stopp ·
-                  {' '}{rows.reduce((s, r) => s + r.n_frozen, 0)} frysta i championfamiljen
-                  {' '}({frozen} med utmanarna, {settled} rättade)</span>
-              </>
-            )
+          <div className="v3cardhead"><h3>🧪 Tester</h3>
+            <button className="v3more" onClick={() => openTester()}>alla →</button></div>
+          {!tests && <span className="v3hint">Hämtar testkatalogen…</span>}
+          {tests && (() => {
+            const news = newsworthy(tests.tests || [])
+            const active = (tests.tests || []).filter((t) => !t.archived)
+            return <>
+              {!news.length && <span className="v3hint">Inga tester väntar på beslut · {active.length} följs, alla samlar.</span>}
+              {news.map((t) => (
+                <button key={t.id} className="v3couponrow" onClick={() => openTester(t.id)}>
+                  <span><b>{t.icon} {t.title}</b><StatusPill status={t.status} /></span>
+                  <span className="v3hint">{t.decision ? `${t.decision.date} · ${t.decision.verdict}` : progressText(t)}</span>
+                </button>
+              ))}
+              <span className="v3hint">{active.length} pågående experiment · inga riktiga insatser ·
+                beslut enligt respektive förregistrering, aldrig löpande</span>
+            </>
           })()}
         </div>
 
@@ -1102,19 +1053,33 @@ function PoolV3() {
 //    kolumn.
 
 export default function AppV3() {
-  // En ny/omladdad session ska alltid ge den snabba översikten. Att återställa
-  // Historik/Oddset här gjorde mobilens första skärm beroende av deras stora
-  // rapporter innan användaren ens valt dem.
-  const [view, setView] = useState('idag')
-  const [histProduct, setHistProduct] = useState(null)
-  const [histFocus, setHistFocus] = useState(null)
-  const [oddsetFocus, setOddsetFocus] = useState(null)
-  const go = (v) => {
-    if (v !== 'oddset') setOddsetFocus(null)
-    setView(v)
-    window.scrollTo({ top: 0 })
+  // Rutten ÄR vyn (lib/routes.js): utan hash Idag, den lätta översikten; med
+  // hash den plats hashen pekar på — direktlänkskontraktet. Ingen vy sparas i
+  // localStorage (återinför inte `svs_v3_view`).
+  const [route, setRoute] = useState(() => parseRoute(window.location.hash))
+  useEffect(() => {
+    const onPop = () => setRoute(parseRoute(window.location.hash))
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+  const navigate = (next, { replace = false, back = false } = {}) => {
+    const hash = formatRoute(next)
+    const depth = window.history.state?.spk || 0
+    // "Stäng"/tillbaka: backa i webbläsarhistoriken när vi själva lade
+    // posten, annars gå till föräldern som en vanlig navigering.
+    if (back && depth > 0) { window.history.back(); return }
+    const url = `${window.location.pathname}${window.location.search}${hash}`
+    if (hash !== window.location.hash || replace) {
+      window.history[replace ? 'replaceState' : 'pushState']({ spk: replace ? depth : depth + 1 }, '', url)
+    }
+    const changedPage = next.view !== route.view || (next.tab || null) !== (route.tab || null)
+      || (next.test || null) !== (route.test || null)
+    setRoute(next)
+    if (changedPage) window.scrollTo({ top: 0 })
   }
-  const openOddset = (target = null) => { setOddsetFocus(target); go('oddset') }
+  const view = route.view
+  const go = (v) => navigate({ view: v })
+  const openOddset = (target = null) => navigate({ view: 'oddset', focus: target })
   const openPool = (g) => {
     // PoolV3 läser svs_state vid mount — peka den på valt spel innan bytet
     try {
@@ -1123,9 +1088,11 @@ export default function AppV3() {
     } catch { /* ok */ }
     go('pool')
   }
-  const openHistorik = (p, focus = null) => {
-    setHistProduct(p || null); setHistFocus(focus); go('historik')
-  }
+  const openKuponger = (id = null) => navigate({ view: 'historik', tab: 'kuponger', coupon: id ?? null })
+  const openTester = (test = null) => navigate({ view: 'historik', tab: 'tester', test })
+  const openHistorik = (p = null, focus = null) => (focus === 'system'
+    ? openTester('standard')
+    : navigate({ view: 'historik', tab: 'facit', product: p || null }))
 
   return (
     <div className="v3">
@@ -1148,18 +1115,14 @@ export default function AppV3() {
       <main className="v3main">
         {view === 'idag' && <ErrBoundary>
           <DashboardV3 openPool={openPool} openOddset={openOddset}
-            openHistorik={openHistorik} openLabb={() => go('labb')} />
+            openHistorik={openHistorik} openLabb={() => go('labb')}
+            openKuponger={openKuponger} openTester={openTester} />
         </ErrBoundary>}
         {view === 'pool' && <ErrBoundary><PoolV3 /></ErrBoundary>}
-        {view === 'oddset' && <ErrBoundary><OddsetView focus={oddsetFocus} /></ErrBoundary>}
-        {/* PlayedPanel monteras numera INNE i HistorikV3 så produktfiltret
-            styr även kupongerna — den låg tidigare utanför och kunde därför
-            inte filtreras. */}
+        {view === 'oddset' && <ErrBoundary><OddsetView focus={route.focus || null} /></ErrBoundary>}
         {view === 'historik' && <ErrBoundary>
-          <HistorikV3 initialProduct={histProduct} focus={histFocus} />
+          <HistorikHub route={route} navigate={navigate} />
         </ErrBoundary>}
-        {view === 'ph5' && <ErrBoundary><Ph5V3 /></ErrBoundary>}
-        {view === 'maxtest' && <ErrBoundary><MaxTestsV3 /></ErrBoundary>}
         {view === 'labb' && <ErrBoundary><LabbV3 /></ErrBoundary>}
       </main>
       <footer className="v3foot">Lokal data från Svenska Spel + Pinnacle · personligt verktyg</footer>

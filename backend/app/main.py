@@ -694,6 +694,18 @@ def pool_systems():
         store.close()
 
 
+@app.get("/api/pool/tests")
+def pool_tests_catalog():
+    """Testkatalogen (Historik → Tester): en rad per experiment, byggd av
+    gater-raderna. Rent läsande; beslut fattas i respektive dokument."""
+    from . import pool_tests
+    store = Storage()
+    try:
+        return pool_tests.catalog(store)
+    finally:
+        store.close()
+
+
 @app.get("/api/pool/strength-shadow")
 def pool_strength_shadow_report(product: str | None = None,
                                 family: bool = False):

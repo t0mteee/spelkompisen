@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-09-13, kväll — del A levererad) — läs detta först i ny session
+## STATUS (2026-09-13, natt — Codex plan del A, B och C levererade) — läs detta först i ny session
 
 Det här blocket **ersätts** vid varje leverans — skriv över, stapla inte.
 Tidigare statusblock ligger daterade och ordagranna i
@@ -65,7 +65,19 @@ nominerade till forward. Sannolikhetsbas retro (pit-v4): identiskt facit 21/21
 träffar på 77 omg, Pinnacle täcker Topptipset vid h3 i bara 18/87 omg (m20
 56/88). Se `docs/overlamningar/overlamning-2026-09-02-poolforbattringar.md`.
 
-**Senast levererat, 2026-09-13.** Codex granskade driften (`dba6f16`) och lade
+**Senast levererat, 2026-09-13 natt (Claude): UI-planens del B och C.** Historik
+har tre underflikar (Samans val 2026-09-13): **Mina kuponger** (verkligt
+spelade, filter + summering på samma population, status per kupong, detalj
+med livekort), **Tester** (katalog ur nya `/api/pool/tests`, en rad per
+experiment med gater-trappan, omgångsvy som standard i 5 000-/maxtester,
+Standardjämförelsen och Poolstyrka utbrutna) och **Facit & prognos**. Idag
+visar Mina kuponger överst med lätt livebild och nya resultat, och ett
+Tester-kort med bara nyheter. Direktlänkar via hash (`lib/routes.js`), stäng
+backar i historiken. Verifierat på desktop och 375 px. Överlämning:
+`docs/overlamningar/overlamning-2026-09-13-mina-kuponger-tester.md`.
+**⚖ Kvar för Saman: besluten a–e i pooltäckningen.**
+
+**Tidigare samma dag.** Codex granskade driften (`dba6f16`) och lade
 en plan: `docs/overlamningar/overlamning-2026-09-13-modell-ui-plan.md` —
 **del B/C (Mina kuponger, Tester, personlig Idag) är förslag som väntar på
 Samans beslut**, del A är levererad. Codex: registret `_bench` känner poolopt

@@ -874,3 +874,92 @@
     background: color-mix(in srgb, #e06c75 5%, var(--panel2));
   }
 }
+
+/* ---------- Historik-hub (2026-09-13): Mina kuponger · Tester · Facit ---------- */
+.v3histtabs { margin-bottom: 12px; }
+.v3histtabs button { padding: 6px 14px; }
+.v3kuponger .v3ph5kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.v3kstatus {
+  display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: 10.5px;
+  font-weight: 700; border: 1px solid var(--line); color: var(--muted); white-space: nowrap;
+}
+.v3kstatus.live { color: var(--green); border-color: var(--green); }
+.v3kstatus.avgjord, .v3kstatus.vantar { color: #dca85e; border-color: #dca85e; }
+.v3kstatus.rattad { color: var(--text); }
+.v3kstatus.datafel, .v3kstatus.rattad_ofullstandig { color: #e88a91; border-color: #e88a91; }
+.v3kupongtable tr.v3kopen td { background: color-mix(in srgb, var(--green) 6%, transparent); }
+.v3kupongcard {
+  display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line);
+  border-radius: 9px; background: var(--panel2);
+}
+.v3kupongcard.open { border-color: color-mix(in srgb, var(--green) 45%, var(--line)); }
+.v3kupongcard header { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+.v3kupongcard header > div { display: grid; gap: 2px; }
+.v3kupongcard header span { color: var(--muted); font-size: 11px; }
+.v3kupongcardmeta { display: grid; gap: 3px; font-size: 12px; }
+.v3testlist { display: grid; gap: 10px; margin-top: 8px; }
+.v3testrow {
+  display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: 12px;
+  align-items: center; padding: 12px; border: 1px solid var(--line); border-radius: 9px;
+  background: var(--panel2);
+}
+.v3testrow.archived { opacity: 0.7; }
+.v3testrow h4 { margin: 0 0 3px; font-size: 13px; }
+.v3testrow p { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+.v3testmeta { display: grid; gap: 3px; font-size: 11.5px; color: var(--muted); }
+.v3testmeta b { color: var(--text); }
+.v3teststatus {
+  display: inline-block; border-radius: 999px; padding: 2px 9px; font-size: 10.5px;
+  font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+  border: 1px solid var(--line); color: var(--muted); white-space: nowrap;
+}
+.v3teststatus.amber { color: #dca85e; border-color: #dca85e; }
+.v3teststatus.green { color: var(--green); border-color: var(--green); }
+.v3teststatus.red { color: #e88a91; border-color: #e88a91; }
+.v3teststatus.grey { opacity: .7; }
+.v3tester { display: grid; gap: 12px; }
+.v3testerhead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.v3testerhead h2 { margin: 0; font-size: 16px; }
+.v3decision {
+  display: grid; gap: 3px; padding: 10px 12px; border-left: 3px solid var(--v3acc-dim);
+  background: var(--panel2); border-radius: 0 8px 8px 0; font-size: 12px; margin-top: 8px;
+}
+.v3viewtoggle { margin: 10px 0 6px; }
+.v3drawblock {
+  border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; margin-top: 8px;
+  background: var(--panel2);
+}
+.v3drawblockhead { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.v3drawblockhead b { font-size: 13px; }
+.v3drawrows { display: grid; gap: 2px; }
+.v3drawrow {
+  display: grid; grid-template-columns: minmax(110px, 1fr) 70px minmax(0, 3fr) auto; gap: 10px;
+  align-items: center; font-size: 12px; padding: 5px 0; border-top: 1px solid var(--line);
+}
+.v3drawrow small { color: var(--muted); }
+.v3groupsummarybox { margin-top: 8px; }
+.v3couponrow {
+  display: grid; gap: 3px; text-align: left; width: 100%; background: transparent; border: 0;
+  border-bottom: 1px solid var(--line); padding: 8px 0; color: inherit; font: inherit; cursor: pointer;
+}
+.v3couponrow:last-of-type { border-bottom: 0; }
+.v3couponrow:hover b, .v3couponrow:focus-visible b { color: var(--v3acc); }
+.v3couponrow:focus-visible { outline: 2px solid var(--v3acc); outline-offset: 2px; border-radius: 6px; }
+.v3couponrow > span:first-child { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.v3minakuponger { margin-bottom: 12px; }
+@media (max-width: 760px) {
+  .v3kuponger .v3ph5kpis { grid-template-columns: 1fr 1fr 1fr; }
+  .v3testrow { grid-template-columns: 1fr; }
+  /* Metod · fryst · knapp på första raden, facit/liveläge på egen rad under.
+     `dense` låter knappen ta tredje kolumnen trots att facitet står före den i DOM. */
+  .v3drawrow { grid-template-columns: 1fr 60px auto; grid-auto-flow: dense; }
+  .v3drawrow > :nth-child(3) { grid-column: 1 / -1; }
+  .v3testerhead h2 { font-size: 14px; }
+}
+
+/* Kupongdetaljen som helskärm på mobil: ingen liten modal med dubbel scroll. */
+@media (max-width: 760px) {
+  .played-detail-backdrop { padding: 0; align-items: stretch; }
+  .played-detail { width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; }
+  .played-detail-head > button { min-width: auto; padding: 0 10px; }
+}
