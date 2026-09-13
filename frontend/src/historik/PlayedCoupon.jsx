@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { CouponOverview } from './CouponOverview.jsx'
 import { PRODUCT_LABEL } from '../lib/labels.js'
+import { topAliveForecast, forecastBasisText, FORECAST_NOTE } from '../lib/forecast.js'
 import { LoadingState, ErrorState, kr } from '../App.jsx'
 
 function couponLabel(c) {
@@ -284,6 +285,12 @@ function PlayedLiveCard({ c, onForget }) {
             {live.chance_open_matches != null && (
               <span className="hint">{live.chance_open_matches} matcher kvar</span>
             )}
+            {(() => {
+              const fc = topAliveForecast(live)
+              return fc ? <span title={FORECAST_NOTE}>
+                prognos {fc.level} rätt <b>≈ {kr(fc.per_row_kr)}</b>/rad
+              </span> : null
+            })()}
           </div>
           <LiveScorecard live={live} />
           {live.out_of_contention && (
@@ -296,6 +303,8 @@ function PlayedLiveCard({ c, onForget }) {
           {!live.out_of_contention && <table className="grid compact playedlevels">
             <thead><tr><th>nivå</th><th>rader kvar</th>
               <th title="Oddsbaserad sannolikhet att kupongen når nivån när alla pågående matcher är slut. Inte andelen rätt just nu.">chans att nå</th>
+              {live.forecast && <th title="Omgångens pott per nivå: omsättning × vinstplan, jackpot på toppnivån.">pott</th>}
+              {live.forecast && <th title={FORECAST_NOTE}>prognos per rad</th>}
             </tr></thead>
             <tbody>
               {levels.map((lvl) => {
@@ -325,11 +334,20 @@ function PlayedLiveCard({ c, onForget }) {
                       title={p == null && lo != null
                         ? 'Intervall: chansen beroende på hur de oprissatta matcherna går. Ingen sannolikhet gissas åt dem.'
                         : undefined}>{text}</td>
+                    {live.forecast && <td>{live.forecast.levels?.[lvl] ? kr(live.forecast.levels[lvl].pot_kr) : '–'}</td>}
+                    {live.forecast && <td title={live.forecast.levels?.[lvl]
+                      ? `förväntat ${live.forecast.levels[lvl].expected_winners} vinnande rader i fältet` : undefined}>
+                      {live.forecast.levels?.[lvl] ? <b>≈ {kr(live.forecast.levels[lvl].per_row_kr)}</b> : '–'}</td>}
                   </tr>
                 )
               })}
             </tbody>
           </table>}
+          {live.forecast && !live.out_of_contention && (
+            <p className="hint">Prognosen per rad är vår egen skattning om omgången slutar som nu
+              ({forecastBasisText(live.forecast)}), inte Svenska Spels siffra — den kommer först
+              när omgången är rättad.</p>
+          )}
           {!live.out_of_contention && <AliveRowsTable live={live} />}
           <p className="hint">
             {live.chance_note ? `Ingen chans visas: ${live.chance_note}.`

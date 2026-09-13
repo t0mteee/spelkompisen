@@ -5,6 +5,7 @@ import { usePlayedCoupons } from './usePlayedCoupons.js'
 import { PlayedCouponDetail, PlayedFileImport, couponKindLabel, couponDate } from './PlayedCoupon.jsx'
 import { STATUS, couponStatus, filterCoupons, summarizeCoupons } from '../lib/coupons.js'
 import { PRODUCT_LABEL, HIST_FAMILIES } from '../lib/labels.js'
+import { topAliveForecast, FORECAST_NOTE } from '../lib/forecast.js'
 import { LoadingState, EmptyState, ErrorState, SortableTable, kr } from '../App.jsx'
 
 const FILTER_KEY = 'svs_kuponger_filter'
@@ -31,9 +32,12 @@ export function LagText({ coupon }) {
       : status === 'datafel' ? 'liveläge otillgängligt · försöker igen'
         : status === 'ej_startad' ? 'omgången har inte startat' : 'väntar på livebild'}</span>
   }
+  const fc = topAliveForecast(live)
   return <>{live.n_decided}/{live.n_events} avgjorda · fastställt <b>{live.best_secure}</b>
     {live.max_possible != null && <> · max {live.max_possible}</>}
-    {live.out_of_contention && <span className="v3neg"> · ingen vinstnivå nåbar</span>}</>
+    {live.out_of_contention && <span className="v3neg"> · ingen vinstnivå nåbar</span>}
+    {fc && <> · lever mot {fc.level} rätt ≈ <b>{kr(fc.per_row_kr)}</b>/rad
+      <span className="v3hint" title={FORECAST_NOTE}> (prognos)</span></>}</>
 }
 
 export function MinaKuponger({ openCoupon = null, onOpenCoupon, onCloseCoupon }) {

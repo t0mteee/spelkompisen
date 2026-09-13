@@ -65,6 +65,27 @@ flikbyte. Ingen vy sparas i localStorage.
   eslint, 55 frontendtester (rutter, kupongstatus/filter/summering,
   testnyheter).
 
+## Tillägg samma kväll: utdelningsprognos bredvid liverättningen
+
+Samans fråga: borde inte aktuella prognoser för vinstutdelning stå bredvid
+rättningen? Svenska Spel publicerar ingen liveprognos via API:t
+(`/draws/{nr}/result` svarar 404 tills omgången är rättad; draw-payloaden bär
+slutomsättning och streck). Prognosen är därför vår egen och märks så
+överallt: **pott per nivå ÷ förväntat antal vinnande rader**, där fältets
+träffsannolikhet per match är folkets streck på det aktuella tecknet för
+avgjorda och pågående matcher och prematchsannolikhet × streck för ospelade,
+Poisson-binomial över matcherna, gånger byggarens κ (`builder.KAPPA`), och
+golvat vid en vinnare. Omsättningen tas ur livepayloadens `currentNetSale`
+när den är större än sista snapshot (Europatipset 2607: 10,1 Mkr mot 9,05).
+
+Visas: i Mina kuponger-raden som "lever mot 12 rätt ≈ 629 kr/rad (prognos)",
+i livekortets nivåtabell som kolumnerna pott och prognos per rad med
+underlagstext, i testkupongernas liveläge och i detaljkortets nivåer.
+Backend: `pool_played.payout_forecast`, `event_state` bär `folk`,
+`/api/pool/played`, `/api/pool/systems/live` och `live-overview` bär
+`forecast`/`forecasts` bara när underlag finns. Fem nya backendtester, två
+frontendtester.
+
 ## Kvar och avgränsningar
 
 - Liveläget i listor pollas bara medan fliken är synlig (som förut).

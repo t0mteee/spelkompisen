@@ -93,6 +93,10 @@ _jackpots_lock = threading.Lock()
 # chansen räknas om per anrop. Insamlingsjobb och PIT-ledgers går aldrig hit.
 _POOL_LIVE_TTL_S = 20.0
 _pool_live_cache: dict[tuple, tuple[float, dict, dict]] = {}
+# Slutomsättningen ur samma livepayload (`currentNetSale`), per omgång. Snapshot-
+# serien slutar vid sista basvarvet före stopp, men försäljningen fortsätter till
+# spelstopp — potten ska räknas på det som faktiskt omsattes.
+_pool_live_sale: dict[tuple[str, int], float] = {}
 _pool_live_lock = threading.Lock()
 
 
@@ -154,6 +158,9 @@ def _pool_live_states(store: Storage,
                     states_by_draw[key] = [
                         pool_played.event_state(e)
                         for e in (raw.get("drawEvents") or [])]
+                    sale = _svs_float(raw.get("currentNetSale"))
+                    if sale:
+                        _pool_live_sale[key] = sale
                 except Exception as source_exc:  # noqa: BLE001
                     errors_by_draw[key] = source_exc
 
@@ -771,6 +778,11 @@ def pool_system_live(product: str, draw: int, horizon: str, config: str):
         status = pool_played.live_status(
             coupon, states, include_chance=False,
             include_row_details=False)
+        forecast = _draw_forecast(
+            store, product, int(draw), states,
+            float(coupon.get("row_price") or 1.0))
+        if forecast is not None:      # utan underlag: inget fält, ingen gissning
+            status["forecast"] = forecast
         return {
             "available": True, "settled": False,
             "observed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
@@ -787,6 +799,50 @@ def pool_system_live(product: str, draw: int, horizon: str, config: str):
             detail="Liverättningen är tillfälligt otillgänglig") from exc
     finally:
         store.close()
+
+
+def _svs_float(value) -> float | None:
+    """Svensk decimalsträng ("10103415,00") → float, annars None."""
+    try:
+        return float(str(value).replace(" ", "").replace(",", ".")) if value not in (None, "") else None
+    except ValueError:
+        return None
+
+
+def _draw_pots(store: Storage, product: str, draw: int) -> dict | None:
+    """Omgångens POTT per nivå ur senaste snapshot (omsättning × vinstplan,
+    jackpot på toppnivån). Ingen utdelning — hur många som delar vet ingen."""
+    plan = PRIZE_PLANS.get(product)
+    row = store.conn.execute(
+        "SELECT net_sale, jackpot, fetched_at FROM pool_draw_snapshot "
+        "WHERE product=? AND draw_number=? ORDER BY fetched_at DESC LIMIT 1",
+        (product, int(draw))).fetchone()
+    if not plan or not row or not row[0]:
+        return None
+    turnover, jackpot = float(row[0] or 0), float(row[1] or 0)
+    # Livepayloadens slutomsättning slår en äldre snapshot (uppmätt 2026-09-13:
+    # 9,05 Mkr i sista snapshot mot 10,1 Mkr vid stopp för Europatipset 2607).
+    live_sale = _pool_live_sale.get((product, int(draw)))
+    if live_sale and live_sale > turnover:
+        turnover = live_sale
+    per_level = {int(c): round(turnover * plan["ratio"] * s)
+                 for c, s in plan["splits"].items()}
+    per_level[max(per_level)] += round(jackpot)
+    return {"turnover": turnover, "jackpot": jackpot, "observed_at": row[2],
+            "per_level": per_level, "plan": plan}
+
+
+def _draw_forecast(store: Storage, product: str, draw: int,
+                   states: list[dict] | None, row_price: float = 1.0) -> dict | None:
+    """Utdelningsprognos per nivå (pool_played.payout_forecast) — vår egen
+    skattning om omgången slutar som nu, aldrig SvS siffra."""
+    pots = _draw_pots(store, product, draw)
+    if not pots or not states:
+        return None
+    from . import pool_played
+    return pool_played.payout_forecast(
+        product, pots["plan"], states, pots["turnover"], pots["jackpot"],
+        row_price or 1.0)
 
 
 @app.get("/api/pool/systems/live-overview")
@@ -807,23 +863,23 @@ def pool_systems_live_overview(family: str):
         report = pool_system_ledger.research_live_overview(
             store, family,
             lambda keys: _pool_live_states(store, keys, include_odds=False))
-        pots = {}
-        for entry in report["draws"]:
-            product, draw = entry.rsplit(":", 1)
-            plan = PRIZE_PLANS.get(product)
-            row = store.conn.execute(
-                "SELECT net_sale, jackpot, fetched_at FROM pool_draw_snapshot "
-                "WHERE product=? AND draw_number=? ORDER BY fetched_at DESC LIMIT 1",
-                (product, int(draw))).fetchone()
-            if not plan or not row or not row[0]:
+        pots, forecasts = {}, {}
+        keys = [(entry.rsplit(":", 1)[0], int(entry.rsplit(":", 1)[1]))
+                for entry in report["draws"]]
+        # Samma nyckelmängd som översikten nyss bad om ⇒ cacheträff, inga
+        # nya källanrop.
+        states_by_draw, _ = (_pool_live_states(store, keys, include_odds=False)
+                             if keys else ({}, {}))
+        for entry, key in zip(report["draws"], keys):
+            pot = _draw_pots(store, *key)
+            if not pot:
                 continue
-            turnover, jackpot = float(row[0] or 0), float(row[1] or 0)
-            per_level = {int(c): round(turnover * plan["ratio"] * s)
-                         for c, s in plan["splits"].items()}
-            per_level[max(per_level)] += round(jackpot)
-            pots[entry] = {"turnover": turnover, "jackpot": jackpot,
-                           "observed_at": row[2], "per_level": per_level}
+            pots[entry] = {k: v for k, v in pot.items() if k != "plan"}
+            forecast = _draw_forecast(store, *key, states_by_draw.get(key))
+            if forecast:
+                forecasts[entry] = forecast
         report["pots"] = pots
+        report["forecasts"] = forecasts
         report["observed_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
         return report
     except HTTPException:
@@ -987,6 +1043,7 @@ def pool_played_list(live: bool = True, chance: bool = True):
                 (item["product"], item["draw_number"])
                 for item in out if not item["settled_at"]))
             states_by_draw, errors_by_draw = _pool_live_states(store, keys)
+            forecasts: dict[tuple, dict | None] = {}
 
             for item in out:
                 if item["settled_at"]:
@@ -997,6 +1054,14 @@ def pool_played_list(live: bool = True, chance: bool = True):
                         raise errors_by_draw[key]
                     item["live"] = pool_played.live_status(
                         item, states_by_draw[key], include_chance=chance)
+                    # Prognosen är per omgång: räkna en gång, dela mellan
+                    # kuponger på samma omgång.
+                    if key not in forecasts:
+                        forecasts[key] = _draw_forecast(
+                            store, *key, states_by_draw[key],
+                            float(item.get("row_price") or 1.0))
+                    if forecasts[key] is not None:
+                        item["live"]["forecast"] = forecasts[key]
                 except Exception as exc:      # noqa: BLE001
                     item["live_error"] = f"{type(exc).__name__}"
                     logger.warning(

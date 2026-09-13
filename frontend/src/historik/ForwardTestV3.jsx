@@ -7,6 +7,7 @@ import { PRODUCT_LABEL, fmtDay, horizonLabel, pctSigned, roiCls, FORWARD_TEST, f
 import { SystemDetail } from './SystemDetail.jsx'
 import { SortableTable } from '../components/SortableTable.jsx'
 import { forwardView } from '../lib/forwardTests.js'
+import { FORECAST_NOTE } from '../lib/forecast.js'
 import { LoadingState, EmptyState, ErrorState, kr } from '../App.jsx'
 
 const VIEW_KEY = 'svs_forward_view'
@@ -103,6 +104,7 @@ export function ForwardTestV3({ family, open = null, onOpenCoupon = null, onClos
   const facitCell = (test) => (test.correct_max == null
     ? <LiveCell entry={liveEntries[testKey(test)]}
         pot={live?.pots?.[`${test.product}:${test.draw_number}`]}
+        forecast={live?.forecasts?.[`${test.product}:${test.draw_number}`]}
         error={liveErr || liveErrors[`${test.product}:${test.draw_number}`]}
         waiting={!live && !meta.archived} />
     : test.payout_complete !== true
@@ -295,7 +297,7 @@ export function ForwardTestV3({ family, open = null, onOpenCoupon = null, onClos
    hur många rader som fortfarande kan nå varje vinstnivå. Potten är
    omgångens pott per nivå — inte en utdelning; hur många som delar den vet
    ingen förrän SvS publicerat. */
-function LiveCell({ entry, pot, error, waiting }) {
+function LiveCell({ entry, pot, forecast, error, waiting }) {
   if (!entry) {
     if (error) return <span className="v3hint" title={error}>liveläge otillgängligt · öppna kupongen</span>
     return <span className="v3hint">{waiting ? 'hämtar liveläge…' : 'Öppna för liverättning'}</span>
@@ -306,6 +308,7 @@ function LiveCell({ entry, pot, error, waiting }) {
     .sort((a, b) => b[0] - a[0])
   const top = living[0]
   const potKr = top ? pot?.per_level?.[top[0]] : null
+  const perRow = top ? forecast?.levels?.[top[0]]?.per_row_kr : null
   const started = entry.n_decided > 0 || entry.current_known > 0
   return <div className="v3livecell">
     <div>
@@ -318,7 +321,8 @@ function LiveCell({ entry, pot, error, waiting }) {
       : entry.out_of_contention ? 'ingen rad kan längre nå någon vinstnivå'
         : !living.length ? 'inga rader lever'
           : <>lever: {living.map(([level, count]) => `${level} rätt → ${count.toLocaleString('sv-SE')} rader`).join(' · ')}
-            {potKr ? <> · pott {top[0]} rätt ≈ {kr(potKr)} <span title="Omgångens pott per nivå ur senaste snapshot (omsättning × vinstplan, jackpot på toppnivån). Delas med alla vinnare — ingen prognos på utdelning per rad.">(delas)</span></> : null}</>}</div>
+            {potKr ? <> · pott {top[0]} rätt {kr(potKr)}</> : null}
+            {perRow != null ? <> · <b>≈ {kr(perRow)}/rad</b> <span title={FORECAST_NOTE}>(prognos)</span></> : null}</>}</div>
   </div>
 }
 

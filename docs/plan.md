@@ -73,7 +73,10 @@ experiment med gater-trappan, omgångsvy som standard i 5 000-/maxtester,
 Standardjämförelsen och Poolstyrka utbrutna) och **Facit & prognos**. Idag
 visar Mina kuponger överst med lätt livebild och nya resultat, och ett
 Tester-kort med bara nyheter. Direktlänkar via hash (`lib/routes.js`), stäng
-backar i historiken. Verifierat på desktop och 375 px. Överlämning:
+backar i historiken. Samma kväll: **utdelningsprognos per nivå** bredvid
+liverättningen (egen skattning ur pott ÷ förväntade vinnare, SvS ger ingen)
+i Mina kuponger, testkupongerna och detaljkortet. Verifierat på desktop och
+375 px. Överlämning:
 `docs/overlamningar/overlamning-2026-09-13-mina-kuponger-tester.md`.
 **⚖ Kvar för Saman: besluten a–e i pooltäckningen.**
 

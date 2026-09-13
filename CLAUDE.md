@@ -655,6 +655,16 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
   tidsriktig kupong med komplett utdelning, ROI först vid `ROI_MIN_N`. `pots` är
   omgångens POTT per nivå — kalla det aldrig utdelning. I kupongdetaljen skriver ett
   rött rätt tecken ut "✗ ej streckat".
+- **Utdelningsprognos (2026-09-13):** Svenska Spel publicerar INGEN liveprognos via
+  API:t (result-endpointen svarar 404 tills omgången är rättad), så
+  `pool_played.payout_forecast` är VÅR skattning: pott per nivå (omsättning ur
+  livepayloadens `currentNetSale`, som slår en äldre snapshot, × vinstplan, jackpot på
+  toppnivån) delat med förväntat antal vinnande rader ur folkets streck givet
+  ställningen nu — avgjorda och pågående matcher med aktuellt tecken, ospelade som
+  prematchsannolikhet × streck — gånger byggarens κ. Skriv alltid "prognos" och
+  "per rad", aldrig "utdelning"; `forecast` utelämnas när underlag saknas, gissa
+  aldrig. Visas i Mina kuponger (rad + livekort), i testkupongernas liveläge och i
+  detaljkortets nivåer.
 - Spelade kuponger: `usePlayedCoupons` hämtar i TRE steg (`live=false` → `live=true&chance=false`
   → fullt svar); livebilden är single-flight (20 s) och ett sent svar får inte skriva över
   en nyare uppdatering.

@@ -121,7 +121,9 @@ prioritetsordning. ⚖ = kräver Samans beslut.
     tillbaka på fem flikar. Testkatalog ur `/api/pool/tests` (gater-raderna),
     omgångsvy i 5 000-/maxtester, direktlänkar via hash, Idag med egna kuponger
     överst och testnyheter. `docs/overlamningar/overlamning-2026-09-13-mina-kuponger-tester.md`.
-    ⚖ Kvar: besluten a–e i punkt 16.
+    Samma kväll (Samans fråga): utdelningsprognos per vinstnivå bredvid
+    liverättningen — egen skattning (`pool_played.payout_forecast`), SvS ger
+    ingen via API:t. ⚖ Kvar: besluten a–e i punkt 16.
 
 ## 2026-08-11 — AWS korrekt omtestat och avfärdat
 

@@ -579,6 +579,9 @@ def event_state(draw_event: dict) -> dict:
             # Bevaras separat: `probs` byts mot livepris för matcher som rullar,
             # och prematchpriset är ankaret när livemarknaden är stängd.
             "prematch_probs": prematch_probs,
+            # Folkets streck vid stopp (procent per tecken) — underlaget för
+            # utdelningsprognosen: hur stor del av fältet som har tecknet.
+            "folk": _folk_pct(draw_event),
             "home": _participant(match, "home"),
             "away": _participant(match, "away"),
             "start": match.get("matchStart"),
@@ -594,6 +597,17 @@ def event_state(draw_event: dict) -> dict:
                                 p for p in (_participant(match, "home"),
                                             _participant(match, "away")) if p)
                             or None)}
+
+
+def _folk_pct(draw_event: dict) -> Optional[dict]:
+    folk = draw_event.get("svenskaFolket") or {}
+    out = {}
+    for sign, key in (("1", "one"), ("X", "x"), ("2", "two")):
+        value = _decimal(folk.get(key))
+        if value is None:
+            return None
+        out[sign] = float(value)
+    return out
 
 
 def _participant(match: dict, side: str) -> Optional[str]:
@@ -1820,3 +1834,68 @@ def summary(store: Storage) -> dict:
             "roi": round((won - spent) / spent, 4) if spent > 0 else None,
             "note": ("ROI räknas bara på kuponger med komplett publicerad "
                      "utdelning; öppna och ofullständiga hålls utanför.")}
+
+
+# ── Utdelningsprognos per omgång ──────────────────────────────────────────
+# Svenska Spel publicerar ingen prognos via API:t under omgången (result-
+# endpointen svarar 404 tills allt är klart, uppmätt 2026-09-13). Prognosen är
+# därför VÅR egen skattning och ska alltid presenteras så: omgångens pott per
+# nivå (omsättning × vinstplan, jackpot på toppnivån) delat med det
+# förväntade antalet vinnande rader i fältet om omgången slutar som den står
+# nu. Fältets träffsannolikhet per match är folkets streck på tecknet: för
+# avgjorda och pågående matcher det aktuella tecknet, för ospelade
+# förväntningen över utfallen (prematchsannolikhet × streck). Medvinnar-
+# korrektionen κ är byggarens (`builder.KAPPA`), så prognosen sänks lika
+# mycket som EV:t — den kan aldrig blåsa upp en förväntan. Aldrig facit.
+
+def payout_forecast(product: str, plan: dict, states: list[dict],
+                    turnover: float, jackpot: float = 0.0,
+                    row_price: float = 1.0) -> Optional[dict]:
+    """Prognos per vinnande rad och vinstnivå, givet ställningen just nu.
+
+    Returnerar None när underlaget saknas (ingen omsättning eller streck) —
+    ett gissat tal hade sett ut som information.
+    """
+    from .builder import KAPPA_VERSION, _poisson_binomial, kappa_for
+    if not plan or not turnover or turnover <= 0 or not states:
+        return None
+    probs: list[float] = []
+    basis = {"decided": 0, "current": 0, "open": 0}
+    for state in states:
+        folk = state.get("folk") or {}
+        share = {sign: max(0.0, float(folk.get(sign) or 0.0)) / 100.0 for sign in SIGNS}
+        if sum(share.values()) <= 0:
+            return None
+        sign = state.get("sign")
+        known = (sign in SIGNS and not state.get("cancelled")
+                 and not state.get("sign_provisional"))
+        if known and (state.get("final") or state.get("score")):
+            probs.append(share[sign])
+            basis["decided" if state.get("final") else "current"] += 1
+            continue
+        prematch = state.get("prematch_probs") or state.get("probs") or {}
+        if all(prematch.get(sign) is not None for sign in SIGNS):
+            probs.append(sum(float(prematch[sign]) * share[sign] for sign in SIGNS))
+        else:
+            # Utan pris: folkets fördelning är enda skattningen av utfallet.
+            probs.append(sum(share[sign] * share[sign] for sign in SIGNS))
+        basis["open"] += 1
+    dist = _poisson_binomial(probs)
+    field = turnover / row_price if row_price and row_price > 0 else turnover
+    pools = {int(level): turnover * plan["ratio"] * split
+             for level, split in plan["splits"].items()}
+    pools[max(pools)] += max(0.0, float(jackpot or 0.0))
+    levels = {}
+    for level, pool in sorted(pools.items(), reverse=True):
+        if level >= len(dist):
+            continue
+        expected = field * dist[level] * kappa_for(product, level)
+        levels[level] = {"pot_kr": round(pool),
+                         "expected_winners": round(expected, 1),
+                         "per_row_kr": round(pool / max(1.0, expected))}
+    return {"levels": levels, "basis": basis, "turnover": float(turnover),
+            "jackpot": float(jackpot or 0.0), "kappa_version": KAPPA_VERSION,
+            "note": ("Egen skattning om omgången slutar som nu: pott per nivå delat "
+                     "med förväntat antal vinnande rader ur folkets streck, med "
+                     "byggarens medvinnarkorrektion. Inte Svenska Spels siffra.")}
+

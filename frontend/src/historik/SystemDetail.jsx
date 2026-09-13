@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { CouponOverview } from './CouponOverview.jsx'
 import { coverageResult, visibleResearch } from '../lib/couponView.js'
 import { get } from '../lib/api.js'
+import { FORECAST_NOTE } from '../lib/forecast.js'
 import { PRODUCT_LABEL, RESEARCH_FAMILY_LABEL, fmtDay, STRATEGY_LABEL, horizonLabel, pctSigned, roiCls, marketTimeLabel, PH5_METHOD_LABEL } from '../lib/labels.js'
 import { LoadingState, EmptyState, ErrorState, kr, SortableTable } from '../App.jsx'
 
@@ -56,6 +57,9 @@ export function SystemLiveCorrection({ live, error, observedAt, compact = false 
           <span key={level} className={live.alive_per_level[level] ? '' : 'dead'}>
             <b>{aliveText(level)}</b>
             <small>rader kan nå {level} rätt</small>
+            {live.forecast?.levels?.[level] && (
+              <small title={FORECAST_NOTE}>≈ {kr(live.forecast.levels[level].per_row_kr)}/rad (prognos)</small>
+            )}
           </span>
         ))}
       </div>
