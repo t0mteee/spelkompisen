@@ -29,23 +29,46 @@ class ResearchGroupTests(unittest.TestCase):
         tests = [
             self._test(correct_max=13, payout_complete=True, payout_kr=12000.0),
             self._test(correct_max=10, payout_complete=True, payout_kr=0.0),
-            self._test(correct_max=11, payout_complete=False, payout_kr=None, retired=True),
+            self._test(correct_max=11, payout_complete=False, payout_kr=None),
             self._test(),                                   # öppen
             self._test(horizon="m20", horizon_minutes=20, correct_max=12,
                        payout_complete=True, payout_kr=800.0),
         ]
         groups = {g["key"]: g for g in pool_system_ledger.research_groups(tests)}
-        g = groups["EV medel:h3"]
-        self.assertEqual((4, 3, 1, 3, 2), (g["n"], g["n_active"], g["n_open"], g["n_facit"], g["n_settled"]))
+        g = groups["stryktipset:k:h3"]
+        self.assertEqual((4, 4, 1, 3, 2), (g["n"], g["n_active"], g["n_open"], g["n_facit"], g["n_settled"]))
         self.assertEqual({13: 1, 12: 0, 11: 1, 10: 1}, g["hits"])
         self.assertEqual((10000.0, 12000.0, 2000.0), (g["cost_kr"], g["payout_kr"], g["balance_kr"]))
         self.assertAlmostEqual(0.2, g["roi"])
-        m20 = groups["EV medel:m20"]
+        m20 = groups["stryktipset:k:m20"]
         self.assertEqual({13: 0, 12: 1, 11: 0, 10: 0}, m20["hits"])
         self.assertAlmostEqual(-0.84, m20["roi"])
         # Sortering: samma arm, längst frystid först.
-        self.assertEqual(["EV medel:h3", "EV medel:m20"],
+        self.assertEqual(["stryktipset:k:h3", "stryktipset:k:m20"],
                          [g["key"] for g in pool_system_ledger.research_groups(tests)])
+
+    def test_samma_etikett_blandar_inte_produkter_eller_versioner(self):
+        tests = [self._test(correct_max=13, payout_complete=True, payout_kr=10000),
+                 self._test(product="europatipset", correct_max=10,
+                            payout_complete=True, payout_kr=100),
+                 self._test(config_key="old", retired=True, correct_max=13,
+                            payout_complete=True, payout_kr=90000)]
+        groups = {g["key"]: g for g in pool_system_ledger.research_groups(tests)}
+        self.assertEqual(3, len(groups))
+        self.assertEqual(10000, groups["stryktipset:k:h3"]["payout_kr"])
+        self.assertEqual(100, groups["europatipset:k:h3"]["payout_kr"])
+        self.assertTrue(groups["stryktipset:old:h3"]["retired"])
+        self.assertFalse(groups["stryktipset:k:h3"]["retired"])
+
+    def test_sen_frysning_och_okand_utdelning_blir_inte_bokfort_belopp(self):
+        group = pool_system_ledger.research_groups([
+            self._test(timely=False, correct_max=13, payout_complete=True, payout_kr=50000),
+            self._test(correct_max=11),
+        ])[0]
+        self.assertEqual(2, group["n_facit"])
+        self.assertEqual(0, group["n_settled"])
+        self.assertEqual(0, group["cost_kr"])
+        self.assertIsNone(group["roi"])
 
     def test_topptipset_har_bara_nivan_atta(self):
         g = pool_system_ledger.research_groups(
@@ -71,6 +94,66 @@ class ResearchGroupTests(unittest.TestCase):
                 self.assertEqual(1, report["groups"][0]["n_open"])
             finally:
                 store.close()
+
+
+
+class ConfigurationRegistryTests(unittest.TestCase):
+    def test_poolopt_overview_raknar_faktiska_frysningar_som_aktiva(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "t.db")
+            try:
+                for config in pool_system_ledger.POOLOPT_FORWARD_CONFIGS:
+                    store.conn.execute(
+                        "INSERT INTO pool_system_ledger (product,draw_number,horizon,"
+                        "config_key,frozen_at,lag_min,timely,code_version,budget,"
+                        "strategy,value_weight,row_price,n_rows,cost_kr,events_order,"
+                        "rows_text,rows_hash,n_events_covered,turnover_used,"
+                        "turnover_basis,jackpot_used) VALUES "
+                        "('topptipset',4309,'h3',?,'2026-09-03T10:00:00Z',2,1,'test',"
+                        "256,'medel',0.3,1,1,1,'1,2,3,4,5,6,7,8','11111111',"
+                        "'hash',8,1000,'live',0)", (config["key"],))
+                report = pool_system_ledger.poolopt_overview(store)
+                self.assertEqual(1, report["summary"]["draws"])
+                self.assertEqual(3, report["summary"]["freezes"])
+                self.assertEqual(3, len(report["groups"]))
+                self.assertTrue(all(not t["retired"] for t in report["tests"]))
+                self.assertEqual({"poolopt"}, {t["method"] for t in report["tests"]})
+            finally:
+                store.close()
+
+    def test_alla_aktiva_nycklar_har_ratt_metadata(self):
+        p = pool_system_ledger
+        for configs, research in [
+            (p.BENCHMARKS, False), (p.PROB_BASE_CHALLENGERS, False),
+            (p.PH5_FORWARD_CONFIGS, True), (p.MATHMAX_FORWARD_CONFIGS, True),
+            (p.REDUCEDMAX_FORWARD_CONFIGS, True), (p.POOLOPT_FORWARD_CONFIGS, True),
+        ]:
+            for config in configs:
+                with self.subTest(key=config["key"]):
+                    meta = p._bench(config["key"])
+                    self.assertFalse(meta["retired"])
+                    self.assertEqual(research, meta["research"])
+                    self.assertEqual(not research, meta["promotion_eligible"])
+                    self.assertNotEqual("legacy", meta["method"])
+                    if research:
+                        self.assertFalse(meta["primary"])
+        sharp = p._bench(p.PROB_BASE_CHALLENGERS[0]["key"])
+        self.assertEqual("sharp", sharp["prob_base"])
+        self.assertFalse(sharp["primary"])
+        for config in p.POOLOPT_FORWARD_CONFIGS:
+            self.assertEqual("poolopt", p._bench(config["key"])["research_family"])
+
+    def test_pensionerade_och_okanda_forblir_inaktiva(self):
+        p = pool_system_ledger
+        configs = (*p.RETIRED_BENCHMARKS, *p.PH5_RETIRED_CONFIGS,
+                   *p.MATHMAX_RETIRED_CONFIGS, *p.REDUCEDMAX_RETIRED_CONFIGS,
+                   *p.MAX40_RETIRED_CONFIGS, {"key": "unknown"})
+        for config in configs:
+            with self.subTest(key=config["key"]):
+                meta = p._bench(config["key"])
+                self.assertTrue(meta["retired"])
+                self.assertFalse(meta["promotion_eligible"])
+
 
 
 class ResearchLiveOverviewTests(unittest.TestCase):

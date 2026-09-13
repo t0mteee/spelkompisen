@@ -2,8 +2,10 @@
 // Bruten ur AppV3.jsx 2026-09-02.
 import { useEffect, useState } from 'react'
 import { get } from '../lib/api.js'
-import { PRODUCT_LABEL, fmtDay, horizonLabel, pctSigned, roiCls, FORWARD_TEST, forwardTestLabel, forwardTestFilterKey } from '../lib/labels.js'
+import { PRODUCT_LABEL, fmtDay, horizonLabel, pctSigned, roiCls, FORWARD_TEST, forwardTestLabel, forwardTestFilterKey, ROI_MIN_N } from '../lib/labels.js'
 import { SystemDetail } from '../historik/SystemDetail.jsx'
+import { SortableTable } from '../components/SortableTable.jsx'
+import { forwardView } from '../lib/forwardTests.js'
 import { LoadingState, EmptyState, ErrorState, kr } from '../App.jsx'
 
 /* Researchserierna har egna uppgifter och ska därför inte ligga gömda bland
@@ -15,7 +17,9 @@ export function ForwardTestV3({ family }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [openSystem, setOpenSystem] = useState(null)
-  const [filters, setFilters] = useState({ product: 'alla', horizon: 'alla', method: 'alla' })
+  const [filters, setFilters] = useState({ product: 'alla', horizon: 'alla', method: 'alla',
+    version: meta.archived ? 'aldre' : 'aktuell' })
+  const [limit, setLimit] = useState(20)
   useEffect(() => {
     let current = true
     get(meta.endpoint)
@@ -66,13 +70,12 @@ export function ForwardTestV3({ family }) {
   if (error) return <ErrorState message={error} />
   if (!data) return <LoadingState label={meta.loading} />
 
-  const tests = (data.tests || []).filter((test) => (
-    (filters.product === 'alla' || test.product === filters.product)
-    && (filters.horizon === 'alla' || test.horizon === filters.horizon)
-    && (filters.method === 'alla' || forwardTestFilterKey(test) === filters.method)
-  ))
-  const summary = data.summary || {}
-  const setFilter = (key, value) => setFilters((current) => ({ ...current, [key]: value }))
+  const view = forwardView(data, filters)
+  const { tests, groups } = view
+  const setFilter = (key, value) => {
+    setFilters((current) => ({ ...current, [key]: value }))
+    setLimit(20)
+  }
   const methodSource = (data.tests || []).length ? data.tests : data.configs || []
   const methods = [...new Map(methodSource.map((test) => [
     forwardTestFilterKey(test), forwardTestLabel(test),
@@ -83,6 +86,16 @@ export function ForwardTestV3({ family }) {
   const liveEntries = Object.fromEntries((live?.tests || []).map((test) => [
     `${test.product}:${test.draw_number}:${test.horizon}:${test.config_key}`, test]))
   const liveErrors = live?.errors || {}
+  const columns = [
+    { key: 'date', label: 'Datum', value: (test) => test.close || test.frozen_at },
+    { key: 'product', label: 'Spel', value: (test) => PRODUCT_LABEL[test.product] || test.product },
+    { key: 'draw_number', label: 'Omgång' },
+    { key: 'horizon_minutes', label: 'Fryst' },
+    { key: 'method', label: meta.filterLabel, value: forwardTestLabel },
+    { key: 'correct_max', label: 'Facit' },
+    ...(meta.paired ? [{ key: 'paired_overlap', label: 'Paröverlapp' }] : []),
+    { key: 'coupon', label: 'Kupong', sortable: false },
+  ]
 
   return (
     <div className="v3ph5">
@@ -91,24 +104,10 @@ export function ForwardTestV3({ family }) {
           <span className="v3eyebrow">{meta.archived ? 'HISTORISK PILOT · INGA RIKTIGA INSATSER'
             : 'FRAMÅTRIKTAT BLINDTEST · INGA RIKTIGA INSATSER'}</span>
           <h1>{meta.title}</h1>
-          <p>Här går varje automatisk testkupong att öppna exakt som den frystes
-            före spelstopp — samtliga {meta.rowLabel} rader, odds, streck och
-            liverättning medan omgången pågår samt slutligt facit på samma ställe.</p>
+          <p>Följ kupongerna live eller öppna exakt radurval, sparade odds och slutresultat.
+            Alla belopp är simulerade.</p>
         </div>
       </section>
-
-      <div className="v3ph5kpis">
-        <div><span>Omgångar</span><b>{meta.archived
-          ? summary.all_draws || 0 : summary.draws || 0}</b></div>
-        <div><span>{meta.archived ? 'Sparade pilotkuponger' : 'Aktiva testkuponger'}</span>
-          <b>{meta.archived ? summary.all_freezes || 0 : summary.freezes || 0}</b></div>
-        <div><span>{meta.archived ? 'Facitklara' : 'Facitklara aktiva'}</span>
-          <b>{meta.archived ? summary.all_evaluated || 0 : summary.evaluated || 0}</b></div>
-        <div><span>{meta.archived ? 'Status'
-          : meta.paired ? 'Kompletta jämförelsepar' : 'Aktiva metoder'}</span>
-          <b>{meta.archived ? 'Avslutad'
-            : meta.paired ? summary.paired_freezes || 0 : summary.methods || 0}</b></div>
-      </div>
 
       <details className="v3card v3ph5explain">
         <summary>Så fungerar testet och metoderna</summary>
@@ -154,17 +153,13 @@ export function ForwardTestV3({ family }) {
         <p><b>{meta.archived ? 'Historisk start' : 'Start utan bakfyllning'}:</b>{' '}
           {starts || '–'}. {meta.archived ? 'Inga nya frysningar görs.' : <>
             Båda armarna fryses tre timmar och tjugo minuter före stopp.
-            Genomsnittlig exakt radöverlapp hittills: <b>{summary.average_overlap == null
-              ? 'väntar på första kompletta par'
-              : `${Math.round(summary.average_overlap * 100)} %`}</b>.</>}</p>
+            Överlapp med andra armen visas per kupong i listan.</>}</p>
       </details> : null}
 
-      <GroupSummary groups={data.groups} isMaxTest={isMaxTest} />
-
       <div className="v3card">
-        <div className="v3cardhead"><h3>Alla frysta {meta.rowLabel}-kuponger</h3>
-          <span className="v3hint">{tests.length} av {(data.tests || []).length}
-            {retiredCount ? ` · ${retiredCount} avslutade` : ''}</span></div>
+        <div className="v3cardhead"><h3>Testkuponger</h3>
+          <span className="v3hint">Filtren styr både listan och summeringen.
+            {retiredCount ? ` ${retiredCount} kuponger från äldre testversioner finns i arkivet.` : ''}</span></div>
         <div className="v3groupfilters" aria-label={`Filtrera ${meta.rowLabel}-tester`}>
           <label><span>Spel</span><select value={filters.product}
             onChange={(event) => setFilter('product', event.target.value)}>
@@ -184,7 +179,23 @@ export function ForwardTestV3({ family }) {
             {methods.map(([key, label]) => <option key={key} value={key}>
               {label}</option>)}
           </select></label>
+          <label><span>Testversion</span><select value={filters.version}
+            onChange={(event) => setFilter('version', event.target.value)}>
+            <option value="aktuell">Aktuell version</option>
+            <option value="aldre">Äldre versioner (arkiv)</option>
+            <option value="alla">Alla versioner</option>
+          </select></label>
         </div>
+
+        <div className="v3ph5kpis" aria-label="Summering för valda filter">
+          <div><span>Omgångar</span><b>{view.draws}</b></div>
+          <div><span>Testkuponger</span><b>{view.coupons}</b></div>
+          <div><span>Med matchfacit</span><b>{view.facit}</b></div>
+          <div><span>Med utvärderbart belopp</span><b>{view.evaluated}</b></div>
+        </div>
+        <GroupSummary groups={groups} isMaxTest={isMaxTest} />
+        <p className="v3hint">Visar {Math.min(limit, tests.length)} av {tests.length} kuponger.
+          Flera metoder och frystider på samma omgång är inte oberoende försök.</p>
 
         {openSystem && <SystemDetail
           key={`${openSystem.product}:${openSystem.draw_number}:${openSystem.horizon}:${openSystem.config_key}`}
@@ -199,25 +210,24 @@ export function ForwardTestV3({ family }) {
                 : "Väntar på första frysningen"}
               detail={(data.tests || []).length ? undefined
                 : `Testet startar framåt: ${starts || 'nästa ofrysta omgång'}.`} />
-          : <div className="v3histtablewrap"><table className="v3histtable v3ph5table">
-              <thead><tr><th>Datum</th><th>Spel</th><th>Omgång</th><th>Fryst</th>
-                <th>{meta.filterLabel}</th><th>Facit</th>
-                {meta.paired && <th>Paröverlapp</th>}<th>Kupong</th></tr></thead>
-              <tbody>{tests.map((test) => (
+          : <SortableTable id={`forward-${family}`} rows={tests} columns={columns}
+              defaultSort={{ key: 'date', dir: 'desc' }} limit={limit}
+              wrapperClassName="v3histtablewrap" className="v3histtable v3ph5table"
+              renderRow={(test) => (
                 <tr key={`${test.product}:${test.draw_number}:${test.horizon}:${test.config_key}`}
                   className={test.retired ? 'v3retired' : ''}>
                   <td>{test.close ? fmtDay(test.close) : fmtDay(test.frozen_at)}</td>
                   <td>{PRODUCT_LABEL[test.product] || test.product}</td>
                   <td>#{test.draw_number}</td>
                   <td>{horizonLabel(test)}{test.timely ? '' : ' · sen'}</td>
-                  <td>{forwardTestLabel(test)}</td>
+                  <td>{forwardTestLabel(test)}{test.retired && <small title={test.config_key}> · äldre testversion</small>}</td>
                   <td>{test.correct_max == null
                     ? <LiveCell
                         entry={liveEntries[`${test.product}:${test.draw_number}:${test.horizon}:${test.config_key}`]}
                         pot={live?.pots?.[`${test.product}:${test.draw_number}`]}
                         error={liveErr || liveErrors[`${test.product}:${test.draw_number}`]}
                         waiting={!live && !meta.archived} />
-                    : test.payout_complete === false
+                    : test.payout_complete !== true
                       ? `${test.correct_max} rätt · utdelning okänd`
                       : <><b>{test.correct_max} rätt</b> · {kr(test.payout_kr)} ·{' '}
                           <span className={roiCls(test.roi)}>{pctSigned(test.roi)}</span></>}</td>
@@ -227,8 +237,9 @@ export function ForwardTestV3({ family }) {
                   <td><button className="v3more" onClick={() => setOpenSystem(test)}>
                     Visa exakt kupong</button></td>
                 </tr>
-              ))}</tbody>
-            </table></div>}
+              )} />}
+        {tests.length > limit && <button className="v3more" onClick={() => setLimit((value) => value + 20)}>
+          Visa 20 till</button>}
       </div>
 
     </div>
@@ -280,28 +291,31 @@ function LiveCell({ entry, pot, error, waiting }) {
   </div>
 }
 
-/* Summering per arm/metod × frystid över HELA serien: saldo, träffar per
-   vinstnivå (bästa rad) och ROI. Kronor och ROI räknas bara på kuponger med
-   komplett utdelning; träffar på varje kupong med känt facit. Pensionerade
-   nycklar (omnyckeln 2026-08-31) ingår men redovisas separat i antalet. */
+/* Backendens separata produkt-/konfigurationsgrupper, samma filter som
+   listan. Belopp och träffar kommer oförändrade från backend. */
 function GroupSummary({ groups, isMaxTest }) {
   if (!groups?.length) return null
   const levels = groups[0].levels || []
-  return <div className="v3card">
-    <div className="v3cardhead"><h3>Summering per {isMaxTest ? 'arm' : 'metod'} och frystid</h3>
-      <span className="v3hint">hela serien · kronor bara för kuponger med komplett utdelning · träffar = bästa rad</span></div>
+  return <details className="v3ph5explain">
+    <summary>Jämför {isMaxTest ? 'armar' : 'metoder'} · belopp och träffar</summary>
+    <p className="v3hint">Valda filter · varje produkt och testversion separat.
+      Belopp kräver tidsriktig frysning och komplett utdelning; träffar räknar bästa rad per kupong.
+      ROI visas från {ROI_MIN_N} utvärderbara omgångar, vilket inte i sig är stöd för modellen.</p>
     <div className="v3histtablewrap"><table className="v3histtable v3groupsummary">
-      <thead><tr><th>Kategori</th><th>Kuponger</th><th>Spelat</th><th>Inspelat</th><th>Saldo</th>
+      <thead><tr><th>Kategori</th><th>Kuponger</th><th>Simulerad kostnad</th><th>Simulerat tillbaka</th><th>Simulerat saldo</th>
         {levels.map((level) => <th key={level}>{level} rätt</th>)}<th>ROI</th></tr></thead>
       <tbody>{groups.map((group) => <tr key={group.key}>
-        <td><b>{forwardTestLabel(group)}</b> · {group.horizon_minutes != null ? `${group.horizon_minutes} min` : group.horizon}</td>
-        <td>{group.n_settled} med facit{group.n_open ? ` · ${group.n_open} öppna` : ''}
-          {group.n_active !== group.n ? ` · ${group.n - group.n_active} äldre nyckel` : ''}</td>
+        <td title={group.config_key}><b>{forwardTestLabel(group)}</b> · {group.horizon_minutes != null ? `${group.horizon_minutes} min` : group.horizon}
+          <br />{PRODUCT_LABEL[group.product] || group.product}{group.retired ? ' · äldre testversion' : ''}</td>
+        <td>{group.n_facit} med matchfacit · {group.n_settled} med belopp
+          {group.n_open ? ` · ${group.n_open} öppna` : ''}</td>
         <td>{kr(group.cost_kr)}</td>
         <td>{kr(group.payout_kr)}</td>
         <td className={roiCls(group.balance_kr)}>{group.balance_kr > 0 ? '+' : ''}{kr(group.balance_kr)}</td>
         {levels.map((level) => <td key={level}>{group.hits?.[level] || 0}</td>)}
-        <td className={roiCls(group.roi)}>{group.roi == null ? '–' : pctSigned(group.roi)}</td>
+        <td className={group.n_settled >= ROI_MIN_N ? roiCls(group.roi) : ''}>
+          {group.n_settled < ROI_MIN_N ? `${group.n_settled}/${ROI_MIN_N} omgångar`
+            : group.roi == null ? '–' : pctSigned(group.roi)}</td>
       </tr>)}</tbody></table></div>
-  </div>
+  </details>
 }

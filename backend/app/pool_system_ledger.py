@@ -777,7 +777,7 @@ def _bench(key: str, stored: Optional[dict] = None) -> dict:
     ur nyckelsträngen. Det var just den tolkningen som gjorde `ev50-tuff-vw80`
     oläsbar.
     """
-    for bench in BENCHMARKS:
+    for bench in (*BENCHMARKS, *PROB_BASE_CHALLENGERS):
         if bench["key"] == key:
             return {**bench, "retired": False, "research": False,
                     "promotion_eligible": True, "method": "varderader"}
@@ -786,7 +786,7 @@ def _bench(key: str, stored: Optional[dict] = None) -> dict:
             return {**bench, "primary": False, "retired": True,
                     "research": False, "promotion_eligible": False,
                     "method": "varderader"}
-    for config in PH5_FORWARD_CONFIGS:
+    for config in (*PH5_FORWARD_CONFIGS, *POOLOPT_FORWARD_CONFIGS):
         if config["key"] == key:
             return {**config, "primary": False, "retired": False,
                     "research": True, "promotion_eligible": False}
@@ -1605,21 +1605,20 @@ def _levels_for(product: str) -> list[int]:
 
 
 def research_groups(tests: list[dict]) -> list[dict]:
-    """Saldo, träffar per vinstnivå och ROI per (arm/metod × frystid).
+    """Saldo och facit per produkt × exakt konfiguration × frystid.
 
-    Räknar över HELA serien, inklusive pensionerade nycklar — omnyckeln
-    2026-08-31 startade om de aktiva räknarna, men det som frystes och rättades
-    före den är fortfarande verkliga testkuponger. `n_active` visar hur många
-    som hör till den nu gällande nyckeln. Träffar per nivå räknas på varje
-    kupong med känt facit (`correct_max`); kronor och ROI bara på dem med
-    komplett utdelning, samma definition som `summary.evaluated`.
+    Etiketter är inte identiteter: äldre och aktuella nycklar kan heta samma
+    sak. Separata grupper låter UI filtrera samma population i listan och
+    summeringen utan att räkna om pengar. Arkivet finns kvar, aldrig blandat
+    med aktuell version. Kronor kräver tidsriktig kupong och känd utdelning.
     """
     groups: dict[tuple, dict] = {}
     for test in tests:
-        label = test.get("label") or test["method"]
-        key = (label, test["horizon"])
+        key = (test["product"], test["config_key"], test["horizon"])
         group = groups.setdefault(key, {
-            "key": f"{label}:{test['horizon']}",
+            "key": ":".join(key),
+            "product": test["product"], "config_key": test["config_key"],
+            "retired": test["retired"],
             # `label` bara när armen har en egen etikett; PH5:s metoder
             # namnges av frontendens PH5_METHOD_LABEL via `method`.
             "label": test.get("label"),
@@ -1652,7 +1651,8 @@ def research_groups(tests: list[dict]) -> list[dict]:
         group["roi"] = (round((group["payout_kr"] - group["cost_kr"]) / group["cost_kr"], 4)
                         if group["cost_kr"] else None)
         out.append(group)
-    out.sort(key=lambda g: (g["label"] or g["method"], -(g["horizon_minutes"] or 0)))
+    out.sort(key=lambda g: (g["product"], g["label"] or g["method"],
+                           g["config_key"], -(g["horizon_minutes"] or 0)))
     return out
 
 
