@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-09-06, natt) — läs detta först i ny session
+## STATUS (2026-09-13, granskning; drift oförändrad) — läs detta först i ny session
 
 Det här blocket **ersätts** vid varje leverans — skriv över, stapla inte.
 Tidigare statusblock ligger daterade och ordagranna i
@@ -48,12 +48,13 @@ frontendtester, ~90 s) — pre-push-hooken i `tools/githooks/` kör den.
 V2.2-gaten · PH5 forward (5 000 rader; Stryk 4966→, Europa 2600→) ·
 Max-tester `mathmax-v2`/`reducedmax-v2` (Stryk 4969/Europa 2604→) ·
 `pool-strength-blend-v1` (Historik → Poolmodell) · radarens blindtest (200
-matcher/60 dagar) · **PH3 sannolikhetsbas** (`dr1-b256-medel-sharp`, Topptipset,
+prissatta/avgjorda matcher, 30 dygns spann och 20 matchdygn) · **PH3 sannolikhetsbas** (`dr1-b256-medel-sharp`, Topptipset,
 grind 40 parade omg) · **pooloptimerare v1 forward** (`poolopt` research-
 familj: träff/balans/X-kvot à 256 rader, Topptipset 4309/Stryk 979/Extra 1864→,
 grind 40 parade omg mot championen, avslut 120) · **pit-total-v1** (grind ≥ 40
 Topptipsomgångar med total på alla åtta) · PH4 pit-v4 Stryk/Europa (6–11/40).
-`cli.py gater` läser allihop.
+`cli.py gater` är översikten men saknar ännu pit-total-grinden och korrekt
+researchstatus; se granskningen nedan.
 
 **Skördat 2026-09-02.** PH4 Topptipset: streck + streckrörelse slår INTE ren
 Pinnacle vid h3 — promotion nej. Pooloptimerare v1 fullsökning (10 000 konf.,
@@ -62,23 +63,24 @@ nominerade till forward. Sannolikhetsbas retro (pit-v4): identiskt facit 21/21
 träffar på 77 omg, Pinnacle täcker Topptipset vid h3 i bara 18/87 omg (m20
 56/88). Se `docs/overlamningar/overlamning-2026-09-02-poolforbattringar.md`.
 
-**Senast levererat.** 2026-09-06 (Claude): liveläge per öppen testkupong i 5 000-test/Max-tester-listan,
-summering per arm × frystid (saldo, träffar per nivå, ROI) och "✗ ej streckat" i
-kupongdetaljen (`/api/pool/systems/live-overview`, `research_groups`). 2026-09-06 natt (Codex): utvärdering av Stryktipset
-4969, både egna kuponger och stora frysta tester. Konstaterade hårda
-teckenbortval, koncentrerat kombinationsurval och 3/13 matcher utan
-sharp/total vid frysning. Balanserat 5 000 h3 gav trots allt 12 rätt och
-cirka 29 528 kr simulerat tillbaka; slumpkontrollen 13 och cirka 747 568 kr.
-Ingen modellpromotion eller ny kohort på ett enstaka utfall.
-Kupongvisare med 1/X/2-rutor och inramat facit, mobilkort/dialog,
-utvikbara odds/streck, X-diagnostik bort ur UI (O/U-regel kvar), gamla
-40 000 reducerade piloten dold utan DB-radering. Bekräftelse + explicit
-”Visa kupongen” ersätter automatisk scroll. Full utvärdering, nästa
-arbetsordning och verifiering:
-`docs/overlamningar/overlamning-2026-09-05-poolutvardering-mobil.md`.
-Maskinläsbar evidens: `docs/pool-audit-2026-09-05.json`.
-Befintliga gater gäller fortsatt; dataluckor och urvalsstabilitet granskas
-före nya modellspår. Tidigare leveranser: `docs/status-historik.md`.
+**Senast granskat, 2026-09-13 (Codex).** Drift `dba6f16`, read-only data-
+och UI-genomgång. PH3 Topptipset 29/30 rättade omgångar per horisont;
+Pinnacle-utmanaren 26 och poolopt 24 per arm/horisont före strikt parad
+beslutsgranskning. Aktuella 5 000-/maxversioner har bara 2 Stryk + 3 Europa
+rättade omgångar. Ingen ny modellpromotion. Verifierat: `_bench` saknar
+poolopt/Pinnacle-utmanarens registerposter; testöversikter blandar aktiva
+räknare med arkivsummeringar och filtren styr inte allt. Ö/U-seriens
+kompletthet i ordinarie Topptipset är 2/22 vid 180 min och 8/22 vid 20 min.
+Föreslagen ordning: korrekta räknare/täckningsdiagnostik → Mina kuponger +
+Tester → personlig Idag → befintliga modellgrindar och bortfallsanalys.
+**Plan, inte godkänd ny arbetsordning eller genomförd UI-/modelländring.**
+Detaljer, evidens, acceptans och handover:
+`docs/overlamningar/overlamning-2026-09-13-modell-ui-plan.md`.
+
+**Senast driftsatt, 2026-09-06.** Claude: liveöversikt och metodsummering i
+5 000-/maxtester. Codex: poolutvärdering och mobil kupongvisare, äldre
+40 000-pilot dold. Full föregående status i `docs/status-historik.md`;
+leveransrapport `docs/overlamningar/overlamning-2026-09-05-poolutvardering-mobil.md`.
 
 ## Modellplan — vägen till en modell att lita på (efter backtest-domen)
 
