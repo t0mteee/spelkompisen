@@ -58,6 +58,12 @@ class NameRuleTests(unittest.TestCase):
             self.assertEqual(1.0, odds_provider.team_sim(a, b), (a, b))
         self.assertEqual(1.0, odds_provider._best_side(["Leeds", None], "Leeds United"))
 
+    def test_diagnostikens_forsta_fynd_ar_alias(self):
+        # Bekräftade 2026-09-14 ur pool_match_diagnostic: samma motståndare, samma avspark.
+        for a, b in (("CR Brasil", "CRB"), ("Royale Union SG", "Union Saint-Gilloise"),
+                     ("Milton Keynes Dons", "MK Dons")):
+            self.assertEqual(1.0, odds_provider.team_sim(a, b), (a, b))
+
     def test_truppmarkorer_och_kanda_falska_par_falls(self):
         self.assertEqual(0.0, odds_provider.team_sim("Inter", "Inter U23"))
         self.assertEqual(0.0, odds_provider.team_sim("Como Women", "Como"))

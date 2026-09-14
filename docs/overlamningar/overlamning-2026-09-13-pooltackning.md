@@ -160,3 +160,13 @@ Datumnot i `docs/pool-ph4-forward-manifest-v3.json` (`collection_notes`) och i
 efter en vecka. Förväntat: kolumnen "capture före as-of (räknas)" för
 Topptipset h3/h24 går från ~20–30 % av omgångarna till de flesta, och
 klassen "namnform okänd" kan ersättas av `pool_match_diagnostic`.
+
+**Första varvet i drift (2026-09-14 kl. 10:12):** alla tio öppna omgångar fick
+sharp-captures med samma observationstid (delat index); Stryktipset 4971 gick
+från 6 till 11 matchade av 13, Europatipset 2608 13 av 13. Diagnostiken fann
+direkt tre par som fortfarande föll på sidolikheten trots samma motståndare
+och avspark — CR Brasil/CRB, Royale Union SG/Union Saint-Gilloise, Milton
+Keynes Dons/MK Dons — nu bekräftade alias i `TEAM_ALIASES`. Kvarvarande
+`not_listed` (Birmingham–Middlesbrough, Lincoln–Swansea, Internacional de
+Bogotá–Atlético Nacional) hade ingen kandidat alls: Pinnacle hade inte listat
+dem ännu.

@@ -321,6 +321,13 @@ TEAM_ALIASES = {
     # träningsmatcher). Kanonisk form är den entydigt dominerande i
     # `oddset_results`. `oddset_result_stats` var redan ren — bara `leicester`.
     "leicester city": "leicester",
+    # 2026-09-14, första varvet med `pool_match_diagnostic`: tre par där
+    # poolmatcharen fällde rätt kandidat på sidolikheten trots samma
+    # motståndare och exakt samma avspark (Svenska Spel ↔ Pinnacle). Kanonisk
+    # form är Pinnacles/den entydiga: CRB = Clube de Regatas Brasil.
+    "cr brasil": "crb",
+    "royale union sg": "union saint gilloise",
+    "milton keynes dons": "mk dons",
 }
 
 
