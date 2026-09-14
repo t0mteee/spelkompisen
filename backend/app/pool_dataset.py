@@ -58,9 +58,16 @@ def horizon_window_open(close_iso: Optional[str],
     Dubbeltrafikspärren mot Pinnacle är rätt i allmänhet men förödande här: en
     horisont kan bara observeras EN gång, och en missad horisont får aldrig
     bakfyllas. Poolvarvet använder detta för att tvinga fram just de anropen
-    (max ett per horisont och omgång) medan alla andra ticks fortsätter använda
-    cachen. Fönstret är horisonten ± dess förregistrerade tolerans — toleransen
-    ändras aldrig här, den läses.
+    medan alla andra ticks fortsätter använda cachen. Fönstret är horisonten
+    ± dess förregistrerade tolerans — toleransen ändras aldrig här, den läses.
+
+    FÖRE 2026-09-14 låg fönstret BARA efter horisonten (cutoff ≤ now ≤ cutoff +
+    tolerans) medan pit-v4 räknar en capture bara i [cutoff − tolerans,
+    cutoff]: den tvingade observationen hamnade per konstruktion på fel sida
+    och räknades bara när CDN-Age råkade backdatera den. Topptipset hade
+    giltig sharp vid 180 min i 16 av 75 omgångar (docs/pool-tackning-
+    2026-09-13.md, M1). Samma featureversion: presence-regeln är oförändrad,
+    bara hur ofta en observation hamnar där regeln kan räkna den.
     """
     close = _parse(close_iso)
     if close is None:
@@ -68,10 +75,25 @@ def horizon_window_open(close_iso: Optional[str],
     now = now or dt.datetime.now(dt.timezone.utc)
     for horizon, minutes in HORIZONS.items():
         cutoff = close - dt.timedelta(minutes=minutes)
-        tolerance = TIMING_TOLERANCE_MIN[horizon]
-        if cutoff <= now <= cutoff + dt.timedelta(minutes=tolerance):
+        tolerance = dt.timedelta(minutes=TIMING_TOLERANCE_MIN[horizon])
+        if cutoff - tolerance <= now <= cutoff + tolerance:
             return horizon
     return None
+
+
+# Bygg en horisont först när dess toleransfönster stängt OCH Pinnacles CDN-ålder
+# (max-age 905 s) inte längre kan backdatera en ny capture in i fönstret. Före
+# 2026-09-14 byggdes horisonten på första ticken efter as-of medan den tvingade
+# capturen skrevs i nästa basvarv; raden är idempotent per nyckel/version och
+# byggdes aldrig om (docs/pool-tackning-2026-09-13.md, M3). Ingen bakfyllning:
+# byggaren läser fortfarande bara captures ≤ as-of.
+BUILD_AFTER_WINDOW_MIN = 16
+
+
+def horizon_ready(cutoff_dt: dt.datetime, horizon: str, now: dt.datetime) -> bool:
+    """Får horisonten byggas nu? Först när fönstret stängt plus CDN-marginalen."""
+    wait = dt.timedelta(minutes=TIMING_TOLERANCE_MIN[horizon] + BUILD_AFTER_WINDOW_MIN)
+    return cutoff_dt + wait <= now
 _COL = {"1": "1", "X": "x", "2": "2"}   # kolumnsuffix
 
 REVERSAL_WINDOW_MIN = 180   # sista 3 h före as-of
@@ -273,7 +295,7 @@ def build_draw(store: Storage, product: str, draw_number: int,
     computed_at = _iso(now)
     for horizon, minutes in HORIZONS.items():
         cutoff_dt = close - dt.timedelta(minutes=minutes)
-        if cutoff_dt > now:
+        if not horizon_ready(cutoff_dt, horizon, now):
             report["skipped"] += 1
             continue
         exists = store.conn.execute(
@@ -479,7 +501,7 @@ def build_total_draw(store: Storage, product: str, draw_number: int,
     computed_at = _iso(now)
     for horizon, minutes in HORIZONS.items():
         cutoff_dt = close - dt.timedelta(minutes=minutes)
-        if cutoff_dt > now:
+        if not horizon_ready(cutoff_dt, horizon, now):
             report["skipped"] += 1
             continue
         exists = store.conn.execute(

@@ -399,38 +399,65 @@ class Pinnacle:
 
     def match(self, home: str, away: str, home_iso: Optional[str],
               away_iso: Optional[str], index: list[dict],
-              match_start: Optional[str] = None) -> Optional[dict]:
-        """Bästa matchande Pinnacle-match (namn via ISO/fuzzy + tidsfönster).
+              match_start: Optional[str] = None,
+              diag: Optional[dict] = None) -> Optional[dict]:
+        """Bästa matchande Pinnacle-match — se `match_index`."""
+        return match_index(home, away, home_iso, away_iso, index, match_start, diag)
 
-        Testar båda lagorienteringarna; om Pinnacle har hemma/borta omvänt
-        speglas oddsen (1↔2) så att '1' alltid = Svenska Spels hemmalag."""
-        home_cands = [home, english_name(home_iso)]
-        away_cands = [away, english_name(away_iso)]
-        best, best_score, best_swapped = None, 0.0, False
-        for g in index:
-            if match_start:
-                gap = _hours_apart(match_start, g.get("start"))
-                if gap is None or gap > TIME_WINDOW_H:
-                    continue
-            # rätt orientering
-            sh, sa = _best_side(home_cands, g["home"]), _best_side(away_cands, g["away"])
-            normal = (sh + sa) / 2 if (sh >= HOME_AWAY_MIN and sa >= HOME_AWAY_MIN) else 0.0
-            # omvänd orientering
-            sh2, sa2 = _best_side(home_cands, g["away"]), _best_side(away_cands, g["home"])
-            swapped = (sh2 + sa2) / 2 if (sh2 >= HOME_AWAY_MIN and sa2 >= HOME_AWAY_MIN) else 0.0
-            score, is_swapped = (swapped, True) if swapped > normal else (normal, False)
-            if score > best_score:
-                best, best_score, best_swapped = g, score, is_swapped
-        if not best or best_score < COMBINED_MIN:
-            return None
-        odds = best["odds"]
-        if best_swapped:
-            odds = {"1": odds["2"], "X": odds["X"], "2": odds["1"]}
-        return {"home": best["home"], "away": best["away"], "start": best.get("start"),
-                "odds": odds, "confidence": round(best_score, 3),
-                "swapped": best_swapped, "odds_source": best.get("odds_source"),
-                # totalen är orienteringsoberoende och ska följa exakt samma
-                # fysiska match som 1X2-träffen.
-                "total": best.get("total"),
-                # rå xg i Pinnacles orientering — bomben.py speglar vid swapped
-                "home_xg": best.get("home_xg"), "away_xg": best.get("away_xg")}
+
+def match_index(home: str, away: str, home_iso: Optional[str],
+                away_iso: Optional[str], index: list[dict],
+                match_start: Optional[str] = None,
+                diag: Optional[dict] = None) -> Optional[dict]:
+    """Bästa matchande Pinnacle-match (namn via ISO/namnregel + tidsfönster).
+
+    Ren funktion utan nätverk. Testar båda lagorienteringarna; om Pinnacle
+    har hemma/borta omvänt speglas oddsen (1↔2) så att '1' alltid = Svenska
+    Spels hemmalag. `diag` fylls vid AVSLAG med den närmaste kandidaten
+    (namn, sidopoäng, kombinerat) oavsett trösklar — diagnostik som gör
+    "namnform okänd" mätbar (beslut e, 2026-09-14). Aldrig en träff.
+    """
+    home_cands = [home, english_name(home_iso)]
+    away_cands = [away, english_name(away_iso)]
+    best, best_score, best_swapped = None, 0.0, False
+    near, near_score, near_sides, near_swapped = None, -1.0, (0.0, 0.0), False
+    for g in index:
+        if match_start:
+            gap = _hours_apart(match_start, g.get("start"))
+            if gap is None or gap > TIME_WINDOW_H:
+                continue
+        # rätt orientering
+        sh, sa = _best_side(home_cands, g["home"]), _best_side(away_cands, g["away"])
+        normal = (sh + sa) / 2 if (sh >= HOME_AWAY_MIN and sa >= HOME_AWAY_MIN) else 0.0
+        # omvänd orientering
+        sh2, sa2 = _best_side(home_cands, g["away"]), _best_side(away_cands, g["home"])
+        swapped = (sh2 + sa2) / 2 if (sh2 >= HOME_AWAY_MIN and sa2 >= HOME_AWAY_MIN) else 0.0
+        score, is_swapped = (swapped, True) if swapped > normal else (normal, False)
+        if score > best_score:
+            best, best_score, best_swapped = g, score, is_swapped
+        if diag is not None:
+            raw_normal, raw_swapped = (sh + sa) / 2, (sh2 + sa2) / 2
+            raw, raw_sides, raw_swap = ((raw_swapped, (sh2, sa2), True)
+                                        if raw_swapped > raw_normal
+                                        else (raw_normal, (sh, sa), False))
+            if raw > near_score:
+                near, near_score, near_sides, near_swapped = g, raw, raw_sides, raw_swap
+    if not best or best_score < COMBINED_MIN:
+        if diag is not None and near is not None:
+            diag.update({"cand_home": near["home"], "cand_away": near["away"],
+                         "cand_start": near.get("start"),
+                         "side_home": round(near_sides[0], 3),
+                         "side_away": round(near_sides[1], 3),
+                         "score": round(near_score, 3), "swapped": near_swapped})
+        return None
+    odds = best["odds"]
+    if best_swapped:
+        odds = {"1": odds["2"], "X": odds["X"], "2": odds["1"]}
+    return {"home": best["home"], "away": best["away"], "start": best.get("start"),
+            "odds": odds, "confidence": round(best_score, 3),
+            "swapped": best_swapped, "odds_source": best.get("odds_source"),
+            # totalen är orienteringsoberoende och ska följa exakt samma
+            # fysiska match som 1X2-träffen.
+            "total": best.get("total"),
+            # rå xg i Pinnacles orientering — bomben.py speglar vid swapped
+            "home_xg": best.get("home_xg"), "away_xg": best.get("away_xg")}

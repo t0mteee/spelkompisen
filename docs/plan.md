@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-09-13, natt — Codex plan del A, B och C levererade) — läs detta först i ny session
+## STATUS (2026-09-14 — täckningspaketet a–e i drift, pit-v4 behålls) — läs detta först i ny session
 
 Det här blocket **ersätts** vid varje leverans — skriv över, stapla inte.
 Tidigare statusblock ligger daterade och ordagranna i
@@ -39,7 +39,10 @@ frontendtester, ~90 s) — pre-push-hooken i `tools/githooks/` kör den.
   (klotunion). Spelade kuponger liverättas från tre 1X2-källor; glömda
   kuponger kan importeras ur radfil.
 - **PIT-serier.** `pit-v4` (1X2/streck) + **`pit-total-v1`** (Pinnacles
-  huvudtotal, syskonserie sedan 2026-09-02, aldrig bakfylld).
+  huvudtotal, syskonserie sedan 2026-09-02, aldrig bakfylld). **Insamlingen
+  rättad 2026-09-14 under samma versioner** (datumnot i manifestet): fönster ±
+  toleransen, bygge efter fönstret, ett Pinnacle-index per basvarv, Oddsets
+  namnregel i poolmatcharen, avslag i `pool_match_diagnostic`.
   `pool_draw_settlement.jackpot_close` = senast verifierade jackpot före
   stängning (9 omgångar bakfyllda ur egna snapshots; prognosen jackpotblind
   tills `JACKPOT_MODEL_MIN_N` = 30/produkt).
@@ -65,7 +68,19 @@ nominerade till forward. Sannolikhetsbas retro (pit-v4): identiskt facit 21/21
 träffar på 77 omg, Pinnacle täcker Topptipset vid h3 i bara 18/87 omg (m20
 56/88). Se `docs/overlamningar/overlamning-2026-09-02-poolforbattringar.md`.
 
-**Senast levererat, 2026-09-13 natt (Claude): UI-planens del B och C.** Historik
+**Senast levererat, 2026-09-14 (Claude): täckningspaketet a–e.** Samans
+beslut: genomför allt, behåll pit-v4 (datumnot i
+`docs/pool-ph4-forward-manifest-v3.json` och pit-total-dokumentet), namnregel
+och diagnostik enligt rekommendation. Ändrat: `horizon_window_open` ±
+toleransen (var bara efter as-of), `horizon_ready` bygger först fönster +
+16 min, `sharp_service.VarvIndex` delar ett Pinnacle-index per basvarv med
+`force` avgjort före första produkten, `odds_provider.team_sim` = Oddsets
+`norm_team` + delsträng med truppmarkörer och `TEAM_REJECTED_LINKS` som spärr,
+`pinnacle.match_index` fyller diagnostik som bokförs i `pool_match_diagnostic`.
+Presence-regeln är oförändrad. Uppföljning ~2026-09-21 med täckningsrapporten
+`--sedan 2026-09-14`. Regel 10 i observationstidsregeln.
+
+**Tidigare, 2026-09-13 natt (Claude): UI-planens del B och C.** Historik
 har tre underflikar (Samans val 2026-09-13): **Mina kuponger** (verkligt
 spelade, filter + summering på samma population, status per kupong, detalj
 med livekort), **Tester** (katalog ur nya `/api/pool/tests`, en rad per
@@ -78,7 +93,6 @@ liverättningen (egen skattning ur pott ÷ förväntade vinnare, SvS ger ingen)
 i Mina kuponger, testkupongerna och detaljkortet. Verifierat på desktop och
 375 px. Överlämning:
 `docs/overlamningar/overlamning-2026-09-13-mina-kuponger-tester.md`.
-**⚖ Kvar för Saman: besluten a–e i pooltäckningen.**
 
 **Tidigare samma dag.** Codex granskade driften (`dba6f16`) och lade
 en plan: `docs/overlamningar/overlamning-2026-09-13-modell-ui-plan.md` —

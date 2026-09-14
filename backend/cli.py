@@ -77,13 +77,18 @@ def cmd_spikar(product: str) -> None:
     print()
 
 
-def cmd_snapshot(product: str) -> float | None:
+def cmd_snapshot(product: str,
+                 varv: "sharp_service.VarvIndex | None" = None) -> float | None:
     """Snapshotta ALLA öppna omgångar för spelet (topptipset kan ha flera) +
     cacha Pinnacle sharp + pusha ev. 🔥-notiser. Returnerar timmar till
-    närmaste spelstopp (för den smarta förtätningen)."""
+    närmaste spelstopp (för den smarta förtätningen).
+
+    `varv` delar Pinnacle-indexet mellan produktens omgångar (och mellan
+    produkterna när `_snapshot_all_pools` skickar samma objekt)."""
     import datetime as dt
     from app import notify, clv
     min_hrs: float | None = None
+    varv = varv or sharp_service.VarvIndex()
     with SvenskaSpel() as ss:
         # Scanhintet, inte kodens statiska seed. Topptipset saknar
         # listnings-API och hittas genom nummerscanning 80 nummer framåt; med
@@ -130,7 +135,8 @@ def cmd_snapshot(product: str) -> float | None:
                     from app import pool_dataset as _pd
                     horizon = _pd.horizon_window_open(draw.reg_close_time)
                     sharp_result = sharp_service.collect_pinnacle(
-                        product, draw=draw, cache=True, force=bool(horizon))
+                        product, draw=draw, cache=True, force=bool(horizon),
+                        varv=varv)
                     if horizon and not (sharp_result or {}).get("skipped"):
                         print(f"{product} omg {dn}: sharp tvingad för "
                               f"{horizon}-horisonten (spärren förbigången).")
@@ -276,13 +282,33 @@ DENSE_BUDGET_S = 1500     # håll på i max 25 min, sedan tar nästa launchd-kö
 POOL_BASE_INTERVAL_MIN = 30
 
 
+def _any_horizon_window_open(now=None) -> bool:
+    """Är något horisontfönster öppet för NÅGON öppen omgång?
+
+    Avgör om varvets enda Pinnacle-hämtning får förbigå dubbeltrafikspärren.
+    Beslutet tas FÖRE första produkten: annars hann produkt 1 bli överhoppad
+    medan produkt 3 tvingade fram hämtningen, och bara den fick captures.
+    Läser `draws`-tabellen (synkad av föregående varv) — fönstren är minst
+    20 minuter breda, så ett varv gammalt tillstånd räcker."""
+    from app import pool_dataset
+    store = Storage()
+    try:
+        rows = store.conn.execute(
+            "SELECT reg_close_time FROM draws WHERE state='Open' "
+            "AND reg_close_time IS NOT NULL").fetchall()
+    finally:
+        store.close()
+    return any(pool_dataset.horizon_window_open(row[0], now) for row in rows)
+
+
 def _snapshot_all_pools() -> tuple[float | None, int]:
     """Ett komplett poolvarv; returnera närmaste stopp och antal lyckade spel."""
     min_hrs: float | None = None
     succeeded = 0
+    varv = sharp_service.VarvIndex(force=_any_horizon_window_open())
     for product in PRODUCTS:
         try:
-            hrs = cmd_snapshot(product)
+            hrs = cmd_snapshot(product, varv=varv)
             succeeded += 1
         except Exception as exc:  # noqa: BLE001
             print(f"{product}: FEL {exc}")

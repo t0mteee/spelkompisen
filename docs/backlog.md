@@ -116,6 +116,12 @@ prioritetsordning. ⚖ = kräver Samans beslut.
     aldrig matchade. **⚖ Fem beslut (a–e) i
     `docs/overlamningar/overlamning-2026-09-13-pooltackning.md`** — ingen tids-
     eller providerregel ändrad; rekommendation: c → a → b under ny featureversion.
+    ✅ **Genomfört 2026-09-14 enligt Samans beslut:** a–c som ett paket, **pit-v4
+    och pit-total-v1 behålls** med datumnot i manifestet/dokumentet; d = Oddsets
+    namnregel i poolmatcharen (`odds_provider.team_sim`); e = `pool_match_diagnostic`.
+    Uppföljning ⏳ ~2026-09-21: `scripts/pool_tackning_rapport.py --sedan 2026-09-14`,
+    tabellen "Observationsfönstret" ska visa capture FÖRE as-of i de flesta
+    Topptipsomgångar; `pool_match_diagnostic` ersätter klassen "namnform okänd".
 17. ✅ (2026-09-13) **Codex UI-plan del B/C levererad** (Claude). Samans val:
     underflikar i Historik — Mina kuponger · Tester · Facit & prognos; toppraden
     tillbaka på fem flikar. Testkatalog ur `/api/pool/tests` (gater-raderna),

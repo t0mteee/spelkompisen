@@ -132,3 +132,31 @@ separat. Efter driftsättning: kör `pool_tackning_rapport.py --sedan
 ~10 s. Replayen behöver inget nätverk (`Pinnacle.match` är ren). Klasserna
 definieras i skriptets docstring; `--sedan` sätter vilka sluträttade omgångar
 som ingår.
+
+## Beslut och genomförande 2026-09-14
+
+Saman 2026-09-14: kör a–e, **behåll pit-v4** (och pit-total-v1) med datumnot,
+namnregel och diagnostik enligt rekommendationen. Genomfört samma dag:
+
+- a) `pool_dataset.horizon_window_open`: fönstret är ± toleransen kring as-of.
+- b) `pool_dataset.horizon_ready` + `BUILD_AFTER_WINDOW_MIN = 16`: `build_draw`
+  och `build_total_draw` bygger en horisont först när fönstret stängt och
+  Pinnacles max-age (905 s) inte längre kan backdatera en capture in i det.
+- c) `sharp_service.VarvIndex`: ett Pinnacle-index per basvarv, delat av alla
+  produkter och omgångar; `cli._any_horizon_window_open` avgör `force` före
+  första produkten; `cmd_snapshot(product, varv)`.
+- d) `odds_provider.team_sim`: Oddsets `norm_team` + delsträng ⇒ 1,0, olika
+  truppmarkörer eller känt falskt par (`TEAM_REJECTED_LINKS`) ⇒ 0,0, annars
+  SequenceMatcher; trösklarna 0,60/0,72 oförändrade. Replay av de fyra kända
+  paren träffar.
+- e) `pinnacle.match_index(..., diag)` + tabellen `pool_match_diagnostic`
+  (upsert per event och kandidat, räknar varv). `docs/db-atgarder.md`.
+
+Datumnot i `docs/pool-ph4-forward-manifest-v3.json` (`collection_notes`) och i
+`docs/pool-pit-total-v1-2026-09-02.md`; regel 10 i CLAUDE.md. Nio nya tester
+(`backend/tests/test_tackning_ae.py`), hela sviten grön.
+
+**Uppföljning:** kör `scripts/pool_tackning_rapport.py --sedan 2026-09-14`
+efter en vecka. Förväntat: kolumnen "capture före as-of (räknas)" för
+Topptipset h3/h24 går från ~20–30 % av omgångarna till de flesta, och
+klassen "namnform okänd" kan ersättas av `pool_match_diagnostic`.

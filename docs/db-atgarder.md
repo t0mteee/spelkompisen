@@ -8,6 +8,19 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-09-14 — `pool_match_diagnostic` (additiv diagnostiktabell)
+
+Ny tabell i schemat (`CREATE TABLE IF NOT EXISTS`, skapas av `Storage` vid
+start). Ingen befintlig rad rörs, ingen migrering, ingen backup behövd.
+Innehåll: när poolmatcharen säger `not_listed` sparas den närmaste
+Pinnacle-kandidaten med sidopoäng, kombinerat mått och antal varv den var
+närmast (upsert på produkt/omgång/event/kandidat). Skrivs av
+`sharp_service.collect_pinnacle`, läses av ingen serie — bara av
+täckningsrapporten och människor. Beslut e i
+`docs/overlamningar/overlamning-2026-09-13-pooltackning.md`.
+
+---
+
 ## 2026-08-31 — point-in-time-totaler för poolens X-risk
 
 **Additiv migration körd i produktion:**

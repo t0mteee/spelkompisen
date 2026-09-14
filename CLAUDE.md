@@ -79,7 +79,14 @@ bantningen 2026-09-02) — läs den när du undrar VARFÖR, inte varje session.
 ```
 backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/svenskaspel.py  SvS pools-API-klient (PRODUCTS, GAME_GROUPS, Draw, family_of)
-  app/pinnacle.py     Pinnacle Arcadia (gratis guest-API), + derive.py (1X2 ur spread/total)
+  app/pinnacle.py     Pinnacle Arcadia (gratis guest-API), + derive.py (1X2 ur spread/total);
+                      `match_index` matchar rent mot indexet och fyller `diag` vid avslag
+  app/odds_provider.py NAMNREGELN för poolmatcharen (2026-09-14): `team_sim` = Oddsets
+                      `norm_team` + delsträng ⇒ 1,0; olika truppmarkörer (U23/B/women) eller
+                      känt falskt par (`TEAM_REJECTED_LINKS`) ⇒ 0,0; trösklarna 0,60/0,72 kvar.
+                      `Leeds` mot `Leeds United` föll förut på 0,588
+  app/sharp_service.py Pinnacle för poolen: `VarvIndex` = ETT index per basvarv delat av
+                      alla produkter och omgångar; avslag bokförs i `pool_match_diagnostic`
   app/altenar.py      Ninja Casino/Altenar: listvy 1X2 + mål, eventdetalj för huvudlinan
                       totalt antal hörnor (bara i deep-/snabbfönstret)
   app/betsson.py      Publik Betsson-bootstrap (ej inkopplad; events-table CloudFront-
@@ -87,7 +94,8 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/analysis.py     fair_prob (power-metod), värde, taggar, speltyp, mover-flagga
   app/builder.py      radbyggare: matematiskt/reducerat/garanti/SvS R-system/EV-topp; KAPPA
   app/bomben.py       Poisson-målmodell för Bomben (amber, utanför CLV)
-  app/storage.py      SQLite (data/stryktips.db): snapshots, sharp_snapshots, dedup, movement
+  app/storage.py      SQLite (data/stryktips.db): snapshots, sharp_snapshots, dedup, movement,
+                      pool_match_diagnostic (matcharens närmaste avvisade kandidat, ren diagnostik)
   app/oddset.py       Oddset-insamling (LEAGUES, BOOKS, collect, matches_payload)
   app/oddset_value.py sharp-värdemotor, ANCHOR_SOURCES, drift_adjust, clv_report
   app/oddset_ledger.py WP5-forskningsfacit: prediktioner frysta vid T−24h/T−3h/T−20m
@@ -258,7 +266,9 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
 - **Pooltäckning:** `cd backend && .venv/bin/python -B scripts/pool_tackning_rapport.py`
   (read-only) klassar varje match × horisont: ok / aldrig_matchad / listad_sent /
   capture_sen / ingen_capture / pit_byggd_fore_capture, Ö/U bara där 1X2 var ok, och
-  spelar upp poolmatcharen offline. Kör den efter varje ändring i poolens insamling.
+  spelar upp poolmatcharen offline. Kör den efter varje ändring i poolens insamling —
+  efter paketet 2026-09-14 med `--sedan 2026-09-14` och jämför tabellen
+  "Observationsfönstret"; `pool_match_diagnostic` svarar sedan på vilket namn som avvisades.
 - V2.2-status: `cli.py v22audit`. Källhälsa/varvlucka: `cli.py kallhalsa [timmar]`
   (`—` i varvkolumnen = källan kördes inte; visar även Oddset- och poolhälsan).
 - **Dubblettjakt: `cli.py lanklucka [timmar]`** — providerpar med samma liga, samma
@@ -345,6 +355,17 @@ observationsögonblicket används som observationstid.**
 9. **Klockan injiceras, aldrig gömd i SQL** (`'now'`) eller i en funktion ett test inte
    kan styra — annars får testet ett bäst-före-datum (main var röd 2026-09-02 för att en
    "färsk" rad hunnit bli 31 dagar).
+10. **Fönstret ligger runt as-of, bygget väntar tills fönstret stängt, och indexet
+   hämtas en gång per varv** (täckningspaketet 2026-09-14, `docs/pool-tackning-2026-09-13.md`).
+   Tre fel i vår egen insamling gav Topptipset giltig sharp vid 180 min i bara 16 av
+   75 omgångar: `horizon_window_open` tvingade Pinnacle-hämtningen EFTER as-of medan
+   pit-v4 bara räknar captures före; `build_recent` byggde horisonten på första ticken
+   efter as-of innan fönstercapturen skrivits, och raden byggs aldrig om; den globala
+   dubbeltrafikspärren lät bara FÖRSTA produkten i basvarvet få ordinarie captures.
+   Nu: fönstret är ± toleransen, `horizon_ready` väntar tolerans + `BUILD_AFTER_WINDOW_MIN`
+   (16 min ≥ Pinnacles max-age), och `sharp_service.VarvIndex` delar ett index per
+   basvarv med `force` avgjort före första produkten. Presence-REGELN är oförändrad, så
+   pit-v4/pit-total-v1 fortsätter under samma version med datumnot i manifestet.
 
 ### 📦 TRANSPORTREGELN — status 200 betyder inte läsbar kropp
 

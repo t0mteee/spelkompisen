@@ -2,6 +2,15 @@
 
 Datum: 2026-09-02. Status: fryst före första insamlingen.
 
+**Datumnot 2026-09-14 (Samans beslut: samma version, ingen pit-total-v2).**
+Insamlingen rättades utan att presence-regeln ändrades: fönstret ± toleransen,
+bygge först när fönstret stängt + 16 min, ett Pinnacle-index per basvarv,
+Oddsets namnregel i poolmatcharen (`docs/pool-tackning-2026-09-13.md`,
+`overlamning-2026-09-13-pooltackning.md`). Omgångar före 2026-09-14 är
+samlade under den glesare regimen (h3: 2/40 kompletta Topptipsomgångar) —
+redovisa datumet vid skörd, blanda inte regimerna i samma bootstrap utan att
+säga det.
+
 ## Varför
 
 Ö/U i poolen är i dag ENBART X-skyddet (`pool-draw-risk-v1`): total ≤ 2,25

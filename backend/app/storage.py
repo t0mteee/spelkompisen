@@ -432,6 +432,31 @@ CREATE INDEX IF NOT EXISTS idx_pool_market_capture_asof
     ON pool_market_capture
        (product, draw_number, source, event_number, fetched_at DESC);
 
+-- MATCHARENS AVSLAG (2026-09-14, beslut e): närmaste Pinnacle-kandidat med
+-- sidopoäng när poolmatcharen sa not_listed. Gör klassen "Pinnacles namnform
+-- okänd" i täckningsrapporten mätbar. Diagnostik: ingår i INGEN serie, läses
+-- aldrig av byggare, PIT eller UI-tips. En rad per (event, kandidat), räknar
+-- hur många varv kandidaten var närmast.
+CREATE TABLE IF NOT EXISTS pool_match_diagnostic (
+    product        TEXT NOT NULL,
+    draw_number    INTEGER NOT NULL,
+    event_number   INTEGER NOT NULL,
+    svs_home       TEXT,
+    svs_away       TEXT,
+    match_start    TEXT,
+    cand_home      TEXT NOT NULL,
+    cand_away      TEXT NOT NULL,
+    cand_start     TEXT,
+    side_home      REAL,
+    side_away      REAL,
+    score          REAL,
+    swapped        INTEGER NOT NULL DEFAULT 0,
+    first_seen_at  TEXT NOT NULL,
+    last_seen_at   TEXT NOT NULL,
+    n_seen         INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (product, draw_number, event_number, cand_home, cand_away)
+);
+
 CREATE TABLE IF NOT EXISTS pool_pit_draw_features (
     product         TEXT NOT NULL,
     draw_number     INTEGER NOT NULL,
@@ -2218,6 +2243,33 @@ class Storage:
         args.append(int(limit))
         return [dict(r) | {"ok": bool(r["ok"])}
                 for r in self.conn.execute(sql, args).fetchall()]
+
+    def pool_match_diagnostic_record(self, product: str, draw_number: int,
+                                     events: dict[int, dict], observed_at: str) -> int:
+        """Bokför matcharens närmaste avvisade kandidat per event (append/upsert).
+
+        `events`: {event_number: {svs_home, svs_away, match_start, cand_home,
+        cand_away, cand_start, side_home, side_away, score, swapped}}."""
+        rows = [(product, int(draw_number), int(event), d.get("svs_home"), d.get("svs_away"),
+                 d.get("match_start"), d["cand_home"], d["cand_away"], d.get("cand_start"),
+                 d.get("side_home"), d.get("side_away"), d.get("score"),
+                 int(bool(d.get("swapped"))), observed_at, observed_at)
+                for event, d in events.items() if d.get("cand_home") and d.get("cand_away")]
+        if not rows:
+            return 0
+        before = self.conn.total_changes
+        with self.bulk():
+            self.conn.executemany(
+                "INSERT INTO pool_match_diagnostic (product, draw_number, event_number, "
+                "svs_home, svs_away, match_start, cand_home, cand_away, cand_start, "
+                "side_home, side_away, score, swapped, first_seen_at, last_seen_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(product, draw_number, event_number, cand_home, cand_away) "
+                "DO UPDATE SET last_seen_at=excluded.last_seen_at, "
+                "n_seen=pool_match_diagnostic.n_seen+1, side_home=excluded.side_home, "
+                "side_away=excluded.side_away, score=excluded.score, "
+                "swapped=excluded.swapped, cand_start=excluded.cand_start", rows)
+        return self.conn.total_changes - before
 
     def oddset_prune_source_health_log(self, keep_days: int = 30,
                                        now: dt.datetime | None = None) -> int:
