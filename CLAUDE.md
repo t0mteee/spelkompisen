@@ -81,10 +81,11 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/svenskaspel.py  SvS pools-API-klient (PRODUCTS, GAME_GROUPS, Draw, family_of)
   app/pinnacle.py     Pinnacle Arcadia (gratis guest-API), + derive.py (1X2 ur spread/total);
                       `match_index` matchar rent mot indexet och fyller `diag` vid avslag
-  app/odds_provider.py NAMNREGELN för poolmatcharen (2026-09-14): `team_sim` = Oddsets
-                      `norm_team` + delsträng ⇒ 1,0; olika truppmarkörer (U23/B/women) eller
-                      känt falskt par (`TEAM_REJECTED_LINKS`) ⇒ 0,0; trösklarna 0,60/0,72 kvar.
-                      `Leeds` mot `Leeds United` föll förut på 0,588
+  app/odds_provider.py NAMNREGELN för poolmatcharen (2026-09-15, pool-name-v2): Oddsets
+                      `norm_team` + poolspecifika bekräftade alias ⇒ 1,0; obekräftade delnamn,
+                      olika trupper och kända falska par ⇒ 0. SC bevaras (Barcelona ≠ Barcelona SC).
+                      Trösklarna 0,60/0,72 kvar; `match_index` kräver EN kandidat/orientering,
+                      annars `ambiguous` i captures, inga odds. Globala modellalias orörda.
   app/sharp_service.py Pinnacle för poolen: `VarvIndex` = ETT index per basvarv delat av
                       alla produkter och omgångar; avslag bokförs i `pool_match_diagnostic`
   app/altenar.py      Ninja Casino/Altenar: listvy 1X2 + mål, eventdetalj för huvudlinan

@@ -93,17 +93,19 @@ def _ratio(a: str, b: str) -> float:
     return difflib.SequenceMatcher(None, a, b).ratio()
 
 
-# NAMNREGELN (2026-09-14, beslut d i docs/overlamningar/overlamning-2026-09-13-
-# pooltackning.md): samma regel som Oddsets identitetsmatchning. Ren
-# SequenceMatcher fällde korrekta par där Svenska Spel skriver kortnamnet
-# och Pinnacle hela klubbnamnet — `Leeds` mot `Leeds United` 0,588 < 0,60,
-# `Nottingham`/`Tottenham` mot `Nottingham Forest`/`Tottenham Hotspur`
-# kombinerat 0,716 < 0,72, `Frankfurt` mot `Eintracht Frankfurt`,
-# `Sabah Masazir` mot `Sabah FK`. Oddsets `norm_team` (suffix, alias) +
-# delsträngsregel tar alla fyra. Skyddet mot falska par är tre lager:
-# truppmarkörer är identitet (`Inter` ≠ `Inter U23`), kända falska par ur
-# `TEAM_REJECTED_LINKS` fälls alltid, och båda sidorna måste passera var
-# för sig inom tidsfönstret. Trösklarna är oförändrade.
+# Poolens egna bekräftade kortnamn. Ändra inte Oddsets/modellens globala
+# alias för att rätta poolmatcharen. Evidens: täckningsrapport 2026-09-13
+# och NameRuleTests (Svenska Spel ↔ Pinnacle).
+POOL_MATCH_VERSION = "pool-name-v2"
+_POOL_TEAM_ALIASES = {
+    "leeds": "leeds united",
+    "nottingham": "nottingham forest",
+    "tottenham": "tottenham hotspur",
+    "frankfurt": "eintracht frankfurt",
+    "sabah masazir": "sabah",
+    "hull": "hull city",
+    "mainz": "mainz 05",
+}
 _SQUAD_MARKERS = frozenset({"b", "ii", "reserve", "reserves", "academy",
                             "youth", "women", "damer"})
 _norm_cache: dict[str, str] = {}
@@ -114,7 +116,14 @@ def _norm_team(name: str) -> str:
     cached = _norm_cache.get(name)
     if cached is None:
         from .oddset import norm_team      # lat: oddset importerar pinnacle
-        cached = _norm_cache[name] = norm_team(name)
+        cached = norm_team(name)
+        # SC kan skilja klubbar åt (Barcelona / Barcelona SC). Global
+        # suffixstrippning får inte göra dem identiska i poolmatcharen.
+        raw_tokens = re.findall(r"[a-z0-9]+", name.casefold())
+        if "sc" in raw_tokens and "sc" not in cached.split():
+            cached += " sc"
+        cached = _POOL_TEAM_ALIASES.get(cached, cached)
+        _norm_cache[name] = cached
     return cached
 
 
@@ -134,9 +143,11 @@ def _rejected() -> set[frozenset]:
 
 
 def team_sim(a: Optional[str], b: Optional[str]) -> float:
-    """Namnlikhet 0–1 med Oddsets regel: lika eller delsträng efter
-    normalisering ⇒ 1,0; olika truppmarkörer eller känt falskt par ⇒ 0,0;
-    annars SequenceMatcher på de normaliserade namnen."""
+    """Exakt/alias ger 1; obekräftade delnamn och olika trupper ger 0.
+
+    Annan stavningslikhet bedöms med samma fuzzy-trösklar som tidigare.
+    Ett delnamn får inte falla tillbaka till fuzzy efter att ha avvisats.
+    """
     if not a or not b:
         return 0.0
     na, nb = _norm_team(a), _norm_team(b)
@@ -146,8 +157,10 @@ def team_sim(a: Optional[str], b: Optional[str]) -> float:
         return 0.0
     if frozenset((na, nb)) in _rejected():
         return 0.0
-    if na == nb or na in nb or nb in na:
+    if na == nb:
         return 1.0
+    if na in nb or nb in na:
+        return 0.0
     return _ratio(na, nb)
 
 

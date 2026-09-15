@@ -13,6 +13,12 @@ säga det.
 
 ## Varför
 
+**Datumnot 2026-09-15:** `pool-name-v2` stoppar obekräftade delnamn och
+tvetydiga kandidat-/orienteringsval även för totalen (samma fysiska match
+som 1X2). `ambiguous` innebär inga kopplade odds. Samma serie enligt
+insamlingsbeslutet ovan; ingen bakfyllning. Redovisa datumet vid skörd.
+Se `docs/overlamningar/overlamning-2026-09-15-poolmatchning.md`.
+
 Ö/U i poolen är i dag ENBART X-skyddet (`pool-draw-risk-v1`): total ≤ 2,25
 sänker X-tröskeln från 32 % till 29,5 %. Det är en tröskelregel, inte en
 modell — och den valdes på en mänsklig granskning av Europatipset 2603, inte

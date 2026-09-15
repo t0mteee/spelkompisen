@@ -78,6 +78,13 @@
   ],
   "collection_notes": [
     {
+      "date": "2026-09-15",
+      "match_version": "pool-name-v2",
+      "change": "Säkerhetsfix av poolmatchningen: endast bekräftade delnamnsalias, SC bevaras, flera kvalificerade kandidater eller orienteringar avstår (capturestatus ambiguous). Globala modellalias och PIT-regler oförändrade; pit-v4 behålls inom insamlingsbeslutet 2026-09-14. Gäller bara nya observationer, ingen historik bakfylls.",
+      "expected_effect": "Felaktiga kopplingar av delnamn och ordningsberoende kandidatval stoppas. Konservativt fler avslag kan uppstå; redovisa insamlingsregimen vid skörd.",
+      "doc": "docs/overlamningar/overlamning-2026-09-15-poolmatchning.md"
+    },
+    {
       "date": "2026-09-14",
       "decision": "Saman 2026-09-14: pit-v4 behålls, ingen ny featureversion",
       "change": "Insamlingen rättad utan att presence-regeln ändras: horisontfönstret ligger nu ± toleransen kring as-of (var bara efter), horisonten byggs först när fönstret stängt + 16 min (byggdes på första ticken efter as-of), ett Pinnacle-index per basvarv delas av alla produkter (bara första produkten fick ordinarie captures), poolmatcharen använder Oddsets namnregel (Leeds/Leeds United m.fl. matchar), avslag bokförs i pool_match_diagnostic.",

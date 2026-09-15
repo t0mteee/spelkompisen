@@ -51,6 +51,51 @@ class WindowTests(unittest.TestCase):
 
 
 class NameRuleTests(unittest.TestCase):
+    def test_obekraftade_delnamn_ar_inte_samma_klubb(self):
+        for a, b in (("Inter", "Inter Miami"), ("Barcelona", "Barcelona SC"),
+                     ("United", "Manchester United")):
+            with self.subTest(a=a, b=b):
+                self.assertEqual(0.0, odds_provider.team_sim(a, b))
+                self.assertEqual(0.0, odds_provider.team_sim(b, a))
+        self.assertEqual(1.0, odds_provider.team_sim("Barcelona SC", "Barcelona SC"))
+
+    def test_exakt_inter_vinner_oavsett_indexordning(self):
+        start = "2026-09-15T18:00:00Z"
+        wrong = dict(home="Inter Miami", away="Lazio", start=start,
+                     odds={"1": 6.0, "X": 4.0, "2": 1.5})
+        right = dict(home="Inter", away="Lazio", start=start,
+                     odds={"1": 1.5, "X": 4.0, "2": 6.0})
+        for index in ([wrong, right], [right, wrong]):
+            hit = pinnacle.match_index("Inter", "Lazio", None, None, index, start)
+            self.assertEqual("Inter", hit["home"])
+            self.assertEqual(1.5, hit["odds"]["1"])
+            self.assertEqual(odds_provider.POOL_MATCH_VERSION, hit["match_version"])
+
+    def test_flera_kandidater_avstar_oavsett_ordning_och_pris(self):
+        start = "2026-09-15T18:00:00Z"
+        first = dict(home="Inter", away="Lazio", start=start,
+                     odds={"1": 1.5, "X": 4.0, "2": 6.0})
+        second = {**first, "start": "2026-09-16T18:00:00Z",
+                  "odds": {"1": 6.0, "X": 4.0, "2": 1.5}}
+        for index in ([first, second], [second, first], [first, first]):
+            diag = {}
+            self.assertIsNone(pinnacle.match_index("Inter", "Lazio", None, None, index, start, diag))
+            self.assertEqual("ambiguous", diag["reason"])
+            self.assertEqual(2, diag["qualifying_candidates"])
+
+    def test_tvetydig_orientering_avstar_men_entydig_speglar_odds(self):
+        start = "2026-09-15T18:00:00Z"
+        odds = {"1": 1.5, "X": 4.0, "2": 6.0}
+        # Samma landslagsalternativ på båda sidor gör båda orienteringarna möjliga.
+        diag = {}
+        self.assertIsNone(pinnacle.match_index("Sweden", "Sverige", "SWE", "SWE",
+            [dict(home="Sweden", away="Sweden", start=start, odds=odds)], start, diag))
+        self.assertEqual("ambiguous", diag["reason"])
+        hit = pinnacle.match_index("Lazio", "Inter", None, None,
+            [dict(home="Inter", away="Lazio", start=start, odds=odds)], start)
+        self.assertTrue(hit["swapped"])
+        self.assertEqual({"1": 6.0, "X": 4.0, "2": 1.5}, hit["odds"])
+
     def test_kortnamn_mot_fullt_klubbnamn_ar_traff(self):
         for a, b in (("Leeds", "Leeds United"), ("Nottingham", "Nottingham Forest"),
                      ("Tottenham", "Tottenham Hotspur"), ("Frankfurt", "Eintracht Frankfurt"),
@@ -139,6 +184,25 @@ class VarvIndexTests(unittest.TestCase):
         self.assertEqual({1: "matched"}, first["status"])
         self.assertEqual({1: "matched", 2: "not_listed"}, second["status"])
         self.assertEqual("Brighton", second["diagnostics"][2]["cand_home"])
+
+    def test_tvetydighet_sparas_som_egen_status_utan_odds(self):
+        draw = _draw([("Brighton", "Leeds")])
+        varv = sharp_service.VarvIndex()
+        sharp_service.collect_pinnacle("stryktipset", draw=draw, varv=varv, cache=False)
+        varv.index = varv.index + varv.index
+        result = sharp_service.collect_pinnacle("stryktipset", draw=draw, varv=varv)
+        self.assertEqual({1: "ambiguous"}, result["status"])
+        self.assertEqual({}, result["hits"])
+        store = Storage(self.db)
+        try:
+            pool_dataset.record_sharp_capture(store, "stryktipset", draw, result)
+            rows = store.conn.execute(
+                "SELECT status, odds_complete FROM pool_market_capture").fetchall()
+            self.assertEqual([("ambiguous", 0)], [tuple(row) for row in rows])
+            self.assertEqual(1, store.conn.execute(
+                "SELECT COUNT(*) FROM pool_match_diagnostic").fetchone()[0])
+        finally:
+            store.close()
 
     def test_sparren_galler_bara_forsta_hamtningen_och_forbigas_av_varvets_fonster(self):
         store = Storage(self.db)

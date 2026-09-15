@@ -119,6 +119,13 @@ prioritetsordning. ⚖ = kräver Samans beslut.
     ✅ **Genomfört 2026-09-14 enligt Samans beslut:** a–c som ett paket, **pit-v4
     och pit-total-v1 behålls** med datumnot i manifestet/dokumentet; d = Oddsets
     namnregel i poolmatcharen (`odds_provider.team_sim`); e = `pool_match_diagnostic`.
+    ✅ **Hårdnad 2026-09-15:** pool-name-v2 stoppar obekräftade delnamn (Inter/Inter Miami,
+    Barcelona/Barcelona SC) och tvetydiga kandidater/orienteringar. Bekräftade kortnamn
+    har poolspecifika alias; avslag med flera kandidater får status `ambiguous`.
+    **Nästa driftfelsökning:** Topptipset 4333 m20 missade toleransen med 70 sekunder
+    trots regelbunden insamling (15-minuters observationstakt mot 10-minuters tolerans).
+    h3 föll i en lucka 10:40–14:56 UTC. Utred kadens/CDN-Age och driftluckan utan att
+    mjuka upp PIT-regeln eller bakfylla. Se överlämning 2026-09-15-poolmatchning.
     Uppföljning ⏳ ~2026-09-21: `scripts/pool_tackning_rapport.py --sedan 2026-09-14`,
     tabellen "Observationsfönstret" ska visa capture FÖRE as-of i de flesta
     Topptipsomgångar; `pool_match_diagnostic` ersätter klassen "namnform okänd".

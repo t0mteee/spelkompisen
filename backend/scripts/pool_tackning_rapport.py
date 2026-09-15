@@ -4,7 +4,7 @@ pit-total-v1 (Ö/U). Svarar på frågan ur planen 2026-09-13 (del A): VAR och
 VARFÖR saknar poolmatcher Pinnacle vid frysningarna, och löser den senare
 20-minutersobservationen luckorna från 180 min på SAMMA omgångar?
 
-Fem felklasser för 1X2 som aldrig får blandas (`total_eligible=0` och "ingen
+Felklasser för 1X2 som aldrig får blandas (`total_eligible=0` och "ingen
 rad" är olika saker, precis som här):
 
   ok              sharp_eligible=1 i pit-v4 vid horisonten.
@@ -15,6 +15,7 @@ rad" är olika saker, precis som här):
                   matcharen OFFLINE mot Oddset-sidans sparade Pinnacle-namn
                   (`oddset_matches`, `pin:`-rader) för att skilja de två.
   listad_sent     not_listed vid as-of men matchad senare, före spelstopp.
+  tvetydig        flera kandidater/orienteringar; inga odds kopplas (pool-name-v2).
   ingen_1x2       Pinnacle listade matchen men utan moneyline.
   capture_sen     matchad, men observationen ligger utanför horisontens
                   tolerans (pit-v4:s timing-regel, `TIMING_TOLERANCE_MIN`).
@@ -56,7 +57,7 @@ from app.pool_dataset import (FEATURE_START_AT, FEATURE_VERSION, HORIZONS,  # no
                               TOTAL_FEATURE_VERSION, _iso, _parse)
 
 MATCHED = ("matched", "derived")
-CLASSES = ("ok", "aldrig_matchad", "listad_sent", "ingen_1x2", "capture_sen",
+CLASSES = ("ok", "aldrig_matchad", "listad_sent", "tvetydig", "ingen_1x2", "capture_sen",
            "odds_ofullstandiga", "ingen_capture", "pit_byggd_fore_capture")
 TOTAL_CLASSES = ("total_ok", "total_saknas", "total_ogiltig", "ingen_rad", "rad_saknas")
 # Forwardtesternas startomgångar: PH5/maxtesterna (Stryk/Europa) och poolopt
@@ -180,6 +181,8 @@ def classify(conn, draws, by_date, pin_rows, pin_client):
                     cls = "ok"
                 elif cap is None:
                     cls = "ingen_capture"
+                elif cap[1] == "ambiguous":
+                    cls = "tvetydig"
                 elif cap[1] == "not_listed":
                     later = next((p for p in seq if p[1] in MATCHED and p[0] <= close_iso), None)
                     cls = "listad_sent" if later and later[0] > asof else "aldrig_matchad"
@@ -347,10 +350,11 @@ def markdown(summary, records, sedan, generated_at, windows, cadence):
     for (a, b), n in sorted(summary["h3_to_m20"].items(), key=lambda kv: (kv[0][0] == "ok", -kv[1])):
         out.append(f"| {a} | {b} | {n} |")
     out += ["", "## Observationsfönstret: på vilken sida av as-of hamnar sharp-capturen?", "",
-            "pit-v4 räknar bara en capture i [as-of − tolerans, as-of]. `horizon_window_open` tvingar "
-            "Pinnacle-hämtningen i (as-of, as-of + tolerans], alltså EFTER as-of; den räknas bara när "
-            "CDN-Age backdaterar stämpeln förbi as-of. Utanför fönstret får bara den första produkten i "
-            "varvet ordinarie sharp-captures — den globala dubbeltrafikspärren hoppar över resten.", "",
+            "pit-v4 räknar bara en capture i [as-of − tolerans, as-of]. Före insamlingsfixen "
+            "2026-09-14 tvingades hämtningarna först efter as-of och ordinarie hämtningar "
+            "utanför fönstret nådde bara första produkten. Sedan fixen är fönstret symmetriskt "
+            "och indexet delas mellan produkterna. Tabellen mäter de faktiska observationerna; "
+            "ett datumfilter på spelstopp kan fortfarande omfatta horisonter före driftsättningen.", "",
             "| familj | horisont | omgångar | capture före as-of (räknas) | bara efter as-of (räknas inte) | ingen i fönstret |",
             "|---|---|---|---|---|---|"]
     for (family, horizon), c in sorted(windows.items(), key=lambda kv: (kv[0][0], list(HORIZONS).index(kv[0][1]))):
@@ -380,12 +384,12 @@ def markdown(summary, records, sedan, generated_at, windows, cadence):
             if c:
                 out.append(f"| {p} | {h} | {c['omgångar']} | {c['alla_1x2']} | {c['alla_total']} |")
     out += ["", "## Luckor per liga vid 20 min (liga via Oddsets `svs:`-rader)", "",
-            "| liga | matcher | ok | aldrig_matchad | listad_sent | ingen_1x2 | capture_sen | ingen_capture |",
-            "|---|---|---|---|---|---|---|---|"]
+            "| liga | matcher | ok | aldrig_matchad | listad_sent | tvetydig | ingen_1x2 | capture_sen | ingen_capture |",
+            "|---|---|---|---|---|---|---|---|---|"]
     for league, c in sorted(summary["per_league_m20"].items(), key=lambda kv: -sum(kv[1].values())):
         n = sum(c.values())
         out.append(f"| {league} | {n} | {c['ok']} | {c['aldrig_matchad']} | {c['listad_sent']} | "
-                   f"{c['ingen_1x2']} | {c['capture_sen']} | {c['ingen_capture']} |")
+                   f"{c['tvetydig']} | {c['ingen_1x2']} | {c['capture_sen']} | {c['ingen_capture']} |")
     never = summary["never_matched_m20"]
     out += ["", f"## Aldrig matchade vid 20 min: {len(never)} rader, {summary['unique_never_matched']} unika matcher "
             "(Stryk/Topptipset Stryk och Europa/Topptipset Extra delar matcher)", "",

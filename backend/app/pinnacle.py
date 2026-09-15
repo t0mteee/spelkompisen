@@ -18,7 +18,8 @@ from typing import Optional
 import httpx
 
 from .odds_provider import (_best_side, _hours_apart, english_name,
-                            COMBINED_MIN, HOME_AWAY_MIN, TIME_WINDOW_H)
+                            COMBINED_MIN, HOME_AWAY_MIN, TIME_WINDOW_H,
+                            POOL_MATCH_VERSION)
 from .derive import derive_1x2, goal_expectations
 
 BASE = "https://guest.api.arcadia.pinnacle.com/0.1"
@@ -411,7 +412,9 @@ def match_index(home: str, away: str, home_iso: Optional[str],
                 diag: Optional[dict] = None) -> Optional[dict]:
     """Bästa matchande Pinnacle-match (namn via ISO/namnregel + tidsfönster).
 
-    Ren funktion utan nätverk. Testar båda lagorienteringarna; om Pinnacle
+    Ren funktion utan nätverk. Kräver exakt en kvalificerad kandidat och
+    en entydig hemma-/bortaorientering; indexordning får aldrig välja odds.
+    Testar båda lagorienteringarna; om Pinnacle
     har hemma/borta omvänt speglas oddsen (1↔2) så att '1' alltid = Svenska
     Spels hemmalag. `diag` fylls vid AVSLAG med den närmaste kandidaten
     (namn, sidopoäng, kombinerat) oavsett trösklar — diagnostik som gör
@@ -420,6 +423,7 @@ def match_index(home: str, away: str, home_iso: Optional[str],
     home_cands = [home, english_name(home_iso)]
     away_cands = [away, english_name(away_iso)]
     best, best_score, best_swapped = None, 0.0, False
+    qualifying = 0
     near, near_score, near_sides, near_swapped = None, -1.0, (0.0, 0.0), False
     for g in index:
         if match_start:
@@ -433,6 +437,8 @@ def match_index(home: str, away: str, home_iso: Optional[str],
         sh2, sa2 = _best_side(home_cands, g["away"]), _best_side(away_cands, g["home"])
         swapped = (sh2 + sa2) / 2 if (sh2 >= HOME_AWAY_MIN and sa2 >= HOME_AWAY_MIN) else 0.0
         score, is_swapped = (swapped, True) if swapped > normal else (normal, False)
+        # Även två orienteringar av samma rad är tvetydighet.
+        qualifying += int(normal >= COMBINED_MIN) + int(swapped >= COMBINED_MIN)
         if score > best_score:
             best, best_score, best_swapped = g, score, is_swapped
         if diag is not None:
@@ -442,13 +448,16 @@ def match_index(home: str, away: str, home_iso: Optional[str],
                                         else (raw_normal, (sh, sa), False))
             if raw > near_score:
                 near, near_score, near_sides, near_swapped = g, raw, raw_sides, raw_swap
-    if not best or best_score < COMBINED_MIN:
+    if not best or best_score < COMBINED_MIN or qualifying != 1:
         if diag is not None and near is not None:
             diag.update({"cand_home": near["home"], "cand_away": near["away"],
                          "cand_start": near.get("start"),
                          "side_home": round(near_sides[0], 3),
                          "side_away": round(near_sides[1], 3),
-                         "score": round(near_score, 3), "swapped": near_swapped})
+                         "score": round(near_score, 3), "swapped": near_swapped,
+                         "reason": "ambiguous" if qualifying > 1 else "name_mismatch",
+                         "qualifying_candidates": qualifying,
+                         "match_version": POOL_MATCH_VERSION})
         return None
     odds = best["odds"]
     if best_swapped:
@@ -456,6 +465,7 @@ def match_index(home: str, away: str, home_iso: Optional[str],
     return {"home": best["home"], "away": best["away"], "start": best.get("start"),
             "odds": odds, "confidence": round(best_score, 3),
             "swapped": best_swapped, "odds_source": best.get("odds_source"),
+            "match_version": POOL_MATCH_VERSION,
             # totalen är orienteringsoberoende och ska följa exakt samma
             # fysiska match som 1X2-träffen.
             "total": best.get("total"),

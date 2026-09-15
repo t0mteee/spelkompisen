@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-09-14 — täckningspaketet a–e i drift, pit-v4 behålls) — läs detta först i ny session
+## STATUS (2026-09-15 — poolmatchningen hårdnad, insamlingskadensen behöver följas upp) — läs detta först i ny session
 
 Det här blocket **ersätts** vid varje leverans — skriv över, stapla inte.
 Tidigare statusblock ligger daterade och ordagranna i
@@ -42,7 +42,10 @@ frontendtester, ~90 s) — pre-push-hooken i `tools/githooks/` kör den.
   huvudtotal, syskonserie sedan 2026-09-02, aldrig bakfylld). **Insamlingen
   rättad 2026-09-14 under samma versioner** (datumnot i manifestet): fönster ±
   toleransen, bygge efter fönstret, ett Pinnacle-index per basvarv, Oddsets
-  namnregel i poolmatcharen, avslag i `pool_match_diagnostic`.
+  namnregel i poolmatcharen, avslag i `pool_match_diagnostic`. Namnregeln
+  hårdnad 2026-09-15 som `pool-name-v2`: bekräftade alias, inga godtyckliga
+  delnamn, EN kvalificerad kandidat/orientering; tvetydighet avstår med
+  capturestatus `ambiguous`. Datumnot tillagd, ingen historik omskriven.
   `pool_draw_settlement.jackpot_close` = senast verifierade jackpot före
   stängning (9 omgångar bakfyllda ur egna snapshots; prognosen jackpotblind
   tills `JACKPOT_MODEL_MIN_N` = 30/produkt).
@@ -68,7 +71,21 @@ nominerade till forward. Sannolikhetsbas retro (pit-v4): identiskt facit 21/21
 träffar på 77 omg, Pinnacle täcker Topptipset vid h3 i bara 18/87 omg (m20
 56/88). Se `docs/overlamningar/overlamning-2026-09-02-poolforbattringar.md`.
 
-**Senast levererat, 2026-09-14 (Claude): täckningspaketet a–e.** Samans
+**Senast levererat, 2026-09-15 (Codex): säker poolmatchning.** Inter/Inter Miami
+och Barcelona/Barcelona SC kan inte längre bli exakta träffar. Bekräftade
+kortnamn finns kvar som poolspecifika alias; flera kandidater/orienteringar
+avstår i stället för att välja första indexraden. Globala modellalias och
+PIT-toleranser är oförändrade. Regressioner + hela kontrollsviten gröna.
+Överlämning: `docs/overlamningar/overlamning-2026-09-15-poolmatchning.md`.
+
+**Täckning, tidig kontroll:** tre avslutade Topptipsomgångar sedan 14/9:
+h24 20/24, h3 14/24, m20 8/24 matcher giltiga. Blandar observationer före
+och efter Claudes fix; inte ett före/efter-experiment. Omg 4333 missade m20
+med 70 sekunder (15-minuters observationstakt, 10-minuters tolerans); h3 låg
+i en fyratimmars insamlingslucka. Omg 4334 har 8/8 vid h3 och m20. Nästa
+driftarbete: utred kadens/CDN-Age och avbrottet. Ingen modellpromotion.
+
+**Tidigare, 2026-09-14 (Claude): täckningspaketet a–e.** Samans
 beslut: genomför allt, behåll pit-v4 (datumnot i
 `docs/pool-ph4-forward-manifest-v3.json` och pit-total-dokumentet), namnregel
 och diagnostik enligt rekommendation. Ändrat: `horizon_window_open` ±
@@ -96,8 +113,8 @@ i Mina kuponger, testkupongerna och detaljkortet. Verifierat på desktop och
 
 **Tidigare samma dag.** Codex granskade driften (`dba6f16`) och lade
 en plan: `docs/overlamningar/overlamning-2026-09-13-modell-ui-plan.md` —
-**del B/C (Mina kuponger, Tester, personlig Idag) är förslag som väntar på
-Samans beslut**, del A är levererad. Codex: registret `_bench` känner poolopt
+del B/C (Mina kuponger, Tester, personlig Idag) levererades senare samma dag
+enligt Samans beslut, liksom del A. Codex: registret `_bench` känner poolopt
 och Pinnacle-utmanaren, `research_groups` per produkt × nyckel × frystid, ett
 filterkontrakt i 5 000-/maxtester (`f3d600a`, driftsatt av Claude samma
 kväll). Claude: `cli.py gater` komplett (`49bbe1b`) och **täckningsrapporten**
@@ -106,9 +123,8 @@ read-only). Fynd: Ö/U-luckan ÄR 1X2-luckan; Topptipset har giltig sharp i
 12 % av matcherna vid 180 min; tre mekanismer i insamlingen — horisontfönstret
 tvingar Pinnacle EFTER as-of, den globala spärren ger bara första produkten
 ordinarie captures, featurebygget hinner före fönstercapturen — plus fyra par
-som poolmatcharen fäller. **⚖ Fem beslut (a–e) i
-`docs/overlamningar/overlamning-2026-09-13-pooltackning.md`; ingen tids- eller
-providerregel är ändrad.** Föregående leveranser i `docs/status-historik.md`.
+som poolmatcharen fällde. Besluten a–e genomfördes 14/9 enligt ovan.
+Föregående leveranser i `docs/status-historik.md`.
 
 ## Modellplan — vägen till en modell att lita på (efter backtest-domen)
 

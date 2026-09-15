@@ -149,7 +149,8 @@ def collect_pinnacle(product: str = "stryktipset",
         hit = match_index(m.home, m.away, m.home_iso, m.away_iso,
                           index, m.match_start, diag)
         if not hit:
-            status[m.event_number] = "not_listed"
+            status[m.event_number] = (
+                "ambiguous" if diag.get("reason") == "ambiguous" else "not_listed")
             if diag:
                 diagnostics[m.event_number] = {
                     "svs_home": m.home, "svs_away": m.away,
