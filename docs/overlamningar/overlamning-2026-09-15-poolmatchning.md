@@ -45,7 +45,12 @@ Konservativa avslag kan öka; lägg bara till nya alias med match-/tidevidens.
   produktionsinsamlare eller tjänster startade där.
 - Driftsättningsrutin: ren server → ff-pull → endast backendens LaunchAgent
   startas om. Pooljobbet läser ny kod nästa ordinarie process/tick.
-  Slutlig driftverifiering noteras separat efter leveransen.
+  **Driftsatt:** `d604e00` pushad till main och ff-pullad till servern 15/9.
+  Backend startad om; 15 regressionstester även gröna på servern.
+  06:48 UTC: `/api/health` = ok (pool, Oddset, V2.2), inga versionsavvikelser,
+  frontend HTTP 200. Pooljobbet mellan körningar med senaste exitkod 0 och
+  kalendertrigger kvar. Serverns arbetskatalog ren. Ingen frontendombyggnad
+  krävdes eftersom denna leverans bara ändrar backend/tester/dokumentation.
 
 ## Read-only-täckning 2026-09-15 06:41 UTC
 
