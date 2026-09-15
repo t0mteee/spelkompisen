@@ -122,10 +122,14 @@ prioritetsordning. ⚖ = kräver Samans beslut.
     ✅ **Hårdnad 2026-09-15:** pool-name-v2 stoppar obekräftade delnamn (Inter/Inter Miami,
     Barcelona/Barcelona SC) och tvetydiga kandidater/orienteringar. Bekräftade kortnamn
     har poolspecifika alias; avslag med flera kandidater får status `ambiguous`.
-    **Nästa driftfelsökning:** Topptipset 4333 m20 missade toleransen med 70 sekunder
+    ✅ **2026-09-15 pool-capture-v2:** begränsad match-id-reserv före m20, öppna
+    horisonter aktiverar poolticken, explicit skip/fel/Age-logg och skydd mot
+    bakåtgående snapshots. **Uppföljning kvar:** mät täckningen efter införandet.
+    Topptipset 4333 m20 missade toleransen med 70 sekunder
     trots regelbunden insamling (15-minuters observationstakt mot 10-minuters tolerans).
-    h3 föll i en lucka 10:40–14:56 UTC. Utred kadens/CDN-Age och driftluckan utan att
-    mjuka upp PIT-regeln eller bakfylla. Se överlämning 2026-09-15-poolmatchning.
+    h3 föll i en sharp-lucka 10:40–14:56 UTC, men jobbet körde under hela perioden.
+    Gamla loggar skiljer inte källfel/skip; nya gör det. PIT-regeln oförändrad,
+    ingen bakfyllning. Se överlämningar 2026-09-15-poolmatchning och poolkadens.
     Uppföljning ⏳ ~2026-09-21: `scripts/pool_tackning_rapport.py --sedan 2026-09-14`,
     tabellen "Observationsfönstret" ska visa capture FÖRE as-of i de flesta
     Topptipsomgångar; `pool_match_diagnostic` ersätter klassen "namnform okänd".

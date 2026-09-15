@@ -79,6 +79,12 @@
   "collection_notes": [
     {
       "date": "2026-09-15",
+      "collection_version": "pool-capture-v2",
+      "change": "Saman: rätta tidsluckan. Öppna horisonter aktiverar befintligt pooltick. Begränsad per-match-id-reserv före m20 när giltig bulkobservation saknas: fullständig 1X2+total, verifierad HTTP Age, samma tolerans, hämtning och pristid före as-of. Ingen tips-/styrke-shadowändring och ingen historisk bakfyllning. pit-v4 kvar inom insamlingsfixen; redovisa datumnoten vid skörd.",
+      "doc": "docs/overlamningar/overlamning-2026-09-15-poolkadens.md"
+    },
+    {
+      "date": "2026-09-15",
       "match_version": "pool-name-v2",
       "change": "Säkerhetsfix av poolmatchningen: endast bekräftade delnamnsalias, SC bevaras, flera kvalificerade kandidater eller orienteringar avstår (capturestatus ambiguous). Globala modellalias och PIT-regler oförändrade; pit-v4 behålls inom insamlingsbeslutet 2026-09-14. Gäller bara nya observationer, ingen historik bakfylls.",
       "expected_effect": "Felaktiga kopplingar av delnamn och ordningsberoende kandidatval stoppas. Konservativt fler avslag kan uppstå; redovisa insamlingsregimen vid skörd.",

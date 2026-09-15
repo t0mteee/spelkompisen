@@ -1,5 +1,133 @@
 # Statushistorik — daterade statusblock ur `docs/plan.md`
 
+## Arkiverat 2026-09-15 — före m20-reservhämtningen
+
+## STATUS (2026-09-15 — poolmatchningen hårdnad, insamlingskadensen behöver följas upp) — läs detta först i ny session
+
+Det här blocket **ersätts** vid varje leverans — skriv över, stapla inte.
+Tidigare statusblock ligger daterade och ordagranna i
+`docs/status-historik.md`. Överlämningar: `docs/overlamningar/`. Aktiv
+arbetslista: `docs/backlog.md` (avsnittet **Aktivt** överst).
+
+**Drift.** Allt kör på MacBook-servern `192.168.50.100` (backend 8002, byggd
+frontend 5175, launchd: snapshot/pool/kalltest + Chartervakt/Bonusvakt);
+se `docs/macbook-server-2026-08-11.md` och `docs/AI-OVERLAMNING-SERVER.md`.
+Kontroll före push: `tools/kontroll.sh` (900+ backendtester, eslint, 30
+frontendtester, ~90 s) — pre-push-hooken i `tools/githooks/` kör den.
+`backend/requirements.lock` är serverns frysta venv.
+
+**Kontrakt som gäller nu.**
+- **Live-radar** `chance-gap-shadow-v12` (Championship i scope från
+  2026-09-02T22:00Z; Ligue 1 sedan v11;
+  v10 från 2026-08-18 låser bästa färska överpris från Kambi/Ninja/Pinnacle,
+  Pinnacle bara vid Age ≤ 90 s). Flashscore ankare, FotMob sekundär, Sofascore
+  urkopplad ur radarn men kvar för resultatstatistik/frånvaro.
+- **V2.2** samlar under manifest v10
+  (`docs/model-v2.2-multileague-forward-manifest-v10.json`), sharp
+  `s-2f14f9a6`; `/api/health` bevakar versionskontraktet. Aldrig tipsinput.
+- **Modell** (amber, sämre än Pinnacle i alla ligor): modelldata v5,
+  `powerrank-v2`. Modelligor: Allsvenskan/Superettan/Eliteserien/OBOS/MLS +
+  PL/Serie A/La Liga/Bundesliga. Ligue 1 samlas (621/622 med xG) men står
+  utanför `MODEL_LEAGUES` tills temperaturen kalibrerats. Championship är nu
+  fullt följd för odds/live men står också utanför målmodellen; football-data
+  `E1` fortsätter ge resultat.
+- **Pool.** `pool-draw-risk-v1`: X skyddas ≥ 29,5 % vid Pinnacle-total ≤ 2,25
+  (32 % utan total) i ALLA automatiska byggen. Matematiskt max v2 = 3 spikar +
+  1 halv + 9 hela = 39 366 rader. PH3 gen 2, champion `dr1-b256-medel`
+  (sannolikhetsbas SvS), Topptipset-familjen tak 512 och **en tionde nyckel
+  sedan 2026-09-02: `dr1-b256-medel-sharp`** (samma byggare, Pinnacle först).
+  Radprofiler Standard/Träffsäkrare/Radform v1·test. Topptipset Dagens/Stryk/
+  Extra är ETT spel i all redovisning (`family_of`). Chansmotorn räknar EXAKT
+  (klotunion). Spelade kuponger liverättas från tre 1X2-källor; glömda
+  kuponger kan importeras ur radfil.
+- **PIT-serier.** `pit-v4` (1X2/streck) + **`pit-total-v1`** (Pinnacles
+  huvudtotal, syskonserie sedan 2026-09-02, aldrig bakfylld). **Insamlingen
+  rättad 2026-09-14 under samma versioner** (datumnot i manifestet): fönster ±
+  toleransen, bygge efter fönstret, ett Pinnacle-index per basvarv, Oddsets
+  namnregel i poolmatcharen, avslag i `pool_match_diagnostic`. Namnregeln
+  hårdnad 2026-09-15 som `pool-name-v2`: bekräftade alias, inga godtyckliga
+  delnamn, EN kvalificerad kandidat/orientering; tvetydighet avstår med
+  capturestatus `ambiguous`. Datumnot tillagd, ingen historik omskriven.
+  `pool_draw_settlement.jackpot_close` = senast verifierade jackpot före
+  stängning (9 omgångar bakfyllda ur egna snapshots; prognosen jackpotblind
+  tills `JACKPOT_MODEL_MIN_N` = 30/produkt).
+
+**Pågående mätningar — passiva. Läs på kadens, bygg inget nytt före skörd.**
+V2.2-gaten · PH5 forward (5 000 rader; Stryk 4966→, Europa 2600→) ·
+Max-tester `mathmax-v2`/`reducedmax-v2` (Stryk 4969/Europa 2604→) ·
+`pool-strength-blend-v1` (Historik → Poolmodell) · radarens blindtest (200
+prissatta/avgjorda matcher, 30 dygns spann och 20 matchdygn) · **PH3 sannolikhetsbas** (`dr1-b256-medel-sharp`, Topptipset,
+grind 40 parade omg) · **pooloptimerare v1 forward** (`poolopt` research-
+familj: träff/balans/X-kvot à 256 rader, Topptipset 4309/Stryk 979/Extra 1864→,
+grind 40 parade omg mot championen, avslut 120) · **pit-total-v1** (grind ≥ 40
+Topptipsomgångar med total på alla åtta) · PH4 pit-v4 Stryk/Europa (8–14/40).
+`cli.py gater` läser allihop, inkl. pit-total, i PARADE OBEROENDE omgångar mot
+respektive förregistrering, med statustrappan samlar → underlag klart →
+granskad: stöd|ej stöd → infört|avslutad (PH4 Topptipset visas granskad ur
+`docs/ph4-forward-status.json`).
+
+**Skördat 2026-09-02.** PH4 Topptipset: streck + streckrörelse slår INTE ren
+Pinnacle vid h3 — promotion nej. Pooloptimerare v1 fullsökning (10 000 konf.,
+2 006 omg): ingen arm slog Standard på ROI i slutauditen (402 omg); tre armar
+nominerade till forward. Sannolikhetsbas retro (pit-v4): identiskt facit 21/21
+träffar på 77 omg, Pinnacle täcker Topptipset vid h3 i bara 18/87 omg (m20
+56/88). Se `docs/overlamningar/overlamning-2026-09-02-poolforbattringar.md`.
+
+**Senast levererat, 2026-09-15 (Codex): säker poolmatchning.** Inter/Inter Miami
+och Barcelona/Barcelona SC kan inte längre bli exakta träffar. Bekräftade
+kortnamn finns kvar som poolspecifika alias; flera kandidater/orienteringar
+avstår i stället för att välja första indexraden. Globala modellalias och
+PIT-toleranser är oförändrade. Regressioner + hela kontrollsviten gröna.
+Överlämning: `docs/overlamningar/overlamning-2026-09-15-poolmatchning.md`.
+
+**Täckning, tidig kontroll:** tre avslutade Topptipsomgångar sedan 14/9:
+h24 20/24, h3 14/24, m20 8/24 matcher giltiga. Blandar observationer före
+och efter Claudes fix; inte ett före/efter-experiment. Omg 4333 missade m20
+med 70 sekunder (15-minuters observationstakt, 10-minuters tolerans); h3 låg
+i en fyratimmars insamlingslucka. Omg 4334 har 8/8 vid h3 och m20. Nästa
+driftarbete: utred kadens/CDN-Age och avbrottet. Ingen modellpromotion.
+
+**Tidigare, 2026-09-14 (Claude): täckningspaketet a–e.** Samans
+beslut: genomför allt, behåll pit-v4 (datumnot i
+`docs/pool-ph4-forward-manifest-v3.json` och pit-total-dokumentet), namnregel
+och diagnostik enligt rekommendation. Ändrat: `horizon_window_open` ±
+toleransen (var bara efter as-of), `horizon_ready` bygger först fönster +
+16 min, `sharp_service.VarvIndex` delar ett Pinnacle-index per basvarv med
+`force` avgjort före första produkten, `odds_provider.team_sim` = Oddsets
+`norm_team` + delsträng med truppmarkörer och `TEAM_REJECTED_LINKS` som spärr,
+`pinnacle.match_index` fyller diagnostik som bokförs i `pool_match_diagnostic`.
+Presence-regeln är oförändrad. Uppföljning ~2026-09-21 med täckningsrapporten
+`--sedan 2026-09-14`. Regel 10 i observationstidsregeln.
+
+**Tidigare, 2026-09-13 natt (Claude): UI-planens del B och C.** Historik
+har tre underflikar (Samans val 2026-09-13): **Mina kuponger** (verkligt
+spelade, filter + summering på samma population, status per kupong, detalj
+med livekort), **Tester** (katalog ur nya `/api/pool/tests`, en rad per
+experiment med gater-trappan, omgångsvy som standard i 5 000-/maxtester,
+Standardjämförelsen och Poolstyrka utbrutna) och **Facit & prognos**. Idag
+visar Mina kuponger överst med lätt livebild och nya resultat, och ett
+Tester-kort med bara nyheter. Direktlänkar via hash (`lib/routes.js`), stäng
+backar i historiken. Samma kväll: **utdelningsprognos per nivå** bredvid
+liverättningen (egen skattning ur pott ÷ förväntade vinnare, SvS ger ingen)
+i Mina kuponger, testkupongerna och detaljkortet. Verifierat på desktop och
+375 px. Överlämning:
+`docs/overlamningar/overlamning-2026-09-13-mina-kuponger-tester.md`.
+
+**Tidigare samma dag.** Codex granskade driften (`dba6f16`) och lade
+en plan: `docs/overlamningar/overlamning-2026-09-13-modell-ui-plan.md` —
+del B/C (Mina kuponger, Tester, personlig Idag) levererades senare samma dag
+enligt Samans beslut, liksom del A. Codex: registret `_bench` känner poolopt
+och Pinnacle-utmanaren, `research_groups` per produkt × nyckel × frystid, ett
+filterkontrakt i 5 000-/maxtester (`f3d600a`, driftsatt av Claude samma
+kväll). Claude: `cli.py gater` komplett (`49bbe1b`) och **täckningsrapporten**
+`docs/pool-tackning-2026-09-13.md` (`scripts/pool_tackning_rapport.py`,
+read-only). Fynd: Ö/U-luckan ÄR 1X2-luckan; Topptipset har giltig sharp i
+12 % av matcherna vid 180 min; tre mekanismer i insamlingen — horisontfönstret
+tvingar Pinnacle EFTER as-of, den globala spärren ger bara första produkten
+ordinarie captures, featurebygget hinner före fönstercapturen — plus fyra par
+som poolmatcharen fällde. Besluten a–e genomfördes 14/9 enligt ovan.
+Föregående leveranser i `docs/status-historik.md`.
+
 ## Arkiverat 2026-09-15 — status 2026-09-14, ordagrant
 
 ## STATUS (2026-09-14 — täckningspaketet a–e i drift, pit-v4 behålls) — läs detta först i ny session

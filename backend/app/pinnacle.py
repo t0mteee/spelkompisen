@@ -127,6 +127,8 @@ class Pinnacle:
         self._client = httpx.Client(timeout=timeout, headers=HEADERS)
         # Ålder (sekunder) på CDN-objektet i senaste lyckade svar — se _get.
         self.last_age_s = 0
+        self.last_age_valid = False
+        self.last_retrieved_at: Optional[str] = None
 
     def reset_cache_age(self) -> None:
         """Nollställ före ett logiskt anropsblock."""
@@ -141,7 +143,7 @@ class Pinnacle:
     def __exit__(self, *exc):
         self.close()
 
-    def _get(self, path: str):
+    def _get(self, path: str, *, attempts: int = 3):
         # Försök igen vid tillfälliga nätfel (launchd-pollen råkade ut för
         # ConnectError ibland). OBS: Cloudflare ger periodvis 403 (HTML) för
         # datacenter-/VPN-IP:n — det är IP-baserat, headers/TLS hjälper EJ.
@@ -153,10 +155,11 @@ class Pinnacle:
         # De enda nollorna kom när VÅR egen miss populerade cachen. Lägg inte
         # tillbaka den i tron att den ger ett färskare pris.
         last = None
-        for attempt in range(3):
+        for attempt in range(attempts):
             try:
                 r = self._client.get(f"{BASE}{path}")
                 r.raise_for_status()
+                self.last_retrieved_at = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
                 # CDN-CACHE (uppmätt 2026-07-24): bulk-endpointerna svarar
                 # `cache-control: public, max-age=905` och objektet är ofta
                 # redan flera minuter gammalt (observerat age=469 s). Priset
@@ -168,14 +171,18 @@ class Pinnacle:
                 # kadensen: snabbvarv oftare än ~15 min ger Pinnacle SAMMA
                 # objekt igen (se FAST_SLEEP_S i oddset.py).
                 try:
-                    age_s = max(0, int(r.headers.get("age") or 0))
+                    raw_age = r.headers.get("age")
+                    age_s = max(0, int(raw_age or 0))
+                    self.last_age_valid = raw_age is not None and int(raw_age) >= 0
                 except (TypeError, ValueError):
                     age_s = 0
+                    self.last_age_valid = False
                 self.last_age_s = age_s
                 return r.json()
             except (httpx.ConnectError, httpx.ReadTimeout, httpx.ConnectTimeout) as e:
                 last = e
-                time.sleep(1.5 * (attempt + 1))
+                if attempt + 1 < attempts:
+                    time.sleep(1.5 * (attempt + 1))
         raise last
 
     def soccer_index(self, include_without_odds: bool = False) -> list[dict]:
@@ -233,12 +240,26 @@ class Pinnacle:
                 + abs(offer["U"] - 2.0),
                 default=None,
             )
-            out.append({"home": home, "away": away, "start": m.get("startTime"),
+            out.append({"id": str(mid), "home": home, "away": away, "start": m.get("startTime"),
                         "odds": odds, "odds_source": source,
                         "total": main_total,
                         "home_xg": round(xg[0], 3) if xg else None,
                         "away_xg": round(xg[1], 3) if xg else None})
         return out
+
+    def prematch_quote(self, matchup_id: str) -> dict:
+        """Ett försök på exakt match-id; Age prövas separat av poolinsamlaren."""
+        markets = self._get(f"/matchups/{matchup_id}/markets/straight", attempts=1)
+        retrieved = self.last_retrieved_at or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        exact = [m for m in markets if str(m.get("matchupId")) == str(matchup_id)]
+        moneylines, _ = _moneylines_by_child(exact)
+        totals, _ = _totals_by_child(exact)
+        offers = next(iter(totals.values()), [])
+        total = min(offers, key=lambda q: abs(q["O"] - 2) + abs(q["U"] - 2), default=None)
+        return {"odds": next(iter(moneylines.values()), None), "total": total,
+                "retrieved_at": retrieved, "cache_age_s": self.last_age_s,
+                "cache_age_valid": self.last_age_valid,
+                "fetched_at": cache_adjusted_iso(retrieved, self.last_age_s)}
 
     def refresh_live_total(self, matchup_ids: list[str]) -> Optional[dict]:
         """Hämta EN matchs live-totaler direkt, förbi bulkens CDN-fönster.
@@ -462,7 +483,7 @@ def match_index(home: str, away: str, home_iso: Optional[str],
     odds = best["odds"]
     if best_swapped:
         odds = {"1": odds["2"], "X": odds["X"], "2": odds["1"]}
-    return {"home": best["home"], "away": best["away"], "start": best.get("start"),
+    return {"id": best.get("id"), "home": best["home"], "away": best["away"], "start": best.get("start"),
             "odds": odds, "confidence": round(best_score, 3),
             "swapped": best_swapped, "odds_source": best.get("odds_source"),
             "match_version": POOL_MATCH_VERSION,

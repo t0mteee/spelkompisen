@@ -137,11 +137,23 @@ def cmd_snapshot(product: str,
                     sharp_result = sharp_service.collect_pinnacle(
                         product, draw=draw, cache=True, force=bool(horizon),
                         varv=varv)
-                    if horizon and not (sharp_result or {}).get("skipped"):
+                    if sharp_result and sharp_result.get("pinnacle_error"):
+                        print(f"{product} omg {dn}: sharp KÄLLFEL: {sharp_result['pinnacle_error']}")
+                    elif sharp_result and sharp_result.get("skipped"):
+                        print(f"{product} omg {dn}: sharp överhoppad: {sharp_result['skipped']}")
+                    elif horizon and sharp_result:
                         print(f"{product} omg {dn}: sharp tvingad för "
-                              f"{horizon}-horisonten (spärren förbigången).")
+                              f"{horizon}; pristid {sharp_result.get('fetched_at')}, "
+                              f"hämtad {sharp_result.get('retrieved_at')}, "
+                              f"Age {sharp_result.get('cache_age_s')} s.")
                     sharp_n = len(sharp_result["hits"]) if sharp_result else 0
-                except Exception:  # noqa: BLE001
+                    from app import pool_capture_refresh
+                    refresh = pool_capture_refresh.capture_missing(
+                        store, product, draw, sharp_result, varv)
+                    if any(refresh.values()):
+                        print(f"{product} omg {dn}: m20-reserv {refresh}")
+                except Exception as exc:  # noqa: BLE001
+                    print(f"{product} omg {dn}: sharp/reserv FEL {type(exc).__name__}: {exc}")
                     sharp_n = -1
                 pushed = notify.check_movers(product, draw, store)
                 clv.log_flags(product, draw, store)   # CLV-facit: logga gröna/sharp-flaggor
@@ -282,7 +294,7 @@ DENSE_BUDGET_S = 1500     # håll på i max 25 min, sedan tar nästa launchd-kö
 POOL_BASE_INTERVAL_MIN = 30
 
 
-def _any_horizon_window_open(now=None) -> bool:
+def _any_horizon_window_open(now=None, store=None) -> bool:
     """Är något horisontfönster öppet för NÅGON öppen omgång?
 
     Avgör om varvets enda Pinnacle-hämtning får förbigå dubbeltrafikspärren.
@@ -291,13 +303,15 @@ def _any_horizon_window_open(now=None) -> bool:
     Läser `draws`-tabellen (synkad av föregående varv) — fönstren är minst
     20 minuter breda, så ett varv gammalt tillstånd räcker."""
     from app import pool_dataset
-    store = Storage()
+    owned = store is None
+    store = store if store is not None else Storage()
     try:
         rows = store.conn.execute(
             "SELECT reg_close_time FROM draws WHERE state='Open' "
             "AND reg_close_time IS NOT NULL").fetchall()
     finally:
-        store.close()
+        if owned:
+            store.close()
     return any(pool_dataset.horizon_window_open(row[0], now) for row in rows)
 
 
@@ -355,9 +369,11 @@ def _settle_pass() -> None:
 
 def pool_tick_due(last_run: Optional[dt.datetime],
                   next_close_h: Optional[float], *,
-                  now: Optional[dt.datetime] = None) -> bool:
+                  now: Optional[dt.datetime] = None, horizon_open: bool = False) -> bool:
     """Basvarv var 30:e minut, men varje 5-min tick inom två timmar."""
     now = now or dt.datetime.now(dt.timezone.utc)
+    if horizon_open:
+        return True
     if next_close_h is not None and 0 <= next_close_h <= DENSE_WITHIN_H:
         return True
     if last_run is None:
@@ -398,7 +414,8 @@ def cmd_pool_tick() -> None:
                 last_run = last_run.replace(tzinfo=dt.timezone.utc)
         except (AttributeError, ValueError):
             last_run = None
-        due = pool_tick_due(last_run, next_close_h, now=now)
+        due = pool_tick_due(last_run, next_close_h, now=now,
+                            horizon_open=_any_horizon_window_open(now, store))
     finally:
         store.close()
     if not due:

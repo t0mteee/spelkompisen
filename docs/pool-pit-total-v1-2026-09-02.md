@@ -13,6 +13,12 @@ säga det.
 
 ## Varför
 
+**Datumnot 2026-09-15, pool-capture-v2:** begränsad per-match-reserv före
+m20 observerar 1X2 och huvudtotal atomiskt, på exakt samma provider-id.
+Giltig HTTP Age och ursprunglig tidsregel krävs. Ingen bakfyllning eller
+ändring av eligibility; redovisa den nya insamlingsregimen vid skörd.
+Se `docs/overlamningar/overlamning-2026-09-15-poolkadens.md`.
+
 **Datumnot 2026-09-15:** `pool-name-v2` stoppar obekräftade delnamn och
 tvetydiga kandidat-/orienteringsval även för totalen (samma fysiska match
 som 1X2). `ambiguous` innebär inga kopplade odds. Samma serie enligt

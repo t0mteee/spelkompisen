@@ -31,6 +31,12 @@ class PoolSchedulerTests(unittest.TestCase):
         last = NOW - dt.timedelta(minutes=2)
         self.assertFalse(pool_tick_due(last, -0.1, now=NOW))
 
+    def test_h3_och_h24_fonster_far_inte_stoppas_av_basintervallet(self):
+        last = NOW - dt.timedelta(minutes=5)
+        for close_h in (3, 24):
+            self.assertFalse(pool_tick_due(last, close_h, now=NOW))
+            self.assertTrue(pool_tick_due(last, close_h, now=NOW, horizon_open=True))
+
     def test_total_source_failure_is_retried_next_tick(self) -> None:
         store = mock.MagicMock()
         store.meta_get.return_value = None

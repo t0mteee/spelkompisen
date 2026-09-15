@@ -50,6 +50,9 @@ class VarvIndex:
         self.retrieved_at: Optional[str] = None
         self.cache_age_s = 0
         self.fetches = 0
+        self.detail_quotes: dict = {}
+        self.detail_deadline = None
+        self.error: Optional[str] = None
 
     @property
     def loaded(self) -> bool:
@@ -91,6 +94,11 @@ def collect_pinnacle(product: str = "stryktipset",
         if draw is None:
             return None
 
+    if varv is not None and varv.error:
+        return {"draw": draw, "hits": {}, "status": {}, "pinnacle_error": varv.error,
+                "retrieved_at": varv.retrieved_at, "fetched_at": varv.retrieved_at,
+                "cache_age_s": 0}
+
     retrieved_at = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     hits: dict[int, dict] = {}
     status: dict[int, str] = {}
@@ -124,6 +132,8 @@ def collect_pinnacle(product: str = "stryktipset",
                 # soccer_index hämtar marknader sist: last_age_s är alltså
                 # prisendpointens HTTP Age, inte den separata matchup-listans.
                 cache_age_s = int(getattr(pin, "last_age_s", 0) or 0)
+                retrieved_at = (getattr(pin, "last_retrieved_at", None) or
+                                dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
             _ts = Storage()
             try:   # bokför hämtningen så andra varv kan hoppa över den
                 _ts.meta_set(_PINNACLE_LAST_FETCH_KEY, retrieved_at)
@@ -133,6 +143,9 @@ def collect_pinnacle(product: str = "stryktipset",
                 varv.index, varv.retrieved_at, varv.cache_age_s = index, retrieved_at, cache_age_s
                 varv.fetches += 1
         except Exception as e:  # noqa: BLE001 — block/nätfel ska inte fälla SS-insamlingen
+            retrieved_at = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            if varv is not None:
+                varv.error, varv.retrieved_at = str(e)[:160], retrieved_at
             _hs = Storage()
             try:
                 _hs.meta_set("pinnacle_error", str(e).splitlines()[0][:160])

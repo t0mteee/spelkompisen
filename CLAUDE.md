@@ -88,6 +88,9 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       annars `ambiguous` i captures, inga odds. Globala modellalias orörda.
   app/sharp_service.py Pinnacle för poolen: `VarvIndex` = ETT index per basvarv delat av
                       alla produkter och omgångar; avslag bokförs i `pool_match_diagnostic`
+  app/pool_capture_refresh.py m20-reserv för PIT: exakt Pinnacle-id, färsk 1X2 + total
+                      före as-of, Age verifierad; max 13 försök/12 s startbudget per varv,
+                      2 s timeout/nätfas och 240 s cooldown/id. Ingen tips-/shadowinput.
   app/altenar.py      Ninja Casino/Altenar: listvy 1X2 + mål, eventdetalj för huvudlinan
                       totalt antal hörnor (bara i deep-/snabbfönstret)
   app/betsson.py      Publik Betsson-bootstrap (ej inkopplad; events-table CloudFront-
@@ -306,6 +309,10 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
   `max-age=905`, så anrop oftare än ~15 min returnerar samma objekt. Radarns källor är
   färska (FotMob `max-age=10`, Flashscore `Age` ~3 s). Flashscores dagsfeed hämtas färsk
   varje varv — cachad ställning är värre än trafiken.
+  **Avgränsat undantag 2026-09-15, Saman:** öppna PIT-horisonter får köra på
+  befintligt femminuterstick även utanför sista två timmarna. M20-reserven
+  får fråga enskilda match-id:n inom sin budget när giltig bulk saknas.
+  Ingen ny timer eller tät bulkloop. Se `docs/overlamningar/overlamning-2026-09-15-poolkadens.md`.
 - Varje liveprovider har egen presence och source-health. Ett **lyckat** tomt roster
   avslutar tidigare kort; nät-/parsefel får aldrig göra det. `last_run` är den äldsta av
   `LIVE_SOURCES`-kontrollerna och tom tills alla kontrollerats.

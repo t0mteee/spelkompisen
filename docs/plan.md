@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-09-15 — poolmatchningen hårdnad, insamlingskadensen behöver följas upp) — läs detta först i ny session
+## STATUS (2026-09-15 — säker poolmatchning och begränsad m20-reserv) — läs detta först i ny session
 
 Det här blocket **ersätts** vid varje leverans — skriv över, stapla inte.
 Tidigare statusblock ligger daterade och ordagranna i
@@ -71,7 +71,17 @@ nominerade till forward. Sannolikhetsbas retro (pit-v4): identiskt facit 21/21
 träffar på 77 omg, Pinnacle täcker Topptipset vid h3 i bara 18/87 omg (m20
 56/88). Se `docs/overlamningar/overlamning-2026-09-02-poolforbattringar.md`.
 
-**Senast levererat, 2026-09-15 (Codex): säker poolmatchning.** Inter/Inter Miami
+**Senast levererat, 2026-09-15 (Codex): pool-capture-v2.** Öppna h24/h3-fönster
+får inte längre hoppas över av basintervallet. Inför m20 kan saknad giltig
+bulkobservation kompletteras från exakt Pinnacle-match-id: bara före as-of,
+fullständig 1X2 + total, verifierad Age och oförändrad 10-minuterstolerans.
+Max 13 försök och 12 s startbudget per varv, delat mellan alla produkter;
+timeout 2 s per nätverksfas, cooldown 240 s per id. Ingen extra bulkloop,
+ingen ändring i tips eller styrke-shadow. Snapshotklockan går inte bakåt.
+Loggen skiljer källfel/skip/pristid/Age. Datumnot i PIT-manifestet;
+överlämning: `docs/overlamningar/overlamning-2026-09-15-poolkadens.md`.
+
+**Tidigare samma dag: säker poolmatchning.** Inter/Inter Miami
 och Barcelona/Barcelona SC kan inte längre bli exakta träffar. Bekräftade
 kortnamn finns kvar som poolspecifika alias; flera kandidater/orienteringar
 avstår i stället för att välja första indexraden. Globala modellalias och
@@ -82,8 +92,10 @@ PIT-toleranser är oförändrade. Regressioner + hela kontrollsviten gröna.
 h24 20/24, h3 14/24, m20 8/24 matcher giltiga. Blandar observationer före
 och efter Claudes fix; inte ett före/efter-experiment. Omg 4333 missade m20
 med 70 sekunder (15-minuters observationstakt, 10-minuters tolerans); h3 låg
-i en fyratimmars insamlingslucka. Omg 4334 har 8/8 vid h3 och m20. Nästa
-driftarbete: utred kadens/CDN-Age och avbrottet. Ingen modellpromotion.
+i en fyratimmars sharp-lucka trots att servern körde var femte minut.
+Omg 4334 har 8/8 vid h3 och m20. Reservvägen är nu implementerad, men
+verklig täckningsvinst ska mätas framåt. Orsaken till den historiska
+källluckan går inte att fastställa ur dåvarande logg. Ingen modellpromotion.
 
 **Tidigare, 2026-09-14 (Claude): täckningspaketet a–e.** Samans
 beslut: genomför allt, behåll pit-v4 (datumnot i

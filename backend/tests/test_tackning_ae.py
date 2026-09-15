@@ -233,3 +233,17 @@ class VarvIndexTests(unittest.TestCase):
         self.assertEqual([(1, "Wigan", "Brighton", "Leeds United", rows[0][4], rows[0][5], 2)], rows)
         self.assertLess(rows[0][4], odds_provider.HOME_AWAY_MIN)
         self.assertEqual(1, self.fetches)
+
+    def test_kallfel_delar_varvet_utan_falska_captures(self):
+        with patch.object(sharp_service, "Pinnacle") as pin:
+            pin.return_value.__enter__.return_value.soccer_index.side_effect = RuntimeError("source unavailable")
+            varv = sharp_service.VarvIndex(force=True)
+            first = sharp_service.collect_pinnacle("stryktipset", draw=_draw([("Brighton", "Leeds")]), varv=varv)
+            second = sharp_service.collect_pinnacle("topptipset", draw=_draw([("Brighton", "Leeds")]), varv=varv)
+            self.assertEqual(1, pin.call_count)
+            self.assertEqual(first["pinnacle_error"], second["pinnacle_error"])
+            store = Storage(self.db)
+            try:
+                self.assertEqual(0, pool_dataset.record_sharp_capture(store, "topptipset", second["draw"], second))
+            finally:
+                store.close()

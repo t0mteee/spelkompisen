@@ -1581,6 +1581,16 @@ class Storage:
         self._commit()
         return n
 
+    def sharp_latest_observations(self, product: str, draw_number: int) -> dict:
+        """Monoton klocka även när bara totalen ändrats eller 1X2 stått still."""
+        return {r[0]: r[1] for r in self.conn.execute(
+            "SELECT event_number,MAX(fetched_at) FROM ("
+            "SELECT event_number,fetched_at FROM sharp_snapshots WHERE product=? AND draw_number=? "
+            "UNION ALL SELECT event_number,fetched_at FROM sharp_total_snapshots WHERE product=? AND draw_number=? "
+            "UNION ALL SELECT event_number,fetched_at FROM pool_market_capture "
+            "WHERE product=? AND draw_number=? AND source='sharp') GROUP BY event_number",
+            (product, draw_number) * 3)}
+
     def save_sharp_snapshot(self, product: str, draw_number: int, hits: dict[int, dict],
                             fetched_at: str) -> int:
         """Lägg till en tidsserie-punkt för sharp-odds (Pinnacle) per utfall, men
@@ -1593,7 +1603,10 @@ class Storage:
             (product, draw_number)).fetchall():
             prev[(r["event_number"], r["sign"])] = r["odds"]
         n = 0
+        newest = self.sharp_latest_observations(product, draw_number)
         for ev, h in hits.items():
+            if newest.get(ev) and fetched_at < newest[ev]:
+                continue  # en återläst bulkcache får inte backa en färsk matchobservation
             o = h.get("odds") or {}
             for sign in ("1", "X", "2"):
                 val = o.get(sign)
