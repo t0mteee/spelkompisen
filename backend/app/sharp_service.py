@@ -144,17 +144,18 @@ def collect_pinnacle(product: str = "stryktipset",
                 varv.fetches += 1
         except Exception as e:  # noqa: BLE001 — block/nätfel ska inte fälla SS-insamlingen
             retrieved_at = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            error = f"{type(e).__name__}: {e}".splitlines()[0][:160]
             if varv is not None:
-                varv.error, varv.retrieved_at = str(e)[:160], retrieved_at
+                varv.error, varv.retrieved_at = error, retrieved_at
             _hs = Storage()
             try:
-                _hs.meta_set("pinnacle_error", str(e).splitlines()[0][:160])
+                _hs.meta_set("pinnacle_error", error)
                 _hs.meta_set("pinnacle_error_at", retrieved_at)
             finally:
                 _hs.close()
             return {"draw": draw, "hits": {}, "status": {},
                     "fetched_at": retrieved_at, "retrieved_at": retrieved_at,
-                    "cache_age_s": 0, "pinnacle_error": str(e)[:160]}
+                    "cache_age_s": 0, "pinnacle_error": error}
 
     # Matchningen är ren (inget nätverk) och körs mot det delade indexet.
     for m in draw.matches:
