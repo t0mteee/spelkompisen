@@ -75,8 +75,18 @@ för h24/h3 och fel-delning utan falska captures.
 Före push körs hela `tools/kontroll.sh`. Servern ska ff-pullas när ren,
 backendens LaunchAgent startas om, riktade tester köras där och
 `/api/health` kontrolleras. Pooljobbet läser ny kod vid nästa ordinarie tick.
-Inga tjänster ska startas på gamla datorn. Slutlig driftverifiering läggs
-till efter leveransen.
+Inga tjänster ska startas på gamla datorn.
+
+**Driftsatt 2026-09-15 13:26 UTC:** `cda6be1` + `a6373b4` (det senare
+säkerställer att också timeout utan feltext alltid bokförs som källfel).
+Full `tools/kontroll.sh` grön före båda pusharna. Ren server ff-pullad,
+backend startad om, 38 riktade tester gröna även på servern. `/api/health`
+= ok för pool/Oddset/V2.2, inga versionsavvikelser; frontend HTTP 200.
+Ett läsande prov med driftsatta parsern gav komplett 1X2+total och verifierad
+Age 827 s, korrekt separat hämtningstid/pristid; inget sparades från provet.
+Täckningsrapporten sedan 15/9 har ännu noll sluträttade omgångar, så någon
+verklig täckningsförbättring är inte uppmätt vid leveransen. Ingen frontend-
+ombyggnad behövdes och inga produktionstjänster startades på gamla datorn.
 
 ## Nästa uppföljning
 
