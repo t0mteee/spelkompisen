@@ -977,15 +977,15 @@
   .played-detail { width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; }
   .played-detail-head > button { min-width: auto; padding: 0 10px; }
 }
-.system-composition { margin: 14px 0; padding: 12px; background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; }
+.system-composition { margin: 14px 0; padding: 12px; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; }
 .system-composition h3 { margin: 0 0 8px; }
 .system-composition p { margin: 6px 0 12px; }
 .composition-head, .composition-row { display: grid; grid-template-columns: minmax(130px, 1fr) repeat(3, minmax(62px, 90px)); gap: 6px; align-items: center; }
 .composition-head { padding: 5px 0; text-align: center; font-weight: 700; }
 .composition-head span:first-child { text-align: left; }
-.composition-row { border-top: 1px solid var(--border); padding: 7px 0; }
+.composition-row { border-top: 1px solid var(--line); padding: 7px 0; }
 .composition-row > div:first-child { overflow-wrap: anywhere; }
-.composition-sign { text-align: center; padding: 7px 2px; border-radius: 6px; border: 1px solid var(--border); }
+.composition-sign { text-align: center; padding: 7px 2px; border-radius: 6px; border: 1px solid var(--line); }
 .composition-sign small { display: block; font-size: 10px; margin-top: 3px; }
 .composition-sign.selected { background: #163e36; color: #d8fff2; }
 .composition-sign.blue { background: #163a58; color: #d4ecff; }
