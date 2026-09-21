@@ -12,6 +12,7 @@ class SystemRowModelTests(unittest.TestCase):
     def _analysis():
         return SimpleNamespace(
             turnover=0.0, row_price=1.0, draw_number=123,
+            product="topptipset", matches=[], fetched_at="2026-08-25T17:40:00Z",
             reg_close_time="2026-08-25T18:00:00Z")
 
     @staticmethod
