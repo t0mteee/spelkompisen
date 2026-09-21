@@ -114,3 +114,20 @@ rapportens SvS-id, bitset-täckning mot brute force, determinism, budget,
 EV-/teckengolv och frånvaro av facit/slutstreck i bygginput.
 Full kontroll (backend, lint, frontendtester) grön och produktionsbygge klart.
 Ingen DB-migration. Commit/push och driftefterkontroll antecknas nedan.
+
+### Verifierad driftsättning
+
+- Kodcommit **766f34a**, pushad genom full grön kontrollhook.
+- Servern fast-forwardad från 9df2b54; frontend byggd och endast backend/
+  frontend omstartade. `/api/health`: status, pools, v22 och oddset = `ok`.
+  Serverns import bekräftar `pool-name-v3`.
+- Browserkontroll vid **390 × 844**: Stryk 4971:s reducerade 20k-detalj
+  visar 75,6/15,2/9,2 % direkt på första matchens tecken, utan sidscroll.
+- Ny täckningsrapport körd efter deploy, 2026-09-21T07:43:40Z:
+  `/tmp/pool-tackning-20260921-v3.md` och `.json` på servern.
+  15 sluträttade omgångar sedan 16/9. Historiska luckor är oförändrade
+  (Stryk fortfarande 3/13), men de tre bevarade råparen träffar i v3-replay
+  och SvS-länkade Pinnacle-rader syns nu. Det är INTE uppmätt ny capturevinst.
+- Nya rapporten pekar även ut Celtic/Ferencvarosi TC–Ferencvaros och
+  Nashville/Nashville SC som kandidater för nästa evidensgranskning.
+  De har inte lagts till på gissning i denna leverans.
