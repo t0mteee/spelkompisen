@@ -96,7 +96,7 @@ def _ratio(a: str, b: str) -> float:
 # Poolens egna bekräftade kortnamn. Ändra inte Oddsets/modellens globala
 # alias för att rätta poolmatcharen. Evidens: täckningsrapport 2026-09-13
 # och NameRuleTests (Svenska Spel ↔ Pinnacle).
-POOL_MATCH_VERSION = "pool-name-v3"
+POOL_MATCH_VERSION = "pool-name-v4"
 _POOL_TEAM_ALIASES = {
     "leeds": "leeds united",
     "nottingham": "nottingham forest",
@@ -115,7 +115,13 @@ _POOL_TEAM_ALIASES = {
     "swansea": "swansea city",
     "blackburn": "blackburn rovers",
     "preston": "preston north end",
+    # Topptipset 4346: samma motståndare/avspark, observerat Pinnacle-id
+    # 1636640777 (2026-09-21). Endast poolen, inte modellens alias.
+    "cuiaba esporte": "cuiaba",
 }
+# Estudiantes är INTE ett globalt alias: La Plata, Caseros och Rio Cuarto
+# är olika klubbar. Belägget gäller SvS-kortnamnet mot Lanus i 4346.
+_POOL_CONTEXT_ALIASES = {("estudiantes", "lanus"): "estudiantes de la plata"}
 _SQUAD_MARKERS = frozenset({"b", "ii", "reserve", "reserves", "academy",
                             "youth", "women", "damer"})
 _norm_cache: dict[str, str] = {}
@@ -176,6 +182,23 @@ def team_sim(a: Optional[str], b: Optional[str]) -> float:
 
 def _best_side(candidates: list[str], target: str) -> float:
     return max((team_sim(c, target) for c in candidates if c), default=0.0)
+
+
+def pool_side_score(candidates: list[str], target: str, opponent: str,
+                    target_opponent: str, gap_h: Optional[float]) -> float:
+    """Belagt kortnamn kräver exakt motståndare och känd avspark ±15 min.
+
+    Ingen fuzzy eller landskod får göra kontextaliaset till en annan klubb.
+    Övriga par använder oförändrad namnregel.
+    """
+    name = _norm_team(candidates[0])
+    other = _norm_team(opponent)
+    canonical = _POOL_CONTEXT_ALIASES.get((name, other))
+    if canonical:
+        return float(gap_h is not None and gap_h <= 0.25
+                     and _norm_team(target_opponent) == other
+                     and _norm_team(target) == canonical)
+    return _best_side(candidates, target)
 
 
 def diagnostic_team_sim(a: str, b: str) -> float:

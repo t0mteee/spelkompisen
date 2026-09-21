@@ -79,6 +79,12 @@
   "collection_notes": [
     {
       "date": "2026-09-21",
+      "match_version": "pool-name-v4",
+      "change": "Topptipset 4346: belagt Cuiaba Esporte/Cuiaba-alias och kontextbundet Estudiantes/Estudiantes de La Plata enbart mot exakt Lanus, känd avspark inom 15 minuter och exakt kanoniskt målnamn. Inga globala modellalias, sänkta trösklar, nya källor eller bakfyllningar. Samma PIT-kontrakt inom befintligt insamlingsbeslut; särredovisa v3/v4-regimen vid skörd.",
+      "doc": "docs/overlamningar/overlamning-2026-09-21-poolnamn-v4.md"
+    },
+    {
+      "date": "2026-09-21",
       "match_version": "pool-name-v3",
       "change": "Fortsatt insamlingsrättning enligt Samans godkännande: åtta belagda poolspecifika alias från 4971, explicit veto mot hörn-/kort-event, högst fem diagnostiska sökledtrådar. Oförändrad presence, tolerans, kandidattröskel och entydighetsvakt. Ingen bakfyllning eller global modelländring. Redovisa insamlingsregimen vid skörd; pit-v4 behålls inom beslutet 2026-09-14.",
       "doc": "docs/overlamningar/overlamning-2026-09-21-pool-odds-reducering.md"

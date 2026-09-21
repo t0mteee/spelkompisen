@@ -13,6 +13,12 @@ säga det.
 
 ## Varför
 
+**Datumnot 2026-09-21, pool-name-v4:** två belagda kopplingar i Topptipset
+4346 rättas (Cuiaba Esporte/Cuiaba och kontextbundet Estudiantes/La Plata
+mot Lanus med känd avspark ±15 min). Total och 1X2 följer samma match-id.
+Ingen ny oddskälla eller historisk bakfyllning; skilj v3/v4 vid skörd.
+Se `docs/overlamningar/overlamning-2026-09-21-poolnamn-v4.md`.
+
 **Datumnot 2026-09-21, pool-name-v3:** åtta poolspecifika alias rättar
 belagda namnfel från Stryktipset 4971. Hörn-/kort-event får inte länka
 målodds; fem avvisade sökledtrådar sparas i stället för bara en. Tolerans,

@@ -1,10 +1,10 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-09-21 — synliga pooloddsluckor, pool-name-v3 och reduceringsscreening)
+## STATUS (2026-09-21 — pool-name-v4, synliga oddsluckor och reduceringsscreening)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Överlämning:
-`docs/overlamningar/overlamning-2026-09-21-pool-odds-reducering.md`.
+`docs/overlamningar/overlamning-2026-09-21-poolnamn-v4.md`.
 
 **Drift:** endast MacBook-servern 192.168.50.100, backend 8002 och byggd
 frontend 5175. Inga tjänster startade på gamla datorn. Launchd och
@@ -15,6 +15,13 @@ ankare, FotMob sekundär), V2.2 manifest v10/sharp s-2f14f9a6, amber-modell,
 powerrank-v2. Poolens champion dr1-b256-medel, radprofiler och X-riskregel
 pool-draw-risk-v1 oförändrade. Matematiskt max v2 39 366 rader (3 spikar,
 1 halv, 9 hela), reducerat max v2 20 000. Inga modellpromotioner.
+
+**Senaste insamlingsfix:** pool-name-v4 rättar två belagda namnkopplingar i
+Topptipset 4346: Cuiaba Esporte/Cuiaba och Estudiantes/La Plata endast
+mot exakt Lanus, känd avspark ±15 min och exakt målklubb. Ingen global
+Estudiantes-mappning. Vasalund lämnas enligt Samans besked. 1X2 och Ö/U
+följer samma Pinnacle-id. Gamla frysningar, modeller och källval orörda.
+Reserv-Ö/U via Kambi/Ninja föreslås separat, inte inkopplat eller märkt sharp.
 
 **Senaste UI-leverans:** pool-input-health-v1 varnar före analystabellen
 och vid byggt system för saknad SvS/Pinnacle 1X2 och Ö/U. Rött när ingen
@@ -34,7 +41,8 @@ saknat Pinnacle-utbud. Inga historiska priser eller frysningar bakfyllda.
 
 **PIT:** pit-v4 + pit-total-v1 fortsätter med datumnot enligt tidigare
 insamlingsbeslut. Pool-capture-v2:s begränsade m20-reserv och öppna
-horisontfönster kvar. Vid skörd ska regimerna 14/9, 15/9 och 21/9 redovisas.
+horisontfönster kvar. Vid skörd ska regimerna 14/9, 15/9 och 21/9
+(pool-name-v3 respektive v4) redovisas.
 
 **UI:** reducerade testkuponger visar direkt andelen rader under 1/X/2.
 Matematiska visar fortsatt bara tecken. Skillnaden mellan saknade tecken

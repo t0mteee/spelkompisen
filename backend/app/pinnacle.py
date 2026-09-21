@@ -17,7 +17,7 @@ from typing import Optional
 
 import httpx
 
-from .odds_provider import (_best_side, _hours_apart, english_name,
+from .odds_provider import (_best_side, pool_side_score, _hours_apart, english_name,
                             COMBINED_MIN, HOME_AWAY_MIN, TIME_WINDOW_H,
                             POOL_MATCH_VERSION, diagnostic_team_sim, is_side_market)
 from .derive import derive_1x2, goal_expectations
@@ -455,10 +455,12 @@ def match_index(home: str, away: str, home_iso: Optional[str],
             if gap is None or gap > TIME_WINDOW_H:
                 continue
         # rätt orientering
-        sh, sa = _best_side(home_cands, g["home"]), _best_side(away_cands, g["away"])
+        sh = pool_side_score(home_cands, g["home"], away, g["away"], gap)
+        sa = pool_side_score(away_cands, g["away"], home, g["home"], gap)
         normal = (sh + sa) / 2 if (sh >= HOME_AWAY_MIN and sa >= HOME_AWAY_MIN) else 0.0
         # omvänd orientering
-        sh2, sa2 = _best_side(home_cands, g["away"]), _best_side(away_cands, g["home"])
+        sh2 = pool_side_score(home_cands, g["away"], away, g["home"], gap)
+        sa2 = pool_side_score(away_cands, g["home"], home, g["away"], gap)
         swapped = (sh2 + sa2) / 2 if (sh2 >= HOME_AWAY_MIN and sa2 >= HOME_AWAY_MIN) else 0.0
         score, is_swapped = (swapped, True) if swapped > normal else (normal, False)
         # Även två orienteringar av samma rad är tvetydighet.
