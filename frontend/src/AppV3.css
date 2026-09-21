@@ -25,6 +25,17 @@
 }
 .coupon-dialog .v3sysdetailhead button { min-height: 40px; flex-shrink: 0; }
 .coupon-overview { display: grid; gap: 8px; }
+.pool-input-warning { border: 1px solid #b99143; border-radius: 9px; padding: 12px;
+  background: #29251c; color: #f2d897; margin: 10px 0; overflow-wrap: anywhere; }
+.pool-input-warning.error { border-color: #cd7777; background: #302126; color: #ffcaca; }
+.pool-input-warning p { margin: 6px 0; font-size: 12px; }
+.pool-input-warning summary { cursor: pointer; padding: 6px 0; }
+.pool-input-warning ul { padding-left: 20px; }
+.pool-input-warning li { margin: 8px 0; }
+.pool-input-warning li span { display: block; font-size: 12px; }
+.pool-input-warning textarea { width: 100%; box-sizing: border-box; margin-top: 8px;
+  background: var(--panel); color: var(--text); border: 1px solid var(--line);
+  border-radius: 6px; padding: 8px; font-size: 16px; resize: vertical; }
 .coupon-match { display: grid; grid-template-columns: minmax(0,1fr) 144px;
   gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
 .coupon-match-name { display: flex; gap: 8px; align-items: center; min-width: 0; }

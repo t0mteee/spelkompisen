@@ -1129,7 +1129,9 @@ def payouts(product: str = "stryktipset", draw: int | None = None):
 
 @app.get("/api/analysis")
 def analysis(product: str = "stryktipset", draw: int | None = None):
-    return analysis_to_dict(_analyze(product, draw))
+    from .pool_input_health import report
+    a = _analyze(product, draw)
+    return {**analysis_to_dict(a), "input_health": report(a)}
 
 
 @app.get("/api/spikar")
@@ -1288,6 +1290,10 @@ def system(product: str = "stryktipset",
     attach_portfolio(s, row_model == "row_shape_v1")
     attach_portfolio(complementary_system)
     response = system_to_dict(s)
+    # Bygganropet hämtar en egen analys. Märk just dess input, inte ett
+    # äldre/nyare analyssvar som råkar visas i webbläsaren.
+    from .pool_input_health import report
+    response["input_health"] = report(a)
     response["row_model"] = row_model
     response["row_model_label"] = {
         "standard": "Standard",

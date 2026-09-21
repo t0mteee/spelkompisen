@@ -16,6 +16,7 @@ import { LabbV3 } from './labb/LabbV3.jsx'
 import { AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel, BombenView, OddsetView, Legend, Collection, LoadingState, ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS, SYSTEM_BASE, SYSTEM_SVS, FAMILY, kr, fmtClose, PlayRec, oddsetBestValue } from './App.jsx'
 import { beginRequest, payoutMatchesSelection, requestIsCurrent, uniqueDraws } from './poolSelection.js'
 import { projectionBasisText } from './playRec.js'
+import { PoolInputWarning } from './components/PoolInputWarning.jsx'
 
 const VIEWS = [
   { id: 'idag', label: 'Idag', icon: '☀️' },
@@ -840,6 +841,7 @@ function PoolV3() {
 
       {game !== 'bomben' && analysis && (
         <>
+          <PoolInputWarning key={`analysis:${product}:${draw}`} health={analysis.input_health} />
           <section id="analys">
             <div className="analys-head"><h2>Analysera kupongen</h2></div>
             <Legend />
@@ -937,6 +939,8 @@ function PoolV3() {
                 <span>Max EV</span>
                 <span className="evval">{effectiveValueWeight}%</span>
               </div>
+              {sys && <PoolInputWarning key={`built:${product}:${draw}:${sys.input_health?.analysis_fetched_at}`}
+                health={sys.input_health} scope="Systembygget" compact />}
               {sys?.complementary?.available && sys.complementary.system && (
                 <>
                   <ComplementaryChooser primary={sys} meta={sys.complementary}

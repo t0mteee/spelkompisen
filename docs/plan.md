@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-09-21 — pool-name-v3, tydligare kuponger och isolerad reduceringsscreening)
+## STATUS (2026-09-21 — synliga pooloddsluckor, pool-name-v3 och reduceringsscreening)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Överlämning:
@@ -16,7 +16,14 @@ powerrank-v2. Poolens champion dr1-b256-medel, radprofiler och X-riskregel
 pool-draw-risk-v1 oförändrade. Matematiskt max v2 39 366 rader (3 spikar,
 1 halv, 9 hela), reducerat max v2 20 000. Inga modellpromotioner.
 
-**Levererat 21/9:** pool-name-v3 rättar åtta belagda kortnamnsalias från
+**Senaste UI-leverans:** pool-input-health-v1 varnar före analystabellen
+och vid byggt system för saknad SvS/Pinnacle 1X2 och Ö/U. Rött när ingen
+källa har komplett 1X2. Utfällbar matchlista och ”Kopiera för granskning”
+ger ett underlag till Claude/Codex. Byggvarningen gäller bygganropets egen
+analys. Ingen ändrad modell, färskhetsgaranti eller ny nättrafik.
+Överlämning: `docs/overlamningar/overlamning-2026-09-21-poolvarning.md`.
+
+**Tidigare levererat 21/9:** pool-name-v3 rättar åtta belagda kortnamnsalias från
 Stryk 4971, utan globala modellalias eller sänkta matchtrösklar. Hörn-/kort-event
 får inte kopplas till målmarknaden. Upp till fem avvisade sökledtrådar sparas
 i befintlig diagnostiktabell. Täckningsrapporten ser nu även SvS-id med
