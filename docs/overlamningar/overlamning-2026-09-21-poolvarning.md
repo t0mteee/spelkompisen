@@ -44,3 +44,18 @@ Sex backendtester: fullt/delvis/saknat underlag, ogiltiga priser, Ö/U,
 analys-API och bygg-API. Två frontendtester: rubrikprioritering och exakt
 granskningsunderlag. Ordinarie full kontroll körs i push-hooken.
 Driftsättning sker på 192.168.50.100; inga gamla tjänster startas.
+
+### Verifierad leverans 2026-09-21
+
+- Kod `5e997ca`, kompletterad analysfixtur för befintliga radprofiltester
+  `eeba500`. Båda pushade till `main` och driftsatta på servern.
+- Full push-kontroll grön (backendtester, frontendlint och frontendtester).
+  Frontend byggd på servern; endast backend/frontend omstartade där.
+  `/api/health`: status, pools, v22 och oddset samtliga `ok`.
+- Browserkontroll i 390 px mobilbredd: Topptipset omgång 4346 visar
+  **Pinnacle 1X2 saknas i 3/8 matcher**. Utfälld lista visar match 3, 7 och 8,
+  saknat Pinnacle 1X2/Ö/U samt SvS som sannolikhetsunderlag.
+  Granskningstexten innehåller korrekt omgång, analysens tid och matchlista.
+- Detta verifierar varningen, inte att de tre oddsluckornas orsaker är lösta.
+  Inga tjänster har startats på den gamla datorn och inga manuella
+  databasändringar har gjorts.
