@@ -64,4 +64,18 @@ listad utan marknad och transportfel, med okänd orsak när bevis saknas.
 ## Verifiering och drift
 
 21 riktade tester (nya par och befintliga poolnamn/insamlingsvakter) gröna.
-Full push-kontroll och faktisk efterkontroll på servern antecknas vid leverans.
+Full push-kontroll grön (backendtester, frontendlint och frontendtester).
+Kodcommit **3135dbb**, pushad och driftsatt på 192.168.50.100. Endast
+serverns backend omstartad; ingen frontendändring eller gammal tjänst startad.
+`/api/health`: status, pools, v22 och oddset samtliga `ok`.
+
+**Faktisk efterkontroll 15:12:29Z:** ordinarie insamling har nu fyllt analysen
+för 4346 med 1X2 och total för match 7 och 8 (samma priser/linor som tabellen
+ovan). `input_health.missing_sharp` och `missing_total` har gått från 3 till
+1; `missing_svs=0`, `missing_all=0`. Endast Vasalund–Assyriska återstår.
+Dubbeltrafikspärren respekterades; ingen tvingad hämtning/bakfyllning.
+
+Skrivskyddad täckningsrapport körd efter driftsättning:
+`/tmp/pool-tackning-20260921-v4.md` och `.json` på servern. Rapportens
+sluträttade omgång 4345 har oförändrade gamla horisonter; den är INTE
+beviset för dagens förbättring, som kommer från analysen för öppna 4346.
