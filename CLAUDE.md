@@ -125,8 +125,11 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/pool_optimizer.py pooloptimerarens radvalskärna (poolopt-topptips256-v1);
                       scripts/optimera_topptips256.py är skalet, PH3:s
                       `poolopt`-forwardarmar byggs av SAMMA rows_for()
-  app/pool_portfolio.py isolerad offline-screening av kupongtäckning, INTE produktion;
-                      scripts/prova_pool_portfolio.py läser bara frystidsinput och facit
+  app/pool_portfolio.py experimentell kupongtäckning: offline-screening och explicit
+                      manuellt testval (högst 512 kr), ALDRIG standard/automatisk frysning;
+                      scripts/prova_pool_portfolio.py använder samma väljare
+  app/pool_reserve.py separat SvS/Kambi-Ö/U-journal; presentation, INTE bygginput/sharp;
+                      aktiveras med scripts/migrera_pool_reserve.py efter onlinebackup
   app/live_radar.py   shadow-radar för pågående matcher: Flashscore ankare, FotMob sekundär,
                       Sofascore URKOPPLAD ur radarn (kvar för resultat/frånvaro)
   app/live_signal_ledger.py append-only-journal över första Följer/Stark per match,

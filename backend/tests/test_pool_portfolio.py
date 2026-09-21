@@ -8,6 +8,27 @@ from scripts.prova_pool_portfolio import prepared_analysis
 
 
 class PortfolioTests(unittest.TestCase):
+    def test_manually_valbar_byggare_haller_budget_och_redovisar_standard(self):
+        from app import builder, main
+        event = {"event_number": 1, "odds_at_freeze": {"1": 2, "X": 3, "2": 4},
+                 "streck_at_freeze": {"1": 50, "X": 30, "2": 20},
+                 "sharp_odds_at_freeze": {}, "total_at_freeze": None}
+        analysis = prepared_analysis({"events": [{**event,"event_number":i} for i in range(1,9)],
+            "product":"topptipset","draw_number":1,"turnover_used":1000000,
+            "frozen_at":"2026-09-21T15:00:00Z"},1)
+        plan=main.PRIZE_PLANS['topptipset']
+        baseline=builder.build_ev_system(analysis,'medel',32,row_price=1,value_weight=.5,plan=plan,jackpot=0)
+        before=asdict(analysis)
+        system,audit=p.build_manual_test(analysis,'medel',32,1,.5,plan,0)
+        self.assertEqual(32,system.num_rows)
+        self.assertEqual(32,len({tuple(row) for row in system.rows}))
+        self.assertEqual(before,asdict(analysis))
+        self.assertTrue(0<audit['baseline_top_chance']<=1)
+        self.assertTrue(0<audit['selected_top_chance']<=1)
+        self.assertEqual(audit['changed_rows'],len(set(map(tuple,system.rows))-set(map(tuple,baseline.rows))))
+        with self.assertRaises(ValueError):
+            p.build_manual_test(analysis,'medel',513,1,.5,plan,0)
+
     def test_bitset_stammer_med_bruteforce(self):
         samples = list(itertools.product(p.SIGNS, repeat=4))
         masks, all_bits = p._sample_index(samples)

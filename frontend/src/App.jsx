@@ -1,4 +1,5 @@
 import { selectionReason } from './lib/couponView.js'
+import { SystemComposition } from './components/SystemComposition.jsx'
 import { Fragment, useEffect, useEffectEvent, useState } from 'react'
 import './App.css'
 import { payoutMatchesSelection } from './poolSelection.js'
@@ -435,18 +436,12 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse, label = null,
     </p>
   )
   if (!sys) return honest13 || null
-  const roleClass = { spik: 'r-spik', halvgardering: 'r-half', helgardering: 'r-full' }
   const st = systemStats(sys, matches, payouts)
   const mc = sys.portfolio_mc?.available ? sys.portfolio_mc : null
   const payTiers = (payouts?.tiers || []).filter((t) => t.correct != null).sort((a, b) => b.correct - a.correct)
   // rad-system (EV-topp/färg/reducerat): tecknen i tabellen är ett URVAL av rader,
   // inte ett kombinationssystem — visa per tecken hur många rader som använder det
   const rowsList = (sys.rows && sys.rows.length) ? sys.rows : null
-  const signCounts = rowsList ? sys.picks.map((p, i) => {
-    const c = {}
-    rowsList.forEach((r) => { c[r[i]] = (c[r[i]] || 0) + 1 })
-    return c
-  }) : null
   const fullCombos = sys.picks.reduce((a, p) => a * p.signs.length, 1)
   return (
     <div className="system">
@@ -458,6 +453,7 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse, label = null,
         <button className="primary useb" onClick={onUse}>{actionLabel}</button>
         <span className="note"> {selectionReason(sys.note)}</span>
       </div>
+      <SystemComposition sys={sys} />
       {sys.rule && <div className="rule">{selectionReason(sys.rule)}</div>}
       {sys.system_type === 'färgreducerat' && sys.color_bounds && onRecalc && (
         <ColorLab key={sys.rule} sys={sys} onRecalc={onRecalc} />
@@ -550,29 +546,6 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse, label = null,
           Siffran vid varje tecken visar hur många av raderna som använder det.
         </div>
       )}
-      <table className="grid compact">
-        <thead><tr><th>#</th><th>Match</th><th>Roll</th><th>Tecken</th><th>Motivering</th></tr></thead>
-        <tbody>
-          {sys.picks.map((p, pi) => (
-            <tr key={p.event_number} className={roleClass[p.role]}>
-              <td>{p.event_number}</td><td className="match">{p.description}</td>
-              <td>{rowsList ? (p.signs.length === 1 ? 'spik' : `${p.signs.length} tecken`) : p.role}</td>
-              <td className="signs">
-                {p.signs.map((s, i) => (
-                  <Fragment key={s}>
-                    {i > 0 ? '  ' : ''}
-                    <span className={p.colors?.[s] === 'blå' ? 'sg-bla' : p.colors?.[s] === 'gul' ? 'sg-gul' : ''}
-                      title={p.colors?.[s] ? `${p.colors[s]} färg i färgregeln` : undefined}>{s}</span>
-                    {signCounts && fullCombos > sys.num_rows && p.signs.length > 1 && signCounts[pi]?.[s] != null
-                      && <em className="signcnt" title={`${s} spelas i ${signCounts[pi][s]} av ${sys.num_rows} rader`}>×{signCounts[pi][s]}</em>}
-                  </Fragment>
-                ))}
-              </td>
-              <td className="rec">{selectionReason(p.reason)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
       <div className="manualfill">
         <b>Fyll i så här på Svenska Spel:</b>
         <span className="mf-rows">{sys.picks.map((p) => (

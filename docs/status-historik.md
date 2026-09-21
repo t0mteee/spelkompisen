@@ -1,5 +1,74 @@
 # Statushistorik — daterade statusblock ur `docs/plan.md`
 
+## STATUS (2026-09-21 — pool-name-v4, synliga oddsluckor och reduceringsscreening)
+
+Projektets aktuella kontrakt står här; historiska statusblock finns i
+`docs/status-historik.md`. Överlämning:
+`docs/overlamningar/overlamning-2026-09-21-poolnamn-v4.md`.
+
+**Drift:** endast MacBook-servern 192.168.50.100, backend 8002 och byggd
+frontend 5175. Inga tjänster startade på gamla datorn. Launchd och
+`tools/tjanster.sh` gäller; full kontroll via `tools/kontroll.sh`.
+
+**Kontrakt oförändrade:** live-radar chance-gap-shadow-v12 (Flashscore
+ankare, FotMob sekundär), V2.2 manifest v10/sharp s-2f14f9a6, amber-modell,
+powerrank-v2. Poolens champion dr1-b256-medel, radprofiler och X-riskregel
+pool-draw-risk-v1 oförändrade. Matematiskt max v2 39 366 rader (3 spikar,
+1 halv, 9 hela), reducerat max v2 20 000. Inga modellpromotioner.
+
+**Senaste insamlingsfix:** pool-name-v4 rättar två belagda namnkopplingar i
+Topptipset 4346: Cuiaba Esporte/Cuiaba och Estudiantes/La Plata endast
+mot exakt Lanus, känd avspark ±15 min och exakt målklubb. Ingen global
+Estudiantes-mappning. Vasalund lämnas enligt Samans besked. 1X2 och Ö/U
+följer samma Pinnacle-id. Gamla frysningar, modeller och källval orörda.
+Reserv-Ö/U via Kambi/Ninja föreslås separat, inte inkopplat eller märkt sharp.
+
+**Senaste UI-leverans:** pool-input-health-v1 varnar före analystabellen
+och vid byggt system för saknad SvS/Pinnacle 1X2 och Ö/U. Rött när ingen
+källa har komplett 1X2. Utfällbar matchlista och ”Kopiera för granskning”
+ger ett underlag till Claude/Codex. Byggvarningen gäller bygganropets egen
+analys. Ingen ändrad modell, färskhetsgaranti eller ny nättrafik.
+Överlämning: `docs/overlamningar/overlamning-2026-09-21-poolvarning.md`.
+
+**Tidigare levererat 21/9:** pool-name-v3 rättar åtta belagda kortnamnsalias från
+Stryk 4971, utan globala modellalias eller sänkta matchtrösklar. Hörn-/kort-event
+får inte kopplas till målmarknaden. Upp till fem avvisade sökledtrådar sparas
+i befintlig diagnostiktabell. Täckningsrapporten ser nu även SvS-id med
+Pinnacle-länk och kallar inte fuzzy-/hörnpar för säkert rätt match.
+Tre av tio luckor (Luton–Bradford, Oxford–Cambridge, Sheffield W–Stockport)
+saknar ännu tillräckligt historiskt källbevis. De är INTE förklarade som
+saknat Pinnacle-utbud. Inga historiska priser eller frysningar bakfyllda.
+
+**PIT:** pit-v4 + pit-total-v1 fortsätter med datumnot enligt tidigare
+insamlingsbeslut. Pool-capture-v2:s begränsade m20-reserv och öppna
+horisontfönster kvar. Vid skörd ska regimerna 14/9, 15/9 och 21/9
+(pool-name-v3 respektive v4) redovisas.
+
+**UI:** reducerade testkuponger visar direkt andelen rader under 1/X/2.
+Matematiska visar fortsatt bara tecken. Skillnaden mellan saknade tecken
+och saknade kombinationer fanns redan och behålls.
+
+**Reduceringsscreening:** pool-portfolio-screen-v1 är ett körbart OFFLINE-test,
+inte standard eller nytt aktivt forwardspår. Samma budget och frystidsinput,
+girig kupongtäckning, EV-/teckengolv, separat utvärderingssample. Referensen
+reproducerades exakt på Stryk 4971:s 20k-kupong. Kandidaten fick 10 mot 9 rätt
+och bättre 10/11-rättstäckning men betydligt SÄMRE beräknad toppträffchans.
+Ingen promotion. Protokoll/körning: `docs/pool-portfolio-screen-v1-2026-09-21.md`.
+Standardbyggen och befintliga frysta nycklar är orörda.
+
+**Grindar avlästa inför arbetet:** 62/62 läsbara; poolopt 42 parade
+omgångar har nått skörd, ingen säker förbättring i preliminär jämförelse.
+Formell skörd enligt eget protokoll återstår. PH5/max bara Stryk 3 / Europa 6
+aktuella omgångar. V2.2 207/217/217 av 300, tid/ligakrav kvar.
+Radar 231/200 men 17/30 dygn, 18/20 matchdygn, ROI −4,1 %, KI90
+[−14,1; +6,2] %. Ingen förändring av gates eller kohorter.
+
+**Nästa steg:** följ nya oddsobservationer efter 21/9; utred återstående
+kandidatledtrådar. Kör den frysta reduceringsscreeningen brett på samma budget,
+mät runtime/fallback/samplevariation. Nästa kandidat behöver ett uttryckligt
+toppchansskydd, särskilt för Topptipset. Ändra inte v1 efter en bra/dålig omgång.
+Separat förregistrering krävs före automatisk forwardfrysning.
+
 ## STATUS (2026-09-21 — synliga pooloddsluckor, pool-name-v3 och reduceringsscreening)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i

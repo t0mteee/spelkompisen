@@ -1,10 +1,10 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-09-21 — pool-name-v4, synliga oddsluckor och reduceringsscreening)
+## STATUS (2026-09-21 — Ö/U-reserv, tydligare byggvy och manuellt täckningstest)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Överlämning:
-`docs/overlamningar/overlamning-2026-09-21-poolnamn-v4.md`.
+`docs/overlamningar/overlamning-2026-09-21-reserv-och-byggarval.md`.
 
 **Drift:** endast MacBook-servern 192.168.50.100, backend 8002 och byggd
 frontend 5175. Inga tjänster startade på gamla datorn. Launchd och
@@ -21,7 +21,11 @@ Topptipset 4346: Cuiaba Esporte/Cuiaba och Estudiantes/La Plata endast
 mot exakt Lanus, känd avspark ±15 min och exakt målklubb. Ingen global
 Estudiantes-mappning. Vasalund lämnas enligt Samans besked. 1X2 och Ö/U
 följer samma Pinnacle-id. Gamla frysningar, modeller och källval orörda.
-Reserv-Ö/U via Kambi/Ninja föreslås separat, inte inkopplat eller märkt sharp.
+**Ö/U-reserv:** pool-reserve-ou-v1 samlar separat SvS/Kambi-underlag i
+befintligt basvarv, högst 3 anrop/varv och 15 min cooldown/provider-id.
+Visas källmärkt i oddsvarningens matchlista. Ingen ny sharp, inget aktivt
+reservstyrt teckenval, ingen PIT-/CLV-påverkan. Explicit backup/migrering
+aktiverar journalen. Ninja-reserv är ännu inte inkopplad.
 
 **Senaste UI-leverans:** pool-input-health-v1 varnar före analystabellen
 och vid byggt system för saknad SvS/Pinnacle 1X2 och Ö/U. Rött när ingen
@@ -44,12 +48,19 @@ insamlingsbeslut. Pool-capture-v2:s begränsade m20-reserv och öppna
 horisontfönster kvar. Vid skörd ska regimerna 14/9, 15/9 och 21/9
 (pool-name-v3 respektive v4) redovisas.
 
-**UI:** reducerade testkuponger visar direkt andelen rader under 1/X/2.
+**UI:** vanliga byggvyn visar nu ”Så är kupongen byggd” direkt under
+förslagsrubriken, med 1/X/2 i procent och antal av de egna raderna, inklusive
+0. Motivering per match kan fällas ut. Matematiska system visar rena tecken.
+Reducerade testkuponger visar sedan tidigare andelen rader under 1/X/2.
 Matematiska visar fortsatt bara tecken. Skillnaden mellan saknade tecken
 och saknade kombinationer fanns redan och behålls.
 
-**Reduceringsscreening:** pool-portfolio-screen-v1 är ett körbart OFFLINE-test,
-inte standard eller nytt aktivt forwardspår. Samma budget och frystidsinput,
+**Reduceringsscreening:** pool-portfolio-screen-v1 är kvar som offline-test
+och kan nu väljas MANUELLT som ”Täckningstest v1 · experiment” (Samans
+uttryckliga beslut). En kupong, högst 512 kr, inget automatiskt forwardspår
+och Standard förvalt vid ny start. Byggsvar visar förändrade rader,
+fallback och beräknad toppchans mot Standard på samma input. Gemensam
+väljare för offline och manuellt val; inga ändrade vikter. Samma budget och frystidsinput,
 girig kupongtäckning, EV-/teckengolv, separat utvärderingssample. Referensen
 reproducerades exakt på Stryk 4971:s 20k-kupong. Kandidaten fick 10 mot 9 rätt
 och bättre 10/11-rättstäckning men betydligt SÄMRE beräknad toppträffchans.

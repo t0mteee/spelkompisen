@@ -155,6 +155,11 @@ def cmd_snapshot(product: str,
                 except Exception as exc:  # noqa: BLE001
                     print(f"{product} omg {dn}: sharp/reserv FEL {type(exc).__name__}: {exc}")
                     sharp_n = -1
+                try:
+                    from app import pool_reserve
+                    pool_reserve.collect(store, product, draw, varv)
+                except Exception as exc:
+                    print(f"{product} omg {dn}: Ö/U-reserv FEL {type(exc).__name__}: {exc}")
                 pushed = notify.check_movers(product, draw, store)
                 clv.log_flags(product, draw, store)   # CLV-facit: logga gröna/sharp-flaggor
                 clv.resolve(store, ss)                # + sätt stängning/facit där det går

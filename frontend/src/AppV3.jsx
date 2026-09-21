@@ -38,6 +38,10 @@ const ROW_MODELS = [
     id: 'row_shape_v1', label: 'Radform v1 · test',
     note: 'Topptips-test med alternativ uppskattning av medvinnare. Endast valbar vid 384 kr; fördelen höll inte vid 256/512.',
   },
+  {
+    id: 'portfolio_v1', label: 'Täckningstest v1 · experiment',
+    note: 'Den nya reduceringen: söker bredare kupongtäckning, men kan sänka chansen till full pott. Inte bevisat bättre än Standard. En kupong, högst 512 kr.',
+  },
 ]
 const ROW_MODEL_LABEL = Object.fromEntries(ROW_MODELS.map((model) => [model.id, model.label]))
 function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponger, openTester }) {
@@ -594,6 +598,7 @@ function PoolV3() {
   const [sysType, setSysType] = useState(saved.sysType || 'ev')
   const [valueWeight, setValueWeight] = useState(saved.valueWeight ?? 50)
   const [rowModel, setRowModel] = useState(() => {
+    if (saved.rowModel === 'portfolio_v1') return 'standard'
     if (!ROW_MODELS.some((model) => model.id === saved.rowModel)) return 'standard'
     if (saved.rowModel === 'row_shape_v1' && (saved.budget || 256) !== 384) {
       return 'standard'
@@ -613,6 +618,10 @@ function PoolV3() {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(null)
   const [bombenNonce, setBombenNonce] = useState(0)
+  const [building, setBuilding] = useState(false)
+  const buildSequence = useRef(0)
+  useEffect(() => { buildSequence.current += 1 },
+    [product, draw, strategy, budget, valueWeight, sysType, rowModel, complementaryMode])
   // Varje omladdning får ett löpnummer. Ett sent svar från föregående
   // omgång får aldrig skriva över analys, rörelse eller pott för den som nu
   // är vald — särskilt jackpotten går direkt in i både ROI och radbyggaren.
@@ -754,7 +763,8 @@ function PoolV3() {
     model.id !== 'row_shape_v1' || FAMILY(product) === 'topptipset'))
   const rowModelSupported = availableRowModels.some((model) => model.id === rowModel)
   const activeRowModel = rowModelAvailable && rowModelSupported
-    && (rowModel !== 'row_shape_v1' || budget === 384) ? rowModel : 'standard'
+    && (rowModel !== 'row_shape_v1' || budget === 384)
+    && (rowModel !== 'portfolio_v1' || budget <= 512) ? rowModel : 'standard'
   const effectiveValueWeight = activeRowModel === 'hit' ? 0
     : activeRowModel === 'row_shape_v1' ? 50 : valueWeight
   const activeRowModelInfo = ROW_MODELS.find((model) => model.id === activeRowModel)
@@ -774,6 +784,9 @@ function PoolV3() {
     ? payouts : null
 
   const loadSystem = async () => {
+    if (building) return
+    const buildId = ++buildSequence.current
+    setBuilding(true)
     const selectionSequence = loadSequence.current
     setErr(null)
     try {
@@ -783,13 +796,15 @@ function PoolV3() {
       const jp = currentPayouts?.jackpot != null
         ? `&jackpot=${encodeURIComponent(currentPayouts.jackpot)}` : ''
       const pair = complementaryMode && sysType === 'ev'
-        && activeRowModel !== 'row_shape_v1' ? '&complementary=true' : ''
+        && !['row_shape_v1', 'portfolio_v1'].includes(activeRowModel) ? '&complementary=true' : ''
       const built = await getDetail(
         `/api/system?product=${product}&draw=${draw}&strategy=${encodeURIComponent(strategy)}&budget=${budget}&value_weight=${vw}&row_model=${activeRowModel}&${q}${jp}${pair}`,
         'System')
-      if (requestIsCurrent(loadSequence, selectionSequence)) setSys(built)
+      if (requestIsCurrent(loadSequence, selectionSequence) && buildId === buildSequence.current) setSys(built)
     } catch (e) {
       if (requestIsCurrent(loadSequence, selectionSequence)) setErr(String(e))
+    } finally {
+      setBuilding(false)
     }
   }
 
@@ -895,12 +910,13 @@ function PoolV3() {
                 <label className={`complementary-toggle ${complementaryMode ? 'active' : ''}`}
                   title="Bygger två lika stora kuponger tillsammans. De får skilda ankare, högst 10 % identiska rader och tonar ned varandras ankartecken. Varje kupong kostar hela den valda insatsen.">
                   <input type="checkbox" checked={complementaryMode}
-                    disabled={sysType !== 'ev' || activeRowModel === 'row_shape_v1'}
+                    disabled={sysType !== 'ev' || ['row_shape_v1', 'portfolio_v1'].includes(activeRowModel)}
                     onChange={(e) => { setComplementaryMode(e.target.checked); setSys(null) }} />
                   Två kompletterande kuponger
                 </label>
-                <button className="primary" onClick={loadSystem}>
-                  {complementaryMode && sysType === 'ev' ? 'Föreslå två kuponger' : 'Föreslå rad'}
+                <button className="primary" onClick={loadSystem} disabled={building}>
+                  {building ? 'Bygger kupong…' : complementaryMode && sysType === 'ev'
+                    && !['row_shape_v1', 'portfolio_v1'].includes(activeRowModel) ? 'Föreslå två kuponger' : 'Föreslå rad'}
                 </button>
               </div>
               {rowModelAvailable && (
@@ -908,7 +924,8 @@ function PoolV3() {
                   <legend>Radprofil</legend>
                   <div className="rowprofile-options">
                     {availableRowModels.map((model) => {
-                      const disabled = model.id === 'row_shape_v1' && budget !== 384
+                      const disabled = (model.id === 'row_shape_v1' && budget !== 384)
+                        || (model.id === 'portfolio_v1' && budget > 512)
                       return (
                       <label key={model.id}
                         className={activeRowModel === model.id ? 'active' : ''}>
@@ -920,10 +937,10 @@ function PoolV3() {
                             if (model.id === 'row_shape_v1' || model.id === 'standard') {
                               setValueWeight(50)
                             }
-                            if (model.id === 'row_shape_v1') setComplementaryMode(false)
+                            if (['row_shape_v1', 'portfolio_v1'].includes(model.id)) setComplementaryMode(false)
                             setSys(null)
                           }} />
-                        <span>{model.label}{disabled ? ' · kräver 384 kr' : ''}</span>
+                        <span>{model.label}{disabled ? model.id === 'portfolio_v1' ? ' · högst 512 kr' : ' · kräver 384 kr' : ''}</span>
                       </label>
                       )
                     })}
@@ -934,7 +951,7 @@ function PoolV3() {
               <div className="evscale">
                 <span>Träffbart</span>
                 <input type="range" min="0" max="100" step="5"
-                  value={effectiveValueWeight} disabled={activeRowModel !== 'standard'}
+                  value={effectiveValueWeight} disabled={!['standard', 'portfolio_v1'].includes(activeRowModel)}
                   onChange={(e) => { setValueWeight(Number(e.target.value)); setSys(null) }} />
                 <span>Max EV</span>
                 <span className="evval">{effectiveValueWeight}%</span>
@@ -1011,6 +1028,8 @@ function PoolV3() {
                   value_weight: couponValueWeight ?? valueWeight / 100,
                   source: couponVariant === 'Kupong A' ? 'byggare-komplement-a'
                     : couponVariant === 'Kupong B' ? 'byggare-komplement-b'
+                      : couponVariant === 'Förslag' && couponModel === 'portfolio_v1'
+                        ? 'byggare-pool-portfolio-screen-v1'
                       : couponVariant === 'Förslag' && couponModel === 'row_shape_v1'
                         ? 'byggare-radform-v1'
                         : couponVariant === 'Förslag' && couponModel === 'hit'

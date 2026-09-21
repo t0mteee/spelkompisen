@@ -8,6 +8,16 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-09-21 — separat Ö/U-reservjournal
+
+`backend/scripts/migrera_pool_reserve.py` skapar `pool_reserve_quote` och
+ett index efter SQLite-onlinebackup till ett nytt namn under
+`backend/data/backups/`. Inga gamla odds eller captures ändras/bakfylls.
+Insamlingen förblir inaktiv innan migreringen har körts. Verifierad
+produktionskörning och backupnamn antecknas vid driftsättning.
+
+---
+
 ## 2026-09-14 — `pool_match_diagnostic` (additiv diagnostiktabell)
 
 Ny tabell i schemat (`CREATE TABLE IF NOT EXISTS`, skapas av `Storage` vid

@@ -51,35 +51,8 @@ def report(conn, product, draw, horizon, config, budget=None):
     if budget <= 0 or budget > 20000:
         raise ValueError("testbudget måste vara 1–20000 kr")
     plan = prize_plan(product)
-    ranked = builder._rank_ev_rows(analysis, budget, row_price, detail["value_weight"],
-                                  plan, jackpot or 0, full_universe=budget >= 20000)
-    baseline = builder._select_draw_risk_rows(analysis, ranked, True)
-    raw_probabilities = [[m.outcomes[s].fair_prob for s in portfolio.SIGNS] for m in analysis.matches]
-    # Analysens avrundade sannolikheter kan summera till 0,9999/1,0001.
-    # Normalisera ENBART simuleringen; rad-EV ska matcha byggarens numerik.
-    probabilities = [[p / sum(ps) for p in ps] for ps in raw_probabilities]
-    # Bredda med sannolikhetsdragna hela utfall och deras enstegsgrannar.
-    # Även tecken utanför standardens kandidatuniversum får därmed prövas.
-    extra = set()
-    for row in portfolio.sample_outcomes(probabilities, 1024, portfolio.SEED + 2):
-        extra.add(row)
-        for col in range(len(row)):
-            for sign in portfolio.SIGNS:
-                extra.add(row[:col] + (sign,) + row[col + 1:])
-    existing = {r[2] for r in ranked.rows}
-    pools = builder._prize_pools(analysis.turnover, plan, jackpot or 0)
-    candidates = list(ranked.rows)
-    for row in sorted(extra - existing):
-        ps = [raw_probabilities[c][portfolio.SIGNS.index(s)] for c, s in enumerate(row)]
-        qs = [max((m.outcomes[s].streck or 0) / 100, .001)
-              for m, s in zip(analysis.matches, row)]
-        ev = builder._row_expected_value(builder._poisson_binomial(ps),
-            builder._poisson_binomial(qs), pools, analysis.turnover / row_price, product)
-        candidates.append((prod(ps) ** ranked.exponent * ev, ev, row))
-    floors = {(i, "X"): builder.draw_risk_context(m)["minimum_x_share"]
-              for i, m in enumerate(analysis.matches) if builder.draw_risk_context(m)["protected"]}
-    chosen, audit = portfolio.select_portfolio(candidates, baseline, probabilities,
-                                              minimum_shares=floors)
+    ranked, baseline, chosen, audit, probabilities = portfolio.prepare(
+        analysis, budget, row_price, detail["value_weight"], plan, jackpot or 0)
     tiers = {r[0]: (r[1], r[2]) for r in conn.execute(
         "SELECT correct,winners,amount FROM pool_payout_tier WHERE product=? AND draw_number=?",
         (product, draw))}

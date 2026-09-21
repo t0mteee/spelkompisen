@@ -8,6 +8,18 @@ from app import main
 
 
 class SystemRowModelTests(unittest.TestCase):
+    def test_experiment_ar_explicit_och_kan_inte_ge_dubbelkupong_eller_stor_budget(self):
+        with mock.patch('app.main._analyze',return_value=self._analysis()):
+            for extra in ({'budget':513},{'complementary':True}):
+                with self.assertRaises(HTTPException):
+                    self._call(row_model='portfolio_v1',**extra)
+            with (mock.patch('app.pool_portfolio.build_manual_test',return_value=(object(),{'version':'pool-portfolio-screen-v1'})) as build,
+                  mock.patch('app.main.system_to_dict',return_value={})):
+                response=self._call(row_model='portfolio_v1',budget=256)
+                self.assertEqual('pool-portfolio-screen-v1',response['experiment_audit']['version'])
+                self.assertEqual('portfolio_v1',response['row_model'])
+                build.assert_called_once()
+
     @staticmethod
     def _analysis():
         return SimpleNamespace(

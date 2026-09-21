@@ -212,9 +212,15 @@ def _analyze(product: str, draw_number: int | None = None):
         # oddsrörelse (sharp först) + streck-rörelse + devigat steam-skift,
         # sammanvävt i en dict — samma helper som ntfy-notiserna använder
         merged = steam_mod.movement_with_steam(store, product, draw.draw_number)
+        from .pool_reserve import read_for_draw
+        reserves = read_for_draw(store, product, draw.draw_number)
     finally:
         store.close()
-    return analyze_draw(draw, sharp, merged)
+    analysis = analyze_draw(draw, sharp, merged)
+    for match in analysis.matches:
+        if match.total_line is None:
+            match.reserve_total = reserves.get(match.event_number)
+    return analysis
 
 
 @app.get("/api/health")
@@ -1156,7 +1162,7 @@ def system(product: str = "stryktipset",
            jackpot: float | None = Query(None, ge=0),
            value_weight: float = 0.5,
            row_model: str = Query(
-               "standard", pattern="^(standard|hit|row_shape_v1)$"),
+               "standard", pattern="^(standard|hit|row_shape_v1|portfolio_v1)$"),
            complementary: bool = False):
     """value_weight 0..1 = EV-/värdeskala: 0 = lågoddsare/favoriter (hög träffchans),
     högre = mer värde/skräll (lägre chans, högre EV). sv_rsystem ger SvS R-system.
@@ -1167,6 +1173,8 @@ def system(product: str = "stryktipset",
     a = _analyze(product, draw)
     if row_model != "standard" and not ev:
         raise HTTPException(400, "Radprofil kan bara användas med Värderader.")
+    if row_model == "portfolio_v1" and (complementary or not 1 <= budget <= 512):
+        raise HTTPException(400, "Täckningstest v1 stöder en kupong på högst 512 kr.")
     if row_model == "row_shape_v1" and complementary:
         raise HTTPException(
             400, "Radform v1 kan ännu inte kombineras med två kuponger.")
@@ -1213,11 +1221,21 @@ def system(product: str = "stryktipset",
     row_shape_kappa = None
     complementary_system = None
     complementary_meta = None
+    experiment_audit = None
     try:
         if sv_rsystem and sv_rsystem in SVS_R12:
             s = build_svs_rsystem(a, sv_rsystem, strategy, value_weight=vw)
         elif ev:
-            if row_model == "row_shape_v1":
+            if row_model == "portfolio_v1":
+                from .pool_portfolio import build_manual_test, MANUAL_LOCK
+                if not MANUAL_LOCK.acquire(blocking=False):
+                    raise HTTPException(409, "Ett täckningstest byggs redan. Försök igen när det är klart.")
+                try:
+                    s, experiment_audit = build_manual_test(
+                        a, strategy, budget, a.row_price or 1.0, vw, plan, jp)
+                finally:
+                    MANUAL_LOCK.release()
+            elif row_model == "row_shape_v1":
                 row_shape_kappa = topptips_row_shape_kappa(product)
                 s = build_topptips_row_shape_system(
                     a, row_shape_kappa, strategy, budget,
@@ -1295,10 +1313,13 @@ def system(product: str = "stryktipset",
     from .pool_input_health import report
     response["input_health"] = report(a)
     response["row_model"] = row_model
+    if experiment_audit:
+        response["experiment_audit"] = experiment_audit
     response["row_model_label"] = {
         "standard": "Standard",
         "hit": "Träffsäkrare",
         "row_shape_v1": "Radform v1 · test",
+        "portfolio_v1": "Täckningstest v1 · experiment",
     }[row_model]
     response["effective_value_weight"] = vw
     if complementary:

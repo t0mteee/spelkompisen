@@ -1,5 +1,11 @@
 # Reducering: isolerad screening v1
 
+**Senare beslut samma dag:** Saman har godkänt ett separat manuellt UI-val,
+”Täckningstest v1 · experiment”, högst 512 kr och en kupong. Väljaren,
+vikterna och seed nedan är oförändrade och gemensamma med offline-skriptet.
+Standard och automatiska frysningar förblir orörda. Inga bevis för bättre
+lönsamhet påstås. Se `docs/overlamningar/overlamning-2026-09-21-reserv-och-byggarval.md`.
+
 Samans godkännande 2026-09-21: undersök oddsluckorna och pröva en byggare
 som värderar hela kupongens täckning. Standard och befintliga frysta tester
 ändras inte. Detta är ett körbart OFFLINE-test, inte ett nytt aktivt forwardspår.

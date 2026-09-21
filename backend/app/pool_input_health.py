@@ -36,7 +36,8 @@ def report(analysis):
             issues.append({"event_number": match.event_number,
                            "description": match.description or f"Match {match.event_number}",
                            "missing": missing, "no_complete_1x2": not svs and not sharp,
-                           "prob_source": match.prob_source})
+                           "prob_source": match.prob_source,
+                           "reserve_total": getattr(match, "reserve_total", None)})
     return {"version": VERSION, "product": analysis.product, "draw_number": analysis.draw_number,
             "analysis_fetched_at": analysis.fetched_at, "n_matches": len(analysis.matches),
             "level": "error" if counts["missing_all"] else "warning" if issues else "ok",

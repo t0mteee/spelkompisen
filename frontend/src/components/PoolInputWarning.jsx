@@ -34,6 +34,9 @@ export function PoolInputWarning({ health, scope = 'Aktuell analys', compact = f
         <b>{m.event_number}. {m.description}</b>
         <span>Saknar: {m.missing.join(' · ')}</span>
         <span>Sannolikhetsbas: {sourceLabel(m.prob_source)}</span>
+        {m.reserve_total && <span>{m.reserve_total.available
+          ? `${m.reserve_total.label}: Ö/U ${m.reserve_total.line} · Över ${m.reserve_total.over_odds} / Under ${m.reserve_total.under_odds}. Observerat ${new Date(m.reserve_total.observed_at).toLocaleString('sv-SE')}. Visas som reservunderlag, används ännu inte av byggaren.`
+          : `Ö/U-reserv: ${m.reserve_total.status === 'source_error' ? 'källan kunde inte läsas' : 'inget färskt verifierat pris'}.`}</span>}
       </li>)}</ul>
       <p>Visar underlaget för {scope.toLowerCase()}; befintliga odds är inte en färskhetsgaranti.
         Tidigt saknade priser kan vara normalt. Orsaken är inte fastställd.</p>

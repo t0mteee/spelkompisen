@@ -1,4 +1,4 @@
-"""Isolerat reduceringsexperiment. Ingen import från produktionens byggväg.
+"""Fryst reduceringsexperiment; enbart explicit testval, aldrig standard.
 
 Girigt radval på marginalnytta för HELA kupongen: simulerad chans till
 minst N, N−1, N−2 och N−3 rätt + en linjär EV-term. Fasta parametrar;
@@ -7,6 +7,7 @@ resultat, stängningsstreck och faktisk utdelning får inte ges till väljaren.
 import heapq
 import math
 import random
+import threading
 
 VERSION = "pool-portfolio-screen-v1"
 SIGNS = ("1", "X", "2")
@@ -15,6 +16,64 @@ SEED = 20260921
 EV_FLOOR = 0.90
 LEVEL_WEIGHTS = (0.4, 0.3, 0.2, 0.1)
 EV_WEIGHT = 0.25
+MANUAL_LOCK = threading.Lock()
+
+
+def prepare(analysis, budget, row_price, value_weight, plan, jackpot):
+    """Gemensam väljare för offline-replay och manuellt experimentval."""
+    from . import builder
+    if not analysis.matches or any(
+            m.outcomes[s].fair_prob is None or m.outcomes[s].streck is None
+            or m.outcomes[s].odds is None or m.outcomes[s].odds <= 1
+            for m in analysis.matches for s in SIGNS):
+        raise ValueError("Täckningstestet kräver kompletta SvS-odds och streck.")
+    ranked = builder._rank_ev_rows(analysis, budget, row_price, value_weight,
+                                  plan, jackpot, full_universe=budget >= 20000)
+    baseline = builder._select_draw_risk_rows(analysis, ranked, True)
+    raw = [[m.outcomes[s].fair_prob for s in SIGNS] for m in analysis.matches]
+    probabilities = [[p / sum(ps) for p in ps] for ps in raw]
+    extra = set()
+    for row in sample_outcomes(probabilities, 1024, SEED+2):
+        extra.add(row)
+        for col in range(len(row)):
+            for sign in SIGNS:
+                extra.add(row[:col]+(sign,)+row[col+1:])
+    existing = {r[2] for r in ranked.rows}
+    pools = builder._prize_pools(analysis.turnover, plan, jackpot)
+    candidates = list(ranked.rows)
+    for row in sorted(extra-existing):
+        ps = [raw[c][SIGNS.index(s)] for c,s in enumerate(row)]
+        qs = [max((m.outcomes[s].streck or 0)/100,.001)
+              for m,s in zip(analysis.matches,row)]
+        ev = builder._row_expected_value(builder._poisson_binomial(ps),
+            builder._poisson_binomial(qs),pools,analysis.turnover/row_price,analysis.product)
+        candidates.append((math.prod(ps)**ranked.exponent*ev,ev,row))
+    floors = {(i,"X"):builder.draw_risk_context(m)["minimum_x_share"]
+              for i,m in enumerate(analysis.matches) if builder.draw_risk_context(m)["protected"]}
+    chosen,audit = select_portfolio(candidates,baseline,probabilities,minimum_shares=floors)
+    return ranked,baseline,chosen,audit,probabilities
+
+
+def build_manual_test(analysis, strategy, budget, row_price, value_weight, plan, jackpot):
+    from . import builder
+    if (not math.isfinite(budget) or not 1 <= budget <= 512
+            or len(analysis.matches) not in (8,13) or not plan
+            or not analysis.turnover or analysis.turnover <= 0):
+        raise ValueError("Täckningstest v1 kräver 8/13 matcher, omsättning och 1–512 kr.")
+    ranked,baseline,chosen,audit,probabilities = prepare(
+        analysis,budget,row_price,value_weight,plan,jackpot)
+    system = builder._ev_system_from_rows(analysis,strategy,budget,row_price,jackpot,ranked,chosen)
+    system.rule = ("Experiment: raderna väljs för kupongens samlade täckning av full pott "
+                   "och upp till tre färre rätt, med ett rad-EV-golv. Kan sänka chansen "
+                   "till full pott. Inte visat bättre lönsamhet än Standard.")
+    system.note = ("Skyddet slog till: standardrader används ("+", ".join(audit["fallback"])+")."
+                   if audit["fallback"] else "Täckningstest v1 · experiment, inte rekommenderad standard.")
+    def top(rows):
+        return sum(math.prod(probabilities[c][SIGNS.index(s)] for c,s in enumerate(r[2]))
+                   for r in rows)
+    audit.update(baseline_top_chance=top(baseline),selected_top_chance=top(chosen),
+                 comparison="beräknat med samma matchsannolikheter, inte uppmätt resultat")
+    return system,audit
 
 
 def sample_outcomes(probabilities, count, seed):
