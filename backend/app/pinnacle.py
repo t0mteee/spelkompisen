@@ -19,7 +19,7 @@ import httpx
 
 from .odds_provider import (_best_side, _hours_apart, english_name,
                             COMBINED_MIN, HOME_AWAY_MIN, TIME_WINDOW_H,
-                            POOL_MATCH_VERSION)
+                            POOL_MATCH_VERSION, diagnostic_team_sim, is_side_market)
 from .derive import derive_1x2, goal_expectations
 
 BASE = "https://guest.api.arcadia.pinnacle.com/0.1"
@@ -445,8 +445,11 @@ def match_index(home: str, away: str, home_iso: Optional[str],
     away_cands = [away, english_name(away_iso)]
     best, best_score, best_swapped = None, 0.0, False
     qualifying = 0
-    near, near_score, near_sides, near_swapped = None, -1.0, (0.0, 0.0), False
+    audit_candidates = []
     for g in index:
+        if is_side_market(g["home"], g["away"]):
+            continue
+        gap = None
         if match_start:
             gap = _hours_apart(match_start, g.get("start"))
             if gap is None or gap > TIME_WINDOW_H:
@@ -463,19 +466,23 @@ def match_index(home: str, away: str, home_iso: Optional[str],
         if score > best_score:
             best, best_score, best_swapped = g, score, is_swapped
         if diag is not None:
-            raw_normal, raw_swapped = (sh + sa) / 2, (sh2 + sa2) / 2
-            raw, raw_sides, raw_swap = ((raw_swapped, (sh2, sa2), True)
-                                        if raw_swapped > raw_normal
-                                        else (raw_normal, (sh, sa), False))
-            if raw > near_score:
-                near, near_score, near_sides, near_swapped = g, raw, raw_sides, raw_swap
+            # Säkra matchpoäng förblir oförändrade. En separat sökpoäng gör
+            # avvisade delnamn synliga i diagnostiken (inte användbara som odds).
+            dh, da = diagnostic_team_sim(home, g["home"]), diagnostic_team_sim(away, g["away"])
+            dh2, da2 = diagnostic_team_sim(home, g["away"]), diagnostic_team_sim(away, g["home"])
+            raw_swap = (dh2 + da2, min(dh2, da2)) > (dh + da, min(dh, da))
+            sides = (sh2, sa2) if raw_swap else (sh, sa)
+            search = (dh2, da2) if raw_swap else (dh, da)
+            rank = (sum(search), min(search), -(gap or 0), g["home"], g["away"])
+            audit_candidates.append((rank, {
+                "cand_home": g["home"], "cand_away": g["away"],
+                "cand_start": g.get("start"), "side_home": round(sides[0], 3),
+                "side_away": round(sides[1], 3), "score": round(sum(sides) / 2, 3),
+                "swapped": raw_swap}))
     if not best or best_score < COMBINED_MIN or qualifying != 1:
-        if diag is not None and near is not None:
-            diag.update({"cand_home": near["home"], "cand_away": near["away"],
-                         "cand_start": near.get("start"),
-                         "side_home": round(near_sides[0], 3),
-                         "side_away": round(near_sides[1], 3),
-                         "score": round(near_score, 3), "swapped": near_swapped,
+        if diag is not None and audit_candidates:
+            candidates = [c for _, c in sorted(audit_candidates, key=lambda c: c[0], reverse=True)[:5]]
+            diag.update({**candidates[0], "candidates": candidates,
                          "reason": "ambiguous" if qualifying > 1 else "name_mismatch",
                          "qualifying_candidates": qualifying,
                          "match_version": POOL_MATCH_VERSION})

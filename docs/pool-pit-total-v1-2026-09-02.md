@@ -13,6 +13,12 @@ säga det.
 
 ## Varför
 
+**Datumnot 2026-09-21, pool-name-v3:** åtta poolspecifika alias rättar
+belagda namnfel från Stryktipset 4971. Hörn-/kort-event får inte länka
+målodds; fem avvisade sökledtrådar sparas i stället för bara en. Tolerans,
+presence och gamla frysningar oförändrade. Redovisa regimen vid skörd.
+Se `docs/overlamningar/overlamning-2026-09-21-pool-odds-reducering.md`.
+
 **Datumnot 2026-09-15, pool-capture-v2:** begränsad per-match-reserv före
 m20 observerar 1X2 och huvudtotal atomiskt, på exakt samma provider-id.
 Giltig HTTP Age och ursprunglig tidsregel krävs. Ingen bakfyllning eller

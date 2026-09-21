@@ -96,7 +96,7 @@ def _ratio(a: str, b: str) -> float:
 # Poolens egna bekräftade kortnamn. Ändra inte Oddsets/modellens globala
 # alias för att rätta poolmatcharen. Evidens: täckningsrapport 2026-09-13
 # och NameRuleTests (Svenska Spel ↔ Pinnacle).
-POOL_MATCH_VERSION = "pool-name-v2"
+POOL_MATCH_VERSION = "pool-name-v3"
 _POOL_TEAM_ALIASES = {
     "leeds": "leeds united",
     "nottingham": "nottingham forest",
@@ -105,6 +105,16 @@ _POOL_TEAM_ALIASES = {
     "sabah masazir": "sabah",
     "hull": "hull city",
     "mainz": "mainz 05",
+    # Stryktipset 4971: providerpar + samma avspark i egen diagnostik/odds.
+    # Se överlämningen 2026-09-21. Endast poolen; modellalias är orörda.
+    "coventry": "coventry city",
+    "ipswich": "ipswich town",
+    "newcastle": "newcastle united",
+    "derby": "derby county",
+    "lincoln": "lincoln city",
+    "swansea": "swansea city",
+    "blackburn": "blackburn rovers",
+    "preston": "preston north end",
 }
 _SQUAD_MARKERS = frozenset({"b", "ii", "reserve", "reserves", "academy",
                             "youth", "women", "damer"})
@@ -166,6 +176,20 @@ def team_sim(a: Optional[str], b: Optional[str]) -> float:
 
 def _best_side(candidates: list[str], target: str) -> float:
     return max((team_sim(c, target) for c in candidates if c), default=0.0)
+
+
+def diagnostic_team_sim(a: str, b: str) -> float:
+    """Sökledtråd ENBART: delnamn får synas i audit men aldrig länka odds."""
+    na, nb = _norm_team(a), _norm_team(b)
+    if not na or not nb:
+        return 0.0
+    return max(team_sim(a, b), _ratio(na, nb))
+
+
+def is_side_market(home: str, away: str) -> bool:
+    """Namngivna hörn-/kort-event är inte matchens målmarknad."""
+    return bool(re.search(r"\b(corners?|bookings?|cards?)\b",
+                          f"{home} {away}", flags=re.IGNORECASE))
 
 
 class ExternalOdds:

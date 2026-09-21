@@ -7,7 +7,7 @@ export function CouponOverview({ events, nRows, liveByEvent = {}, showMarket = t
   const math = isMathematical(events, nRows)
   return <section className="coupon-overview" aria-label="Kupong match för match">
     <p className="v3hint">{math ? 'Matematiskt system: alla kombinationer ingår.'
-      : 'Reducerat system: markerade tecken ingår, men inte alla kombinationer.'}
+      : 'Reducerat: procenten under varje tecken visar hur stor andel av raderna som har tecknet. Alla kombinationer ingår inte.'}
       {' '}Grön ram ✓ = rätt resultat som var streckat. Röd ram ✗ = rätt resultat som
       <b> inte var streckat</b> — tecknet saknas helt i kupongen, det är därför matchen
       blev fel. Ifylld ruta = streckat tecken. Streckad ram = aktuell ställning, ännu inte slutresultat.</p>
@@ -33,6 +33,10 @@ export function CouponOverview({ events, nRows, liveByEvent = {}, showMarket = t
               aria-label={`${sign}${selected ? ', med' : ', saknas'}${correct
                 ? provisional ? ', aktuell ställning' : ', rätt resultat' : ''}`}>
               <b>{sign}</b>{correct && !provisional && <i>{selected ? '✓' : '✗ ej streckat'}</i>}
+              {!math && <small title="Andel av kupongens sparade rader, inte matchens vinstchans">
+                {event.sign_shares?.[sign] == null ? '–'
+                  : `${(event.sign_shares[sign] * 100).toLocaleString('sv-SE', { maximumFractionDigits: 1 })} %`}
+              </small>}
             </span>
           })}
         </div>

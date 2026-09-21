@@ -2259,15 +2259,24 @@ class Storage:
 
     def pool_match_diagnostic_record(self, product: str, draw_number: int,
                                      events: dict[int, dict], observed_at: str) -> int:
-        """Bokför matcharens närmaste avvisade kandidat per event (append/upsert).
+        """Bokför högst fem avvisade sökledtrådar per event (append/upsert).
 
         `events`: {event_number: {svs_home, svs_away, match_start, cand_home,
         cand_away, cand_start, side_home, side_away, score, swapped}}."""
+        expanded = []
+        for event, detail in events.items():
+            seen = set()
+            for candidate in (detail.get("candidates") or [detail])[:5]:
+                key = (candidate.get("cand_home"), candidate.get("cand_away"))
+                if key in seen:
+                    continue
+                seen.add(key)
+                expanded.append((event, {**detail, **candidate}))
         rows = [(product, int(draw_number), int(event), d.get("svs_home"), d.get("svs_away"),
                  d.get("match_start"), d["cand_home"], d["cand_away"], d.get("cand_start"),
                  d.get("side_home"), d.get("side_away"), d.get("score"),
                  int(bool(d.get("swapped"))), observed_at, observed_at)
-                for event, d in events.items() if d.get("cand_home") and d.get("cand_away")]
+                for event, d in expanded if d.get("cand_home") and d.get("cand_away")]
         if not rows:
             return 0
         before = self.conn.total_changes

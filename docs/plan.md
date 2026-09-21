@@ -1,142 +1,58 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-09-15 — säker poolmatchning och begränsad m20-reserv) — läs detta först i ny session
+## STATUS (2026-09-21 — pool-name-v3, tydligare kuponger och isolerad reduceringsscreening)
 
-Det här blocket **ersätts** vid varje leverans — skriv över, stapla inte.
-Tidigare statusblock ligger daterade och ordagranna i
-`docs/status-historik.md`. Överlämningar: `docs/overlamningar/`. Aktiv
-arbetslista: `docs/backlog.md` (avsnittet **Aktivt** överst).
+Projektets aktuella kontrakt står här; historiska statusblock finns i
+`docs/status-historik.md`. Överlämning:
+`docs/overlamningar/overlamning-2026-09-21-pool-odds-reducering.md`.
 
-**Drift.** Allt kör på MacBook-servern `192.168.50.100` (backend 8002, byggd
-frontend 5175, launchd: snapshot/pool/kalltest + Chartervakt/Bonusvakt);
-se `docs/macbook-server-2026-08-11.md` och `docs/AI-OVERLAMNING-SERVER.md`.
-Kontroll före push: `tools/kontroll.sh` (900+ backendtester, eslint, 30
-frontendtester, ~90 s) — pre-push-hooken i `tools/githooks/` kör den.
-`backend/requirements.lock` är serverns frysta venv.
+**Drift:** endast MacBook-servern 192.168.50.100, backend 8002 och byggd
+frontend 5175. Inga tjänster startade på gamla datorn. Launchd och
+`tools/tjanster.sh` gäller; full kontroll via `tools/kontroll.sh`.
 
-**Kontrakt som gäller nu.**
-- **Live-radar** `chance-gap-shadow-v12` (Championship i scope från
-  2026-09-02T22:00Z; Ligue 1 sedan v11;
-  v10 från 2026-08-18 låser bästa färska överpris från Kambi/Ninja/Pinnacle,
-  Pinnacle bara vid Age ≤ 90 s). Flashscore ankare, FotMob sekundär, Sofascore
-  urkopplad ur radarn men kvar för resultatstatistik/frånvaro.
-- **V2.2** samlar under manifest v10
-  (`docs/model-v2.2-multileague-forward-manifest-v10.json`), sharp
-  `s-2f14f9a6`; `/api/health` bevakar versionskontraktet. Aldrig tipsinput.
-- **Modell** (amber, sämre än Pinnacle i alla ligor): modelldata v5,
-  `powerrank-v2`. Modelligor: Allsvenskan/Superettan/Eliteserien/OBOS/MLS +
-  PL/Serie A/La Liga/Bundesliga. Ligue 1 samlas (621/622 med xG) men står
-  utanför `MODEL_LEAGUES` tills temperaturen kalibrerats. Championship är nu
-  fullt följd för odds/live men står också utanför målmodellen; football-data
-  `E1` fortsätter ge resultat.
-- **Pool.** `pool-draw-risk-v1`: X skyddas ≥ 29,5 % vid Pinnacle-total ≤ 2,25
-  (32 % utan total) i ALLA automatiska byggen. Matematiskt max v2 = 3 spikar +
-  1 halv + 9 hela = 39 366 rader. PH3 gen 2, champion `dr1-b256-medel`
-  (sannolikhetsbas SvS), Topptipset-familjen tak 512 och **en tionde nyckel
-  sedan 2026-09-02: `dr1-b256-medel-sharp`** (samma byggare, Pinnacle först).
-  Radprofiler Standard/Träffsäkrare/Radform v1·test. Topptipset Dagens/Stryk/
-  Extra är ETT spel i all redovisning (`family_of`). Chansmotorn räknar EXAKT
-  (klotunion). Spelade kuponger liverättas från tre 1X2-källor; glömda
-  kuponger kan importeras ur radfil.
-- **PIT-serier.** `pit-v4` (1X2/streck) + **`pit-total-v1`** (Pinnacles
-  huvudtotal, syskonserie sedan 2026-09-02, aldrig bakfylld). **Insamlingen
-  rättad 2026-09-14 under samma versioner** (datumnot i manifestet): fönster ±
-  toleransen, bygge efter fönstret, ett Pinnacle-index per basvarv, Oddsets
-  namnregel i poolmatcharen, avslag i `pool_match_diagnostic`. Namnregeln
-  hårdnad 2026-09-15 som `pool-name-v2`: bekräftade alias, inga godtyckliga
-  delnamn, EN kvalificerad kandidat/orientering; tvetydighet avstår med
-  capturestatus `ambiguous`. Datumnot tillagd, ingen historik omskriven.
-  `pool_draw_settlement.jackpot_close` = senast verifierade jackpot före
-  stängning (9 omgångar bakfyllda ur egna snapshots; prognosen jackpotblind
-  tills `JACKPOT_MODEL_MIN_N` = 30/produkt).
+**Kontrakt oförändrade:** live-radar chance-gap-shadow-v12 (Flashscore
+ankare, FotMob sekundär), V2.2 manifest v10/sharp s-2f14f9a6, amber-modell,
+powerrank-v2. Poolens champion dr1-b256-medel, radprofiler och X-riskregel
+pool-draw-risk-v1 oförändrade. Matematiskt max v2 39 366 rader (3 spikar,
+1 halv, 9 hela), reducerat max v2 20 000. Inga modellpromotioner.
 
-**Pågående mätningar — passiva. Läs på kadens, bygg inget nytt före skörd.**
-V2.2-gaten · PH5 forward (5 000 rader; Stryk 4966→, Europa 2600→) ·
-Max-tester `mathmax-v2`/`reducedmax-v2` (Stryk 4969/Europa 2604→) ·
-`pool-strength-blend-v1` (Historik → Poolmodell) · radarens blindtest (200
-prissatta/avgjorda matcher, 30 dygns spann och 20 matchdygn) · **PH3 sannolikhetsbas** (`dr1-b256-medel-sharp`, Topptipset,
-grind 40 parade omg) · **pooloptimerare v1 forward** (`poolopt` research-
-familj: träff/balans/X-kvot à 256 rader, Topptipset 4309/Stryk 979/Extra 1864→,
-grind 40 parade omg mot championen, avslut 120) · **pit-total-v1** (grind ≥ 40
-Topptipsomgångar med total på alla åtta) · PH4 pit-v4 Stryk/Europa (8–14/40).
-`cli.py gater` läser allihop, inkl. pit-total, i PARADE OBEROENDE omgångar mot
-respektive förregistrering, med statustrappan samlar → underlag klart →
-granskad: stöd|ej stöd → infört|avslutad (PH4 Topptipset visas granskad ur
-`docs/ph4-forward-status.json`).
+**Levererat 21/9:** pool-name-v3 rättar åtta belagda kortnamnsalias från
+Stryk 4971, utan globala modellalias eller sänkta matchtrösklar. Hörn-/kort-event
+får inte kopplas till målmarknaden. Upp till fem avvisade sökledtrådar sparas
+i befintlig diagnostiktabell. Täckningsrapporten ser nu även SvS-id med
+Pinnacle-länk och kallar inte fuzzy-/hörnpar för säkert rätt match.
+Tre av tio luckor (Luton–Bradford, Oxford–Cambridge, Sheffield W–Stockport)
+saknar ännu tillräckligt historiskt källbevis. De är INTE förklarade som
+saknat Pinnacle-utbud. Inga historiska priser eller frysningar bakfyllda.
 
-**Skördat 2026-09-02.** PH4 Topptipset: streck + streckrörelse slår INTE ren
-Pinnacle vid h3 — promotion nej. Pooloptimerare v1 fullsökning (10 000 konf.,
-2 006 omg): ingen arm slog Standard på ROI i slutauditen (402 omg); tre armar
-nominerade till forward. Sannolikhetsbas retro (pit-v4): identiskt facit 21/21
-träffar på 77 omg, Pinnacle täcker Topptipset vid h3 i bara 18/87 omg (m20
-56/88). Se `docs/overlamningar/overlamning-2026-09-02-poolforbattringar.md`.
+**PIT:** pit-v4 + pit-total-v1 fortsätter med datumnot enligt tidigare
+insamlingsbeslut. Pool-capture-v2:s begränsade m20-reserv och öppna
+horisontfönster kvar. Vid skörd ska regimerna 14/9, 15/9 och 21/9 redovisas.
 
-**Senast levererat, 2026-09-15 (Codex): pool-capture-v2.** Öppna h24/h3-fönster
-får inte längre hoppas över av basintervallet. Inför m20 kan saknad giltig
-bulkobservation kompletteras från exakt Pinnacle-match-id: bara före as-of,
-fullständig 1X2 + total, verifierad Age och oförändrad 10-minuterstolerans.
-Max 13 försök och 12 s startbudget per varv, delat mellan alla produkter;
-timeout 2 s per nätverksfas, cooldown 240 s per id. Ingen extra bulkloop,
-ingen ändring i tips eller styrke-shadow. Snapshotklockan går inte bakåt.
-Loggen skiljer källfel/skip/pristid/Age. Datumnot i PIT-manifestet;
-överlämning: `docs/overlamningar/overlamning-2026-09-15-poolkadens.md`.
+**UI:** reducerade testkuponger visar direkt andelen rader under 1/X/2.
+Matematiska visar fortsatt bara tecken. Skillnaden mellan saknade tecken
+och saknade kombinationer fanns redan och behålls.
 
-**Tidigare samma dag: säker poolmatchning.** Inter/Inter Miami
-och Barcelona/Barcelona SC kan inte längre bli exakta träffar. Bekräftade
-kortnamn finns kvar som poolspecifika alias; flera kandidater/orienteringar
-avstår i stället för att välja första indexraden. Globala modellalias och
-PIT-toleranser är oförändrade. Regressioner + hela kontrollsviten gröna.
-Överlämning: `docs/overlamningar/overlamning-2026-09-15-poolmatchning.md`.
+**Reduceringsscreening:** pool-portfolio-screen-v1 är ett körbart OFFLINE-test,
+inte standard eller nytt aktivt forwardspår. Samma budget och frystidsinput,
+girig kupongtäckning, EV-/teckengolv, separat utvärderingssample. Referensen
+reproducerades exakt på Stryk 4971:s 20k-kupong. Kandidaten fick 10 mot 9 rätt
+och bättre 10/11-rättstäckning men betydligt SÄMRE beräknad toppträffchans.
+Ingen promotion. Protokoll/körning: `docs/pool-portfolio-screen-v1-2026-09-21.md`.
+Standardbyggen och befintliga frysta nycklar är orörda.
 
-**Täckning, tidig kontroll:** tre avslutade Topptipsomgångar sedan 14/9:
-h24 20/24, h3 14/24, m20 8/24 matcher giltiga. Blandar observationer före
-och efter Claudes fix; inte ett före/efter-experiment. Omg 4333 missade m20
-med 70 sekunder (15-minuters observationstakt, 10-minuters tolerans); h3 låg
-i en fyratimmars sharp-lucka trots att servern körde var femte minut.
-Omg 4334 har 8/8 vid h3 och m20. Reservvägen är nu implementerad, men
-verklig täckningsvinst ska mätas framåt. Orsaken till den historiska
-källluckan går inte att fastställa ur dåvarande logg. Ingen modellpromotion.
+**Grindar avlästa inför arbetet:** 62/62 läsbara; poolopt 42 parade
+omgångar har nått skörd, ingen säker förbättring i preliminär jämförelse.
+Formell skörd enligt eget protokoll återstår. PH5/max bara Stryk 3 / Europa 6
+aktuella omgångar. V2.2 207/217/217 av 300, tid/ligakrav kvar.
+Radar 231/200 men 17/30 dygn, 18/20 matchdygn, ROI −4,1 %, KI90
+[−14,1; +6,2] %. Ingen förändring av gates eller kohorter.
 
-**Tidigare, 2026-09-14 (Claude): täckningspaketet a–e.** Samans
-beslut: genomför allt, behåll pit-v4 (datumnot i
-`docs/pool-ph4-forward-manifest-v3.json` och pit-total-dokumentet), namnregel
-och diagnostik enligt rekommendation. Ändrat: `horizon_window_open` ±
-toleransen (var bara efter as-of), `horizon_ready` bygger först fönster +
-16 min, `sharp_service.VarvIndex` delar ett Pinnacle-index per basvarv med
-`force` avgjort före första produkten, `odds_provider.team_sim` = Oddsets
-`norm_team` + delsträng med truppmarkörer och `TEAM_REJECTED_LINKS` som spärr,
-`pinnacle.match_index` fyller diagnostik som bokförs i `pool_match_diagnostic`.
-Presence-regeln är oförändrad. Uppföljning ~2026-09-21 med täckningsrapporten
-`--sedan 2026-09-14`. Regel 10 i observationstidsregeln.
-
-**Tidigare, 2026-09-13 natt (Claude): UI-planens del B och C.** Historik
-har tre underflikar (Samans val 2026-09-13): **Mina kuponger** (verkligt
-spelade, filter + summering på samma population, status per kupong, detalj
-med livekort), **Tester** (katalog ur nya `/api/pool/tests`, en rad per
-experiment med gater-trappan, omgångsvy som standard i 5 000-/maxtester,
-Standardjämförelsen och Poolstyrka utbrutna) och **Facit & prognos**. Idag
-visar Mina kuponger överst med lätt livebild och nya resultat, och ett
-Tester-kort med bara nyheter. Direktlänkar via hash (`lib/routes.js`), stäng
-backar i historiken. Samma kväll: **utdelningsprognos per nivå** bredvid
-liverättningen (egen skattning ur pott ÷ förväntade vinnare, SvS ger ingen)
-i Mina kuponger, testkupongerna och detaljkortet. Verifierat på desktop och
-375 px. Överlämning:
-`docs/overlamningar/overlamning-2026-09-13-mina-kuponger-tester.md`.
-
-**Tidigare samma dag.** Codex granskade driften (`dba6f16`) och lade
-en plan: `docs/overlamningar/overlamning-2026-09-13-modell-ui-plan.md` —
-del B/C (Mina kuponger, Tester, personlig Idag) levererades senare samma dag
-enligt Samans beslut, liksom del A. Codex: registret `_bench` känner poolopt
-och Pinnacle-utmanaren, `research_groups` per produkt × nyckel × frystid, ett
-filterkontrakt i 5 000-/maxtester (`f3d600a`, driftsatt av Claude samma
-kväll). Claude: `cli.py gater` komplett (`49bbe1b`) och **täckningsrapporten**
-`docs/pool-tackning-2026-09-13.md` (`scripts/pool_tackning_rapport.py`,
-read-only). Fynd: Ö/U-luckan ÄR 1X2-luckan; Topptipset har giltig sharp i
-12 % av matcherna vid 180 min; tre mekanismer i insamlingen — horisontfönstret
-tvingar Pinnacle EFTER as-of, den globala spärren ger bara första produkten
-ordinarie captures, featurebygget hinner före fönstercapturen — plus fyra par
-som poolmatcharen fällde. Besluten a–e genomfördes 14/9 enligt ovan.
-Föregående leveranser i `docs/status-historik.md`.
+**Nästa steg:** följ nya oddsobservationer efter 21/9; utred återstående
+kandidatledtrådar. Kör den frysta reduceringsscreeningen brett på samma budget,
+mät runtime/fallback/samplevariation. Nästa kandidat behöver ett uttryckligt
+toppchansskydd, särskilt för Topptipset. Ändra inte v1 efter en bra/dålig omgång.
+Separat förregistrering krävs före automatisk forwardfrysning.
 
 ## Modellplan — vägen till en modell att lita på (efter backtest-domen)
 

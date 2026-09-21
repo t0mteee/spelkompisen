@@ -78,6 +78,12 @@
   ],
   "collection_notes": [
     {
+      "date": "2026-09-21",
+      "match_version": "pool-name-v3",
+      "change": "Fortsatt insamlingsrättning enligt Samans godkännande: åtta belagda poolspecifika alias från 4971, explicit veto mot hörn-/kort-event, högst fem diagnostiska sökledtrådar. Oförändrad presence, tolerans, kandidattröskel och entydighetsvakt. Ingen bakfyllning eller global modelländring. Redovisa insamlingsregimen vid skörd; pit-v4 behålls inom beslutet 2026-09-14.",
+      "doc": "docs/overlamningar/overlamning-2026-09-21-pool-odds-reducering.md"
+    },
+    {
       "date": "2026-09-15",
       "collection_version": "pool-capture-v2",
       "change": "Saman: rätta tidsluckan. Öppna horisonter aktiverar befintligt pooltick. Begränsad per-match-id-reserv före m20 när giltig bulkobservation saknas: fullständig 1X2+total, verifierad HTTP Age, samma tolerans, hämtning och pristid före as-of. Ingen tips-/styrke-shadowändring och ingen historisk bakfyllning. pit-v4 kvar inom insamlingsfixen; redovisa datumnoten vid skörd.",

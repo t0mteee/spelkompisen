@@ -51,6 +51,7 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 from app import pool_system_ledger as psl  # noqa: E402
 from app.oddset import _team_sim, norm_team  # noqa: E402
+from app.odds_provider import is_side_market  # noqa: E402
 from app.pinnacle import COMBINED_MIN, HOME_AWAY_MIN, Pinnacle, _best_side  # noqa: E402
 from app.pool_dataset import (FEATURE_START_AT, FEATURE_VERSION, HORIZONS,  # noqa: E402
                               TIMING_TOLERANCE_MIN, TOTAL_FEATURE_START_AT,
@@ -83,13 +84,13 @@ def _load_oddset(conn):
         "SELECT match_id, MIN(fetched_at) FROM oddset_odds WHERE source='pinnacle' GROUP BY match_id"))
     by_date: dict[str, list] = defaultdict(list)
     pin: list[tuple] = []
-    for mid, league, home, away, start, kambi_id in conn.execute(
-            "SELECT id, league, home, away, start, kambi_id FROM oddset_matches WHERE start IS NOT NULL"):
+    for mid, league, home, away, start, kambi_id, pinnacle_id in conn.execute(
+            "SELECT id, league, home, away, start, kambi_id, pinnacle_id FROM oddset_matches WHERE start IS NOT NULL"):
         when = _parse(start)
         if when is None:
             continue
         by_date[when.date().isoformat()].append((when, home, away, league))
-        if str(mid).startswith("pin:"):
+        if str(mid).startswith("pin:") or pinnacle_id:
             pin.append((when, home, away, league, kambi_id, first_pin.get(mid)))
     return by_date, pin
 
@@ -124,6 +125,8 @@ def _replay(pin_client, pin_rows, home, away, match_start, close_iso):
         return {"utfall": "okänd avspark"}
     cands = []
     for start, ph, pa, league, kambi_id, first_odds in pin_rows:
+        if is_side_market(ph, pa):
+            continue
         if abs((start - when).total_seconds()) > 2 * 3600:
             continue
         score = min(_team_sim(home, ph), _team_sim(away, pa))
@@ -135,6 +138,12 @@ def _replay(pin_client, pin_rows, home, away, match_start, close_iso):
     out = {"pinnacle": f"{ph.strip()} - {pa.strip()}", "liga": league,
            "pinnacle_first_odds": first_odds}
     close = _parse(close_iso)
+    if len(cands) > 1:
+        return {**out, "utfall": "flera möjliga Oddset-par — manuell kontroll"}
+    if score < 0.8:
+        return {**out, "utfall": "svag namnledtråd — identitet ej belagd"}
+    if not first_odds:
+        return {**out, "utfall": "Pinnacle-id sparat men pristid saknas"}
     if first_odds and close and _parse(first_odds) > close:
         return {**out, "utfall": "Pinnacle listade efter spelstopp"}
     if kambi_id:
@@ -143,7 +152,7 @@ def _replay(pin_client, pin_rows, home, away, match_start, close_iso):
               "odds": {"1": 2.0, "X": 3.3, "2": 3.5}, "odds_source": "pinnacle", "total": None}]
     hit = pin_client.match(home, away, None, None, index, match_start)
     sides = (round(_best_side([home], ph), 3), round(_best_side([away], pa), 3))
-    return {**out, "utfall": "träffar i replay, orsak okänd" if hit else "korrekt par fälls av tröskeln",
+    return {**out, "utfall": "träffar i replay, orsak okänd" if hit else "möjligt par avvisat — verifiera identiteten",
             "sidor": sides, "kombinerat": round(sum(sides) / 2, 3),
             "tröskel": f"sida ≥ {HOME_AWAY_MIN}, kombinerat ≥ {COMBINED_MIN}"}
 
@@ -394,8 +403,10 @@ def markdown(summary, records, sedan, generated_at, windows, cadence):
     out += ["", f"## Aldrig matchade vid 20 min: {len(never)} rader, {summary['unique_never_matched']} unika matcher "
             "(Stryk/Topptipset Stryk och Europa/Topptipset Extra delar matcher)", "",
             "Replayen kör `pinnacle.match` offline med Pinnacle-namnen som Oddset-sidan sparade för "
-            "samma match (±2 h). `korrekt par fälls av tröskeln` betyder att Pinnacle listade matchen "
-            "och att poolens egen matchare avvisade rätt par. `ingen Pinnacle-rad hos Oddset` betyder "
+            "en möjlig match (±2 h). Fuzzy-likhet är en sökledtråd, inte identitetsbevis. "
+            "Hörn-/kort-event utesluts, liksom automatiska slutsatser vid flera kandidater. "
+            "Även svs:-rader med sparat Pinnacle-id räknas; deras råa Pinnacle-namn kan saknas. "
+            "`ingen Pinnacle-rad hos Oddset` betyder "
             "att vi inte kan avgöra om Pinnacle listade den (ligan följs inte av Oddset, eller så "
             "listades den aldrig). `listad före spelstopp, Pinnacles namnform ej sparad` betyder att "
             "Pinnacle bevisligen listade matchen i tid men att Oddset-raden bär Kambis namn, så vi vet "

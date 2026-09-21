@@ -81,7 +81,7 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/svenskaspel.py  SvS pools-API-klient (PRODUCTS, GAME_GROUPS, Draw, family_of)
   app/pinnacle.py     Pinnacle Arcadia (gratis guest-API), + derive.py (1X2 ur spread/total);
                       `match_index` matchar rent mot indexet och fyller `diag` vid avslag
-  app/odds_provider.py NAMNREGELN för poolmatcharen (2026-09-15, pool-name-v2): Oddsets
+  app/odds_provider.py NAMNREGELN för poolmatcharen (aktuell version i plan.md): Oddsets
                       `norm_team` + poolspecifika bekräftade alias ⇒ 1,0; obekräftade delnamn,
                       olika trupper och kända falska par ⇒ 0. SC bevaras (Barcelona ≠ Barcelona SC).
                       Trösklarna 0,60/0,72 kvar; `match_index` kräver EN kandidat/orientering,
@@ -125,6 +125,8 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/pool_optimizer.py pooloptimerarens radvalskärna (poolopt-topptips256-v1);
                       scripts/optimera_topptips256.py är skalet, PH3:s
                       `poolopt`-forwardarmar byggs av SAMMA rows_for()
+  app/pool_portfolio.py isolerad offline-screening av kupongtäckning, INTE produktion;
+                      scripts/prova_pool_portfolio.py läser bara frystidsinput och facit
   app/live_radar.py   shadow-radar för pågående matcher: Flashscore ankare, FotMob sekundär,
                       Sofascore URKOPPLAD ur radarn (kvar för resultat/frånvaro)
   app/live_signal_ledger.py append-only-journal över första Följer/Stark per match,

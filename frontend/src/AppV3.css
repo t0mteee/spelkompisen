@@ -38,6 +38,9 @@
 .coupon-sign.missed { border: 2px solid #f48383; background: #492b31; color: #ffd0d0; }
 .coupon-sign.provisional { border: 2px dashed #edc66d; }
 .coupon-sign i { font-style: normal; font-size: 11px; }
+.coupon-sign:has(small) { flex-wrap: wrap; }
+.coupon-sign small { flex-basis: 100%; text-align: center; font-size: 10px;
+  line-height: 1.25; color: inherit; }
 .coupon-sign.missed { flex-wrap: wrap; row-gap: 0; }
 .coupon-sign.missed i { flex-basis: 100%; text-align: center; font-size: 9px; line-height: 1.1; }
 .v3livecell { display: grid; gap: 2px; font-size: 12px; }
