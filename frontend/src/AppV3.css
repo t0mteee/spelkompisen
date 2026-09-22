@@ -345,6 +345,11 @@
   border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px;
 }
 .v3steps a:hover { color: var(--v3acc); border-color: var(--v3acc-dim); }
+.builder-guide { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.builder-guide summary { cursor: pointer; font-weight: 600; }
+.builder-guide p { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.builder-guide > details { padding: 10px 0; border-top: 1px solid var(--line); }
+.builder-guide h4 { margin: 14px 0 8px; }
 .v3bombenbar { margin-bottom: 10px; }
 .v3bombenbar button {
   background: var(--panel); border: 1px solid var(--line); color: var(--text);

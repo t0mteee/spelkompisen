@@ -79,5 +79,35 @@ Ingen historik bakfylls. Se `docs/db-atgarder.md` för produktionskörningen.
 
 Riktade tester omfattar identitet/tid/status/linpar, backup utan bakfyllning,
 källfel kontra frånvaro, färskhet, trafikbudget/cooldown, experimentets budget,
-separat API-val, oförändrad analys och faktisk radfördelning. Full kontroll,
-mobilverifiering och driftresultat antecknas vid leverans.
+separat API-val, oförändrad analys och faktisk radfördelning. Full kontroll
+passerade inför kodpush `471f511` och CSS-fix `d48f493`; 47 frontendtester,
+lint och produktionsbygge gröna. Backend och frontend omstartade på servern,
+inget startat på den gamla datorn. `/api/health`: status/pools/v22/oddset `ok`.
+
+Serverns faktiska API-byggen, 256 kr och värdevikt 0,5:
+
+- Topptipset 4347: 256 rader, 1,21 s, 163 rader utbytta. Beräknad toppchans
+  Standard 7,82 % → experiment 5,28 %.
+- Europatipset 2610: 256 rader, 3,79 s, 256 rader utbytta. Beräknad toppchans
+  Standard 1,20 % → experiment 0,25 %.
+
+Detta är funktionstest, **inte bevis för en förbättring**. V1 bör inte
+promoveras. Ny kandidat behöver särskilt ett toppchans-/vinstplansanpassat mål;
+nuvarande täckning av N−1/N−2/N−3 får inte förväxlas med bättre pengautfall.
+Inga spel lämnades eller bokfördes vid kontrollen.
+
+## Tillägg 2026-09-22 — byggarguide
+
+Saman efterfrågade bakgrund och syfte för samtliga byggare. Under
+bygginställningarna finns nu **Vilken byggare är vilken — och varför finns den?**
+i `BuilderGuide.jsx`. Guiden skiljer systemtyp från radprofil, värdereglage,
+A/B-kuponger och testserier. Varje profil beskriver ursprung, mekanism och
+begränsning; den gör inga nya resultatanspråk. Underlag:
+`docs/topptips-radform-v1-resultat.md`,
+`docs/radprofiler-256-512-2026-08-25.md` och
+`docs/pool-portfolio-screen-v1-2026-09-21.md`.
+
+Mobilkontrollen upptäckte att steglänkarna Analys/Bygg/Kupong skrev över
+hash-rutten och kunde öppna Idag. Klicket scrollar nu inom poolsidan utan
+att ändra appens rutt. Ingen algoritm eller automatisk testkonfiguration
+ändras av detta tillägg.

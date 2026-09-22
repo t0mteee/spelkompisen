@@ -13,8 +13,10 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 `backend/scripts/migrera_pool_reserve.py` skapar `pool_reserve_quote` och
 ett index efter SQLite-onlinebackup till ett nytt namn under
 `backend/data/backups/`. Inga gamla odds eller captures ändras/bakfylls.
-Insamlingen förblir inaktiv innan migreringen har körts. Verifierad
-produktionskörning och backupnamn antecknas vid driftsättning.
+Körd på servern efter kodcommit `471f511`. Backup:
+`backend/data/backups/fore-pool-reserv-20260921-471f511.db`.
+Resultat: `integrity_check=ok`, `backfilled=0`. Journalen var tom vid första
+kontrollen före nästa ordinarie poolvarv; det är inte bevis på oddstäckning.
 
 ---
 

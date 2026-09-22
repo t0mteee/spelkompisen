@@ -17,6 +17,7 @@ import { AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPane
 import { beginRequest, payoutMatchesSelection, requestIsCurrent, uniqueDraws } from './poolSelection.js'
 import { projectionBasisText } from './playRec.js'
 import { PoolInputWarning } from './components/PoolInputWarning.jsx'
+import { BuilderGuide } from './components/BuilderGuide.jsx'
 
 const VIEWS = [
   { id: 'idag', label: 'Idag', icon: '☀️' },
@@ -838,7 +839,11 @@ function PoolV3() {
           </span>
         )}
         <span className="v3steps">
-          <a href="#analys">1 Analys</a><a href="#bygg">2 Bygg</a><a href="#kupong">3 Kupong</a>
+          {['Analys', 'Bygg', 'Kupong'].map((label, i) => <a key={label}
+            href={`#${label.toLowerCase()}`} onClick={(event) => {
+              event.preventDefault()
+              document.getElementById(label.toLowerCase())?.scrollIntoView({ block: 'start' })
+            }}>{i + 1} {label}</a>)}
         </span>
       </div>
 
@@ -919,6 +924,7 @@ function PoolV3() {
                     && !['row_shape_v1', 'portfolio_v1'].includes(activeRowModel) ? 'Föreslå två kuponger' : 'Föreslå rad'}
                 </button>
               </div>
+              <BuilderGuide />
               {rowModelAvailable && (
                 <fieldset className="rowprofiles">
                   <legend>Radprofil</legend>
