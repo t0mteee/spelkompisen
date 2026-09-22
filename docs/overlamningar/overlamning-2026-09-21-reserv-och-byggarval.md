@@ -111,3 +111,22 @@ Mobilkontrollen upptäckte att steglänkarna Analys/Bygg/Kupong skrev över
 hash-rutten och kunde öppna Idag. Klicket scrollar nu inom poolsidan utan
 att ändra appens rutt. Ingen algoritm eller automatisk testkonfiguration
 ändras av detta tillägg.
+
+### Slutkontroll 2026-09-22
+
+- `878d004` driftsatt, full kontroll grön. Mobil 390×844: byggarguiden går
+  att fälla ut, ”2 Bygg” behåller `#/pool`, experimentet går att välja och
+  bygger 256 rader. A/B-valet inaktiveras korrekt. Fördelningsmatrisen ryms
+  utan intern sidscroll (`clientWidth=scrollWidth=327`). Inga spel bokförda.
+- Ordinarie reservinsamling, inte manuell backfill, hade sparat 40
+  `available` och 20 `no_market`-observationer kl 05:57 UTC. Det är upprepade
+  observationer, inte 60 olika matcher: Topptipset 4347 match 3/4 hade reserv
+  (2,5 respektive 3,25), match 5 saknade denna marknad.
+- Kontrollen hittade att 30-minutersvarvet annars alltid kunde spendera
+  reservbudgeten på omgångens tre första matcher. Kandidater sorteras nu
+  efter äldsta providerkontroll, aldrig kontrollerade först. Regressionstest
+  simulerar 31 min gamla kontroller och bevisar att match 4–6 kommer nästa gång.
+- Reservspåret är fortfarande begränsat till tre anrop per gemensamt varv.
+  Vid många luckor kan alla priser inte hållas färska samtidigt. Gemensam
+  prioriterad kö över flera produkter/omgångar och eventuell ändrad trafikbudget
+  återstår innan reservspåret kan utlovas heltäckande; ingen dold färskhetsförlängning.

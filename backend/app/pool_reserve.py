@@ -119,7 +119,14 @@ def collect(store, product, draw, varv):
                       "over_odds","under_odds","match_start","home","away")],VERSION]
         return store.conn.execute("INSERT OR IGNORE INTO pool_reserve_quote VALUES ("+
                                   ",".join("?" for _ in values)+")",values).rowcount
-    for m in draw.matches:
+    # Basvarven kan ligga längre isär än cooldown. Utan åldersordning
+    # förbrukar samma tre första matcher budgeten för alltid.
+    checked = {row['provider_event_id']: row['checked_at'] for row in
+               store.conn.execute("SELECT provider_event_id, MAX(checked_at) AS checked_at "
+                   "FROM pool_reserve_quote WHERE source=? GROUP BY provider_event_id", (SOURCE,))}
+    oldest = dt.datetime.min.replace(tzinfo=dt.timezone.utc)
+    for m in sorted(draw.matches, key=lambda m: (
+            _time(checked.get(str(m.kambi_id))) or oldest, m.event_number)):
         total = (sharp.get(m.event_number) or {}).get("total") or {}
         if (not m.kambi_id or m.cancelled or not _time(m.match_start)
                 or _time(m.match_start) <= now or total.get("line") is not None):

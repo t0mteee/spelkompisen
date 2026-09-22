@@ -85,3 +85,20 @@ class ReserveTests(unittest.TestCase):
             self.assertEqual(now,conn.execute("SELECT observed_at FROM pool_reserve_quote WHERE product='topptipsetextra' LIMIT 1").fetchone()[0])
             self.assertEqual(3,r.collect(store,'topptipset',draw,SimpleNamespace()))
             self.assertEqual(0,r.collect(store,'topptipset',draw,SimpleNamespace()))
+
+    def test_aldsta_matcher_prioriteras_nar_basvarvet_ar_langre_an_cooldown(self):
+        conn=sqlite3.connect(':memory:');conn.row_factory=sqlite3.Row;conn.executescript(r.SCHEMA)
+        self.addCleanup(conn.close)
+        store=SimpleNamespace(conn=conn,get_sharp=lambda *args:{})
+        now=dt.datetime.now(dt.timezone.utc)
+        start=(now+dt.timedelta(days=1)).isoformat()
+        draw=SimpleNamespace(state='Open',draw_number=1,matches=[SimpleNamespace(
+            event_number=i,kambi_id=str(i),match_start=start,cancelled=False) for i in range(1,7)])
+        old=(now-dt.timedelta(minutes=31)).isoformat()
+        with patch.object(r,'fetch_quote',return_value={
+                'status':'not_listed','checked_at':old,'observed_at':old}):
+            r.collect(store,'topptipset',draw,SimpleNamespace())
+        with patch.object(r,'fetch_quote',return_value={
+                'status':'not_listed','checked_at':now.isoformat(),'observed_at':now.isoformat()}) as fetch:
+            r.collect(store,'topptipset',draw,SimpleNamespace())
+            self.assertEqual([4,5,6],[call.args[0].event_number for call in fetch.call_args_list])
