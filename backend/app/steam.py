@@ -98,17 +98,17 @@ def movement_with_steam(store: Storage, product: str, draw_number: int,
     serie, precis som när sharp saknas, och inget steam-skift. Övriga matcher
     och steam-trösklarna är orörda."""
     skip = {int(event) for event in stale}
-    sharp_mv = store.sharp_movement(product, draw_number)
-    if skip:
-        sharp_mv = {k: v for k, v in sharp_mv.items() if k[0] not in skip}
-    if sharp_mv:
-        movement = sharp_mv
-        if skip:
-            movement.update({k: v for k, v in
-                             store.movement(product, draw_number).items()
-                             if k[0] in skip})
-    else:
-        movement = store.movement(product, draw_number)
+    sharp_mv = {k: v for k, v in store.sharp_movement(product, draw_number).items()
+                if k[0] not in skip}
+    # PER MATCH (2026-09-24): en match utan färsk sharp-serie — aldrig länkad
+    # eller i `stale` — får SvS-oddsens serie. Tidigare fick en olänkad match
+    # INGEN rörelse så fort någon ANNAN match i omgången hade sharp, fast
+    # byggaren ger rörelse_ner-bonus ur samma dict (builder._sign_score).
+    # Utan sharp alls, eller med sharp på alla matcher, är utfallet oförändrat.
+    sharp_events = {k[0] for k in sharp_mv}
+    movement = {k: v for k, v in store.movement(product, draw_number).items()
+                if k[0] not in sharp_events}
+    movement.update(sharp_mv)
     streck_mv = store.streck_movement(product, draw_number)
 
     steam_pp: dict[tuple[int, str], float] = {}

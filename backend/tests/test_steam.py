@@ -119,6 +119,21 @@ class SteamTests(unittest.TestCase):
         self.assertEqual(3.00, merged[(2, "1")]["first"])
         self.assertFalse(any("steam_pp" in entry for entry in merged.values()))
 
+    def test_olankad_match_far_svs_serien_nar_andra_har_sharp(self):
+        """En match som aldrig länkats fick ingen rörelse alls om en annan
+        match i omgången hade sharp (statusauditen 2026-09-24)."""
+        self._sharp(1, 30, 2.00, 3.50, 3.60)
+        self._sharp(1, 0, 1.70, 3.80, 4.50)
+        self._svs(1, 30, 2.10)
+        self._svs(1, 1, 1.95)
+        self._svs(2, 30, 3.00)
+        self._svs(2, 1, 2.70)
+        merged = steam.movement_with_steam(self.store, "stryktipset", 5000)
+        self.assertEqual((2.00, 1.70), (merged[(1, "1")]["first"], merged[(1, "1")]["last"]))
+        self.assertEqual((3.00, 2.70), (merged[(2, "1")]["first"], merged[(2, "1")]["last"]))
+        self.assertIn("steam_pp", merged[(1, "1")])
+        self.assertNotIn("steam_pp", merged[(2, "1")])
+
     def test_steam_tabellen_visar_inte_inaktuella_matcher_som_nu(self):
         self._sharp(1, 30, 2.00, 3.50, 3.60)
         self._sharp(1, 0, 1.70, 3.80, 4.50)
