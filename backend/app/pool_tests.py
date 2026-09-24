@@ -40,7 +40,7 @@ CATALOG: tuple[dict, ...] = (
     {"id": "poolstyrka", "title": "Poolstyrka", "icon": "🧬", "kind": "strength",
      "purpose": "Förbättrar 90 % Pinnacle + 10 % lagstyrka Pinnacles 1X2-prognos på poolmatcher? "
                 "Logloss per horisont, aldrig systeminput.",
-     "doc": "docs/pool-strength-forward-manifest-v1.json", "coupons": None},
+     "doc": "docs/pool-strength-forward-manifest-v2.json", "coupons": None},
     {"id": "total", "title": "Ö/U-totalen", "icon": "📏", "kind": "total",
      "purpose": "Bär Pinnacles huvudtotal information om oavgjort utöver X-priset? Först då vet vi "
                 "om X-skyddet är en riskregel eller en modell.",

@@ -22,7 +22,9 @@ from .storage import Storage
 
 
 ROOT = Path(__file__).resolve().parents[2]
-MANIFEST_PATH = ROOT / "docs" / "pool-strength-forward-manifest-v1.json"
+# v2 sedan 2026-09-24 (Samans beslut 3A): samma kontrakt, ny modellversion.
+# v1 (ps-59893bd6) stoppade tyst 2026-08-21 och är historik.
+MANIFEST_PATH = ROOT / "docs" / "pool-strength-forward-manifest-v2.json"
 SIGNS = ("1", "X", "2")
 COL = {"1": "1", "X": "x", "2": "2"}
 

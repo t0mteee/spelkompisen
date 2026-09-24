@@ -311,3 +311,32 @@ class PoolStrengthStopTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ManifestV2Tests(unittest.TestCase):
+    """Samans beslut 2026-09-24 (3A): v2 är v1 med ny modellversion och ny start.
+
+    Allt annat i kontraktet (hypotes, scope, kandidater, grind, förbud) måste
+    vara identiskt. En annan ändring kräver ett eget, uttryckligt beslut.
+    """
+
+    def test_v2_skiljer_sig_bara_i_modellversion_och_start(self):
+        import copy
+        import json
+        from app import pool_strength_shadow as shadow
+        docs = shadow.ROOT / "docs"
+        v1 = json.loads((docs / "pool-strength-forward-manifest-v1.json").read_text())
+        v2 = json.loads((docs / "pool-strength-forward-manifest-v2.json").read_text())
+        self.assertEqual(shadow.MANIFEST_PATH.name, "pool-strength-forward-manifest-v2.json")
+        self.assertEqual(2, v2["manifest_version"])
+        self.assertEqual("ps-59893bd6", v2["supersedes"]["shadow_version"])
+        self.assertEqual(v2["frozen_at"], v2["collection"]["starts_at"])
+        stripped = copy.deepcopy(v2)
+        for key in ("manifest_version", "supersedes", "frozen_at"):
+            stripped.pop(key)
+        stripped["source_versions"]["model_signal_version"] = \
+            v1["source_versions"]["model_signal_version"]
+        stripped["collection"]["starts_at"] = v1["collection"]["starts_at"]
+        reference = copy.deepcopy(v1)
+        reference.pop("frozen_at")
+        self.assertEqual(reference, stripped)
