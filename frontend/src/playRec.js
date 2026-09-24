@@ -36,6 +36,10 @@ export function projectionBasisText(basis) {
     const days = ['mån', 'tis', 'ons', 'tors', 'fre', 'lör', 'sön']
     return `median av ${n} senaste omgångarna med samma spelstoppsveckodag (${days[basis.weekday] ?? '?'})`
   }
+  if (basis.mode === 'dagtyp') {
+    const typ = basis.daytype === 'helg' ? 'helgomgångarna (lör–sön)' : 'vardagsomgångarna (mån–fre)'
+    return `median av ${n} senaste ${typ}`
+  }
   return `median av senaste ${n} omgångarna oavsett veckodag`
 }
 

@@ -449,26 +449,167 @@ def _payout_ratio(plan: dict) -> float:
 JACKPOT_MODEL_MIN_N = 30
 
 
+# Omsättningsprognosens METODVERSION. Den ingår i cachenyckeln
+# (`finalturn_<produkt>:<version>:wd<N>`) så att ett värde som räknats med en
+# äldre metod aldrig lever kvar i meta efter en metodändring.
+#   tp1 (2026-07-28 → 2026-09-24): veckodag mot blandad, ÖVRE median.
+#   tp2 (2026-09-24): SANN median (medel av de två mittvärdena), dagtypsläget
+#       som tredje kandidat i samma backtest, spelstoppets veckodag i svensk
+#       tid. Ändrar PH3-frysningarnas värderingsomsättning och därmed radvalet
+#       för EV-/färgsystem från och med driftsättningen.
+TURNOVER_PROJECTION_VERSION = "tp2"
+# Kandidatlägen i PRIORORDNING: mest specifik först. Ett senare läge väljer
+# bort ett tidigare bara på ett UPPMÄTT lägre backtestfel.
+TURNOVER_MODES = ("weekday", "dagtyp", "blandad")
+_TURNOVER_SAME_N = 8        # veckodag/dagtyp: senaste 8 jämförbara omgångar
+_TURNOVER_MIX_N = 6         # blandad: senaste 6 oavsett dag
+_TURNOVER_ROWS = 60         # settlementrader (nyast först) som prognosen ser
+_TURNOVER_BACKTEST_N = 20   # rullande backtestmål
+_TURNOVER_BACKTEST_HIST = 10  # minst så många äldre rader bakom varje mål
+_TURNOVER_CACHE_S = 6 * 3600
+
+
 def _finalturn_key(product: str, weekday: int | None) -> str:
-    return (f"finalturn_{product}:"
+    return (f"finalturn_{product}:{TURNOVER_PROJECTION_VERSION}:"
             + (f"wd{weekday}" if weekday is not None else "any"))
 
 
-def _close_weekday(close_iso: str | None) -> int | None:
+def _parse_close(close_iso: str | None) -> dt.datetime | None:
     if not close_iso:
         return None
     try:
-        return dt.datetime.fromisoformat(
-            close_iso.replace("Z", "+00:00")).weekday()
+        parsed = dt.datetime.fromisoformat(str(close_iso).replace("Z", "+00:00"))
     except (TypeError, ValueError):
         return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt.timezone.utc)
+    return parsed
 
 
-def _projection_basis(product: str, close_iso: str | None) -> dict | None:
+def _close_weekday(close_iso: str | None) -> int | None:
+    """Spelstoppets veckodag i SVENSK tid (mån=0).
+
+    Settlementlagret bär lokal offset (`+02:00`), men PH3-ledgern skickar
+    UTC (`close.isoformat()`). En Topptipsetomgång med stopp 00:29 lokal tid
+    fick annars fredag i ledgern och lördag i /api/system — samma omgång,
+    två prognoser. Z betyder UTC och konverteras (regel 8)."""
+    parsed = _parse_close(close_iso)
+    if parsed is None:
+        return None
+    from zoneinfo import ZoneInfo
+    return parsed.astimezone(ZoneInfo("Europe/Stockholm")).weekday()
+
+
+def _day_type(weekday: int | None) -> str | None:
+    """Dagtyp: vardag mån–fre, helg lör–sön."""
+    if weekday is None:
+        return None
+    return "helg" if weekday >= 5 else "vardag"
+
+
+def _true_median(xs):
+    """SANN median — medel av de två mittvärdena vid jämnt antal. tp1 tog
+    `sorted(xs)[len(xs) // 2]`, alltså det ÖVRE mittvärdet."""
+    return statistics.median(xs) if xs else None
+
+
+def _turnover_candidates(hist: list[tuple[str, float]],
+                         weekday: int | None) -> dict[str, list[float]]:
+    """Kandidatlägenas underlag ur `hist` (nyast först, bara omgångar som
+    var avgjorda före målet)."""
+    daytype = _day_type(weekday)
+    same_wd: list[float] = []
+    same_dt: list[float] = []
+    for close_at, sale in hist:
+        if len(same_wd) >= _TURNOVER_SAME_N and len(same_dt) >= _TURNOVER_SAME_N:
+            break
+        wd = _close_weekday(close_at)
+        if wd is None:
+            continue
+        if weekday is not None and wd == weekday and len(same_wd) < _TURNOVER_SAME_N:
+            same_wd.append(sale)
+        if daytype is not None and _day_type(wd) == daytype \
+                and len(same_dt) < _TURNOVER_SAME_N:
+            same_dt.append(sale)
+    return {"weekday": same_wd, "dagtyp": same_dt,
+            "blandad": [sale for _, sale in hist[:_TURNOVER_MIX_N]]}
+
+
+def _turnover_projection(rows: list[tuple[str, float]], weekday: int | None,
+                         median=_true_median) -> dict | None:
+    """Prognosen ur `rows` (nyast först, redan beskurna till fönstret).
+
+    METODVALET ÄR DATADRIVET PER PRODUKT (2026-07-28): för veckoprodukter
+    (Stryk) vinner veckodagsmedianen, men för dagliga produkter (Topptipset)
+    är 8 samma-veckodagar = 8 veckors säsongsdrift. En rullande backtest på
+    senaste 20 omgångarna — bara på data som fanns FÖRE respektive omgång —
+    mäter medianabsolutfelet per läge. Utan backtestunderlag gäller
+    priorordningen i TURNOVER_MODES; bara ett uppmätt LÄGRE fel väljer bort
+    ett mer specifikt läge. Dagtypsläget (tp2) fångar vardagsomgångar som
+    byter veckodag (Europatipset ons/tors) utan att blanda in söndagar.
+    `median` är injicerbar enbart för före/efter-redovisningen."""
+    errs: dict[str, list[float]] = {mode: [] for mode in TURNOVER_MODES}
+    for i in range(min(_TURNOVER_BACKTEST_N,
+                       max(0, len(rows) - _TURNOVER_BACKTEST_HIST))):
+        target_close, actual = rows[i]
+        if actual <= 0:
+            continue
+        cands = _turnover_candidates(rows[i + 1:], _close_weekday(target_close))
+        for mode, vals in cands.items():
+            if len(vals) >= 3:
+                errs[mode].append(abs(median(vals) - actual) / actual)
+    err = {mode: median(e) for mode, e in errs.items()}
+    cands = _turnover_candidates(rows, weekday)
+    chosen = None
+    for mode in TURNOVER_MODES:
+        if len(cands[mode]) < (1 if mode == "blandad" else 3):
+            continue
+        if chosen is None or (err[chosen] is not None and err[mode] is not None
+                              and err[mode] < err[chosen]):
+            chosen = mode
+    if chosen is None:
+        return None
+    vals = cands[chosen]
+    return {"median": median(vals), "mode": chosen, "n": len(vals),
+            "errors": err, "n_backtest": {m: len(e) for m, e in errs.items()}}
+
+
+def _settled_turnover_all(store: Storage, product: str
+                          ) -> list[tuple[dt.datetime, str, float]]:
+    """Alla avgjorda omgångar (tid, spelstopp, slutomsättning), nyast först,
+    sorterade som TIDER — settlementlagret blandar `+01:00` och `+02:00`, så
+    strängordning är inte tidsordning."""
+    parsed = []
+    for close_at, sale in store.conn.execute(
+            "SELECT reg_close_time, net_sale FROM pool_draw_settlement "
+            "WHERE product=? AND net_sale > 0 AND reg_close_time IS NOT NULL",
+            (product,)):
+        at = _parse_close(close_at)
+        if at is not None:
+            parsed.append((at, close_at, float(sale)))
+    parsed.sort(key=lambda item: item[0], reverse=True)
+    return parsed
+
+
+def _settled_turnover_rows(store: Storage, product: str,
+                           before: dt.datetime | None = None,
+                           settled: list | None = None
+                           ) -> list[tuple[str, float]]:
+    """Prognosfönstret: de `_TURNOVER_ROWS` senaste avgjorda omgångarna
+    (spelstopp, slutomsättning), nyast först. `before` = bara omgångar som
+    stängde före den tiden; `settled` = redan hämtad `_settled_turnover_all`."""
+    settled = settled if settled is not None else _settled_turnover_all(store, product)
+    return [(close_at, sale) for at, close_at, sale in settled
+            if before is None or at < before][:_TURNOVER_ROWS]
+
+
+def _projection_basis(product: str, close_iso: str | None,
+                      store: Storage | None = None) -> dict | None:
     """Prognosgrunden (veckodag, n, läge) för UI:t — läser cachen som
     _projected_turnover just skrev; None om ingen prognos gjorts."""
     import json as _json
-    store = Storage()
+    own = store is None
+    store = store or Storage()
     try:
         cached = store.meta_get(
             _finalturn_key(product, _close_weekday(close_iso)))
@@ -476,96 +617,68 @@ def _projection_basis(product: str, close_iso: str | None) -> dict | None:
     except (ValueError, TypeError):
         return None
     finally:
-        store.close()
+        if own:
+            store.close()
 
 
 def _projected_turnover(product: str, current: float,
-                        close_iso: str | None = None) -> float | None:
-    """Förväntad SLUTomsättning ur det LOKALA settlementlagret (P4 2026-07-28):
-    medianen av de senaste 8 avgjorda omgångarna med SAMMA spelstoppsveckodag.
-    Europatipsets onsdagsomgångar omsätter en bråkdel av söndagens, och den
-    gamla senaste-6-medianen blandade dagtyperna (den gjorde dessutom upp till
-    15 resultat-anrop mot SvS per cache-miss — nu noll nätverk). Recency bär
+                        close_iso: str | None = None, *,
+                        store: Storage | None = None,
+                        now: dt.datetime | None = None) -> float | None:
+    """Förväntad SLUTomsättning ur det LOKALA settlementlagret (P4 2026-07-28,
+    tp2 2026-09-24): SANN median av de senaste jämförbara avgjorda omgångarna,
+    där jämförbar väljs per produkt av en rullande backtest mellan samma
+    spelstoppsveckodag (8), samma dagtyp vardag/helg (8) och senaste 6
+    oavsett dag — se `_turnover_projection`. Noll nätverk. Recency bär
     säsongseffekten (sommar ~12 M mot årsmedel ~24 M för Stryk) utan egen
     modell. Jackpotläget är MEDVETET utelämnat: `jackpot_close` samlas
-    sedan 2026-09-02 (snapshot-serien började 2026-07-24) och prövas först
-    vid `JACKPOT_MODEL_MIN_N` omgångar per produkt — `/api/pool/turnover-
-    prognos` visar prognos mot utfall per jackpotomgång tills dess. Tidig låg
-    omsättning ger annars glädje-EV: både potter och medvinnare skalar med
-    omsättningen."""
+    sedan 2026-09-02 och prövas först vid `JACKPOT_MODEL_MIN_N` omgångar per
+    produkt — `/api/pool/turnover-prognos` visar prognos mot utfall per
+    jackpotomgång tills dess. Tidig låg omsättning ger annars glädje-EV: både
+    potter och medvinnare skalar med omsättningen.
+
+    `store` (valfri) används och stängs INTE; utan den öppnas en egen som
+    förut. `now` injicerar klockan för cachens ålder (regel 9)."""
     import json as _json
 
     weekday = _close_weekday(close_iso)
-    store = Storage()
+    now = now or dt.datetime.now(dt.timezone.utc)
+    own = store is None
+    store = store or Storage()
     try:
         key = _finalturn_key(product, weekday)
         cached = store.meta_get(key)
         if cached:
             try:
                 c = _json.loads(cached)
-                age = (dt.datetime.now(dt.timezone.utc)
-                       - dt.datetime.fromisoformat(c["ts"])).total_seconds()
-                if age < 6 * 3600 and c.get("median"):
+                age = (now - dt.datetime.fromisoformat(c["ts"])).total_seconds()
+                if (0 <= age < _TURNOVER_CACHE_S and c.get("median")
+                        and c.get("version") == TURNOVER_PROJECTION_VERSION):
                     return max(current, float(c["median"]))
-            except (ValueError, KeyError):
+            except (ValueError, KeyError, TypeError):
                 pass
-        rows = [(r[0], float(r[1])) for r in store.conn.execute(
-            "SELECT reg_close_time, net_sale FROM pool_draw_settlement "
-            "WHERE product=? AND net_sale > 0 AND reg_close_time IS NOT NULL "
-            "ORDER BY reg_close_time DESC LIMIT 60", (product,))]
-        # METODVALET ÄR DATADRIVET PER PRODUKT (2026-07-28, upptäckt av
-        # modellhälso-backtesten samma kväll som veckodagsmetoden byggdes):
-        # för veckoprodukter (Stryk) vinner veckodagsmedianen, men för
-        # dagliga produkter (Topptipset) är 8 samma-veckodagar = 8 veckors
-        # säsongsdrift och den färska senaste-6 slår den stort (uppmätt
-        # 173 % mot 43 % medianfel). Samma rullande backtest som
-        # /api/pool/turnover-prognos väljer därför metod — bara på data
-        # som fanns före respektive omgång.
-        def _wd_vals(hist, wd, cap=8):
-            picked = []
-            for close_at, sale in hist:
-                if _close_weekday(close_at) == wd:
-                    picked.append(sale)
-                if len(picked) >= cap:
-                    break
-            return picked
-
-        errs_wd, errs_mix = [], []
-        for i in range(min(20, max(0, len(rows) - 10))):
-            t_close, actual = rows[i]
-            hist = rows[i + 1:]
-            for vals_i, errs in ((_wd_vals(hist, _close_weekday(t_close)),
-                                  errs_wd),
-                                 ([s for _, s in hist[:6]], errs_mix)):
-                if len(vals_i) >= 3 and actual > 0:
-                    errs.append(abs(sorted(vals_i)[len(vals_i) // 2] - actual)
-                                / actual)
-        def _median(xs):
-            return sorted(xs)[len(xs) // 2] if xs else None
-        wd_err, mix_err = _median(errs_wd), _median(errs_mix)
-        vals = _wd_vals(rows, weekday) if weekday is not None else []
-        # utan backtest-underlag gäller veckodagsprioren (dagtyperna skiljer);
-        # bara ett UPPMÄTT övertag för blandade medianen väljer bort den
-        use_weekday = (len(vals) >= 3
-                       and (wd_err is None or mix_err is None
-                            or wd_err <= mix_err))
-        if use_weekday:
-            mode = "weekday"
-        else:
-            mode, vals = "blandad", [sale for _, sale in rows[:6]]
-        if not vals:
+        proj = _turnover_projection(_settled_turnover_rows(store, product),
+                                    weekday)
+        if proj is None:
             return None
-        ordered = sorted(vals)
-        median = ordered[len(ordered) // 2]
+        err = proj["errors"]
         store.meta_set(key, _json.dumps(
-            {"ts": dt.datetime.now(dt.timezone.utc).isoformat(),
-             "median": median, "weekday": weekday, "n": len(vals),
-             "mode": mode,
-             "backtest_fel": {"veckodag": wd_err and round(wd_err, 4),
-                              "blandad": mix_err and round(mix_err, 4)}}))
-        return max(current, median)
+            {"ts": now.isoformat(), "version": TURNOVER_PROJECTION_VERSION,
+             "median": proj["median"], "weekday": weekday,
+             "daytype": _day_type(weekday), "n": proj["n"],
+             "mode": proj["mode"],
+             "backtest_fel": {
+                 "veckodag": (None if err["weekday"] is None
+                              else round(err["weekday"], 4)),
+                 "dagtyp": (None if err["dagtyp"] is None
+                            else round(err["dagtyp"], 4)),
+                 "blandad": (None if err["blandad"] is None
+                             else round(err["blandad"], 4))},
+             "backtest_n": proj["n_backtest"]}))
+        return max(current, proj["median"])
     finally:
-        store.close()
+        if own:
+            store.close()
 
 
 def _history_products(product: str, family: bool) -> list[str]:
@@ -1367,31 +1480,21 @@ def rsystems():
 
 @app.get("/api/pool/turnover-prognos")
 def turnover_prognos():
-    """Modellhälsa (Labb, 2026-07-28): (a) rullande backtest av veckodags-
-    prognosen mot gamla blandade senaste-6-medianen — medianabsolutfel över
-    senaste ~20 avgjorda omgångarna per produkt, räknat enbart på data som
-    fanns FÖRE respektive omgång; (b) PH4-gatens OOT-räknare (avgjorda
-    omgångar efter 2026-07-24, krav ≥ 40 innan nya κ-varianter föreslås)."""
-    import statistics
+    """Modellhälsa (2026-07-28, tp2 2026-09-24): (a) SAMMA rullande backtest
+    som `_projected_turnover` väljer läge med — medianabsolutfel per läge
+    (veckodag, dagtyp, blandad) över senaste ~20 avgjorda omgångarna per
+    produkt, räknat enbart på data som fanns FÖRE respektive omgång, med sann
+    median; (b) PH4-gatens OOT-räknare (avgjorda omgångar efter 2026-07-24,
+    krav ≥ 40 innan nya κ-varianter föreslås)."""
     store = Storage()
     try:
         out = {}
         for product in PRIZE_PLANS:
-            rows = [(r[0], float(r[1])) for r in store.conn.execute(
-                "SELECT reg_close_time, net_sale FROM pool_draw_settlement "
-                "WHERE product=? AND net_sale > 0 AND reg_close_time IS NOT "
-                "NULL ORDER BY reg_close_time DESC LIMIT 80", (product,))]
-            errs_wd, errs_mix = [], []
-            for i in range(min(20, max(0, len(rows) - 10))):
-                target_close, actual = rows[i]
-                hist = rows[i + 1:]
-                wd = _close_weekday(target_close)
-                same = [s for c, s in hist if _close_weekday(c) == wd][:8]
-                mixed = [s for _, s in hist[:6]]
-                for vals, errs in ((same, errs_wd), (mixed, errs_mix)):
-                    if len(vals) >= 3 and actual > 0:
-                        med = sorted(vals)[len(vals) // 2]
-                        errs.append(abs(med - actual) / actual)
+            settled = _settled_turnover_all(store, product)
+            proj = _turnover_projection(
+                _settled_turnover_rows(store, product, settled=settled), None)
+            err = proj["errors"] if proj else {m: None for m in TURNOVER_MODES}
+            n_bt = proj["n_backtest"] if proj else {m: 0 for m in TURNOVER_MODES}
             oot = store.conn.execute(
                 "SELECT COUNT(*) FROM pool_draw_settlement WHERE product=? "
                 "AND reg_close_time > '2026-07-24T23:59:59Z'",
@@ -1401,10 +1504,10 @@ def turnover_prognos():
             # scripts/migrera_jackpot_close.py). Prognosen är MEDVETET
             # jackpotblind tills JACKPOT_MODEL_MIN_N omgångar bär värdet;
             # här visas prognos mot utfall per omgång som underlag, aldrig en
-            # jackpotjusterad modell. Prognosen per rad räknas som
-            # _projected_turnover skulle ha gjort vid stängning: veckodags-
-            # medianen av de 8 föregående settlade omgångarna med samma
-            # spelstoppsveckodag (blandad senaste-6 om färre än 3 finns).
+            # jackpotjusterad modell. Prognosen per rad räknas EXAKT som
+            # _projected_turnover hade gjort vid stängning: samma fönster,
+            # samma backtest och samma lägesval på de omgångar som var
+            # avgjorda före stängningen.
             jackpot_rows = []
             for close_at, sale, jackpot, seen in store.conn.execute(
                     "SELECT reg_close_time, net_sale, jackpot_close, "
@@ -1412,24 +1515,30 @@ def turnover_prognos():
                     "WHERE product=? AND jackpot_close IS NOT NULL "
                     "AND net_sale > 0 ORDER BY reg_close_time DESC LIMIT 20",
                     (product,)):
-                hist = [(c, s) for c, s in rows if c < close_at]
-                wd = _close_weekday(close_at)
-                same = [s for c, s in hist if _close_weekday(c) == wd][:8]
-                vals = same if len(same) >= 3 else [s for _, s in hist[:6]]
-                prognos = sorted(vals)[len(vals) // 2] if vals else None
+                close_dt = _parse_close(close_at)
+                hist_proj = (_turnover_projection(
+                    _settled_turnover_rows(store, product, before=close_dt,
+                                           settled=settled),
+                    _close_weekday(close_at)) if close_dt else None)
+                prognos = hist_proj["median"] if hist_proj else None
                 jackpot_rows.append({
                     "close": close_at, "jackpot_close": jackpot,
                     "observed_at": seen, "net_sale": float(sale),
                     "prognos": prognos,
+                    "mode": hist_proj["mode"] if hist_proj else None,
                     "fel": (round((prognos - float(sale)) / float(sale), 4)
                             if prognos and sale else None),
                 })
+
+            def _pct(value):
+                return None if value is None else round(value, 4)
             out[product] = {
-                "n_backtest": len(errs_wd),
-                "medianfel_veckodag": (round(statistics.median(errs_wd), 4)
-                                       if errs_wd else None),
-                "medianfel_blandad": (round(statistics.median(errs_mix), 4)
-                                      if errs_mix else None),
+                "metod": TURNOVER_PROJECTION_VERSION,
+                "n_backtest": n_bt["weekday"],
+                "n_backtest_per_lage": n_bt,
+                "medianfel_veckodag": _pct(err["weekday"]),
+                "medianfel_dagtyp": _pct(err["dagtyp"]),
+                "medianfel_blandad": _pct(err["blandad"]),
                 "ph4_oot": oot, "ph4_oot_krav": 40,
                 "jackpot_close_n": store.conn.execute(
                     "SELECT COUNT(*) FROM pool_draw_settlement WHERE "

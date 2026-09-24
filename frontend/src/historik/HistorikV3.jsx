@@ -78,12 +78,14 @@ export function HistorikV3({ initialProduct, onChooseProduct = null }) {
           <span className="v3hint">Slutomsättningen driver hela EV-räkningen, så
             prognosfelet hör hemma i poolens facit — det låg tidigare i Labb bland
             oddsmätningarna. Rullande backtest: medianabsolutfel, räknat enbart på
-            data som fanns FÖRE respektive omgång. Veckodagsmetoden ska ligga under
-            den gamla blandade medianen.</span>
+            data som fanns FÖRE respektive omgång (sann median). Prognosen väljer per
+            spel det läge som har lägst fel: samma veckodag, samma dagtyp (vardag/helg)
+            eller senaste sex oavsett dag.</span>
           <div className="v3histtablewrap">
             <table className="v3histtable">
               <thead><tr><th>Spel</th><th>Prognosfel (veckodag)</th>
-                <th>Gammal metod</th>
+                <th>Dagtyp</th>
+                <th>Blandad</th>
                 <th title="Avgjorda omgångar efter 2026-07-24. Krävs innan nya
                   κ-varianter får föreslås.">PH4-fönster</th>
                 <th title="Omgångar med observerad jackpot vid spelstopp (senast
@@ -97,7 +99,9 @@ export function HistorikV3({ initialProduct, onChooseProduct = null }) {
                       <td>{PRODUCT_LABEL[p] || p}</td>
                       <td>{h.medianfel_veckodag == null ? '–'
                         : `${(h.medianfel_veckodag * 100).toFixed(0)} %`}</td>
-                      <td className="v3hint">{h.medianfel_blandad == null ? '–'
+                      <td>{h.medianfel_dagtyp == null ? '–'
+                        : `${(h.medianfel_dagtyp * 100).toFixed(0)} %`}</td>
+                      <td>{h.medianfel_blandad == null ? '–'
                         : `${(h.medianfel_blandad * 100).toFixed(0)} %`}</td>
                       <td>{h.ph4_oot}/{h.ph4_oot_krav}</td>
                       <td>{h.jackpot_close_n ?? 0}/{h.jackpot_close_krav ?? '–'}</td>

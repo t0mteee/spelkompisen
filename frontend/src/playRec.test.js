@@ -71,5 +71,9 @@ test('prognosgrunden blir läsbar text och aldrig object Object', () => {
     'median av 8 senaste omgångarna med samma spelstoppsveckodag (lör)')
   assert.equal(projectionBasisText({ mode: 'all', n: 6 }),
     'median av senaste 6 omgångarna oavsett veckodag')
+  assert.equal(projectionBasisText({ mode: 'dagtyp', n: 8, weekday: 3, daytype: 'vardag' }),
+    'median av 8 senaste vardagsomgångarna (mån–fre)')
+  assert.equal(projectionBasisText({ mode: 'dagtyp', n: 5, weekday: 6, daytype: 'helg' }),
+    'median av 5 senaste helgomgångarna (lör–sön)')
   assert.equal(projectionBasisText(null), 'median av tidigare omgångar')
 })
