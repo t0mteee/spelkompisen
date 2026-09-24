@@ -152,7 +152,12 @@ def cmd_snapshot(product: str,
                     refresh = pool_capture_refresh.capture_missing(
                         store, product, draw, sharp_result, varv)
                     if any(refresh.values()):
-                        print(f"{product} omg {dn}: m20-reserv {refresh}")
+                        summary = {k: v for k, v in refresh.items() if k != "log"}
+                        print(f"{product} omg {dn}: m20-reserv {summary}")
+                        # En rad per prövat svar: meta-nyckeln per id skrivs
+                        # över, den append-only loggen är journalen (D3).
+                        for line in pool_capture_refresh.log_lines(refresh):
+                            print(f"{product} omg {dn}: {line}")
                 except Exception as exc:  # noqa: BLE001
                     print(f"{product} omg {dn}: sharp/reserv FEL {type(exc).__name__}: {exc}")
                     sharp_n = -1

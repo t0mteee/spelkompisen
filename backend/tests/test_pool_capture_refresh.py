@@ -1,4 +1,6 @@
 import datetime as dt
+import itertools
+import math
 import tempfile
 import unittest
 from pathlib import Path
@@ -53,20 +55,94 @@ class DetailCaptureTests(unittest.TestCase):
         self.assertEqual((1, 2.5), tuple(row))
 
     def test_gammal_eller_framtida_eller_ofullstandig_quote_avvisas(self):
-        variants = [dict(fetched_at="2026-09-14T16:27:50Z"),
-                    dict(fetched_at="2026-09-14T16:40:00Z"),
-                    dict(retrieved_at="2026-09-14T16:40:00Z"),
-                    dict(total=None), dict(cache_age_valid=False), dict(odds={"1": 2, "X": 3}),
-                    dict(total={**TOTAL, "O": float("nan")})]
+        variants = [(dict(fetched_at="2026-09-14T16:27:50Z"), "observerad_fore_fonstret"),
+                    (dict(fetched_at="2026-09-14T16:40:00Z"), "pristid_efter_hamtning"),
+                    (dict(retrieved_at="2026-09-14T16:40:00Z"), "hamtad_efter_as_of"),
+                    (dict(total=None), "ofullstandig_total"),
+                    (dict(cache_age_valid=False), "age_ogiltig"),
+                    (dict(odds={"1": 2, "X": 3}), "ofullstandig_1x2"),
+                    (dict(total={**TOTAL, "O": float("nan")}), "ej_finit")]
         original = dict(self.quote)
-        for change in variants:
+        for change, reason in variants:
             with self.subTest(change=change):
                 self.store.conn.execute("DELETE FROM meta")
                 self.store.conn.commit()
                 self.quote = {**original, **change}
                 result = self.run_capture(varv=sharp_service.VarvIndex())
                 self.assertEqual(0, result["captured"])
+                self.assertEqual({reason: 1}, result["reasons"])
+                self.assertEqual(result["rejected"], sum(result["reasons"].values()))
         self.assertEqual(0, self.store.conn.execute("SELECT count(*) FROM pool_market_capture").fetchone()[0])
+
+    def reject_once(self, **change):
+        self.quote = {**self.quote, **change}
+        result = self.run_capture(varv=sharp_service.VarvIndex())
+        self.assertEqual((0, 1), (result["captured"], result["rejected"]))
+        return result
+
+    def test_varje_avslagsorsak_namnges(self):
+        """D3: varje orsak i REJECT_REASONS utom den logiskt omöjliga."""
+        cases = {
+            "pristid_saknas": dict(fetched_at=None),
+            "hamtningstid_saknas": dict(retrieved_at="trasig"),
+            "age_ogiltig": dict(cache_age_valid=None),
+            "pristid_efter_hamtning": dict(fetched_at="2026-09-14T16:37:30Z"),
+            "hamtad_efter_as_of": dict(retrieved_at="2026-09-14T16:39:01Z"),
+            "observerad_fore_fonstret": dict(fetched_at="2026-09-14T16:28:59Z"),
+            "ofullstandig_1x2": dict(odds={**ODDS, "2": 1.0}),
+            "ofullstandig_total": dict(total={**TOTAL, "line": None}),
+            "ej_finit": dict(total={**TOTAL, "U": float("inf")}),
+            "total_odds_ogiltiga": dict(total={**TOTAL, "O": 1.0}),
+        }
+        original = dict(self.quote)
+        for reason, change in cases.items():
+            with self.subTest(reason=reason):
+                self.store.conn.execute("DELETE FROM meta")
+                self.quote = dict(original)
+                self.assertEqual({reason: 1}, self.reject_once(**change)["reasons"])
+        self.assertEqual(set(refresh.REJECT_REASONS) - {
+            "observerad_efter_as_of", "ej_nyare_an_bulk", "aldre_an_senaste_observation"},
+            set(cases))
+
+    def test_ej_nyare_an_bulk(self):
+        # Bulken i fönstret men utan komplett 1X2 ger ett försök; svaret är
+        # ändå inte nyare än bulken.
+        self.result.update(fetched_at="2026-09-14T16:35:00Z")
+        self.result["hits"][1]["odds"] = {"1": 2.0}
+        self.assertEqual({"ej_nyare_an_bulk": 1}, self.reject_once()["reasons"])
+
+    def test_aldre_an_senaste_observation(self):
+        self.store.save_sharp_snapshot("topptipset", 4333, {1: {"odds": ODDS}},
+                                       "2026-09-14T16:36:00Z")
+        result = self.reject_once()
+        self.assertEqual({"aldre_an_senaste_observation": 1}, result["reasons"])
+        self.assertEqual(0, self.store.conn.execute(
+            "SELECT count(*) FROM pool_market_capture").fetchone()[0])
+
+    def test_loggrad_per_forsok_med_id_orsak_och_tider(self):
+        self.quote = {**self.quote, "cache_age_valid": False}
+        self.run_capture()
+        result = self.run_capture(product="topptipsetextra")   # samma varv: delat svar
+        lines = list(refresh.log_lines(result))
+        self.assertEqual(1, len(lines))
+        self.assertIn("id 123 match 1: age_ogiltig", lines[0])
+        self.assertIn("pristid 2026-09-14T16:35:00Z", lines[0])
+        self.assertIn("hämtad 2026-09-14T16:37:01Z", lines[0])
+        self.assertIn("Age 121 s", lines[0])
+        self.assertIn("svar hämtat tidigare i varvet", lines[0])
+        self.store.conn.execute("DELETE FROM meta")
+        self.pin.prematch_quote.side_effect = TimeoutError()
+        result = self.run_capture(varv=sharp_service.VarvIndex())
+        self.assertEqual({}, result["reasons"])
+        self.assertEqual(["m20-reserv id 123 match 1: kallfel (TimeoutError, begärd "
+                          "2026-09-14T16:37:00Z) · pristid – · hämtad – · Age – s"],
+                         list(refresh.log_lines(result)))
+        self.pin.prematch_quote.side_effect = lambda _: dict(self.quote)
+        self.quote = {**self.quote, "cache_age_valid": True}
+        self.store.conn.execute("DELETE FROM meta")
+        result = self.run_capture(varv=sharp_service.VarvIndex())
+        self.assertEqual(1, result["captured"])
+        self.assertIn("match 1: godtagen", next(refresh.log_lines(result)))
 
     def test_utanfor_fonstret_ingen_trafik(self):
         for delta in (-9, 3):
@@ -151,3 +227,60 @@ class QuoteParserTests(unittest.TestCase):
             self.assertIsNone(pin.prematch_quote("999")["odds"])
             rows[0]["status"] = "suspended"
             self.assertIsNone(pin.prematch_quote("123")["odds"])
+
+
+def _gammalt_avslag(quote, start, target, bulk_time):
+    """Avslagsvillkoret ORDAGRANT som det stod före D3 (ekvivalensfacit)."""
+    observed = pool_dataset._parse(quote.get("fetched_at"))
+    retrieved = pool_dataset._parse(quote.get("retrieved_at"))
+    odds, total = quote.get("odds") or {}, quote.get("total") or {}
+    return bool(not observed or not retrieved or not quote.get("cache_age_valid") or
+            observed > retrieved or retrieved > target or
+            not start <= observed <= target or observed <= bulk_time or
+            not all(odds.get(s, 0) > 1 for s in ("1", "X", "2")) or
+            not all(total.get(k) is not None for k in ("line", "O", "U")) or
+            not all(math.isfinite(float(v)) for v in [*odds.values(), *total.values()]) or
+            total["O"] <= 1 or total["U"] <= 1)
+
+
+class RejectReasonEquivalenceTests(unittest.TestCase):
+    def test_samma_svar_godtas_och_avvisas_som_fore_d3(self):
+        """Även undantag (None som odds, text som total) uppstår likadant."""
+        start = dt.datetime(2026, 9, 14, 16, 29, tzinfo=UTC)
+        target = dt.datetime(2026, 9, 14, 16, 39, tzinfo=UTC)
+        times = [None, "trasig", "2026-09-14T16:27:50Z", "2026-09-14T16:29:00Z",
+                 "2026-09-14T16:35:00Z", "2026-09-14T16:36:00Z", "2026-09-14T16:39:00Z",
+                 "2026-09-14T16:40:00Z", "2026-09-14T18:36:00+02:00"]
+        retrieved = [None, "2026-09-14T16:37:01Z", "2026-09-14T16:39:00Z",
+                     "2026-09-14T16:40:00Z", "2026-09-14T16:34:00Z"]
+        nan = float("nan")
+        odds = [ODDS, {"1": 2, "X": 3}, None, {**ODDS, "1": 1.0}, {**ODDS, "2": nan},
+                {**ODDS, "X": None}, {**ODDS, "2": float("inf")}]
+        totals = [TOTAL, None, {**TOTAL, "line": None}, {**TOTAL, "O": nan},
+                  {**TOTAL, "O": 1.0}, {**TOTAL, "U": 0.5}, {**TOTAL, "O": "x"},
+                  {**TOTAL, "U": float("inf")}, {**TOTAL, "extra": None}]
+        bulks = [dt.datetime(2026, 9, 14, 16, 27, 50, tzinfo=UTC),
+                 dt.datetime(2026, 9, 14, 16, 35, tzinfo=UTC)]
+
+        def outcome(fn, *args):
+            try:
+                return ("värde", fn(*args))
+            except Exception as exc:  # noqa: BLE001 — undantaget är en del av beteendet
+                return ("undantag", type(exc))
+
+        seen = set()
+        for f, r, valid, o, t, bulk in itertools.product(
+                times, retrieved, (True, False, None), odds, totals, bulks):
+            quote = {"fetched_at": f, "retrieved_at": r, "cache_age_valid": valid,
+                     "odds": o, "total": t}
+            old = outcome(_gammalt_avslag, quote, start, target, bulk)
+            new = outcome(refresh.reject_reason, quote, start, target, bulk)
+            if new[0] == "värde":
+                seen.add(new[1])
+                new = ("värde", new[1] is not None)
+            self.assertEqual(old, new, quote)
+        # Varje orsak nås i rutnätet utom databasorsaken (egen test ovan) och
+        # `observerad_efter_as_of`, som de två föregående villkoren utesluter.
+        self.assertNotIn("observerad_efter_as_of", seen)
+        self.assertEqual(set(refresh.REJECT_REASONS) | {None},
+                         seen | {"observerad_efter_as_of", "aldre_an_senaste_observation"})
