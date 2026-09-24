@@ -13,6 +13,12 @@ säga det.
 
 ## Varför
 
+**Datumnot 2026-09-24, pool-name-v6:** i drift från 2026-09-24T19:51:01Z. Poolmatcharen lägger
+truppmarkörer ur Pinnacles liganamn (U15–U23, damformer, reserv- och ungdomsligor) på
+kandidatens lagnamn. En U21- eller damrad med samma lagnamn och avspark kan därför
+varken göra seniormatchen tvetydig eller länkas i dess ställe. Inga av dagens länkar
+ändrades. Tidsankare, nivåer och trösklar är oförändrade; skilj v5/v6 vid skörd.
+
 **Datumnot 2026-09-24, pool-name-v5 (Samans beslut 1A):** i drift från 2026-09-24T14:30:53Z, första basvarv 14:57Z. Poolmatcharen kräver med känd
 SvS-avspark en Pinnacle-avspark inom 15 min och väljer på nivå (exakt,
 exakt + generiskt delnamn, delnamn båda, stavning). Landslag känns igen på

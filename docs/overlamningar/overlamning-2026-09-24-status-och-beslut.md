@@ -111,3 +111,29 @@ Två kodpushar (backup och settlementurvalet) gick med `SKIP_KONTROLL=1` efter
 att hela kontrollen körts i grenen. Det bröt mot CLAUDE.md, som bara tillåter
 det för dokumentation. Skälet var att kroken öppnade produktionsdatabasen.
 Det är nu rättat (`38364b7`), och resten av dagens kodpushar gick genom kroken.
+
+## Kväll: restlistan (Samans "fixa det också"), i drift 2026-09-24T19:51:01Z
+
+Fyra delar byggdes parallellt i egna arbetskopior, granskades och slogs ihop som en
+integrationsgren utan konflikter. Hela kontrollen var grön två gånger före driftsättningen.
+
+- **pool-name-v6:** truppmarkörer ur Pinnacles liganamn i poolmatcharen. De öppna
+  omgångarna gav 94 av 106 i både v5 och v6 med identiska länkar. I den adversariala
+  kontrollen, med en syntetisk U21- och damrad bredvid varje länkad match, länkade v6 rätt
+  rad 70 av 70 gånger medan v5 blev tvetydig. Utan rätt rad länkade v5 U21-raden i alla
+  70 fall, v6 i inget. 21 av indexets 129 ligor får markör.
+- **Omsättningsprognosen tp2:** sann median, dagtypsläge och svensk veckodag. Europatipset
+  2610 gick från 9,0 till 4,5 Mkr (läget veckodag), Topptipset 4350 från fredag till lördag
+  i PH3. Lägesvalet för Europatipset ligger inom bruset. Ändrar PH3:s radval (datumnot).
+- **Utdelningsprognosen:** minimiutdelning 15 kr (belagd för Stryk och Europa ur
+  `pool_payout_tier`, antagen för Topptipset) och garanti på egen rad. Ingen
+  biaskorrigering införd.
+- **Rörelse per match:** en match utan färsk Pinnacle-serie får Svenska Spels oddsserie.
+  Byggaren läser rörelsen, så ändringen når PH3 (historiskt 11 av 325 frysningar).
+- **Pinnacle-panelen:** `/api/external-odds` är ren läsning. Trådinsamlarens startanrop
+  vägrar. Kupongdetaljen markerar inaktuella priser (28 av 325 frysningar, alla före
+  färskhetsregeln).
+- **Reserverna:** Ö/U-reservens gemensamma kö (pool-reserve-ou-v2) och m20-reservens
+  namngivna avslagsorsaker, plus tidsjämförelser i stället för text i sharp-serien.
+
+Kvar: backlog punkt 20.

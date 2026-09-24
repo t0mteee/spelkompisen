@@ -46,6 +46,16 @@ reducerat max v2 oförändrade. Inga modellpromotioner.
   ospelade omgångar två timmar tidigare), κ-texten i portföljkortet och
   teckenandelar för spelade reducerade kuponger.
 
+**Kväll 2026-09-24 ("fixa det också"), i drift 2026-09-24T19:51:01Z:** matcharen **pool-name-v6**
+(truppmarkörer ur Pinnacles liganamn; inga av dagens länkar ändrade), omsättnings-
+prognosen **tp2** (sann median, dagtypsläge, svensk veckodag; Europatipset 2610 gick
+från 9,0 till 4,5 Mkr), utdelningsprognosen med minimiutdelning 15 kr och garanti på
+egen rad, oddsrörelse per match (SvS-serie för olänkade matcher), Ö/U-reservens
+gemensamma kö (pool-reserve-ou-v2), m20-reservens avslagsorsaker, kupongdetaljens
+markering av inaktuella priser, ren läsning i `/api/external-odds`, avstängd
+trådinsamlare och tidsjämförelser i sharp-serien. tp2 och rörelsen ändrar PH3:s
+radval (datumnot).
+
 **PIT:** pit-v4 + pit-total-v1 med datumnoter 14/9, 15/9, 21/9 och 24/9.
 Redovisa regimerna vid skörd. Systemjämförelsens nycklar är oförändrade;
 färskhetsregeln är en datumnot från 14:11:09Z.

@@ -79,6 +79,15 @@
   "collection_notes": [
     {
       "date": "2026-09-24",
+      "match_version": "pool-name-v6",
+      "decision": "Saman 2026-09-24 kväll (\"fixa det också\" om restlistan); samma pit-v4 med datumnot enligt beslut 1A",
+      "deployed_at": "2026-09-24T19:51:01Z",
+      "change": "Poolmatcharen (sharp_service) lägger truppmarkörer ur Pinnacles liganamn på kandidatens lagnamn innan namnregeln prövas: U15–U23, damformer, reservligor och ungdomsliga utan U-ålder. Tidsankare, nivåer, trösklar, alias och presence-regler oförändrade. Samtidigt: GET /api/external-odds hämtar och skriver inte längre Pinnacle (sharp_snapshots får bara insamlingens punkter), sharp-seriens senaste observation jämförs som tid i stället för SQL-MAX över text, m20-reservens avslag får namngivna orsaker (samma svar godtas) och Ö/U-reserven (presentation) får en gemensam kö. Ingen bakfyllning.",
+      "expected_effect": "Inga ändrade eller förlorade länkar i de öppna omgångarna (94 av 106 i både v5 och v6, identiska id, spegling, nivå och odds). En U21- eller damrad med samma lagnamn och avspark gör inte längre seniorlänken tvetydig och länkas aldrig i dess ställe. Särredovisa v5/v6-regimen vid skörd.",
+      "doc": "docs/overlamningar/overlamning-2026-09-24-status-och-beslut.md"
+    },
+    {
+      "date": "2026-09-24",
       "match_version": "pool-name-v5",
       "decision": "Saman 2026-09-24 (beslut 1A): samma pit-v4 och pit-total-v1 med datumnot, ingen ny manifestversion",
       "deployed_at": "2026-09-24T14:30:53Z",

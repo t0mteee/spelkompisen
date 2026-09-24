@@ -97,11 +97,17 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       landsnamn (Vestmannaeyja–Valur blev Iceland–Switzerland). SC bevaras
                       (Barcelona ≠ Barcelona SC). Utan SvS-avspark gäller v4-vägen. Globala
                       modellalias orörda. `docs/overlamningar/overlamning-2026-09-24-poolnamn-v5.md`.
+                      **v6 sedan 2026-09-24T19:51:01Z:** Pinnacles LIGANAMN ger truppmarkörer (U15–U23,
+                      dam, reserv, ungdom) på kandidatens lagnamn i poolmatcharen, så en
+                      omärkt U21-/damrad varken blir seniorlag eller gör det tvetydigt.
+                      Bomben och vägen utan SvS-avspark får inga ligamarkörer.
   app/sharp_service.py Pinnacle för poolen: `VarvIndex` = ETT index per basvarv delat av
                       alla produkter och omgångar; avslag bokförs i `pool_match_diagnostic`
   app/pool_capture_refresh.py m20-reserv för PIT: exakt Pinnacle-id, färsk 1X2 + total
                       före as-of, Age verifierad; max 13 försök/12 s startbudget per varv,
                       2 s timeout/nätfas och 240 s cooldown/id. Ingen tips-/shadowinput.
+                      Avslag bär namngiven orsak (`REJECT_REASONS`) och en loggrad per
+                      försök i pool-snapshot.log; budgeten stoppar bara NYA anrop.
   app/altenar.py      Ninja Casino/Altenar: listvy 1X2 + mål, eventdetalj för huvudlinan
                       totalt antal hörnor (bara i deep-/snabbfönstret)
   app/betsson.py      Publik Betsson-bootstrap (ej inkopplad; events-table CloudFront-
@@ -140,7 +146,10 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       manuellt testval (högst 512 kr), ALDRIG standard/automatisk frysning;
                       scripts/prova_pool_portfolio.py använder samma väljare
   app/pool_reserve.py separat SvS/Kambi-Ö/U-journal; presentation, INTE bygginput/sharp;
-                      aktiveras med scripts/migrera_pool_reserve.py efter onlinebackup
+                      aktiveras med scripts/migrera_pool_reserve.py efter onlinebackup;
+                      `pool-reserve-ou-v2` sedan 2026-09-24T19:51:01Z: gemensam kö per basvarv (`register`
+                      i produktloopen, `run_queue` efter): aldrig kontrollerad → äldst →
+                      närmast spelstopp, 3 anrop, 15 min cooldown, inget efter spelstopp
   app/live_radar.py   shadow-radar för pågående matcher: Flashscore ankare, FotMob sekundär,
                       Sofascore URKOPPLAD ur radarn (kvar för resultat/frånvaro)
   app/live_signal_ledger.py append-only-journal över första Följer/Stark per match,
@@ -222,6 +231,9 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
   listas i frysningens `build_note`. Nycklarna är OFÖRÄNDRADE (båda sidor i varje par får
   samma rättade underlag) — redovisa regimen vid skörd. Matcharen v5 (14:30:53Z) ger fler
   länkade matcher från samma datum.
+  **Andra datumnoten samma dag, 2026-09-24T19:51:01Z:** omsättningsprognosen tp2 (värderingsomsättningen)
+  och rörelsen per match (SvS-serien för matcher utan färsk Pinnacle-serie) ändrar
+  radvalet för `dr1-*` och poolopt-v1. Nycklarna är oförändrade.
 - **SANNOLIKHETSBAS (2026-09-02):** `build_ev_system(prob_base=)` — `"svs"` (SvS-odds
   först, Pinnacle reserv) är byte-identisk standard i appen; `"sharp"` mäts ENBART som
   utmanaren `dr1-b256-medel-sharp` (8-matchsspelen). En ändrad bas är en ny nyckel,
@@ -415,6 +427,10 @@ observationsögonblicket används som observationstid.**
    priset får vara högst 90 min gammalt och ingen capture efter priset får säga att
    länken tappats. `Storage.get_sharp` direkt är latest-state och ALDRIG beslutsunderlag.
    CLV-stängningen kräver på samma sätt en bekräftad länk ≤ 90 min före avspark/spelstopp.
+   Sedan 2026-09-24T19:51:01Z hämtar bara insamlingsvarven Pinnacle: GET `/api/external-odds` är ren
+   läsning (en sidvisning skrev förut prisserien och satte dubbeltrafikspärren), och
+   trådinsamlarens `POST /api/collector/start` vägrar. Tider i sharp-serien jämförs som
+   tider (`Storage._utc_time`), aldrig med SQL:s MAX över text.
 
 ### 📦 TRANSPORTREGELN — status 200 betyder inte läsbar kropp
 
@@ -546,8 +562,12 @@ notiser; promotion sker bara enligt `docs/tva-ankare-2026-07-25.md`.
   24h-skiftet (≥3,5 pp markant, ≥6 pp stark). `movement_with_steam` är delade helpern.
 - Bomben: kolumn-baserad byggare (rader = manuell ifyllnad = fil = kostnad), Poisson-modell,
   hålls utanför CLV-facitet (modell-härledd). INGEN exakt-rad-reducering.
-- Projicerad slutomsättning: `_projected_turnover` — median av senaste 8 avgjorda omgångar
-  med SAMMA spelstoppsveckodag ur LOKALA `pool_draw_settlement`. EV-/färgsystem räknar mot
+- Projicerad slutomsättning: `_projected_turnover`, metod **tp2 sedan 2026-09-24T19:51:01Z** — SANN
+  median (tp1 tog det övre mittvärdet) ur LOKALA `pool_draw_settlement`, med läget valt
+  per produkt av en rullande backtest mellan samma spelstoppsveckodag (8), samma dagtyp
+  vardag/helg (8) och senaste 6 oavsett dag. Veckodagen räknas i svensk tid, och cachen
+  bär metodversionen (`finalturn_<produkt>:tp2:wd<N>`). Jackpotläget prövas först vid
+  `JACKPOT_MODEL_MIN_N`. EV-/färgsystem räknar mot
   prognosen; EV mot dagens omsättning är glädjesiffror. **Byggaren (`systemStats`) värderar
   alltid mot prognosen, kupongen (`couponStats`) mot LIVE tills användaren trycker
   `→ prognos`** — avsiktligt, men måste sägas ut i UI:t. `PayoutTable` härleder omsättning
@@ -734,7 +754,10 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
   prematchsannolikhet × streck — gånger byggarens κ. Skriv alltid "prognos" och
   "per rad", aldrig "utdelning"; `forecast` utelämnas när underlag saknas, gissa
   aldrig. Visas i Mina kuponger (rad + livekort), i testkupongernas liveläge och i
-  detaljkortets nivåer.
+  detaljkortets nivåer. **Minimiutdelning 15 kr** (belagd ur settlementlagret för
+  Stryk/Europa, antagen för Topptipset): under gränsen visas 0 kr med förklaring.
+  Garantier (ensamvinnargaranti) visas på EGEN rad, aldrig i prognosen eller EV.
+  Ingen biaskorrigering är införd: ingen prövad variant förbättrade alla produkter.
 - Spelade kuponger: `usePlayedCoupons` hämtar i TRE steg (`live=false` → `live=true&chance=false`
   → fullt svar); livebilden är single-flight (20 s) och ett sent svar får inte skriva över
   en nyare uppdatering.

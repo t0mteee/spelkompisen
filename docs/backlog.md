@@ -153,25 +153,24 @@ prioritetsordning. ⚖ = kräver Samans beslut.
     blir gammal, settlementurvalets tidszon,
     testisolering, κ-text och teckenandelar. Överlämning:
     `docs/overlamningar/overlamning-2026-09-24-status-och-beslut.md`.
-19. ⏳ **Kvar ur statusauditen 2026-09-24** (ingen kräver beslut om inget annat anges):
-    - Ö/U-reservens tre anrop per varv går alltid till Stryktipset; Topptipset-
-      omgångar stänger utan kontroll. Gemensam kö per varv (fynd C3).
-    - m20-reserven loggar inga avslagsorsaker och sparar bara senaste försöket i
-      meta. Append-only-logg med orsak (fynd D3). ⚖ Metodfrågan om kadens mot
-      15-minuters CDN-cykel kräver förregistrering.
-    - Kupongdetaljen (`system_detail`) visar Pinnacle-priser som frysningar efter
-      färskhetsregeln inte använde; markera dem.
-    - Rörelser: matcher som aldrig länkats får ingen SvS-rörelse när andra
-      matcher i omgången har sharp.
-    - GET `/api/external-odds` skriver till sharp-serien och sätter
-      dubbeltrafikspärren utan närvarorad.
-    - Omsättningsprognosen för vardagsomgångar blandar in söndagar och tar övre
-      median (Europatipset 2610: 9,0 Mkr mot vardagarnas 6,2–7,1). ⚖ Ändrar PH3:s
-      värderingsomsättning.
-    - Utdelningsprognosen underskattar 10–20 % och saknar minimiutdelning och
-      garanti.
-    - U21- och damlag heter som seniorlagen hos Pinnacle; ligan kastas i
-      `soccer_index`. Ligabaserade truppmarkörer vore nästa steg för matcharen.
+19. ✅ (2026-09-24T19:51:01Z) **Restlistan ur statusauditen** (Samans "fixa det också"): Ö/U-reservens
+    gemensamma kö (C3), m20-reservens avslagsorsaker (D3), kupongdetaljens markering av
+    inaktuella priser, SvS-rörelse per match, ren läsning i `/api/external-odds` och
+    avstängd trådinsamlare, omsättningsprognos tp2, utdelningsprognosens minimiutdelning
+    och garanti, ligabaserade truppmarkörer (pool-name-v6) och tidsjämförelser i
+    sharp-serien. Ingen biaskorrigering av utdelningsprognosen klarade kravet.
+20. ⏳ **Kvar efter 2026-09-24:**
+    - Svenska Spels "Dam" är ingen truppmarkör, och SvS damlag utan markör kan spärras mot
+      Pinnacles damligor i v6 (miss, aldrig fel odds). Markörer ur SvS eget liganamn.
+    - Premier League 2 och liknande ungdomsligor utan markör i namnet; Pinnacles `ageLimit`
+      kan bli strukturerad reserv.
+    - Bomben och vägen utan SvS-avspark har kvar v5:s U21-/damrisk.
+    - `fresh_sharp` räknar ett pris observerat efter spelstopp som färskt i en stängd
+      omgång (visning; PH3 opåverkad).
+    - `_valuation_turnover` skickar inte sin `store` (fynd D8).
+    - ⚖ m20-reservens kadens mot Pinnacles 15-minuters CDN-cykel kräver förregistrering.
+    - Europatipsets omsättningsläge (veckodag mot blandad) ligger inom bruset; följ tp2
+      mot utfall på `/api/pool/turnover-prognos`.
 
 ## 2026-08-11 — AWS korrekt omtestat och avfärdat
 
