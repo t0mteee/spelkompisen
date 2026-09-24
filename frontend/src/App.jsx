@@ -1,6 +1,7 @@
 import { selectionReason } from './lib/couponView.js'
+import { sharpPanelStatus } from './lib/sharpPanel.js'
 import { SystemComposition } from './components/SystemComposition.jsx'
-import { Fragment, useEffect, useEffectEvent, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import './App.css'
 import { payoutMatchesSelection } from './poolSelection.js'
 import { kompaktKr, playRecommendation, projectionBasisText } from './playRec.js'
@@ -309,71 +310,61 @@ function AnalysisTable({ matches, product, drawNumber, selected, onSelect, picks
   )
 }
 
-function SharpPanel({ product, draw, onLoaded }) {
+function SharpPanel({ product, draw, matches }) {
+  // Ren läsning sedan 2026-09-24: /api/external-odds visar vad INSAMLINGEN
+  // senast observerade och hämtar aldrig Pinnacle själv (en sidvisning fick
+  // tidigare skriva poolens prisserie och trigga dubbeltrafikspärren).
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(!!draw)
   const [show, setShow] = useState(false)
-  const notifyLoaded = useEffectEvent(() => {
-    if (onLoaded) onLoaded()
-  })
-  const STATUS = {
-    derived: { txt: 'härledd från spread/total (1X2 ej öppnad)', cls: 'st-wait' },
-    no_moneyline: { txt: '1X2 ej öppnad än', cls: 'st-wait' },
-    not_listed: { txt: 'ej listad hos Pinnacle ännu', cls: 'st-miss' },
-    'ej ompollad': { txt: 'ej ompollad detta varv (dubbeltrafikspärr) — cachat pris gäller om det är högst 90 min gammalt och länken inte tappats (P – i tabellen annars)',
-                     cls: 'st-wait' },
-  }
-  const fetchSharp = async () => {
-    if (!draw) return
-    setLoading(true)
-    try {
-      const d = await (await fetch(`/api/external-odds?product=${product}&draw=${draw}&_t=${Date.now()}`, { cache: 'no-store' })).json()
-      if (d && (d.matches || d.enabled === false)) {  // ignorera 404/detail-svar
-        setData(d); if (d.cached > 0 && onLoaded) onLoaded()
-      }
-    } catch (e) { setData({ error: String(e) }) } finally { setLoading(false) }
-  }
   useEffect(() => {
     if (!draw) return undefined
     let current = true
     fetch(`/api/external-odds?product=${product}&draw=${draw}&_t=${Date.now()}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => {
-        if (!current || !d || (!d.matches && d.enabled !== false)) return
+        if (!current || !d || (!d.matches && d.enabled !== false)) return  // ignorera 404/detail-svar
         setData(d)
-        if (d.cached > 0) notifyLoaded()
       })
       .catch((e) => { if (current) setData({ error: String(e) }) })
       .finally(() => { if (current) setLoading(false) })
     return () => { current = false }
   }, [product, draw])
 
-  const matched = data?.matches?.filter((m) => m.external) || []
+  const names = Object.fromEntries((matches || []).map((m) => [m.event_number, m.description]))
+  const at = (v) => v ? new Date(v).toLocaleString('sv-SE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : '–'
   return (
     <div className="sharp">
       <div className="sharp-head">
         <strong>Sharp-odds (Pinnacle, gratis)</strong>
-        <span className="cstatus">{data?.matches ? `${matched.length}/${data.matches.length} matcher` : (loading ? '…' : '')}</span>
-        <button onClick={fetchSharp} disabled={loading}>{loading ? 'Hämtar…' : '↻ Uppdatera nu'}</button>
+        <span className="cstatus">{data?.matches ? `${data.n_fresh}/${data.matches.length} färska` : (loading ? '…' : '')}</span>
         <button onClick={() => setShow(!show)}>{show ? 'Dölj detaljer' : 'Visa detaljer'}</button>
       </div>
-      <p className="hint">Hämtas automatiskt och vävs in i tabellen ovan (P = sharp, P~ = härledd från spread). Uppdateras även av bakgrundsinsamlingen.</p>
+      <p className="hint">
+        Visar insamlingens senaste observation{data?.last_observed_at ? ` (${at(data.last_observed_at)})` : ''} —
+        panelen hämtar aldrig själv. Pinnacle läses av insamlingsvarvet; ett pris används i tabellen ovan
+        (P = sharp, P~ = härledd) bara om det är högst 90 min gammalt och länken inte tappats.
+        {data?.closed ? ' Stängd omgång: bedömd vid spelstopp.' : ''}
+      </p>
       {show && data?.matches && (
         <table className="grid compact">
           <tbody>
             {data.matches.map((m) => {
               const e = m.external
+              const name = m.description || names[m.event_number] || `Match ${m.event_number}`
               if (e) return (
-                <tr key={m.event_number}>
-                  <td>{m.event_number}</td><td className="match">{m.description}</td>
-                  <td className="rec">{e.matched}{e.swapped ? ' (omvänd)' : ''}{m.status === 'derived' ? ' · härledd' : ''}</td>
+                <tr key={m.event_number} className={m.fresh ? undefined : 'sharp-stale'}
+                  title={m.fresh ? `Observerad ${at(e.observed_at)}` : `${m.stale?.text || 'Inaktuellt'}. Används inte i analysen eller bygget.`}>
+                  <td>{m.event_number}</td><td className="match">{name}</td>
+                  <td className="rec">{e.matched}{m.status === 'derived' ? ' · härledd' : ''}
+                    {m.fresh ? ` · ${at(e.observed_at)}` : ` · inaktuellt: ${m.stale?.text || 'okänd orsak'}`}</td>
                   <td>{e.odds?.['1'] ?? '–'}</td><td>{e.odds?.['X'] ?? '–'}</td><td>{e.odds?.['2'] ?? '–'}</td>
                 </tr>
               )
-              const s = STATUS[m.status] || { txt: m.status, cls: '' }
+              const s = sharpPanelStatus(m, at)
               return (
                 <tr key={m.event_number} className="norow">
-                  <td>{m.event_number}</td><td className="match">{m.description}</td>
+                  <td>{m.event_number}</td><td className="match">{name}</td>
                   <td className={`rec ${s.cls}`} colSpan={4}>{s.txt}</td>
                 </tr>
               )

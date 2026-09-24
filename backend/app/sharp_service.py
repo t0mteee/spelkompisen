@@ -1,6 +1,7 @@
 """Delad logik för att hämta + cacha sharp-odds från Pinnacle (gratis).
 
-Används av både /api/external-odds och bakgrundsinsamlaren. Rapporterar även
+Används bara av insamlingsvarven (cli/collector) — `/api/external-odds` är
+sedan 2026-09-24 ren läsning och anropar aldrig hit. Rapporterar även
 coverage-status per match så UI:t kan visa *varför* en match saknar sharp:
   matched       – 1X2 hämtat
   no_moneyline  – matchen finns på Pinnacle men 1X2 ej öppnad (bara spread/total)

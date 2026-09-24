@@ -361,6 +361,8 @@ select { background: var(--bg); color: var(--text); border: 1px solid var(--line
 .norow td { opacity: 0.75; }
 .st-wait { color: var(--orange); }
 .st-miss { color: var(--muted); font-style: italic; }
+/* inaktuellt cachat Pinnacle-pris i sharp-panelen: diskret gråat */
+.sharp tr.sharp-stale td { opacity: .5; }
 .dot { width: 10px; height: 10px; border-radius: 50%; }
 .dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
 .dot.off { background: #555; }

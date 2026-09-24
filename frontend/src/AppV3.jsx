@@ -1068,7 +1068,7 @@ function PoolV3() {
               <section>
                 <h2>Sharp-odds &amp; steam</h2>
                 <SharpPanel key={`${product}:${draw}`} product={product} draw={draw}
-                  onLoaded={() => loadAnalysis()} />
+                  matches={analysis?.matches} />
                 <SteamPanel key={`${product}:${draw}`} product={product} draw={draw}
                   matches={analysis?.matches} />
               </section>

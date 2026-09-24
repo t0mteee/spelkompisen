@@ -35,7 +35,6 @@ from .builder import (build_math_system, build_reduced_system,
                       topptips_row_shape_kappa)
 from .collector import collector
 from .pool_mc import materialize_system_rows, simulate_pool_portfolio
-from . import sharp_service
 from .pinnacle import Pinnacle
 from .storage import Storage
 from .svenskaspel import SvenskaSpel, draw_to_dict, GAME_GROUPS, PRODUCTS
@@ -2009,32 +2008,156 @@ def collector_stop():
 
 # ---- sharp-odds (Pinnacle, gratis) ----
 
+def _local_open_draw(store: Storage, product: str,
+                     now: dt.datetime) -> int | None:
+    """Aktuell omgång ur LOKALA `draws`, utan nätanrop: den öppna omgång som
+    stänger först (spelstopp ≥ now), annars den senast kända."""
+    from . import pool_sharp_freshness as freshness
+    rows = store.conn.execute(
+        "SELECT draw_number, state, reg_close_time FROM draws WHERE product=?",
+        (product,)).fetchall()
+    open_draws = []
+    for number, state, close in rows:
+        at = freshness._parse(close)
+        if state == "Open" and at is not None and at >= now:
+            open_draws.append((at, int(number)))
+    if open_draws:
+        return min(open_draws)[1]
+    return max((int(row[0]) for row in rows), default=None)
+
+
+def _latest_captures(store: Storage, product: str, draw_number: int,
+                     source: str, at: dt.datetime) -> dict[int, tuple]:
+    """{event: (tid, status, odds_complete, rå_tid)} för senaste capture ≤ at."""
+    from . import pool_sharp_freshness as freshness
+    out: dict[int, tuple] = {}
+    for event, fetched_at, status, complete in store.conn.execute(
+            "SELECT event_number, fetched_at, status, odds_complete "
+            "FROM pool_market_capture WHERE product=? AND draw_number=? "
+            "AND source=?", (product, draw_number, source)):
+        seen = freshness._parse(fetched_at)
+        if seen is None or seen > at:
+            continue
+        if int(event) not in out or seen >= out[int(event)][0]:
+            out[int(event)] = (seen, str(status), bool(complete), fetched_at)
+    return out
+
+
+def _external_odds_view(store: Storage, product: str, draw_number: int,
+                        now: dt.datetime) -> dict:
+    """Poolens Pinnacle-läge så som INSAMLINGEN senast observerade det.
+
+    Ren läsning (2026-09-24). Endpointen anropade tidigare
+    `collect_pinnacle(cache=True)`: den hämtade Pinnacle, skrev `sharp_odds`
+    och `sharp_snapshots` och satte dubbeltrafikspärrens meta-nyckel, men
+    utan närvarorad. En sidvisning kunde alltså ändra poolens prisserie och
+    färskhetsregelns underlag och få poolvarvet att hoppa över Pinnacle.
+    Nu: inget nätanrop och inga skrivningar.
+
+    Per match: länkstatus ur senaste sharp-capture ≤ as-of, pris och
+    observationstid ur `sharp_odds`, färskhet enligt pool-sharp-freshness-v1
+    (en stängd omgång bedöms vid spelstoppet) och, för avvisade matcher,
+    närmaste kandidat ur `pool_match_diagnostic`.
+    """
+    from . import pool_sharp_freshness as freshness
+    close = store.conn.execute(
+        "SELECT reg_close_time FROM draws WHERE product=? AND draw_number=?",
+        (product, draw_number)).fetchone()
+    at = freshness.as_of(close[0] if close else None, now)
+    raw = store.get_sharp(product, draw_number)
+    fresh, stale = freshness.fresh_sharp(store, product, draw_number, at)
+    sharp_caps = _latest_captures(store, product, draw_number, "sharp", at)
+    svs_caps = _latest_captures(store, product, draw_number, "svs", at)
+
+    descriptions: dict[int, str] = {}
+    candidates: dict[int, dict] = {}
+    for (event, svs_home, svs_away, cand_home, cand_away, cand_start, score,
+         side_home, side_away, swapped, first_seen, last_seen, n_seen) in \
+            store.conn.execute(
+                "SELECT event_number, svs_home, svs_away, cand_home, cand_away, "
+                "cand_start, score, side_home, side_away, swapped, "
+                "first_seen_at, last_seen_at, n_seen FROM pool_match_diagnostic "
+                "WHERE product=? AND draw_number=?", (product, draw_number)):
+        seen = freshness._parse(first_seen)
+        if seen is None or seen > at:
+            continue
+        event = int(event)
+        if svs_home and svs_away:
+            descriptions.setdefault(event, f"{svs_home} - {svs_away}")
+        best = candidates.get(event)
+        # Närmast = högst likhet; lika likhet avgörs av senaste observation
+        # (som tid, aldrig som sträng).
+        key = (score if score is not None else -1.0,
+               freshness._parse(last_seen) or seen)
+        if best is None or key > best["_key"]:
+            candidates[event] = {
+                "_key": key, "home": cand_home, "away": cand_away,
+                "start": cand_start, "score": score, "side_home": side_home,
+                "side_away": side_away, "swapped": bool(swapped),
+                "last_seen_at": last_seen, "n_seen": n_seen}
+    for event, description, home, away in store.conn.execute(
+            "SELECT event_number, description, home, away FROM "
+            "pool_event_settlement WHERE product=? AND draw_number=?",
+            (product, draw_number)):
+        text = description or (f"{home} - {away}" if home and away else None)
+        if text:
+            descriptions[int(event)] = text
+
+    events = sorted(
+        set(raw) | set(sharp_caps) | set(svs_caps)
+        | {int(row[0]) for row in store.conn.execute(
+            "SELECT DISTINCT event_number FROM snapshots "
+            "WHERE product=? AND draw_number=?", (product, draw_number))})
+    out = []
+    for event in events:
+        price = raw.get(event)
+        latest = sharp_caps.get(event)
+        status = latest[1] if latest else "never_observed"
+        entry = stale.get(event)
+        candidate = candidates.get(event) if status in ("not_listed", "ambiguous") else None
+        out.append({
+            "event_number": event,
+            "description": descriptions.get(event),
+            "ss_has_odds": svs_caps[event][2] if event in svs_caps else None,
+            "status": status,
+            "status_at": latest[3] if latest else None,
+            "fresh": event in fresh,
+            "external": ({
+                "source": "pinnacle", "bookmaker": price.get("bookmaker"),
+                "matched": price.get("matched"),
+                "confidence": price.get("confidence"),
+                "odds": price.get("odds"),
+                "observed_at": price.get("fetched_at")} if price else None),
+            "stale": ({**entry, "text": freshness.explain(entry, at)}
+                      if entry else None),
+            "candidate": ({k: v for k, v in candidate.items() if k != "_key"}
+                          if candidate else None),
+        })
+    observed = [capture[0] for capture in sharp_caps.values()]
+    last = max(sharp_caps.values(), key=lambda capture: capture[0])[3] \
+        if observed else None
+    return {"enabled": True, "read_only": True, "version": freshness.VERSION,
+            "product": product, "draw_number": draw_number,
+            "as_of": at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "closed": at < freshness._clock(now),
+            "last_observed_at": last,
+            "n_fresh": sum(1 for m in out if m["fresh"]),
+            "n_cached": sum(1 for m in out if m["external"]),
+            "matches": out}
+
+
 @app.get("/api/external-odds")
 def external_odds(product: str = "stryktipset", draw: int | None = None):
-    """Hämtar sharp-odds från Pinnacle (gratis, täcker även landskamper) och
-    cachar dem så analysen kan väva in dem. Ger coverage-status per match."""
-    draw = _get_draw(product, draw)
-    pin_res = sharp_service.collect_pinnacle(product, draw=draw, cache=True)
-    hits, status = pin_res["hits"], pin_res["status"]
-    # Dubbeltrafikspärren ger tomma hits/status utan fel. Då vet vi ingenting om
-    # Pinnacles utbud — defaulten "not_listed" hade påstått "ej listad hos
-    # Pinnacle" om varje match trots att vi aldrig frågade (2026-07-25).
-    unknown = "ej ompollad" if pin_res.get("skipped") else "not_listed"
+    """Insamlingens senaste Pinnacle-observation för poolomgången — ren läsning.
 
-    out = []
-    for m in draw.matches:
-        h = hits.get(m.event_number)
-        ext_data = None
-        st = status.get(m.event_number, unknown)
-        if h:
-            ext_data = {"source": h["source"], "matched": f'{h["home"]} - {h["away"]}',
-                        "confidence": h["confidence"], "commence_time": h.get("start"),
-                        "bookmaker": h["bookmaker"], "odds": h["odds"],
-                        "swapped": h.get("swapped", False)}
-        out.append({"event_number": m.event_number, "description": m.description,
-                    "ss_has_odds": m.outcomes["1"].odds is not None,
-                    "status": st, "external": ext_data})
-
-    return {"enabled": True, "draw_number": draw.draw_number,
-            "matched": sum(1 for o in out if o["external"]),
-            "cached": len(hits), "matches": out}
+    Hämtar ALDRIG Pinnacle eller Svenska Spel och skriver ingenting (se
+    `_external_odds_view`). Pinnacle hämtas bara av insamlingsvarven."""
+    now = dt.datetime.now(dt.timezone.utc)
+    store = Storage()
+    try:
+        number = draw or _local_open_draw(store, product, now)
+        if number is None:
+            raise HTTPException(404, f"Ingen känd omgång för {product}")
+        return _external_odds_view(store, product, int(number), now)
+    finally:
+        store.close()
