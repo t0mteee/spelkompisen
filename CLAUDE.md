@@ -214,6 +214,14 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
 - Research-familjer (`research_families_for`: ph5, mathmax, reducedmax, `poolopt`) får
   nominera, aldrig promovera. `poolopt`-armarna byggs av `pool_optimizer.rows_for` med
   prognosomsättningen och UTAN jackpot — exakt som sökningen kördes.
+- **AVLÄSNINGAR (Samans beslut 2026-09-24):** `poolopt` läses av EXAKT två gånger —
+  vid 40 parade omgångar (gjord 2026-09-24: ingen cell passerad,
+  `docs/poolopt-v1-avlasning-2026-09-24.md`) och sist vid 120 framåtomgångar. Inga
+  avläsningar däremellan; `underlag klart` är ingen inbjudan att titta.
+  `dr1-b256-medel-sharp` fortsätter med samma nyckel, men dess primära jämförelse
+  utesluter omgångar frysta med inaktuellt Pinnacle-underlag före färskhetsregeln
+  (regeln låst i `docs/ph3-sannolikhetsbas-v1-2026-09-02.md` innan effekten räknades;
+  8 av 49 vid 180 min och 6 av 49 vid 20 min utesluts).
 - **SPELFAMILJ, INTE PRODUKTSLUG:** `champion_report()` grupperar på `family_of()`;
   `_paired_draw_roi` parar på `(produkt, omgång)`. Produktslug, settlementidentitet och
   `config_key` är OFÖRÄNDRADE — familjen styr vad som mäts ihop, aldrig vad något heter.
@@ -715,6 +723,12 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
   svenska, imperativ rubrik, avsluta med `Co-Authored-By: Claude <modell>`.
   Pusha genom hooken; `SKIP_KONTROLL=1` bara för rena dokumentationspushar.
 - API-nycklar i gitignore:ad `backend/.env` (ODDS_API_KEY finns, the-odds-api är vilande).
+- **Databasbackup (Samans beslut 2026-09-24):** `com.saman.spelkompisen.backup` kör
+  `backend/scripts/backup_db.py` varje natt 04:15 — onlinekopia (backup-API, aldrig
+  filkopiering), `quick_check`, 14 dagar i `~/Backups/spelkompisen/daily` och senaste
+  kopian i det PRIVATA repot `t0mteee/spelkompisen-backup`. Databasen innehåller spelade
+  kuponger och insatser och får ALDRIG hamna i `spelkompisen`-repot, som är PUBLIKT.
+  Skriptet vägrar andra repon. Återställning är en DB-åtgärd: se `docs/backup.md`.
 - Rör ALDRIG `/Users/saman/svs` eller `/Users/saman/vm` från detta projekt.
 - **Uppdatera STATUS-blocket i `docs/plan.md` när en etapp/delmål blir klar — skriv över,
   stapla inte;** flytta det gamla blocket överst i `docs/status-historik.md`.
