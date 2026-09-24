@@ -22,7 +22,8 @@ from .odds_provider import (EXACT, PART, _best_side, pool_side_score, pool_side_
                             pool_name_candidates, _hours_apart, _parse_time,
                             english_name, COMBINED_MIN, HOME_AWAY_MIN,
                             TIME_WINDOW_H, POOL_ANCHOR_S, POOL_MATCH_VERSION,
-                            diagnostic_team_sim, is_side_market)
+                            diagnostic_team_sim, is_side_market, league_squad,
+                            with_league_squad)
 from .derive import derive_1x2, goal_expectations
 
 BASE = "https://guest.api.arcadia.pinnacle.com/0.1"
@@ -243,7 +244,11 @@ class Pinnacle:
                 + abs(offer["U"] - 2.0),
                 default=None,
             )
+            # pool-name-v6: ligans namn bär truppmarkören (U21/dam) som
+            # Pinnacle inte skriver i lagnamnet. Nytt fält; övriga läsare
+            # (Bomben m.fl.) bryr sig inte om det.
             out.append({"id": str(mid), "home": home, "away": away, "start": m.get("startTime"),
+                        "league": (m.get("league") or {}).get("name"),
                         "odds": odds, "odds_source": source,
                         "total": main_total,
                         "home_xg": round(xg[0], 3) if xg else None,
@@ -426,7 +431,11 @@ class Pinnacle:
               away_iso: Optional[str], index: list[dict],
               match_start: Optional[str] = None,
               diag: Optional[dict] = None) -> Optional[dict]:
-        """Bästa matchande Pinnacle-match — se `match_index`."""
+        """Bästa matchande Pinnacle-match — se `match_index`.
+
+        Bomben går hit och får INTE ligans truppmarkörer (pool-name-v6 gäller
+        bara poolmatcharen i sharp_service); beteendet är v5:s.
+        """
         return match_index(home, away, home_iso, away_iso, index, match_start, diag)
 
 
@@ -466,7 +475,9 @@ def _pool_tier(home_rel: tuple, away_rel: tuple) -> tuple[Optional[str], float]:
 def _audit_entry(home: str, away: str, g: dict, normal: tuple, swapped: tuple,
                  gap_h: Optional[float]) -> tuple:
     """Sökledtråd för diagnostiken. Säkra sidopoäng förblir oförändrade; en
-    separat sökpoäng gör avvisade delnamn synliga (aldrig användbara som odds)."""
+    separat sökpoäng gör avvisade delnamn synliga (aldrig användbara som odds).
+    `cand_home`/`cand_away` är Pinnacles råa namn; `cand_league` visar ligan
+    (lagras inte i pool_match_diagnostic, som har oförändrade kolumner)."""
     dh, da = diagnostic_team_sim(home, g["home"]), diagnostic_team_sim(away, g["away"])
     dh2, da2 = diagnostic_team_sim(home, g["away"]), diagnostic_team_sim(away, g["home"])
     raw_swap = (dh2 + da2, min(dh2, da2)) > (dh + da, min(dh, da))
@@ -474,7 +485,7 @@ def _audit_entry(home: str, away: str, g: dict, normal: tuple, swapped: tuple,
     search = (dh2, da2) if raw_swap else (dh, da)
     rank = (sum(search), min(search), -(gap_h or 0), g["home"], g["away"])
     return rank, {
-        "cand_home": g["home"], "cand_away": g["away"],
+        "cand_home": g["home"], "cand_away": g["away"], "cand_league": g.get("league"),
         "cand_start": g.get("start"), "side_home": round(sides[0], 3),
         "side_away": round(sides[1], 3), "score": round(sum(sides) / 2, 3),
         "swapped": raw_swap}
@@ -498,8 +509,15 @@ def _hit(best: dict, swapped: bool, confidence: float, tier: str) -> dict:
 def match_index(home: str, away: str, home_iso: Optional[str],
                 away_iso: Optional[str], index: list[dict],
                 match_start: Optional[str] = None,
-                diag: Optional[dict] = None) -> Optional[dict]:
+                diag: Optional[dict] = None, *,
+                league_squads: bool = False) -> Optional[dict]:
     """Bästa matchande Pinnacle-match (pool-name-v5: tidsankare + nivåer).
+
+    pool-name-v6 (`league_squads=True`, bara poolmatcharen i sharp_service):
+    kandidatens lagnamn får ligans truppmarkörer (`league_squad`) innan
+    namnregeln prövas, så en omärkt U21-/damrad aldrig blir ett seniorlag.
+    Avsparksankare, nivåer och trösklar är desamma. Bomben (`Pinnacle.match`)
+    och vägen utan SvS-avspark (v4) får inga ligamarkörer.
 
     Ren funktion utan nätverk; indexordning får aldrig välja odds. Med känd
     SvS-avspark är bara kandidater med känd avspark inom POOL_ANCHOR_S
@@ -530,10 +548,13 @@ def match_index(home: str, away: str, home_iso: Optional[str],
         if not eligible and diag is None:
             continue
         gap_h = gap_s / 3600
-        rel_h = pool_side_relation(home_cands, g["home"], away, g["away"], gap_h, home_national)
-        rel_a = pool_side_relation(away_cands, g["away"], home, g["home"], gap_h, away_national)
-        rel_h2 = pool_side_relation(home_cands, g["away"], away, g["home"], gap_h, home_national)
-        rel_a2 = pool_side_relation(away_cands, g["home"], home, g["away"], gap_h, away_national)
+        squad = league_squad(g.get("league")) if league_squads else ()
+        g_home = with_league_squad(g["home"], squad) if squad else g["home"]
+        g_away = with_league_squad(g["away"], squad) if squad else g["away"]
+        rel_h = pool_side_relation(home_cands, g_home, away, g_away, gap_h, home_national)
+        rel_a = pool_side_relation(away_cands, g_away, home, g_home, gap_h, away_national)
+        rel_h2 = pool_side_relation(home_cands, g_away, away, g_home, gap_h, home_national)
+        rel_a2 = pool_side_relation(away_cands, g_home, home, g_away, gap_h, away_national)
         if eligible:
             for swapped, (side_h, side_a) in ((False, (rel_h, rel_a)), (True, (rel_h2, rel_a2))):
                 tier, confidence = _pool_tier(side_h, side_a)

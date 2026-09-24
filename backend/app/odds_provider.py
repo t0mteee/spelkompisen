@@ -104,7 +104,7 @@ def _ratio(a: str, b: str) -> float:
 # Poolens egna bekräftade kortnamn. Ändra inte Oddsets/modellens globala
 # alias för att rätta poolmatcharen. Evidens: täckningsrapport 2026-09-13
 # och NameRuleTests (Svenska Spel ↔ Pinnacle).
-POOL_MATCH_VERSION = "pool-name-v5"
+POOL_MATCH_VERSION = "pool-name-v6"
 _POOL_TEAM_ALIASES = {
     "leeds": "leeds united",
     "nottingham": "nottingham forest",
@@ -482,6 +482,73 @@ def pool_side_relation(candidates: list[str], target: str, opponent: str,
     if pool_part(candidates[0], target):
         return PART, score
     return None, score
+
+
+# --- pool-name-v6: truppmarkörer ur Pinnacles LIGANAMN ----------------------
+# Pinnacle skriver U21-, U20-, U19-, reserv- och damlag UTAN markör i
+# lagnamnet ("Ukraine - Turkiye" i "UEFA - U21 Euro Championship Qualifiers",
+# "Chelsea - Arsenal" i "England - Women Super League"). Markören finns bara i
+# ligans namn. Poolmatcharen lägger därför ligans markörer på kandidatens
+# lagnamn, och den befintliga truppregeln (`_squad`) gör resten: ett SvS-lag
+# utan markör kan inte länkas till raden, ett SvS-lag med samma markör
+# ("Sverige U21") kan. Tidsankare, nivåer och trösklar är orörda. Listan är
+# prövad mot alla liganamn i Pinnacles index 2026-09-24; varje liga med
+# Pinnacles egen åldersgräns (ageLimit > 0) fångas.
+# U-åldrar 15–23 (uppdraget U17–U23; U15/U16 är samma klass). SvS "Dam" är
+# fortsatt ingen truppmarkör, så en dammatch hos SvS länkas inte (som v5).
+_LEAGUE_AGE_RE = re.compile(r"\b(?:u|under|sub)[\s-]?(\d{2})\b")
+_LEAGUE_AGE_RANGE = range(15, 24)
+_LEAGUE_WOMEN_WORDS = frozenset({
+    "women", "womens", "woman", "female", "females", "ladies", "girls",
+    "feminine", "feminin", "feminines", "femenina", "femenino", "femenil",
+    "feminina", "feminino", "femminile", "frauen", "frauenliga", "damen",
+    "dames", "damer", "vrouwen", "kvinner", "kvinder", "kvinnor", "naisten",
+    "kobiet", "damallsvenskan", "elitettan", "toppserien", "kvindeligaen",
+    "kvindeliga", "wsl", "nwsl", "swpl"})
+# Ord som bara är damform i en viss följd (Liga F, W-League, WE League, WK
+# League, Kansallinen Liiga). Ensamma "f"/"w" är det inte (Group F).
+# Medvetet UTE: junior (skotska Junior Cup är vuxna klubbar), wpl (Welsh
+# Premier League), olympic (herrturneringen är U23 men SvS skriver lagen
+# utan markör), premier league 2 (U21 men namnet saknar markör; inte belagt).
+_LEAGUE_WOMEN_PHRASES = (("liga", "f"), ("w", "league"), ("we", "league"),
+                         ("wk", "league"), ("kansallinen", "liiga"))
+_LEAGUE_YOUTH_WORDS = frozenset({"youth", "juvenil", "juveniles", "primavera",
+                                 "academy"})
+_LEAGUE_RESERVE_WORDS = frozenset({"reserve", "reserves", "reserva", "reservas"})
+
+
+@functools.lru_cache(maxsize=4096)
+def league_squad(league: Optional[str]) -> tuple[str, ...]:
+    """Truppmarkörerna som Pinnacles liganamn bär (sorterade), annars ().
+
+    U-ålder ger "u21" osv., damform "women", reservliga "reserves" och
+    ungdomsliga utan U-ålder "youth" — samma tokens som `_squad` redan känner.
+    """
+    if not league:
+        return ()
+    s = unicodedata.normalize("NFKD", league)
+    s = "".join(c for c in s if not unicodedata.combining(c)).casefold()
+    tokens = re.findall(r"[a-z0-9]+", s)
+    markers = {f"u{int(age)}" for age in _LEAGUE_AGE_RE.findall(s)
+               if int(age) in _LEAGUE_AGE_RANGE}
+    pairs = set(zip(tokens, tokens[1:]))
+    if (_LEAGUE_WOMEN_WORDS.intersection(tokens) or "(w)" in s
+            or any(phrase in pairs for phrase in _LEAGUE_WOMEN_PHRASES)):
+        markers.add("women")
+    if not markers.intersection(f"u{age}" for age in _LEAGUE_AGE_RANGE) \
+            and _LEAGUE_YOUTH_WORDS.intersection(tokens):
+        markers.add("youth")
+    if _LEAGUE_RESERVE_WORDS.intersection(tokens):
+        markers.add("reserves")
+    return tuple(sorted(markers))
+
+
+def with_league_squad(name: str, markers: tuple[str, ...]) -> str:
+    """Lagnamnet med ligans truppmarkörer som saknas (aldrig dubbelt: ett
+    namn som redan bär markören, t.ex. "Sweden U21", lämnas orört)."""
+    have = _squad(_norm_team(name))
+    missing = [marker for marker in markers if marker not in have]
+    return " ".join([name, *missing]) if missing else name
 
 
 def is_side_market(home: str, away: str) -> bool:

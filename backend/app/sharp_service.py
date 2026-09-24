@@ -161,8 +161,9 @@ def collect_pinnacle(product: str = "stryktipset",
     # Matchningen är ren (inget nätverk) och körs mot det delade indexet.
     for m in draw.matches:
         diag: dict = {}
+        # pool-name-v6: ligans truppmarkörer (U21/dam) på kandidatens lagnamn.
         hit = match_index(m.home, m.away, m.home_iso, m.away_iso,
-                          index, m.match_start, diag)
+                          index, m.match_start, diag, league_squads=True)
         if not hit:
             status[m.event_number] = (
                 "ambiguous" if diag.get("reason") == "ambiguous" else "not_listed")

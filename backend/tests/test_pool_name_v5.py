@@ -45,7 +45,7 @@ class GeneriskaDelnamnTests(unittest.TestCase):
         self.assertEqual(PLYMOUTH["odds"], h["odds"])
         self.assertEqual(PLYMOUTH["total"], h["total"])          # samma fysiska match
         self.assertEqual(op.POOL_MATCH_VERSION, h["match_version"])
-        self.assertEqual("pool-name-v5", h["match_version"])
+        self.assertEqual("pool-name-v6", h["match_version"])
 
     def test_cambridge_wimbledon_exakt_plus_delnamn(self):
         h = hit("Cambridge", "Wimbledon", [CAMBRIDGE], home_iso="ENG", away_iso="ENG")
@@ -273,7 +273,7 @@ class AliasOchDiagnostikTests(unittest.TestCase):
         self.assertEqual(("name_mismatch", 0, None),
                          (diag["reason"], diag["qualifying_candidates"], diag["qualifying_tier"]))
         self.assertEqual(("Wycombe Wanderers", "Bolton Wanderers"), (diag["cand_home"], diag["cand_away"]))
-        self.assertEqual("pool-name-v5", diag["match_version"])
+        self.assertEqual("pool-name-v6", diag["match_version"])
         with tempfile.TemporaryDirectory() as temp:
             store = Storage(Path(temp) / "t.db")
             try:
