@@ -1332,7 +1332,9 @@ def main() -> None:
             timmar = next((int(a) for a in rest if a.isdigit()), 6)
             print(format_source_health(store, hours=timmar))
             print("\n" + oddset_health.format_report(oddset_health.report(store)))
-            print("\n" + format_pool_health(pool_health_report(store)))
+            from app.pool_health import BACKUP_STATUS_PATH
+            print("\n" + format_pool_health(pool_health_report(
+                store, backup_status_path=BACKUP_STATUS_PATH)))
         finally:
             store.close()
     elif cmd == "lanklucka":

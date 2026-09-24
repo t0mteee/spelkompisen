@@ -15,6 +15,8 @@ i UI, köras från ``cli.py kallhalsa`` och testas på en isolerad databas.
 from __future__ import annotations
 
 import datetime as dt
+import json
+from pathlib import Path
 from typing import Iterable, Optional
 
 from .pool_system_ledger import (FREEZE_HORIZONS, benchmarks_for,
@@ -26,6 +28,12 @@ DENSE_MAX_AGE_MIN = 15
 DENSE_WITHIN_H = 2.0
 FREEZE_GRACE_MIN = 15
 SETTLEMENT_GRACE_MIN = 20
+# Nattlig databasbackup (scripts/backup_db.py, docs/backup.md, 04:15). Samma
+# rot som backup_db.DEFAULT_ROOT — låst av test. 36 h tål en missad natt men
+# inte två: en backup som tyst slutar fungera ska synas som styrkeshadowen
+# borde ha gjort 2026-08-21.
+BACKUP_STATUS_PATH = Path.home() / "Backups" / "spelkompisen" / "status.json"
+BACKUP_MAX_AGE_H = 36
 # Pinnacle-täckning (pool-sharp-freshness-v1) för öppna omgångar som stänger
 # inom 48 h: under 70 % matcher med färsk sharp är en varning, aldrig ett fel
 # — tidigt saknade priser kan vara Pinnacles eget utbud.
@@ -75,9 +83,41 @@ def _sharp_coverage(store, product: str, draw: dict,
     return coverage(store, product, draw["draw_number"], now, events)
 
 
+def _backup_issues(issues: list[dict], path: Path, now: dt.datetime) -> None:
+    """Varna när den nattliga kopian saknas, är gammal eller inte nått GitHub."""
+    try:
+        status = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        _issue(issues, "warning", "server", "backup_missing",
+               "ingen databasbackup har körts (status saknas)")
+        return
+    except (OSError, ValueError) as exc:
+        _issue(issues, "warning", "server", "backup_unreadable",
+               f"backupstatus kunde inte läsas ({type(exc).__name__})")
+        return
+    limit = now - dt.timedelta(hours=BACKUP_MAX_AGE_H)
+    error = f" · senaste fel: {status['error']}" if status.get("error") else ""
+    last_ok, last_push = _at(status.get("last_ok_at")), _at(status.get("last_pushed_at"))
+    if last_ok is None or last_ok < limit:
+        when = _iso(last_ok) if last_ok else "aldrig"
+        _issue(issues, "warning", "server", "backup_stale",
+               f"senaste lyckade databasbackup {when} (gräns {BACKUP_MAX_AGE_H} h){error}",
+               last_ok_at=status.get("last_ok_at"))
+    elif last_push is None or last_push < limit:
+        when = _iso(last_push) if last_push else "aldrig"
+        _issue(issues, "warning", "server", "backup_not_pushed",
+               f"databasbackupen har inte nått GitHub sedan {when}{error}",
+               last_pushed_at=status.get("last_pushed_at"))
+
+
 def report(store, *, now: Optional[dt.datetime] = None,
-           products: Optional[Iterable[str]] = None) -> dict:
-    """Kontrollera poolens observerade slutprodukter utan externa anrop."""
+           products: Optional[Iterable[str]] = None,
+           backup_status_path: Optional[Path] = None) -> dict:
+    """Kontrollera poolens observerade slutprodukter utan externa anrop.
+
+    `backup_status_path` skickas av API:t och `cli.py kallhalsa`
+    (BACKUP_STATUS_PATH). Tester utelämnar den och påverkas då aldrig av
+    maskinens riktiga backup."""
     now = (now or dt.datetime.now(dt.timezone.utc)).astimezone(dt.timezone.utc)
     chosen = tuple(products or PRODUCTS.keys())
     issues: list[dict] = []
@@ -252,6 +292,9 @@ def report(store, *, now: Optional[dt.datetime] = None,
         _issue(issues, "warning", "poolstyrka", "strength_shadow_unreadable",
                f"styrkeshadowens status kunde inte läsas "
                f"({type(exc).__name__}: {exc})"[:200])
+
+    if backup_status_path is not None:
+        _backup_issues(issues, Path(backup_status_path), now)
 
     # En retry-tid är ett löfte från settlementmaskinen. Har den passerat med
     # mer än ett varv utan nytt facit är det en änd-till-änd-lucka, oavsett om

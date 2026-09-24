@@ -8,6 +8,10 @@ const KIND_LABEL = {
   sharp_link_coverage: 'för lite färsk Pinnacle',
   strength_shadow_stopped: 'styrkeshadowen står still',
   strength_shadow_unreadable: 'styrkeshadowen kunde inte läsas',
+  backup_missing: 'databasbackup saknas',
+  backup_unreadable: 'backupstatus oläslig',
+  backup_stale: 'databasbackupen är gammal',
+  backup_not_pushed: 'backupen har inte nått GitHub',
 }
 
 export function splitPoolIssues(issues) {

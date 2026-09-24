@@ -333,3 +333,54 @@ class PoolHealthFreshnessTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BackupAlarmTests(unittest.TestCase):
+    """Nattlig backup: larm när kopian saknas, är gammal eller inte publicerats."""
+
+    NOW = dt.datetime(2026, 9, 26, 12, 0, tzinfo=dt.timezone.utc)
+
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.path = Path(self.tmp.name) / "status.json"
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def kinds(self, status=None):
+        import json
+        issues = []
+        if status is not None:
+            self.path.write_text(json.dumps(status))
+        pool_health._backup_issues(issues, self.path, self.NOW)
+        return [issue["kind"] for issue in issues]
+
+    def test_farsk_publicerad_backup_ar_tyst(self):
+        self.assertEqual([], self.kinds({"last_ok_at": "2026-09-26T02:15:10Z",
+                                         "last_pushed_at": "2026-09-26T02:15:10Z"}))
+
+    def test_saknad_gammal_och_opublicerad_backup_larmar(self):
+        self.assertEqual(["backup_missing"], self.kinds())
+        self.assertEqual(["backup_stale"], self.kinds({"last_ok_at": "2026-09-24T13:55:10Z",
+                                                       "last_pushed_at": "2026-09-24T13:55:10Z",
+                                                       "error": "RuntimeError: x"}))
+        self.assertEqual(["backup_not_pushed"], self.kinds(
+            {"last_ok_at": "2026-09-26T02:15:10Z", "last_pushed_at": "2026-09-24T13:55:10Z"}))
+
+    def test_rapporten_laser_bara_backup_nar_sokvagen_skickas(self):
+        from app.storage import Storage
+        store = Storage(Path(self.tmp.name) / "t.db")
+        try:
+            quiet = pool_health.report(store, now=self.NOW, products=())
+            loud = pool_health.report(store, now=self.NOW, products=(),
+                                      backup_status_path=self.path)
+        finally:
+            store.close()
+        self.assertNotIn("backup_missing", [i["kind"] for i in quiet["issues"]])
+        self.assertIn("backup_missing", [i["kind"] for i in loud["issues"]])
+
+    def test_samma_rot_som_backupskriptet(self):
+        from scripts import backup_db
+        self.assertEqual(backup_db.DEFAULT_ROOT / "status.json",
+                         pool_health.BACKUP_STATUS_PATH)
