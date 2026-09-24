@@ -130,9 +130,10 @@ prioritetsordning. ⚖ = kräver Samans beslut.
     h3 föll i en sharp-lucka 10:40–14:56 UTC, men jobbet körde under hela perioden.
     Gamla loggar skiljer inte källfel/skip; nya gör det. PIT-regeln oförändrad,
     ingen bakfyllning. Se överlämningar 2026-09-15-poolmatchning och poolkadens.
-    Uppföljning ⏳ ~2026-09-21: `scripts/pool_tackning_rapport.py --sedan 2026-09-14`,
-    tabellen "Observationsfönstret" ska visa capture FÖRE as-of i de flesta
-    Topptipsomgångar; `pool_match_diagnostic` ersätter klassen "namnform okänd".
+    ✅ Uppföljningen kördes i statusauditen 2026-09-24 (`--sedan 2026-09-14`):
+    tidsluckorna är lösta (Topptipset capture före as-of 20/20, 19/20, 17/20 mot
+    baslinjen 29/21/64 %), men namnavslagen ökade under pool-name-v2–v4 —
+    rättat med pool-name-v5 (punkt 18). Ny mätning som egen regim ~2026-10-01.
 17. ✅ (2026-09-13) **Codex UI-plan del B/C levererad** (Claude). Samans val:
     underflikar i Historik — Mina kuponger · Tester · Facit & prognos; toppraden
     tillbaka på fem flikar. Testkatalog ur `/api/pool/tests` (gater-raderna),
@@ -141,6 +142,36 @@ prioritetsordning. ⚖ = kräver Samans beslut.
     Samma kväll (Samans fråga): utdelningsprognos per vinstnivå bredvid
     liverättningen — egen skattning (`pool_played.payout_forecast`), SvS ger
     ingen via API:t. ⚖ Kvar: besluten a–e i punkt 16.
+
+18. ✅ (2026-09-24) **Statusaudit och rättningar** (Claude; fem granskningsspår med
+    skeptisk kontroll). Samans beslut samma dag: **1A** pool-name-v5 med datumnot,
+    **3A** styrkeshadow manifest v2, **5aA** poolopt avläses vid 40 och 120,
+    **5bA** sharp-utmanaren fortsätter med förregistrerad uteslutning, **backup ja**.
+    Levererat och i drift: pool-sharp-freshness-v1, pool-name-v5, m20-reservens
+    budgetfel (C9), styrkeshadow v2, poolopt-avläsning (ingen cell passerad),
+    CLV-stängning med bekräftad länk, nattlig backup med larm i hälsan när den
+    blir gammal, settlementurvalets tidszon,
+    testisolering, κ-text och teckenandelar. Överlämning:
+    `docs/overlamningar/overlamning-2026-09-24-status-och-beslut.md`.
+19. ⏳ **Kvar ur statusauditen 2026-09-24** (ingen kräver beslut om inget annat anges):
+    - Ö/U-reservens tre anrop per varv går alltid till Stryktipset; Topptipset-
+      omgångar stänger utan kontroll. Gemensam kö per varv (fynd C3).
+    - m20-reserven loggar inga avslagsorsaker och sparar bara senaste försöket i
+      meta. Append-only-logg med orsak (fynd D3). ⚖ Metodfrågan om kadens mot
+      15-minuters CDN-cykel kräver förregistrering.
+    - Kupongdetaljen (`system_detail`) visar Pinnacle-priser som frysningar efter
+      färskhetsregeln inte använde; markera dem.
+    - Rörelser: matcher som aldrig länkats får ingen SvS-rörelse när andra
+      matcher i omgången har sharp.
+    - GET `/api/external-odds` skriver till sharp-serien och sätter
+      dubbeltrafikspärren utan närvarorad.
+    - Omsättningsprognosen för vardagsomgångar blandar in söndagar och tar övre
+      median (Europatipset 2610: 9,0 Mkr mot vardagarnas 6,2–7,1). ⚖ Ändrar PH3:s
+      värderingsomsättning.
+    - Utdelningsprognosen underskattar 10–20 % och saknar minimiutdelning och
+      garanti.
+    - U21- och damlag heter som seniorlagen hos Pinnacle; ligan kastas i
+      `soccer_index`. Ligabaserade truppmarkörer vore nästa steg för matcharen.
 
 ## 2026-08-11 — AWS korrekt omtestat och avfärdat
 

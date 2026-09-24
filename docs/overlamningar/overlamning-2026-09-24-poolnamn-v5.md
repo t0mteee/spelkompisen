@@ -1,9 +1,9 @@
-# Överlämning 2026-09-24 — pool-name-v5 (förslag, EJ driftsatt)
+# Överlämning 2026-09-24 — pool-name-v5 (driftsatt 2026-09-24T14:30:53Z)
 
 ## Uppdrag och status
 
 Förbered en ny namn- och tidsregel för poolens Pinnacle-matchning,
-`pool-name-v5`. **Inte driftsatt: Saman beslutar först.** Arbetet är gjort i
+`pool-name-v5`. **Driftsatt 2026-09-24T14:30:53Z efter Samans beslut 1A** (datumnot i manifesten, ingen ny manifestversion). Nedan står förslaget som det skrevs före beslutet. Arbetet är gjort i
 worktreen `/tmp/spk-v5` på MacBook-servern, gren `pool-name-v5` från main
 `0ec4e72`. Ingen merge, push, omstart eller launchctl. Produktionskopian
 `~/spelkompisen` är orörd; produktionsdatabasen är bara läst med `mode=ro`.

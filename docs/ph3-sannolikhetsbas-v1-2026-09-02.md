@@ -105,3 +105,8 @@ Tider jämförs som tider, aldrig som strängar. Före nästa formella avläsnin
 får bara antalet uteslutna omgångar räknas, eftersom det är input och inte
 utfall. Statusauditen 2026-09-24 såg championrapportens jämförelse på hela
 mängden; uteslutningens effekt har inte beräknats.
+
+Driftsättning: färskhetsregeln `pool-sharp-freshness-v1` gick i drift
+2026-09-24T14:11:09Z (första pooltick 14:12Z). Uteslutningsregeln ovan gäller
+alltså frysningar före den tiden. Räknat samma dag, bara input: 8 av 49 parade
+omgångar utesluts vid 180 min och 6 av 49 vid 20 min, så 41 och 43 återstår.

@@ -1,6 +1,8 @@
 # Överlämning — färskhetsregel för poolens Pinnacle-priser och synliga stopp (2026-09-24)
 
-**UTKAST.** Gjort i grenen `pool-farskhet` (worktree `/tmp/spk-fresh`) från main
+**Driftsatt 2026-09-24T14:11:09Z** (första pooltick 14:12Z), på Samans order att rätta missade och gamla odds. PH3-nycklarna är oförändrade med datumnot.
+
+Gjort i grenen `pool-farskhet` (worktree `/tmp/spk-fresh`) från main
 `0ec4e72`. Inte mergat, inte pushat, inte driftsatt. Alla beteendeändringar nedan
 gäller från DRIFTSÄTTNINGEN — skriv in datum och commit i `docs/plan.md` och
 i skördeprotokollen när det sker. `docs/plan.md` och `CLAUDE.md` är orörda.

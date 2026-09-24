@@ -60,7 +60,11 @@ bantningen 2026-09-02) — läs den när du undrar VARFÖR, inte varje session.
   `_next_round_for_empty_leagues` visar nästa omgång under säsongsuppehåll.
 - `pool-strength-blend-v1`: Pinnacle orörd baslinje, 90/10 enda kandidat, 80/20 diagnostik.
   Modellversion, timing, identitet, blend eller gate ändras aldrig inne i samma
-  manifest/shadowversion. `/api/pool/strength-shadow` tar `family=1` (en familjenyckel är
+  manifest/shadowversion. **Manifest v2** (`ps-8cbcf320`, fryst 2026-09-24T14:13:13Z,
+  Samans beslut 3A) är v1 med ny modellversion `m-6ef4fb7a`; v1 stoppade TYST 2026-08-21
+  när Ligue 1 bytte modellversionen. Ett stopp syns nu som `stoppad` i rapport, gater och
+  poolhälsan — varje ny modelliga eller omkalibrering stoppar spåret igen.
+  `/api/pool/strength-shadow` tar `family=1` (en familjenyckel är
   ett giltigt PRODUKTnamn men filtrerar exakt).
 - Powerranken (`powerrank-v2`) mäter poäng, mål och xPts på EXAKT samma matchmängd — de med
   xG; lag utan xG-matcher visas inte. `MIN_MATCHES` prövas mot hela historiken.
@@ -81,11 +85,18 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/svenskaspel.py  SvS pools-API-klient (PRODUCTS, GAME_GROUPS, Draw, family_of)
   app/pinnacle.py     Pinnacle Arcadia (gratis guest-API), + derive.py (1X2 ur spread/total);
                       `match_index` matchar rent mot indexet och fyller `diag` vid avslag
-  app/odds_provider.py NAMNREGELN för poolmatcharen (aktuell version i plan.md): Oddsets
-                      `norm_team` + poolspecifika bekräftade alias ⇒ 1,0; obekräftade delnamn,
-                      olika trupper och kända falska par ⇒ 0. SC bevaras (Barcelona ≠ Barcelona SC).
-                      Trösklarna 0,60/0,72 kvar; `match_index` kräver EN kandidat/orientering,
-                      annars `ambiguous` i captures, inga odds. Globala modellalias orörda.
+  app/odds_provider.py NAMNREGELN för poolmatcharen, **pool-name-v5 sedan 2026-09-24**
+                      (Samans beslut 1A): med känd SvS-avspark prövas bara Pinnacle-
+                      kandidater inom 15 min (`POOL_ANCHOR_S`) — ett lag spelar en match i
+                      taget, så U21-/landskamper dagen före kan varken störa eller länkas.
+                      Nivåer: A exakt/alias båda sidor, B exakt + generiskt delnamn
+                      (klubbformsord, belagda undantag i `_POOL_REJECTED_PARTS`), C delnamn
+                      båda, F stavning 0,60/0,72; bästa nivån vinner, flera på den ⇒
+                      `ambiguous`. ISO-landsnamn BARA för landslag (SvS-namnet är landets
+                      svenska namn), landsnamn bara exakt; klubbar med isoCode får aldrig
+                      landsnamn (Vestmannaeyja–Valur blev Iceland–Switzerland). SC bevaras
+                      (Barcelona ≠ Barcelona SC). Utan SvS-avspark gäller v4-vägen. Globala
+                      modellalias orörda. `docs/overlamningar/overlamning-2026-09-24-poolnamn-v5.md`.
   app/sharp_service.py Pinnacle för poolen: `VarvIndex` = ETT index per basvarv delat av
                       alla produkter och omgångar; avslag bokförs i `pool_match_diagnostic`
   app/pool_capture_refresh.py m20-reserv för PIT: exakt Pinnacle-id, färsk 1X2 + total
@@ -206,6 +217,11 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
   512 (3^8 = 6 561 rader; 1 024 vore mattbombning). En `config_key` ändras aldrig i
   efterhand — nya nycklar räcker, ingen migrering. Championen MÅSTE spegla appens
   budgetreglage. Promotion kräver BH-FDR över hela utmanarfamiljen OCH ≥ 40 parade omgångar.
+- **FÄRSKHETSREGELN I PH3 (datumnot, Samans beslut 2026-09-24):** från 2026-09-24T14:11:09Z
+  (första pooltick 14:12Z) fryses alla nycklar med bara färsk Pinnacle; inaktuella priser
+  listas i frysningens `build_note`. Nycklarna är OFÖRÄNDRADE (båda sidor i varje par får
+  samma rättade underlag) — redovisa regimen vid skörd. Matcharen v5 (14:30:53Z) ger fler
+  länkade matcher från samma datum.
 - **SANNOLIKHETSBAS (2026-09-02):** `build_ev_system(prob_base=)` — `"svs"` (SvS-odds
   först, Pinnacle reserv) är byte-identisk standard i appen; `"sharp"` mäts ENBART som
   utmanaren `dr1-b256-medel-sharp` (8-matchsspelen). En ändrad bas är en ny nyckel,
@@ -390,6 +406,15 @@ observationsögonblicket används som observationstid.**
    (16 min ≥ Pinnacles max-age), och `sharp_service.VarvIndex` delar ett index per
    basvarv med `force` avgjort före första produkten. Presence-REGELN är oförändrad, så
    pit-v4/pit-total-v1 fortsätter under samma version med datumnot i manifestet.
+11. **Ett cachat latest-state-pris är ingen aktuell observation** (pool-sharp-freshness-v1,
+   2026-09-24). `sharp_odds` skrivs bara vid träff och rensas aldrig när länken tappas:
+   Europatipset 2610 visade ett pris från 08:17Z som aktuellt, Stryktipset 4971 frystes
+   med priser från 15/9, och vid ~18 % av PH3-frysningarna sedan 10/9 var senaste
+   sharp-capture inte `matched`. Analys, bygge, PH3, rörelser/steam, poolens CLV-logg,
+   notiser och Ö/U-reserven läser därför sharp via `pool_sharp_freshness.fresh_sharp`:
+   priset får vara högst 90 min gammalt och ingen capture efter priset får säga att
+   länken tappats. `Storage.get_sharp` direkt är latest-state och ALDRIG beslutsunderlag.
+   CLV-stängningen kräver på samma sätt en bekräftad länk ≤ 90 min före avspark/spelstopp.
 
 ### 📦 TRANSPORTREGELN — status 200 betyder inte läsbar kropp
 

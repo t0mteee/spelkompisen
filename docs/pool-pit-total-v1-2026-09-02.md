@@ -13,6 +13,15 @@ säga det.
 
 ## Varför
 
+**Datumnot 2026-09-24, pool-name-v5 (Samans beslut 1A):** i drift från 2026-09-24T14:30:53Z, första basvarv 14:57Z. Poolmatcharen kräver med känd
+SvS-avspark en Pinnacle-avspark inom 15 min och väljer på nivå (exakt,
+exakt + generiskt delnamn, delnamn båda, stavning). Landslag känns igen på
+svenskt landsnamn och matchas bara exakt; klubbar får aldrig landsnamn.
+Samtidigt använder m20-reserven redan hämtade svar när budgeten är slut.
+Total och 1X2 följer fortfarande samma match-id. Ingen ny oddskälla eller
+historisk bakfyllning; skilj v4/v5 vid skörd.
+Se `docs/overlamningar/overlamning-2026-09-24-poolnamn-v5.md`.
+
 **Datumnot 2026-09-21, pool-name-v4:** två belagda kopplingar i Topptipset
 4346 rättas (Cuiaba Esporte/Cuiaba och kontextbundet Estudiantes/La Plata
 mot Lanus med känd avspark ±15 min). Total och 1X2 följer samma match-id.
