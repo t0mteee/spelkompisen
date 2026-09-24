@@ -111,6 +111,15 @@ SERVICES: tuple[Service, ...] = (
         warning="Källprovet är append-only; luckan går inte att fylla i efterhand.",
     ),
     Service(
+        "backup", "Databasbackup", "com.saman.spelkompisen.backup",
+        "Server & övervakning", "nattlig databaskopia 04:15", scheduled=True,
+        help_text="Tar varje natt en kontrollerad kopia av databasen, sparar 14 "
+                  "dagar på servern och lägger den senaste i ett privat GitHub-repo. "
+                  "Vänteläge mellan körningarna är normalt.",
+        warning="Nattliga kopior uteblir. Senaste lyckade kopian finns kvar, men "
+                "data efter den saknar kopia tills jobbet körs igen.",
+    ),
+    Service(
         "menubar", "Serverkontroll", "com.saman.spelkompisen.menubar",
         "Server & övervakning", "lokal status- och tjänstemeny",
         "Statusmenyn kan starta och stoppa tjänster; övriga insamlingar "
@@ -343,7 +352,7 @@ USAGE = """Användning:
   tjanster.sh omstart <tjänst ...>
 
 Tjänster:
-  backend frontend snapshot pool kalltest awake menubar charter bonus
+  backend frontend snapshot pool kalltest backup awake menubar charter bonus
 Grupper:
   all            alla tjänster
   spelkompisen   API, webb och Spelkompisens två insamlare

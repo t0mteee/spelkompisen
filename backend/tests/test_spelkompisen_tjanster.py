@@ -33,14 +33,14 @@ class ServiceCatalogTests(unittest.TestCase):
         self.assertEqual("Spelkompisen", projects["backend"])
         self.assertEqual("Chartervakt", projects["charter"])
         self.assertEqual("Bonusvakt", projects["bonus"])
-        for key in ("awake", "kalltest", "menubar"):
+        for key in ("awake", "kalltest", "backup", "menubar"):
             self.assertEqual("Server & övervakning", projects[key])
 
         self.assertEqual(
             ("backend", "frontend", "snapshot", "pool"),
             tjanster.GROUPS["spelkompisen"],
         )
-        self.assertEqual(("awake", "kalltest", "menubar"),
+        self.assertEqual(("awake", "kalltest", "backup", "menubar"),
                          tjanster.GROUPS["server"])
 
     def test_names_are_human_readable(self):

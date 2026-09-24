@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.saman.spelkompisen.backup</string>
+
+    <!-- Nattlig onlinekopia av databasen (scripts/backup_db.py, docs/backup.md).
+         Publicerar ENDAST till det privata repot spelkompisen-backup. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/saman/spelkompisen/backend/.venv/bin/python</string>
+        <string>-B</string>
+        <string>/Users/saman/spelkompisen/backend/scripts/backup_db.py</string>
+    </array>
+
+    <!-- 04:15 lokal tid: efter sena Topptipsstopp och mellan poolens
+         :12- och :17-tick. En missad körning tas vid nästa uppvaknande. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>4</integer>
+        <key>Minute</key>
+        <integer>15</integer>
+    </dict>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/saman/Backups/spelkompisen/backup.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/saman/Backups/spelkompisen/backup.err.log</string>
+</dict>
+</plist>
