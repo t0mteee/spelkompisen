@@ -968,17 +968,36 @@ def _draw_pots(store: Storage, product: str, draw: int) -> dict | None:
             "per_level": per_level, "plan": plan}
 
 
+def _draw_guarantees(product: str, draw: int) -> list[dict]:
+    """Omgångens garantier (t.ex. ensamvinnargaranti) ur API-lagrets delade
+    /jackpots-cache — samma payload som /api/payouts, högst en hämtning per
+    `_JACKPOTS_TTL_S`. Fel eller saknad payload ⇒ tom lista; en garanti
+    gissas aldrig. Garantin går ALDRIG in i prognosen eller EV."""
+    try:
+        with SvenskaSpel() as ss:
+            data = _jackpots_for_ui(ss)
+            if not isinstance(data, dict):
+                return []
+            out = ss.get_guarantees(product, int(draw), data)
+    except Exception:  # noqa: BLE001 — källfel får inte fälla liverättningen
+        logger.warning("Garantier kunde inte läsas för %s %s", product, draw,
+                       exc_info=True)
+        return []
+    return out if isinstance(out, list) else []
+
+
 def _draw_forecast(store: Storage, product: str, draw: int,
                    states: list[dict] | None, row_price: float = 1.0) -> dict | None:
     """Utdelningsprognos per nivå (pool_played.payout_forecast) — vår egen
-    skattning om omgången slutar som nu, aldrig SvS siffra."""
+    skattning om omgången slutar som nu, aldrig SvS siffra. Garantierna
+    följer med som egna rader, utanför prognosen."""
     pots = _draw_pots(store, product, draw)
     if not pots or not states:
         return None
     from . import pool_played
     return pool_played.payout_forecast(
         product, pots["plan"], states, pots["turnover"], pots["jackpot"],
-        row_price or 1.0)
+        row_price or 1.0, guarantees=_draw_guarantees(product, draw))
 
 
 @app.get("/api/pool/systems/live-overview")

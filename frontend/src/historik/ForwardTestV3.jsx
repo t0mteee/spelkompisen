@@ -7,7 +7,7 @@ import { PRODUCT_LABEL, fmtDay, horizonLabel, pctSigned, roiCls, FORWARD_TEST, f
 import { SystemDetail } from './SystemDetail.jsx'
 import { SortableTable } from '../components/SortableTable.jsx'
 import { forwardView } from '../lib/forwardTests.js'
-import { FORECAST_NOTE } from '../lib/forecast.js'
+import { FORECAST_NOTE, perRowText, minPayoutNote } from '../lib/forecast.js'
 import { LoadingState, EmptyState, ErrorState, kr } from '../App.jsx'
 
 const VIEW_KEY = 'svs_forward_view'
@@ -308,7 +308,7 @@ function LiveCell({ entry, pot, forecast, error, waiting }) {
     .sort((a, b) => b[0] - a[0])
   const top = living[0]
   const potKr = top ? pot?.per_level?.[top[0]] : null
-  const perRow = top ? forecast?.levels?.[top[0]]?.per_row_kr : null
+  const perRow = top ? forecast?.levels?.[top[0]] : null
   const started = entry.n_decided > 0 || entry.current_known > 0
   return <div className="v3livecell">
     <div>
@@ -322,7 +322,7 @@ function LiveCell({ entry, pot, forecast, error, waiting }) {
         : !living.length ? 'inga rader lever'
           : <>lever: {living.map(([level, count]) => `${level} rätt → ${count.toLocaleString('sv-SE')} rader`).join(' · ')}
             {potKr ? <> · pott {top[0]} rätt {kr(potKr)}</> : null}
-            {perRow != null ? <> · <b>≈ {kr(perRow)}/rad</b> <span title={FORECAST_NOTE}>(prognos)</span></> : null}</>}</div>
+            {perRow ? <> · <b>{perRowText(perRow)}/rad</b> <span title={minPayoutNote(forecast, perRow) || FORECAST_NOTE}>(prognos)</span></> : null}</>}</div>
   </div>
 }
 

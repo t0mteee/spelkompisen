@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CouponOverview } from './CouponOverview.jsx'
 import { signShares } from '../lib/coupons.js'
 import { PRODUCT_LABEL } from '../lib/labels.js'
-import { topAliveForecast, forecastBasisText, FORECAST_NOTE } from '../lib/forecast.js'
+import { topAliveForecast, forecastBasisText, FORECAST_NOTE, perRowText, minPayoutNote, guaranteeLines, GUARANTEE_NOTE } from '../lib/forecast.js'
 import { LoadingState, ErrorState, kr } from '../App.jsx'
 
 function couponLabel(c) {
@@ -288,8 +288,8 @@ function PlayedLiveCard({ c, onForget }) {
             )}
             {(() => {
               const fc = topAliveForecast(live)
-              return fc ? <span title={FORECAST_NOTE}>
-                prognos {fc.level} rätt <b>≈ {kr(fc.per_row_kr)}</b>/rad
+              return fc ? <span title={minPayoutNote(live.forecast, fc) || FORECAST_NOTE}>
+                prognos {fc.level} rätt <b>{perRowText(fc)}</b>/rad
               </span> : null
             })()}
           </div>
@@ -337,8 +337,9 @@ function PlayedLiveCard({ c, onForget }) {
                         : undefined}>{text}</td>
                     {live.forecast && <td>{live.forecast.levels?.[lvl] ? kr(live.forecast.levels[lvl].pot_kr) : '–'}</td>}
                     {live.forecast && <td title={live.forecast.levels?.[lvl]
-                      ? `förväntat ${live.forecast.levels[lvl].expected_winners} vinnande rader i fältet` : undefined}>
-                      {live.forecast.levels?.[lvl] ? <b>≈ {kr(live.forecast.levels[lvl].per_row_kr)}</b> : '–'}</td>}
+                      ? (minPayoutNote(live.forecast, live.forecast.levels[lvl])
+                        || `förväntat ${live.forecast.levels[lvl].expected_winners} vinnande rader i fältet`) : undefined}>
+                      {live.forecast.levels?.[lvl] ? <b>{perRowText(live.forecast.levels[lvl])}</b> : '–'}</td>}
                   </tr>
                 )
               })}
@@ -347,8 +348,13 @@ function PlayedLiveCard({ c, onForget }) {
           {live.forecast && !live.out_of_contention && (
             <p className="hint">Prognosen per rad är vår egen skattning om omgången slutar som nu
               ({forecastBasisText(live.forecast)}), inte Svenska Spels siffra — den kommer först
-              när omgången är rättad.</p>
+              när omgången är rättad.{live.forecast.min_payout_kr
+                ? ` Under ${kr(live.forecast.min_payout_kr)} per rad betalar Svenska Spel inte ut nivån, så där visas 0 kr.`
+                : ''}</p>
           )}
+          {live.forecast && !live.out_of_contention && guaranteeLines(live.forecast).map((line) => (
+            <p key={line} className="hint" title={GUARANTEE_NOTE}>
+              Garanti (ingår inte i prognosen): {line}</p>))}
           {!live.out_of_contention && <AliveRowsTable live={live} />}
           <p className="hint">
             {live.chance_note ? `Ingen chans visas: ${live.chance_note}.`

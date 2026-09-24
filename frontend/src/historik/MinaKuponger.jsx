@@ -5,7 +5,7 @@ import { usePlayedCoupons } from './usePlayedCoupons.js'
 import { PlayedCouponDetail, PlayedFileImport, couponKindLabel, couponDate } from './PlayedCoupon.jsx'
 import { STATUS, couponStatus, filterCoupons, summarizeCoupons } from '../lib/coupons.js'
 import { PRODUCT_LABEL, HIST_FAMILIES } from '../lib/labels.js'
-import { topAliveForecast, FORECAST_NOTE } from '../lib/forecast.js'
+import { topAliveForecast, FORECAST_NOTE, perRowText, minPayoutNote, guaranteeLines, GUARANTEE_NOTE } from '../lib/forecast.js'
 import { LoadingState, EmptyState, ErrorState, SortableTable, kr } from '../App.jsx'
 
 const FILTER_KEY = 'svs_kuponger_filter'
@@ -36,8 +36,10 @@ export function LagText({ coupon }) {
   return <>{live.n_decided}/{live.n_events} avgjorda · fastställt <b>{live.best_secure}</b>
     {live.max_possible != null && <> · max {live.max_possible}</>}
     {live.out_of_contention && <span className="v3neg"> · ingen vinstnivå nåbar</span>}
-    {fc && <> · lever mot {fc.level} rätt ≈ <b>{kr(fc.per_row_kr)}</b>/rad
-      <span className="v3hint" title={FORECAST_NOTE}> (prognos)</span></>}</>
+    {fc && <> · lever mot {fc.level} rätt <b title={minPayoutNote(live.forecast, fc) || undefined}>{perRowText(fc)}</b>/rad
+      <span className="v3hint" title={minPayoutNote(live.forecast, fc) || FORECAST_NOTE}> (prognos)</span></>}
+    {fc && guaranteeLines(live.forecast).map((line) => (
+      <span key={line} className="v3hint" title={GUARANTEE_NOTE}> · garanti: {line}</span>))}</>
 }
 
 export function MinaKuponger({ openCoupon = null, onOpenCoupon, onCloseCoupon }) {

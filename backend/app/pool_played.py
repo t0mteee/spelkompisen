@@ -1848,13 +1848,73 @@ def summary(store: Storage) -> dict:
 # korrektionen κ är byggarens (`builder.KAPPA`), så prognosen sänks lika
 # mycket som EV:t — den kan aldrig blåsa upp en förväntan. Aldrig facit.
 
+# Svenska Spels MINIMIUTDELNING per rad (statusauditen 2026-09-24), härledd
+# ur settlementlagret `pool_payout_tier` (2013 → 2026-09):
+#  - Stryktipset och Europatipset: minsta utbetalda belopp över noll är 15 kr
+#    (Stryk 15–16 kr varje år, Europa 15 kr varje år), och varje nivå med
+#    vinnare men 0 kr hade pott/vinnare under gränsen (sedan 2020: Stryk 120
+#    sådana nivåer, högst 14,71 kr; Europa 307, högst 15,0 kr räknat med
+#    vinstplanens pott, dvs. avrundning). Nivån betalas alltså inte ut när
+#    utdelningen per rad blir under 15 kr. Med vår prognos vid slutställning
+#    (2025-09-05 → 2026-09-20) klassar regeln 216 av 218 Stryk-nivåer och 418
+#    av 422 Europa-nivåer rätt; felen ligger vid gränsen (12–19 kr).
+#  - Topptipset, Topptipset Stryk och Topptipset Extra: ingen nivå med
+#    vinnare har någonsin fått 0 kr och minsta utbetalning sedan 2020 är
+#    34–40 kr — gränsen går INTE att belägga. Försiktigaste tolkningen:
+#    samma 15 kr, märkt "antagen" — hellre 0 kr än ett belopp som kanske
+#    aldrig betalas.
+MIN_PAYOUT_KR = {"stryktipset": 15.0, "europatipset": 15.0,
+                 "topptipset": 15.0, "topptipsetstryk": 15.0,
+                 "topptipsetextra": 15.0}
+MIN_PAYOUT_BASIS = {"stryktipset": "belagd", "europatipset": "belagd",
+                    "topptipset": "antagen", "topptipsetstryk": "antagen",
+                    "topptipsetextra": "antagen"}
+SOLE_WINNER_GUARANTEE = "SingelWinner"
+
+
+def forecast_guarantees(guarantees: Optional[list], top_level: int) -> list[dict]:
+    """Garantier som EGNA rader, aldrig i prognosen eller EV.
+
+    `guarantees` är `SvenskaSpel.get_guarantees()`-poster (typ, beskrivning,
+    belopp). En ensamvinnargaranti (`SingelWinner`) blir "om du är ensam
+    vinnare på <topp> rätt: minst X" — Stryktipset 4970 betalade 10 Mkr till
+    en ensam 13-rättsvinnare där prognosen sa 2,66 Mkr. Övriga typer visas
+    med Svenska Spels egen beskrivning; villkoren är inte verifierade."""
+    out = []
+    for g in guarantees or []:
+        if not isinstance(g, dict):
+            continue
+        try:
+            amount = float(g.get("amount") or 0)
+        except (TypeError, ValueError):
+            continue
+        if amount <= 0:
+            continue
+        out.append({"level": int(top_level), "type": g.get("type"),
+                    "description": g.get("description"),
+                    "amount_kr": round(amount),
+                    "sole_winner": g.get("type") == SOLE_WINNER_GUARANTEE})
+    return out
+
+
 def payout_forecast(product: str, plan: dict, states: list[dict],
                     turnover: float, jackpot: float = 0.0,
-                    row_price: float = 1.0) -> Optional[dict]:
+                    row_price: float = 1.0,
+                    guarantees: Optional[list] = None) -> Optional[dict]:
     """Prognos per vinnande rad och vinstnivå, givet ställningen just nu.
 
     Returnerar None när underlaget saknas (ingen omsättning eller streck) —
-    ett gissat tal hade sett ut som information.
+    ett gissat tal hade sett ut som information. Under Svenska Spels
+    minimiutdelning (`MIN_PAYOUT_KR`) visas 0 kr med `below_min_payout` och
+    prognosen före regeln i `raw_per_row_kr`. Garantier redovisas separat i
+    `guarantees` och rör ALDRIG `per_row_kr`.
+
+    Biaskorrigering prövad 2026-09-24 (backtest på slutstreck, slutomsättning
+    och facit, omgångar sedan 2026-09-05): Poisson E[pott/(1+W)] ändrar inget
+    (W är stort utom på toppnivån, där den sänker), och median- eller
+    lognormalkalibrering ur året före förde Topptipset Extra (och Europatipset
+    för medianvarianten) längre från 1. Ingen korrigering förde medianen
+    tydligt närmare 1 på alla produkter — därför ingen införd.
     """
     from .builder import KAPPA_VERSION, _poisson_binomial, kappa_for
     if not plan or not turnover or turnover <= 0 or not states:
@@ -1885,16 +1945,26 @@ def payout_forecast(product: str, plan: dict, states: list[dict],
     pools = {int(level): turnover * plan["ratio"] * split
              for level, split in plan["splits"].items()}
     pools[max(pools)] += max(0.0, float(jackpot or 0.0))
+    min_payout = MIN_PAYOUT_KR.get(product)
     levels = {}
     for level, pool in sorted(pools.items(), reverse=True):
         if level >= len(dist):
             continue
         expected = field * dist[level] * kappa_for(product, level)
-        levels[level] = {"pot_kr": round(pool),
-                         "expected_winners": round(expected, 1),
-                         "per_row_kr": round(pool / max(1.0, expected))}
+        raw = pool / max(1.0, expected)
+        entry = {"pot_kr": round(pool),
+                 "expected_winners": round(expected, 1),
+                 "per_row_kr": round(raw)}
+        # Jämför OAVRUNDAT: 14,6 kr per rad betalas inte ut.
+        if min_payout is not None and raw < min_payout:
+            entry.update(per_row_kr=0, below_min_payout=True,
+                         raw_per_row_kr=round(raw, 1))
+        levels[level] = entry
     return {"levels": levels, "basis": basis, "turnover": float(turnover),
             "jackpot": float(jackpot or 0.0), "kappa_version": KAPPA_VERSION,
+            "min_payout_kr": min_payout,
+            "min_payout_basis": MIN_PAYOUT_BASIS.get(product),
+            "guarantees": forecast_guarantees(guarantees, max(pools)),
             "note": ("Egen skattning om omgången slutar som nu: pott per nivå delat "
                      "med förväntat antal vinnande rader ur folkets streck, med "
                      "byggarens medvinnarkorrektion. Inte Svenska Spels siffra.")}

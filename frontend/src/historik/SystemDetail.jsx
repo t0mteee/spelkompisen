@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { CouponOverview } from './CouponOverview.jsx'
 import { coverageResult, visibleResearch } from '../lib/couponView.js'
 import { get } from '../lib/api.js'
-import { FORECAST_NOTE } from '../lib/forecast.js'
+import { FORECAST_NOTE, perRowText, minPayoutNote, guaranteeLines, GUARANTEE_NOTE } from '../lib/forecast.js'
 import { PRODUCT_LABEL, RESEARCH_FAMILY_LABEL, fmtDay, STRATEGY_LABEL, horizonLabel, pctSigned, roiCls, marketTimeLabel, PH5_METHOD_LABEL } from '../lib/labels.js'
 import { LoadingState, EmptyState, ErrorState, kr, SortableTable } from '../App.jsx'
 
@@ -58,11 +58,15 @@ export function SystemLiveCorrection({ live, error, observedAt, compact = false 
             <b>{aliveText(level)}</b>
             <small>rader kan nå {level} rätt</small>
             {live.forecast?.levels?.[level] && (
-              <small title={FORECAST_NOTE}>≈ {kr(live.forecast.levels[level].per_row_kr)}/rad (prognos)</small>
+              <small title={minPayoutNote(live.forecast, live.forecast.levels[level]) || FORECAST_NOTE}>
+                {perRowText(live.forecast.levels[level])}/rad (prognos)</small>
             )}
           </span>
         ))}
       </div>
+      {guaranteeLines(live.forecast).map((line) => (
+        <p key={line} className="v3hint" title={GUARANTEE_NOTE}>
+          Garanti (ingår inte i prognosen): {line}</p>))}
       {live.alive_unproven?.length > 0 && (
         <div className="v3note">Radantalet visas som ett spann eftersom ordinarie tids
           resultat ännu inte är belagt för {live.alive_unproven.join(', ')}.</div>
