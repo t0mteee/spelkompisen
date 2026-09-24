@@ -12,6 +12,7 @@ import { StatusPill } from './historik/Tester.jsx'
 import { parseRoute, formatRoute } from './lib/routes.js'
 import { recentlySettled } from './lib/coupons.js'
 import { newsworthy, progressText } from './lib/tests.js'
+import { splitPoolIssues, poolIssueLabel, poolNoticeSummary } from './lib/poolHealth.js'
 import { LabbV3 } from './labb/LabbV3.jsx'
 import { AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel, BombenView, OddsetView, Legend, Collection, LoadingState, ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS, SYSTEM_BASE, SYSTEM_SVS, FAMILY, kr, fmtClose, PlayRec, oddsetBestValue } from './App.jsx'
 import { beginRequest, payoutMatchesSelection, requestIsCurrent, uniqueDraws } from './poolSelection.js'
@@ -211,9 +212,11 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponge
     })
     .filter((r) => r.sum?.available)
     .sort((a, b) => new Date(b.senaste?.close || 0) - new Date(a.senaste?.close || 0))
-  const poolIssues = health?.pools?.issues || []
-  const poolErrors = poolIssues.filter((issue) => issue.level !== 'warning')
-  const poolWarnings = poolIssues.filter((issue) => issue.level === 'warning')
+  // Fel, varningar som gäller NU (Pinnacle-täckning, stoppat shadowspår) och
+  // historiska bortfall hålls isär — en aktuell varning får aldrig visas
+  // under "dagens insamling fungerar".
+  const { errors: poolErrors, current: poolCurrent, history: poolHistory } =
+    splitPoolIssues(health?.pools?.issues)
   const v22Issues = health?.v22?.issues || []
   // Tystnad i Oddset-varvet, liveradarn eller pooltick (oddset_health).
   const oddsetIssues = health?.oddset?.issues || []
@@ -238,13 +241,26 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponge
           {poolErrors.length > 4 && <span>+{poolErrors.length - 4} ytterligare fel</span>}
         </div>
       )}
-      {poolWarnings.length > 0 && (
+      {poolCurrent.length > 0 && (
+        <details className="v3notice">
+          <summary>{poolNoticeSummary(poolCurrent)}</summary>
+          <ul>
+            {poolCurrent.map((issue, i) => (
+              <li key={`${issue.product}-${issue.kind}-${issue.draw_number || i}`}>
+                <b>{poolIssueLabel(issue)}</b>
+                <span>{issue.message}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {poolHistory.length > 0 && (
         <details className="v3notice">
           <summary>Historisk testdata saknas – dagens insamling fungerar</summary>
           <ul>
-            {poolWarnings.map((issue, i) => (
+            {poolHistory.map((issue, i) => (
               <li key={`${issue.product}-${issue.kind}-${issue.draw_number || i}`}>
-                <b>{issue.product}{issue.draw_number ? ` omg ${issue.draw_number}` : ''}</b>
+                <b>{poolIssueLabel(issue)}</b>
                 <span>{issue.message}</span>
               </li>
             ))}

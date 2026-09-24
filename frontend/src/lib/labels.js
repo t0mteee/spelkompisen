@@ -161,6 +161,7 @@ export const LABB_STATUS = {
   candidate: ['CANDIDATE', 'Mängdkravet är nått — beslut tas enligt den förregistrerade regeln, inte löpande.'],
   pass: ['GATE-PASS', 'Den förregistrerade grinden är passerad — se dokumentet för hela beslutet.'],
   fals: ['FALSIFIERAD', 'Hypotesen föll mot facit — spåret byggs inte vidare som tips.'],
+  stoppad: ['STOPPAD', 'Insamlingen står still: spårets egen spärr vägrar samla (t.ex. bytt modellversion). Insamlade rader räknas som förut; nytt manifest krävs för att samla vidare.'],
 }
 // Primärgrupperna för sharp-CLV (speglar backend PRIMARY_LEAGUES × 1X2 × sharp)
 export const LABB_PRIMARY = ['allsvenskan', 'superettan', 'eliteserien', 'obosligaen', 'mls']

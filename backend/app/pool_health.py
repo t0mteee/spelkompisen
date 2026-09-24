@@ -5,6 +5,9 @@ visade att fel anropsväg kan göra det grönt samtidigt som en hel produkt inte
 samlas. Den här kontrollen mäter därför artefakterna som faktiskt behövs:
 färska snapshots per öppen omgång, komplett systemfrysning när en horisont
 passerat och omprövning av spelade kuponger när deras retry-tid löpt ut.
+Sedan 2026-09-24 även två varningar: andelen matcher med FÄRSK Pinnacle
+(pool-sharp-freshness-v1) för omgångar som stänger inom 48 h, och ett
+styrkeshadow som slutat samla (bytt modellversion).
 
 Ingen nätverkstrafik och inga skrivningar sker här. Rapporten kan därför visas
 i UI, köras från ``cli.py kallhalsa`` och testas på en isolerad databas.
@@ -23,6 +26,11 @@ DENSE_MAX_AGE_MIN = 15
 DENSE_WITHIN_H = 2.0
 FREEZE_GRACE_MIN = 15
 SETTLEMENT_GRACE_MIN = 20
+# Pinnacle-täckning (pool-sharp-freshness-v1) för öppna omgångar som stänger
+# inom 48 h: under 70 % matcher med färsk sharp är en varning, aldrig ett fel
+# — tidigt saknade priser kan vara Pinnacles eget utbud.
+SHARP_COVERAGE_WITHIN_H = 48
+SHARP_COVERAGE_MIN_SHARE = 0.70
 
 
 def _at(value) -> Optional[dt.datetime]:
@@ -42,9 +50,29 @@ def _iso(value: dt.datetime) -> str:
 
 
 def _issue(issues: list[dict], level: str, product: str, kind: str,
-           message: str, draw_number: Optional[int] = None) -> None:
+           message: str, draw_number: Optional[int] = None,
+           scope: Optional[str] = None, **extra) -> None:
+    """`scope="history"` = ett historiskt bortfall (stängd omgång) som inte
+    säger något om dagens insamling. Övriga varningar gäller NU."""
     issues.append({"level": level, "product": product, "kind": kind,
-                   "draw_number": draw_number, "message": message})
+                   "draw_number": draw_number, "message": message,
+                   **({"scope": scope} if scope else {}), **extra})
+
+
+def _sharp_coverage(store, product: str, draw: dict,
+                    now: dt.datetime) -> Optional[dict]:
+    """Andel matcher med färsk sharp enligt pool-sharp-freshness-v1.
+
+    Matchlistan är omgångens egna SvS-snapshots (första snapshoten skriver
+    varje match och tecken) — lokalt, inget nätanrop. Saknas snapshots finns
+    ingen matchlista; `draw_missing` larmar redan för det."""
+    from .pool_sharp_freshness import coverage
+    events = [int(row[0]) for row in store.conn.execute(
+        "SELECT DISTINCT event_number FROM snapshots "
+        "WHERE product=? AND draw_number=?", (product, draw["draw_number"]))]
+    if not events:
+        return None
+    return coverage(store, product, draw["draw_number"], now, events)
 
 
 def report(store, *, now: Optional[dt.datetime] = None,
@@ -102,6 +130,23 @@ def report(store, *, now: Optional[dt.datetime] = None,
                 _issue(issues, "error", product, "draw_missing",
                        "öppen omgång saknar helt pool-snapshot",
                        draw["draw_number"])
+            # Ett cachat Pinnacle-pris är inte ett färskt pris. Analysen och
+            # PH3 använder bara det som passerar pool-sharp-freshness-v1 —
+            # varna när för lite gör det nära spelstopp.
+            if (draw["close"] - now).total_seconds() / 3600 > SHARP_COVERAGE_WITHIN_H:
+                continue
+            cov = _sharp_coverage(store, product, draw, now)
+            if cov and cov["fresh"] / cov["n"] < SHARP_COVERAGE_MIN_SHARE:
+                from .pool_sharp_freshness import reason_label
+                reasons = sorted(cov["reasons"].items(),
+                                 key=lambda item: (-item[1], item[0]))
+                why = " · ".join(f"{reason_label(key)} {n}" for key, n in reasons)
+                _issue(issues, "warning", product, "sharp_link_coverage",
+                       f"färsk Pinnacle för {cov['fresh']} av {cov['n']} matcher "
+                       f"({round(100 * cov['fresh'] / cov['n'])} %, gräns "
+                       f"{round(100 * SHARP_COVERAGE_MIN_SHARE)} %) · {why}",
+                       draw["draw_number"], fresh=cov["fresh"], n=cov["n"],
+                       reasons=cov["reasons"])
 
         # Kontrollera även nyss stängda omgångar: båda horisonterna ska vara
         # frysta när deras nominella tid plus ett helt tätvarv har passerat.
@@ -141,7 +186,8 @@ def report(store, *, now: Optional[dt.datetime] = None,
                                f"{horizon} har {count}/{len(benchmark_keys)} "
                                "frysta system")
                     _issue(issues, level, product, "freeze_incomplete", message,
-                           draw["draw_number"])
+                           draw["draw_number"],
+                           scope="history" if closed else None)
                 for family, configs in research_families.items():
                     research_keys = tuple(c["key"] for c in configs)
                     research_count = _count(research_keys)
@@ -164,7 +210,8 @@ def report(store, *, now: Optional[dt.datetime] = None,
                             issues, level, product,
                             f"{family}_freeze_incomplete",
                             message,
-                            draw["draw_number"])
+                            draw["draw_number"],
+                            scope="history" if closed else None)
 
         # Scanhintet ska aldrig ligga bakom en omgång som redan observerats.
         if not PRODUCTS.get(product, {}).get("listing", True):
@@ -187,6 +234,24 @@ def report(store, *, now: Optional[dt.datetime] = None,
             "latest_snapshot": latest_at and _iso(latest_at),
             "max_age_minutes": max_age,
         })
+
+    # Ett shadowspår som tyst slutat samla ska synas här, inte bara som
+    # "samlar" i en katalog ingen öppnar (poolstyrkan stod still 21/8–24/9).
+    # Lokalt: manifestfil + meta + captures, ingen fit och inget nätanrop.
+    # En databas där spåret aldrig samlat har inget stopp att larma om.
+    try:
+        from .pool_strength_shadow import stop_status
+        stop = stop_status(store)
+        if stop["stopped"] and stop["last_capture_at"]:
+            _issue(issues, "warning", "poolstyrka", "strength_shadow_stopped",
+                   f"styrkeshadowen (pool-strength-blend-v1) samlar inte: "
+                   f"{stop['text']}. Nytt manifest krävs för att samla vidare.",
+                   last_capture_at=stop["last_capture_at"],
+                   current_model_signal_version=stop["current_model_signal_version"])
+    except Exception as exc:  # noqa: BLE001 — hälsan får aldrig fälla /api/health
+        _issue(issues, "warning", "poolstyrka", "strength_shadow_unreadable",
+               f"styrkeshadowens status kunde inte läsas "
+               f"({type(exc).__name__}: {exc})"[:200])
 
     # En retry-tid är ett löfte från settlementmaskinen. Har den passerat med
     # mer än ett varv utan nytt facit är det en änd-till-änd-lucka, oavsett om
@@ -225,16 +290,16 @@ def format_report(payload: dict) -> str:
     issues = payload.get("issues") or []
     errors = [issue for issue in issues if issue.get("level") == "error"]
     warnings = [issue for issue in issues if issue.get("level") == "warning"]
+    history = [issue for issue in warnings if issue.get("scope") == "history"]
+    current = [issue for issue in warnings if issue.get("scope") != "history"]
     if not issues:
         out += ["", "  ✓ inga änd-till-änd-luckor upptäckta"]
-    if errors:
-        out += ["", "  FEL:"]
-        for issue in errors:
+    for title, mark, group in (("FEL:", "✗", errors), ("VARNINGAR:", "!", current),
+                               ("HISTORISKA BORTFALL:", "!", history)):
+        if not group:
+            continue
+        out += ["", f"  {title}"]
+        for issue in group:
             draw = f" omg {issue['draw_number']}" if issue.get("draw_number") else ""
-            out.append(f"    ✗ {issue['product']}{draw}: {issue['message']}")
-    if warnings:
-        out += ["", "  HISTORISKA BORTFALL:"]
-        for issue in warnings:
-            draw = f" omg {issue['draw_number']}" if issue.get("draw_number") else ""
-            out.append(f"    ! {issue['product']}{draw}: {issue['message']}")
+            out.append(f"    {mark} {issue['product']}{draw}: {issue['message']}")
     return "\n".join(out)

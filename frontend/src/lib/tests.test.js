@@ -23,3 +23,10 @@ test('Idag visar bara tester som väntar på eller nyss fått beslut', () => {
   assert.equal(progressText({ progress: { n: 29, krav: 40, namn: 'topptipset 180 min' } }), '29/40 · topptipset 180 min')
   assert.equal(progressText({}), '–')
 })
+
+test('ett stoppat test syns som rött och som nyhet på Idag', () => {
+  assert.equal(statusTone('stoppad'), 'red')
+  const now = new Date('2026-09-24T12:00:00Z')
+  assert.deepEqual(newsworthy([{ id: 'poolstyrka', status: 'stoppad' }, { id: 'ph5', status: 'samlar' }],
+    { now }).map((t) => t.id), ['poolstyrka'])
+})

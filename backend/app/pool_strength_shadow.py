@@ -68,6 +68,40 @@ def model_signal_version(store: Storage) -> str:
     return oddset_value.signal_versions(store)["model"]
 
 
+def stop_status(store: Storage, manifest: Optional[dict] = None) -> dict:
+    """Står insamlingen still? Billig (ingen fit/bootstrap) — pool_health läser den.
+
+    `capture_due` vägrar TYST med `model_source_version_changed` när modellens
+    signalversion inte längre är manifestets. Det hände 2026-08-21 och
+    rapporten sa ändå "samlar" i över en månad. Manifestets change_policy
+    kräver nytt manifest; tills dess står spåret still och ska SÄGA det.
+    """
+    from .pool_sharp_freshness import local_time
+    manifest = manifest or load_manifest()
+    expected = manifest["source_versions"]["model_signal_version"]
+    current = model_signal_version(store)
+    last = None
+    for (captured_at,) in store.conn.execute(
+            "SELECT DISTINCT captured_at FROM pool_strength_shadow_capture "
+            "WHERE shadow_version=?", (shadow_version(),)):
+        try:
+            at = _parse(captured_at)
+        except (TypeError, ValueError):
+            continue
+        last = at if last is None or at > last else last
+    stopped = current != expected
+    return {
+        "stopped": stopped,
+        "reason": "model_source_version_changed" if stopped else None,
+        "expected_model_signal_version": expected,
+        "current_model_signal_version": current,
+        "last_capture_at": _iso(last) if last else None,
+        "text": (f"modellversionen byttes ({expected} → {current}), senaste "
+                 f"capture {local_time(last) if last else 'saknas'}"
+                 if stopped else None),
+    }
+
+
 def _league_key(raw: Optional[str]) -> Optional[str]:
     return LEAGUE_ALIASES.get((raw or "").strip().casefold())
 
@@ -328,12 +362,18 @@ def report(store: Storage, product: Optional[str] = None,
         }
     decision = manifest["scope"]["decision_horizons"]
     ready = all(horizons[horizon]["data_ready"] for horizon in decision)
-    status = "candidate" if ready else "samlar"
+    stop = stop_status(store, manifest)
+    # "stoppad" ersätter "samlar": ett spår som inte kan samla får inte se ut
+    # att växa. Nådd datagrind (candidate) står kvar — underlaget är redan
+    # insamlat och prövningen får köras; stoppet redovisas ändå i `stopped`.
+    status = ("candidate" if ready else
+              "stoppad" if stop["stopped"] else "samlar")
     return {
         "experiment": manifest["experiment"], "shadow_version": version,
         "model_signal_version": manifest["source_versions"]["model_signal_version"],
         "starts_at": manifest["collection"]["starts_at"],
-        "status": status, "actionable": False, "affects_systems": False,
+        "status": status, "stopped": stop if stop["stopped"] else None,
+        "actionable": False, "affects_systems": False,
         "product": product, "products": products,
         "captured": len(rows), "eligible": len(eligible),
         "settled": len(settled), "coverage": (round(len(eligible) / len(rows), 4)

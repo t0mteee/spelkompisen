@@ -12,14 +12,17 @@ export const STATUS_TONE = {
   'granskad: ej stöd': 'red',
   infört: 'green',
   avslutad: 'grey',
+  // insamlingen står still (t.ex. poolstyrkan efter bytt modellversion)
+  stoppad: 'red',
   fel: 'red',
 }
 export const statusTone = (status) => STATUS_TONE[status] || 'muted'
 
 // Idag visar bara tester där något behöver ses: ett beslut väntar (underlag
-// klart/promoterbar) eller nyss fattats. Samlande och avslutade är inga nyheter.
+// klart/promoterbar), nyss fattats eller insamlingen står still (stoppad).
+// Samlande och avslutade är inga nyheter.
 export const NEWS_STATUSES = new Set(['underlag klart', 'promoterbar', 'ingen utmanare',
-  'granskad: stöd', 'granskad: ej stöd', 'avslutsgräns nådd', 'fel'])
+  'granskad: stöd', 'granskad: ej stöd', 'avslutsgräns nådd', 'stoppad', 'fel'])
 export function newsworthy(tests, { recentDays = 14, now = new Date() } = {}) {
   return (tests || []).filter((test) => {
     if (test.archived) return false

@@ -30,6 +30,16 @@ export function PoolmodellCard({ product = 'alla' }) {
           80/20 visas som ett känslighetstest. Det här ändrar inga system eller
           spel medan mätningen pågår.
         </span>
+        {strength?.stopped && (
+          // Spårets egen spärr (capture_due) vägrar samla när modellens
+          // signalversion inte längre är manifestets. Det ska synas här i
+          // stället för att kortet ser ut att växa.
+          <div className="v3note" role="status" style={{ marginTop: 12 }}>
+            <b>Insamlingen står still:</b> {strength.stopped.text}. Nya matcher
+            sparas inte förrän ett nytt manifest frysts (manifestets
+            change_policy); redan insamlade rader räknas som förut.
+          </div>
+        )}
 
         <div className="v3histkpis" style={{ marginTop: 12 }}>
           <div className="v3kpi"><b>{strength?.captured ?? 0}</b>
@@ -75,7 +85,7 @@ export function PoolmodellCard({ product = 'alla' }) {
                         {delta(diagnostic.mean_delta_logloss)}</td>
                       <td>{row.data_ready
                         ? <b className="v3pos">mängdkrav nått</b>
-                        : <span className="v3hint">samlar</span>}</td>
+                        : <span className="v3hint">{strength.stopped ? 'stoppad' : 'samlar'}</span>}</td>
                     </tr>
                   )
                 })}

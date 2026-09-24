@@ -398,6 +398,7 @@
 .v3labbpill.candidate { color: #e0c04b; border-color: color-mix(in srgb, #e0c04b 50%, transparent); }
 .v3labbpill.pass { color: var(--green); border-color: color-mix(in srgb, var(--green) 55%, transparent); }
 .v3labbpill.fals { color: #e06b6b; border-color: color-mix(in srgb, #e06b6b 50%, transparent); }
+.v3labbpill.stoppad { color: #e06b6b; border-color: color-mix(in srgb, #e06b6b 50%, transparent); }
 .v3labb code { color: var(--v3acc); font-size: 11px; overflow-wrap: anywhere; }
 .v3evidence { gap: 10px; }
 .v3evidence-summary {

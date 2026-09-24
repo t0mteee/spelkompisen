@@ -78,10 +78,12 @@ DECISIONS: dict[str, dict] = {
 
 # Statustrappan i rangordning: katalogens rubrikstatus är den cell som kommit
 # längst. `fel` vinner alltid — en trasig källa ska synas, inte döljas av en
-# annan cells "samlar".
+# annan cells "samlar". `stoppad` (insamlingen står still, t.ex. poolstyrkan
+# efter bytt modellversion) ligger strax under: ett stopp som ser ut som
+# "samlar" är precis felet det ska synliggöra.
 RANK = {"samlar": 0, "avslutsgräns nådd": 1, "underlag klart": 2, "ingen utmanare": 2,
         "promoterbar": 3, "granskad: ej stöd": 3, "granskad: stöd": 3,
-        "kandidat": 2, "infört": 4, "avslutad": 5, "fel": 9}
+        "kandidat": 2, "infört": 4, "avslutad": 5, "stoppad": 8, "fel": 9}
 
 
 def _test_id(spar: str) -> str | None:

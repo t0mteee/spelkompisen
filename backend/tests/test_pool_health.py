@@ -198,5 +198,138 @@ class PoolHealthTests(unittest.TestCase):
         self.assertIn("settlement_overdue", {i["kind"] for i in rep["issues"]})
 
 
+
+class PoolHealthFreshnessTests(unittest.TestCase):
+    """2026-09-24: färsk Pinnacle-täckning nära spelstopp och stoppad
+    styrkeshadow är VARNINGAR som gäller nu — inte historiska bortfall."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+
+    def _open_draw(self, number=5000, hours=20, events=4, product="stryktipset"):
+        close = NOW + dt.timedelta(hours=hours)
+        self.store.conn.execute(
+            "INSERT INTO draws(product,draw_number,state,reg_close_time) "
+            "VALUES (?,?,?,?)", (product, number, "Open", close.isoformat()))
+        self.store.conn.execute(
+            "INSERT INTO pool_draw_snapshot"
+            "(product,draw_number,fetched_at,net_sale,jackpot,jackpot_source) "
+            "VALUES (?,?,?,?,?,?)",
+            (product, number, pool_health._iso(NOW - dt.timedelta(minutes=2)),
+             1000, 0, "test"))
+        for event in range(1, events + 1):
+            for sign in ("1", "X", "2"):
+                self.store.conn.execute(
+                    "INSERT INTO snapshots(product,draw_number,event_number,sign,"
+                    "odds,start_odds,streck,fetched_at) VALUES (?,?,?,?,?,?,?,?)",
+                    (product, number, event, sign, 2.5, 2.5, 33,
+                     pool_health._iso(NOW - dt.timedelta(hours=5))))
+        self.store.conn.commit()
+
+    def _price(self, event, minutes_ago, number=5000):
+        self.store.save_sharp("stryktipset", number, [{
+            "event_number": event, "bookmaker": "pinnacle",
+            "odds": {"1": 2.0, "X": 3.4, "2": 3.8}, "total": None,
+            "confidence": 1.0, "matched": "H - B",
+            "fetched_at": pool_health._iso(NOW - dt.timedelta(minutes=minutes_ago))}])
+
+    def _capture(self, event, minutes_ago, status, number=5000):
+        self.store.conn.execute(
+            "INSERT INTO pool_market_capture (product,draw_number,source,"
+            "event_number,fetched_at,status,odds_complete) VALUES (?,?,?,?,?,?,?)",
+            ("stryktipset", number, "sharp", event,
+             pool_health._iso(NOW - dt.timedelta(minutes=minutes_ago)), status,
+             int(status == "matched")))
+        self.store.conn.commit()
+
+    def _coverage(self, rep):
+        return [i for i in rep["issues"] if i["kind"] == "sharp_link_coverage"]
+
+    def test_lag_farsk_pinnacletackning_nara_spelstopp_ar_en_varning(self):
+        self._open_draw()
+        self._price(1, 10)
+        self._capture(1, 10, "matched")
+        self._price(2, 40)
+        self._capture(2, 10, "ambiguous")      # länken tappad efter priset
+        self._price(3, 300)                    # för gammalt
+        self._capture(4, 10, "not_listed")     # aldrig länkad
+        rep = pool_health.report(self.store, now=NOW, products=("stryktipset",))
+        issues = self._coverage(rep)
+        self.assertEqual(1, len(issues))
+        self.assertEqual("ok", rep["status"])  # en varning fäller inte hälsan
+        self.assertEqual("warning", issues[0]["level"])
+        self.assertEqual(5000, issues[0]["draw_number"])
+        self.assertNotIn("scope", issues[0])
+        self.assertEqual(
+            "färsk Pinnacle för 1 av 4 matcher (25 %, gräns 70 %) · "
+            "tvetydig 1 · ej listad/namn 1 · för gammal 1", issues[0]["message"])
+        self.assertEqual({"ambiguous": 1, "not_listed": 1, "too_old": 1},
+                         issues[0]["reasons"])
+
+    def test_tackningen_provas_bara_inom_48_timmar_och_under_70_procent(self):
+        self._open_draw(number=5000, hours=60)           # utanför 48 h
+        self._open_draw(number=5001, hours=20)           # 3/4 = 75 % färska
+        for event in (1, 2, 3):
+            self._price(event, 10, number=5001)
+        rep = pool_health.report(self.store, now=NOW, products=("stryktipset",))
+        self.assertEqual([], self._coverage(rep))
+        self._price(1, 100, number=5001)                 # 2/4 = 50 %
+        rep = pool_health.report(self.store, now=NOW, products=("stryktipset",))
+        self.assertEqual([5001], [i["draw_number"] for i in self._coverage(rep)])
+
+    def test_stoppad_styrkeshadow_varnar_bara_nar_spaaret_har_samlat(self):
+        manifest = {"source_versions": {"model_signal_version": "m-old"}}
+        with patch("app.pool_strength_shadow.load_manifest", return_value=manifest), \
+                patch("app.pool_strength_shadow.shadow_version", return_value="ps-test"), \
+                patch("app.pool_strength_shadow.model_signal_version",
+                      return_value="m-new"):
+            empty = pool_health.report(self.store, now=NOW, products=("stryktipset",))
+            self.store.conn.execute(
+                "INSERT INTO pool_strength_shadow_capture (product,draw_number,"
+                "horizon,event_number,shadow_version,model_signal_version,"
+                "captured_at,target_at,delay_min,eligible) "
+                "VALUES ('stryktipset',1,'h3',1,'ps-test','m-old',"
+                "'2026-08-21T20:12:09Z','2026-08-21T20:12:09Z',0,0)")
+            self.store.conn.commit()
+            stopped = pool_health.report(self.store, now=NOW, products=("stryktipset",))
+        with patch("app.pool_strength_shadow.load_manifest", return_value=manifest), \
+                patch("app.pool_strength_shadow.shadow_version", return_value="ps-test"), \
+                patch("app.pool_strength_shadow.model_signal_version",
+                      return_value="m-old"):
+            running = pool_health.report(self.store, now=NOW, products=("stryktipset",))
+        kinds = lambda rep: [i["kind"] for i in rep["issues"]]
+        self.assertEqual([], kinds(empty))
+        self.assertEqual([], kinds(running))
+        issue = next(i for i in stopped["issues"]
+                     if i["kind"] == "strength_shadow_stopped")
+        self.assertEqual(("warning", "poolstyrka"), (issue["level"], issue["product"]))
+        self.assertIn("modellversionen byttes (m-old → m-new), senaste capture "
+                      "21/8 22:12", issue["message"])
+        self.assertEqual("2026-08-21T20:12:09Z", issue["last_capture_at"])
+        self.assertEqual("ok", stopped["status"])
+
+    def test_historiska_bortfall_skiljs_fran_aktuella_varningar(self):
+        self.store.conn.execute(
+            "INSERT INTO draws(product,draw_number,state,reg_close_time) "
+            "VALUES ('stryktipset',4999,'Open',?)",
+            ((NOW - dt.timedelta(hours=1)).isoformat(),))
+        self._open_draw()
+        rep = pool_health.report(self.store, now=NOW, products=("stryktipset",))
+        history = [i for i in rep["issues"] if i.get("scope") == "history"]
+        self.assertTrue(history)
+        self.assertTrue(all(i["kind"].endswith("freeze_incomplete") and
+                            i["draw_number"] == 4999 for i in history))
+        text = pool_health.format_report(rep)
+        self.assertLess(text.index("VARNINGAR:"), text.index("HISTORISKA BORTFALL:"))
+        current = text[text.index("VARNINGAR:"):text.index("HISTORISKA BORTFALL:")]
+        self.assertIn("omg 5000: färsk Pinnacle för 0 av 4 matcher", current)
+        self.assertNotIn("4999", current)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -22,6 +22,8 @@ aldrig ser ut som ett beslut:
   `granskad` kräver en sparad artefakt (PH4: `docs/ph4-forward-status.json`),
   aldrig en omräkning här. `aggregat` är information utan beslutsvärde —
   grönt beslutas per signalgrupp, aldrig per tier. `fel` = kunde inte läsas.
+  `stoppad` = spårets egen insamling står still (poolstyrkan när modellens
+  signalversion inte längre är manifestets) — ett driftläge, inget beslut.
   Researchraderna räknar OBEROENDE, PARADE omgångar (`research_gate`), aldrig
   kuponger: fyra metoder × två frystider på en omgång är åtta kuponger.
 """
@@ -204,14 +206,22 @@ def _strength(store: Storage) -> list[dict]:
     from .pool_strength_shadow import report
     rep = report(store)
     gate = rep["gate"]
+    stopped = rep.get("stopped")
+    anm = f"{rep['captured']} captures · {rep['eligible']} eligible"
+    if stopped:
+        # Spårets EGEN stoppsignal (capture_due vägrar vid bytt modellversion);
+        # ingen ny regel här, bara att den syns i stället för "samlar".
+        anm = f"STOPPAD: {stopped['text']} · {anm}"
     out = [_row("poolstyrka", f"{rep['experiment']} ({rep['shadow_version']})",
-                {"candidate": "kandidat", "samlar": "samlar"}.get(rep["status"], rep["status"]),
-                n=rep["settled"], anm=f"{rep['captured']} captures · {rep['eligible']} eligible")]
+                {"candidate": "kandidat", "samlar": "samlar",
+                 "stoppad": "stoppad"}.get(rep["status"], rep["status"]),
+                n=rep["settled"], anm=anm)]
     for horizon, h in rep["horizons"].items():
         represented = sum(n >= gate["minimum_settled_per_league"]
                           for n in h["league_counts"].values())
         out.append(_row("poolstyrka", f"horisont {horizon}",
-                        "underlag klart" if h["data_ready"] else "samlar",
+                        "underlag klart" if h["data_ready"] else
+                        "stoppad" if stopped else "samlar",
                         n=h["settled"], krav=gate["minimum_settled_events_per_horizon"],
                         dagar=h["span_days"], dagar_krav=gate["minimum_span_days"],
                         anm=f"{represented}/{gate['minimum_represented_leagues']} ligor "
