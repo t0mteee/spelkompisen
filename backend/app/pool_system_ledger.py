@@ -1043,6 +1043,60 @@ def _total_at(store: Storage, product: str, draw_number: int,
     return out
 
 
+def _sharp_stale_at_freeze(store: Storage, product: str, draw_number: int,
+                           frozen_at: Optional[str]) -> dict[int, dict]:
+    """Per match: var Pinnacle-underlaget inaktuellt vid frysningen?
+
+    `_sharp_at` rekonstruerar priset ur förändringsserien `sharp_snapshots`
+    och kan inte se att länken redan var tappad eller priset för gammalt.
+    Regeln är tillägget 2026-09-24 i docs/ph3-sannolikhetsbas-v1-2026-09-02.md
+    med pool-sharp-freshness-v1:s konstanter: matchen har en länkad
+    sharp-capture (LINK_STATUSES) med fetched_at ≤ frozen_at, OCH antingen har
+    den senaste sharp-capturen ≤ frozen_at en status utanför LINK_STATUSES,
+    eller är den senaste länkade capturen äldre än SHARP_MAX_AGE_MIN vid
+    frozen_at. En match som aldrig länkats räknas inte: där föll bygget
+    tillbaka på Svenska Spels odds.
+
+    `used`: frysningar före IN_EFFECT_FROM läste det cachade priset ändå,
+    senare frysningar fick det bortplockat av färskhetsregeln. `last_seen` är
+    den senaste länkade capturen (senaste bekräftelse, inte prisändring).
+    Tider jämförs som tider, aldrig som strängar. Bara läsning.
+    """
+    from .pool_sharp_freshness import (IN_EFFECT_FROM, LINK_STATUSES,
+                                       SHARP_MAX_AGE_MIN, reason_label)
+    at = _parse(frozen_at)
+    if at is None:
+        return {}
+    used = at < _parse(IN_EFFECT_FROM)
+    per_event: dict[int, list[tuple[dt.datetime, str, str]]] = {}
+    for event, fetched_at, status in store.conn.execute(
+            "SELECT event_number, fetched_at, status FROM pool_market_capture "
+            "WHERE product=? AND draw_number=? AND source='sharp'",
+            (product, draw_number)):
+        seen = _parse(fetched_at)
+        if seen is None or seen > at:
+            continue
+        per_event.setdefault(int(event), []).append(
+            (seen, str(status), fetched_at))
+    oldest = at - dt.timedelta(minutes=SHARP_MAX_AGE_MIN)
+    out: dict[int, dict] = {}
+    for event, seq in per_event.items():
+        seq.sort(key=lambda capture: capture[0])
+        linked = [capture for capture in seq if capture[1] in LINK_STATUSES]
+        if not linked:
+            continue
+        latest, last_linked = seq[-1], linked[-1]
+        if latest[1] not in LINK_STATUSES:
+            reason = latest[1]
+        elif last_linked[0] < oldest:
+            reason = "too_old"
+        else:
+            continue
+        out[event] = {"reason": reason, "label": reason_label(reason),
+                      "last_seen": last_linked[2], "used": used}
+    return out
+
+
 def system_detail(store: Storage, product: str, draw_number: int,
                   horizon: str, config_key: str) -> dict:
     """Ett fryst system mot facit, match för match.
@@ -1084,6 +1138,8 @@ def system_detail(store: Storage, product: str, draw_number: int,
     at_freeze = _streck_at(store, product, draw_number, frozen_at)
     sharp_at_freeze = _sharp_at(store, product, draw_number, frozen_at)
     total_at_freeze = _total_at(store, product, draw_number, frozen_at)
+    stale_at_freeze = _sharp_stale_at_freeze(
+        store, product, draw_number, frozen_at)
 
     events = []
     ordered_outcomes = []
@@ -1141,6 +1197,9 @@ def system_detail(store: Storage, product: str, draw_number: int,
                 s: frozen_sharp.get(s, {}).get("odds")
                 for s in ("1", "X", "2")
             },
+            # Inaktuellt Pinnacle-underlag vid frysningen (None = färskt eller
+            # aldrig länkat): {reason, label, last_seen, used}.
+            "sharp_stale_at_freeze": stale_at_freeze.get(event_number),
             "total_at_freeze": frozen_total,
             "draw_risk": risk_audit,
             "market_observed_at": max(observed) if observed else None,

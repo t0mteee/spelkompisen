@@ -1,4 +1,4 @@
-import { isMathematical } from '../lib/couponView.js'
+import { isMathematical, sharpStaleNote } from '../lib/couponView.js'
 
 const SIGNS = ['1', 'X', '2']
 const odds = (v) => v == null ? '–' : Number(v).toFixed(2)
@@ -17,6 +17,7 @@ export function CouponOverview({ events, nRows, liveByEvent = {}, showMarket = t
       // men gör aldrig den pågående ställningen till facit för struken match.
       const outcome = event.outcome || (event.cancelled ? null : live?.sign)
       const provisional = !event.outcome && !(live?.final && !live?.sign_provisional)
+      const sharpStale = sharpStaleNote(event.sharp_stale_at_freeze)
       return <article className="coupon-match" key={event.event_number}>
         <div className="coupon-match-name">
           <span>{event.event_number}</span>
@@ -44,7 +45,9 @@ export function CouponOverview({ events, nRows, liveByEvent = {}, showMarket = t
           <summary>Odds och streck vid frysning{math ? '' : ' · radfördelning'}</summary>
           <table><thead><tr><th></th>{SIGNS.map(s => <th key={s}>{s}</th>)}</tr></thead>
             <tbody>
-              <tr><th>Sharpodds</th>{SIGNS.map(s => <td key={s}>{odds(event.sharp_odds_at_freeze?.[s])}</td>)}</tr>
+              <tr className={sharpStale ? 'sharp-stale' : undefined} title={sharpStale?.title}>
+                <th>Sharpodds{sharpStale ? ' *' : ''}</th>
+                {SIGNS.map(s => <td key={s}>{odds(event.sharp_odds_at_freeze?.[s])}</td>)}</tr>
               <tr><th>SvS odds</th>{SIGNS.map(s => <td key={s}>{odds(event.odds_at_freeze?.[s])}</td>)}</tr>
               <tr><th>Streck, fryst</th>{SIGNS.map(s => <td key={s}>{event.streck_at_freeze?.[s] ?? '–'} %</td>)}</tr>
               <tr><th>Streck, stopp</th>{SIGNS.map(s => <td key={s}>{event.streck_at_close?.[s] ?? '–'} %</td>)}</tr>
@@ -53,6 +56,7 @@ export function CouponOverview({ events, nRows, liveByEvent = {}, showMarket = t
             </tbody></table>
           {event.total_at_freeze && <p className="v3hint">Ö/U {event.total_at_freeze.line}
             {' · '}Över {odds(event.total_at_freeze.O)} · Under {odds(event.total_at_freeze.U)}</p>}
+          {sharpStale && <p className="v3hint">* {sharpStale.title}.</p>}
           <p className="v3hint">Senast sparade observation före frysning, aldrig efterhandsodds.
             {event.market_observed_at && ` Senaste marknadsobservation: ${new Date(event.market_observed_at).toLocaleString('sv-SE')}.`}</p>
         </details>}

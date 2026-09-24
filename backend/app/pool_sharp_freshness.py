@@ -29,6 +29,11 @@ from typing import Iterable, Optional
 
 VERSION = "pool-sharp-freshness-v1"
 
+# Driftsättningen (första pooltick 14:12Z). Frysningar FÖRE denna tid läste
+# det cachade priset utan ålderskontroll; efter den tog regeln bort det.
+# Samma gräns som tillägget 2026-09-24 i docs/ph3-sannolikhetsbas-v1-2026-09-02.md.
+IN_EFFECT_FROM = "2026-09-24T14:11:09Z"
+
 # 90 min. Uppmätt 2026-09-24: ett LÄNKAT pris är i median 7–9 min gammalt vid
 # PH3-frysningen. Basvarvet går var 30:e min, dubbeltrafikspärren kan skjuta
 # en hämtning upp till 10 min och Pinnacles CDN-ålder (max-age 905 s) gör ett

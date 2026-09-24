@@ -62,6 +62,8 @@
 .coupon-market table { width: 100%; table-layout: fixed; border-collapse: collapse; }
 .coupon-market th, .coupon-market td { padding: 6px 2px; text-align: center; }
 .coupon-market th:first-child { width: 32%; text-align: left; }
+/* Pinnacle-pris som var inaktuellt vid frysningen (pool-sharp-freshness-v1) */
+.coupon-market tr.sharp-stale td, .coupon-market tr.sharp-stale th { opacity: .45; }
 .coupon-confirmation { position: fixed; bottom: max(12px, env(safe-area-inset-bottom));
   left: 50%; transform: translateX(-50%); z-index: 100; display: flex; align-items: center;
   gap: 8px; width: max-content; max-width: calc(100% - 24px); box-sizing: border-box;
