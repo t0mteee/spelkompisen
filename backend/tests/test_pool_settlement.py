@@ -194,6 +194,25 @@ class PoolSettlementTests(unittest.TestCase):
         self.assertEqual({"tried": 0, "ok": 0, "skipped": 1}, report2)
 
 
+    def test_settle_recent_tolkar_svensk_offset_som_tid(self):
+        """Stopp 20:44+02:00 = 18:44Z. Två timmar senare (20:45Z) ska omgången
+        prövas; den gamla strängjämförelsen väntade till 22:44Z."""
+        for n, close in ((500, "2026-09-24T20:44:00+02:00"),
+                         (501, "2026-09-24T21:44:00+02:00")):
+            self.store.conn.execute(
+                "INSERT INTO draws (product, draw_number, state, reg_close_time) "
+                "VALUES ('stryktipset', ?, 'Open', ?)", (n, close))
+        self.store.conn.commit()
+        svs = FakeSvS({500: _draw(500), 501: _draw(501)},
+                      {500: _result(500), 501: _result(501)})
+        now = dt.datetime(2026, 9, 24, 20, 45, tzinfo=dt.timezone.utc)
+        report = ps.settle_recent(self.store, svs, "stryktipset", now=now)
+        self.assertEqual({"tried": 1, "ok": 1, "skipped": 0}, report)
+        self.assertTrue(ps.is_settled(self.store, "stryktipset", 500))
+        # 501 stängde 19:44Z och är bara en timme gammal.
+        self.assertIsNone(ps.latest_status(self.store, "stryktipset", 501))
+
+
 class RetryPolicyTests(unittest.TestCase):
     """Omprövningstiden (2026-08-08).
 

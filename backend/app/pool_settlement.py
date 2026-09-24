@@ -307,7 +307,8 @@ def latest_status(store: Storage, product: str, draw_number: int) -> Optional[st
 
 def settle_recent(store: Storage, svs: SvenskaSpel, product: str,
                   max_draws: int = 5, min_close_age_h: float = 2.0,
-                  retry_after_h: float = 6.0) -> dict:
+                  retry_after_h: float = 6.0,
+                  now: Optional[dt.datetime] = None) -> dict:
     """Framåtriktad settlement i snapshot-varvet: settla nyss stängda omgångar
     (kända i lokala draws-tabellen) som saknar settlementrad. Budgeterad och
     tyst — får aldrig fälla varvet.
@@ -316,8 +317,14 @@ def settle_recent(store: Storage, svs: SvenskaSpel, product: str,
     omprövningstid (historik och 404). Nya rader bär sin egen — se
     `_retry_after`.
     """
-    now = dt.datetime.now(dt.timezone.utc)
-    cutoff = (now - dt.timedelta(hours=min_close_age_h)) \
+    now = now or dt.datetime.now(dt.timezone.utc)
+    close_limit = now - dt.timedelta(hours=min_close_age_h)
+    # reg_close_time lagras med Svenska Spels egen offset (`+02:00`). En
+    # strängjämförelse mot en UTC-gräns gjorde därför minimiåldern fyra
+    # timmar i stället för två (statusauditen 2026-09-24). SQL-villkoret är
+    # bara ett grovfilter som tål största tänkbara offset (+14:00); den
+    # exakta gränsen prövas som tid i Python.
+    loose_limit = (close_limit + dt.timedelta(hours=14)) \
         .strftime("%Y-%m-%dT%H:%M:%S")
     retry_cutoff = (now - dt.timedelta(hours=retry_after_h)) \
         .strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -332,23 +339,23 @@ def settle_recent(store: Storage, svs: SvenskaSpel, product: str,
     # En spelad kupong är det starkaste beviset som finns på att omgången
     # angår oss — den behöver ingen reg_close_time för att kvalificera, och
     # `settle_draw` avvisar ändå en omgång som inte är finaliserad.
-    rows = store.conn.execute(
-        "SELECT draw_number FROM ("
-        "  SELECT d.draw_number AS draw_number FROM draws d "
-        "  LEFT JOIN pool_draw_settlement s "
-        "    ON s.product=d.product AND s.draw_number=d.draw_number "
-        "  WHERE d.product=? AND s.draw_number IS NULL "
-        "    AND d.reg_close_time IS NOT NULL AND d.reg_close_time < ? "
-        "  UNION "
-        "  SELECT c.draw_number FROM pool_played_coupon c "
-        "  LEFT JOIN pool_draw_settlement s "
-        "    ON s.product=c.product AND s.draw_number=c.draw_number "
-        "  WHERE c.product=? AND s.draw_number IS NULL"
-        ") ORDER BY draw_number DESC LIMIT 25",
-        (product, cutoff, product)).fetchall()
-    now_iso = _now_iso()
+    closed = {int(number) for number, close in store.conn.execute(
+        "SELECT d.draw_number, d.reg_close_time FROM draws d "
+        "LEFT JOIN pool_draw_settlement s "
+        "  ON s.product=d.product AND s.draw_number=d.draw_number "
+        "WHERE d.product=? AND s.draw_number IS NULL "
+        "  AND d.reg_close_time IS NOT NULL AND d.reg_close_time < ?",
+        (product, loose_limit))
+        if (_parse_iso(close) or now) <= close_limit}
+    played = {int(number) for (number,) in store.conn.execute(
+        "SELECT c.draw_number FROM pool_played_coupon c "
+        "LEFT JOIN pool_draw_settlement s "
+        "  ON s.product=c.product AND s.draw_number=c.draw_number "
+        "WHERE c.product=? AND s.draw_number IS NULL", (product,))}
+    rows = sorted(closed | played, reverse=True)[:25]
+    now_iso = now.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     report = {"tried": 0, "ok": 0, "skipped": 0}
-    for (draw_number,) in rows:
+    for draw_number in rows:
         if report["tried"] >= max_draws:
             break
         last = store.conn.execute(
