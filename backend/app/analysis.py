@@ -72,6 +72,9 @@ class MatchAnalysis:
     sharp_bookmaker: Optional[str] = None
     sharp_confidence: Optional[float] = None
     reserve_total: Optional[dict] = None  # separat presentation, aldrig bygginput/sharp
+    # pool-sharp-freshness-v1: varför ett cachat Pinnacle-pris INTE användes
+    # (reason/last_seen/status…, se pool_sharp_freshness). Sätts av anroparen.
+    sharp_stale: Optional[dict] = None
     # Pinnacles point-in-time huvudtotal från samma matchning som sharp 1X2.
     # NULL är riktig frånvaro och får aldrig fyllas med ett senare pris.
     total_line: Optional[float] = None

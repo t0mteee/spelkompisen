@@ -78,3 +78,53 @@ class SteamTests(unittest.TestCase):
         self.assertIn((1, "1"), merged)
         self.assertGreater(merged[(1, "1")]["steam_pp"], 0)
         self.assertLess(merged[(1, "2")]["steam_pp"], 0)
+
+    def _svs(self, event, hours_ago, odds1, streck1=40, product="stryktipset", draw=5000):
+        at = _iso(NOW - dt.timedelta(hours=hours_ago))
+        for sign, odds, streck in (("1", odds1, streck1), ("X", 3.40, 30), ("2", 3.60, 30)):
+            self.store.conn.execute(
+                "INSERT INTO snapshots(product, draw_number, event_number, sign, odds, "
+                "start_odds, streck, fetched_at) VALUES (?,?,?,?,?,?,?,?)",
+                (product, draw, event, sign, odds, odds, streck, at))
+        self.store.conn.commit()
+
+    def test_inaktuell_sharp_serie_ersatts_av_svs_serien_utan_steam(self):
+        """pool-sharp-freshness-v1: en sharp-serie som stannade när länken
+        tappades får inte presenteras som aktuell rörelse."""
+        for event in (1, 2):
+            self._sharp(event, 30, 2.00, 3.50, 3.60)
+            self._sharp(event, 0, 1.70, 3.80, 4.50)
+            self._svs(event, 30, 2.10)
+            self._svs(event, 1, 1.95)
+        before = steam.movement_with_steam(self.store, "stryktipset", 5000)
+        merged = steam.movement_with_steam(self.store, "stryktipset", 5000,
+                                           stale={2: {"reason": "link_lost"}})
+        # Match 1 orörd: sharp-serien och steam precis som utan regeln.
+        self.assertEqual(before[(1, "1")], merged[(1, "1")])
+        self.assertEqual((2.00, 1.70), (merged[(1, "1")]["first"], merged[(1, "1")]["last"]))
+        # Match 2: SvS-oddsens serie, inget devigat steam-skift.
+        self.assertEqual((2.10, 1.95), (merged[(2, "1")]["first"], merged[(2, "1")]["last"]))
+        self.assertNotIn("steam_pp", merged[(2, "1")])
+        self.assertEqual((40, 40), (merged[(2, "1")]["streck_first"],
+                                    merged[(2, "1")]["streck_last"]))
+
+    def test_alla_sharp_inaktuella_ger_samma_svs_fallback_som_utan_sharp(self):
+        self._sharp(1, 30, 2.00, 3.50, 3.60)
+        self._sharp(1, 0, 1.70, 3.80, 4.50)
+        self._svs(1, 30, 2.10)
+        self._svs(1, 1, 1.95)
+        self._svs(2, 30, 3.00)
+        merged = steam.movement_with_steam(self.store, "stryktipset", 5000, stale=[1])
+        self.assertEqual(2.10, merged[(1, "1")]["first"])
+        self.assertEqual(3.00, merged[(2, "1")]["first"])
+        self.assertFalse(any("steam_pp" in entry for entry in merged.values()))
+
+    def test_steam_tabellen_visar_inte_inaktuella_matcher_som_nu(self):
+        self._sharp(1, 30, 2.00, 3.50, 3.60)
+        self._sharp(1, 0, 1.70, 3.80, 4.50)
+        self._sharp(2, 30, 2.50, 3.20, 2.80)
+        self._sharp(2, 0, 2.20, 3.20, 3.20)
+        rows = steam.steam_table(self.store, "stryktipset", 5000, exclude={2: {}})
+        self.assertEqual({1}, {r["event_number"] for r in rows})
+        self.assertEqual({1, 2}, {r["event_number"] for r in
+                                  steam.steam_table(self.store, "stryktipset", 5000)})

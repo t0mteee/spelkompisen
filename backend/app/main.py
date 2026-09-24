@@ -203,15 +203,26 @@ def _get_draw(product: str, draw_number: int | None = None):
     return draw
 
 
-def _analyze(product: str, draw_number: int | None = None):
-    """Analysera vald omgång och väv in cachade sharp-odds + rörelse."""
+def _analyze(product: str, draw_number: int | None = None,
+             now: dt.datetime | None = None):
+    """Analysera vald omgång och väv in cachade sharp-odds + rörelse.
+
+    Cachade Pinnacle-priser passerar pool-sharp-freshness-v1 först: ett pris
+    som är för gammalt eller vars länk observerats tappad efter priset
+    används inte, och matchen bär i stället `sharp_stale` med orsaken. En
+    stängd omgång bedöms vid spelstoppet (`as_of`), en öppen vid `now`."""
+    from . import pool_sharp_freshness as freshness
     draw = _get_draw(product, draw_number)
+    at = freshness.as_of(draw.reg_close_time,
+                         now or dt.datetime.now(dt.timezone.utc))
     store = Storage()
     try:
-        sharp = store.get_sharp(product, draw.draw_number)
+        sharp, stale = freshness.fresh_sharp(store, product, draw.draw_number, at)
         # oddsrörelse (sharp först) + streck-rörelse + devigat steam-skift,
-        # sammanvävt i en dict — samma helper som ntfy-notiserna använder
-        merged = steam_mod.movement_with_steam(store, product, draw.draw_number)
+        # sammanvävt i en dict — samma helper som ntfy-notiserna använder.
+        # Inaktuella matcher får SvS-serien i stället för en stannad sharp.
+        merged = steam_mod.movement_with_steam(
+            store, product, draw.draw_number, stale=stale)
         from .pool_reserve import read_for_draw
         reserves = read_for_draw(store, product, draw.draw_number)
     finally:
@@ -220,6 +231,11 @@ def _analyze(product: str, draw_number: int | None = None):
     for match in analysis.matches:
         if match.total_line is None:
             match.reserve_total = reserves.get(match.event_number)
+        if match.event_number in stale:
+            match.sharp_stale = {
+                **stale[match.event_number],
+                "text": freshness.explain(stale[match.event_number], at),
+                "version": freshness.VERSION}
     return analysis
 
 
@@ -1719,11 +1735,22 @@ def movement(product: str = "stryktipset", draw: int | None = None):
 @app.get("/api/steam")
 def steam(product: str = "stryktipset", draw: int | None = None):
     """Devigade sannolikhetsskift per tecken (6/24/72 h) — 'steam' = marknaden
-    flyttar sig på riktigt, jämförbart mellan favoriter och skrällar."""
+    flyttar sig på riktigt, jämförbart mellan favoriter och skrällar.
+
+    Samma färskhetsregel som analysen (pool-sharp-freshness-v1): en match vars
+    sharp-serie stannade när länken tappades eller priset blev för gammalt
+    visas inte som 'nu'. Spelstoppet läses ur lokala `draws`, inget nätanrop."""
+    from . import pool_sharp_freshness as freshness
     dn = draw or _get_draw(product, None).draw_number
     store = Storage()
     try:
-        rows = steam_mod.steam_table(store, product, dn)
+        close = store.conn.execute(
+            "SELECT reg_close_time FROM draws WHERE product=? AND draw_number=?",
+            (product, dn)).fetchone()
+        at = freshness.as_of(close[0] if close else None,
+                             dt.datetime.now(dt.timezone.utc))
+        _, stale = freshness.fresh_sharp(store, product, dn, at)
+        rows = steam_mod.steam_table(store, product, dn, exclude=stale)
     finally:
         store.close()
     return {"draw_number": dn, "rows": rows}

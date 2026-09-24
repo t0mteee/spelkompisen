@@ -102,3 +102,38 @@ class ReserveTests(unittest.TestCase):
                 'status':'not_listed','checked_at':now.isoformat(),'observed_at':now.isoformat()}) as fetch:
             r.collect(store,'topptipset',draw,SimpleNamespace())
             self.assertEqual([4,5,6],[call.args[0].event_number for call in fetch.call_args_list])
+
+    def test_inaktuell_pinnacle_total_haller_inte_reserven_borta(self):
+        """pool-sharp-freshness-v1: en gammal eller länktappad Pinnacle-total
+        räknas som saknad, annars får matchen aldrig något reservunderlag."""
+        from app.storage import Storage
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "db")
+            try:
+                store.conn.executescript(r.SCHEMA)
+                ago = lambda minutes: (self.now - dt.timedelta(minutes=minutes)
+                                       ).strftime("%Y-%m-%dT%H:%M:%SZ")
+                for event, minutes in ((1, 10), (2, 120), (3, 30)):
+                    store.save_sharp("topptipset", 1, [{
+                        "event_number": event, "bookmaker": "pinnacle",
+                        "odds": {"1": 2.0, "X": 3.4, "2": 3.8},
+                        "total": {"line": 2.5, "O": 1.9, "U": 1.9},
+                        "confidence": 1.0, "matched": "H - B",
+                        "fetched_at": ago(minutes)}])
+                store.conn.execute(
+                    "INSERT INTO pool_market_capture (product,draw_number,source,"
+                    "event_number,fetched_at,status,odds_complete) "
+                    "VALUES ('topptipset',1,'sharp',3,?,'ambiguous',0)", (ago(5),))
+                store.conn.commit()
+                draw = SimpleNamespace(state='Open', draw_number=1, matches=[
+                    SimpleNamespace(event_number=i, kambi_id=str(i),
+                                    match_start=self.start, cancelled=False)
+                    for i in (1, 2, 3)])
+                quote = {'status': 'not_listed', 'checked_at': self.now.isoformat(),
+                         'observed_at': self.now.isoformat()}
+                with patch.object(r, 'fetch_quote', return_value=quote) as fetch:
+                    r.collect(store, 'topptipset', draw, SimpleNamespace(), now=self.now)
+                self.assertEqual([2, 3], sorted(
+                    call.args[0].event_number for call in fetch.call_args_list))
+            finally:
+                store.close()

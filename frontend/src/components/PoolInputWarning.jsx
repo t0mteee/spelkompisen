@@ -33,13 +33,16 @@ export function PoolInputWarning({ health, scope = 'Aktuell analys', compact = f
       <ul>{health.issues.map(m => <li key={m.event_number}>
         <b>{m.event_number}. {m.description}</b>
         <span>Saknar: {m.missing.join(' · ')}</span>
+        {m.reason && <span>Orsak: {m.reason}</span>}
         <span>Sannolikhetsbas: {sourceLabel(m.prob_source)}</span>
         {m.reserve_total && <span>{m.reserve_total.available
           ? `${m.reserve_total.label}: Ö/U ${m.reserve_total.line} · Över ${m.reserve_total.over_odds} / Under ${m.reserve_total.under_odds}. Observerat ${new Date(m.reserve_total.observed_at).toLocaleString('sv-SE')}. Visas som reservunderlag, används ännu inte av byggaren.`
           : `Ö/U-reserv: ${m.reserve_total.status === 'source_error' ? 'källan kunde inte läsas' : 'inget färskt verifierat pris'}.`}</span>}
       </li>)}</ul>
-      <p>Visar underlaget för {scope.toLowerCase()}; befintliga odds är inte en färskhetsgaranti.
-        Tidigt saknade priser kan vara normalt. Orsaken är inte fastställd.</p>
+      <p>Visar underlaget för {scope.toLowerCase()}. Ett cachat Pinnacle-pris används bara om det
+        är högst 90 min gammalt och länken inte tappats efter priset — annars står orsaken vid
+        matchen. SvS-oddsen är ingen färskhetsgaranti. Utan angiven orsak finns inget Pinnacle-pris
+        alls; tidigt i veckan kan det vara normalt.</p>
       <button type="button" onClick={copy}>Kopiera för granskning</button>
       <span role="status">{copyState === 'copied' ? ' Kopierat — klistra in till Codex eller Claude.'
         : copyState === 'manual' ? ' Automatisk kopiering saknas här. Markera och kopiera texten nedan.' : ''}</span>

@@ -11,7 +11,7 @@ serien är kortare) i stället för rå odds-diff.
 from __future__ import annotations
 
 import datetime as dt
-from typing import Optional
+from typing import Iterable, Optional
 
 from .analysis import _power_probs
 from .storage import Storage
@@ -50,16 +50,23 @@ def _probs_at(series: list[tuple], t: dt.datetime) -> Optional[dict[str, float]]
     return _power_probs({s: 1.0 / o for s, o in last.items()})
 
 
-def steam_table(store: Storage, product: str, draw_number: int) -> list[dict]:
+def steam_table(store: Storage, product: str, draw_number: int,
+                exclude: Iterable[int] = ()) -> list[dict]:
     """Per (match, tecken): devigad sannolikhet nu + skift i procentenheter
-    mot 6/24/72 h sedan. Sorterad efter största |skift| (färskaste fönstret)."""
+    mot 6/24/72 h sedan. Sorterad efter största |skift| (färskaste fönstret).
+
+    `exclude` = matcher vars sharp-pris är inaktuellt (pool-sharp-freshness-v1):
+    deras serie slutade när länken tappades och får inte visas som 'nu'."""
     rows = store.sharp_history_all(product, draw_number)
     if not rows:
         return []
+    skip = {int(event) for event in exclude}
     per_event = _series_per_event(rows)
     now = max(t for ser in per_event.values() for t, _, _ in ser)
     out: list[dict] = []
     for ev, ser in per_event.items():
+        if ev in skip:
+            continue
         p_now = _probs_at(ser, now)
         if not p_now:
             continue
@@ -79,12 +86,29 @@ def steam_table(store: Storage, product: str, draw_number: int) -> list[dict]:
     return out
 
 
-def movement_with_steam(store: Storage, product: str, draw_number: int) -> dict:
+def movement_with_steam(store: Storage, product: str, draw_number: int,
+                        stale: Iterable[int] = ()) -> dict:
     """Rörelse-dict till analyze_draw: oddsrörelse (sharp först, SvS-fallback)
     + folkets streck-rörelse + devigat steam-skift (24h-fönstret, annars hela
-    serien). Delas av API:t och notiserna så 🔥-logiken är identisk."""
-    movement = store.sharp_movement(product, draw_number) \
-        or store.movement(product, draw_number)
+    serien). Delas av API:t och notiserna så 🔥-logiken är identisk.
+
+    `stale` = matcher vars cachade sharp-pris togs bort av pool-sharp-
+    freshness-v1. Deras sharp-serie slutade när länken tappades eller priset
+    blev för gammalt och får inte presenteras som aktuell: de får SvS-oddsens
+    serie, precis som när sharp saknas, och inget steam-skift. Övriga matcher
+    och steam-trösklarna är orörda."""
+    skip = {int(event) for event in stale}
+    sharp_mv = store.sharp_movement(product, draw_number)
+    if skip:
+        sharp_mv = {k: v for k, v in sharp_mv.items() if k[0] not in skip}
+    if sharp_mv:
+        movement = sharp_mv
+        if skip:
+            movement.update({k: v for k, v in
+                             store.movement(product, draw_number).items()
+                             if k[0] in skip})
+    else:
+        movement = store.movement(product, draw_number)
     streck_mv = store.streck_movement(product, draw_number)
 
     steam_pp: dict[tuple[int, str], float] = {}
@@ -93,6 +117,8 @@ def movement_with_steam(store: Storage, product: str, draw_number: int) -> dict:
         per_event = _series_per_event(rows)
         now = max(t for ser in per_event.values() for t, _, _ in ser)
         for ev, ser in per_event.items():
+            if ev in skip:
+                continue
             p_now = _probs_at(ser, now)
             if not p_now:
                 continue

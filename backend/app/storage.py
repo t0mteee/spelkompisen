@@ -1676,6 +1676,10 @@ class Storage:
         return [dict(r) for r in rows]
 
     def get_sharp(self, product: str, draw_number: int) -> dict[int, dict]:
+        """RÅ latest-state ur `sharp_odds`: senaste träff per match, aldrig
+        rensad när länken tappas. Analys och beslut läser den via
+        `pool_sharp_freshness.fresh_sharp` (pool-sharp-freshness-v1), aldrig
+        direkt — annars kan ett dagar gammalt eller länktappat pris användas."""
         rows = self.conn.execute(
             "SELECT event_number, bookmaker, one, x, two, total_line, "
             "over_odds, under_odds, confidence, matched, fetched_at "

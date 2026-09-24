@@ -116,6 +116,8 @@ h2 { font-size: 11.5px; color: var(--muted); text-transform: uppercase;
 .cell .streck { color: var(--muted); font-size: 12px; }
 .cell .marks { color: var(--orange); font-size: 12px; height: 14px; }
 .cell .sharpodds { color: #4aa3df; font-size: 11px; }
+/* inaktuellt cachat Pinnacle-pris (pool-sharp-freshness-v1): bara en diskret markering */
+.cell .sharpodds.stale { color: var(--muted); }
 .cell { position: relative; }
 .cell .vpill { display: inline-block; margin-top: 2px; padding: 1px 6px; border-radius: 9px; font-size: 11px; font-weight: 700; color: #0b0e12; }
 

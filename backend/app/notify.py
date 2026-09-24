@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+from typing import Optional
 
 import httpx
 
@@ -40,24 +41,30 @@ def push(title: str, message: str, tags: str = "fire") -> bool:
         return False
 
 
-def check_movers(product: str, draw: Draw, store: Storage) -> int:
-    """Pusha 🔥-rörelser för en omgång nära spelstopp. Returnerar antal skickade."""
+def check_movers(product: str, draw: Draw, store: Storage,
+                 now: Optional[dt.datetime] = None) -> int:
+    """Pusha 🔥-rörelser för en omgång nära spelstopp. Returnerar antal skickade.
+    `now` injiceras av tester; i drift väggklockan."""
     if not enabled() or not draw.reg_close_time:
         return 0
+    now = now or dt.datetime.now(dt.timezone.utc)
     try:
         close = dt.datetime.fromisoformat(draw.reg_close_time.replace("Z", "+00:00"))
         if close.tzinfo is None:
             close = close.replace(tzinfo=dt.timezone.utc)
-        hrs = (close - dt.datetime.now(dt.timezone.utc)).total_seconds() / 3600
+        hrs = (close - now).total_seconds() / 3600
     except (ValueError, TypeError):
         return 0
     if not (0 <= hrs <= NOTIFY_WINDOW_H):
         return 0
 
-    # samma rörelse-sammanslagning (inkl. devigat steam) som API:ts _analyze
+    # samma rörelse-sammanslagning (inkl. devigat steam) och samma
+    # färskhetsregel (pool-sharp-freshness-v1) som API:ts _analyze
     from . import steam as steam_mod
-    sharp = store.get_sharp(product, draw.draw_number)
-    merged = steam_mod.movement_with_steam(store, product, draw.draw_number)
+    from .pool_sharp_freshness import fresh_sharp
+    sharp, stale = fresh_sharp(store, product, draw.draw_number, now)
+    merged = steam_mod.movement_with_steam(
+        store, product, draw.draw_number, stale=stale)
 
     sent = 0
     for m in analyze_draw(draw, sharp, merged).matches:

@@ -26,3 +26,15 @@ test('granskningsunderlaget bevarar exakt produkt, omgång, tid och matcher', ()
   assert.match(text, /Bakfyll inte odds/)
   assert.equal(sourceLabel('streck'), 'folkets streck')
 })
+
+test('inaktuella Pinnacle-priser syns i rubriken och orsaken följer med underlaget', () => {
+  const stale = { ...health, stale_sharp: 1, freshness_version: 'pool-sharp-freshness-v1',
+    issues: [{ ...health.issues[0], reason: 'Pinnacle-länken tappad (tvetydig) sedan 10:47' }] }
+  assert.match(poolInputTitle(stale), /Pinnacle 1X2 saknas i 2\/8 matcher \(1 med inaktuellt pris\)/)
+  assert.doesNotMatch(poolInputTitle(health), /inaktuellt/)
+  const text = poolReviewText(stale)
+  assert.match(text, /pool-input-health-v1 \+ pool-sharp-freshness-v1/)
+  assert.match(text, /varav 1 med inaktuellt cachat pris/)
+  assert.match(text, /3\. Everton – Ipswich: saknar Pinnacle 1X2\. Sannolikhetsbas: SvS-odds\. Orsak: Pinnacle-länken tappad \(tvetydig\) sedan 10:47\./)
+  assert.match(text, /högst 90 min gammalt/)
+})

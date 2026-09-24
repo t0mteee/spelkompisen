@@ -524,15 +524,38 @@ def _ph5_control_rows(analysis: DrawAnalysis, config: dict,
     return [list(row) for row in rng.sample(pool, min(target, len(pool)))]
 
 
+def _freshness_note(sharp_stale: Optional[dict]) -> str:
+    """Revisionsnot: vilka cachade Pinnacle-priser färskhetsregeln tog bort.
+
+    Gör varje frysning efter pool-sharp-freshness-v1 självdokumenterande —
+    `system_detail` rekonstruerar sharp ur `sharp_snapshots` och kan inte se
+    att ett pris var inaktuellt när det frystes. Påverkar inte rows_hash."""
+    if not sharp_stale:
+        return ""
+    from .pool_sharp_freshness import VERSION, reason_label
+    parts = []
+    for event in sorted(sharp_stale):
+        entry = sharp_stale[event]
+        key = (entry.get("lost_status") if entry.get("reason") == "link_lost"
+               else "too_old")
+        parts.append(f"{event}: {reason_label(key)}")
+    return (f"{VERSION}: cachad Pinnacle ej använd i {len(parts)} "
+            f"match{'er' if len(parts) != 1 else ''} ({', '.join(parts)}).")
+
+
 def freeze_due(store: Storage, product: str, draw: Draw,
                sharp: Optional[dict] = None, movement: Optional[dict] = None,
                jackpot: Optional[float] = None,
                jackpot_source: str = "missing",
                now: Optional[dt.datetime] = None,
-               code_version: str = "dev") -> dict:
+               code_version: str = "dev",
+               sharp_stale: Optional[dict] = None) -> dict:
     """Frys benchmarksystem för en öppen omgång vars horisontfönster öppnats.
-    draw = varvets färska Draw-objekt (point-in-time)."""
+    draw = varvets färska Draw-objekt (point-in-time). `sharp` ska redan ha
+    passerat pool-sharp-freshness-v1; `sharp_stale` (det som togs bort)
+    skrivs bara som revisionsnot i build_note."""
     now = now or dt.datetime.now(dt.timezone.utc)
+    stale_note = _freshness_note(sharp_stale)
     close = _parse(draw.reg_close_time)
     report = {"frozen": 0}
     if close is None or close <= now:
@@ -601,6 +624,9 @@ def freeze_due(store: Storage, product: str, draw: Draw,
                               f"{n_rows} frysta rader")
             if not rows:
                 continue   # gick inte att bygga — nästa varv försöker igen
+            if stale_note:
+                build_note = (f"{build_note} {stale_note}"
+                              if build_note else stale_note)
             if "method" in bench:
                 research_target = max(
                     1, int(bench["budget"] / (analysis.row_price or 1.0)))

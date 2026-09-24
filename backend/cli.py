@@ -155,6 +155,20 @@ def cmd_snapshot(product: str,
                 except Exception as exc:  # noqa: BLE001
                     print(f"{product} omg {dn}: sharp/reserv FEL {type(exc).__name__}: {exc}")
                     sharp_n = -1
+                # Bokför varvets sharp-capture DIREKT efter hämtningen (samma
+                # rader, samma observationstid; _pool_pit_freeze gör om anropet
+                # utan effekt — INSERT OR IGNORE). pool-sharp-freshness-v1
+                # läser länkstatusen ur captures, och Ö/U-reserven, notiserna
+                # och CLV-loggen nedan körs FÖRE frysningen: annars såg de en
+                # tappad länk först ett varv senare.
+                if sharp_result:
+                    try:
+                        from app import pool_dataset as _pd_capture
+                        _pd_capture.record_sharp_capture(
+                            store, product, draw, sharp_result)
+                    except Exception as exc:  # noqa: BLE001 — frysningen försöker igen
+                        print(f"{product} omg {dn}: sharp-capture FEL "
+                              f"{type(exc).__name__}: {exc}")
                 try:
                     from app import pool_reserve
                     pool_reserve.collect(store, product, draw, varv)
@@ -243,14 +257,21 @@ def _settle_played(store: Storage, product: str) -> int:
 
 
 def _pool_pit_freeze(store: Storage, ss: SvenskaSpel, product: str, draw,
-                     sharp_result: Optional[dict] = None) -> None:
+                     sharp_result: Optional[dict] = None,
+                     now: Optional[dt.datetime] = None) -> None:
     """PH2: omsättnings-/jackpottserie. PH3: frys benchmarksystem när ett
-    horisontfönster (T−3 h / T−20 min) öppnats. Får aldrig fälla varvet."""
+    horisontfönster (T−3 h / T−20 min) öppnats. Får aldrig fälla varvet.
+
+    `now` injiceras bara av tester; i drift läser frysningen väggklockan på
+    samma ställe som tidigare (direkt före bygget)."""
     try:
         from app import pool_dataset, pool_settlement, pool_system_ledger
+        from app import pool_sharp_freshness
         from app import steam as steam_mod
         pool_dataset.record_svs_capture(store, draw)
         if sharp_result:
+            # Idempotent (INSERT OR IGNORE på PK med fetched_at): cmd_snapshot
+            # har normalt redan bokfört samma capture direkt efter hämtningen.
             pool_dataset.record_sharp_capture(
                 store, product, draw, sharp_result)
         # Shadowspåret får ALDRIG stoppa den ordinarie PIT-/systemfrysningen.
@@ -258,7 +279,7 @@ def _pool_pit_freeze(store: Storage, ss: SvenskaSpel, product: str, draw,
         try:
             from app import pool_strength_shadow
             strength = pool_strength_shadow.capture_due(
-                store, product, draw, sharp_result)
+                store, product, draw, sharp_result, now=now)
             if strength.get("captured"):
                 print(f"{product} omg {draw.draw_number}: "
                       f"{strength['captured']} styrke-shadowrader "
@@ -277,11 +298,19 @@ def _pool_pit_freeze(store: Storage, ss: SvenskaSpel, product: str, draw,
         pool_dataset.record_draw_snapshot(
             store, product, draw.draw_number, draw.net_sale, jackpot,
             jackpot_source=jackpot_source)
-        sharp = store.get_sharp(product, draw.draw_number)
-        movement = steam_mod.movement_with_steam(store, product, draw.draw_number)
+        # Frysningens klocka: SAMMA tid bedömer sharp-färskheten och stämplar
+        # frysningen (frozen_at/lag). Läses där freeze_due tidigare läste den.
+        freeze_now = now or dt.datetime.now(dt.timezone.utc)
+        # pool-sharp-freshness-v1: ett för gammalt pris eller ett vars länk
+        # observerats tappad efter priset får inte in i PH3-bygget.
+        sharp, stale = pool_sharp_freshness.fresh_sharp(
+            store, product, draw.draw_number, freeze_now)
+        movement = steam_mod.movement_with_steam(
+            store, product, draw.draw_number, stale=stale)
         rep = pool_system_ledger.freeze_due(
             store, product, draw, sharp, movement, jackpot=jackpot,
-            jackpot_source=jackpot_source,
+            jackpot_source=jackpot_source, now=freeze_now,
+            sharp_stale=stale,
             code_version=pool_settlement._git_hash())  # noqa: SLF001
         if rep.get("frozen"):
             print(f"{product} omg {draw.draw_number}: "
@@ -810,12 +839,20 @@ def cmd_system(args: list[str], product: str) -> None:
     if not draw:
         print("Ingen öppen omgång.")
         return
+    from app import pool_sharp_freshness
+    now = dt.datetime.now(dt.timezone.utc)
     store = Storage()
     try:
-        sharp = store.get_sharp("stryktipset", draw.draw_number)
-        movement = store.movement("stryktipset", draw.draw_number)
+        # Rätt produkt (tidigare hårdkodat "stryktipset" även för Europa/
+        # Topptipset) och samma färskhetsregel som appens bygge.
+        sharp, stale = pool_sharp_freshness.fresh_sharp(
+            store, product, draw.draw_number, now)
+        movement = store.movement(product, draw.draw_number)
     finally:
         store.close()
+    for event in sorted(stale):
+        print(f"  Match {event}: {pool_sharp_freshness.explain(stale[event], now)}"
+              " — priset används inte.")
     a = analyze_draw(draw, sharp, movement)
     if reduced and guarantee:
         s = build_guarantee_system(a, strategy, budget, guarantee=guarantee)

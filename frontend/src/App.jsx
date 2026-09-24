@@ -75,7 +75,8 @@ function Legend() {
             {' '}<span className="vpill v-green">≥1.08</span> marknaden tror mer än folket (köpläge) ·
             {' '}<span className="vpill v-yellow">~1.0</span> rätt streckad ·
             {' '}<span className="vpill v-red">≤0.92</span> överspelad.</div>
-          <div><b>P</b> = Pinnacle (sharp bookmaker) odds · <b>P~</b> = härlett från handikapp när 1X2 inte öppnats.</div>
+          <div><b>P</b> = Pinnacle (sharp bookmaker) odds · <b>P~</b> = härlett från handikapp när 1X2 inte öppnats ·
+            {' '}<b>P –</b> = cachat Pinnacle-pris som inte används: äldre än 90 min eller länken tappad efter priset (håll över för orsak).</div>
           <div><b>Matchbild</b> beskriver matchen enligt marknaden — den är INTE ditt val och kan
             skilja sig från kupongen/förslaget:
             {' '}<span className="badge b-spik">Spik 1</span> stark favorit (kan singlas) ·
@@ -196,7 +197,7 @@ function OddsTip({ sign, series, x, y }) {
   )
 }
 
-function OddsCell({ o, derived, picked, onToggle, valueOk, series, rowCount, rowTotal }) {
+function OddsCell({ o, derived, stale, picked, onToggle, valueOk, series, rowCount, rowTotal }) {
   const [tipPos, setTipPos] = useState(null)
   const hasSeries = !!series && (changePoints(series.svs).length > 0 || changePoints(series.pinnacle).length > 0)
   const cls = ['cell', 'pickcell']
@@ -229,6 +230,13 @@ function OddsCell({ o, derived, picked, onToggle, valueOk, series, rowCount, row
       {o.sharp_odds != null && (
         <div className="sharpodds" title={derived ? 'Pinnacle, härledd från spread/total' : 'Pinnacle (sharp)'}>
           {derived ? 'P~' : 'P'} {fmt(o.sharp_odds)}
+        </div>
+      )}
+      {/* pool-sharp-freshness-v1: det cachade priset visas inte som aktuellt */}
+      {o.sharp_odds == null && stale && (
+        <div className="sharpodds stale"
+          title={`${stale.text || 'Pinnacle-priset är inaktuellt'}. Priset används inte i analysen eller bygget.`}>
+          P –
         </div>
       )}
       {ratio != null && <div className={`vpill ${rcls}`} title={ratioTitle}>{ratio.toFixed(2)}</div>}
@@ -269,7 +277,7 @@ function AnalysisTable({ matches, product, drawNumber, selected, onSelect, picks
                 </td>
                 {['1', 'X', '2'].map((s) => (
                   <OddsCell key={s} o={m.outcomes[s]} derived={derived} valueOk={valueOk}
-                    picked={isPicked(m.event_number, s)}
+                    stale={m.sharp_stale} picked={isPicked(m.event_number, s)}
                     series={movement?.events?.[m.event_number]?.[s]}
                     rowCount={rowShares?.counts?.[`${m.event_number}:${s}`]}
                     rowTotal={rowShares?.total}
@@ -302,7 +310,7 @@ function SharpPanel({ product, draw, onLoaded }) {
     derived: { txt: 'härledd från spread/total (1X2 ej öppnad)', cls: 'st-wait' },
     no_moneyline: { txt: '1X2 ej öppnad än', cls: 'st-wait' },
     not_listed: { txt: 'ej listad hos Pinnacle ännu', cls: 'st-miss' },
-    'ej ompollad': { txt: 'ej ompollad detta varv (dubbeltrafikspärr) — cachat pris gäller',
+    'ej ompollad': { txt: 'ej ompollad detta varv (dubbeltrafikspärr) — cachat pris gäller om det är högst 90 min gammalt och länken inte tappats (P – i tabellen annars)',
                      cls: 'st-wait' },
   }
   const fetchSharp = async () => {

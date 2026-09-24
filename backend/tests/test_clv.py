@@ -126,3 +126,37 @@ class ClvTests(unittest.TestCase):
         rep = clv.report(self.store)
         self.assertEqual(0, rep["n_flagged"])
         self.assertIsNone(rep["beat_pct"]); self.assertIsNone(rep["hit_pct"])
+
+
+    def _draw(self):
+        from app.svenskaspel import Draw, Match, Outcome
+        odds = {"1": 2.60, "X": 3.40, "2": 2.70}
+        streck = {"1": 37, "X": 28, "2": 35}           # ingen grön värde-kvot
+        draw = Draw("stryktipset", 5000, "Open", _iso(NOW + dt.timedelta(hours=2)),
+                    100000.0, 1.0, _iso(NOW))
+        draw.matches.append(Match(
+            1, "A - B", "A", "B", None, None, "Test",
+            _iso(NOW + dt.timedelta(hours=3)), False, None,
+            {s: Outcome(s, odds[s], odds[s], streck[s], None) for s in odds}))
+        return draw
+
+    def _pinnacle(self, minutes_ago):
+        self.store.save_sharp("stryktipset", 5000, [{
+            "event_number": 1, "bookmaker": "pinnacle",
+            "odds": {"1": 2.00, "X": 3.60, "2": 3.90}, "total": None,
+            "confidence": 1.0, "matched": "A - B",
+            "fetched_at": _iso(NOW - dt.timedelta(minutes=minutes_ago))}])
+
+    def test_inaktuell_sharp_blir_aldrig_flaggans_pris(self):
+        """pool-sharp-freshness-v1: den FÖRSTA flaggan är facitets baslinje
+        för alltid — ett två timmar gammalt Pinnacle-pris får inte bli den."""
+        draw = self._draw()
+        self._pinnacle(minutes_ago=120)
+        self.assertEqual(0, clv.log_flags("stryktipset", draw, self.store))
+        self.assertEqual([], self.store.clv_rows())
+        self._pinnacle(minutes_ago=10)
+        self.assertEqual(1, clv.log_flags("stryktipset", draw, self.store))
+        row = self._row()
+        self.assertEqual(("sharp", "pinnacle", NOW.isoformat()),
+                         (row["flag_type"], row["prob_src"], row["first_at"]))
+

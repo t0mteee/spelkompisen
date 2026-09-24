@@ -103,15 +103,21 @@ def fetch_quote(match):
             "observed_at": (checked-dt.timedelta(seconds=age)).isoformat()}
 
 
-def collect(store, product, draw, varv):
-    """Högst tre anrop per gemensamt basvarv, 15 min cooldown per provider-id."""
+def collect(store, product, draw, varv, now=None):
+    """Högst tre anrop per gemensamt basvarv, 15 min cooldown per provider-id.
+
+    En match räknas som att sakna Pinnacle-total när dess cachade sharp inte
+    passerar pool-sharp-freshness-v1 — ett gammalt eller länktappat pris får
+    inte hålla reserven borta. `now` injiceras av tester; per-anropstider
+    (checked_at/observed_at) sätts fortfarande efter varje anrop."""
     if draw.state != "Open" or product == "bomben":
         return 0
     if not store.conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
                               "AND name='pool_reserve_quote'").fetchone():
         return 0  # explicit backup/migrering krävs innan insamlingen aktiveras
-    now = dt.datetime.now(dt.timezone.utc)
-    sharp = store.get_sharp(product, draw.draw_number)
+    from .pool_sharp_freshness import fresh_sharp
+    now = now or dt.datetime.now(dt.timezone.utc)
+    sharp, _stale = fresh_sharp(store, product, draw.draw_number, now)
     count = 0
     def save(m, quote):
         values = [product,draw.draw_number,m.event_number,SOURCE,str(m.kambi_id),

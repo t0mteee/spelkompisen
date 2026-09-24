@@ -39,10 +39,16 @@ def _parse(ts: Optional[str]) -> Optional[dt.datetime]:
 
 def log_flags(product: str, draw: Draw, store: Storage) -> int:
     """Körs av snapshot-pollen: logga tecken med grön värde-kvot eller sharp-edge.
-    first/best per selektion — CLV utvärderas från FÖRSTA flaggan."""
-    sharp = store.get_sharp(product, draw.draw_number)
+    first/best per selektion — CLV utvärderas från FÖRSTA flaggan.
+
+    Bara sharp som passerar pool-sharp-freshness-v1 vid loggtiden får bli
+    flaggans pris: ett inaktuellt Pinnacle-pris hade blivit FÖRSTA flaggan och
+    därmed facitets baslinje för alltid."""
+    from .pool_sharp_freshness import fresh_sharp
+    now = _now()
+    sharp, _stale = fresh_sharp(store, product, draw.draw_number, now)
     a = analyze_draw(draw, sharp, {})
-    at = _now().isoformat()
+    at = now.isoformat()
     n = 0
     for m in a.matches:
         if m.cancelled or not m.match_start:
