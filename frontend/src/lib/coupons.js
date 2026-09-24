@@ -78,3 +78,21 @@ export function recentlySettled(coupons, days = 7, now = new Date()) {
   return (coupons || []).filter((c) => c.settled_at
     && (now.getTime() - new Date(c.settled_at).getTime()) <= days * 86400000)
 }
+
+// Andel av kupongens rader som har varje tecken, per match (kolumn). Ett svep
+// över raderna: en reducerad kupong kan ha 20 000 rader. `covered` är tecknen
+// som förekommer alls — samma sak som kupongdetaljen alltid visat.
+export function signShares(rows, nEvents) {
+  const counts = Array.from({ length: nEvents }, () => ({ 1: 0, X: 0, 2: 0 }))
+  for (const row of rows || []) {
+    (row.signs || []).forEach((sign, index) => {
+      if (counts[index] && sign in counts[index]) counts[index][sign] += 1
+    })
+  }
+  const total = (rows || []).length
+  return counts.map((count) => ({
+    covered: ['1', 'X', '2'].filter((sign) => count[sign] > 0),
+    shares: Object.fromEntries(['1', 'X', '2'].map((sign) =>
+      [sign, total ? count[sign] / total : null])),
+  }))
+}

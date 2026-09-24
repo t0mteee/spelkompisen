@@ -4,6 +4,7 @@
 // historik/MinaKuponger.jsx och laddningen i usePlayedCoupons.js.
 import { useEffect, useRef, useState } from 'react'
 import { CouponOverview } from './CouponOverview.jsx'
+import { signShares } from '../lib/coupons.js'
 import { PRODUCT_LABEL } from '../lib/labels.js'
 import { topAliveForecast, forecastBasisText, FORECAST_NOTE } from '../lib/forecast.js'
 import { LoadingState, ErrorState, kr } from '../App.jsx'
@@ -445,10 +446,16 @@ function PlayedCouponDetail({ coupon, onClose, onForget = null }) {
             <section>
               <h4>{coupon.settled_at ? 'Officiellt facit, match för match' : 'Kupongen match för match'}</h4>
               <CouponOverview nRows={rows.length} showMarket={false}
-                events={events.map((event, index) => ({ ...event,
-                  event_number: event.column,
-                  covered: ['1', 'X', '2'].filter(sign => rows.some(row => row.signs[index] === sign)),
-                }))} />
+                events={(() => {
+                  // Andelen per tecken fanns bara för systemfacitets kuponger;
+                  // spelade reducerade kuponger visade "–" under varje tecken.
+                  const perEvent = signShares(rows, events.length)
+                  return events.map((event, index) => ({ ...event,
+                    event_number: event.column,
+                    covered: perEvent[index].covered,
+                    sign_shares: perEvent[index].shares,
+                  }))
+                })()} />
             </section>
             <section>
               <h4>Så fördelades raderna</h4>

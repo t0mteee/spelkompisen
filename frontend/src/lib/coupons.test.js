@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { couponStatus, filterCoupons, summarizeCoupons, recentlySettled } from './coupons.js'
+import { couponStatus, filterCoupons, summarizeCoupons, recentlySettled, signShares } from './coupons.js'
 
 const now = new Date('2026-09-13T12:00:00Z')
 const c = (over) => ({ id: 1, product: 'stryktipset', draw_number: 4969, cost_kr: 256,
@@ -46,4 +46,15 @@ test('summeringen räknar pengar bara på komplett utdelning', () => {
 test('nyligen rättade inom sju dygn', () => {
   const list = [c({ id: 1, settled_at: '2026-09-10T08:00:00Z' }), c({ id: 2, settled_at: '2026-08-10T08:00:00Z' }), c({ id: 3 })]
   assert.deepEqual(recentlySettled(list, 7, now).map((x) => x.id), [1])
+})
+
+test('teckenandelar räknas per match ur raderna', () => {
+  const rows = [{ signs: ['1', 'X'] }, { signs: ['1', '2'] }, { signs: ['2', '2'] }, { signs: ['1', '2'] }]
+  const [first, second] = signShares(rows, 2)
+  assert.deepEqual(first.covered, ['1', '2'])
+  assert.equal(first.shares['1'], 0.75)
+  assert.equal(first.shares.X, 0)
+  assert.deepEqual(second.covered, ['X', '2'])
+  assert.equal(second.shares['2'], 0.75)
+  assert.deepEqual(signShares([], 1)[0].shares, { 1: null, X: null, 2: null })
 })

@@ -188,6 +188,16 @@ function TipSection({ label, pts }) {
     </div>
   )
 }
+// κ per vinstnivå som "1,05–1,07": portföljkortet sa tidigare "κ=1,00 är
+// fortsatt konservativt" fast κ 1,05–1,07 användes (statusauditen 2026-09-24).
+function kappaSpan(byTier) {
+  const values = Object.values(byTier || {}).filter((v) => typeof v === 'number')
+  if (!values.length) return '–'
+  const fmt = (v) => v.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const lo = Math.min(...values), hi = Math.max(...values)
+  return lo === hi ? fmt(lo) : `${fmt(lo)}–${fmt(hi)}`
+}
+
 function OddsTip({ sign, series, x, y }) {
   return (
     <div className="oddstip" style={{ left: x, top: y }}>
@@ -502,7 +512,9 @@ function SystemView({ sys, matches, payouts, onRecalc, onUse, label = null,
             Poisson kring utfallets faktiska streckkombination;
             {mc.top_tier_kappa_by_x
               ? ' Radform v1 använder en alternativ medvinnarmodell.'
-              : ` κ=${mc.kappa.toFixed(2)} är fortsatt konservativt.`}
+              : mc.kappa_by_tier
+                ? ` Medvinnarna skalas med uppmätt κ per vinstnivå (${kappaSpan(mc.kappa_by_tier)}), samma som radvalet.`
+                : ` κ=${mc.kappa.toFixed(2)}, alltså ingen medvinnarkorrigering.`}
             {' '}Percentiler beskriver risk, inte en garanterad utdelning.
           </div>
         </div>
