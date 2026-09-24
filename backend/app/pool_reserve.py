@@ -4,6 +4,7 @@ from __future__ import annotations
 import datetime as dt
 import math
 import time
+from types import SimpleNamespace
 
 import httpx
 
@@ -14,6 +15,7 @@ SOURCE = "svenskaspel_kambi"
 MAX_AGE_S = 1800
 COOLDOWN_S = 900
 MAX_CALLS = 3
+BUDGET_S = 8
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS pool_reserve_quote (
  product TEXT NOT NULL, draw_number INTEGER NOT NULL, event_number INTEGER NOT NULL,
@@ -103,69 +105,178 @@ def fetch_quote(match):
             "observed_at": (checked-dt.timedelta(seconds=age)).isoformat()}
 
 
-def collect(store, product, draw, varv, now=None):
-    """Högst tre anrop per gemensamt basvarv, 15 min cooldown per provider-id.
+def _has_table(store):
+    # Explicit backup/migrering krävs innan insamlingen aktiveras.
+    return bool(store.conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
+                                   "AND name='pool_reserve_quote'").fetchone())
+
+
+def _queue(varv):
+    queue = getattr(varv, "reserve_queue", None)
+    if queue is None:
+        queue = varv.reserve_queue = []
+    return queue
+
+
+def _last_checks(store, provider_ids):
+    """Senaste kontroll per provider-id, jämförd som TID — aldrig som sträng."""
+    ids = sorted(set(provider_ids))
+    latest = {}
+    if not ids:
+        return latest
+    for pid, checked in store.conn.execute(
+            "SELECT provider_event_id, checked_at FROM pool_reserve_quote WHERE source=? "
+            f"AND provider_event_id IN ({','.join('?' for _ in ids)})", (SOURCE, *ids)):
+        t = _time(checked)
+        if t and (pid not in latest or t > latest[pid]):
+            latest[pid] = t
+    return latest
+
+
+def _closed(candidate, now):
+    """Stängd omgång eller startad match: ingen kandidat, inget anrop."""
+    start = _time(candidate.match.match_start)
+    return (start is None or start <= now
+            or (candidate.close is not None and candidate.close <= now))
+
+
+def _shareable(quote, match):
+    """Samma providerobservation får betjäna flera poolprodukter, men en
+    tillgänglig quote bara när Kambis avspark stämmer med kandidatens."""
+    start, expected = _time(quote.get("match_start")), _time(match.match_start)
+    return (quote.get("status") != "available"
+            or bool(start and expected and abs((start-expected).total_seconds()) <= 900))
+
+
+def _save(store, candidate, quote):
+    values = [candidate.product, candidate.draw_number, candidate.match.event_number,
+              SOURCE, candidate.provider_id,
+              *[quote.get(k) for k in ("checked_at","observed_at","status","line",
+                  "over_odds","under_odds","match_start","home","away")], VERSION]
+    return store.conn.execute("INSERT OR IGNORE INTO pool_reserve_quote VALUES ("+
+                              ",".join("?" for _ in values)+")", values).rowcount
+
+
+def register(store, product, draw, varv, now=None):
+    """Registrera omgångens kandidater i varvets gemensamma kö. INGA nätanrop.
+
+    Anropen görs av `run_queue` efter produktloopen (statusauditen
+    2026-09-24, fynd C3): när varje produkt anropade direkt tog
+    stryktipset/europatipset hela varvets budget och senare
+    Topptipset-omgångar stängde utan en enda kontroll.
 
     En match räknas som att sakna Pinnacle-total när dess cachade sharp inte
     passerar pool-sharp-freshness-v1 — ett gammalt eller länktappat pris får
-    inte hålla reserven borta. `now` injiceras av tester; per-anropstider
-    (checked_at/observed_at) sätts fortfarande efter varje anrop."""
-    if draw.state != "Open" or product == "bomben":
+    inte hålla reserven borta. `now` injiceras av tester. Returnerar antalet
+    nya kandidater."""
+    if draw.state != "Open" or product == "bomben" or not _has_table(store):
         return 0
-    if not store.conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
-                              "AND name='pool_reserve_quote'").fetchone():
-        return 0  # explicit backup/migrering krävs innan insamlingen aktiveras
     from .pool_sharp_freshness import fresh_sharp
     now = now or dt.datetime.now(dt.timezone.utc)
+    close = _time(getattr(draw, "reg_close_time", None))
+    queue = _queue(varv)
+    queued = {(c.product, c.draw_number, c.match.event_number) for c in queue}
     sharp, _stale = fresh_sharp(store, product, draw.draw_number, now)
-    count = 0
-    def save(m, quote):
-        values = [product,draw.draw_number,m.event_number,SOURCE,str(m.kambi_id),
-                  *[quote.get(k) for k in ("checked_at","observed_at","status","line",
-                      "over_odds","under_odds","match_start","home","away")],VERSION]
-        return store.conn.execute("INSERT OR IGNORE INTO pool_reserve_quote VALUES ("+
-                                  ",".join("?" for _ in values)+")",values).rowcount
-    # Basvarven kan ligga längre isär än cooldown. Utan åldersordning
-    # förbrukar samma tre första matcher budgeten för alltid.
-    checked = {row['provider_event_id']: row['checked_at'] for row in
-               store.conn.execute("SELECT provider_event_id, MAX(checked_at) AS checked_at "
-                   "FROM pool_reserve_quote WHERE source=? GROUP BY provider_event_id", (SOURCE,))}
-    oldest = dt.datetime.min.replace(tzinfo=dt.timezone.utc)
-    for m in sorted(draw.matches, key=lambda m: (
-            _time(checked.get(str(m.kambi_id))) or oldest, m.event_number)):
+    wanted = []
+    for m in draw.matches:
         total = (sharp.get(m.event_number) or {}).get("total") or {}
-        if (not m.kambi_id or m.cancelled or not _time(m.match_start)
-                or _time(m.match_start) <= now or total.get("line") is not None):
+        if (not m.kambi_id or m.cancelled or total.get("line") is not None
+                or (product, draw.draw_number, m.event_number) in queued):
             continue
-        last = store.conn.execute("SELECT * FROM pool_reserve_quote WHERE source=? "
-            "AND provider_event_id=? ORDER BY checked_at DESC LIMIT 1", (SOURCE,str(m.kambi_id))).fetchone()
-        if last and _time(last['checked_at']) and (now-_time(last['checked_at'])).total_seconds() < COOLDOWN_S:
-            # Samma providerobservation får betjäna flera poolprodukter,
-            # men ALDRIG få en ny observations- eller hämtningstid.
-            quote = dict(last)
-            if (quote['status'] != 'available' or (_time(quote['match_start']) and
-                    abs((_time(quote['match_start'])-_time(m.match_start)).total_seconds()) <= 900)):
-                count += save(m, quote)
+        candidate = SimpleNamespace(product=product, draw_number=draw.draw_number,
+                                    match=m, provider_id=str(m.kambi_id), close=close)
+        if not _closed(candidate, now):
+            wanted.append(candidate)
+    checks = _last_checks(store, [c.provider_id for c in wanted])
+    for candidate in wanted:
+        candidate.last_check = checks.get(candidate.provider_id)
+        queue.append(candidate)
+    return len(wanted)
+
+
+def run_queue(store, varv, now=None, clock=time.monotonic):
+    """Gör varvets reservanrop EFTER produktloopen, gemensamt för alla produkter.
+
+    Högst MAX_CALLS anrop per basvarv (och BUDGET_S från första anropet) i
+    ordningen: aldrig kontrollerad först, därefter äldst kontroll, därefter
+    närmast spelstopp. Ett provider-id som delas av flera produkter kostar ETT
+    anrop och svaret sparas för alla. 15 min cooldown per provider-id: inom
+    den görs inget nytt anrop, men samma providerobservation får betjäna
+    flera poolprodukter — ALDRIG med ny observations- eller hämtningstid.
+    checked_at/observed_at sätts av `fetch_quote` efter varje anrop.
+    Reserven är presentation (`used_by_builder=False`): aldrig bygg-, PIT-
+    eller CLV-input. Kön töms, så en andra körning dubbelräknar inget."""
+    queue = list(getattr(varv, "reserve_queue", None) or [])
+    varv.reserve_queue = []
+    report = {"candidates": len(queue), "calls": 0, "saved": 0, "cooldown": 0,
+              "unserved": 0, "called": []}
+    if not queue or not _has_table(store):
+        return report
+    now = now or dt.datetime.now(dt.timezone.utc)
+    groups = {}
+    for candidate in queue:
+        if not _closed(candidate, now):
+            groups.setdefault(candidate.provider_id, []).append(candidate)
+    oldest = dt.datetime.min.replace(tzinfo=dt.timezone.utc)
+    latest = dt.datetime.max.replace(tzinfo=dt.timezone.utc)
+    due = []
+    for pid, members in groups.items():
+        members.sort(key=lambda c: c.close or latest)    # närmast spelstopp först
+        rows = [dict(row) for row in store.conn.execute(
+            "SELECT * FROM pool_reserve_quote WHERE source=? AND provider_event_id=?",
+            (SOURCE, pid))]
+        last = max(rows, key=lambda row: _time(row["checked_at"]) or oldest, default=None)
+        last_at = _time(last["checked_at"]) if last else None
+        if last_at and (now-last_at).total_seconds() < COOLDOWN_S:
+            report["cooldown"] += 1
+            report["saved"] += sum(_save(store, c, last) for c in members
+                                   if _shareable(last, c.match))
             continue
+        checked = min((c.last_check for c in members if c.last_check), default=None)
+        due.append(((checked is not None, checked or oldest, members[0].close or latest),
+                    members, rows))
+    due.sort(key=lambda item: item[0])
+    for key, members, rows in due:
         if (getattr(varv, "reserve_calls", 0) >= MAX_CALLS
-                or time.monotonic() >= getattr(varv, "reserve_deadline", float('inf'))):
+                or clock() >= getattr(varv, "reserve_deadline", float("inf"))):
+            report["unserved"] += 1
             continue
-        if not hasattr(varv, "reserve_calls"):
-            varv.reserve_calls, varv.reserve_deadline = 0, time.monotonic()+8
-        varv.reserve_calls += 1
+        if not hasattr(varv, "reserve_deadline"):
+            varv.reserve_deadline = clock() + BUDGET_S
+        varv.reserve_calls = getattr(varv, "reserve_calls", 0) + 1
+        head = members[0]
         try:
-            quote = fetch_quote(m)
+            quote = fetch_quote(head.match)
         except Exception:  # nät-/parsefel är inte frånvaro
             checked = dt.datetime.now(dt.timezone.utc).isoformat()
             quote = {"status": "source_error", "checked_at": checked, "observed_at": checked}
-        last_observation = store.conn.execute("SELECT MAX(observed_at) FROM pool_reserve_quote "
-            "WHERE source=? AND provider_event_id=? AND status NOT IN ('source_error','stale')",
-            (SOURCE,str(m.kambi_id))).fetchone()[0]
-        if last_observation and _time(quote['observed_at']) < _time(last_observation):
+        last_observation = max((t for t in (_time(row["observed_at"]) for row in rows
+                                            if row["status"] not in ("source_error", "stale"))
+                                if t), default=None)
+        if last_observation and _time(quote["observed_at"]) < last_observation:
             quote = {**quote, "status": "stale"}
-        count += save(m, quote)
+        report["calls"] += 1
+        report["saved"] += _save(store, head, quote)
+        report["saved"] += sum(_save(store, c, quote) for c in members[1:]
+                               if _shareable(quote, c.match))
+        report["called"].append({"product": head.product, "draw_number": head.draw_number,
+                                 "event_number": head.match.event_number,
+                                 "provider_id": head.provider_id, "shared": len(members)-1,
+                                 "never_checked": not key[0], "status": quote.get("status")})
     store.conn.commit()
-    return count
+    return report
+
+
+def summary_line(report):
+    """En rad till den append-only poolloggen: vilka id:n kön valde och varför."""
+    called = ", ".join(
+        f"{c['product']} {c['draw_number']} #{c['event_number']} (id {c['provider_id']}, "
+        f"{'aldrig kontrollerad' if c['never_checked'] else 'äldst kontroll'}, {c['status']}"
+        + (f", delad med {c['shared']}" if c['shared'] else "") + ")"
+        for c in report["called"])
+    return (f"Ö/U-reserv: {report['calls']} anrop av {report['candidates']} kandidater "
+            f"({report['cooldown']} id i cooldown, {report['unserved']} id utan budget, "
+            f"{report['saved']} rader sparade)" + (f": {called}" if called else "."))
 
 
 def read_for_draw(store, product, draw_number, now=None):

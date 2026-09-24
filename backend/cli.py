@@ -88,6 +88,7 @@ def cmd_snapshot(product: str,
     import datetime as dt
     from app import notify, clv
     min_hrs: float | None = None
+    owns_varv = varv is None
     varv = varv or sharp_service.VarvIndex()
     with SvenskaSpel() as ss:
         # Scanhintet, inte kodens statiska seed. Topptipset saknar
@@ -170,8 +171,10 @@ def cmd_snapshot(product: str,
                         print(f"{product} omg {dn}: sharp-capture FEL "
                               f"{type(exc).__name__}: {exc}")
                 try:
+                    # Bara kandidater här — anropen görs gemensamt för hela
+                    # varvet efter produktloopen (`_run_reserve_queue`).
                     from app import pool_reserve
-                    pool_reserve.collect(store, product, draw, varv)
+                    pool_reserve.register(store, product, draw, varv)
                 except Exception as exc:
                     print(f"{product} omg {dn}: Ö/U-reserv FEL {type(exc).__name__}: {exc}")
                 pushed = notify.check_movers(product, draw, store)
@@ -199,7 +202,32 @@ def cmd_snapshot(product: str,
             _settle_recent(store, ss, product)
         finally:
             store.close()
+    if owns_varv:
+        _run_reserve_queue(varv)
     return min_hrs
+
+
+def _run_reserve_queue(varv: "sharp_service.VarvIndex") -> None:
+    """Ö/U-reservens anrop, EN gång per basvarv efter produktloopen.
+
+    Produkterna registrerar bara kandidater; kön väljer högst tre anrop för
+    hela varvet (aldrig kontrollerad → äldst kontroll → närmast spelstopp).
+    När varje produkt anropade själv tog stryktipset/europatipset hela
+    budgeten och senare Topptipset-omgångar stängde utan en enda kontroll
+    (statusauditen 2026-09-24, fynd C3). Reserven är presentation och får
+    aldrig fälla varvet."""
+    try:
+        from app import pool_reserve
+        store = Storage()
+        try:
+            report = pool_reserve.run_queue(store, varv)
+        finally:
+            store.close()
+    except Exception as exc:  # noqa: BLE001
+        print(f"Ö/U-reserv FEL {type(exc).__name__}: {exc}")
+        return
+    if report["candidates"]:
+        print(pool_reserve.summary_line(report))
 
 
 def _settle_recent(store: Storage, ss: SvenskaSpel, product: str,
@@ -363,6 +391,7 @@ def _snapshot_all_pools() -> tuple[float | None, int]:
             hrs = None
         if hrs is not None:
             min_hrs = hrs if min_hrs is None else min(min_hrs, hrs)
+    _run_reserve_queue(varv)
     return min_hrs, succeeded
 
 
