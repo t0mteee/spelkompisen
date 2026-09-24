@@ -36,7 +36,13 @@ kor() {  # kor <namn> <katalog> <kommando...>
 }
 
 if [ "$DEL" = allt ] || [ "$DEL" = backend ]; then
+  # Testerna får aldrig öppna produktionsdatabasen: på servern körs hooken i
+  # samma arbetskopia som insamlingen (statusauditen 2026-09-24).
+  TESTDB_DIR=$(mktemp -d)
+  export SPELKOMPISEN_DB="$TESTDB_DIR/kontroll.db"
   kor "backendtester" "$ROOT/backend" .venv/bin/python -B -m unittest discover -s tests
+  unset SPELKOMPISEN_DB
+  rm -rf "$TESTDB_DIR"
 fi
 if [ "$DEL" = allt ] || [ "$DEL" = frontend ]; then
   if command -v npm >/dev/null 2>&1; then

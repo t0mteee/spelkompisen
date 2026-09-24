@@ -266,7 +266,10 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
   `stopp … --permanent` lägger till `launchctl disable` och överlever omstart.
   Se `docs/AI-OVERLAMNING-SERVER.md` § 3. Omstart bygger INTE frontenden —
   `cd frontend && npm run build` först.
-- Tester: `cd backend && .venv/bin/python -B -m unittest discover -s tests -v`.
+- Tester: `tools/kontroll.sh backend`. Skriptet sätter `SPELKOMPISEN_DB` till en
+  temporär fil. Kör ALDRIG `unittest discover` direkt i serverns arbetskopia utan
+  `SPELKOMPISEN_DB=$(mktemp -d)/t.db` framför: tre testmoduler öppnar annars
+  produktionsdatabasen via `Storage()` (uppmätt 2026-09-24).
 - **Hela kontrollen före push: `tools/kontroll.sh`** (backendtester + lint +
   frontendtester, `backend`/`frontend` som argument för en del). Pre-push-hooken
   i `tools/githooks/` kör samma sak; aktivera per klon med

@@ -13,13 +13,19 @@ from __future__ import annotations
 
 import contextlib
 import datetime as dt
+import os
 import sqlite3
 from pathlib import Path
 from typing import Optional
 
 from .svenskaspel import Draw
 
-DEFAULT_DB = Path(__file__).resolve().parent.parent / "data" / "stryktips.db"
+# `SPELKOMPISEN_DB` sätts av tools/kontroll.sh till en temporär fil, så att en
+# testkörning i serverns arbetskopia (pre-push-hooken) aldrig öppnar
+# produktionsdatabasen. Tre testmoduler gjorde det via Storage() före
+# 2026-09-24. Launchd-jobben och API:t sätter aldrig variabeln.
+DEFAULT_DB = Path(os.environ.get("SPELKOMPISEN_DB")
+                  or Path(__file__).resolve().parent.parent / "data" / "stryktips.db")
 
 RESULT_STATS_SCHEMA = """
 -- Providerstatistik hålls skild från resultatets identitet. En match kan ha
