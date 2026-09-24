@@ -1,0 +1,2446 @@
+{
+ "version": "poolopt-v1-avlasning-40",
+ "reading": "forward40",
+ "n_draws": 40,
+ "seed_base": 20260830,
+ "winsor": 2.0,
+ "champion_key": "dr1-b256-medel",
+ "cells": [
+  {
+   "arm": "poolopt-v1-b256-traff",
+   "arm_label": "träff",
+   "horizon": "h3",
+   "horizon_minutes": 180,
+   "units": [
+    "topptipset"
+   ],
+   "paired_available": 47,
+   "n": 40,
+   "enough": true,
+   "arm_hits": 15,
+   "champion_hits": 13,
+   "mean_hit_delta": 0.05,
+   "hit_delta_ci90": [
+    -0.025,
+    0.125
+   ],
+   "roi_n": 40,
+   "mean_winsor_roi_delta": 0.07595507812499999,
+   "winsor_roi_delta_ci90": [
+    -0.074044921875,
+    0.225955078125
+   ],
+   "gate_passed": false,
+   "first": {
+    "product": "topptipset",
+    "draw_number": 4309,
+    "frozen_at": "2026-09-03T14:27:12Z",
+    "arm_hit": 1,
+    "champion_hit": 1,
+    "arm_roi": 2.930078125,
+    "champion_roi": 2.930078125
+   },
+   "last": {
+    "product": "topptipset",
+    "draw_number": 4342,
+    "frozen_at": "2026-09-19T15:47:28Z",
+    "arm_hit": 1,
+    "champion_hit": 0,
+    "arm_roi": 0.03820312499999989,
+    "champion_roi": -1.0
+   },
+   "draws": [
+    {
+     "product": "topptipset",
+     "draw_number": 4309,
+     "frozen_at": "2026-09-03T14:27:12Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 2.930078125,
+     "champion_roi": 2.930078125
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4310,
+     "frozen_at": "2026-09-04T14:27:16Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4319,
+     "frozen_at": "2026-09-04T19:27:21Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 11.85484375,
+     "champion_roi": 11.85484375
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4312,
+     "frozen_at": "2026-09-05T10:27:15Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 979,
+     "frozen_at": "2026-09-05T11:02:29Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4313,
+     "frozen_at": "2026-09-05T15:57:16Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4314,
+     "frozen_at": "2026-09-05T20:42:13Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1864,
+     "frozen_at": "2026-09-06T10:27:34Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4315,
+     "frozen_at": "2026-09-06T15:57:03Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4316,
+     "frozen_at": "2026-09-06T19:42:02Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4317,
+     "frozen_at": "2026-09-07T14:12:05Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4318,
+     "frozen_at": "2026-09-07T19:27:05Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 1.3049218749999998,
+     "champion_roi": 1.3049218749999998
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4320,
+     "frozen_at": "2026-09-08T15:57:05Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.29304687500000004,
+     "champion_roi": -0.29304687500000004
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4321,
+     "frozen_at": "2026-09-08T19:12:11Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1865,
+     "frozen_at": "2026-09-09T15:47:34Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.6484765625,
+     "champion_roi": -0.6484765625
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4322,
+     "frozen_at": "2026-09-09T21:42:06Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4323,
+     "frozen_at": "2026-09-10T14:27:08Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.12515624999999997,
+     "champion_roi": -0.12515624999999997
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4324,
+     "frozen_at": "2026-09-10T19:57:09Z",
+     "arm_hit": 1,
+     "champion_hit": 0,
+     "arm_roi": 6.941015625,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4325,
+     "frozen_at": "2026-09-11T14:27:12Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.21113281250000004,
+     "champion_roi": -0.21113281250000004
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4326,
+     "frozen_at": "2026-09-11T15:32:06Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 1.0641406249999998,
+     "champion_roi": 1.0641406249999998
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4327,
+     "frozen_at": "2026-09-11T19:27:11Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 15.27296875,
+     "champion_roi": 15.27296875
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4328,
+     "frozen_at": "2026-09-12T08:42:12Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 980,
+     "frozen_at": "2026-09-12T11:02:43Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4329,
+     "frozen_at": "2026-09-12T15:57:12Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4330,
+     "frozen_at": "2026-09-12T20:42:09Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1866,
+     "frozen_at": "2026-09-13T10:27:31Z",
+     "arm_hit": 1,
+     "champion_hit": 0,
+     "arm_roi": 4.1301953125,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4331,
+     "frozen_at": "2026-09-13T15:57:03Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4332,
+     "frozen_at": "2026-09-13T19:42:03Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4333,
+     "frozen_at": "2026-09-14T14:12:04Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 0.5074609375000001,
+     "champion_roi": 0.5074609375000001
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4334,
+     "frozen_at": "2026-09-14T19:27:06Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4335,
+     "frozen_at": "2026-09-15T14:02:05Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4336,
+     "frozen_at": "2026-09-15T19:02:05Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 3.8505078125,
+     "champion_roi": 3.8505078125
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1867,
+     "frozen_at": "2026-09-16T16:02:09Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4337,
+     "frozen_at": "2026-09-16T19:02:04Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 4.61640625,
+     "champion_roi": 4.61640625
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4338,
+     "frozen_at": "2026-09-17T16:02:07Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4339,
+     "frozen_at": "2026-09-18T15:32:09Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4340,
+     "frozen_at": "2026-09-18T20:32:09Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4341,
+     "frozen_at": "2026-09-19T10:02:14Z",
+     "arm_hit": 0,
+     "champion_hit": 1,
+     "arm_roi": -1.0,
+     "champion_roi": 10.7790234375
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 981,
+     "frozen_at": "2026-09-19T11:02:38Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4342,
+     "frozen_at": "2026-09-19T15:47:28Z",
+     "arm_hit": 1,
+     "champion_hit": 0,
+     "arm_roi": 0.03820312499999989,
+     "champion_roi": -1.0
+    }
+   ]
+  },
+  {
+   "arm": "poolopt-v1-b256-traff",
+   "arm_label": "träff",
+   "horizon": "m20",
+   "horizon_minutes": 20,
+   "units": [
+    "topptipset"
+   ],
+   "paired_available": 47,
+   "n": 40,
+   "enough": true,
+   "arm_hits": 12,
+   "champion_hits": 12,
+   "mean_hit_delta": 0.0,
+   "hit_delta_ci90": [
+    -0.05,
+    0.05
+   ],
+   "roi_n": 40,
+   "mean_winsor_roi_delta": -0.024044921875000003,
+   "winsor_roi_delta_ci90": [
+    -0.124044921875,
+    0.05191015624999999
+   ],
+   "gate_passed": false,
+   "first": {
+    "product": "topptipset",
+    "draw_number": 4309,
+    "frozen_at": "2026-09-03T16:42:06Z",
+    "arm_hit": 1,
+    "champion_hit": 1,
+    "arm_roi": 2.930078125,
+    "champion_roi": 2.930078125
+   },
+   "last": {
+    "product": "topptipset",
+    "draw_number": 4342,
+    "frozen_at": "2026-09-19T18:27:06Z",
+    "arm_hit": 1,
+    "champion_hit": 0,
+    "arm_roi": 0.03820312499999989,
+    "champion_roi": -1.0
+   },
+   "draws": [
+    {
+     "product": "topptipset",
+     "draw_number": 4309,
+     "frozen_at": "2026-09-03T16:42:06Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 2.930078125,
+     "champion_roi": 2.930078125
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4310,
+     "frozen_at": "2026-09-04T16:42:07Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4319,
+     "frozen_at": "2026-09-04T21:42:09Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 11.85484375,
+     "champion_roi": 11.85484375
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4312,
+     "frozen_at": "2026-09-05T12:42:11Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 979,
+     "frozen_at": "2026-09-05T13:42:36Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4313,
+     "frozen_at": "2026-09-05T18:27:08Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4314,
+     "frozen_at": "2026-09-05T23:12:10Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1864,
+     "frozen_at": "2026-09-06T12:42:28Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4315,
+     "frozen_at": "2026-09-06T18:27:03Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4316,
+     "frozen_at": "2026-09-06T21:57:10Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4317,
+     "frozen_at": "2026-09-07T16:42:04Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4318,
+     "frozen_at": "2026-09-07T21:42:03Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 1.3049218749999998,
+     "champion_roi": 1.3049218749999998
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4320,
+     "frozen_at": "2026-09-08T18:27:05Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.29304687500000004,
+     "champion_roi": -0.29304687500000004
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4321,
+     "frozen_at": "2026-09-08T21:42:03Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1865,
+     "frozen_at": "2026-09-09T18:27:05Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.6484765625,
+     "champion_roi": -0.6484765625
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4322,
+     "frozen_at": "2026-09-10T00:12:07Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4323,
+     "frozen_at": "2026-09-10T16:42:06Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.12515624999999997,
+     "champion_roi": -0.12515624999999997
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4324,
+     "frozen_at": "2026-09-10T22:12:04Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4325,
+     "frozen_at": "2026-09-11T16:42:12Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.21113281250000004,
+     "champion_roi": -0.21113281250000004
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4326,
+     "frozen_at": "2026-09-11T18:12:07Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 1.0641406249999998,
+     "champion_roi": 1.0641406249999998
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4327,
+     "frozen_at": "2026-09-11T21:57:11Z",
+     "arm_hit": 0,
+     "champion_hit": 1,
+     "arm_roi": -1.0,
+     "champion_roi": 15.27296875
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4328,
+     "frozen_at": "2026-09-12T11:12:12Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 980,
+     "frozen_at": "2026-09-12T13:42:31Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4329,
+     "frozen_at": "2026-09-12T18:27:05Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4330,
+     "frozen_at": "2026-09-12T23:12:04Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1866,
+     "frozen_at": "2026-09-13T12:42:30Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4331,
+     "frozen_at": "2026-09-13T18:27:05Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4332,
+     "frozen_at": "2026-09-13T21:57:04Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4333,
+     "frozen_at": "2026-09-14T16:42:06Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 0.5074609375000001,
+     "champion_roi": 0.5074609375000001
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4334,
+     "frozen_at": "2026-09-14T21:42:06Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4335,
+     "frozen_at": "2026-09-15T16:42:05Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4336,
+     "frozen_at": "2026-09-15T21:42:04Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 3.8505078125,
+     "champion_roi": 3.8505078125
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1867,
+     "frozen_at": "2026-09-16T18:42:07Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4337,
+     "frozen_at": "2026-09-16T21:42:06Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 4.61640625,
+     "champion_roi": 4.61640625
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4338,
+     "frozen_at": "2026-09-17T18:42:07Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4339,
+     "frozen_at": "2026-09-18T18:12:11Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4340,
+     "frozen_at": "2026-09-18T23:12:11Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4341,
+     "frozen_at": "2026-09-19T12:42:12Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 981,
+     "frozen_at": "2026-09-19T13:42:35Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4342,
+     "frozen_at": "2026-09-19T18:27:06Z",
+     "arm_hit": 1,
+     "champion_hit": 0,
+     "arm_roi": 0.03820312499999989,
+     "champion_roi": -1.0
+    }
+   ]
+  },
+  {
+   "arm": "poolopt-v1-b256-balans",
+   "arm_label": "balans",
+   "horizon": "h3",
+   "horizon_minutes": 180,
+   "units": [
+    "topptipset"
+   ],
+   "paired_available": 47,
+   "n": 40,
+   "enough": true,
+   "arm_hits": 15,
+   "champion_hits": 13,
+   "mean_hit_delta": 0.05,
+   "hit_delta_ci90": [
+    -0.025,
+    0.125
+   ],
+   "roi_n": 40,
+   "mean_winsor_roi_delta": 0.07595507812499999,
+   "winsor_roi_delta_ci90": [
+    -0.05,
+    0.225955078125
+   ],
+   "gate_passed": false,
+   "first": {
+    "product": "topptipset",
+    "draw_number": 4309,
+    "frozen_at": "2026-09-03T14:27:12Z",
+    "arm_hit": 1,
+    "champion_hit": 1,
+    "arm_roi": 2.930078125,
+    "champion_roi": 2.930078125
+   },
+   "last": {
+    "product": "topptipset",
+    "draw_number": 4342,
+    "frozen_at": "2026-09-19T15:47:28Z",
+    "arm_hit": 1,
+    "champion_hit": 0,
+    "arm_roi": 0.03820312499999989,
+    "champion_roi": -1.0
+   },
+   "draws": [
+    {
+     "product": "topptipset",
+     "draw_number": 4309,
+     "frozen_at": "2026-09-03T14:27:12Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 2.930078125,
+     "champion_roi": 2.930078125
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4310,
+     "frozen_at": "2026-09-04T14:27:16Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4319,
+     "frozen_at": "2026-09-04T19:27:21Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 11.85484375,
+     "champion_roi": 11.85484375
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4312,
+     "frozen_at": "2026-09-05T10:27:15Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 979,
+     "frozen_at": "2026-09-05T11:02:29Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4313,
+     "frozen_at": "2026-09-05T15:57:16Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4314,
+     "frozen_at": "2026-09-05T20:42:13Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1864,
+     "frozen_at": "2026-09-06T10:27:34Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4315,
+     "frozen_at": "2026-09-06T15:57:03Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4316,
+     "frozen_at": "2026-09-06T19:42:02Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4317,
+     "frozen_at": "2026-09-07T14:12:05Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4318,
+     "frozen_at": "2026-09-07T19:27:05Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 1.3049218749999998,
+     "champion_roi": 1.3049218749999998
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4320,
+     "frozen_at": "2026-09-08T15:57:05Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.29304687500000004,
+     "champion_roi": -0.29304687500000004
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4321,
+     "frozen_at": "2026-09-08T19:12:11Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1865,
+     "frozen_at": "2026-09-09T15:47:34Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.6484765625,
+     "champion_roi": -0.6484765625
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4322,
+     "frozen_at": "2026-09-09T21:42:06Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4323,
+     "frozen_at": "2026-09-10T14:27:08Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.12515624999999997,
+     "champion_roi": -0.12515624999999997
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4324,
+     "frozen_at": "2026-09-10T19:57:09Z",
+     "arm_hit": 1,
+     "champion_hit": 0,
+     "arm_roi": 6.941015625,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4325,
+     "frozen_at": "2026-09-11T14:27:12Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.21113281250000004,
+     "champion_roi": -0.21113281250000004
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4326,
+     "frozen_at": "2026-09-11T15:32:06Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 1.0641406249999998,
+     "champion_roi": 1.0641406249999998
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4327,
+     "frozen_at": "2026-09-11T19:27:11Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 15.27296875,
+     "champion_roi": 15.27296875
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4328,
+     "frozen_at": "2026-09-12T08:42:12Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 980,
+     "frozen_at": "2026-09-12T11:02:43Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4329,
+     "frozen_at": "2026-09-12T15:57:12Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4330,
+     "frozen_at": "2026-09-12T20:42:09Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1866,
+     "frozen_at": "2026-09-13T10:27:31Z",
+     "arm_hit": 1,
+     "champion_hit": 0,
+     "arm_roi": 4.1301953125,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4331,
+     "frozen_at": "2026-09-13T15:57:03Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4332,
+     "frozen_at": "2026-09-13T19:42:03Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4333,
+     "frozen_at": "2026-09-14T14:12:04Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 0.5074609375000001,
+     "champion_roi": 0.5074609375000001
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4334,
+     "frozen_at": "2026-09-14T19:27:06Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4335,
+     "frozen_at": "2026-09-15T14:02:05Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4336,
+     "frozen_at": "2026-09-15T19:02:05Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 3.8505078125,
+     "champion_roi": 3.8505078125
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1867,
+     "frozen_at": "2026-09-16T16:02:09Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4337,
+     "frozen_at": "2026-09-16T19:02:04Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 4.61640625,
+     "champion_roi": 4.61640625
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4338,
+     "frozen_at": "2026-09-17T16:02:07Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4339,
+     "frozen_at": "2026-09-18T15:32:09Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4340,
+     "frozen_at": "2026-09-18T20:32:09Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4341,
+     "frozen_at": "2026-09-19T10:02:14Z",
+     "arm_hit": 0,
+     "champion_hit": 1,
+     "arm_roi": -1.0,
+     "champion_roi": 10.7790234375
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 981,
+     "frozen_at": "2026-09-19T11:02:38Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4342,
+     "frozen_at": "2026-09-19T15:47:28Z",
+     "arm_hit": 1,
+     "champion_hit": 0,
+     "arm_roi": 0.03820312499999989,
+     "champion_roi": -1.0
+    }
+   ]
+  },
+  {
+   "arm": "poolopt-v1-b256-balans",
+   "arm_label": "balans",
+   "horizon": "m20",
+   "horizon_minutes": 20,
+   "units": [
+    "topptipset"
+   ],
+   "paired_available": 47,
+   "n": 40,
+   "enough": true,
+   "arm_hits": 12,
+   "champion_hits": 12,
+   "mean_hit_delta": 0.0,
+   "hit_delta_ci90": [
+    -0.05,
+    0.05
+   ],
+   "roi_n": 40,
+   "mean_winsor_roi_delta": -0.024044921875000003,
+   "winsor_roi_delta_ci90": [
+    -0.124044921875,
+    0.05191015624999999
+   ],
+   "gate_passed": false,
+   "first": {
+    "product": "topptipset",
+    "draw_number": 4309,
+    "frozen_at": "2026-09-03T16:42:06Z",
+    "arm_hit": 1,
+    "champion_hit": 1,
+    "arm_roi": 2.930078125,
+    "champion_roi": 2.930078125
+   },
+   "last": {
+    "product": "topptipset",
+    "draw_number": 4342,
+    "frozen_at": "2026-09-19T18:27:06Z",
+    "arm_hit": 1,
+    "champion_hit": 0,
+    "arm_roi": 0.03820312499999989,
+    "champion_roi": -1.0
+   },
+   "draws": [
+    {
+     "product": "topptipset",
+     "draw_number": 4309,
+     "frozen_at": "2026-09-03T16:42:06Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 2.930078125,
+     "champion_roi": 2.930078125
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4310,
+     "frozen_at": "2026-09-04T16:42:07Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4319,
+     "frozen_at": "2026-09-04T21:42:09Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 11.85484375,
+     "champion_roi": 11.85484375
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4312,
+     "frozen_at": "2026-09-05T12:42:11Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 979,
+     "frozen_at": "2026-09-05T13:42:36Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4313,
+     "frozen_at": "2026-09-05T18:27:08Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4314,
+     "frozen_at": "2026-09-05T23:12:10Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1864,
+     "frozen_at": "2026-09-06T12:42:28Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4315,
+     "frozen_at": "2026-09-06T18:27:03Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4316,
+     "frozen_at": "2026-09-06T21:57:10Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4317,
+     "frozen_at": "2026-09-07T16:42:04Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4318,
+     "frozen_at": "2026-09-07T21:42:03Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 1.3049218749999998,
+     "champion_roi": 1.3049218749999998
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4320,
+     "frozen_at": "2026-09-08T18:27:05Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.29304687500000004,
+     "champion_roi": -0.29304687500000004
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4321,
+     "frozen_at": "2026-09-08T21:42:03Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1865,
+     "frozen_at": "2026-09-09T18:27:05Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.6484765625,
+     "champion_roi": -0.6484765625
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4322,
+     "frozen_at": "2026-09-10T00:12:07Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4323,
+     "frozen_at": "2026-09-10T16:42:06Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.12515624999999997,
+     "champion_roi": -0.12515624999999997
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4324,
+     "frozen_at": "2026-09-10T22:12:04Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4325,
+     "frozen_at": "2026-09-11T16:42:12Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.21113281250000004,
+     "champion_roi": -0.21113281250000004
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4326,
+     "frozen_at": "2026-09-11T18:12:07Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 1.0641406249999998,
+     "champion_roi": 1.0641406249999998
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4327,
+     "frozen_at": "2026-09-11T21:57:11Z",
+     "arm_hit": 0,
+     "champion_hit": 1,
+     "arm_roi": -1.0,
+     "champion_roi": 15.27296875
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4328,
+     "frozen_at": "2026-09-12T11:12:12Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 980,
+     "frozen_at": "2026-09-12T13:42:31Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4329,
+     "frozen_at": "2026-09-12T18:27:05Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4330,
+     "frozen_at": "2026-09-12T23:12:04Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1866,
+     "frozen_at": "2026-09-13T12:42:30Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4331,
+     "frozen_at": "2026-09-13T18:27:05Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4332,
+     "frozen_at": "2026-09-13T21:57:04Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4333,
+     "frozen_at": "2026-09-14T16:42:06Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 0.5074609375000001,
+     "champion_roi": 0.5074609375000001
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4334,
+     "frozen_at": "2026-09-14T21:42:06Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4335,
+     "frozen_at": "2026-09-15T16:42:05Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4336,
+     "frozen_at": "2026-09-15T21:42:04Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 3.8505078125,
+     "champion_roi": 3.8505078125
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1867,
+     "frozen_at": "2026-09-16T18:42:07Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4337,
+     "frozen_at": "2026-09-16T21:42:06Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 4.61640625,
+     "champion_roi": 4.61640625
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4338,
+     "frozen_at": "2026-09-17T18:42:07Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4339,
+     "frozen_at": "2026-09-18T18:12:11Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4340,
+     "frozen_at": "2026-09-18T23:12:11Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4341,
+     "frozen_at": "2026-09-19T12:42:12Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 981,
+     "frozen_at": "2026-09-19T13:42:35Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4342,
+     "frozen_at": "2026-09-19T18:27:06Z",
+     "arm_hit": 1,
+     "champion_hit": 0,
+     "arm_roi": 0.03820312499999989,
+     "champion_roi": -1.0
+    }
+   ]
+  },
+  {
+   "arm": "poolopt-v1-b256-xkvot",
+   "arm_label": "X-kvot",
+   "horizon": "h3",
+   "horizon_minutes": 180,
+   "units": [
+    "topptipset"
+   ],
+   "paired_available": 47,
+   "n": 40,
+   "enough": true,
+   "arm_hits": 14,
+   "champion_hits": 13,
+   "mean_hit_delta": 0.025,
+   "hit_delta_ci90": [
+    -0.05,
+    0.1
+   ],
+   "roi_n": 40,
+   "mean_winsor_roi_delta": 0.05,
+   "winsor_roi_delta_ci90": [
+    -0.1,
+    0.2
+   ],
+   "gate_passed": false,
+   "first": {
+    "product": "topptipset",
+    "draw_number": 4309,
+    "frozen_at": "2026-09-03T14:27:12Z",
+    "arm_hit": 1,
+    "champion_hit": 1,
+    "arm_roi": 2.930078125,
+    "champion_roi": 2.930078125
+   },
+   "last": {
+    "product": "topptipset",
+    "draw_number": 4342,
+    "frozen_at": "2026-09-19T15:47:28Z",
+    "arm_hit": 0,
+    "champion_hit": 0,
+    "arm_roi": -1.0,
+    "champion_roi": -1.0
+   },
+   "draws": [
+    {
+     "product": "topptipset",
+     "draw_number": 4309,
+     "frozen_at": "2026-09-03T14:27:12Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 2.930078125,
+     "champion_roi": 2.930078125
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4310,
+     "frozen_at": "2026-09-04T14:27:16Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4319,
+     "frozen_at": "2026-09-04T19:27:21Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 11.85484375,
+     "champion_roi": 11.85484375
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4312,
+     "frozen_at": "2026-09-05T10:27:15Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 979,
+     "frozen_at": "2026-09-05T11:02:29Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4313,
+     "frozen_at": "2026-09-05T15:57:16Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4314,
+     "frozen_at": "2026-09-05T20:42:13Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1864,
+     "frozen_at": "2026-09-06T10:27:34Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4315,
+     "frozen_at": "2026-09-06T15:57:03Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4316,
+     "frozen_at": "2026-09-06T19:42:02Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4317,
+     "frozen_at": "2026-09-07T14:12:05Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4318,
+     "frozen_at": "2026-09-07T19:27:05Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 1.3049218749999998,
+     "champion_roi": 1.3049218749999998
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4320,
+     "frozen_at": "2026-09-08T15:57:05Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.29304687500000004,
+     "champion_roi": -0.29304687500000004
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4321,
+     "frozen_at": "2026-09-08T19:12:11Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1865,
+     "frozen_at": "2026-09-09T15:47:34Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.6484765625,
+     "champion_roi": -0.6484765625
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4322,
+     "frozen_at": "2026-09-09T21:42:06Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4323,
+     "frozen_at": "2026-09-10T14:27:08Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.12515624999999997,
+     "champion_roi": -0.12515624999999997
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4324,
+     "frozen_at": "2026-09-10T19:57:09Z",
+     "arm_hit": 1,
+     "champion_hit": 0,
+     "arm_roi": 6.941015625,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4325,
+     "frozen_at": "2026-09-11T14:27:12Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.21113281250000004,
+     "champion_roi": -0.21113281250000004
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4326,
+     "frozen_at": "2026-09-11T15:32:06Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 1.0641406249999998,
+     "champion_roi": 1.0641406249999998
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4327,
+     "frozen_at": "2026-09-11T19:27:11Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 15.27296875,
+     "champion_roi": 15.27296875
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4328,
+     "frozen_at": "2026-09-12T08:42:12Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 980,
+     "frozen_at": "2026-09-12T11:02:43Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4329,
+     "frozen_at": "2026-09-12T15:57:12Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4330,
+     "frozen_at": "2026-09-12T20:42:09Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1866,
+     "frozen_at": "2026-09-13T10:27:31Z",
+     "arm_hit": 1,
+     "champion_hit": 0,
+     "arm_roi": 4.1301953125,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4331,
+     "frozen_at": "2026-09-13T15:57:03Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4332,
+     "frozen_at": "2026-09-13T19:42:03Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4333,
+     "frozen_at": "2026-09-14T14:12:04Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 0.5074609375000001,
+     "champion_roi": 0.5074609375000001
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4334,
+     "frozen_at": "2026-09-14T19:27:06Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4335,
+     "frozen_at": "2026-09-15T14:02:05Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4336,
+     "frozen_at": "2026-09-15T19:02:05Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 3.8505078125,
+     "champion_roi": 3.8505078125
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1867,
+     "frozen_at": "2026-09-16T16:02:09Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4337,
+     "frozen_at": "2026-09-16T19:02:04Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 4.61640625,
+     "champion_roi": 4.61640625
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4338,
+     "frozen_at": "2026-09-17T16:02:07Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4339,
+     "frozen_at": "2026-09-18T15:32:09Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4340,
+     "frozen_at": "2026-09-18T20:32:09Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4341,
+     "frozen_at": "2026-09-19T10:02:14Z",
+     "arm_hit": 0,
+     "champion_hit": 1,
+     "arm_roi": -1.0,
+     "champion_roi": 10.7790234375
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 981,
+     "frozen_at": "2026-09-19T11:02:38Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4342,
+     "frozen_at": "2026-09-19T15:47:28Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    }
+   ]
+  },
+  {
+   "arm": "poolopt-v1-b256-xkvot",
+   "arm_label": "X-kvot",
+   "horizon": "m20",
+   "horizon_minutes": 20,
+   "units": [
+    "topptipset"
+   ],
+   "paired_available": 47,
+   "n": 40,
+   "enough": true,
+   "arm_hits": 11,
+   "champion_hits": 12,
+   "mean_hit_delta": -0.025,
+   "hit_delta_ci90": [
+    -0.1,
+    0.05
+   ],
+   "roi_n": 40,
+   "mean_winsor_roi_delta": -0.074044921875,
+   "winsor_roi_delta_ci90": [
+    -0.2,
+    0.027865234374999992
+   ],
+   "gate_passed": false,
+   "first": {
+    "product": "topptipset",
+    "draw_number": 4309,
+    "frozen_at": "2026-09-03T16:42:06Z",
+    "arm_hit": 1,
+    "champion_hit": 1,
+    "arm_roi": 2.930078125,
+    "champion_roi": 2.930078125
+   },
+   "last": {
+    "product": "topptipset",
+    "draw_number": 4342,
+    "frozen_at": "2026-09-19T18:27:06Z",
+    "arm_hit": 1,
+    "champion_hit": 0,
+    "arm_roi": 0.03820312499999989,
+    "champion_roi": -1.0
+   },
+   "draws": [
+    {
+     "product": "topptipset",
+     "draw_number": 4309,
+     "frozen_at": "2026-09-03T16:42:06Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 2.930078125,
+     "champion_roi": 2.930078125
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4310,
+     "frozen_at": "2026-09-04T16:42:07Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4319,
+     "frozen_at": "2026-09-04T21:42:09Z",
+     "arm_hit": 0,
+     "champion_hit": 1,
+     "arm_roi": -1.0,
+     "champion_roi": 11.85484375
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4312,
+     "frozen_at": "2026-09-05T12:42:11Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 979,
+     "frozen_at": "2026-09-05T13:42:36Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4313,
+     "frozen_at": "2026-09-05T18:27:08Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4314,
+     "frozen_at": "2026-09-05T23:12:10Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1864,
+     "frozen_at": "2026-09-06T12:42:28Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4315,
+     "frozen_at": "2026-09-06T18:27:03Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4316,
+     "frozen_at": "2026-09-06T21:57:10Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4317,
+     "frozen_at": "2026-09-07T16:42:04Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4318,
+     "frozen_at": "2026-09-07T21:42:03Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 1.3049218749999998,
+     "champion_roi": 1.3049218749999998
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4320,
+     "frozen_at": "2026-09-08T18:27:05Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.29304687500000004,
+     "champion_roi": -0.29304687500000004
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4321,
+     "frozen_at": "2026-09-08T21:42:03Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1865,
+     "frozen_at": "2026-09-09T18:27:05Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.6484765625,
+     "champion_roi": -0.6484765625
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4322,
+     "frozen_at": "2026-09-10T00:12:07Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4323,
+     "frozen_at": "2026-09-10T16:42:06Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.12515624999999997,
+     "champion_roi": -0.12515624999999997
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4324,
+     "frozen_at": "2026-09-10T22:12:04Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4325,
+     "frozen_at": "2026-09-11T16:42:12Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": -0.21113281250000004,
+     "champion_roi": -0.21113281250000004
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4326,
+     "frozen_at": "2026-09-11T18:12:07Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 1.0641406249999998,
+     "champion_roi": 1.0641406249999998
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4327,
+     "frozen_at": "2026-09-11T21:57:11Z",
+     "arm_hit": 0,
+     "champion_hit": 1,
+     "arm_roi": -1.0,
+     "champion_roi": 15.27296875
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4328,
+     "frozen_at": "2026-09-12T11:12:12Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 980,
+     "frozen_at": "2026-09-12T13:42:31Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4329,
+     "frozen_at": "2026-09-12T18:27:05Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4330,
+     "frozen_at": "2026-09-12T23:12:04Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1866,
+     "frozen_at": "2026-09-13T12:42:30Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4331,
+     "frozen_at": "2026-09-13T18:27:05Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4332,
+     "frozen_at": "2026-09-13T21:57:04Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4333,
+     "frozen_at": "2026-09-14T16:42:06Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 0.5074609375000001,
+     "champion_roi": 0.5074609375000001
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4334,
+     "frozen_at": "2026-09-14T21:42:06Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4335,
+     "frozen_at": "2026-09-15T16:42:05Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4336,
+     "frozen_at": "2026-09-15T21:42:04Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 3.8505078125,
+     "champion_roi": 3.8505078125
+    },
+    {
+     "product": "topptipsetextra",
+     "draw_number": 1867,
+     "frozen_at": "2026-09-16T18:42:07Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4337,
+     "frozen_at": "2026-09-16T21:42:06Z",
+     "arm_hit": 1,
+     "champion_hit": 1,
+     "arm_roi": 4.61640625,
+     "champion_roi": 4.61640625
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4338,
+     "frozen_at": "2026-09-17T18:42:07Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4339,
+     "frozen_at": "2026-09-18T18:12:11Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4340,
+     "frozen_at": "2026-09-18T23:12:11Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4341,
+     "frozen_at": "2026-09-19T12:42:12Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipsetstryk",
+     "draw_number": 981,
+     "frozen_at": "2026-09-19T13:42:35Z",
+     "arm_hit": 0,
+     "champion_hit": 0,
+     "arm_roi": -1.0,
+     "champion_roi": -1.0
+    },
+    {
+     "product": "topptipset",
+     "draw_number": 4342,
+     "frozen_at": "2026-09-19T18:27:06Z",
+     "arm_hit": 1,
+     "champion_hit": 0,
+     "arm_roi": 0.03820312499999989,
+     "champion_roi": -1.0
+    }
+   ]
+  }
+ ]
+}

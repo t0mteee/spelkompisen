@@ -38,5 +38,32 @@ bestäms av regeln ovan och inte av det resultatet.
 
 ## Resultat
 
-Fylls i av `backend/scripts/poolopt_avlasning.py` efter att regeln ovan
-committats.
+Körd 2026-09-24 med `backend/scripts/poolopt_avlasning.py` mot
+produktionsdatabasen i read-only-läge. Underlaget per omgång ligger i
+`docs/poolopt-v1-avlasning-2026-09-24.json`. Alla sex celler hade 47 parade
+omgångar, exakt samma antal som `research_gate` räknar. De 40 första frystes
+mellan 2026-09-03 och 2026-09-19.
+
+| arm | horisont | träffar arm/champion | träff-Δ per omgång (KI90) | ROI-Δ winsor (KI90) | grind |
+|---|---|---|---|---|---|
+| träff | 180 min | 15/13 | +0,050 [-0,025; +0,125] | +0,076 [-0,074; +0,226] | ej passerad |
+| träff | 20 min | 12/12 | +0,000 [-0,050; +0,050] | -0,024 [-0,124; +0,052] | ej passerad |
+| balans | 180 min | 15/13 | +0,050 [-0,025; +0,125] | +0,076 [-0,050; +0,226] | ej passerad |
+| balans | 20 min | 12/12 | +0,000 [-0,050; +0,050] | -0,024 [-0,124; +0,052] | ej passerad |
+| X-kvot | 180 min | 14/13 | +0,025 [-0,050; +0,100] | +0,050 [-0,100; +0,200] | ej passerad |
+| X-kvot | 20 min | 11/12 | -0,025 [-0,100; +0,050] | -0,074 [-0,200; +0,028] | ej passerad |
+
+**Utfall: grinden är inte passerad i någon cell.** Ingen ny PH3-utmanare
+föreslås. Familjen samlar vidare utan avläsningar tills den nått 120
+framåtomgångar. Då görs den sista avläsningen med samma metod på alla parade
+omgångar bland de 120, och passerar ingen cell pensioneras familjen enligt
+protokollet.
+
+Iakttagelser utan beslutsvärde: träff- och balans-armen ger identiska
+träffar, eftersom deras rader nästan helt överlappar. Vid 180 minuter ligger
+punktskattningen på två träffar fler än championen på 40 omgångar, men
+intervallet rymmer noll. X-kvot-armen är svagast vid 20 minuter.
+
+Gamla Pinnacle-priser (statusauditen 2026-09-24) påverkade arm och champion
+lika i varje par, eftersom båda frystes i samma varv på samma underlag.
+Alla 40 omgångar frystes före färskhetsregeln och matchregeln v5.
