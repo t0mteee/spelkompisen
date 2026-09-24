@@ -349,7 +349,9 @@ function PlayedLiveCard({ c, onForget }) {
             <p className="hint">Prognosen per rad är vår egen skattning om omgången slutar som nu
               ({forecastBasisText(live.forecast)}), inte Svenska Spels siffra — den kommer först
               när omgången är rättad.{live.forecast.min_payout_kr
-                ? ` Under ${kr(live.forecast.min_payout_kr)} per rad betalar Svenska Spel inte ut nivån, så där visas 0 kr.`
+                ? ` Under ${kr(live.forecast.min_payout_kr)} per rad betalar Svenska Spel inte ut nivån, så där visas 0 kr${
+                  live.forecast.min_payout_basis === 'antagen'
+                    ? ' (gränsen är belagd för Stryktipset och Europatipset, antagen här)' : ''}.`
                 : ''}</p>
           )}
           {live.forecast && !live.out_of_contention && guaranteeLines(live.forecast).map((line) => (
