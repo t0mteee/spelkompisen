@@ -60,8 +60,11 @@ def capture_missing(store, product, draw, result, varv, *, now=None, clock=time.
         key = f"pool_detail_attempt:{mid}"
         quote = varv.detail_quotes.get(mid)
         if mid not in varv.detail_quotes:
+            # Budgeten stoppar bara NYA nätanrop. `break` hoppade även över
+            # senare matcher vars svar redan hämtats i samma varv av en annan
+            # produkt (statusauditen 2026-09-24, fynd C9).
             if clock() >= varv.detail_deadline or len(varv.detail_quotes) >= MAX_REQUESTS:
-                break
+                continue
             # Kontrollera väggklockan även efter tidigare nätanrop i samma loop.
             requested = injected_now or dt.datetime.now(dt.timezone.utc)
             if requested > target:

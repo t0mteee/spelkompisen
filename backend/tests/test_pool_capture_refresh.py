@@ -105,6 +105,22 @@ class DetailCaptureTests(unittest.TestCase):
         self.run_capture()
         self.pin.prematch_quote.assert_not_called()
 
+    def test_slut_budget_hoppar_inte_over_redan_hamtade_svar(self):
+        """C9: budgeten stoppar nya anrop, inte redan hämtade svar i varvet."""
+        self.draw.matches = [SimpleNamespace(event_number=1, cancelled=False),
+                             SimpleNamespace(event_number=2, cancelled=False)]
+        self.result["hits"] = {1: {"id": "123", "odds": ODDS, "total": TOTAL},
+                               2: {"id": "456", "odds": ODDS, "total": TOTAL}}
+        self.varv.detail_deadline = 10
+        # Match 2:s svar hämtades redan i varvet av en annan produkt.
+        self.varv.detail_quotes = {"456": dict(self.quote)}
+        result = self.run_capture(clock=lambda: 11)
+        self.pin.prematch_quote.assert_not_called()
+        self.assertEqual(1, result["captured"])
+        events = [r[0] for r in self.store.conn.execute(
+            "SELECT event_number FROM pool_market_capture")]
+        self.assertEqual([2], events)
+
     def test_aterlast_bulk_far_inte_backa_snapshots(self):
         # Även oförändrat 1X2: ingen ny 1X2-punkt vid reservhämtningen.
         self.store.save_sharp_snapshot("topptipset", 4333, {1: {"odds": ODDS}},
