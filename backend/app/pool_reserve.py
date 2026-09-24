@@ -10,7 +10,9 @@ import httpx
 
 from . import kambi
 
-VERSION = "pool-reserve-ou-v1"
+# v2 sedan 2026-09-24: gemensam kö per basvarv (fynd C3) i stället för
+# produktordning. Samma journal, källa och gränser; v1-rader ligger kvar.
+VERSION = "pool-reserve-ou-v2"
 SOURCE = "svenskaspel_kambi"
 MAX_AGE_S = 1800
 COOLDOWN_S = 900
@@ -285,8 +287,12 @@ def read_for_draw(store, product, draw_number, now=None):
     if not store.conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
                               "AND name='pool_reserve_quote'").fetchone():
         return {}
-    rows = store.conn.execute("SELECT * FROM pool_reserve_quote WHERE product=? AND draw_number=? "
-                              "ORDER BY checked_at DESC",(product,draw_number)).fetchall()
+    # Senaste kontroll först, sorterat som TID (aldrig som text).
+    oldest = dt.datetime.min.replace(tzinfo=dt.timezone.utc)
+    rows = sorted(store.conn.execute(
+        "SELECT * FROM pool_reserve_quote WHERE product=? AND draw_number=?",
+        (product, draw_number)).fetchall(),
+        key=lambda row: _time(row["checked_at"]) or oldest, reverse=True)
     result, errors = {}, set()
     for row in rows:
         r = dict(row); ev = r["event_number"]

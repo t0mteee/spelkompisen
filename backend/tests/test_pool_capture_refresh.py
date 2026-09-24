@@ -119,6 +119,14 @@ class DetailCaptureTests(unittest.TestCase):
         self.assertEqual(0, self.store.conn.execute(
             "SELECT count(*) FROM pool_market_capture").fetchone()[0])
 
+    def test_senaste_observation_jamfors_som_tid_inom_samma_sekund(self):
+        """`…Z` sorterar efter `….5+00:00` som text men är en halv sekund äldre."""
+        self.store.save_sharp_snapshot("topptipset", 4333, {1: {"odds": ODDS}},
+                                       "2026-09-14T16:35:00.500000+00:00")
+        result = self.run_capture()
+        self.assertEqual(0, result["captured"])
+        self.assertEqual({"aldre_an_senaste_observation": 1}, result["reasons"])
+
     def test_loggrad_per_forsok_med_id_orsak_och_tider(self):
         self.quote = {**self.quote, "cache_age_valid": False}
         self.run_capture()

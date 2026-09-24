@@ -24,6 +24,20 @@ from .svenskaspel import Draw
 # testkörning i serverns arbetskopia (pre-push-hooken) aldrig öppnar
 # produktionsdatabasen. Tre testmoduler gjorde det via Storage() före
 # 2026-09-24. Launchd-jobben och API:t sätter aldrig variabeln.
+def _utc_time(value) -> Optional[dt.datetime]:
+    """ISO-tid som UTC. Databasen blandar `Z`, `+00:00` och mikrosekunder;
+    tider jämförs därför som tider, aldrig som strängar."""
+    if not value:
+        return None
+    try:
+        parsed = dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt.timezone.utc)
+    return parsed.astimezone(dt.timezone.utc)
+
+
 DEFAULT_DB = Path(os.environ.get("SPELKOMPISEN_DB")
                   or Path(__file__).resolve().parent.parent / "data" / "stryktips.db")
 
@@ -1588,30 +1602,44 @@ class Storage:
         return n
 
     def sharp_latest_observations(self, product: str, draw_number: int) -> dict:
-        """Monoton klocka även när bara totalen ändrats eller 1X2 stått still."""
-        return {r[0]: r[1] for r in self.conn.execute(
-            "SELECT event_number,MAX(fetched_at) FROM ("
-            "SELECT event_number,fetched_at FROM sharp_snapshots WHERE product=? AND draw_number=? "
-            "UNION ALL SELECT event_number,fetched_at FROM sharp_total_snapshots WHERE product=? AND draw_number=? "
-            "UNION ALL SELECT event_number,fetched_at FROM pool_market_capture "
-            "WHERE product=? AND draw_number=? AND source='sharp') GROUP BY event_number",
-            (product, draw_number) * 3)}
+        """Monoton klocka även när bara totalen ändrats eller 1X2 stått still.
+
+        Senaste observationen väljs som TID, inte med SQL:s MAX över text:
+        tabellerna blandar `…Z` och `…+00:00` med mikrosekunder, och inom
+        samma sekund sorterar 'Z' efter '.' (statusauditen 2026-09-24).
+        Värdet är den ursprungliga tidssträngen."""
+        latest: dict[int, tuple[dt.datetime, str]] = {}
+        for event, fetched_at in self.conn.execute(
+                "SELECT event_number,fetched_at FROM sharp_snapshots WHERE product=? AND draw_number=? "
+                "UNION ALL SELECT event_number,fetched_at FROM sharp_total_snapshots WHERE product=? AND draw_number=? "
+                "UNION ALL SELECT event_number,fetched_at FROM pool_market_capture "
+                "WHERE product=? AND draw_number=? AND source='sharp'",
+                (product, draw_number) * 3):
+            at = _utc_time(fetched_at)
+            if at is not None and (event not in latest or at > latest[event][0]):
+                latest[event] = (at, fetched_at)
+        return {event: raw for event, (_, raw) in latest.items()}
 
     def save_sharp_snapshot(self, product: str, draw_number: int, hits: dict[int, dict],
                             fetched_at: str) -> int:
         """Lägg till en tidsserie-punkt för sharp-odds (Pinnacle) per utfall, men
         bara om oddset ändrats sedan senaste punkten (håller serien liten)."""
-        prev = {}
+        # Föregående punkt per (match, tecken) väljs som TID, inte som text.
+        latest_prev: dict[tuple[int, str], tuple[dt.datetime, float]] = {}
         for r in self.conn.execute(
-            "SELECT event_number, sign, odds FROM sharp_snapshots s WHERE product=? AND draw_number=? "
-            "AND fetched_at=(SELECT MAX(fetched_at) FROM sharp_snapshots WHERE product=s.product "
-            "AND draw_number=s.draw_number AND event_number=s.event_number AND sign=s.sign)",
-            (product, draw_number)).fetchall():
-            prev[(r["event_number"], r["sign"])] = r["odds"]
+                "SELECT event_number, sign, odds, fetched_at FROM sharp_snapshots "
+                "WHERE product=? AND draw_number=?", (product, draw_number)).fetchall():
+            at = _utc_time(r["fetched_at"])
+            key = (r["event_number"], r["sign"])
+            if at is not None and (key not in latest_prev or at >= latest_prev[key][0]):
+                latest_prev[key] = (at, r["odds"])
+        prev = {key: odds for key, (_, odds) in latest_prev.items()}
         n = 0
         newest = self.sharp_latest_observations(product, draw_number)
+        this_time = _utc_time(fetched_at)
         for ev, h in hits.items():
-            if newest.get(ev) and fetched_at < newest[ev]:
+            newest_time = _utc_time(newest.get(ev))
+            if newest_time and this_time and this_time < newest_time:
                 continue  # en återläst bulkcache får inte backa en färsk matchobservation
             o = h.get("odds") or {}
             for sign in ("1", "X", "2"):

@@ -177,9 +177,10 @@ def capture_missing(store, product, draw, result, varv, *, now=None, clock=time.
             odds, total = quote.get("odds") or {}, quote.get("total") or {}
             stamp = pool_dataset._iso(observed)
             newest = store.sharp_latest_observations(product, draw.draw_number).get(match.event_number)
-            # Oförändrad strängjämförelse (D3 får inte ändra vilka svar som
-            # godtas); stamp är alltid sekundformat med Z.
-            if newest and stamp < newest:
+            # Som TID: `newest` kan bära `+00:00` och mikrosekunder, och
+            # textjämförelsen gav fel utfall inom samma sekund (2026-09-24).
+            newest_time = pool_dataset._parse(newest) if newest else None
+            if newest_time and pool_dataset._parse(stamp) < newest_time:
                 reason = "aldre_an_senaste_observation"
         report["log"].append({
             "matchup_id": mid, "event": match.event_number, "reason": reason or ACCEPTED,

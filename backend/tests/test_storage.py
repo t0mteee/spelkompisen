@@ -459,3 +459,35 @@ class SeedHintTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TidsjamforelseTests(unittest.TestCase):
+    """Sharp-seriens senaste observation väljs som tid, inte som text."""
+
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "t.db")
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+
+    def test_blandade_format_inom_samma_sekund(self):
+        odds = {"1": 2.0, "X": 3.4, "2": 3.6}
+        self.store.save_sharp_snapshot("topptipset", 1, {1: {"odds": odds}},
+                                       "2026-09-24T16:35:00Z")
+        self.store.conn.execute(
+            "INSERT INTO pool_market_capture (product, draw_number, source, event_number, "
+            "fetched_at, status, odds_complete, streck_complete) VALUES "
+            "('topptipset', 1, 'sharp', 1, '2026-09-24T16:35:00.500000+00:00', 'matched', 1, 0)")
+        self.store.conn.commit()
+        latest = self.store.sharp_latest_observations("topptipset", 1)
+        self.assertEqual("2026-09-24T16:35:00.500000+00:00", latest[1])
+        # En halv sekund äldre punkt får inte backa serien.
+        moved = {"1": 1.9, "X": 3.5, "2": 3.8}
+        self.assertEqual(0, self.store.save_sharp_snapshot(
+            "topptipset", 1, {1: {"odds": moved}}, "2026-09-24T16:35:00.100000+00:00"))
+        self.assertEqual(3, self.store.save_sharp_snapshot(
+            "topptipset", 1, {1: {"odds": moved}}, "2026-09-24T16:36:00Z"))
