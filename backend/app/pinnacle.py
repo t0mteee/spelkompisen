@@ -17,9 +17,12 @@ from typing import Optional
 
 import httpx
 
-from .odds_provider import (_best_side, pool_side_score, _hours_apart, english_name,
-                            COMBINED_MIN, HOME_AWAY_MIN, TIME_WINDOW_H,
-                            POOL_MATCH_VERSION, diagnostic_team_sim, is_side_market)
+# `_best_side` återexporteras: scripts/pool_tackning_rapport.py importerar den här.
+from .odds_provider import (EXACT, PART, _best_side, pool_side_score, pool_side_relation,  # noqa: F401
+                            pool_name_candidates, _hours_apart, _parse_time,
+                            english_name, COMBINED_MIN, HOME_AWAY_MIN,
+                            TIME_WINDOW_H, POOL_ANCHOR_S, POOL_MATCH_VERSION,
+                            diagnostic_team_sim, is_side_market)
 from .derive import derive_1x2, goal_expectations
 
 BASE = "https://guest.api.arcadia.pinnacle.com/0.1"
@@ -427,19 +430,142 @@ class Pinnacle:
         return match_index(home, away, home_iso, away_iso, index, match_start, diag)
 
 
+# pool-name-v5 (2026-09-24). Är SvS-avsparken känd prövas bara kandidater
+# vars avspark ligger inom POOL_ANCHOR_S. Varje (rad, orientering) får en
+# nivå: A exakt/alias på båda sidor, B exakt/alias + generiskt delnamn, C
+# generiskt delnamn på båda, F stavningslikhet med oförändrade trösklar
+# (HOME_AWAY_MIN/COMBINED_MIN). Bästa nivån vinner; mer än en kandidat eller
+# orientering på den nivån är tvetydigt. En lägre nivå blockerar aldrig en
+# högre. Utan känd SvS-avspark gäller v4-vägen oförändrad.
+_TIERS = ("A", "B", "C", "F")
+# Konfidens för en delnamnssida: A 1,0 · B 0,9 · C 0,8. F behåller sitt
+# snittvärde. Beslutet bärs av `match_tier`, inte av siffran.
+_PART_STRENGTH = 0.8
+
+
+def _aware(value: Optional[dt.datetime]) -> Optional[dt.datetime]:
+    if value is not None and value.tzinfo is None:
+        return value.replace(tzinfo=dt.timezone.utc)
+    return value
+
+
+def _pool_tier(home_rel: tuple, away_rel: tuple) -> tuple[Optional[str], float]:
+    (kind_home, score_home), (kind_away, score_away) = home_rel, away_rel
+    if kind_home == EXACT and kind_away == EXACT:
+        return "A", 1.0
+    if {kind_home, kind_away} == {EXACT, PART}:
+        return "B", (1.0 + _PART_STRENGTH) / 2
+    if kind_home == PART and kind_away == PART:
+        return "C", _PART_STRENGTH
+    if (score_home >= HOME_AWAY_MIN and score_away >= HOME_AWAY_MIN
+            and (score_home + score_away) / 2 >= COMBINED_MIN):
+        return "F", (score_home + score_away) / 2
+    return None, 0.0
+
+
+def _audit_entry(home: str, away: str, g: dict, normal: tuple, swapped: tuple,
+                 gap_h: Optional[float]) -> tuple:
+    """Sökledtråd för diagnostiken. Säkra sidopoäng förblir oförändrade; en
+    separat sökpoäng gör avvisade delnamn synliga (aldrig användbara som odds)."""
+    dh, da = diagnostic_team_sim(home, g["home"]), diagnostic_team_sim(away, g["away"])
+    dh2, da2 = diagnostic_team_sim(home, g["away"]), diagnostic_team_sim(away, g["home"])
+    raw_swap = (dh2 + da2, min(dh2, da2)) > (dh + da, min(dh, da))
+    sides = swapped if raw_swap else normal
+    search = (dh2, da2) if raw_swap else (dh, da)
+    rank = (sum(search), min(search), -(gap_h or 0), g["home"], g["away"])
+    return rank, {
+        "cand_home": g["home"], "cand_away": g["away"],
+        "cand_start": g.get("start"), "side_home": round(sides[0], 3),
+        "side_away": round(sides[1], 3), "score": round(sum(sides) / 2, 3),
+        "swapped": raw_swap}
+
+
+def _hit(best: dict, swapped: bool, confidence: float, tier: str) -> dict:
+    odds = best["odds"]
+    if swapped:
+        odds = {"1": odds["2"], "X": odds["X"], "2": odds["1"]}
+    return {"id": best.get("id"), "home": best["home"], "away": best["away"], "start": best.get("start"),
+            "odds": odds, "confidence": round(confidence, 3),
+            "swapped": swapped, "odds_source": best.get("odds_source"),
+            "match_version": POOL_MATCH_VERSION, "match_tier": tier,
+            # totalen är orienteringsoberoende och ska följa exakt samma
+            # fysiska match som 1X2-träffen.
+            "total": best.get("total"),
+            # rå xg i Pinnacles orientering — bomben.py speglar vid swapped
+            "home_xg": best.get("home_xg"), "away_xg": best.get("away_xg")}
+
+
 def match_index(home: str, away: str, home_iso: Optional[str],
                 away_iso: Optional[str], index: list[dict],
                 match_start: Optional[str] = None,
                 diag: Optional[dict] = None) -> Optional[dict]:
-    """Bästa matchande Pinnacle-match (namn via ISO/namnregel + tidsfönster).
+    """Bästa matchande Pinnacle-match (pool-name-v5: tidsankare + nivåer).
 
-    Ren funktion utan nätverk. Kräver exakt en kvalificerad kandidat och
-    en entydig hemma-/bortaorientering; indexordning får aldrig välja odds.
-    Testar båda lagorienteringarna; om Pinnacle
-    har hemma/borta omvänt speglas oddsen (1↔2) så att '1' alltid = Svenska
-    Spels hemmalag. `diag` fylls vid AVSLAG med den närmaste kandidaten
-    (namn, sidopoäng, kombinerat) oavsett trösklar — diagnostik som gör
-    "namnform okänd" mätbar (beslut e, 2026-09-14). Aldrig en träff.
+    Ren funktion utan nätverk; indexordning får aldrig välja odds. Med känd
+    SvS-avspark är bara kandidater med känd avspark inom POOL_ANCHOR_S
+    behöriga, och valet görs på nivå (se `_TIERS`). Utan känd SvS-avspark
+    gäller v4-vägen oförändrad (`match_tier` = "v4"). Om Pinnacle har
+    hemma/borta omvänt speglas oddsen (1↔2) så att '1' alltid = Svenska Spels
+    hemmalag. `diag` fylls vid AVSLAG med de närmaste kandidaterna inom
+    TIME_WINDOW_H (även utanför ankaret, så en flyttad avspark syns) —
+    diagnostik, aldrig en träff.
+    """
+    svs_start = _aware(_parse_time(match_start)) if match_start else None
+    if svs_start is None:
+        return _match_index_v4(home, away, home_iso, away_iso, index, match_start, diag)
+    home_cands, home_national = pool_name_candidates(home, home_iso)
+    away_cands, away_national = pool_name_candidates(away, away_iso)
+    qualifying = []          # (nivå, rad, speglad, konfidens)
+    audit_candidates = []
+    for g in index:
+        if is_side_market(g["home"], g["away"]):
+            continue
+        cand_start = _aware(_parse_time(g.get("start")))
+        if cand_start is None:
+            continue         # SvS-avspark känd men kandidatens okänd: inte behörig
+        gap_s = abs((svs_start - cand_start).total_seconds())
+        if gap_s > TIME_WINDOW_H * 3600:
+            continue
+        eligible = gap_s <= POOL_ANCHOR_S
+        if not eligible and diag is None:
+            continue
+        gap_h = gap_s / 3600
+        rel_h = pool_side_relation(home_cands, g["home"], away, g["away"], gap_h, home_national)
+        rel_a = pool_side_relation(away_cands, g["away"], home, g["home"], gap_h, away_national)
+        rel_h2 = pool_side_relation(home_cands, g["away"], away, g["home"], gap_h, home_national)
+        rel_a2 = pool_side_relation(away_cands, g["home"], home, g["away"], gap_h, away_national)
+        if eligible:
+            for swapped, (side_h, side_a) in ((False, (rel_h, rel_a)), (True, (rel_h2, rel_a2))):
+                tier, confidence = _pool_tier(side_h, side_a)
+                if tier:
+                    qualifying.append((tier, g, swapped, confidence))
+        if diag is not None:
+            audit_candidates.append(_audit_entry(
+                home, away, g, (rel_h[1], rel_a[1]), (rel_h2[1], rel_a2[1]), gap_h))
+    best_rank = min((_TIERS.index(q[0]) for q in qualifying), default=None)
+    top = [q for q in qualifying if _TIERS.index(q[0]) == best_rank]
+    if len(top) != 1:
+        if diag is not None and audit_candidates:
+            candidates = [c for _, c in sorted(audit_candidates, key=lambda c: c[0], reverse=True)[:5]]
+            diag.update({**candidates[0], "candidates": candidates,
+                         "reason": "ambiguous" if len(top) > 1 else "name_mismatch",
+                         "qualifying_candidates": len(top),
+                         "qualifying_tier": _TIERS[best_rank] if top else None,
+                         "match_version": POOL_MATCH_VERSION})
+        return None
+    tier, best, best_swapped, confidence = top[0]
+    return _hit(best, best_swapped, confidence, tier)
+
+
+def _match_index_v4(home: str, away: str, home_iso: Optional[str],
+                    away_iso: Optional[str], index: list[dict],
+                    match_start: Optional[str] = None,
+                    diag: Optional[dict] = None) -> Optional[dict]:
+    """pool-name-v4, oförändrad: vägen när SvS-avsparken är okänd.
+
+    Kräver exakt en kvalificerad kandidat och en entydig hemma-/borta-
+    orientering inom TIME_WINDOW_H (utan SvS-avspark: hela indexet), med
+    ISO-landsnamn som kandidat på båda sidor som i v4.
     """
     home_cands = [home, english_name(home_iso)]
     away_cands = [away, english_name(away_iso)]
@@ -468,19 +594,7 @@ def match_index(home: str, away: str, home_iso: Optional[str],
         if score > best_score:
             best, best_score, best_swapped = g, score, is_swapped
         if diag is not None:
-            # Säkra matchpoäng förblir oförändrade. En separat sökpoäng gör
-            # avvisade delnamn synliga i diagnostiken (inte användbara som odds).
-            dh, da = diagnostic_team_sim(home, g["home"]), diagnostic_team_sim(away, g["away"])
-            dh2, da2 = diagnostic_team_sim(home, g["away"]), diagnostic_team_sim(away, g["home"])
-            raw_swap = (dh2 + da2, min(dh2, da2)) > (dh + da, min(dh, da))
-            sides = (sh2, sa2) if raw_swap else (sh, sa)
-            search = (dh2, da2) if raw_swap else (dh, da)
-            rank = (sum(search), min(search), -(gap or 0), g["home"], g["away"])
-            audit_candidates.append((rank, {
-                "cand_home": g["home"], "cand_away": g["away"],
-                "cand_start": g.get("start"), "side_home": round(sides[0], 3),
-                "side_away": round(sides[1], 3), "score": round(sum(sides) / 2, 3),
-                "swapped": raw_swap}))
+            audit_candidates.append(_audit_entry(home, away, g, (sh, sa), (sh2, sa2), gap))
     if not best or best_score < COMBINED_MIN or qualifying != 1:
         if diag is not None and audit_candidates:
             candidates = [c for _, c in sorted(audit_candidates, key=lambda c: c[0], reverse=True)[:5]]
@@ -489,15 +603,4 @@ def match_index(home: str, away: str, home_iso: Optional[str],
                          "qualifying_candidates": qualifying,
                          "match_version": POOL_MATCH_VERSION})
         return None
-    odds = best["odds"]
-    if best_swapped:
-        odds = {"1": odds["2"], "X": odds["X"], "2": odds["1"]}
-    return {"id": best.get("id"), "home": best["home"], "away": best["away"], "start": best.get("start"),
-            "odds": odds, "confidence": round(best_score, 3),
-            "swapped": best_swapped, "odds_source": best.get("odds_source"),
-            "match_version": POOL_MATCH_VERSION,
-            # totalen är orienteringsoberoende och ska följa exakt samma
-            # fysiska match som 1X2-träffen.
-            "total": best.get("total"),
-            # rå xg i Pinnacles orientering — bomben.py speglar vid swapped
-            "home_xg": best.get("home_xg"), "away_xg": best.get("away_xg")}
+    return _hit(best, best_swapped, best_score, "v4")

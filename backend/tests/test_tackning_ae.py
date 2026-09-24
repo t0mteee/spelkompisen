@@ -77,11 +77,23 @@ class NameRuleTests(unittest.TestCase):
                      odds={"1": 1.5, "X": 4.0, "2": 6.0})
         second = {**first, "start": "2026-09-16T18:00:00Z",
                   "odds": {"1": 6.0, "X": 4.0, "2": 1.5}}
-        for index in ([first, second], [second, first], [first, first]):
+        near = {**first, "start": "2026-09-15T18:10:00Z",
+                "odds": {"1": 6.0, "X": 4.0, "2": 1.5}}
+        # pool-name-v5: två kandidater inom tidsankaret (15 min) går inte att
+        # skilja åt, oavsett ordning och pris.
+        for index in ([first, first], [first, near], [near, first]):
             diag = {}
             self.assertIsNone(pinnacle.match_index("Inter", "Lazio", None, None, index, start, diag))
             self.assertEqual("ambiguous", diag["reason"])
             self.assertEqual(2, diag["qualifying_candidates"])
+        # Samma lag ett dygn senare är en annan match (ett lag spelar en match
+        # i taget) och gör inte längre rätt rad tvetydig (England–Spanien 4972).
+        for index in ([first, second], [second, first]):
+            self.assertEqual(1.5, pinnacle.match_index("Inter", "Lazio", None, None, index, start)["odds"]["1"])
+        # Utan SvS-avspark gäller v4-vägen oförändrad: båda raderna räknas.
+        diag = {}
+        self.assertIsNone(pinnacle.match_index("Inter", "Lazio", None, None, [first, second], None, diag))
+        self.assertEqual(("ambiguous", 2), (diag["reason"], diag["qualifying_candidates"]))
 
     def test_tvetydig_orientering_avstar_men_entydig_speglar_odds(self):
         start = "2026-09-15T18:00:00Z"

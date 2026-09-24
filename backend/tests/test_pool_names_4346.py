@@ -23,7 +23,8 @@ class PoolNames4346Tests(unittest.TestCase):
         self.assertEqual(event["id"], hit["id"])
         self.assertEqual(event["odds"], hit["odds"])
         self.assertEqual(event["total"], hit["total"])
-        self.assertEqual("pool-name-v4", hit["match_version"])
+        self.assertEqual("pool-name-v5", hit["match_version"])
+        self.assertEqual("A", hit["match_tier"])     # kontextaliaset räknas som exakt
         # Ett generellt Estudiantes-alias skulle även träffa andra klubbar.
         self.assertEqual(0, odds_provider.team_sim("Estudiantes", "Estudiantes de La Plata"))
 
