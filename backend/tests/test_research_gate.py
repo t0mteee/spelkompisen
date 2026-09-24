@@ -86,6 +86,23 @@ class ResearchGateTests(unittest.TestCase):
         self.assertEqual({"saknad champion": 1, "sen frysning": 0, "utdelning ej komplett": 1},
                          c["dropout"])
 
+    def test_poolopt_efter_avlasningen_samlar_mot_sista_avlasningen(self):
+        """Beslut 5aA: efter avläsningen vid 40 visas inte "underlag klart"."""
+        arm = psl.POOLOPT_FORWARD_CONFIGS[0]["key"]
+        for draw in range(4400, 4441):
+            freeze(self.store, "topptipset", draw, "h3", arm,
+                   correct_max=6, payout_complete=1)
+            freeze(self.store, "topptipset", draw, "h3", psl.CHAMPION_KEY,
+                   correct_max=6, payout_complete=1)
+        rep = psl.research_gate(self.store, "poolopt")
+        self.assertEqual(40, rep["readings"][0]["paired"])
+        cells = {(c["unit"], c["horizon"], c["arm"]): c for c in rep["cells"]}
+        c = cells[(family_of("topptipset"), "h3", arm)]
+        self.assertEqual(41, c["paired_draws"])
+        self.assertEqual("samlar", c["status"])
+        self.assertIn("avläst vid 40 par 2026-09-24: ej passerad", c["note"])
+        self.assertIn("sista avläsning vid 120", c["note"])
+
     def test_maxtest_ar_preliminart_fran_tio_par_och_klart_vid_fyrtio(self):
         keys = [c["key"] for c in psl.MATHMAX_FORWARD_CONFIGS]
         for draw in range(5000, 5010):

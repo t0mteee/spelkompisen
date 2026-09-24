@@ -66,10 +66,12 @@ DECISIONS: dict[str, dict] = {
               "text": "Piloten rankade 40 000 enskilda rader och var reducerad, inte matematisk. "
                       "Ersatt av Matematiskt max 39 366 och Reducerat max 20 000.",
               "doc": "docs/max40-forward-2026-08-26.md"},
-    "poolopt": {"date": "2026-09-02", "verdict": "forward startad",
-                "text": "Ingen arm slog Standard på ROI i slutauditen (402 omg). Tre armar fryses "
-                        "framåt; grind 40 parade omgångar mot championen, avslut vid 120.",
-                "doc": "docs/poolopt-v1-forward-2026-09-02.md"},
+    "poolopt": {"date": "2026-09-24", "verdict": "avläst vid 40: ej passerad",
+                "text": "Formell avläsning på de 40 första parade omgångarna per arm och "
+                        "frystid: ingen cell har undre KI90 över noll för träff-Δ eller ROI-Δ, "
+                        "så ingen utmanare föreslås. Sista avläsning vid 120 framåtomgångar; "
+                        "inga avläsningar däremellan (Samans beslut 5aA).",
+                "doc": "docs/poolopt-v1-avlasning-2026-09-24.md"},
     "standard": {"date": "2026-08-05", "verdict": "generation 2",
                  "text": "Matrisen byttes till 144/256/512/1024 kr × säker/medel/tuff med 256 kr "
                          "medel som champion; Pinnacle-basen tillkom 2026-09-02.",

@@ -1759,7 +1759,12 @@ RESEARCH_GATES: dict[str, dict] = {
                    "preliminary_from": 10, "pair": "all_active", "unit": "product"},
     "poolopt": {"doc": "docs/poolopt-v1-forward-2026-09-02.md", "min_paired_draws": 40,
                 "pair": "champion", "unit": "family", "per_arm": True,
-                "end_after_forward_draws": 120},
+                "end_after_forward_draws": 120,
+                # Samans beslut 5aA 2026-09-24: EXAKT två avläsningar, vid 40
+                # par och sist vid avslutsgränsen. Däremellan bara räknare.
+                "readings": ({"paired": 40, "date": "2026-09-24",
+                              "result": "ej passerad",
+                              "doc": "docs/poolopt-v1-avlasning-2026-09-24.md"},)},
     "max40": {"doc": "docs/max40-forward-2026-08-26.md", "closed": True,
               "pair": "all_active", "unit": "product"},
 }
@@ -1849,8 +1854,19 @@ def research_gate(store: Storage, family: str) -> dict:
             else:
                 paired += 1
         note = ""
+        done = [r for r in gate.get("readings") or () if paired >= r["paired"]]
         if gate.get("closed"):
             status = "avslutad"
+        elif done:
+            # Avläst enligt plan. `underlag klart` vore en inbjudan att titta
+            # igen; nästa och sista avläsning sker vid avslutsgränsen.
+            last = done[-1]
+            end_after = gate.get("end_after_forward_draws")
+            status = ("avslutsgräns nådd" if end_after and len(draws) >= end_after
+                      else "samlar")
+            note = (f"avläst vid {last['paired']} par {last['date']}: {last['result']}"
+                    + (f" · sista avläsning vid {end_after} framåtomgångar"
+                       if end_after else ""))
         elif required is not None and paired >= required:
             status = "underlag klart"
         else:
@@ -1872,4 +1888,5 @@ def research_gate(store: Storage, family: str) -> dict:
             "pair": gate["pair"], "unit": gate["unit"],
             "end_after_forward_draws": gate.get("end_after_forward_draws"),
             "preliminary_from": gate.get("preliminary_from"),
+            "readings": list(gate.get("readings") or ()),
             "active_keys": list(keys), "cells": out}
