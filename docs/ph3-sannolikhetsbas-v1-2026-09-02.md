@@ -62,3 +62,46 @@ Det vore en ändrad datagenererande process för championen mitt i en löpande
 PH3-generation. Alla frysta `dr1-b256-medel`-rader skulle då blanda två
 baser under samma nyckel. Regeln är den vanliga: ny nyckel, aldrig ändrad
 gammal.
+
+## Tillägg 2026-09-24 — uteslutning vid inaktuellt Pinnacle-underlag (Samans beslut 5bA)
+
+Registrerat innan uteslutningens effekt på jämförelsen har beräknats.
+
+**Bakgrund.** Statusauditen 2026-09-24 fann att `sharp_odds` är en
+latest-state-tabell som inte rensas när poolmatcharen tappar länken
+(status `ambiguous` eller `not_listed`). PH3-frysningen
+(`cli._pool_pit_freeze` → `store.get_sharp` → `freeze_due`) använde då
+senast kända pris utan ålderskontroll. Vid frysningar sedan 2026-09-10 var
+senaste sharp-capture inte `matched` för cirka 18 % av matcherna, och
+Stryktipset 4971 frystes med priser från 2026-09-15. Både championen och
+utmanaren läser Pinnacle, men utmanaren testar just Pinnacle-underlaget, så
+inaktuella priser förorenar dess jämförelse mest.
+
+**Beslut.** Utmanaren fortsätter med samma nyckel enligt beslutsregeln ovan
+(retrokontrollen visade skillnad i radval, alltså fortsatt mätning). Från och
+med nästa formella avläsning gäller:
+
+1. **Primär jämförelse** utesluter en parad omgång × horisont om den frystes
+   före driftsättningen av färskhetsregeln `pool-sharp-freshness-v1` och
+   minst en match i omgången hade inaktuellt Pinnacle-underlag vid
+   frysningen.
+2. **Inaktuellt underlag** för en match vid frysningstiden `frozen_at`: det
+   finns en rad i `pool_market_capture` med `source='sharp'`,
+   `status='matched'` och `fetched_at ≤ frozen_at`, OCH antingen
+   (a) den senaste sharp-raden med `fetched_at ≤ frozen_at` har en annan
+   status än `matched`, eller (b) den senaste matchade raden är äldre än
+   90 minuter vid `frozen_at`. En match som aldrig varit länkad räknas inte:
+   där föll båda sidor tillbaka på Svenska Spels odds.
+3. Uteslutningen gäller hela paret, alltså även championens rad i samma
+   omgång och horisont.
+4. Frysningar efter driftsättningen av färskhetsregeln utesluts aldrig av
+   denna regel, eftersom regeln då hindrar att ett inaktuellt pris används.
+5. Kravet på ≥ 40 parade omgångar räknas på den primära mängden. BH-FDR över
+   utmanarfamiljen använder utmanarens p-värde från den primära mängden.
+6. Hela mängden, inklusive uteslutna omgångar, redovisas bredvid som
+   sekundär jämförelse.
+
+Tider jämförs som tider, aldrig som strängar. Före nästa formella avläsning
+får bara antalet uteslutna omgångar räknas, eftersom det är input och inte
+utfall. Statusauditen 2026-09-24 såg championrapportens jämförelse på hela
+mängden; uteslutningens effekt har inte beräknats.
