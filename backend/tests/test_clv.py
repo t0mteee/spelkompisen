@@ -73,6 +73,53 @@ class ClvTests(unittest.TestCase):
         expected = _power_probs({"1": 1 / 2.00, "X": 1 / 3.50, "2": 1 / 3.60})["1"]
         self.assertAlmostEqual(expected, row["closing_prob"], places=4)
 
+    def _capture(self, event, hours_ago, status):
+        self.store.conn.execute(
+            "INSERT INTO pool_market_capture (product, draw_number, source, event_number, "
+            "fetched_at, status, odds_complete, streck_complete) "
+            "VALUES ('stryktipset', 5000, 'sharp', ?, ?, ?, 1, 0)",
+            (event, _iso(NOW - dt.timedelta(hours=hours_ago)), status))
+        self.store.conn.commit()
+
+    def test_tappad_lank_fore_avspark_ger_ingen_stangning(self):
+        self._flag(hours_to_start=-2.0)
+        self._sharp(1, 30.0, 2.00, 3.50, 3.60)
+        self._capture(1, 30.0, "matched")
+        self._capture(1, 20.0, "ambiguous")
+        self.assertEqual(0, clv.resolve(self.store)["closings"])
+        row = self._row()
+        self.assertIsNone(row["closing_prob"])
+        self.assertEqual("stängningsodds saknas: Pinnacle-länken tappad (ambiguous)",
+                         row["closing_note"])
+
+    def test_bekraftat_oforandrat_pris_ar_giltig_stangning(self):
+        self._flag(hours_to_start=-2.0)
+        self._sharp(1, 30.0, 2.00, 3.50, 3.60)   # priset ändrades senast för 30 h sedan
+        self._capture(1, 2.5, "matched")        # men bekräftades 30 min före avspark
+        self.assertEqual(1, clv.resolve(self.store)["closings"])
+        self.assertEqual(2.00, self._row()["closing_odds"])
+
+    def test_for_gammal_bekraftelse_ger_ingen_stangning(self):
+        self._flag(hours_to_start=-2.0)
+        self._sharp(1, 30.0, 2.00, 3.50, 3.60)
+        self._capture(1, 5.0, "matched")        # tre timmar före avspark
+        clv.resolve(self.store)
+        self.assertEqual("stängningsodds saknas: senaste bekräftade Pinnacle-pris för gammalt",
+                         self._row()["closing_note"])
+
+    def test_spelstopp_fore_avspark_begransar_stangningen(self):
+        self._flag(hours_to_start=-2.0)
+        close = NOW - dt.timedelta(hours=26)
+        self.store.conn.execute(
+            "INSERT INTO draws (product, draw_number, state, reg_close_time) "
+            "VALUES ('stryktipset', 5000, 'Closed', ?)", (_iso(close),))
+        self.store.conn.commit()
+        self._sharp(1, 27.0, 2.00, 3.50, 3.60)   # före spelstopp
+        self._capture(1, 26.2, "matched")       # bekräftad 12 min före spelstopp
+        self._sharp(1, 10.0, 1.60, 4.00, 5.50)   # efter spelstopp, obekräftad
+        self.assertEqual(1, clv.resolve(self.store)["closings"])
+        self.assertEqual(2.00, self._row()["closing_odds"])
+
     def test_ostartad_match_lamnas_oppen(self):
         self._flag(hours_to_start=+3.0)
         self._sharp(1, 1.0, 2.00, 3.50, 3.60)

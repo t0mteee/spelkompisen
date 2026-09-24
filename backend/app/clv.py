@@ -81,21 +81,72 @@ def log_flags(product: str, draw: Draw, store: Storage) -> int:
     return n
 
 
+def _close_reference(store: Storage, flag: dict,
+                     start: dt.datetime) -> dt.datetime:
+    """Sista tidpunkt poolen kunde observera priset: avspark, eller spelstopp
+    om det kommer tidigare (insamlingen följer bara öppna omgångar)."""
+    row = store.conn.execute(
+        "SELECT reg_close_time FROM draws WHERE product=? AND draw_number=?",
+        (flag["product"], flag["draw_number"])).fetchone()
+    close = _parse(row[0]) if row else None
+    return min(start, close) if close else start
+
+
+def _link_at(store: Storage, flag: dict,
+             at: dt.datetime) -> Optional[tuple[dt.datetime, str]]:
+    """Senaste sharp-capture för matchen vid eller före `at`: (tid, status).
+    None när matchen saknar captures (omgångar före närvarologgen)."""
+    latest = None
+    for fetched_at, status in store.conn.execute(
+            "SELECT fetched_at, status FROM pool_market_capture "
+            "WHERE product=? AND draw_number=? AND event_number=? AND source='sharp'",
+            (flag["product"], flag["draw_number"], flag["event_number"])):
+        seen = _parse(fetched_at)
+        if seen and seen <= at and (latest is None or seen > latest[0]):
+            latest = (seen, str(status))
+    return latest
+
+
 def resolve(store: Storage, ss: Optional[SvenskaSpel] = None) -> dict:
     """Sätt stängningslinje (lokala sharp-snapshots, inga API-anrop) för startade
-    matcher, och facit (kräver API) för avgjorda omgångar."""
+    matcher, och facit (kräver API) för avgjorda omgångar.
+
+    STÄNGNINGENS FÄRSKHET (pool-sharp-freshness-v1, 2026-09-24): `sharp_snapshots`
+    är en förändringsserie. "Sista priset före avspark" kunde därför vara dagar
+    gammalt om Pinnacle-länken tappats — det blev ändå stängningen. Nu gäller
+    stängningen bara om senaste sharp-capture före referenstiden (avspark eller
+    tidigare spelstopp) bar länken och ligger högst SHARP_MAX_AGE_MIN bakåt.
+    Annars noteras stängningen som saknad med orsak. Matcher utan captures
+    (före närvarologgen) behandlas som förut."""
+    from .pool_sharp_freshness import LINK_STATUSES, SHARP_MAX_AGE_MIN
     now = _now()
     closed = 0
     for f in store.unresolved_closings():
         start = _parse(f["match_start"])
         if not start or start > now:
             continue
+        limit = start
+        reference = _close_reference(store, f, start)
+        link = _link_at(store, f, reference)
+        if link is not None:
+            seen, status = link
+            if status not in LINK_STATUSES:
+                store.set_closing(f["product"], f["draw_number"], f["event_number"],
+                                  f["sign"], note=("stängningsodds saknas: "
+                                                   f"Pinnacle-länken tappad ({status})"))
+                continue
+            if (reference - seen).total_seconds() > SHARP_MAX_AGE_MIN * 60:
+                store.set_closing(f["product"], f["draw_number"], f["event_number"],
+                                  f["sign"], note=("stängningsodds saknas: senaste "
+                                                   "bekräftade Pinnacle-pris för gammalt"))
+                continue
+            limit = reference
         hist = store.sharp_history(f["product"], f["draw_number"], f["event_number"])
         last: dict[str, float] = {}
         for r in hist:
             t = _parse(r["fetched_at"])
-            if t and t <= start and r["odds"]:
-                last[r["sign"]] = r["odds"]   # sista före avspark vinner
+            if t and t <= limit and r["odds"]:
+                last[r["sign"]] = r["odds"]   # sista före referenstiden vinner
         if all(s in last for s in ("1", "X", "2")):
             probs = _power_probs({s: 1.0 / o for s, o in last.items()})
             store.set_closing(f["product"], f["draw_number"], f["event_number"],
