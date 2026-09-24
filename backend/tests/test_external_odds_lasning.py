@@ -186,3 +186,16 @@ class ExternalOddsReadOnlyTests(Fixture, unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CollectorStartTests(unittest.TestCase):
+    """POST /api/collector/start får aldrig starta en parallell insamlare."""
+
+    def test_start_vagras_och_ingen_trad_startas(self):
+        from fastapi import HTTPException
+        from app import main
+        from app.collector import collector
+        with self.assertRaises(HTTPException) as caught:
+            main.collector_start()
+        self.assertEqual(409, caught.exception.status_code)
+        self.assertFalse(collector.running)

@@ -1998,7 +1998,13 @@ def collector_status():
 
 @app.post("/api/collector/start")
 def collector_start(interval: int = 1800, product: str = "stryktipset"):
-    return collector.start(interval=interval, product=product)
+    """Avstängd sedan 2026-09-24. Trådinsamlaren skrev sharp-priser utan
+    närvarorad, satte dubbeltrafikspärren och kunde köra parallellt med
+    launchd-jobben — "kör aldrig samma datainsamlare samtidigt". Insamlingen
+    sköts av launchd (`tools/tjanster.sh`); status och stopp finns kvar så
+    att en redan startad tråd kan stoppas."""
+    raise HTTPException(409, "Insamlingen sköts av launchd-jobben på servern "
+                             "(tools/tjanster.sh). Trådinsamlaren startas inte.")
 
 
 @app.post("/api/collector/stop")
