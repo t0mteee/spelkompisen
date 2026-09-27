@@ -82,10 +82,14 @@ export function recentlySettled(coupons, days = 7, now = new Date()) {
 // Andel av kupongens rader som har varje tecken, per match (kolumn). Ett svep
 // över raderna: en reducerad kupong kan ha 20 000 rader. `covered` är tecknen
 // som förekommer alls — samma sak som kupongdetaljen alltid visat.
+// `signs` är en STRÄNG i /api/pool/played/<id> ("1X2…", en bokstav per match),
+// inte en array — en sträng saknar forEach, och `(row.signs || []).forEach`
+// fällde hela kupongdetaljen med liverättningen 2026-09-24→27. Array.from
+// tar båda formerna.
 export function signShares(rows, nEvents) {
   const counts = Array.from({ length: nEvents }, () => ({ 1: 0, X: 0, 2: 0 }))
   for (const row of rows || []) {
-    (row.signs || []).forEach((sign, index) => {
+    Array.from(row.signs || []).forEach((sign, index) => {
       if (counts[index] && sign in counts[index]) counts[index][sign] += 1
     })
   }

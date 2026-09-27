@@ -49,7 +49,9 @@ test('nyligen rättade inom sju dygn', () => {
 })
 
 test('teckenandelar räknas per match ur raderna', () => {
-  const rows = [{ signs: ['1', 'X'] }, { signs: ['1', '2'] }, { signs: ['2', '2'] }, { signs: ['1', '2'] }]
+  // Detaljendpointen skickar varje rad som en STRÄNG ('1X'); arrayformen
+  // ska också fungera. Båda i samma lista så en regression syns direkt.
+  const rows = [{ signs: '1X' }, { signs: '12' }, { signs: ['2', '2'] }, { signs: '12' }]
   const [first, second] = signShares(rows, 2)
   assert.deepEqual(first.covered, ['1', '2'])
   assert.equal(first.shares['1'], 0.75)
