@@ -169,8 +169,25 @@ prioritetsordning. ⚖ = kräver Samans beslut.
       omgång (visning; PH3 opåverkad).
     - `_valuation_turnover` skickar inte sin `store` (fynd D8).
     - ⚖ m20-reservens kadens mot Pinnacles 15-minuters CDN-cykel kräver förregistrering.
+      Första avläsning av regimen sedan 24/9 (2026-09-28, 8 omgångar): h24 och h3 100 % för
+      alla produkter; m20 Topptipset 17/32 ok (capture_sen 15), Extra 6/8, Europa 10/13,
+      Stryk och Topptipset Stryk 13/13 och 8/8. Ordinarie regimavläsning ~2026-10-01.
     - Europatipsets omsättningsläge (veckodag mot blandad) ligger inom bruset; följ tp2
       mot utfall på `/api/pool/turnover-prognos`.
+    - ⚖ **FotMob har aldrig täckt MLS och OBOS-ligaen** (fynd 2026-09-28). `LEAGUE_NAMES`
+      har ("USA", "MLS") och ("NOR", "OBOS-ligaen")/("NOR", "1. Division"), men FotMobs
+      dagslista heter ("USA", "Major League Soccer", id 913550) och ("NOR", "1. Divisjon",
+      id 203). 0 av 49 056 FotMob-captures gäller de ligorna. Flashscore täcker dem (556
+      MLS-captures 27/9), så radarn är inte blind, men FotMobs live-xG saknas där och
+      källhälsan säger "ok" eftersom rostern räknas EFTER mappningen. Två verifierade
+      alias löser det, men ändrar radarns källval för två ligor mitt i blindtestets kohort
+      (v12, 23/30 matchdygn) — enligt kohortregeln en ny radarversion. Rekommendation:
+      läs av blindtestet först, lägg aliasen i v13.
+    - Volymtappet i båda livekällorna 21–27/9 var landslagsuppehållet (0 ligamatcher i
+      `oddset_results` utom MLS 9 och friendlies 28), inte ett källfel.
+    - Kupongdetaljen kraschade 24–27/9 (`signShares` fick strängrader; rättad `636f4ba`).
+      Teckenandels-commiten testades bara med `node --test` på arrayer, aldrig i den byggda
+      bunten — regeln "mät på den byggda bunten" gäller även nya UI-funktioner.
 
 ## 2026-08-11 — AWS korrekt omtestat och avfärdat
 
