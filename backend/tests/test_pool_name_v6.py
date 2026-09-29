@@ -4,6 +4,10 @@ Pinnacle skriver U21- och damlag utan markör i lagnamnet; markören finns bara
 i ligans namn. Raderna är Pinnacles egna (id, avspark, liga, odds) ur indexet
 2026-09-24 18:06Z. Rader med id "syn-*" är syntetiska: samma lagnamn och
 avspark som rätt rad men i en U21- eller damliga (den adversariala kontrollen).
+
+pool-name-v7 (2026-09-30) ändrar bara damfallet för KLUBBAR: utan herrrad inom
+ankaret länkas damraden, och SvS egna damformer (Dam, WFC, LFC) är truppmarkörer.
+Landslag utan Dam behåller v6:s veto. Se tests/test_pool_name_v7.py.
 """
 import tempfile
 import unittest
@@ -110,7 +114,7 @@ class LigamarkorTests(unittest.TestCase):
         self.assertEqual("Sweden U21", op.with_league_squad("Sweden U21", ("u21",)))
         self.assertEqual("Chelsea women", op.with_league_squad("Chelsea", ("women",)))
         self.assertEqual("Chelsea", op.with_league_squad("Chelsea", ()))
-        self.assertEqual("pool-name-v6", op.POOL_MATCH_VERSION)
+        self.assertEqual("pool-name-v7", op.POOL_MATCH_VERSION)
 
 
 class SoccerIndexLigaTests(unittest.TestCase):
@@ -139,13 +143,14 @@ class U21Tests(unittest.TestCase):
         h = v6("England", "Spanien", index, SVS_ENG_ESP, "ENG", "ESP")
         self.assertEqual(("1636346499", "A", False), (h["id"], h["match_tier"], h["swapped"]))
         self.assertEqual(ENGLAND_SPAIN["odds"], h["odds"])
-        self.assertEqual("pool-name-v6", h["match_version"])
+        self.assertEqual("pool-name-v7", h["match_version"])
         # v5 som jämförelse: tre rader med samma namn på nivå A ⇒ tvetydig, ingen länk.
         diag = {}
         self.assertIsNone(v5("England", "Spanien", index, SVS_ENG_ESP, "ENG", "ESP", diag))
         self.assertEqual("ambiguous", diag["reason"])
 
     def test_utan_seniorrad_lankas_aldrig_u21_eller_damraden(self):
+        # Landslag: dammarkören är veto även i v7 (SvS skriver "Kina Dam").
         for index in ([ENGLAND_SPAIN_U21], [ENGLAND_SPAIN_W], [ENGLAND_SPAIN_U21, ENGLAND_SPAIN_W]):
             diag = {}
             self.assertIsNone(v6("England", "Spanien", index, SVS_ENG_ESP, "ENG", "ESP", diag))
@@ -181,20 +186,24 @@ class DamTests(unittest.TestCase):
     def test_wsl_chelsea_arsenal(self):
         h = v6("Chelsea", "Arsenal", [CHELSEA_ARSENAL_W, CHELSEA_ARSENAL], SVS_CHE_ARS)
         self.assertEqual(("syn-herr", "A"), (h["id"], h["match_tier"]))
-        self.assertIsNone(v6("Chelsea", "Arsenal", [CHELSEA_ARSENAL_W], SVS_CHE_ARS))
+        # pool-name-v7: utan herrrad inom ankaret länkas klubbens damrad (i v6 aldrig).
+        self.assertEqual("1637151400", v6("Chelsea", "Arsenal", [CHELSEA_ARSENAL_W], SVS_CHE_ARS)["id"])
         self.assertEqual("1637151400", v5("Chelsea", "Arsenal", [CHELSEA_ARSENAL_W], SVS_CHE_ARS)["id"])
-        # Speglat (Arsenal–Chelsea) hjälper inte heller.
-        self.assertIsNone(v6("Arsenal", "Chelsea", [CHELSEA_ARSENAL_W], SVS_CHE_ARS))
+        h = v6("Arsenal", "Chelsea", [CHELSEA_ARSENAL_W], SVS_CHE_ARS)
+        self.assertEqual(("1637151400", True), (h["id"], h["swapped"]))
 
     def test_liga_mx_women_pachuca_santos(self):
-        self.assertIsNone(v6("Pachuca", "Santos Laguna", [PACHUCA_SANTOS_W, SANTOS_PACHUCA], SVS_PAC_SAN))
+        # Herrraden ligger fyra timmar bort (utanför ankaret): i v7 länkas damraden.
+        h = v6("Pachuca", "Santos Laguna", [PACHUCA_SANTOS_W, SANTOS_PACHUCA], SVS_PAC_SAN)
+        self.assertEqual(("1637110429", "A"), (h["id"], h["match_tier"]))
         self.assertEqual("1637110429",
                          v5("Pachuca", "Santos Laguna", [PACHUCA_SANTOS_W], SVS_PAC_SAN)["id"])
 
-    def test_svs_dam_ar_fortfarande_ingen_truppmarkor(self):
-        # SvS skriver "Kina Dam". Dam ≠ women i truppregeln (oförändrat från v5):
-        # ingen länk, varken till dam- eller herrraden.
-        self.assertIsNone(v6("Chelsea Dam", "Arsenal Dam", [CHELSEA_ARSENAL_W], SVS_CHE_ARS))
+    def test_svs_dam_ar_en_truppmarkor_sedan_v7(self):
+        # SvS skriver "Kina Dam"/"Chelsea Dam". Sedan v7 är Dam = women i
+        # truppregeln: damraden länkas, herrraden aldrig.
+        self.assertEqual("1637151400",
+                         v6("Chelsea Dam", "Arsenal Dam", [CHELSEA_ARSENAL_W], SVS_CHE_ARS)["id"])
         self.assertIsNone(v6("Chelsea Dam", "Arsenal Dam", [CHELSEA_ARSENAL], SVS_CHE_ARS))
 
 

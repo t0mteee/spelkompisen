@@ -104,7 +104,7 @@ def _ratio(a: str, b: str) -> float:
 # Poolens egna bekräftade kortnamn. Ändra inte Oddsets/modellens globala
 # alias för att rätta poolmatcharen. Evidens: täckningsrapport 2026-09-13
 # och NameRuleTests (Svenska Spel ↔ Pinnacle).
-POOL_MATCH_VERSION = "pool-name-v6"
+POOL_MATCH_VERSION = "pool-name-v7"
 _POOL_TEAM_ALIASES = {
     "leeds": "leeds united",
     "nottingham": "nottingham forest",
@@ -138,6 +138,17 @@ _POOL_TEAM_ALIASES = {
     # 1636816733 (klubben bytte namn från La Equidad 2025). SvS skriver
     # "Internacional de Bogota." och motståndaren "Pereira" (generiskt delnamn).
     "internacional de bogota": "inter bogota",
+    # pool-name-v7 (2026-09-30). Topptipset 4360: Miami FC–Sporting Jax
+    # 2026-09-30 23:00Z mot Pinnacles "Sporting Club Jacksonville" vid exakt
+    # avspark (stavningen 0,579 föll strax under nivå F:s 0,60). Namnet är
+    # ensamt i indexet sedan 14/9 och "Jax" finns inte i något annat lag.
+    "sporting jax": "sporting club jacksonville",
+    # Topptipset 4360: Atlético Nacional–Junior 2026-10-01 01:00Z mot "Junior
+    # de Barranquilla" vid exakt avspark. SvS skriver "Junior" för den
+    # colombianska klubben i alla åtta poolmatcher sedan maj 2026, och inget
+    # annat lag i indexet normaliseras till "junior" (Boca/Argentinos/Rampla
+    # Juniors är ordet "juniors").
+    "junior": "junior de barranquilla",
     # MEDVETET INTE alias: Aguilas (indexet har både Aguilas–Hercules i Spanien
     # och Aguilas Doradas i Colombia), Fortaleza (Fortaleza och Fortaleza
     # CEIF), America (Club America och America Mineiro). Samma klass som
@@ -145,9 +156,22 @@ _POOL_TEAM_ALIASES = {
 }
 # Estudiantes är INTE ett globalt alias: La Plata, Caseros och Rio Cuarto
 # är olika klubbar. Belägget gäller SvS-kortnamnet mot Lanus i 4346.
-_POOL_CONTEXT_ALIASES = {("estudiantes", "lanus"): "estudiantes de la plata"}
+_POOL_CONTEXT_ALIASES = {("estudiantes", "lanus"): "estudiantes de la plata",
+                         # Topptipset 4361: Platense–Estudiantes 2026-10-02 00:15Z mot
+                         # "Platense – Estudiantes de La Plata" vid exakt avspark (v7).
+                         ("estudiantes", "platense"): "estudiantes de la plata"}
 _SQUAD_MARKERS = frozenset({"b", "ii", "reserve", "reserves", "academy",
                             "youth", "women", "damer"})
+# pool-name-v7: damformer i SvS EGNA lagnamn. SvS skriver damlandslag med
+# "Dam" (Kina Dam, Ryssland Dam, Wales Dam) men damklubbar med WFC/LFC/
+# Ladies/dam eller ingenting alls (Häcken–Juventus i damernas Champions
+# League). Varje sådan token normaliseras till truppmarkören "women", så att
+# "Rangers LFC" = Pinnacles "Rangers" i en damliga och aldrig herrarnas
+# Rangers. Ensamma "w"/"f" är inte markörer (Group F).
+_WOMEN_TOKENS = frozenset({
+    "women", "womens", "woman", "ladies", "lfc", "wfc", "dam", "damer",
+    "damerna", "kvinnor", "frauen", "femenino", "femenil", "feminin",
+    "feminine", "femminile", "feminino", "feminina"})
 _norm_cache: dict[str, str] = {}
 _rejected_pairs: set[frozenset] | None = None
 
@@ -162,6 +186,9 @@ def _norm_team(name: str) -> str:
         raw_tokens = re.findall(r"[a-z0-9]+", name.casefold())
         if "sc" in raw_tokens and "sc" not in cached.split():
             cached += " sc"
+        tokens = cached.split()
+        if _WOMEN_TOKENS.intersection(tokens) or _WOMEN_TOKENS.intersection(raw_tokens):
+            cached = " ".join([*(t for t in tokens if t not in _WOMEN_TOKENS), "women"])
         cached = _POOL_TEAM_ALIASES.get(cached, cached)
         _norm_cache[name] = cached
     return cached
@@ -288,7 +315,8 @@ _country_names: frozenset[str] | None = None
 
 
 def _is_squad_token(token: str) -> bool:
-    return token in _SQUAD_MARKERS or (token.startswith("u") and token[1:].isdigit())
+    return (token in _SQUAD_MARKERS or token in _WOMEN_TOKENS
+            or (token.startswith("u") and token[1:].isdigit()))
 
 
 @functools.lru_cache(maxsize=16384)
@@ -549,6 +577,22 @@ def with_league_squad(name: str, markers: tuple[str, ...]) -> str:
     have = _squad(_norm_team(name))
     missing = [marker for marker in markers if marker not in have]
     return " ".join([name, *missing]) if missing else name
+
+
+# --- pool-name-v7: ligans dammarkör är veto för landslag, skiljeregel för klubbar
+# SvS skriver damlandslag med "Dam" (Kina Dam) men damklubbar oftast utan
+# markör: damernas Champions League 30/9 (Häcken–Juventus, Lyon–Chelsea) fick i
+# v6 ingen Pinnacle fastän raden fanns med exakt avspark. I v7 gäller i
+# `match_index`: (1) en damform i SvS-namnet gäller MATCHEN, så båda lagen får
+# markören (SvS märker ofta bara ena laget: "Paris FC – Arsenal WFC") och bara
+# damrader kan länkas; (2) för ett omärkt klubbnamn får en damrad ur liganamnet
+# konkurrera bara när ingen herrrad kvalificerar inom ankaret — finns en herrrad
+# på någon nivå vinner den som i v6; (3) för landslag utan Dam är dammarkören
+# fortsatt veto som i v6, eftersom SvS skriver ut den. U-åldrar, reserv och
+# ungdom är veto överallt. Tidsankare, nivåer och trösklar är orörda.
+def women_marked(*names: Optional[str]) -> bool:
+    """Bär något av SvS-namnen en damform (Dam, WFC, LFC, Ladies …)?"""
+    return any("women" in _squad(_norm_team(name)) for name in names if name)
 
 
 def is_side_market(home: str, away: str) -> bool:

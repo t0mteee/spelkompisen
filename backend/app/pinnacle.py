@@ -21,7 +21,7 @@ import httpx
 from .odds_provider import (EXACT, PART, _best_side, pool_side_score, pool_side_relation,  # noqa: F401
                             pool_name_candidates, _hours_apart, _parse_time,
                             english_name, COMBINED_MIN, HOME_AWAY_MIN,
-                            TIME_WINDOW_H, POOL_ANCHOR_S, POOL_MATCH_VERSION,
+                            TIME_WINDOW_H, POOL_ANCHOR_S, POOL_MATCH_VERSION, women_marked,
                             diagnostic_team_sim, is_side_market, league_squad,
                             with_league_squad)
 from .derive import derive_1x2, goal_expectations
@@ -433,8 +433,10 @@ class Pinnacle:
               diag: Optional[dict] = None) -> Optional[dict]:
         """Bästa matchande Pinnacle-match — se `match_index`.
 
-        Bomben går hit och får INTE ligans truppmarkörer (pool-name-v6 gäller
-        bara poolmatcharen i sharp_service); beteendet är v5:s.
+        Bomben går hit och får INTE ligans truppmarkörer (pool-name-v6/v7 gäller
+        bara poolmatcharen i sharp_service); beteendet är v5:s. SvS-namnets
+        egen damform (Rangers LFC, Kina Dam) normaliseras dock överallt (v7),
+        så ett märkt SvS-lag länkas aldrig till en omärkt Pinnacle-rad.
         """
         return match_index(home, away, home_iso, away_iso, index, match_start, diag)
 
@@ -519,6 +521,12 @@ def match_index(home: str, away: str, home_iso: Optional[str],
     Avsparksankare, nivåer och trösklar är desamma. Bomben (`Pinnacle.match`)
     och vägen utan SvS-avspark (v4) får inga ligamarkörer.
 
+    pool-name-v7 (2026-09-30): ligans dammarkör är veto för landslag och för
+    SvS-namn med egen damform, men bara en skiljeregel för omärkta klubbnamn:
+    en damrad får då länkas när ingen herrrad kvalificerar inom ankaret;
+    finns en herrrad på någon nivå vinner den som i v6. En damform i SvS-
+    namnet gäller båda lagen. U-åldrar, reserv och ungdom är veto som förut.
+
     Ren funktion utan nätverk; indexordning får aldrig välja odds. Med känd
     SvS-avspark är bara kandidater med känd avspark inom POOL_ANCHOR_S
     behöriga, och valet görs på nivå (se `_TIERS`). Utan känd SvS-avspark
@@ -531,9 +539,16 @@ def match_index(home: str, away: str, home_iso: Optional[str],
     svs_start = _aware(_parse_time(match_start)) if match_start else None
     if svs_start is None:
         return _match_index_v4(home, away, home_iso, away_iso, index, match_start, diag)
+    # pool-name-v7: en damform i SvS-namnet gäller matchen, alltså båda lagen.
+    svs_women = league_squads and women_marked(home, away)
+    if svs_women:
+        home, away = with_league_squad(home, ("women",)), with_league_squad(away, ("women",))
     home_cands, home_national = pool_name_candidates(home, home_iso)
     away_cands, away_national = pool_name_candidates(away, away_iso)
-    qualifying = []          # (nivå, rad, speglad, konfidens)
+    # Ligans dammarkör är veto för landslag (SvS skriver Dam) och för märkta
+    # SvS-namn; för omärkta klubbnamn är den bara en skiljeregel (nedan).
+    women_veto = svs_women or home_national or away_national
+    qualifying = []          # (nivå, rad, speglad, konfidens, damrad ur ligan)
     audit_candidates = []
     for g in index:
         if is_side_market(g["home"], g["away"]):
@@ -549,6 +564,9 @@ def match_index(home: str, away: str, home_iso: Optional[str],
             continue
         gap_h = gap_s / 3600
         squad = league_squad(g.get("league")) if league_squads else ()
+        soft_women = "women" in squad and not women_veto
+        if soft_women:
+            squad = tuple(marker for marker in squad if marker != "women")
         g_home = with_league_squad(g["home"], squad) if squad else g["home"]
         g_away = with_league_squad(g["away"], squad) if squad else g["away"]
         rel_h = pool_side_relation(home_cands, g_home, away, g_away, gap_h, home_national)
@@ -559,10 +577,14 @@ def match_index(home: str, away: str, home_iso: Optional[str],
             for swapped, (side_h, side_a) in ((False, (rel_h, rel_a)), (True, (rel_h2, rel_a2))):
                 tier, confidence = _pool_tier(side_h, side_a)
                 if tier:
-                    qualifying.append((tier, g, swapped, confidence))
+                    qualifying.append((tier, g, swapped, confidence, soft_women))
         if diag is not None:
             audit_candidates.append(_audit_entry(
                 home, away, g, (rel_h[1], rel_a[1]), (rel_h2[1], rel_a2[1]), gap_h))
+    # pool-name-v7: finns en herrrad på någon nivå faller damraderna ur ligan
+    # bort (v6:s val); bara utan herrrad får de konkurrera sinsemellan.
+    if any(not q[4] for q in qualifying):
+        qualifying = [q for q in qualifying if not q[4]]
     best_rank = min((_TIERS.index(q[0]) for q in qualifying), default=None)
     top = [q for q in qualifying if _TIERS.index(q[0]) == best_rank]
     if len(top) != 1:
@@ -574,7 +596,7 @@ def match_index(home: str, away: str, home_iso: Optional[str],
                          "qualifying_tier": _TIERS[best_rank] if top else None,
                          "match_version": POOL_MATCH_VERSION})
         return None
-    tier, best, best_swapped, confidence = top[0]
+    tier, best, best_swapped, confidence, _ = top[0]
     return _hit(best, best_swapped, confidence, tier)
 
 
