@@ -160,11 +160,17 @@ prioritetsordning. ⚖ = kräver Samans beslut.
     och garanti, ligabaserade truppmarkörer (pool-name-v6) och tidsjämförelser i
     sharp-serien. Ingen biaskorrigering av utdelningsprognosen klarade kravet.
 20. ⏳ **Kvar efter 2026-09-24:**
-    - Svenska Spels "Dam" är ingen truppmarkör, och SvS damlag utan markör kan spärras mot
-      Pinnacles damligor i v6 (miss, aldrig fel odds). Markörer ur SvS eget liganamn.
+    - ✅ 2026-09-30 **pool-name-v7** (i drift 2026-09-29T23:47:34Z): SvS damformer (Dam, WFC,
+      LFC, Ladies) är truppmarkörer och ligans dammarkör bara skiljeregel för omärkta
+      klubbnamn — damernas Champions League i 4359 hade 2 av 8 länkade i v6. Kvar att
+      besluta: Estudiantes får bara kontextalias per motståndare (Lanús, Platense); ett
+      generellt alias är Samans beslut (SvS rena "Estudiantes" har varit La Plata i alla
+      fem poolmatcher sedan augusti, men Rio Cuarto och Caseros finns i samma land).
+      Malmö FF–St. Pölten i 4359 listades inte av Pinnacle alls.
     - Premier League 2 och liknande ungdomsligor utan markör i namnet; Pinnacles `ageLimit`
       kan bli strukturerad reserv.
-    - Bomben och vägen utan SvS-avspark har kvar v5:s U21-/damrisk.
+    - Bomben och vägen utan SvS-avspark har kvar v5:s U21-risk; damrisken finns där bara
+      för OMÄRKTA SvS-namn (ett märkt damlag länkas aldrig till en omärkt rad sedan v7).
     - `fresh_sharp` räknar ett pris observerat efter spelstopp som färskt i en stängd
       omgång (visning; PH3 opåverkad).
     - `_valuation_turnover` skickar inte sin `store` (fynd D8).

@@ -13,6 +13,14 @@ säga det.
 
 ## Varför
 
+**Datumnot 2026-09-30, pool-name-v7:** i drift från 2026-09-29T23:47:34Z. Ligans
+dammarkör är veto för landslag (SvS skriver alltid Dam) men bara skiljeregel för omärkta
+klubbnamn: en damrad länkas när ingen herrrad kvalificerar inom ankaret, annars vinner
+herrraden som i v6. SvS egna damformer (Dam, WFC, LFC, Ladies) är truppmarkörer som gäller
+båda lagen. Tre belagda alias (Sporting Jax, Junior de Barranquilla, Estudiantes mot
+Platense). Tidsankare, nivåer och trösklar oförändrade; skilj v6/v7 vid skörd.
+Se `docs/overlamningar/overlamning-2026-09-30-poolnamn-v7.md`.
+
 **Datumnot 2026-09-24, pool-name-v6:** i drift från 2026-09-24T19:51:01Z. Poolmatcharen lägger
 truppmarkörer ur Pinnacles liganamn (U15–U23, damformer, reserv- och ungdomsligor) på
 kandidatens lagnamn. En U21- eller damrad med samma lagnamn och avspark kan därför

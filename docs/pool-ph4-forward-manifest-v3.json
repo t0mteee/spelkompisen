@@ -78,6 +78,16 @@
   ],
   "collection_notes": [
     {
+      "date": "2026-09-30",
+      "match_version": "pool-name-v7",
+      "decision": "Saman 2026-09-30 (\"Ok\" på förslaget: ny version med datumnot, aldrig en ändring inne i löpande v6); samma pit-v4 med datumnot enligt beslut 1A",
+      "deployed_at": "2026-09-29T23:47:34Z",
+      "change": "Poolmatcharen (sharp_service): ligans dammarkör är veto för landslag och för SvS-namn med egen damform, men bara en skiljeregel för omärkta klubbnamn — en damrad ur liganamnet får länkas när ingen herrrad kvalificerar inom ankaret; finns en herrrad på någon nivå vinner den som i v6. SvS egna damformer (Dam, WFC, LFC, Ladies, dam) normaliseras till truppmarkören women och gäller båda lagen i matchen. U-åldrar, reserv- och ungdomsligor är veto som förut. Tre belagda alias: Sporting Jax = Sporting Club Jacksonville, Junior = Junior de Barranquilla, Estudiantes mot Platense = Estudiantes de La Plata. Tidsankare, nivåer, trösklar, källor, presence-regler och bakfyllning oförändrade.",
+      "expected_effect": "Damklubbsmatcher på Topptipset (damernas Champions League: 4347, 4348 och 4359 sedan 22/9, 12 matcher) får Pinnacle när Pinnacle listar dem; i 4359 fanns fyra av sex rader i indexet med exakt avspark. Inga ändrade länkar för herrmatcher: en herrrad inom ankaret väljs exakt som i v6. Särredovisa v6/v7-regimen vid skörd.",
+      "doc": "docs/overlamningar/overlamning-2026-09-30-poolnamn-v7.md",
+      "observed_effect": "Första basvarvet med v7 2026-09-29T23:57:43Z: Topptipset 4359 från 2 till 6 av 8, 4360 från 5 till 7 av 8, 4361 från 4 till 5 av 8; Europatipset 2612 och Topptipset Extra 1871 oförändrat 13 av 13 och 8 av 8. 38 av 45 matcher i de öppna omgångarna hade oförändrad status och de sju ändrade var exakt de avsedda (fyra damcupsrader, Sporting Jax, Junior, Estudiantes mot Platense); ingen länk tappad."
+    },
+    {
       "date": "2026-09-24",
       "match_version": "pool-name-v6",
       "decision": "Saman 2026-09-24 kväll (\"fixa det också\" om restlistan); samma pit-v4 med datumnot enligt beslut 1A",

@@ -101,6 +101,12 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       dam, reserv, ungdom) på kandidatens lagnamn i poolmatcharen, så en
                       omärkt U21-/damrad varken blir seniorlag eller gör det tvetydigt.
                       Bomben och vägen utan SvS-avspark får inga ligamarkörer.
+                      **v7 sedan 2026-09-29T23:47:34Z:** ligans dammarkör är VETO för landslag
+                      (SvS skriver alltid "Dam") men bara SKILJEREGEL för omärkta klubbnamn:
+                      en damrad länkas när ingen herrrad kvalificerar inom ankaret, annars
+                      vinner herrraden som i v6. SvS egna damformer (Dam, WFC, LFC, Ladies)
+                      är truppmarkörer som gäller båda lagen. U-ålder/reserv/ungdom är veto
+                      överallt. `docs/overlamningar/overlamning-2026-09-30-poolnamn-v7.md`.
   app/sharp_service.py Pinnacle för poolen: `VarvIndex` = ETT index per basvarv delat av
                       alla produkter och omgångar; avslag bokförs i `pool_match_diagnostic`
   app/pool_capture_refresh.py m20-reserv för PIT: exakt Pinnacle-id, färsk 1X2 + total

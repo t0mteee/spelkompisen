@@ -56,7 +56,20 @@ markering av inaktuella priser, ren läsning i `/api/external-odds`, avstängd
 trådinsamlare och tidsjämförelser i sharp-serien. tp2 och rörelsen ändrar PH3:s
 radval (datumnot).
 
-**PIT:** pit-v4 + pit-total-v1 med datumnoter 14/9, 15/9, 21/9 och 24/9.
+**Nytt 2026-09-30, pool-name-v7 (i drift 2026-09-29T23:47:34Z, Samans beslut):** ligans
+dammarkör är veto för landslag (SvS skriver alltid Dam) men bara skiljeregel för omärkta
+klubbnamn — en damrad länkas när ingen herrrad kvalificerar inom ankaret, annars vinner
+herrraden som i v6. SvS egna damformer (Dam, WFC, LFC, Ladies) är truppmarkörer som
+gäller båda lagen. Alias: Sporting Jax, Junior de Barranquilla, Estudiantes mot Platense.
+Bakgrund: damernas Champions League i Topptipset 4359 hade 2 av 8 länkade i v6 fastän fyra
+rader fanns i Pinnacles index med exakt avspark. Första basvarvet med v7 (23:57:43Z):
+4359 från 2 till 6 av 8, 4360 från 5 till 7 av 8, 4361 från 4 till 5 av 8; 38 av 45 matcher
+i de öppna omgångarna oförändrade och de sju ändrade exakt de avsedda, ingen länk tappad.
+Kvar olistade hos Pinnacle: Malmö FF–St. Pölten, Rangers LFC–Hammarby, Panama–Nya Zeeland
+och tre landskamper 2/10.
+`docs/overlamningar/overlamning-2026-09-30-poolnamn-v7.md`.
+
+**PIT:** pit-v4 + pit-total-v1 med datumnoter 14/9, 15/9, 21/9, 24/9 och 30/9.
 Redovisa regimerna vid skörd. Systemjämförelsens nycklar är oförändrade;
 färskhetsregeln är en datumnot från 14:11:09Z.
 
