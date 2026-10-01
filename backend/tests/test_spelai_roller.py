@@ -3,8 +3,10 @@
 Klockan och köraren injiceras — `claude` körs aldrig. Den riktiga köraren
 provas bara mot ett falskt `claude`-skript i en temporär katalog.
 """
+import contextlib
 import datetime as dt
 import fcntl
+import io
 import json
 import os
 import stat
@@ -379,6 +381,16 @@ class RunTests(Base):
         self.assertEqual(1, self.conn.execute(
             "SELECT COUNT(*) FROM spelai_event WHERE kind='roll_fel'").fetchone()[0])
 
+    def test_sigterm_under_korningen_ger_fel_avbruten(self):
+        svar = {"returncode": -15, "stdout": "", "stderr": "", "avbruten": True}
+        roller.run(self.conn, self.post(), runner=self.runner(svar), now_fn=lambda: SONDAG_12)
+        status, note = self.conn.execute("SELECT status, note FROM spelai_run").fetchone()
+        self.assertEqual("fel", status)
+        self.assertIn("avbruten", note)
+        detail = json.loads(self.conn.execute(
+            "SELECT detail_json FROM spelai_event WHERE kind='roll_fel'").fetchone()[0])
+        self.assertTrue(detail["avbruten"])
+
     def test_timeout_ger_timeout_rad(self):
         svar = {"returncode": -15, "stdout": "", "stderr": "", "timed_out": True}
         roller.run(self.conn, self.post(), runner=self.runner(svar), now_fn=lambda: SONDAG_12)
@@ -436,6 +448,40 @@ class TickTests(Base):
         self.assertEqual({}, roller.tick(self.conn, now_fn=lambda: TORSDAG,
                                          runner=self.runner(), vakt_path=self.vakt))
         self.assertEqual([], self.calls)
+
+
+class CliTests(Base):
+    """`cli.py spelai-roller` med falsk körare, spegel och skärmbilder."""
+
+    def test_ett_varv_kor_en_post_och_tar_laset(self):
+        from unittest import mock
+        import cli
+        from app import vakt as vakt_mod
+        from app.spelai import skarmbilder, spegel
+        from app.storage import Storage
+        self.korning("morgonrunda:2026-10-04", SONDAG_12)
+        self.korning("forskningspass:2026-10-04", SONDAG_12, "forskaren")
+        cli_store = Storage(self.store.db_path)
+        tagna, speglat = [], []
+        with mock.patch.object(cli, "Storage", return_value=cli_store), \
+                mock.patch.object(tillstand, "now_utc", return_value=SONDAG_12), \
+                mock.patch.object(roller, "claude_runner", return_value=self.runner()), \
+                mock.patch.object(spegel, "spegla",
+                                  side_effect=lambda conn, now: speglat.append(now) or {}), \
+                mock.patch.object(skarmbilder, "ta",
+                                  side_effect=lambda dag: tagna.append(dag) or
+                                  {"filer": ["hem-hel.png"], "fel": []}), \
+                mock.patch.object(vakt_mod, "default_status_path", return_value=self.vakt), \
+                contextlib.redirect_stdout(io.StringIO()) as utskrift:
+            self.assertEqual(0, cli.cmd_spelai_roller())
+        self.assertIn("spelai-roller:", utskrift.getvalue())   # loggrad när något hänt
+        self.assertEqual([SONDAG_12], speglat)
+        self.assertEqual(["2026-10-04"], tagna)
+        self.assertEqual(["veckogenomgang:2026-W40"], [p["uppgift"] for p in self.calls])
+        self.assertEqual(3, self.conn.execute("SELECT COUNT(*) FROM spelai_run").fetchone()[0])
+        data = self.store.db_path.parent
+        self.assertTrue((data / "spelai-roller.lock").exists())
+        self.assertTrue((data / "spelai-spegel.lock").exists())
 
 
 class RiktigKorareTests(unittest.TestCase):

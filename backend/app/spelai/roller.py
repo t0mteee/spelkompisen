@@ -401,7 +401,7 @@ def run(conn, post: dict, *, runner: Runner,
     kind = "roll_klar" if tolkat["status"] == "klar" else "roll_fel"
     tillstand.logga(conn, kind, post["uppgift"],
                     {"roll": post["roll"], "typ": post.get("typ"),
-                     "status": tolkat["status"],
+                     "status": tolkat["status"], "avbruten": bool(svar.get("avbruten")),
                      "sammanfattning": tolkat["sammanfattning"],
                      "minuter": round((ended - started).total_seconds() / 60, 1),
                      "cost_usd": tolkat["cost_usd"], "num_turns": tolkat["num_turns"]},
