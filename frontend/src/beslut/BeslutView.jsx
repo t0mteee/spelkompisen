@@ -88,10 +88,14 @@ export function BeslutView({ focus = null }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [saved, setSaved] = useState(null)
+  const [notiser, setNotiser] = useState(null)
   const load = () => get('/api/spelai/inbox')
     .then((value) => { setData(value); setError(null) })
     .catch((e) => setError(e.message))
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    get('/api/spelai/notiser').then(setNotiser).catch(() => setNotiser(null))
+  }, [])
   useEffect(() => {
     if (focus == null || !data) return
     document.getElementById(`beslut-${focus}`)?.scrollIntoView({ block: 'start' })
@@ -135,6 +139,16 @@ export function BeslutView({ focus = null }) {
           ? forslag.map((item) => (
             <InboxCard key={item.id} item={item} focused={focus === item.id} onAnswered={answered} />))
           : <p className="v3beslut-why">Inga nya förslag.</p>}
+      </section>
+      <section>
+        <h2>Notiser</h2>
+        {notiser?.aktiv
+          ? (<p className="v3beslut-why">
+              Agenten skickar notiser via ntfy, tysta timmar {notiser.tysta_timmar}.{' '}
+              <a href={notiser.prenumerera} target="_blank" rel="noreferrer">Prenumerera</a>
+              {' '}med ntfy-appen på mobilen.
+            </p>)
+          : <p className="v3beslut-why">Notiserna är inte påslagna ännu.</p>}
       </section>
       {besvarade.length > 0 && (
         <section>

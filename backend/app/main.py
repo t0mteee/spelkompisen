@@ -2216,6 +2216,17 @@ def spelai_pool_forslag(proposal_id: int, rader: bool = False):
     return found
 
 
+@app.get("/api/spelai/notiser")
+def spelai_notiser():
+    """Prenumerationslänken för agentens notiser (ntfy). Ämnet är en delad
+    hemlighet; den visas i appen (LAN/Tailscale) i stället för i chatten."""
+    from .spelai import notis as spelai_notis
+    topic = spelai_notis.topic()
+    return {"aktiv": bool(topic),
+            "prenumerera": f"https://ntfy.sh/{topic}" if topic else None,
+            "tysta_timmar": f"{spelai_notis.QUIET_FROM:02d}–{spelai_notis.QUIET_TO:02d}"}
+
+
 @app.get("/api/spelai/inbox")
 def spelai_inbox():
     from .spelai import api as spelai_api, tillstand as spelai_tid
