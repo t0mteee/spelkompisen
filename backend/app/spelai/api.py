@@ -78,6 +78,101 @@ def pool(conn, *, now: dt.datetime, product: Optional[str] = None,
     return {"tabeller": True, "omgangar": omgangar, "per_niva": per_niva(conn)}
 
 
+
+def _rader(row: dict) -> list[str]:
+    if row.get("format") == "msystem" and row.get("msystem_json"):
+        return nivaer.expandera(json.loads(row["msystem_json"]))
+    return [line for line in (row.get("rows_text") or "").splitlines() if line]
+
+
+def _andelar(row: dict, rows: list[str], n_matches: int) -> list[dict]:
+    """Andel av raderna per tecken och match. M-systemet räknas ur tecknen
+    (varje valt tecken bär 1/k av raderna) i stället för att räkna 39 366 rader."""
+    if row.get("format") == "msystem" and row.get("msystem_json"):
+        tecken = json.loads(row["msystem_json"])
+        return [{s: (1.0 / len(t) if s in t else 0.0) for s in nivaer.SIGNS}
+                for t in tecken]
+    counts = [{s: 0 for s in nivaer.SIGNS} for _ in range(n_matches)]
+    for text in rows:
+        for i, sign in enumerate(text[:n_matches]):
+            if sign in counts[i]:
+                counts[i][sign] += 1
+    total = len(rows) or 1
+    return [{s: c[s] / total for s in nivaer.SIGNS} for c in counts]
+
+
+def _tackta(andelar: list[dict]) -> list[str]:
+    return ["".join(s for s in nivaer.SIGNS if a.get(s)) for a in andelar]
+
+
+def _matcher(conn, input_id: Optional[int], events: list[int]) -> list[dict]:
+    """Matchnamn ur indatapaketets draw (samma läsning som förslaget byggdes på)."""
+    names: dict[int, str] = {}
+    if input_id:
+        found = conn.execute("SELECT payload_json FROM spelai_input WHERE id=?",
+                             (input_id,)).fetchone()
+        if found:
+            draw = (json.loads(found[0]) or {}).get("draw") or {}
+            for match in draw.get("matches") or []:
+                home, away = match.get("home"), match.get("away")
+                label = (f"{home} – {away}" if home and away
+                         else match.get("description") or "")
+                names[int(match.get("event_number") or 0)] = label
+    return [{"event": e, "match": names.get(e, f"match {e}")} for e in events]
+
+
+def _jamfor(egen: list[str], annan: list[str]) -> dict:
+    andrade = [i + 1 for i, (a, b) in enumerate(zip(egen, annan)) if a != b]
+    return {"andrade_matcher": andrade, "antal": len(andrade),
+            "lika_matcher": len(egen) - len(andrade)}
+
+
+def forslag(conn, proposal_id: int, *, med_rader: bool = False) -> Optional[dict]:
+    """Ett fryst förslag med andel per tecken och match, matchnamn ur paketet,
+    och vilka matcher som skiljer mot motrollen (agent/standard) och mot
+    förhandsversionen. `med_rader` lämnar ut raderna (för export av radfil)."""
+    if not _ready(conn):
+        return None
+    conn.row_factory = sqlite3.Row
+    found = conn.execute("SELECT * FROM spelai_pool_proposal WHERE id=?",
+                         (proposal_id,)).fetchone()
+    if found is None:
+        return None
+    row = dict(found)
+    result = conn.execute("SELECT * FROM spelai_pool_result WHERE proposal_id=?",
+                          (proposal_id,)).fetchone()
+    out = _rad(row, dict(result) if result else None)
+    out.update({"produkt": row["product"], "omgang": row["draw_number"],
+                "niva_kr": row["level_kr"], "horisont": row["horizon"],
+                "roll": row["role"], "spelstopp": row["reg_close_time"]})
+    events = [int(e) for e in (row.get("events_order") or "").split(",") if e.strip()]
+    rows = _rader(row) if row["status"] == "fryst" else []
+    out["matcher"] = _matcher(conn, row.get("input_id"), events)
+    out["andelar"] = _andelar(row, rows, len(events)) if rows else []
+    egen = _tackta(out["andelar"])
+    jamforelse: dict = {}
+    for namn, roll, horisont in (
+            ("mot_motrollen", "standard" if row["role"] == "agent" else "agent",
+             row["horizon"]),
+            ("mot_forhandsversionen", row["role"], "6h")):
+        if namn == "mot_forhandsversionen" and row["horizon"] == "6h":
+            continue
+        other = conn.execute(
+            "SELECT * FROM spelai_pool_proposal WHERE product=? AND draw_number=? "
+            "AND level_kr=? AND role=? AND horizon=?",
+            (row["product"], row["draw_number"], row["level_kr"], roll,
+             horisont)).fetchone()
+        if other is None or other["status"] != "fryst" or not egen:
+            continue
+        other = dict(other)
+        other_rows = _rader(other)
+        jamforelse[namn] = {"id": other["id"], **_jamfor(
+            egen, _tackta(_andelar(other, other_rows, len(events))))}
+    out["jamforelse"] = jamforelse
+    if med_rader and row["format"] == "rows":
+        out["rader_lista"] = rows
+    return out
+
 def per_niva(conn) -> list[dict]:
     """Facit per nivå för officiella (30m) förslag: parade omgångar där BÅDE
     agent och standard frystes och rättades komplett. Bara siffror — ingen

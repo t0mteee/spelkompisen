@@ -2201,6 +2201,21 @@ def spelai_pool(product: str | None = None, limit: int = Query(30, ge=1, le=200)
         store.close()
 
 
+@app.get("/api/spelai/pool/forslag/{proposal_id}")
+def spelai_pool_forslag(proposal_id: int, rader: bool = False):
+    """Ett fryst förslag: andelar per tecken och match, matchnamn, jämförelser.
+    `rader=true` lämnar ut raderna för export (Egna rader)."""
+    from .spelai import api as spelai_api
+    store = Storage()
+    try:
+        found = spelai_api.forslag(store.conn, proposal_id, med_rader=rader)
+    finally:
+        store.close()
+    if found is None:
+        raise HTTPException(404, "förslaget finns inte")
+    return found
+
+
 @app.get("/api/spelai/inbox")
 def spelai_inbox():
     from .spelai import api as spelai_api, tillstand as spelai_tid
