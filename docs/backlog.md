@@ -195,6 +195,25 @@ prioritetsordning. ⚖ = kräver Samans beslut.
       Teckenandels-commiten testades bara med `node --test` på arrayer, aldrig i den byggda
       bunten — regeln "mät på den byggda bunten" gäller även nya UI-funktioner.
 
+21. ⏳ **Efter driftvakten 2026-10-01** (`docs/vakt.md`):
+    - ⚖ **Sofascore är stängd** sedan 2026-09-25T10:43Z: alla API-anrop svarar 403, med
+      webbläsarsignatur `"reason": "challenge"` — en antibot-utmaning, alltså stängd enligt
+      källgränsen. Sedan dess saknas Sofascores resultat (veckan 18–24/9: 111 rader i 15
+      ligor, varav 57 träningsmatcher), xG/statistik (96 rader) och frånvaro. Flashscore
+      täcker frånvaron (258 captures sedan 25/9) och en del statistik. Landslagsuppehållet
+      gör att bara träningsmatcherna hittills saknar resultat (3 av 18 sedan 25/9); från
+      nästa ligaomgång saknar ligor utan football-data resultat. Resultat och xG är settlade
+      fakta och får bakfyllas när en ersättning finns. V2.2:s fingeravtryck innehåller
+      `SOFA_UT`, så ett källbyte där kräver omfrysning. Rekommendation: Flashscore som
+      resultatkälla för ligorna utan football-data, källprovet utan Sofascore, och V2.2-frågan
+      som eget ⚖.
+    - Vakten v2: kvittering av kända fel (Sofascore ligger annars rött på Idag tills beslutet
+      är fattat), horisontrevision per omgång (missade h24/h3/m20), röktest av den byggda
+      appen i headless Chrome (kupongkraschen 24–27/9 hade fångats) och larm när en liga
+      saknar resultat ett dygn efter avspark.
+    - Planen för spel-ai-kompisen väntar på Samans svar:
+      `docs/spel-ai-kompisen-plan-2026-10-01.md`, avsnitt 9.
+
 ## 2026-08-11 — AWS korrekt omtestat och avfärdat
 
 - **❌ AWS Lightsail Stockholm är avfärdat.** En ny adress (`51.20.96.34`)

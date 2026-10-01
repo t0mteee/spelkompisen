@@ -1,5 +1,87 @@
 # Statushistorik — daterade statusblock ur `docs/plan.md`
 
+## STATUS (2026-09-24 — färska Pinnacle-priser, matchregel v5, backup och avläsningar)
+
+Projektets aktuella kontrakt står här; historiska statusblock finns i
+`docs/status-historik.md`. Överlämning:
+`docs/overlamningar/overlamning-2026-09-24-status-och-beslut.md`.
+
+**Drift:** endast MacBook-servern 192.168.50.100, backend 8002 och byggd
+frontend 5175. Launchd och `tools/tjanster.sh` gäller; ny tjänst `backup`
+(04:15). Full kontroll via `tools/kontroll.sh`, som sätter `SPELKOMPISEN_DB`
+till en temporär fil så att testerna aldrig öppnar produktionsdatabasen.
+
+**Kontrakt oförändrade:** live-radar chance-gap-shadow-v12, V2.2 manifest
+v10/sharp s-2f14f9a6, amber-modell, powerrank-v2. Poolens champion
+dr1-b256-medel, radprofiler, pool-draw-risk-v1, matematiskt max v2 och
+reducerat max v2 oförändrade. Inga modellpromotioner.
+
+**Nytt 2026-09-24 (statusauditen och Samans beslut samma dag):**
+- **pool-sharp-freshness-v1** (i drift 14:11:09Z): ett cachat Pinnacle-pris
+  används bara om det är högst 90 min gammalt och ingen observation efter
+  priset sagt att länken tappats. Gäller analys, bygge, PH3-frysningar,
+  rörelser/steam, poolens CLV-logg, notiser och Ö/U-reserven. Oddsvarningen
+  visar orsaken; poolhälsan varnar när under 70 % av en omgångs matcher har
+  färsk Pinnacle inom 48 h före stopp. CLV-stängningen kräver en bekräftad
+  länk högst 90 min före avspark eller spelstopp.
+- **pool-name-v5** (i drift 14:30:53Z, beslut 1A): tidsankare ±15 min,
+  nivåer A/B/C/F, landsnamn bara för landslag och bara exakt. De öppna
+  omgångarna gick från 62 till 94 av 106 länkade matcher (Stryktipset 4972
+  från 0 till 13) utan ändrade eller förlorade länkar, bekräftat i drift i
+  basvarvet 14:57Z. m20-reserven
+  använder redan hämtade svar när budgeten är slut. pit-v4 och pit-total-v1
+  fortsätter med datumnot.
+- **Styrkeshadowen**: manifest v2 (`ps-8cbcf320`, fryst 14:13:13Z, beslut 3A)
+  efter tyst stopp 2026-08-21. Stopp syns nu i rapport, gater och poolhälsa.
+- **Pooloptimeraren** avläst vid 40 parade omgångar (beslut 5aA): ingen cell
+  passerad, ingen utmanare. Sista avläsning vid 120 framåtomgångar.
+- **Sharp-utmanaren** fortsätter med samma nyckel (beslut 5bA). Primär
+  jämförelse utesluter omgångar frysta med inaktuellt Pinnacle före
+  färskhetsregeln: 8 av 49 vid 180 min och 6 av 49 vid 20 min.
+- **Backup** (beslut "backup ja"): nattlig onlinekopia 04:15, 14 dagar lokalt
+  och senaste kopian i det privata repot `spelkompisen-backup`.
+  Återställningen är verifierad, och poolhälsan varnar om kopian blir äldre
+  än 36 h eller inte når GitHub. `docs/backup.md`.
+- Småfel rättade: settlementurvalet tolkar spelstopp som tid (facit för
+  ospelade omgångar två timmar tidigare), κ-texten i portföljkortet och
+  teckenandelar för spelade reducerade kuponger.
+
+**Kväll 2026-09-24 ("fixa det också"), i drift 2026-09-24T19:51:01Z:** matcharen **pool-name-v6**
+(truppmarkörer ur Pinnacles liganamn; inga av dagens länkar ändrade), omsättnings-
+prognosen **tp2** (sann median, dagtypsläge, svensk veckodag; Europatipset 2610 gick
+från 9,0 till 4,5 Mkr), utdelningsprognosen med minimiutdelning 15 kr och garanti på
+egen rad, oddsrörelse per match (SvS-serie för olänkade matcher), Ö/U-reservens
+gemensamma kö (pool-reserve-ou-v2), m20-reservens avslagsorsaker, kupongdetaljens
+markering av inaktuella priser, ren läsning i `/api/external-odds`, avstängd
+trådinsamlare och tidsjämförelser i sharp-serien. tp2 och rörelsen ändrar PH3:s
+radval (datumnot).
+
+**Nytt 2026-09-30, pool-name-v7 (i drift 2026-09-29T23:47:34Z, Samans beslut):** ligans
+dammarkör är veto för landslag (SvS skriver alltid Dam) men bara skiljeregel för omärkta
+klubbnamn — en damrad länkas när ingen herrrad kvalificerar inom ankaret, annars vinner
+herrraden som i v6. SvS egna damformer (Dam, WFC, LFC, Ladies) är truppmarkörer som
+gäller båda lagen. Alias: Sporting Jax, Junior de Barranquilla, Estudiantes mot Platense.
+Bakgrund: damernas Champions League i Topptipset 4359 hade 2 av 8 länkade i v6 fastän fyra
+rader fanns i Pinnacles index med exakt avspark. Första basvarvet med v7 (23:57:43Z):
+4359 från 2 till 6 av 8, 4360 från 5 till 7 av 8, 4361 från 4 till 5 av 8; 38 av 45 matcher
+i de öppna omgångarna oförändrade och de sju ändrade exakt de avsedda, ingen länk tappad.
+Kvar olistade hos Pinnacle: Malmö FF–St. Pölten, Rangers LFC–Hammarby, Panama–Nya Zeeland
+och tre landskamper 2/10.
+`docs/overlamningar/overlamning-2026-09-30-poolnamn-v7.md`.
+
+**PIT:** pit-v4 + pit-total-v1 med datumnoter 14/9, 15/9, 21/9, 24/9 och 30/9.
+Redovisa regimerna vid skörd. Systemjämförelsens nycklar är oförändrade;
+färskhetsregeln är en datumnot från 14:11:09Z.
+
+**Grindar avlästa 2026-09-24:** poolopt 47/40 par, avläst vid 40 (ej
+passerad). Sharp-utmanaren 49/40 par (41/43 efter uteslutning). PH3
+Topptipset "ingen utmanare" 52/53. PH4 out-of-time Stryk 9/40, Europa 17/40.
+
+**Nästa steg:** följ första dygnet med v5 i poolhälsan och
+`pool_match_diagnostic`, och kör täckningsrapporten `--sedan 2026-09-24`
+omkring 2026-10-01 som egen regim. Kvarvarande fynd står i backloggen
+(punkt 19).
+
 ## STATUS (2026-09-21 — Ö/U-reserv, tydligare byggvy och manuellt täckningstest)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i

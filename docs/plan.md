@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-09-24 — färska Pinnacle-priser, matchregel v5, backup och avläsningar)
+## STATUS (2026-10-01 — driftvakten, Sofascore stängd, plan för agent)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Överlämning:
@@ -15,6 +15,20 @@ till en temporär fil så att testerna aldrig öppnar produktionsdatabasen.
 v10/sharp s-2f14f9a6, amber-modell, powerrank-v2. Poolens champion
 dr1-b256-medel, radprofiler, pool-draw-risk-v1, matematiskt max v2 och
 reducerat max v2 oförändrade. Inga modellpromotioner.
+
+**Nytt 2026-10-01, driftvakten vakt-v1 (i drift 14:40:28Z):** `cli.py vakt` körs var
+30:e minut (launchd `com.saman.spelkompisen.vakt`) och kontrollerar källprovet, jobben,
+insamlingens livstecken i append-only-tabellerna, backendloggarna, driftkopian mot GitHub,
+testsviten varje natt i en temporär worktree, disken och testernas avläsningspunkter —
+utan AI, utan källanrop och med databasen `mode=ro`. Fel och varningar visas under
+"Driften behöver tillsyn" och "Drift att se över" på Idag; trösklar i `docs/vakt.md`.
+Första fyndet: **Sofascore svarar 403 med antibot-utmaning sedan 2026-09-25T10:43Z** och är
+stängd enligt källgränsen. Sedan dess saknas Sofascores resultat, xG/statistik och frånvaro
+(veckan 18–24/9: 111 resultatrader i 15 ligor och 96 statistikrader). Flashscore täcker
+frånvaron och en del statistik. Landslagsuppehållet gör att bara träningsmatcherna hittills
+saknar resultat (3 av 18); från nästa ligaomgång saknar ligor utan football-data resultat.
+⚖ ersättning i backlog 21. Plan för en självständig agent i ett privat sidoprojekt:
+`docs/spel-ai-kompisen-plan-2026-10-01.md` (väntar på Samans svar).
 
 **Nytt 2026-09-24 (statusauditen och Samans beslut samma dag):**
 - **pool-sharp-freshness-v1** (i drift 14:11:09Z): ett cachat Pinnacle-pris

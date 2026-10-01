@@ -156,6 +156,13 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       `pool-reserve-ou-v2` sedan 2026-09-24T19:51:01Z: gemensam kö per basvarv (`register`
                       i produktloopen, `run_queue` efter): aldrig kontrollerad → äldst →
                       närmast spelstopp, 3 anrop, 15 min cooldown, inget efter spelstopp
+  app/vakt.py         DRIFTVAKTEN vakt-v1 (2026-10-01; `cli.py vakt`, launchd
+                      `com.saman.spelkompisen.vakt` var 30:e min): källprov, jobb, append-only-
+                      insamling, backendloggar, driftkopia mot GitHub, nattlig testsvit i
+                      temporär worktree, disk och testkatalog. Ingen AI, inga källanrop, DB
+                      `mode=ro` (`Storage(read_only=True)`). Läget i `backend/data/vakt/vakt.json`;
+                      `/api/health` visar fel/varningar som `product: "server"` ("Drift att se
+                      över" på Idag), info-fynd under `vakt.notes`. Trösklar: `docs/vakt.md`
   app/live_radar.py   shadow-radar för pågående matcher: Flashscore ankare, FotMob sekundär,
                       Sofascore URKOPPLAD ur radarn (kvar för resultat/frånvaro)
   app/live_signal_ledger.py append-only-journal över första Följer/Stark per match,
@@ -323,6 +330,8 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
   spelar upp poolmatcharen offline. Kör den efter varje ändring i poolens insamling —
   efter paketet 2026-09-14 med `--sedan 2026-09-14` och jämför tabellen
   "Observationsfönstret"; `pool_match_diagnostic` svarar sedan på vilket namn som avvisades.
+- **Driftvakten:** `cd backend && .venv/bin/python -B cli.py vakt [--tester-nu|--utan-tester]
+  [--utan-fetch]` kör alla kontroller manuellt; `tools/tjanster.sh status vakt`.
 - V2.2-status: `cli.py v22audit`. Källhälsa/varvlucka: `cli.py kallhalsa [timmar]`
   (`—` i varvkolumnen = källan kördes inte; visar även Oddset- och poolhälsan).
 - **Dubblettjakt: `cli.py lanklucka [timmar]`** — providerpar med samma liga, samma
@@ -786,6 +795,9 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
   kopian i det PRIVATA repot `t0mteee/spelkompisen-backup`. Databasen innehåller spelade
   kuponger och insatser och får ALDRIG hamna i `spelkompisen`-repot, som är PUBLIKT.
   Skriptet vägrar andra repon. Återställning är en DB-åtgärd: se `docs/backup.md`.
+- **Driftvakten (2026-10-01):** en ny insamlare, källa eller tjänst ska synas för vakten —
+  tjänster läggs i `spelkompisen_tjanster.SERVICES` och `vakt.JOBS`. Livstecken mäts bara på
+  append-only-tabeller, aldrig på förändringsserier. Driftlarm visas på Idag, aldrig via ntfy.
 - Rör ALDRIG `/Users/saman/svs` eller `/Users/saman/vm` från detta projekt.
 - **Uppdatera STATUS-blocket i `docs/plan.md` när en etapp/delmål blir klar — skriv över,
   stapla inte;** flytta det gamla blocket överst i `docs/status-historik.md`.
