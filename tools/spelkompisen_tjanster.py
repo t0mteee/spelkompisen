@@ -88,6 +88,16 @@ SERVICES: tuple[Service, ...] = (
                 "går aldrig att frysa i efterhand.",
     ),
     Service(
+        "spelai-roller", "Agentens roller", "com.saman.spelai.roller", "spel-ai-kompisen",
+        "agentens schemalagda roller var 5:e minut", scheduled=True,
+        help_text="Startar agentens schemalagda körningar inom dagens tak: "
+                  "morgonrunda, forskningspass, motiveringar, larm och "
+                  "söndagens genomgång. Speglar också agentens repo till GitHub. "
+                  "Vänteläge mellan körningarna är normalt.",
+        warning="Inga nya rollkörningar startar och agentens repo speglas inte "
+                "till GitHub. Poolförslagen fryses ändå av facitsidan.",
+    ),
+    Service(
         "spelai-api", "Agentens API", "com.saman.spelai.backend", "spel-ai-kompisen",
         "agentens API på 127.0.0.1:8003, i sandbox",
         "Läser agentens journal, kö och roller åt agentens app. Koden är "
@@ -386,11 +396,12 @@ USAGE = """Användning:
   tjanster.sh omstart <tjänst ...>
 
 Tjänster:
-  backend frontend snapshot pool spelai spelai-api spelai-app kalltest backup vakt awake menubar charter bonus
+  backend frontend snapshot pool spelai spelai-roller spelai-api spelai-app kalltest backup vakt awake menubar charter bonus
 Grupper:
   all            alla tjänster
   spelkompisen   API, webb och Spelkompisens två insamlare
   spelai         spel-ai-kompisens facitsida (schemaläggaren)
+  spelai-roller  spel-ai-kompisens rollkörningar och GitHub-spegel
   spelai-api     spel-ai-kompisens agent-API (8003, sandbox)
   spelai-app     spel-ai-kompisens app (5176, sandbox)
   chartervakt    Chartervakt

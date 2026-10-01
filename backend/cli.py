@@ -16,6 +16,7 @@ Användning (från backend/ med aktiverat venv):
     python cli.py v22audit          # ny Allsv-shadow; identitetskontroll/gate
     python cli.py vakt [--tester-nu] # driftvakten (docs/vakt.md), launchd var 30:e min
     python cli.py spelai-tick       # facitsidan för spel-ai-kompisen (docs/spelai-facit.md)
+    python cli.py spelai-roller     # agentens rollkörningar, spegel, skärmbilder (fas F)
     python cli.py history 4956 1 1  # oddshistorik draw=4956 event=1 sign=1
     python cli.py backtest 25 stryktipset  # kalibrera modellen mot facit
 
@@ -1322,6 +1323,59 @@ def cmd_spelai_tick() -> int:
     return 0
 
 
+def cmd_spelai_roller() -> int:
+    """Rollkörningar (fas F, launchd com.saman.spelai.roller var 5:e min).
+
+    1. Speglar agentens repo till GitHub (högst var 10:e min, eget lås, så
+       spegeln går även medan en lång rollkörning pågår).
+    2. Med rollåset: städar avbrutna körningar och kör HÖGST EN due-körning
+       (`claude -p` som rollen, inom taket); före en veckogenomgång tas
+       skärmbilderna. Skriver i loggen bara när något hänt."""
+    import fcntl
+    import json as _json
+    from app import vakt as _vakt
+    from app.spelai import roller, schema as spelai_schema, skarmbilder, spegel, tillstand
+    store = Storage()
+    data = store.db_path.parent
+    report: dict = {}
+    try:
+        conn = store.conn
+        if not spelai_schema.tables_exist(conn):
+            print("spelai-roller: spelai-tabellerna saknas — kör scripts/migrera_spelai.py")
+            return 1
+        with open(data / "spelai-spegel.lock", "w") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                pass
+            else:
+                try:
+                    got = spegel.spegla(conn, now=tillstand.now_utc())
+                except Exception as exc:  # noqa: BLE001 — spegeln får inte stoppa rollerna
+                    got = {"fel": f"{type(exc).__name__}: {exc}"[:300]}
+                if got:
+                    report["spegel"] = got
+        with open(data / "spelai-roller.lock", "w") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                pass       # en rollkörning pågår — tyst, den syns när den slutat
+            else:
+                got = roller.tick(conn, now_fn=tillstand.now_utc,
+                                  runner=roller.claude_runner(),
+                                  vakt_path=_vakt.default_status_path(),
+                                  skarmbild_fn=skarmbilder.ta)
+                if got:
+                    report["roller"] = got
+    finally:
+        store.close()
+    if report:
+        stamp = tillstand.iso(tillstand.now_utc())
+        print(f"[{stamp}] spelai-roller: "
+              + _json.dumps(report, ensure_ascii=False, default=str))
+    return 0
+
+
 def cmd_vakt(rest: list[str]) -> int:
     """Driftvakten (app/vakt.py, docs/vakt.md): deterministiska kontroller av
     källprov, jobb, backendloggar, driftkopia, tester, disk och experiment.
@@ -1561,6 +1615,8 @@ def main() -> None:
             store.close()
     elif cmd == "spelai-tick":
         sys.exit(cmd_spelai_tick())
+    elif cmd == "spelai-roller":
+        sys.exit(cmd_spelai_roller())
     elif cmd == "vakt":
         cmd_vakt(rest)
     elif cmd == "xgbackfill":

@@ -9,13 +9,19 @@ INTE Spelkompisens pausade odds-/signalnotiser (`NTFY_TOPIC`).
 * Tysta timmar 23–07 svensk tid — utom beslut med sista tid. En notis som
   hamnar i tysta timmar skjuts upp (kandidaterna härleds ur tabellerna), den
   försvinner inte; ett förslag vars spelstopp passerat skickas aldrig.
+* Rollkörningar (fas F): en notis per avslutad körning — `roll_klar` med
+  agentens SAMMANFATTNING-rad (kapad, radliknande tecken borttagna),
+  `roll_fel` (fel/timeout/avbruten) utan felutskrift — och `kvot_slut` en
+  gång per dygn. Samma tysta timmar och dedup.
 * Aldrig rader, insatser eller loggar — bara vad som hänt och en länk.
 * Dedup per händelse-id: `spelai_event.dedup_key = notis:<id>`.
 """
 from __future__ import annotations
 
 import datetime as dt
+import json
 import os
+import re
 from typing import Callable, Optional
 
 from ..svenskaspel import PRODUCTS
@@ -27,6 +33,11 @@ LINK_ENV = "SPELAI_NOTIS_LANK"
 QUIET_FROM, QUIET_TO = 23, 7
 LOOKBACK_H = 12
 HORISONT_TEXT = {"6h": "förhandsversion 6 h", "30m": "officiellt förslag 30 min"}
+ROLL_TEXT = {"motivering": "motivering", "larm": "larmkörning",
+             "morgonrunda": "morgonrunda", "forskningspass": "forskningspass",
+             "veckogenomgang": "veckogenomgång"}
+SAMMANFATTNING_MAX = 180
+_RAD = re.compile(r"\b[1X2]{8,}\b")
 
 Sender = Callable[[str, str, str, Optional[str]], bool]
 
@@ -116,6 +127,57 @@ def kandidater(conn, *, now: dt.datetime) -> list[dict]:
         out.append({"key": f"beslut:{inbox_id}", "kind": "beslut",
                     "exempt": sista_at is not None, "close": None,
                     "title": "Nytt beslut", "message": f"{msg}: {rubrik[:120]}"})
+    out.extend(_roll_kandidater(conn, since=since))
+    return out
+
+
+def _roll_kandidater(conn, *, since: dt.datetime) -> list[dict]:
+    """Rollkörningarnas notiser ur journalen (app/spelai/roller.py)."""
+    out: list[dict] = []
+    for at, kind, ref, detail_json, dedup_key in conn.execute(
+            "SELECT at, kind, ref, detail_json, dedup_key FROM spelai_event "
+            "WHERE kind IN ('roll_klar', 'roll_fel', 'kvot_slut') "
+            "ORDER BY id DESC LIMIT 200"):
+        at_t = utc(at)
+        if at_t is None or at_t < since:
+            continue
+        try:
+            detail = json.loads(detail_json or "{}")
+        except ValueError:
+            detail = {}
+        if kind == "kvot_slut":
+            out.append({"key": f"kvot_slut:{ref}", "kind": "kvot_slut",
+                        "exempt": False, "close": None,
+                        "title": "Agenten: dagens tak nått",
+                        "message": f"{detail.get('anvanda')} av {detail.get('tak')} "
+                                   "körningar använda i dag. Väntande körningar "
+                                   "får vänta till i morgon."})
+            continue
+        ref = ref or ""
+        typ = str(detail.get("typ") or ref.split(":", 1)[0])
+        text = ROLL_TEXT.get(typ, typ or "körning")
+        vad = ref.split(":", 1)[1] if ":" in ref else ref
+        key = "roll:" + (dedup_key.split(":", 1)[1] if dedup_key else ref)
+        if kind == "roll_klar":
+            summary = " ".join(_RAD.sub("[rad]", str(detail.get("sammanfattning") or ""))
+                               .split())
+            if len(summary) > SAMMANFATTNING_MAX:
+                summary = summary[:SAMMANFATTNING_MAX - 1].rstrip() + "…"
+            out.append({"key": key, "kind": "roll_klar", "exempt": False,
+                        "close": None, "title": f"Agenten: {text} klar",
+                        "message": summary or f"{text.capitalize()} {vad} klar "
+                                              "(ingen sammanfattning)."})
+        else:
+            if detail.get("status") == "timeout":
+                hur, titel = "nådde tidsgränsen", "avbröts"
+            elif detail.get("avbruten"):
+                hur, titel = "avbröts innan den var klar", "avbröts"
+            else:
+                hur, titel = "misslyckades", "misslyckades"
+            out.append({"key": key, "kind": "roll_fel", "exempt": False,
+                        "close": None, "title": f"Agenten: {text} {titel}",
+                        "message": f"{text.capitalize()} {vad} {hur}. "
+                                   "Se Agent-fliken."})
     return out
 
 

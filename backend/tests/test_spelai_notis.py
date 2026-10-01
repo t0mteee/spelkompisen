@@ -108,5 +108,69 @@ class NotisTests(unittest.TestCase):
         self.assertFalse(notis.tysta_timmar(dt.datetime(2026, 10, 3, 5, 0, tzinfo=UTC)))
 
 
+class RollNotisTests(unittest.TestCase):
+    """Fas F: roll_klar/roll_fel/kvot_slut (app/spelai/roller.py) blir notiser."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = ny_store(self.tmp, start=START)
+        self.conn = self.store.conn
+        self.sent = []
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+
+    def sender(self, topic, title, message, link):
+        self.sent.append((title, message))
+        return True
+
+    def handelse(self, kind, ref, detail, at, dedup):
+        import json
+        self.conn.execute(
+            "INSERT INTO spelai_event (at, kind, ref, detail_json, dedup_key) "
+            "VALUES (?,?,?,?,?)", (at.strftime("%Y-%m-%dT%H:%M:%SZ"), kind, ref,
+                                   json.dumps(detail), dedup))
+        self.conn.commit()
+
+    def test_klar_fel_och_kvot_slut(self):
+        self.handelse("roll_klar", "morgonrunda:2026-10-03",
+                      {"typ": "morgonrunda", "status": "klar",
+                       "sammanfattning": "Två larm åtgärdade. 1X21X21X21X21 " + "x" * 300},
+                      DAG, "roll_slut:morgonrunda:2026-10-03")
+        self.handelse("roll_fel", "forskningspass:2026-10-03",
+                      {"typ": "forskningspass", "status": "timeout"}, DAG,
+                      "roll_slut:forskningspass:2026-10-03")
+        self.handelse("roll_fel", "larm:jobb_nere:pool",
+                      {"typ": "larm", "status": "fel"}, DAG,
+                      "roll_slut:larm:jobb_nere:pool:2026-10-03T12:00:00Z")
+        self.handelse("kvot_slut", "2026-10-03", {"tak": 8, "anvanda": 8}, DAG,
+                      "kvot_slut:2026-10-03")
+        rep = notis.skicka(self.conn, now=DAG, sender=self.sender, topic_name="t")
+        self.assertEqual(4, rep["skickade"])
+        by_title = dict(self.sent)
+        klar = by_title["Agenten: morgonrunda klar"]
+        self.assertTrue(klar.startswith("Två larm åtgärdade."))
+        self.assertLessEqual(len(klar), notis.SAMMANFATTNING_MAX)
+        self.assertNotIn("1X21X21X21X21", klar)
+        self.assertIn("nådde tidsgränsen", by_title["Agenten: forskningspass avbröts"])
+        self.assertIn("misslyckades", by_title["Agenten: larmkörning misslyckades"])
+        self.assertIn("8 av 8", by_title["Agenten: dagens tak nått"])
+        # dedup: inget skickas igen
+        self.assertEqual(0, notis.skicka(self.conn, now=DAG, sender=self.sender,
+                                         topic_name="t")["skickade"])
+
+    def test_tysta_timmar_skjuter_upp_rollnotisen(self):
+        self.handelse("roll_klar", "forskningspass:2026-10-03",
+                      {"typ": "forskningspass", "sammanfattning": "Klart."}, NATT,
+                      "roll_slut:forskningspass:2026-10-03")
+        rep = notis.skicka(self.conn, now=NATT, sender=self.sender, topic_name="t")
+        self.assertEqual((0, 1), (rep["skickade"], rep["uppskjutna"]))
+        morgon = NATT + dt.timedelta(hours=7)                    # 07:30 svensk tid
+        self.assertEqual(1, notis.skicka(self.conn, now=morgon, sender=self.sender,
+                                         topic_name="t")["skickade"])
+        self.assertEqual("Agenten: forskningspass klar", self.sent[0][0])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -344,5 +344,181 @@ movement med poolvarvets funktioner, klockan simulerad.
 
 ## 13. Utelämnat i fas B
 
-Rollkörningar (`claude -p`) startas inte ännu — `spelai_run` och kvoten finns.
+Rollkörningar (`claude -p`) startades inte i fas B — se avsnitt 14 (fas F).
 Livedelen (fas E), nya UI:t och Idag-bannern (fas G) ingår inte.
+
+## 14. Rollkörningar (fas F)
+
+**Status 2026-10-01:** byggd och testad i worktree `claude/spelai-roller`
+(falsk körare, lokala repon, Chrome-gränsprov), inte driftsatt. `claude` har
+aldrig körts av koden.
+
+Facitsidan är klockan (princip 2). `cli.py spelai-roller` (launchd
+`com.saman.spelai.roller`, var 5:e min, `Nice` 10) gör i tur och ordning:
+
+```
+spelai-roller
+  1. spegel.spegla      eget lås (spelai-spegel.lock) — går även under en lång körning
+  2. rollåset (spelai-roller.lock) taget, annars tyst slut ("körning pågår")
+     a. roller.stada_avbrutna   roll_start utan spelai_run-rad → rad med status fel
+     b. roller.due              kandidater i prioritetsordning (nedan)
+     c. skarmbilder.ta          bara före en veckogenomgång
+     d. roller.run              HÖGST EN körning per varv
+```
+
+Notiserna skickas av `spelai-tick` som förut (avsnitt 9), ur journalen.
+
+### Vad som är due (`app/spelai/roller.py`)
+
+| Prioritet | Uppgift (stabil nyckel) | Roll | Modell | Tid | Turer | När |
+|---|---|---|---|---|---|---|
+| 1 | `motivering:<produkt>:<omgång>:<horisont>` | forskaren | sonnet | 10 min | 25 | agentens förslag (6h/30m, `fryst`) frystes de senaste 2 h och har annan `rows_hash` än standarden på minst en nivå (båda `fryst`) |
+| 2 | `larm:<kind>:<key>` | driften | sonnet | 20 min | 40 | `level: error` i vaktens `vakt.json` med `since` EFTER `facit_start`; högst 3 larmkörningar per svenskt dygn |
+| 3 | `morgonrunda:<YYYY-MM-DD>` | driften | sonnet | 20 min | 40 | 07:00 ≤ svensk tid < 22:00, en per dygn |
+| 4 | `forskningspass:<YYYY-MM-DD>` | forskaren | opus | 40 min | 80 | 10:00 ≤ svensk tid < 22:00, en per dygn |
+| 5 | `veckogenomgang:<ISO-år>-W<vv>` | anvandaren | sonnet | 15 min | 30 | söndag 11:00 ≤ svensk tid < 22:00, en per vecka |
+
+* Så länge agenten kör `standard-v1` (samma rader som standarden) blir det
+  inga motiveringar.
+* Inget är due vid paus (`spelai_state` `paus`), när rollåset hålls av en
+  annan process, eller när `tillstand.kvot_idag(...)["kvar"] == 0`. Då loggas
+  `kvot_slut` (dedup `kvot_slut:<dag>`) med de väntande uppgifterna — bara när
+  något faktiskt väntar. Taket är det besvarade beslutets `kvot` klippt mot
+  `MAX_KORNINGAR_ABS = 12`, annars 8 (avsnitt 8). Kvoten räknar
+  `spelai_run`-rader per svenskt dygn, så motiveringar och larm ingår.
+* **En uppgift körs högst en gång:** `roll_start` skrivs FÖRE processen med
+  `dedup_key = roll_start:<dedup>`; `dedup` = uppgiften, för larm uppgiften +
+  `since` (ett larm som försvinner och kommer tillbaka med ny `since` är ett
+  nytt larm). En körning som misslyckats görs inte om samma dag.
+* Vaktens meddelande går in i larmprompten kapat till 300 tecken och märkt
+  som data, inte instruktioner.
+* Prompterna är betrodd text i koden, på svenska, med svensk tid och UTC
+  injicerade, och pekar på rollbeskrivningen i agentrepots
+  `.claude/agents/<roll>.md`. Alla slutar med kravet på EN rad
+  `SAMMANFATTNING:` (högst 200 tecken, inga kuponger, rader eller insatser).
+  Motiveringen skrivs till `~/spel-ai-data/motiveringar/<produkt>-<omgång>-<horisont>.md`
+  (högst 120 ord; katalogen skapas av facitsidan före körningen).
+
+### En körning (`roller.run`)
+
+`roll_start` → köraren → **exakt en** `spelai_run`-rad (role, task, started_at,
+ended_at, status `klar`/`fel`/`timeout`, model, usage_json, cost_usd, note) →
+`roll_klar` (status klar) eller `roll_fel` (fel/timeout), båda med
+`dedup_key = roll_slut:<dedup>`.
+
+* Svaret tolkas ur `--output-format json`: `result`, `is_error`, `subtype`,
+  `num_turns`, `total_cost_usd`, `usage` (`usage_json` bär `usage`,
+  `num_turns`, `subtype`, `duration_ms`, `session_id`, `modelUsage`).
+  `is_error`, `subtype` som börjar med `error` (t.ex. `error_max_turns`) eller
+  exit ≠ 0 ⇒ `fel`. Inget JSON ⇒ `fel` med stderr (sista 300 tecken).
+* `note` = SAMMANFATTNING-raden (den sista om flera; markdown tål), eller
+  felet. Teckenföljder som liknar rader (`[1X2]{8,}`) ersätts med `[rad]`.
+* En process som dör utan slutrad (strömavbrott, SIGKILL) får sin rad i
+  efterhand av `stada_avbrutna`: status `fel`, `ended_at` NULL, not
+  `avbruten: …`. Den räknas då i kvoten — den kostade ändå.
+
+**Den riktiga köraren:** `claude -p --agent <roll> --model <model>
+--permission-mode acceptEdits --permission-prompts none --output-format json
+--max-turns <n> "<prompt>"`, arbetskatalog `~/spel-ai-kompisen`, egen
+processgrupp (`start_new_session`), hela gruppen får TERM och efter 10 s KILL
+vid tidsgränsen. Miljön är REN: `HOME`, `USER`, `LOGNAME`, `SHELL`, `LANG`,
+`TMPDIR` och `PATH=$HOME/.local/bin:/usr/bin:/bin` — Spelkompisens `.env`
+laddas in i facitsidans process och får aldrig ärvas av agenten (testat).
+SIGTERM från launchd dödar körningens grupp och ger raden `fel`/`avbruten`.
+Körs aldrig i `sandbox-exec` (claude behöver nyckelringen och nät); agentens
+Bash isoleras av Claude Codes sandbox enligt agentrepots `.claude/settings.json`.
+
+### Skärmbilder åt Användaren (`app/spelai/skarmbilder.py`)
+
+Agentens Bash når inte 127.0.0.1 (gränsprovet), så facitsidan tar bilderna
+före varje `veckogenomgang`: `#/`, `#/pool`, `#/beslut`, `#/live`, `#/agent`
+som `hem|pool|beslut|live|agent-390x844.png` och `…-hel.png` i
+`~/spel-ai-data/skarmbilder/<YYYY-MM-DD>/`. Filnamnen (eller att inga bilder
+kunde tas) står i prompten. Händelse `skarmbilder` i journalen.
+
+Skriptet är facitsidans **betrodda kopia** `tools/spelai/skarmbild.mjs` av
+agentens `tools/skarmbild.mjs` (a2fbc12), granskad rad för rad. Originalet
+öppnade en DevTools-port (9300–9899) och gav sidan fri tillgång till
+loopback — en sida som agenten skriver kunde alltså ha POST:at till valfri
+lokal port eller tagit över webbläsaren via porten. Kopian:
+
+* godtar bara URL:er med exakt ursprunget `SKARMBILD_ORIGIN`
+  (`http://127.0.0.1:5176`, satt av Python-sidan);
+* ger Chrome en död proxy (`127.0.0.1:9`) och `--proxy-bypass-list=<-loopback>;127.0.0.1:5176`
+  — senare regler går före tidigare, så ordningen är avgörande;
+* talar DevTools över pipe (`--remote-debugging-pipe`), ingen TCP-port;
+* stänger av Chromes bakgrundstrafik och WebRTC utanför proxyn;
+* skriver bara `<ut.png>` (profilen är en temporär katalog som tas bort),
+  validerar sidans scrollmått och kapar helsidan vid 16 000 px.
+
+Miljön till node är ren (`PATH=/usr/bin:/bin`, `HOME`, `LANG`, `TMPDIR`,
+`SKARMBILD_ORIGIN`, `CHROME`).
+
+**Gränsprov på servern 2026-10-01** (Chrome headless, en "app" på port A vars
+sida försökte nå en annan lokal port B med `fetch` POST no-cors, `fetch` via
+`localhost`, `<img>`, `sendBeacon`, `WebSocket` och DevTools-portarna
+9300–9309):
+
+| Bypass-lista | A (ursprunget) | B (annan lokal port) |
+|---|---|---|
+| ingen proxy (agentens original) | sidan laddas | **nås**: img, POST, beacon, WebSocket |
+| `127.0.0.1:A;<-loopback>` | nekas (`ERR_PROXY_CONNECTION_FAILED`) | nekas |
+| `<-loopback>;127.0.0.1:A` (kopian) | sidan och `/self` laddas | **inget** |
+
+En URL mot 8002 avvisas med exit 2 innan Chrome startar. Riktiga bilder av
+agentens app (5176, `#/pool` och `#/` som helsida) togs till `/tmp` och visar
+sidan med data via appens egen proxy.
+
+**Kvarstående (ej skärmbildernas):** agentens app på 5176 proxar
+`/api/spelai` till 8002 och tjänstesandboxen `tjanst.sb` tillåter det, så
+agentens egen serverkod kan redan i dag skicka ett "svar" med webbläsar-
+User-Agent till beslutssidan (avsnitt 8, `xfwd`-förslaget i fas G). Det
+absoluta taket begränsar skadan för kvoten.
+
+### Spegling till GitHub (`app/spelai/spegel.py`)
+
+Högst var 10:e minut (mätt på spegelns `FETCH_HEAD`): `git fetch` FRÅN
+`~/spel-ai-kompisen` med `+refs/heads/main:refs/heads/main` till den betrodda
+bara spegeln `~/spel-ai-spegel.git` (skapas vid behov, `spegel_skapad`), och om
+`main` skiljer sig från senast pushade (`refs/spegel/pushad` i spegeln):
+`git push git@github.com:t0mteee/spel-ai-kompisen.git refs/heads/main:refs/heads/main`
+FRÅN spegeln, sedan `spegel_push` i journalen.
+
+* git körs aldrig med agentrepot som arbetskatalog (bara `--git-dir=<spegel>`,
+  cwd `~`) och alltid med `-c core.hooksPath=/dev/null` (testat: krokar i både
+  spegeln och agentrepot körs inte). Miljön är ren, `GIT_TERMINAL_PROMPT=0`,
+  `GIT_CONFIG_NOSYSTEM=1`, ssh i `BatchMode`.
+* Push är bara fast-forward. Skriver agenten om `main` (t.ex. `reset` vid en
+  återställning) avvisar GitHub pushen: `spegel_fel` loggas en gång per huvud
+  och spegeln står still tills Saman bestämt (force-push eller ny gren).
+* En misslyckad push görs om nästa varv, eftersom `refs/spegel/pushad` bara
+  flyttas efter en lyckad push. Testat mot lokala repon, aldrig mot GitHub.
+
+### Notiser
+
+`notis.kandidater` läser även journalen: `roll_klar` ⇒ "Agenten: morgonrunda
+klar" + sammanfattningen (kapad vid 180 tecken, radliknande följder bort),
+`roll_fel` ⇒ "Agenten: forskningspass misslyckades/avbröts" utan felutskrift,
+`kvot_slut` ⇒ "Agenten: dagens tak nått" (en per dygn). Samma tysta timmar
+(23–07, skjuts upp) och dedup (`notis:roll:<dedup>`, `notis:kvot_slut:<dag>`).
+
+### Drift
+
+| Vad | Plats |
+|---|---|
+| launchd | `backend/scripts/com.saman.spelai.roller.plist` (StartInterval 300, RunAtLoad, Nice 10) |
+| loggar | `backend/data/spelai-roller.out.log` / `.err.log` (en rad per varv där något hänt) |
+| lås | `backend/data/spelai-roller.lock`, `backend/data/spelai-spegel.lock` |
+| tjänst | `spelai-roller` i `tools/spelkompisen_tjanster.py` (projekt spel-ai-kompisen, ingår i gruppen `spelai`) och i vaktens `JOBS` |
+
+Driftsättning: deploya, `cp backend/scripts/com.saman.spelai.roller.plist
+~/Library/LaunchAgents/`, `tools/tjanster.sh start spelai-roller`. Första
+varvet (RunAtLoad) skapar spegeln och pushar agentens `main`, och om klockan
+är 07–22 startar det morgonrundan direkt. Vakten larmar `jobb_ej_laddat` för
+`spelai-roller` från deploy tills plisten är laddad.
+
+**Utelämnat i fas F:** Användarens korta körningar vid 6 h- och
+30 min-förslagen (designens avsnitt 6; bara söndagens genomgång är
+schemalagd), forskningspasset 15:00 från vecka 2, chattsessionen
+(`com.saman.spelai.chatt`, tmux + Remote Control) och visning av rollernas
+status i API/UI (finns redan i `GET /api/spelai/korningar`).

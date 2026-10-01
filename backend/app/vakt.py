@@ -65,9 +65,11 @@ DNS_MARKERS = ("temporary failure in name resolution", "could not resolve host",
 JOBS: tuple[tuple[str, bool], ...] = (
     ("backend", True), ("frontend", True), ("snapshot", False), ("pool", False),
     ("backup", False), ("kalltest", False), ("vakt", False),
-    # spel-ai-kompisens facitsida (docs/spelai-facit.md), varje minut, och
-    # agentens API och app (KeepAlive, i Spelkompisens sandbox tjanst.sb)
-    ("spelai", False), ("spelai-api", True), ("spelai-app", True))
+    # spel-ai-kompisens facitsida (docs/spelai-facit.md), varje minut, dess
+    # rollkörningar (var 5:e min) och agentens API och app (KeepAlive, i
+    # Spelkompisens sandbox tjanst.sb)
+    ("spelai", False), ("spelai-roller", False), ("spelai-api", True),
+    ("spelai-app", True))
 # Insamlingens liv bevisas BARA av append-only-tabeller (observationstids-
 # regeln 1 och 7): `snapshots`/`sharp_snapshots` skrivs vid förändring och
 # hade luckor på 150 resp. 187 min under normal drift 17/9–1/10, medan

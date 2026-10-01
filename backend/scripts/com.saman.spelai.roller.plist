@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.saman.spelai.roller</string>
+
+    <!-- Rollkörningar för spel-ai-kompisen (fas F, docs/spelai-facit.md
+         "Rollkörningar"): speglar agentens repo till GitHub, tar skärmbilder
+         före Användarens veckogenomgång och kör HÖGST EN schemalagd
+         `claude -p`-körning per varv inom facitsidans tak. Låg prioritet
+         (beslut 8). En körning kan pågå i upp till 40 min; launchd startar
+         inte en ny instans medan en körs, och kommandot tar dessutom ett
+         fil-lås för rollerna och ett för spegeln. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/saman/spelkompisen/backend/.venv/bin/python</string>
+        <string>-B</string>
+        <string>cli.py</string>
+        <string>spelai-roller</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/saman/spelkompisen/backend</string>
+
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <!-- Låg prioritet för hela trädet, även claude och agentens verktyg. -->
+    <key>Nice</key>
+    <integer>10</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/saman/spelkompisen/backend/data/spelai-roller.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/saman/spelkompisen/backend/data/spelai-roller.err.log</string>
+</dict>
+</plist>
