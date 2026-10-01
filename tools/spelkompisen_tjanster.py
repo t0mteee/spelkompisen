@@ -120,6 +120,15 @@ SERVICES: tuple[Service, ...] = (
                 "data efter den saknar kopia tills jobbet körs igen.",
     ),
     Service(
+        "vakt", "Driftvakt", "com.saman.spelkompisen.vakt",
+        "Server & övervakning", "driftvakt var 30:e minut", scheduled=True,
+        help_text="Kontrollerar var 30:e minut källprov, jobb, backendloggar, "
+                  "driftkopian, disk och nattliga tester och visar fynden på Idag. "
+                  "Den hämtar inget från datakällorna.",
+        warning="Driftvakten stannar. Fel i källor, jobb och tester syns inte "
+                "på Idag förrän den körs igen.",
+    ),
+    Service(
         "menubar", "Serverkontroll", "com.saman.spelkompisen.menubar",
         "Server & övervakning", "lokal status- och tjänstemeny",
         "Statusmenyn kan starta och stoppa tjänster; övriga insamlingar "
@@ -352,13 +361,13 @@ USAGE = """Användning:
   tjanster.sh omstart <tjänst ...>
 
 Tjänster:
-  backend frontend snapshot pool kalltest backup awake menubar charter bonus
+  backend frontend snapshot pool kalltest backup vakt awake menubar charter bonus
 Grupper:
   all            alla tjänster
   spelkompisen   API, webb och Spelkompisens två insamlare
   chartervakt    Chartervakt
   bonusvakt      Bonusvakt
-  server         sömnskydd, källprov och serverkontroll
+  server         sömnskydd, källprov, backup, driftvakt och serverkontroll
 
 Flaggor:
   --permanent  stoppet överlever omstart och inloggning (launchctl disable)

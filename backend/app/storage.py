@@ -1179,10 +1179,20 @@ class Storage:
         {"SWE", "NOR", "ENG", "ITA", "ESP", "GER"})
     ODDSET_NO_LINE_KEY = 2_147_483_647
 
-    def __init__(self, db_path: Path | str = DEFAULT_DB):
+    def __init__(self, db_path: Path | str = DEFAULT_DB, *, read_only: bool = False):
         self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._bulk = False
+        self.read_only = read_only
+        if read_only:
+            # Rena läsare (driftvakten, app/vakt.py): `mode=ro`, ingen mkdir,
+            # inget schema och inga migreringar. En skrivning ger
+            # OperationalError i stället för att röra databasen.
+            self.conn = sqlite3.connect(
+                f"{self.db_path.resolve().as_uri()}?mode=ro", uri=True, timeout=10)
+            self.conn.row_factory = sqlite3.Row
+            self.conn.execute("PRAGMA busy_timeout=10000")
+            return
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         # WP0 (granskningen): WAL = läsare blockeras inte av skrivare (API:t +
         # 25-min-smartpasset kör parallellt); busy_timeout i stället för
         # "database is locked" vid krock.

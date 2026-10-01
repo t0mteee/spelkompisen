@@ -22,6 +22,7 @@ from typing import Iterable, Optional
 from .pool_system_ledger import (FREEZE_HORIZONS, benchmarks_for,
                                  research_families_for)
 from .svenskaspel import PRODUCTS
+from .vakt import default_status_path as _vakt_status_path
 
 NORMAL_MAX_AGE_MIN = 45
 DENSE_MAX_AGE_MIN = 15
@@ -39,6 +40,11 @@ BACKUP_MAX_AGE_H = 36
 # — tidigt saknade priser kan vara Pinnacles eget utbud.
 SHARP_COVERAGE_WITHIN_H = 48
 SHARP_COVERAGE_MIN_SHARE = 0.70
+# Driftvakten (app/vakt.py, docs/vakt.md) skriver sitt läge var 30:e minut.
+# 90 min = två missade körningar plus marginal för den nattliga testsviten
+# (upp till 15 min i samma körning).
+VAKT_STATUS_PATH = _vakt_status_path()
+VAKT_MAX_AGE_MIN = 90
 
 
 def _at(value) -> Optional[dt.datetime]:
@@ -110,14 +116,59 @@ def _backup_issues(issues: list[dict], path: Path, now: dt.datetime) -> None:
                last_pushed_at=status.get("last_pushed_at"))
 
 
+def _vakt_issues(issues: list[dict], path: Path,
+                 now: dt.datetime) -> Optional[dict]:
+    """Driftvaktens fel och varningar blir issues med `product: "server"`.
+
+    Info-fynd (experimentnoteringar) läggs ALDRIG här: frontendens
+    `splitPoolIssues` räknar allt som inte är 'warning' som fel. De returneras
+    i stället som `{checked_at, notes}` och visas under `vakt` i /api/health."""
+    try:
+        status = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        _issue(issues, "warning", "server", "vakt_missing",
+               "driftvakten har inte körts (vakt.json saknas) — fel i källor, jobb "
+               "och tester syns inte förrän den gör det")
+        return None
+    except (OSError, ValueError) as exc:
+        _issue(issues, "warning", "server", "vakt_unreadable",
+               f"driftvaktens status kunde inte läsas ({type(exc).__name__})")
+        return None
+    checked = _at(status.get("checked_at"))
+    if checked is None or now - checked > dt.timedelta(minutes=VAKT_MAX_AGE_MIN):
+        when = _iso(checked) if checked else "aldrig"
+        _issue(issues, "warning", "server", "vakt_stale",
+               f"driftvakten kontrollerade senast {when} (gräns {VAKT_MAX_AGE_MIN} min) "
+               "— dess fynd nedan kan vara inaktuella",
+               checked_at=status.get("checked_at"))
+    notes = []
+    for finding in status.get("findings") or []:
+        if not isinstance(finding, dict):
+            continue
+        extra = {key: finding.get(key) for key in ("area", "key", "since", "last_seen")
+                 if finding.get(key) is not None}
+        if finding.get("held") or finding.get("carried"):
+            extra["held"] = True
+        if finding.get("level") in ("error", "warning"):
+            _issue(issues, finding["level"], "server", str(finding.get("kind")),
+                   str(finding.get("message") or finding.get("kind")), **extra)
+        elif finding.get("level") == "info":
+            notes.append({"kind": finding.get("kind"),
+                          "message": finding.get("message"), **extra})
+    return {"checked_at": status.get("checked_at"), "version": status.get("version"),
+            "notes": notes}
+
+
 def report(store, *, now: Optional[dt.datetime] = None,
            products: Optional[Iterable[str]] = None,
-           backup_status_path: Optional[Path] = None) -> dict:
+           backup_status_path: Optional[Path] = None,
+           vakt_status_path: Optional[Path] = None) -> dict:
     """Kontrollera poolens observerade slutprodukter utan externa anrop.
 
-    `backup_status_path` skickas av API:t och `cli.py kallhalsa`
-    (BACKUP_STATUS_PATH). Tester utelämnar den och påverkas då aldrig av
-    maskinens riktiga backup."""
+    `backup_status_path` och `vakt_status_path` skickas av API:t och
+    `cli.py kallhalsa` (BACKUP_STATUS_PATH, VAKT_STATUS_PATH). Tester utelämnar
+    dem och påverkas då aldrig av maskinens riktiga backup eller driftvakt.
+    Med `vakt_status_path` bär svaret även `vakt` (checked_at + info-noteringar)."""
     now = (now or dt.datetime.now(dt.timezone.utc)).astimezone(dt.timezone.utc)
     chosen = tuple(products or PRODUCTS.keys())
     issues: list[dict] = []
@@ -295,6 +346,8 @@ def report(store, *, now: Optional[dt.datetime] = None,
 
     if backup_status_path is not None:
         _backup_issues(issues, Path(backup_status_path), now)
+    vakt = (_vakt_issues(issues, Path(vakt_status_path), now)
+            if vakt_status_path is not None else None)
 
     # En retry-tid är ett löfte från settlementmaskinen. Har den passerat med
     # mer än ett varv utan nytt facit är det en änd-till-änd-lucka, oavsett om
@@ -314,13 +367,16 @@ def report(store, *, now: Optional[dt.datetime] = None,
                    f"omprövningstiden passerade {_iso(retry)} utan facit",
                    int(row[1]))
 
-    return {
+    payload = {
         "status": "error" if any(i["level"] == "error" for i in issues)
         else "ok",
         "checked_at": _iso(now),
         "issues": issues,
         "products": product_rows,
     }
+    if vakt_status_path is not None:
+        payload["vakt"] = vakt
+    return payload
 
 
 def format_report(payload: dict) -> str:

@@ -245,8 +245,12 @@ def health():
     from . import oddset_health, oddset_v22, pool_health
     store = Storage()
     try:
+        # Driftvaktens fel/varningar (app/vakt.py) blir pool-issues med
+        # product "server"; dess info-noteringar ligger under `vakt`.
         pools = pool_health.report(
-            store, backup_status_path=pool_health.BACKUP_STATUS_PATH)
+            store, backup_status_path=pool_health.BACKUP_STATUS_PATH,
+            vakt_status_path=pool_health.VAKT_STATUS_PATH)
+        vakt = pools.pop("vakt", None)
         v22 = oddset_v22.health(store)
         # Tystnad i Oddset-varvet, liveradarn eller pooltick-jobbet: samma
         # änd-till-änd-princip som poolhälsan, helt lokalt utan anrop.
@@ -254,7 +258,7 @@ def health():
         healthy = (pools["status"] == "ok" and v22["status"] == "ok"
                    and oddset["status"] == "ok")
         return {"status": "ok" if healthy else "degraded",
-                "pools": pools, "v22": v22, "oddset": oddset}
+                "pools": pools, "v22": v22, "oddset": oddset, "vakt": vakt}
     finally:
         store.close()
 

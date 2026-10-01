@@ -14,6 +14,7 @@ Användning (från backend/ med aktiverat venv):
     python cli.py v2audit [backfill] # PIT-dataset/coverage; backfill är ej promotion
     python cli.py v2backtest [proxy] # nested ridge; proxy kan aldrig promovera
     python cli.py v22audit          # ny Allsv-shadow; identitetskontroll/gate
+    python cli.py vakt [--tester-nu] # driftvakten (docs/vakt.md), launchd var 30:e min
     python cli.py history 4956 1 1  # oddshistorik draw=4956 event=1 sign=1
     python cli.py backtest 25 stryktipset  # kalibrera modellen mot facit
 
@@ -1253,6 +1254,49 @@ def cmd_smart(max_seconds: int = DENSE_BUDGET_S) -> None:
         odd_at = time.time()
 
 
+def cmd_vakt(rest: list[str]) -> int:
+    """Driftvakten (app/vakt.py, docs/vakt.md): deterministiska kontroller av
+    källprov, jobb, backendloggar, driftkopia, tester, disk och experiment.
+    Inga anrop till datakällor; databasen öppnas skrivskyddad. Skriver
+    <data>/vakt/vakt.json + en rad i vakt-logg.jsonl. launchd: var 30:e min."""
+    import argparse
+    import fcntl
+    from pathlib import Path
+    from app import vakt
+    parser = argparse.ArgumentParser(prog="cli.py vakt")
+    parser.add_argument("--tester-nu", action="store_true",
+                        help="kör testsviten nu i stället för en gång per natt")
+    parser.add_argument("--utan-tester", action="store_true",
+                        help="kör aldrig testsviten i den här körningen")
+    parser.add_argument("--utan-fetch", action="store_true",
+                        help="ingen git fetch (jämför mot befintlig origin/main)")
+    parser.add_argument("--data", type=Path, help="datakatalog (loggar, källprov)")
+    parser.add_argument("--db", type=Path, help="databas (öppnas skrivskyddad)")
+    parser.add_argument("--repo", type=Path, help="driftkopians rot (git, dist)")
+    parser.add_argument("--status-dir", type=Path,
+                        help="var vakt.json skrivs (standard <data>/vakt)")
+    args = parser.parse_args(rest)
+    data_dir = args.data or vakt.DATA_DIR
+    status_dir = args.status_dir or (data_dir / "vakt" if args.data
+                                     else vakt.default_status_dir())
+    status_dir.mkdir(parents=True, exist_ok=True)
+    # En körning åt gången: launchd överlappar inte, men en manuell
+    # `--tester-nu` kan krocka med schemat.
+    with open(status_dir / ".vakt.lock", "w") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            print("vakten kör redan — hoppar över")
+            return 0
+        status = vakt.run(data_dir=data_dir, db_path=args.db, repo=args.repo,
+                          status_dir=status_dir, fetch=not args.utan_fetch,
+                          tests=True if args.tester_nu else
+                          False if args.utan_tester else None)
+        vakt.write_status(status, status_dir)
+    print(vakt.format_status(status, verbose=sys.stdout.isatty()))
+    return 0
+
+
 def main() -> None:
     args = sys.argv[1:]
     cmd = args[0] if args else "show"
@@ -1366,9 +1410,10 @@ def main() -> None:
             timmar = next((int(a) for a in rest if a.isdigit()), 6)
             print(format_source_health(store, hours=timmar))
             print("\n" + oddset_health.format_report(oddset_health.report(store)))
-            from app.pool_health import BACKUP_STATUS_PATH
+            from app.pool_health import BACKUP_STATUS_PATH, VAKT_STATUS_PATH
             print("\n" + format_pool_health(pool_health_report(
-                store, backup_status_path=BACKUP_STATUS_PATH)))
+                store, backup_status_path=BACKUP_STATUS_PATH,
+                vakt_status_path=VAKT_STATUS_PATH)))
         finally:
             store.close()
     elif cmd == "lanklucka":
@@ -1446,6 +1491,8 @@ def main() -> None:
                 print(f"{lg}: T={t} (logloss {ll} vs {ll1} vid T=1, n={len(preds)}) — sparad")
         finally:
             store.close()
+    elif cmd == "vakt":
+        cmd_vakt(rest)
     elif cmd == "xgbackfill":
         from app import oddset_data
         store = Storage()

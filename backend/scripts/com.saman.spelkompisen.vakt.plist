@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.saman.spelkompisen.vakt</string>
+
+    <!-- Driftvakten (app/vakt.py, docs/vakt.md): deterministiska kontroller av
+         källprov, jobb, backendloggar, driftkopia, disk och experiment, samt
+         testsviten en gång per natt efter 03:00 i en temporär worktree. Inga
+         anrop till datakällor; databasen öppnas skrivskyddad. Läget skrivs till
+         backend/data/vakt/vakt.json och visas på Idag via /api/health. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/saman/spelkompisen/backend/.venv/bin/python</string>
+        <string>-B</string>
+        <string>/Users/saman/spelkompisen/backend/cli.py</string>
+        <string>vakt</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/saman/spelkompisen/backend</string>
+    <!-- git och ps ligger i /usr/bin och /bin; node/npm för den nattliga
+         kontrollen i samma runtime som backend och kontroll.sh. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/saman/spelkompisen/backend/.venv/bin:/Users/saman/.local/spelkompisen-runtime/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+    </dict>
+
+    <!-- Var 30:e minut; /api/health varnar (vakt_stale) när läget är äldre
+         än 90 min. -->
+    <key>StartInterval</key>
+    <integer>1800</integer>
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/saman/spelkompisen/backend/data/vakt-launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/saman/spelkompisen/backend/data/vakt-launchd.err.log</string>
+</dict>
+</plist>
