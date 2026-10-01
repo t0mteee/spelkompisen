@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { get } from '../lib/api.js'
 import { LoadingState, ErrorState } from '../components/ui.jsx'
 import { answerText, deadlineText, isDecision, kindLabel, recommendedIndex, splitInbox } from '../lib/inbox.js'
+import { agentAppUrl } from '../lib/routes.js'
 
 async function postAnswer(id, val, kommentar) {
   const r = await fetch(`/api/spelai/inbox/${id}/svar`, {
@@ -119,10 +120,13 @@ export function BeslutView({ focus = null }) {
   return (
     <div className="v3beslutvy">
       <section>
-        <h2>Beslut</h2>
+        <div className="v3beslut-head">
+          <h2>Beslut från agenten och Spelkompisen</h2>
+          <a className="v3agentlink" href={agentAppUrl(window.location, 'beslut')}>Agentens app →</a>
+        </div>
         <p className="v3beslut-why">
-          Agentens och Spelkompisens beslut på ett ställe. Ditt svar sparas här med tid,
-          och agenten kan aldrig svara åt dig.
+          Du är i Spelkompisen. Här svarar du på beslut från agenten (spel-ai-kompisen) och
+          från Spelkompisen. Ditt svar sparas med tid, och agenten kan aldrig svara åt dig.
         </p>
         {saved && <p className="v3beslut-saved" role="status">{saved}</p>}
         {beslut.length

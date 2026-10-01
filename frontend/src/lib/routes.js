@@ -66,3 +66,12 @@ export function parentRoute(route) {
   if (route.tab === 'tester' && route.test) return { view: 'historik', tab: 'tester' }
   return { view: 'historik', tab: route.tab || 'kuponger' }
 }
+
+// spel-ai-kompisens app (agenten) på samma värd, port 5176 — hemma via LAN och
+// borta via Tailscale utan att någon adress hårdkodas.
+export function agentAppUrl(loc, hashPath = '') {
+  const protocol = loc?.protocol || 'http:'
+  const host = loc?.hostname || '127.0.0.1'
+  const path = String(hashPath || '').replace(/^#?\/?/, '')
+  return `${protocol}//${host}:5176/${path ? `#/${path}` : ''}`
+}

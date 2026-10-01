@@ -245,6 +245,17 @@
 .v3inbox b { color: #f0b860; font-size: 13px; }
 .v3inbox button { margin-left: auto; min-height: 36px; }
 .v3beslutvy { display: grid; gap: 12px; max-width: 760px; }
+/* Hopp till agentens app: violett, agentens färg, så att de två apparna skiljs åt. */
+.v3agentlink {
+  display: inline-flex; align-items: center; min-height: 32px; padding: 0 11px;
+  border-radius: 999px; border: 1px solid #4b3f8f; background: #1c1830;
+  color: #c4b9ff; font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap;
+}
+.v3agentlink:hover { border-color: #9b8afb; color: #e2dcff; }
+.v3beslut-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+@media (max-width: 760px) {
+  .v3agentlink { min-height: 28px; padding: 0 9px; font-size: 11px; }
+}
 .v3beslutvy > section { display: grid; gap: 10px; }
 .v3beslut {
   display: grid; gap: 8px; padding: 12px; border-radius: 10px;

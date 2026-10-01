@@ -9,7 +9,7 @@ import { POOL_GAMES, FAMILY_LABEL, HIST_FAMILIES, IS_FAMILY, hoursTo, closesIn, 
 import { HistorikHub } from './historik/HistorikHub.jsx'
 import { StatusChip, LagText } from './historik/MinaKuponger.jsx'
 import { StatusPill } from './historik/Tester.jsx'
-import { parseRoute, formatRoute } from './lib/routes.js'
+import { parseRoute, formatRoute, agentAppUrl } from './lib/routes.js'
 import { recentlySettled } from './lib/coupons.js'
 import { newsworthy, progressText } from './lib/tests.js'
 import {
@@ -1212,6 +1212,8 @@ export default function AppV3() {
           ))}
         </nav>
         <div className="v3right">
+          <a className="v3agentlink" href={agentAppUrl(window.location)}
+            title="spel-ai-kompisen: agentens app (port 5176)">Agenten →</a>
           <Collection />
         </div>
       </header>

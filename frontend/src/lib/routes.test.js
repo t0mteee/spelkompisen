@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parseRoute, formatRoute, parentRoute, sameRoute } from './routes.js'
+import { agentAppUrl, parseRoute, formatRoute, parentRoute, sameRoute } from './routes.js'
 
 test('utan hash startar Idag, okänd hash likaså', () => {
   assert.deepEqual(parseRoute(''), { view: 'idag' })
@@ -51,4 +51,11 @@ test('beslut: lista och direktlänk till ett beslut går tur och retur', () => {
   assert.equal(formatRoute({ view: 'beslut', item: null }), '#/beslut')
   assert.equal(formatRoute({ view: 'beslut', item: 12 }), '#/beslut/12')
   assert.deepEqual(parseRoute(formatRoute({ view: 'beslut', item: 7 })), { view: 'beslut', item: 7 })
+})
+
+test('agentens app på samma värd, port 5176', () => {
+  const loc = { protocol: 'http:', hostname: 'macbook-pro-server.tail71ffdc.ts.net' }
+  assert.equal(agentAppUrl(loc), 'http://macbook-pro-server.tail71ffdc.ts.net:5176/')
+  assert.equal(agentAppUrl(loc, 'pool'), 'http://macbook-pro-server.tail71ffdc.ts.net:5176/#/pool')
+  assert.equal(agentAppUrl(null), 'http://127.0.0.1:5176/')
 })
