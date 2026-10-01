@@ -17,6 +17,8 @@ backend/data/*.jsonl
 backend/data/fd/
 backend/data/backups/
 backend/data/optimizer/
+# Driftvaktens läge och körlogg (app/vakt.py) — runtime, committas aldrig
+backend/data/vakt/
 
 # Node / frontend (kommer senare)
 node_modules/
