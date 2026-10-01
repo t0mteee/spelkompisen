@@ -40,6 +40,27 @@ from .storage import Storage
 from .svenskaspel import SvenskaSpel, draw_to_dict, GAME_GROUPS, PRODUCTS
 
 app = FastAPI(title="Spelkompisen", version="0.1.0")
+
+
+# WAL-hållaren (spel-ai-kompisen, 2026-10-01): en sandboxad läsare med mode=ro
+# kan inte skapa `-wal`/`-shm`, så agentens tjänster kan bara läsa databasen
+# när någon annan process har den öppen (docs/spelai-facit.md, WAL-fyndet).
+# Backend är långlivad under launchd och håller därför EN anslutning öppen
+# utan transaktion — den läser aldrig efter starten och blockerar inga
+# checkpoints. Misslyckas den påverkar det bara agentens läsningar.
+_wal_keeper = None
+
+
+@app.on_event("startup")
+def _hall_wal_oppen() -> None:
+    global _wal_keeper
+    try:
+        from .storage import DEFAULT_DB
+        import sqlite3 as _sqlite3
+        _wal_keeper = _sqlite3.connect(DEFAULT_DB, check_same_thread=False)
+        _wal_keeper.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchall()
+    except Exception as exc:  # noqa: BLE001
+        logging.getLogger(__name__).warning("WAL-hållaren startade inte: %s", exc)
 logger = logging.getLogger(__name__)
 app.add_middleware(
     CORSMiddleware,
@@ -2242,6 +2263,8 @@ async def spelai_inbox_svar(inbox_id: int, request: Request):
     """Samans svar på ett beslut eller förslag. Klient och webbläsare sparas;
     ett svar utan webbläsar-User-Agent märks misstänkt och räknas inte."""
     from .spelai import inkorg as spelai_inkorg, tillstand as spelai_tid
+    if not spelai_inkorg.tillaten_origin(request.headers.get("origin")):
+        raise HTTPException(403, "svar tas bara emot från Spelkompisens beslutssida")
     payload = await request.json()
     if not isinstance(payload, dict):
         raise HTTPException(400, "förväntade ett JSON-objekt")

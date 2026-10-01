@@ -203,6 +203,25 @@ def lista(conn, *, now: dt.datetime, limit: int = 200) -> list[dict]:
     return out
 
 
+# Svar tas bara emot från Spelkompisens EGEN beslutssida (betrodd kod):
+# byggd frontend 5175 och dev 5181. Agentens app (5176) är agentens kod och
+# får aldrig kunna posta ett svar i Samans namn, inte ens via Samans webbläsare
+# — en webbläsare sätter alltid Origin på en POST (designen 5.5).
+SVAR_PORTAR = frozenset({5175, 5181})
+
+
+def tillaten_origin(origin: Optional[str]) -> bool:
+    from urllib.parse import urlsplit
+    if not origin:
+        return False
+    try:
+        parts = urlsplit(origin)
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+    except ValueError:
+        return False
+    return parts.scheme in ("http", "https") and port in SVAR_PORTAR
+
+
 def ar_webblasare(user_agent: Optional[str]) -> bool:
     return bool(user_agent) and any(m in user_agent for m in BROWSER_MARKERS)
 

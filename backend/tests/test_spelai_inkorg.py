@@ -187,3 +187,20 @@ class ApiUtanTabellerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TillatenOriginTests(unittest.TestCase):
+    """Svar tas bara emot från Spelkompisens egen beslutssida (5175/5181)."""
+
+    def test_spelkompisens_portar_tillats(self):
+        from app.spelai import inkorg as ink
+        self.assertTrue(ink.tillaten_origin("http://192.168.50.100:5175"))
+        self.assertTrue(ink.tillaten_origin("http://localhost:5181"))
+
+    def test_agentens_app_och_saknad_origin_nekas(self):
+        from app.spelai import inkorg as ink
+        self.assertFalse(ink.tillaten_origin("http://192.168.50.100:5176"))
+        self.assertFalse(ink.tillaten_origin(None))
+        self.assertFalse(ink.tillaten_origin(""))
+        self.assertFalse(ink.tillaten_origin("http://192.168.50.100"))
+        self.assertFalse(ink.tillaten_origin("file://x"))
