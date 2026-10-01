@@ -213,7 +213,11 @@ prioritetsordning. ⚖ = kräver Samans beslut.
       saknar resultat ett dygn efter avspark.
     - spel-ai-kompisen är godkänd (Saman 2026-10-01, beslut 20 = Flashscore som resultatkälla).
       Kontrakt och byggordning: `docs/spel-ai-kompisen-design.md`. Facitsidan i drift 2026-10-01T19:34:31Z.
-      Kvar: rollkörningar med tak och gränsprov av Claude-sandboxen (fas F); livekassan med
+      Fas F i drift 2026-10-01T21:17Z (rollkörningar, spegel, gränsprov godkänt). Kvar:
+      Saman godkänner arbetskatalogen `~/spel-ai-kompisen` (chatten och de tillåtande
+      reglerna kräver det); flytta driftsättningsregeln från `/tmp` (agentskrivbar) till en
+      katalog agenten inte kan skriva; beslutssvar bara via Spelkompisens proxy med en
+      hemlig rubrik (agentens serverkod når i dag 8002); livekassan med
       livepriser på facitsidan (fas E); "Jag spelade detta" och notisloggen i agentens app;
       notislänk via Tailscale utanför hemmanätet; bredda 6h-toleransen till 35 min om
       missarna syns i facit.

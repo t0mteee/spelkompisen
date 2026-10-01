@@ -344,7 +344,8 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
   [--utan-fetch]` kör alla kontroller manuellt; `tools/tjanster.sh status vakt`.
 - **spel-ai-kompisen:** `cd backend && .venv/bin/python -B cli.py spelai-tick` (manuell tick);
   migrering `scripts/migrera_spelai.py [--db PATH]`; tjänsterna `tools/tjanster.sh status spelai`
-  (schema), `spelai-api` (8003) och `spelai-app` (5176).
+  (schema), `spelai-roller` (rollkörningar + GitHub-spegel), `spelai-chatt` (Remote Control),
+  `spelai-api` (8003) och `spelai-app` (5176). `cli.py spelai-roller` kör ett rollvarv för hand.
 - V2.2-status: `cli.py v22audit`. Källhälsa/varvlucka: `cli.py kallhalsa [timmar]`
   (`—` i varvkolumnen = källan kördes inte; visar även Oddset- och poolhälsan).
 - **Dubblettjakt: `cli.py lanklucka [timmar]`** — providerpar med samma liga, samma
@@ -819,6 +820,10 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
   webbläsare märks misstänkta och räknas aldrig. `MAX_KORNINGAR_ABS` i `app/spelai/tillstand.py`
   ändras bara av Claude eller Codex. Backend håller en anslutning öppen (WAL-hållaren) så att
   sandboxade läsare med mode=ro hittar `-wal`/`-shm`.
+  Rollkörningar startas BARA av `app/spelai/roller.py` med ren miljö (inget ur `.env` ärvs);
+  agentrepot pushas BARA via den betrodda spegeln `~/spel-ai-spegel.git` (`app/spelai/spegel.py`,
+  aldrig git med agentrepot som arbetskatalog, inga krokar). Skärmbilder åt Användaren tas av
+  facitsidan med `tools/spelai/skarmbild.mjs` (bara ursprunget 127.0.0.1:5176 nås).
 - Rör ALDRIG `/Users/saman/svs` eller `/Users/saman/vm` från detta projekt.
 - **Uppdatera STATUS-blocket i `docs/plan.md` när en etapp/delmål blir klar — skriv över,
   stapla inte;** flytta det gamla blocket överst i `docs/status-historik.md`.
