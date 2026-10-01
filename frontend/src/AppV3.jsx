@@ -17,6 +17,8 @@ import {
   serverIssueText, serverNoticeSummary, vaktNotesSummary,
 } from './lib/poolHealth.js'
 import { LabbV3 } from './labb/LabbV3.jsx'
+import { BeslutView } from './beslut/BeslutView.jsx'
+import { inboxSummary } from './lib/inbox.js'
 import { AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel, BombenView, OddsetView, Legend, Collection, LoadingState, ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS, SYSTEM_BASE, SYSTEM_SVS, FAMILY, kr, fmtClose, PlayRec, oddsetBestValue } from './App.jsx'
 import { beginRequest, payoutMatchesSelection, requestIsCurrent, uniqueDraws } from './poolSelection.js'
 import { projectionBasisText } from './playRec.js'
@@ -49,7 +51,7 @@ const ROW_MODELS = [
   },
 ]
 const ROW_MODEL_LABEL = Object.fromEntries(ROW_MODELS.map((model) => [model.id, model.label]))
-function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponger, openTester }) {
+function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponger, openTester, openBeslut }) {
   const [pool, setPool] = useState(null)
   const [oddset, setOddset] = useState(null)
   const [ledger, setLedger] = useState(null)
@@ -57,6 +59,8 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponge
   const [tests, setTests] = useState(null)
   const [played, setPlayed] = useState(null)
   const [health, setHealth] = useState(null)
+  // spel-ai-kompisens inkorg: beslut och förslag som väntar på Saman.
+  const [inbox, setInbox] = useState(null)
   const loadSeq = useRef(0)
   const abortRef = useRef(null)
   const deferredRef = useRef(new Set())
@@ -133,6 +137,7 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponge
       guarded(request('/api/oddset/predictions/summary'), setLedger)
       guarded(request('/api/pool/tests'), setTests)
       guarded(request('/api/health'), setHealth)
+      guarded(request('/api/spelai/inbox'), setInbox)
       guarded(request('/api/pool/played?live=false'), (data) => {
         setPlayed(data)
         if (!data) return
@@ -238,6 +243,13 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponge
 
   return (
     <div className="v3dash">
+      {inboxSummary(inbox) && (
+        <div className="v3inbox" role="status">
+          <b>{inboxSummary(inbox)}</b>
+          <span>spel-ai-kompisen och Spelkompisen — du svarar här, agenten kan inte svara åt dig.</span>
+          <button type="button" className="primary" onClick={() => openBeslut()}>Öppna beslut</button>
+        </div>
+      )}
       {serverErrors.length > 0 && (
         <div className="v3alert" role="alert">
           <b>⚠️ Driften behöver tillsyn</b>
@@ -1180,6 +1192,7 @@ export default function AppV3() {
   }
   const openKuponger = (id = null) => navigate({ view: 'historik', tab: 'kuponger', coupon: id ?? null })
   const openTester = (test = null) => navigate({ view: 'historik', tab: 'tester', test })
+  const openBeslut = (item = null) => navigate({ view: 'beslut', item })
   const openHistorik = (p = null, focus = null) => (focus === 'system'
     ? openTester('standard')
     : navigate({ view: 'historik', tab: 'facit', product: p || null }))
@@ -1206,7 +1219,7 @@ export default function AppV3() {
         {view === 'idag' && <ErrBoundary>
           <DashboardV3 openPool={openPool} openOddset={openOddset}
             openHistorik={openHistorik} openLabb={() => go('labb')}
-            openKuponger={openKuponger} openTester={openTester} />
+            openKuponger={openKuponger} openTester={openTester} openBeslut={openBeslut} />
         </ErrBoundary>}
         {view === 'pool' && <ErrBoundary><PoolV3 /></ErrBoundary>}
         {view === 'oddset' && <ErrBoundary><OddsetView focus={route.focus || null} /></ErrBoundary>}
@@ -1214,6 +1227,7 @@ export default function AppV3() {
           <HistorikHub route={route} navigate={navigate} />
         </ErrBoundary>}
         {view === 'labb' && <ErrBoundary><LabbV3 /></ErrBoundary>}
+        {view === 'beslut' && <ErrBoundary><BeslutView focus={route.item ?? null} /></ErrBoundary>}
       </main>
       <footer className="v3foot">Lokal data från Svenska Spel + Pinnacle · personligt verktyg</footer>
     </div>

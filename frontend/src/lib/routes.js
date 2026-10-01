@@ -24,6 +24,10 @@ export function parseRoute(hash) {
   }
   if (head === 'facit') return { view: 'historik', tab: 'facit', product: rest[0] || null }
   if (head === 'historik') return { view: 'historik', tab: HIST_TABS.has(rest[0]) ? rest[0] : 'kuponger' }
+  if (head === 'beslut') {
+    const id = rest[0] != null && rest[0] !== '' ? Number(rest[0]) : null
+    return { view: 'beslut', item: Number.isFinite(id) ? id : null }
+  }
   if (head === 'pool' || head === 'labb') return { view: head }
   if (head === 'oddset') return { view: 'oddset', focus: rest[0] || null }
   return { view: 'idag' }
@@ -46,6 +50,7 @@ export function formatRoute(route) {
     }
     return route.product ? `#/facit/${enc(route.product)}` : '#/facit'
   }
+  if (route.view === 'beslut') return route.item != null ? `#/beslut/${enc(route.item)}` : '#/beslut'
   if (route.view === 'oddset') return route.focus ? `#/oddset/${enc(route.focus)}` : '#/oddset'
   return `#/${route.view}`
 }

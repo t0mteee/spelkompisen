@@ -234,6 +234,47 @@
 .complementary-warning b { color: var(--orange); }
 
 /* ---------- Idag (dashboard) ---------- */
+/* spel-ai-kompisens inkorg: raden på Idag och beslutssidan (#/beslut). */
+.v3inbox {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+  margin-bottom: 12px; padding: 10px 13px; border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--orange) 60%, var(--line));
+  background: color-mix(in srgb, var(--orange) 10%, var(--panel));
+  color: var(--muted); font-size: 12px;
+}
+.v3inbox b { color: #f0b860; font-size: 13px; }
+.v3inbox button { margin-left: auto; min-height: 36px; }
+.v3beslutvy { display: grid; gap: 12px; max-width: 760px; }
+.v3beslutvy > section { display: grid; gap: 10px; }
+.v3beslut {
+  display: grid; gap: 8px; padding: 12px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--panel2);
+}
+.v3beslut.focus { border-color: color-mix(in srgb, var(--orange) 70%, var(--line)); }
+.v3beslut h3 { margin: 0; font-size: 14px; color: var(--text); }
+.v3beslut-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.v3beslut-chips span {
+  font-size: 10.5px; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--muted);
+}
+.v3beslut-chips span.warn { color: #f0b860; border-color: color-mix(in srgb, var(--orange) 60%, var(--line)); }
+.v3beslut-why { margin: 0; color: var(--muted); font-size: 12px; }
+.v3beslut-actions { display: grid; gap: 6px; }
+.v3beslut-actions.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.v3beslut-actions button { min-height: 40px; text-align: left; }
+.v3beslut-actions.two button { text-align: center; }
+.v3beslut-comment { display: grid; gap: 4px; font-size: 11px; color: var(--muted); }
+.v3beslut-comment textarea {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 12px; color: var(--text);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px;
+}
+.v3beslut-error { margin: 0; color: #e88a91; font-size: 12px; }
+.v3beslut-saved { margin: 0; color: #7fd1a6; font-size: 12px; }
+.v3beslut-comments { margin: 0; padding-left: 18px; color: var(--muted); font-size: 11px; }
+.v3beslut-done { display: grid; gap: 6px; margin: 0; padding-left: 0; list-style: none; }
+.v3beslut-done li { display: grid; gap: 2px; font-size: 12px; color: var(--muted); }
+.v3beslut-done li b { color: var(--text); font-weight: 500; }
+
 .v3alert {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px;
   margin-bottom: 12px; padding: 10px 13px; border-radius: 10px;

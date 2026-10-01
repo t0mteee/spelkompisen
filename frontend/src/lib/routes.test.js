@@ -44,3 +44,11 @@ test('föräldern till en detalj', () => {
   assert.deepEqual(parentRoute(parseRoute('#/tester/ph5')), { view: 'historik', tab: 'tester' })
   assert.deepEqual(parentRoute(parseRoute('#/pool')), { view: 'idag' })
 })
+
+test('beslut: lista och direktlänk till ett beslut går tur och retur', () => {
+  assert.deepEqual(parseRoute('#/beslut'), { view: 'beslut', item: null })
+  assert.deepEqual(parseRoute('#/beslut/12'), { view: 'beslut', item: 12 })
+  assert.equal(formatRoute({ view: 'beslut', item: null }), '#/beslut')
+  assert.equal(formatRoute({ view: 'beslut', item: 12 }), '#/beslut/12')
+  assert.deepEqual(parseRoute(formatRoute({ view: 'beslut', item: 7 })), { view: 'beslut', item: 7 })
+})
