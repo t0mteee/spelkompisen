@@ -1326,8 +1326,9 @@ def cmd_spelai_tick() -> int:
 def cmd_spelai_roller() -> int:
     """Rollkörningar (fas F, launchd com.saman.spelai.roller var 5:e min).
 
-    1. Speglar agentens repo till GitHub (högst var 10:e min, eget lås, så
-       spegeln går även medan en lång rollkörning pågår).
+    1. Speglar agentens repo till GitHub (högst var 10:e min, eget lås).
+       launchd startar ingen ny instans medan en körs, så under en lång
+       rollkörning (upp till 40 min) väntar spegeln till nästa varv.
     2. Med rollåset: städar avbrutna körningar och kör HÖGST EN due-körning
        (`claude -p` som rollen, inom taket); före en veckogenomgång tas
        skärmbilderna. Skriver i loggen bara när något hänt."""

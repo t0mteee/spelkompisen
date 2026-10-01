@@ -279,6 +279,11 @@ class DueTests(Base):
                       "since": iso(SONDAG_12 + dt.timedelta(hours=1))})
         self.assertIn("larm:kalla_nere:x", self.uppgifter(SONDAG_12 + dt.timedelta(hours=2)))
 
+    def test_larm_om_rollernas_eget_jobb_kor_ingen_roll(self):
+        self.vaktfel({"level": "error", "kind": "jobb_ej_laddat", "key": "spelai-roller",
+                      "since": iso(SONDAG_12 - dt.timedelta(minutes=5))})
+        self.assertFalse([u for u in self.uppgifter(SONDAG_12) if u.startswith("larm")])
+
     def test_trasig_eller_saknad_vaktfil_ger_inga_larm(self):
         self.assertFalse([u for u in self.uppgifter(SONDAG_12) if u.startswith("larm")])
         self.vakt.write_text("{inte json", encoding="utf-8")

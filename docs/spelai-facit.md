@@ -358,7 +358,9 @@ Facitsidan är klockan (princip 2). `cli.py spelai-roller` (launchd
 
 ```
 spelai-roller
-  1. spegel.spegla      eget lås (spelai-spegel.lock) — går även under en lång körning
+  1. spegel.spegla      eget lås (spelai-spegel.lock); launchd startar ingen ny
+                        instans medan en körs, så under en lång rollkörning
+                        (≤ 40 min) väntar spegeln till nästa varv
   2. rollåset (spelai-roller.lock) taget, annars tyst slut ("körning pågår")
      a. roller.stada_avbrutna   roll_start utan spelai_run-rad → rad med status fel
      b. roller.due              kandidater i prioritetsordning (nedan)
@@ -391,7 +393,10 @@ Notiserna skickas av `spelai-tick` som förut (avsnitt 9), ur journalen.
   `since` (ett larm som försvinner och kommer tillbaka med ny `since` är ett
   nytt larm). En körning som misslyckats görs inte om samma dag.
 * Vaktens meddelande går in i larmprompten kapat till 300 tecken och märkt
-  som data, inte instruktioner.
+  som data, inte instruktioner. Fynd om rollernas eget jobb (`key`
+  `spelai-roller`, t.ex. `jobb_ej_laddat` strax efter driftsättningen) ger
+  ingen körning: kör jobbet inte kan inget larm köras, och kör det är fyndet
+  inaktuellt.
 * Prompterna är betrodd text i koden, på svenska, med svensk tid och UTC
   injicerade, och pekar på rollbeskrivningen i agentrepots
   `.claude/agents/<roll>.md`. Alla slutar med kravet på EN rad

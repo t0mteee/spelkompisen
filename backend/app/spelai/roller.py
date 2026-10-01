@@ -58,6 +58,10 @@ TYP_TEXT = {"motivering": "motivering", "larm": "larmkörning",
 
 MOTIVERING_FONSTER = dt.timedelta(hours=2)
 LARM_PER_DYGN = 3
+# Vaktens fynd om rollkörningarnas EGET jobb kan ingen rollkörning hantera:
+# kör jobbet inte, körs inget larm; kör det, är fyndet inaktuellt (vakten går
+# var 30:e min, så det ligger kvar en stund efter att plisten laddats).
+EGET_JOBB = "spelai-roller"
 MORGON_FRAN, FORSKNING_FRAN, VECKA_FRAN, SIST = 7, 10, 11, 22   # svensk tid
 SAMMANFATTNING_MAX = 200
 STADA_FONSTER = dt.timedelta(days=3)
@@ -208,6 +212,8 @@ def _larm(conn, now: dt.datetime, vakt_path: Optional[Path]) -> list[dict]:
     for finding in _las_vakt(vakt_path):
         since = utc(finding.get("since"))
         if finding.get("level") != "error" or since is None or since <= start:
+            continue
+        if str(finding.get("key") or "") == EGET_JOBB:
             continue
         kind = str(finding.get("kind") or "okant")[:60]
         key = str(finding.get("key") or "")[:80]
