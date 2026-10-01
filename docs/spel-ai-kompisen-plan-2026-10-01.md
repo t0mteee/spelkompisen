@@ -1,5 +1,7 @@
 # spel-ai-kompisen — plan för en självständig agent (utkast för granskning)
 
+> **Ersatt som styrande dokument av `docs/spel-ai-kompisen-design.md` (v3, godkänd av Saman 2026-10-01).** Det här dokumentet ligger kvar som historik.
+
 **Datum:** 2026-10-01 · **Skriven av:** Claude, på Samans begäran · **Status:** förslag.
 Inget är byggt utom Vakten (fas 0), som pågår i Spelkompisen. Saman rådfrågar Codex
 innan han svarar på de öppna frågorna i avsnitt 9.

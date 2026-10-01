@@ -27,8 +27,9 @@ stängd enligt källgränsen. Sedan dess saknas Sofascores resultat, xG/statisti
 (veckan 18–24/9: 111 resultatrader i 15 ligor och 96 statistikrader). Flashscore täcker
 frånvaron och en del statistik. Landslagsuppehållet gör att bara träningsmatcherna hittills
 saknar resultat (3 av 18); från nästa ligaomgång saknar ligor utan football-data resultat.
-⚖ ersättning i backlog 21. Plan för en självständig agent i ett privat sidoprojekt:
-`docs/spel-ai-kompisen-plan-2026-10-01.md` (väntar på Samans svar).
+⚖ ersättning i backlog 21. **spel-ai-kompisen godkänd av Saman 2026-10-01:** en självständig agent
+i ett privat sidoprojekt, mätt av en betrodd facitsida i Spelkompisen. Kontraktet och byggordningen
+står i `docs/spel-ai-kompisen-design.md`.
 
 **Nytt 2026-09-24 (statusauditen och Samans beslut samma dag):**
 - **pool-sharp-freshness-v1** (i drift 14:11:09Z): ett cachat Pinnacle-pris

@@ -211,8 +211,9 @@ prioritetsordning. ⚖ = kräver Samans beslut.
       är fattat), horisontrevision per omgång (missade h24/h3/m20), röktest av den byggda
       appen i headless Chrome (kupongkraschen 24–27/9 hade fångats) och larm när en liga
       saknar resultat ett dygn efter avspark.
-    - Planen för spel-ai-kompisen väntar på Samans svar:
-      `docs/spel-ai-kompisen-plan-2026-10-01.md`, avsnitt 9.
+    - spel-ai-kompisen är godkänd (Saman 2026-10-01, beslut 20 = Flashscore som resultatkälla).
+      Kontrakt och byggordning: `docs/spel-ai-kompisen-design.md`. Facitsidan (fas B) byggs i
+      Spelkompisen under `backend/app/spelai/`.
 
 ## 2026-08-11 — AWS korrekt omtestat och avfärdat
 

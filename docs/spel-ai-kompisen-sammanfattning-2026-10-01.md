@@ -1,5 +1,7 @@
 # spel-ai-kompisen — sammanfattning för godkännande
 
+> **Ersatt som styrande dokument av `docs/spel-ai-kompisen-design.md` (v3, godkänd av Saman 2026-10-01).** Det här dokumentet ligger kvar som historik.
+
 **Datum:** 2026-10-01 · **Skriven av:** Claude · **Bygger på:**
 `docs/spel-ai-kompisen-plan-2026-10-01.md` inklusive Codex ändringar (commit 3e288d6).
 Inget byggs innan Saman har godkänt avsnitt 7.
