@@ -98,6 +98,13 @@ SERVICES: tuple[Service, ...] = (
                 "till GitHub. Poolförslagen fryses ändå av facitsidan.",
     ),
     Service(
+        "spelai-chatt", "Agentens chatt", "com.saman.spelai.chatt", "spel-ai-kompisen",
+        "Remote Control-server för chatten med agenten",
+        "Gör att du kan chatta med agenten från Claude-appen och claude.ai/code. "
+        "Sessionerna körs i agentens repo med dess sandbox och kräver att du "
+        "har godkänt arbetskatalogen.",
+    ),
+    Service(
         "spelai-api", "Agentens API", "com.saman.spelai.backend", "spel-ai-kompisen",
         "agentens API på 127.0.0.1:8003, i sandbox",
         "Läser agentens journal, kö och roller åt agentens app. Koden är "
@@ -396,12 +403,13 @@ USAGE = """Användning:
   tjanster.sh omstart <tjänst ...>
 
 Tjänster:
-  backend frontend snapshot pool spelai spelai-roller spelai-api spelai-app kalltest backup vakt awake menubar charter bonus
+  backend frontend snapshot pool spelai spelai-roller spelai-chatt spelai-api spelai-app kalltest backup vakt awake menubar charter bonus
 Grupper:
   all            alla tjänster
   spelkompisen   API, webb och Spelkompisens två insamlare
   spelai         spel-ai-kompisens facitsida (schemaläggaren)
   spelai-roller  spel-ai-kompisens rollkörningar och GitHub-spegel
+  spelai-chatt   spel-ai-kompisens chatt (Remote Control)
   spelai-api     spel-ai-kompisens agent-API (8003, sandbox)
   spelai-app     spel-ai-kompisens app (5176, sandbox)
   chartervakt    Chartervakt

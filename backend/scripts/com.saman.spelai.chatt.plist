@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  spel-ai-kompisens chatt: `claude remote-control` som långlivad server i
+  agentens repo. Saman startar och fortsätter sessioner från Claude-appen
+  (mobil, claude.ai/code). Sessionerna läser repots .claude/settings.json
+  (sandbox + nekanden, standardagent koordinatorn) och kräver att Saman har
+  godkänt arbetskatalogen. `script` ger servern en pseudoterminal.
+  Plisten ligger i Spelkompisen (betrodd), aldrig i agentens repo.
+  Installeras: cp till ~/Library/LaunchAgents/ + tools/tjanster.sh start spelai-chatt
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.saman.spelai.chatt</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/script</string>
+        <string>-q</string>
+        <string>/dev/null</string>
+        <string>/Users/saman/.local/bin/claude</string>
+        <string>remote-control</string>
+        <string>--name</string>
+        <string>spel-ai-kompisen</string>
+        <string>--permission-mode</string>
+        <string>acceptEdits</string>
+        <string>--capacity</string>
+        <string>2</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/saman/spel-ai-kompisen</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/saman/.local/bin:/usr/bin:/bin</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+    <key>StandardOutPath</key>
+    <string>/dev/null</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/saman/spel-ai-data/logg/chatt.err.log</string>
+</dict>
+</plist>

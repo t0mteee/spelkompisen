@@ -106,6 +106,7 @@ def launchctl_rows(**rows: tuple[str, str]) -> str:
         # spelai_api/spelai_app/spelai_roller = tjänsterna spelai-api/-app/-roller
         label = {"spelai": "com.saman.spelai.schema",
                  "spelai_roller": "com.saman.spelai.roller",
+                 "spelai_chatt": "com.saman.spelai.chatt",
                  "spelai_api": "com.saman.spelai.backend",
                  "spelai_app": "com.saman.spelai.frontend"}.get(
                      key, f"com.saman.spelkompisen.{key}")
@@ -115,7 +116,7 @@ def launchctl_rows(**rows: tuple[str, str]) -> str:
 
 HEALTHY = dict(backend=("123", "-15"), frontend=("124", "0"), snapshot=("-", "0"),
                pool=("-", "0"), backup=("-", "0"), kalltest=("-", "0"), vakt=("125", "0"),
-               spelai=("-", "0"), spelai_roller=("-", "0"), spelai_api=("126", "0"),
+               spelai=("-", "0"), spelai_roller=("-", "0"), spelai_chatt=("128", "0"), spelai_api=("126", "0"),
                spelai_app=("127", "0"))
 
 
