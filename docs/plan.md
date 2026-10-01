@@ -31,6 +31,8 @@ saknar resultat (3 av 18); från nästa ligaomgång saknar ligor utan football-d
 i ett privat sidoprojekt, mätt av en betrodd facitsida i Spelkompisen. Kontraktet och byggordningen
 står i `docs/spel-ai-kompisen-design.md`.
 
+**spel-ai-kompisen i drift 2026-10-01T19:34:31Z (fas B och D, delar av G):** facitsidan (`app/spelai/`, tabellerna `spelai_*` via migrering med backup) fryser agentens och standardens poolförslag 6 h och 30 min före spelstopp på alla nivåer (256 alla poolspel; 512/5 000/20 000/39 366 Stryktipset och Europatipset) och rättar dem som PH3. Agentens startstrategi `standard-v1` ger exakt standardens rader (provat i sandboxen på Stryktipset 4973, alla fem nivåer). Beslutssidan `#/beslut` och raden "N beslut väntar" på Idag; agentens app (5176) och agent-API (8003) kör i Spelkompisens sandbox. Kvar: rollkörningar och gränsprov (fas F), livekassan (fas E). `docs/spelai-facit.md`.
+
 **Nytt 2026-09-24 (statusauditen och Samans beslut samma dag):**
 - **pool-sharp-freshness-v1** (i drift 14:11:09Z): ett cachat Pinnacle-pris
   används bara om det är högst 90 min gammalt och ingen observation efter

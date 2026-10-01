@@ -8,7 +8,7 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
-## 2026-10-01 — spel-ai-kompisens facitsida (`spelai_*`, förberedd, EJ körd)
+## 2026-10-01 — spel-ai-kompisens facitsida (`spelai_*`, körd 2026-10-01T19:34:31Z)
 
 `backend/scripts/migrera_spelai.py` skapar tolv additiva tabeller
 (`spelai_state`, `spelai_event`, `spelai_input`, `spelai_pool_proposal`,
@@ -27,8 +27,7 @@ körts. Provkört mot en temporär kopia av produktionsdatabasen 2026-10-01
 (12 tabeller, 24 triggrar, skyddade antal oförändrade). Se
 `docs/spelai-facit.md`.
 
-**Körning vid driftsättning:** fyll i commit, backupens namn, `facit_start`
-och `integrity_check` här.
+**Körd 2026-10-01T19:34:31Z** efter merge av `claude/spelai-facit` till main. Backup: `backend/data/backups/stryktips-2026-10-01-fore-spelai.db`. `facit_start` = `2026-10-01T19:34:23Z`. `integrity_check`: ok (spelai-schema-v1).
 
 ---
 

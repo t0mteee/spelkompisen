@@ -163,6 +163,16 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       `mode=ro` (`Storage(read_only=True)`). Läget i `backend/data/vakt/vakt.json`;
                       `/api/health` visar fel/varningar som `product: "server"` ("Drift att se
                       över" på Idag), info-fynd under `vakt.notes`. Trösklar: `docs/vakt.md`
+  app/spelai/         FACITSIDAN för spel-ai-kompisen (i drift 2026-10-01T19:34:31Z,
+                      docs/spel-ai-kompisen-design.md + docs/spelai-facit.md): fryser,
+                      validerar och rättar agentens poolförslag mot standarden. Tabellerna
+                      `spelai_*` skapas BARA av scripts/migrera_spelai.py och är append-only
+                      via triggrar. pool-tick sparar indatapaket (`spelai_input`) i 6h-
+                      [T−6h, T−5h30] och 30m-fönstret [T−35, T−30]; `cli.py spelai-tick`
+                      (launchd com.saman.spelai.schema, varje minut) fryser standard + agent.
+                      Standarden ÄR PH3 (`build_config_rows`: dr1-b256/b512-medel,
+                      ph5-v4 5000, reducedmax-v2 20000, mathmax-v2 39366), rättning via
+                      `counterfactual_settle` — skriv aldrig en parallell byggare
   app/live_radar.py   shadow-radar för pågående matcher: Flashscore ankare, FotMob sekundär,
                       Sofascore URKOPPLAD ur radarn (kvar för resultat/frånvaro)
   app/live_signal_ledger.py append-only-journal över första Följer/Stark per match,
@@ -332,6 +342,9 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
   "Observationsfönstret"; `pool_match_diagnostic` svarar sedan på vilket namn som avvisades.
 - **Driftvakten:** `cd backend && .venv/bin/python -B cli.py vakt [--tester-nu|--utan-tester]
   [--utan-fetch]` kör alla kontroller manuellt; `tools/tjanster.sh status vakt`.
+- **spel-ai-kompisen:** `cd backend && .venv/bin/python -B cli.py spelai-tick` (manuell tick);
+  migrering `scripts/migrera_spelai.py [--db PATH]`; tjänsterna `tools/tjanster.sh status spelai`
+  (schema), `spelai-api` (8003) och `spelai-app` (5176).
 - V2.2-status: `cli.py v22audit`. Källhälsa/varvlucka: `cli.py kallhalsa [timmar]`
   (`—` i varvkolumnen = källan kördes inte; visar även Oddset- och poolhälsan).
 - **Dubblettjakt: `cli.py lanklucka [timmar]`** — providerpar med samma liga, samma
@@ -798,6 +811,14 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
 - **Driftvakten (2026-10-01):** en ny insamlare, källa eller tjänst ska synas för vakten —
   tjänster läggs i `spelkompisen_tjanster.SERVICES` och `vakt.JOBS`. Livstecken mäts bara på
   append-only-tabeller, aldrig på förändringsserier. Driftlarm visas på Idag, aldrig via ntfy.
+- **spel-ai-kompisen (Samans beslut 2026-10-01):** agenten arbetar i det privata repot
+  `~/spel-ai-kompisen` och får ALDRIG ändra Spelkompisen. Dess kod körs bara i sandbox:
+  förslag via `app/spelai/sandbox.py` + `agent.sb` (inget nät, bara stdout läses), tjänsterna
+  8003/5176 via `tjanst.sb` med plistar som ligger HÄR, aldrig i agentens repo. Beslutssvar tas
+  bara emot från Spelkompisens beslutssida (`#/beslut`, Origin 5175/5181); svar utan
+  webbläsare märks misstänkta och räknas aldrig. `MAX_KORNINGAR_ABS` i `app/spelai/tillstand.py`
+  ändras bara av Claude eller Codex. Backend håller en anslutning öppen (WAL-hållaren) så att
+  sandboxade läsare med mode=ro hittar `-wal`/`-shm`.
 - Rör ALDRIG `/Users/saman/svs` eller `/Users/saman/vm` från detta projekt.
 - **Uppdatera STATUS-blocket i `docs/plan.md` när en etapp/delmål blir klar — skriv över,
   stapla inte;** flytta det gamla blocket överst i `docs/status-historik.md`.

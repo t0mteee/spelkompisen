@@ -212,8 +212,11 @@ prioritetsordning. ⚖ = kräver Samans beslut.
       appen i headless Chrome (kupongkraschen 24–27/9 hade fångats) och larm när en liga
       saknar resultat ett dygn efter avspark.
     - spel-ai-kompisen är godkänd (Saman 2026-10-01, beslut 20 = Flashscore som resultatkälla).
-      Kontrakt och byggordning: `docs/spel-ai-kompisen-design.md`. Facitsidan (fas B) byggs i
-      Spelkompisen under `backend/app/spelai/`.
+      Kontrakt och byggordning: `docs/spel-ai-kompisen-design.md`. Facitsidan i drift 2026-10-01T19:34:31Z.
+      Kvar: rollkörningar med tak och gränsprov av Claude-sandboxen (fas F); livekassan med
+      livepriser på facitsidan (fas E); "Jag spelade detta" och notisloggen i agentens app;
+      notislänk via Tailscale utanför hemmanätet; bredda 6h-toleransen till 35 min om
+      missarna syns i facit.
 
 ## 2026-08-11 — AWS korrekt omtestat och avfärdat
 
