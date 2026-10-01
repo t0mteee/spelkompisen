@@ -102,12 +102,16 @@ def launchctl_rows(**rows: tuple[str, str]) -> str:
     """launchctl list: PID \\t senaste exit \\t label."""
     lines = ["PID\tStatus\tLabel"]
     for key, (pid, status) in rows.items():
-        lines.append(f"{pid}\t{status}\tcom.saman.spelkompisen.{key}")
+        # spel-ai-kompisens jobb har eget prefix (docs/spelai-facit.md)
+        label = ("com.saman.spelai.schema" if key == "spelai"
+                 else f"com.saman.spelkompisen.{key}")
+        lines.append(f"{pid}\t{status}\t{label}")
     return "\n".join(lines) + "\n"
 
 
 HEALTHY = dict(backend=("123", "-15"), frontend=("124", "0"), snapshot=("-", "0"),
-               pool=("-", "0"), backup=("-", "0"), kalltest=("-", "0"), vakt=("125", "0"))
+               pool=("-", "0"), backup=("-", "0"), kalltest=("-", "0"), vakt=("125", "0"),
+               spelai=("-", "0"))
 
 
 class Base(unittest.TestCase):

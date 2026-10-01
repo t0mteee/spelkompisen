@@ -79,6 +79,15 @@ SERVICES: tuple[Service, ...] = (
                 "del av mätningen och får aldrig bakfyllas.",
     ),
     Service(
+        "spelai", "Facitsidan", "com.saman.spelai.schema", "spel-ai-kompisen",
+        "facitsidans schemaläggare varje minut", scheduled=True,
+        help_text="Fryser agentens och standardens poolförslag ur poolvarvets "
+                  "indata, rättar dem mot facit och läser in agentens beslut. "
+                  "Vänteläge mellan körningarna är normalt.",
+        warning="Poolförslag som skulle frysas under stoppet blir missade och "
+                "går aldrig att frysa i efterhand.",
+    ),
+    Service(
         "charter", "Chartervakt", "com.saman.chartervakt", "Chartervakt",
         "webb och scheduler på 3100",
         "Letar efter charterresor, sparar prisutvecklingen och driver "
@@ -143,6 +152,9 @@ GROUPS: dict[str, tuple[str, ...]] = {
     "all": tuple(service.key for service in SERVICES),
     "spelkompisen": tuple(
         service.key for service in SERVICES if service.project == "Spelkompisen"
+    ),
+    "spelai": tuple(
+        service.key for service in SERVICES if service.project == "spel-ai-kompisen"
     ),
     "chartervakt": tuple(
         service.key for service in SERVICES if service.project == "Chartervakt"
@@ -361,10 +373,11 @@ USAGE = """Användning:
   tjanster.sh omstart <tjänst ...>
 
 Tjänster:
-  backend frontend snapshot pool kalltest backup vakt awake menubar charter bonus
+  backend frontend snapshot pool spelai kalltest backup vakt awake menubar charter bonus
 Grupper:
   all            alla tjänster
   spelkompisen   API, webb och Spelkompisens två insamlare
+  spelai         spel-ai-kompisens facitsida (schemaläggaren)
   chartervakt    Chartervakt
   bonusvakt      Bonusvakt
   server         sömnskydd, källprov, backup, driftvakt och serverkontroll

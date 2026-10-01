@@ -2171,3 +2171,107 @@ def external_odds(product: str = "stryktipset", draw: int | None = None):
         return _external_odds_view(store, product, int(number), now)
     finally:
         store.close()
+
+
+# ── spel-ai-kompisen: facitsidan (docs/spelai-facit.md) ──────────────────
+# GET är rena läsningar och svarar tomt när spelai-tabellerna saknas.
+# POST skriver bara nya rader (append-only) och lägger aldrig några spel.
+
+def _spelai_klient(request: Request) -> dict:
+    return {"user_agent": request.headers.get("user-agent"),
+            "forwarded_for": request.headers.get("x-forwarded-for"),
+            "client_host": request.client.host if request.client else None}
+
+
+def _spelai_skrivbar(store: Storage) -> None:
+    from .spelai import schema as spelai_schema
+    if not spelai_schema.tables_exist(store.conn):
+        raise HTTPException(503, "spelai-tabellerna saknas — kör "
+                                 "scripts/migrera_spelai.py")
+
+
+@app.get("/api/spelai/pool")
+def spelai_pool(product: str | None = None, limit: int = Query(30, ge=1, le=200)):
+    from .spelai import api as spelai_api, tillstand as spelai_tid
+    store = Storage()
+    try:
+        return spelai_api.pool(store.conn, now=spelai_tid.now_utc(),
+                               product=product, limit=limit)
+    finally:
+        store.close()
+
+
+@app.get("/api/spelai/inbox")
+def spelai_inbox():
+    from .spelai import api as spelai_api, tillstand as spelai_tid
+    store = Storage()
+    try:
+        return spelai_api.inbox(store.conn, now=spelai_tid.now_utc())
+    finally:
+        store.close()
+
+
+@app.post("/api/spelai/inbox/{inbox_id}/svar")
+async def spelai_inbox_svar(inbox_id: int, request: Request):
+    """Samans svar på ett beslut eller förslag. Klient och webbläsare sparas;
+    ett svar utan webbläsar-User-Agent märks misstänkt och räknas inte."""
+    from .spelai import inkorg as spelai_inkorg, tillstand as spelai_tid
+    payload = await request.json()
+    if not isinstance(payload, dict):
+        raise HTTPException(400, "förväntade ett JSON-objekt")
+    store = Storage()
+    try:
+        _spelai_skrivbar(store)
+        return spelai_inkorg.svara(
+            store.conn, inbox_id, payload.get("val"), payload.get("kommentar"),
+            now=spelai_tid.now_utc(), **_spelai_klient(request))
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    finally:
+        store.close()
+
+
+@app.post("/api/spelai/spelat")
+async def spelai_spelat(request: Request):
+    """"Jag spelade detta" — bokför bara. Lägger och betalar inget spel."""
+    from .spelai import api as spelai_api, tillstand as spelai_tid
+    payload = await request.json()
+    store = Storage()
+    try:
+        _spelai_skrivbar(store)
+        return spelai_api.spelat(store.conn, payload, now=spelai_tid.now_utc(),
+                                 **_spelai_klient(request))
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    finally:
+        store.close()
+
+
+@app.post("/api/spelai/paus")
+async def spelai_paus(request: Request):
+    """Pausa/återuppta poolförslag (och senare roll- och livekörningar)."""
+    from .spelai import api as spelai_api, tillstand as spelai_tid
+    payload = await request.json()
+    store = Storage()
+    try:
+        _spelai_skrivbar(store)
+        return spelai_api.paus(store.conn, payload, now=spelai_tid.now_utc(),
+                               user_agent=request.headers.get("user-agent"))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    finally:
+        store.close()
+
+
+@app.get("/api/spelai/korningar")
+def spelai_korningar(limit: int = Query(100, ge=1, le=500)):
+    from .spelai import api as spelai_api, tillstand as spelai_tid
+    store = Storage()
+    try:
+        return spelai_api.korningar(store.conn, now=spelai_tid.now_utc(), limit=limit)
+    finally:
+        store.close()

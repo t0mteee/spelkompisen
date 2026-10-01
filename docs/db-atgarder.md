@@ -8,6 +8,30 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-10-01 — spel-ai-kompisens facitsida (`spelai_*`, förberedd, EJ körd)
+
+`backend/scripts/migrera_spelai.py` skapar tolv additiva tabeller
+(`spelai_state`, `spelai_event`, `spelai_input`, `spelai_pool_proposal`,
+`spelai_pool_result`, `spelai_run`, `spelai_inbox`, `spelai_inbox_answer`,
+`spelai_played`, `spelai_live_price`, `spelai_live_bet`,
+`spelai_live_result`), deras index och 24 append-only-triggrar (UPDATE och
+DELETE avbryts) i EN transaktion, efter en onlinebackup med SQLite:s
+backup-API till `backend/data/backups/stryktips-<datum>-fore-spelai.db`.
+Skriptet kontrollerar att antalet rader i `snapshots`, `sharp_snapshots`,
+`draws`, `pool_draw_settlement`, `pool_event_settlement` och
+`pool_system_ledger` är oförändrat, skriver `facit_start` i `spelai_state`
+första gången (fönster som öppnat före den räknas aldrig som missade) och kör
+`integrity_check`. Idempotent; inga befintliga rader rörs och inget bakfylls.
+`Storage` skapar inte tabellerna — läsvägarna svarar tomt tills migreringen
+körts. Provkört mot en temporär kopia av produktionsdatabasen 2026-10-01
+(12 tabeller, 24 triggrar, skyddade antal oförändrade). Se
+`docs/spelai-facit.md`.
+
+**Körning vid driftsättning:** fyll i commit, backupens namn, `facit_start`
+och `integrity_check` här.
+
+---
+
 ## 2026-09-21 — separat Ö/U-reservjournal
 
 `backend/scripts/migrera_pool_reserve.py` skapar `pool_reserve_quote` och

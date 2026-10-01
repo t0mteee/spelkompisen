@@ -15,6 +15,7 @@ Användning (från backend/ med aktiverat venv):
     python cli.py v2backtest [proxy] # nested ridge; proxy kan aldrig promovera
     python cli.py v22audit          # ny Allsv-shadow; identitetskontroll/gate
     python cli.py vakt [--tester-nu] # driftvakten (docs/vakt.md), launchd var 30:e min
+    python cli.py spelai-tick       # facitsidan för spel-ai-kompisen (docs/spelai-facit.md)
     python cli.py history 4956 1 1  # oddshistorik draw=4956 event=1 sign=1
     python cli.py backtest 25 stryktipset  # kalibrera modellen mot facit
 
@@ -341,6 +342,23 @@ def _pool_pit_freeze(store: Storage, ss: SvenskaSpel, product: str, draw,
             store, product, draw.draw_number, freeze_now)
         movement = steam_mod.movement_with_steam(
             store, product, draw.draw_number, stale=stale)
+        # spel-ai-kompisen: spara indatapaketet (samma färska draw, sharp,
+        # movement och jackpot som PH3) när en spelai-horisont är due. Inga
+        # byggen och inga subprocesser — spelai-tick gör resten. FÖRE PH3:s
+        # byggen, så att 30m-paketet når tabellen sekunder efter
+        # observationen; egen try, så det aldrig kan fälla PH3-frysningen.
+        try:
+            from app.spelai import indata as spelai_indata
+            spelai = spelai_indata.capture_due(
+                store, product, draw, sharp, movement, jackpot=jackpot,
+                jackpot_source=jackpot_source, now=freeze_now,
+                sharp_stale=stale)
+            if spelai.get("captured"):
+                print(f"{product} omg {draw.draw_number}: spelai-indata "
+                      f"{', '.join(spelai['captured'])}.")
+        except Exception as e:  # noqa: BLE001
+            print(f"{product}: spelai-indata hoppade över "
+                  f"({type(e).__name__}: {e})")
         rep = pool_system_ledger.freeze_due(
             store, product, draw, sharp, movement, jackpot=jackpot,
             jackpot_source=jackpot_source, now=freeze_now,
@@ -1254,6 +1272,56 @@ def cmd_smart(max_seconds: int = DENSE_BUDGET_S) -> None:
         odd_at = time.time()
 
 
+
+def cmd_spelai_tick() -> int:
+    """Facitsidans schemaläggare (launchd com.saman.spelai.schema, var 60:e s).
+
+    Läser in agentens utkorg, fryser standard och agentens förslag ur
+    poolvarvets indatapaket (agenten i sandbox), markerar missade fönster,
+    rättar och skickar notiser. Kör aldrig parallellt med sig själv."""
+    import fcntl
+    import json as _json
+    from app import pool_settlement
+    from app.spelai import notis, sandbox, schemalaggare, tillstand
+    store = Storage()
+    lock_path = store.db_path.parent / "spelai-tick.lock"
+    try:
+        with open(lock_path, "w") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                print("spelai-tick: föregående tick kör fortfarande — hoppar över.")
+                return 0
+            cfg = sandbox.AgentConfig.from_env(store.db_path)
+            report = schemalaggare.tick(
+                store, runner=sandbox.runner_for(cfg), clock=tillstand.now_utc,
+                sender=None, topic_name=notis.topic(),
+                code_version=pool_settlement._git_hash())  # noqa: SLF001
+    finally:
+        store.close()
+    if report.get("fel"):
+        print(f"spelai-tick: {report['fel']}")
+        return 1
+
+    def _nagot(value) -> bool:
+        if isinstance(value, dict):
+            return any(_nagot(v) for k, v in value.items() if k != "pausad")
+        if isinstance(value, (list, tuple)):
+            return bool(value)
+        if isinstance(value, bool):
+            return False
+        if isinstance(value, (int, float)):
+            return value > 0
+        return value is not None
+
+    # Varje minut i launchd-loggen: skriv bara när något hänt.
+    if _nagot(report):
+        stamp = tillstand.iso(tillstand.now_utc())
+        print(f"[{stamp}] spelai-tick: "
+              + _json.dumps(report, ensure_ascii=False, default=str))
+    return 0
+
+
 def cmd_vakt(rest: list[str]) -> int:
     """Driftvakten (app/vakt.py, docs/vakt.md): deterministiska kontroller av
     källprov, jobb, backendloggar, driftkopia, tester, disk och experiment.
@@ -1491,6 +1559,8 @@ def main() -> None:
                 print(f"{lg}: T={t} (logloss {ll} vs {ll1} vid T=1, n={len(preds)}) — sparad")
         finally:
             store.close()
+    elif cmd == "spelai-tick":
+        sys.exit(cmd_spelai_tick())
     elif cmd == "vakt":
         cmd_vakt(rest)
     elif cmd == "xgbackfill":

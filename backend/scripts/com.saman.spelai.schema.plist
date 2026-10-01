@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.saman.spelai.schema</string>
+
+    <!-- Facitsidan för spel-ai-kompisen (docs/spelai-facit.md): utkorg,
+         frysning ur poolvarvets indatapaket (agenten i sandbox), missat,
+         rättning och notiser. Låg prioritet (beslut 8). Kör aldrig parallellt
+         med sig själv: launchd startar inte en ny instans medan en körs, och
+         tick tar dessutom ett fil-lås. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/nice</string>
+        <string>-n</string>
+        <string>10</string>
+        <string>/Users/saman/spelkompisen/backend/.venv/bin/python</string>
+        <string>-B</string>
+        <string>cli.py</string>
+        <string>spelai-tick</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/saman/spelkompisen/backend</string>
+
+    <!-- 30m-förslaget ska frysas inom 5 min efter att poolvarvet observerat
+         omgången, och agenten får upp till 180 s: varje minut. -->
+    <key>StartInterval</key>
+    <integer>60</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/saman/spelkompisen/backend/data/spelai-launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/saman/spelkompisen/backend/data/spelai-launchd.err.log</string>
+</dict>
+</plist>

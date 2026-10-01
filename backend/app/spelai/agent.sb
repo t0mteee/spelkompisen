@@ -1,0 +1,58 @@
+;; spel-ai-kompisen: Seatbelt-profil för agentens kod när FACITSIDAN kör den.
+;; (docs/spel-ai-kompisen-design.md avsnitt 5.2 och 11, docs/spelai-facit.md)
+;;
+;; Parametrar (sätts av app/spelai/sandbox.py med -D):
+;;   HOME        hemkatalogen (/Users/saman)
+;;   AGENT_DATA  ~/spel-ai-data — enda skrivbara katalogen utöver temp
+;;   DB_SHM      stryktips.db-shm — SQLite i WAL-läge behöver skriva den
+;;               även för en mode=ro-läsare
+;;
+;; Ordningen spelar roll: i SBPL vinner den SISTA regeln som matchar.
+(version 1)
+(allow default)
+
+;; Inget nätverk alls — varken ut eller in, inte heller lokala portar.
+(deny network*)
+
+;; Ingen skrivning någonstans ...
+(deny file-write*)
+;; ... utom agentens datakatalog, temp och SQLite:s delade minne.
+(allow file-write*
+    (subpath (param "AGENT_DATA"))
+    (subpath "/private/tmp")
+    (subpath "/private/var/folders")
+    (literal (param "DB_SHM"))
+    (literal "/dev/null")
+    (literal "/dev/zero")
+    (literal "/dev/dtracehelper")
+    (literal "/dev/tty"))
+
+;; Spärrat även för läsning: designens lista (~/.ssh, ~/svs, ~/vm, .env-filer)
+;; plus vanliga nyckelplatser. Agentkoden har inget nät här, men det den läser
+;; kan den skriva till ~/spel-ai-data, som agenten senare läser MED nät.
+(deny file-read* file-write*
+    (subpath (string-append (param "HOME") "/.ssh"))
+    (subpath (string-append (param "HOME") "/svs"))
+    (subpath (string-append (param "HOME") "/vm"))
+    (subpath (string-append (param "HOME") "/.config/gh"))
+    (subpath (string-append (param "HOME") "/.aws"))
+    (subpath (string-append (param "HOME") "/.gnupg"))
+    (subpath (string-append (param "HOME") "/.claude"))
+    (subpath (string-append (param "HOME") "/Library/Keychains"))
+    (literal (string-append (param "HOME") "/.netrc"))
+    (literal (string-append (param "HOME") "/.git-credentials"))
+    (regex #"/\.env$")
+    (regex #"/\.env\.[^/]*$"))
+
+;; Inga vägar UT ur sandboxen via andra processer: Apple Events, launchd-jobb
+;; och LaunchServices-starter körs annars utanför profilen.
+(deny appleevent-send)
+(deny process-exec
+    (literal "/bin/launchctl")
+    (literal "/usr/bin/osascript")
+    (literal "/usr/bin/open")
+    (literal "/usr/bin/ssh")
+    (literal "/usr/bin/sandbox-exec"))
+(deny mach-lookup
+    (global-name "com.apple.coreservices.launchservicesd")
+    (global-name "com.apple.coreservices.appleevents"))
