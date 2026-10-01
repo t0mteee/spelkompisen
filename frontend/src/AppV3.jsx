@@ -12,7 +12,10 @@ import { StatusPill } from './historik/Tester.jsx'
 import { parseRoute, formatRoute } from './lib/routes.js'
 import { recentlySettled } from './lib/coupons.js'
 import { newsworthy, progressText } from './lib/tests.js'
-import { splitPoolIssues, poolIssueLabel, poolNoticeSummary } from './lib/poolHealth.js'
+import {
+  splitPoolIssues, poolIssueLabel, poolNoticeSummary, splitServerIssues, kindLabel,
+  serverIssueText, serverNoticeSummary, vaktNotesSummary,
+} from './lib/poolHealth.js'
 import { LabbV3 } from './labb/LabbV3.jsx'
 import { AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel, BombenView, OddsetView, Legend, Collection, LoadingState, ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS, SYSTEM_BASE, SYSTEM_SVS, FAMILY, kr, fmtClose, PlayRec, oddsetBestValue } from './App.jsx'
 import { beginRequest, payoutMatchesSelection, requestIsCurrent, uniqueDraws } from './poolSelection.js'
@@ -217,6 +220,11 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponge
   // under "dagens insamling fungerar".
   const { errors: poolErrors, current: poolCurrent, history: poolHistory } =
     splitPoolIssues(health?.pools?.issues)
+  // Driften (product "server"): databasbackup och driftvaktens fynd
+  // (backend/app/vakt.py). Egen rubrik — det är inte poolunderlag.
+  const { errors: serverErrors, warnings: serverWarnings } =
+    splitServerIssues(health?.pools?.issues)
+  const vaktNotes = health?.vakt?.notes || []
   const v22Issues = health?.v22?.issues || []
   // Tystnad i Oddset-varvet, liveradarn eller pooltick (oddset_health).
   const oddsetIssues = health?.oddset?.issues || []
@@ -230,6 +238,43 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponge
 
   return (
     <div className="v3dash">
+      {serverErrors.length > 0 && (
+        <div className="v3alert" role="alert">
+          <b>⚠️ Driften behöver tillsyn</b>
+          {serverErrors.slice(0, 4).map((issue, i) => (
+            <span key={`${issue.kind}-${issue.key || i}`}>
+              {kindLabel(issue.kind)}: {serverIssueText(issue)}
+            </span>
+          ))}
+          {serverErrors.length > 4 && <span>+{serverErrors.length - 4} ytterligare fel</span>}
+        </div>
+      )}
+      {serverWarnings.length > 0 && (
+        <details className="v3notice">
+          <summary>{serverNoticeSummary(serverWarnings)}</summary>
+          <ul>
+            {serverWarnings.map((issue, i) => (
+              <li key={`${issue.kind}-${issue.key || i}`}>
+                <b>{kindLabel(issue.kind)}</b>
+                <span>{serverIssueText(issue)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {vaktNotes.length > 0 && (
+        <details className="v3notice">
+          <summary>{vaktNotesSummary(health.vakt)}</summary>
+          <ul>
+            {vaktNotes.map((note, i) => (
+              <li key={`${note.kind}-${note.key || i}`}>
+                <b>{kindLabel(note.kind)}</b>
+                <span>{serverIssueText(note)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {poolErrors.length > 0 && (
         <div className="v3alert" role="alert">
           <b>⚠️ Poolinsamlingen behöver tillsyn</b>
