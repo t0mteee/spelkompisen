@@ -4,6 +4,13 @@
 Inget är byggt utom Vakten (fas 0), som pågår i Spelkompisen. Saman rådfrågar Codex
 innan han svarar på de öppna frågorna i avsnitt 9.
 
+**Samans preciseringar efter Codex-granskningen, 2026-10-01:** så mycket som
+möjligt ska skötas av agenten i sidoprojektet. Separat macOS-användarkonto ska
+inte vara ett krav för starten. Saman vill ha statusnotiser när agenten utför
+arbete samt poolförslag **6 timmar och 30 minuter före spelstopp**. Dessa delar
+är uppdaterade nedan; övriga öppna frågor är fortfarande öppna. Detta dokument
+aktiverar ingen agent eller notifiering i den befintliga Spelkompisen.
+
 ## 1. Varför
 
 Saman vill att en AI-agent följer upp hela tiden, i stället för att han själv ska upptäcka
@@ -74,6 +81,20 @@ räknesättet rättades (2026-07-24).
 - Agenten får inte ändra facitmotorn, poängreglerna eller historiska rader. Sådana
   ändringar blir ⚖ till Saman.
 
+Agentens mandat inom sidoprojektet ska vara brett: välja forskningsuppgifter,
+ändra och testa kod, modeller och UI, lägga till tillåtna nya datakällor,
+committa, driftsätta och återställa den egna appen inom fastställd resurs- och
+användningsbudget. Vanliga arbetsmoment ska gå utan Samans manuella godkännande.
+Den skyddade gränsen gäller Spelkompisens filer/tjänster/databas och
+utvärderingens regler/historik; den begränsar inte arbetet i det egna labbet.
+
+Start med befintligt macOS-konto är rimlig. Använd verktygens sandbox för
+skrivgränsen, förvara skyddad utvärdering utanför den skrivbara katalogen och
+ge driftsättningsverktyget åtkomst bara till sidoprojektets egna tjänster.
+Prova gränserna före obevakad körning. Ett separat repo, `mode=ro` eller en
+regel i en prompt ger ensamt ingen teknisk isolering. Separat användarkonto
+är ett möjligt senare alternativ om den enklare avgränsningen inte fungerar.
+
 ### 4.2 Sidoprojektet läser Spelkompisens data men kör aldrig en egen kopia av insamlingen
 
 - Databasen är den verkliga tillgången: månader av observationer som aldrig går att
@@ -119,7 +140,27 @@ räknesättet rättades (2026-07-24).
 - **Behörigheter:** en lista över tillåtna kommandon i sidoprojektets
   `.claude/settings.json` plus auto-läge. Inga behörighetsfrågor ska behövas.
 - **Kommunikation:** en 🤖-vy i sidoprojektet visar vad agenten gjort och beslutat, facit
-  per modell, kupongråd och öppna ⚖. Inga push-notiser (Samans regel 2026-09-02).
+  per modell, kupongråd och öppna ⚖. Statusnotiser för agentarbetet är önskade
+  av Saman 2026-10-01. Detta ersätter den tidigare inga-push-regeln för just
+  sidoprojektets agentstatus och kupongförslag. Spelkompisens befintliga
+  odds-/signalnotiser återaktiveras inte genom detta beslut.
+
+### Statusnotiser
+
+Varje avgränsad arbetsuppgift får ett jobb-id och en notis när arbetet börjar
+och när det är klart, misslyckas eller behöver Samans svar. Driftsättning och
+återställning ska alltid ge status. Undvik en notis per fil-/verktygsanrop:
+de stegen finns i jobbets fulla logg i 🤖-vyn. Deduplicera återförsök med samma
+jobb-id så att en omstart inte skickar samma status igen.
+
+Notisen beskriver enkelt vad agenten gör/gjorde, vad resultatet innebär och
+länkar till jobbets rapport. Exempel: ”Poolforskning klar: kandidat A slog
+inte Standard i jämförelsen. Ingen rekommendation ändrad.” Fel eller ett
+missat kupongförslag ger också en statusnotis; tystnad får inte betyda klart.
+
+Förslag på transport är en separat ntfy-prenumeration för agenten. Kanal,
+mottagare och åtkomstskydd ska sättas vid installationen; loggar, personliga
+kuponger och hemligheter ska inte läggas i en offentligt läsbar notis.
 
 ### Varför inte en molnsession
 
@@ -129,7 +170,7 @@ Alternativen är sämre:
 
 - öppna servern mot internet — en säkerhetsrisk;
 - kopiera databasen till molnet varje natt — då arbetar agenten på gårdagens data, och
-  livespel, kupongråd 3 h före spelstopp och felsökning i realtid faller bort.
+  livespel, aktuella kupongråd före spelstopp och felsökning i realtid faller bort.
 
 Remote Control ger samma åtkomst från alla enheter, medan agenten körs där datan finns.
 
@@ -149,13 +190,28 @@ Remote Control ger samma åtkomst från alla enheter, medan agenten körs där d
 | Frysning och facit (sidoprojektet) | vid horisonter och efter avgörande | nej |
 | Morgonrunda: larm, felsökning, rättningar, prov av appen, rapport | 07:00 | ja |
 | Forskningspass, ett mål i taget enligt kön | 1–2 per dag | ja |
-| Kupongråd med motivering | 3 h före spelstopp för valda spel | ja |
+| Första poolförslag med motivering | 6 h före spelstopp för valda spel | ja |
+| Uppdaterat poolförslag och jämförelse mot första | 30 min före spelstopp för samma spel | ja |
 | Utredning vid nytt rött larm | vid behov, högst 3 per dygn | ja |
 | Genomgång av gränssnittet | söndagar | ja |
 
 Första veckan: morgonrunda, ett forskningspass per dag och kupongråd för Stryktipset och
 Europatipset. Därefter skalar vi efter hur kvoten räcker. Fler körningar ger inte mer
 kunskap; ny data gör det.
+
+Vid 6 h sparas konkreta rader, modell-/byggarversion, odds, streck,
+observationstid och omsättnings-/utdelningsunderlag så att förslaget kan
+granskas och rättas senare. Vid 30 min byggs ett nytt förslag med aktuellt
+observerat underlag. Visa vad som ändrats (rader/tecken, spikar, odds/streck
+och motivering), eller säg uttryckligen att förslaget är oförändrat. Båda
+förslagen bevaras och får en statusnotis, även om slutsatsen är att avstå.
+
+Datainsamling, klockslag, lagring och notisutskick ska styras av vanliga
+schemalagda jobb. Agenten förklarar förslagen men får inte vara den enda
+klockan som håller tidsgränsen. Ett missat tillfälle markeras missat och
+bakfylls inte som om det hade skapats i tid. Ingen inlämning sker automatiskt.
+6 h och 30 min tillhör sidoprojektet och ändrar inte Spelkompisens befintliga
+förregistrerade h3-/m20-konfigurationer.
 
 ## 8. Faser
 
@@ -175,14 +231,16 @@ inte kan arbeta, pausas agenten tills reglerna ändrats.
 2. **Kvoten:** är det OK att agenten delar din prenumeration (Remote Control kräver det)?
    Vilket tak för antal körningar per dag?
 3. **Repo:** privat `t0mteee/spel-ai-kompisen`?
-4. **Självständighet i sidoprojektet:** får agenten driftsätta allt själv efter gröna tester
-   och prov av appen? Eller vill du godkänna vissa slag av ändringar först, till exempel
-   sådant som ändrar kupongråden?
+4. **Självständighet i sidoprojektet:** Saman vill att så mycket som möjligt sköts
+   av agenten. Utgångspunkt är mandatet i 4.1 och befintligt macOS-konto;
+   inga rutinmässiga godkännanden inne i sidoprojektet. Bekräfta de skyddade
+   gränserna och budgetarna tillsammans med övriga installationsbeslut.
 5. **Tillbaka till Spelkompisen:** vem flyttar en idé som bevisat sig i sidoprojektet till
    Spelkompisen? Förslag: bara du, via ⚖, efter facit.
 6. **Kupongråden:** ska de synas även i Spelkompisen eller bara i sidoprojektet?
-   Vilka spel ska få kupongråd 3 h före spelstopp — Stryktipset, Europatipset och vilka
-   Topptipset-varianter?
+   Tiderna är preciserade av Saman: **6 h och 30 min före spelstopp**.
+   Vilka spel ska få dessa förslag — Stryktipset, Europatipset och vilka
+   Topptipset-varianter? Första veckan följer fortsatt urvalet i avsnitt 7.
 7. **Din spelbudget:** ska agenten föreslå veckobudget och insats per omgång?
 8. **Codex roll:** förslag — Codex fortsätter i Spelkompisen och agenten arbetar ensam i
    sidoprojektet. Två agenter i samma repo krockar lätt.
