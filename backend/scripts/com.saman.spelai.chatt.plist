@@ -6,7 +6,9 @@
   agentens repo. Saman startar och fortsätter sessioner från Claude-appen
   (mobil, claude.ai/code). Sessionerna läser repots .claude/settings.json
   (sandbox + nekanden, standardagent koordinatorn) och kräver att Saman har
-  godkänt arbetskatalogen. `script` ger servern en pseudoterminal.
+  godkänt arbetskatalogen och svarat ja på Remote Control-frågan en gång
+  (2026-10-02). `--spawn same-dir` gör att servern aldrig frågar om läge.
+  `script` ger servern en pseudoterminal.
   Plisten ligger i Spelkompisen (betrodd), aldrig i agentens repo.
   Installeras: cp till ~/Library/LaunchAgents/ + tools/tjanster.sh start spelai-chatt
 -->
@@ -27,6 +29,8 @@
         <string>acceptEdits</string>
         <string>--capacity</string>
         <string>2</string>
+        <string>--spawn</string>
+        <string>same-dir</string>
     </array>
     <key>WorkingDirectory</key>
     <string>/Users/saman/spel-ai-kompisen</string>
