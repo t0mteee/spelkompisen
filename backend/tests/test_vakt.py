@@ -192,6 +192,13 @@ class KallorTests(Base):
         self.assertEqual({"sofa_model", "sofa_live"},
                          {f["key"] for f in self.by_kind(findings, "kalla_nere")})
 
+    def test_kalla_som_inte_langre_provas_larmar_inte(self):
+        rows = [r for r in sofascore_runs() if not (
+            r["source"] == "sofa_live" and r["run_id"].startswith("2026-09-25T22"))]
+        self.write(rows)
+        down = {f["key"] for f in self.by_kind(vakt.check_kallor(self.ctx()), "kalla_nere")}
+        self.assertEqual({"sofa_model"}, down)
+
     def test_gammal_eller_saknad_logg_ar_kalltest_stale(self):
         self.assertEqual(["kalltest_stale"],
                          [f["kind"] for f in vakt.check_kallor(self.ctx())])
@@ -337,6 +344,21 @@ class BackendLogTests(Base):
         self.assertEqual(1, tracebacks[0]["n"])
         self.assertIn("NameError", tracebacks[0]["message"])
         self.assertEqual(24, tracebacks[0]["hold_h"])
+
+
+    def test_halvskrivet_undantag_raknas_nar_det_ar_klart(self):
+        self.append(vakt.BACKEND_ERR_LOG, "INFO:     Application startup complete.\n")
+        self.run_vakt(self.CHECKS)
+        self.append(vakt.BACKEND_ERR_LOG, "Traceback (most recent call last):\n"
+                                          '  File "app/main.py", line 9, in h\n')
+        half = self.run_vakt(self.CHECKS, now=self.NOW + dt.timedelta(minutes=30))
+        self.assertEqual([], half["findings"])
+        self.append(vakt.BACKEND_ERR_LOG, "KeyError: 'draw'\n")
+        done = self.run_vakt(self.CHECKS, now=self.NOW + dt.timedelta(hours=1))
+        found = self.by_kind(done["findings"], "backend_traceback")
+        self.assertEqual((1, "KeyError: 'draw'"), (found[0]["n"], found[0]["last"]))
+        size = (self.data / vakt.BACKEND_ERR_LOG).stat().st_size
+        self.assertEqual(size, done["state"]["backend_log"]["err"]["offset"])
 
 
 class JobbTests(Base):

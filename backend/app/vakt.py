@@ -298,7 +298,9 @@ def check_kallor(ctx: Ctx) -> list[dict]:
             f"({reason}) — källorna kan inte bedömas förrän nätet är tillbaka",
             since=_iso(first["at"]), runs=len(infra_series)))
 
-    sources = sorted({source for run in ordered for source in run["rows"]})
+    # Bara källor som provas i dag: en källa som strukits ur källprovet medan
+    # den fallerade får inte larma för evigt på sina gamla rader.
+    sources = sorted(ordered[-1]["rows"])
     failing = []
     for source in sources:
         series = []
@@ -528,6 +530,12 @@ def check_backend(ctx: Ctx) -> list[dict]:
     err_path = ctx.data_dir / BACKEND_ERR_LOG
     if err_path.exists():
         text, new_state["err"], mode = _read_new(err_path, prev.get("err"))
+        cut = text.rfind("Traceback (most recent call last):")
+        if cut >= 0 and not _exceptions(text[cut:]):
+            # Undantaget skrivs just nu (ramar men ingen undantagsrad ännu):
+            # läs om det från början nästa gång i stället för att tappa det.
+            new_state["err"]["offset"] -= len(text[cut:].encode("utf-8"))
+            text = text[:cut]
         events = _exceptions(text)
         kinds = Counter(_exception_kind(line) for line in events)
         summary.update({"err_mode": mode, "exceptions": dict(kinds)})

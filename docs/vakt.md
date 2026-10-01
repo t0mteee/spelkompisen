@@ -57,7 +57,7 @@ driftrubrik. Saknas `vakt.json` ⇒ `vakt_missing`; äldre än 90 min ⇒ `vakt_
 
 | Kontroll | Fynd (`kind`) | Nivå | Tröskel / regel |
 |---|---|---|---|
-| **A. källor** — `backend/data/kalltest-macbook-192.168.50.100.jsonl` | `kalla_nere` (key = källa) | error | källan fallerat (`outcome: source_error`) i ≥ 2 källprov i rad; `since` = första felkörningens `at`, meddelandet bär senaste `note` |
+| **A. källor** — `backend/data/kalltest-macbook-192.168.50.100.jsonl` | `kalla_nere` (key = källa) | error | källan fallerat (`outcome: source_error`) i ≥ 2 källprov i rad; `since` = första felkörningens `at`, meddelandet bär senaste `note`. Bara källor som finns i senaste körningen bedöms |
 | | `natverk_nere` (key `kalltest`) | warning, error vid ≥ 2 i rad | körningar med `infrastructure_error`/DNS-fel. Sådana rader är ingen observation av källan: de varken bryter eller förlänger en källas felserie |
 | | `kalltest_stale` | warning | senaste körning äldre än 2 × 6 h = 12 h, eller loggen saknas |
 | **B. jobb** — `launchctl list` via `tools/spelkompisen_tjanster.py` (`Launchd.state`) för backend, frontend, snapshot, pool, backup, kalltest, vakt | `jobb_ej_laddat` | error (warning om avstängd med `--permanent`) | tjänsten är inte laddad |
@@ -97,7 +97,8 @@ driftrubrik. Saknas `vakt.json` ⇒ `vakt_missing`; äldre än 90 min ⇒ `vakt_
   läser högst de sista 5 MB (halv första rad kapas) och dess fynd hålls inte kvar:
   de beskriver gamla skov, inte vad som hänt sedan vakten började. Bara hela rader
   konsumeras. En undantagskedja (`The above exception was the direct cause…`)
-  räknas som EN händelse.
+  räknas som EN händelse, och ett undantag som skrivs just när vakten läser
+  (ramar men ingen undantagsrad ännu) läses om nästa gång i stället för att tappas.
 - **Backendprocessens starttid** = nu − `ps -o etime=` (förfluten tid) i stället för
   `lstart`: ingen lokal tidszon eller locale att tolka, och testbar med injicerad
   klocka. 5 min marginal eftersom `etime`/`%ct` har sekundupplösning (backend
