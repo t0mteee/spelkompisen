@@ -8,7 +8,8 @@
   (sandbox + nekanden, standardagent koordinatorn) och kräver att Saman har
   godkänt arbetskatalogen och svarat ja på Remote Control-frågan en gång
   (2026-10-02). `--spawn same-dir` gör att servern aldrig frågar om läge.
-  `script` ger servern en pseudoterminal.
+  Servern körs utan pseudoterminal: med `script` och tom stdin avslutades
+  sessionen direkt (provat 2026-10-02).
   Plisten ligger i Spelkompisen (betrodd), aldrig i agentens repo.
   Installeras: cp till ~/Library/LaunchAgents/ + tools/tjanster.sh start spelai-chatt
 -->
@@ -18,9 +19,6 @@
     <string>com.saman.spelai.chatt</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/bin/script</string>
-        <string>-q</string>
-        <string>/dev/null</string>
         <string>/Users/saman/.local/bin/claude</string>
         <string>remote-control</string>
         <string>--name</string>
