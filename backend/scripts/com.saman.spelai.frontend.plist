@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  spel-ai-kompisens app (port 5176, nåbar från LAN/Tailscale): vite preview av
+  agentens byggda bunt. Koden är agentens, så den körs ALLTID i Spelkompisens
+  sandboxprofil backend/app/spelai/tjanst.sb (ingen skrivning utanför
+  ~/spel-ai-data och vite:s temporära katalog, inget nät ut, bara 8002/8003
+  lokalt). Plisten ligger i Spelkompisen (betrodd) och aldrig i agentens repo.
+  Installeras: cp till ~/Library/LaunchAgents/ + tools/tjanster.sh start spelai-app
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.saman.spelai.frontend</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/sandbox-exec</string>
+        <string>-D</string>
+        <string>HOME=/Users/saman</string>
+        <string>-D</string>
+        <string>AGENT_DATA=/Users/saman/spel-ai-data</string>
+        <string>-D</string>
+        <string>DB_SHM=/Users/saman/spelkompisen/backend/data/stryktips.db-shm</string>
+        <string>-D</string>
+        <string>PORT=5176</string>
+        <string>-f</string>
+        <string>/Users/saman/spelkompisen/backend/app/spelai/tjanst.sb</string>
+        <string>/Users/saman/.local/spelkompisen-runtime/bin/node</string>
+        <string>node_modules/vite/bin/vite.js</string>
+        <string>preview</string>
+        <string>--port</string>
+        <string>5176</string>
+        <string>--strictPort</string>
+        <string>--host</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/saman/spel-ai-kompisen/frontend</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/saman/.local/spelkompisen-runtime/bin:/usr/bin:/bin</string>
+    </dict>
+    <key>Nice</key>
+    <integer>10</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>StandardOutPath</key>
+    <string>/Users/saman/spel-ai-data/logg/frontend.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/saman/spel-ai-data/logg/frontend.err.log</string>
+</dict>
+</plist>

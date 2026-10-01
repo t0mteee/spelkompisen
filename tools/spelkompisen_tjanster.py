@@ -88,6 +88,19 @@ SERVICES: tuple[Service, ...] = (
                 "går aldrig att frysa i efterhand.",
     ),
     Service(
+        "spelai-api", "Agentens API", "com.saman.spelai.backend", "spel-ai-kompisen",
+        "agentens API på 127.0.0.1:8003, i sandbox",
+        "Läser agentens journal, kö och roller åt agentens app. Koden är "
+        "agentens och körs i Spelkompisens sandbox, så den kan aldrig skriva "
+        "i Spelkompisen.",
+    ),
+    Service(
+        "spelai-app", "Agentens app", "com.saman.spelai.frontend", "spel-ai-kompisen",
+        "agentens app på port 5176, i sandbox",
+        "spel-ai-kompisens webbapp: Hem, Beslut, Pool, Live och Agent. Koden "
+        "är agentens och körs i Spelkompisens sandbox.",
+    ),
+    Service(
         "charter", "Chartervakt", "com.saman.chartervakt", "Chartervakt",
         "webb och scheduler på 3100",
         "Letar efter charterresor, sparar prisutvecklingen och driver "
@@ -373,11 +386,13 @@ USAGE = """Användning:
   tjanster.sh omstart <tjänst ...>
 
 Tjänster:
-  backend frontend snapshot pool spelai kalltest backup vakt awake menubar charter bonus
+  backend frontend snapshot pool spelai spelai-api spelai-app kalltest backup vakt awake menubar charter bonus
 Grupper:
   all            alla tjänster
   spelkompisen   API, webb och Spelkompisens två insamlare
   spelai         spel-ai-kompisens facitsida (schemaläggaren)
+  spelai-api     spel-ai-kompisens agent-API (8003, sandbox)
+  spelai-app     spel-ai-kompisens app (5176, sandbox)
   chartervakt    Chartervakt
   bonusvakt      Bonusvakt
   server         sömnskydd, källprov, backup, driftvakt och serverkontroll

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  spel-ai-kompisens agent-API (127.0.0.1:8003). Koden är agentens
+  (~/spel-ai-kompisen/backend/agent_api), så den körs ALLTID i Spelkompisens
+  sandboxprofil backend/app/spelai/tjanst.sb: ingen skrivning utanför
+  ~/spel-ai-data, inget nät ut, bara 8002/8003 lokalt. Plisten ligger i
+  Spelkompisen (betrodd) och aldrig i agentens repo.
+  Installeras: cp till ~/Library/LaunchAgents/ + tools/tjanster.sh start spelai-api
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.saman.spelai.backend</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/sandbox-exec</string>
+        <string>-D</string>
+        <string>HOME=/Users/saman</string>
+        <string>-D</string>
+        <string>AGENT_DATA=/Users/saman/spel-ai-data</string>
+        <string>-D</string>
+        <string>DB_SHM=/Users/saman/spelkompisen/backend/data/stryktips.db-shm</string>
+        <string>-D</string>
+        <string>PORT=8003</string>
+        <string>-f</string>
+        <string>/Users/saman/spelkompisen/backend/app/spelai/tjanst.sb</string>
+        <string>/Users/saman/spel-ai-kompisen/backend/.venv/bin/python</string>
+        <string>-m</string>
+        <string>uvicorn</string>
+        <string>agent_api.main:app</string>
+        <string>--host</string>
+        <string>127.0.0.1</string>
+        <string>--port</string>
+        <string>8003</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/saman/spel-ai-kompisen/backend</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/saman/spel-ai-kompisen/backend/.venv/bin:/usr/bin:/bin</string>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+        <key>PYTHONDONTWRITEBYTECODE</key>
+        <string>1</string>
+    </dict>
+    <key>Nice</key>
+    <integer>10</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>StandardOutPath</key>
+    <string>/Users/saman/spel-ai-data/logg/backend.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/saman/spel-ai-data/logg/backend.err.log</string>
+</dict>
+</plist>

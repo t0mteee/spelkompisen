@@ -1,0 +1,67 @@
+;; spel-ai-kompisen: Seatbelt-profil för AGENTENS TJÄNSTER (agent-API:t 8003 och
+;; appen 5176) när launchd kör dem. Koden är agentens, så den körs aldrig
+;; utanför en profil som Spelkompisen äger (docs/spel-ai-kompisen-design.md 11).
+;;
+;; Parametrar (-D):
+;;   HOME        hemkatalogen (/Users/saman)
+;;   AGENT_DATA  ~/spel-ai-data — loggar och agentens egna data
+;;   DB_SHM      stryktips.db-shm — SQLite i WAL-läge, även för mode=ro-läsare
+;;   PORT        tjänstens egen port
+;;
+;; I SBPL vinner den SISTA regeln som matchar.
+(version 1)
+(allow default)
+
+;; Ingen skrivning någonstans utom agentens datakatalog, temp och SQLite:s
+;; delade minne. Agentens kod kan alltså aldrig ändra Spelkompisen, dess
+;; databas eller sitt eget repo medan tjänsten kör.
+(deny file-write*)
+(allow file-write*
+    (subpath (param "AGENT_DATA"))
+    (subpath "/private/tmp")
+    (subpath "/private/var/folders")
+    (literal (param "DB_SHM"))
+    (literal "/dev/null")
+    (literal "/dev/zero")
+    (literal "/dev/dtracehelper")
+    (literal "/dev/tty")
+    ;; vite preview buntar sin konfiguration till en temporär fil här.
+    (regex #"/node_modules/\.vite-temp(/|$)"))
+
+;; Hemligheter och syskonprojekten: varken läsning eller skrivning.
+(deny file-read* file-write*
+    (subpath (string-append (param "HOME") "/.ssh"))
+    (subpath (string-append (param "HOME") "/svs"))
+    (subpath (string-append (param "HOME") "/vm"))
+    (subpath (string-append (param "HOME") "/.config/gh"))
+    (subpath (string-append (param "HOME") "/.aws"))
+    (subpath (string-append (param "HOME") "/.gnupg"))
+    (subpath (string-append (param "HOME") "/.claude"))
+    (subpath (string-append (param "HOME") "/Library/Keychains"))
+    (literal (string-append (param "HOME") "/.netrc"))
+    (literal (string-append (param "HOME") "/.git-credentials"))
+    (regex #"/\.env$")
+    (regex #"/\.env\.[^/]*$"))
+
+;; Nät: bara lokalt. Lyssna på den egna porten (appen nås från LAN och
+;; Tailscale), och prata bara med Spelkompisens API (8002) och agentens
+;; eget API (8003). Inget nät ut.
+(deny network*)
+(allow network-bind (local ip (string-append "*:" (param "PORT"))))
+(allow network-inbound (local ip (string-append "*:" (param "PORT"))))
+(allow network-outbound
+    (remote ip "localhost:8002")
+    (remote ip "localhost:8003"))
+(allow network* (local unix-socket) (remote unix-socket))
+
+;; Inga vägar ut ur sandboxen via andra processer.
+(deny appleevent-send)
+(deny process-exec
+    (literal "/bin/launchctl")
+    (literal "/usr/bin/osascript")
+    (literal "/usr/bin/open")
+    (literal "/usr/bin/ssh")
+    (literal "/usr/bin/sandbox-exec"))
+(deny mach-lookup
+    (global-name "com.apple.coreservices.launchservicesd")
+    (global-name "com.apple.coreservices.appleevents"))
