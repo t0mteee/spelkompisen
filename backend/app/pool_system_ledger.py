@@ -543,6 +543,60 @@ def _freshness_note(sharp_stale: Optional[dict]) -> str:
             f"match{'er' if len(parts) != 1 else ''} ({', '.join(parts)}).")
 
 
+def build_config_rows(analysis: DrawAnalysis, bench: dict, horizon: str,
+                      plan: Optional[dict], jp: float
+                      ) -> tuple[list, int, float, Optional[str]]:
+    """Bygg EN konfigurations rader — frysningens enda byggväg.
+
+    Delas med spel-ai-kompisens standard (app/spelai/frysning.py), så att
+    standarden aldrig blir en parallell byggare: samma config-dict, samma
+    analys och samma jackpot ger byte-identiska rader.
+    Returnerar (rows, n_rows, cost, build_note)."""
+    method = bench.get("method", "varderader")
+    if method == "varderader":
+        system = build_ev_system(
+            analysis, bench["strategy"], bench["budget"],
+            row_price=analysis.row_price or 1.0,
+            value_weight=bench["value_weight"], plan=plan, jackpot=jp,
+            full_universe=bool(bench.get("full_universe")),
+            draw_risk=bool(bench.get("draw_risk", True)),
+            prob_base=bench.get("prob_base", "svs"))
+        rows = system.rows
+        n_rows = system.num_rows
+        cost = system.cost
+        build_note = system.note
+        if bench.get("full_universe"):
+            build_note = (
+                f"Fullt 3^{len(analysis.matches)}-kandidatuniversum. "
+                f"{build_note or ''}").strip()
+    elif method == "matematiskt":
+        system = build_max_math_system(
+            analysis, bench["strategy"],
+            row_price=analysis.row_price or 1.0,
+            value_weight=bench["value_weight"],
+            draw_risk=bool(bench.get("draw_risk", True)))
+        rows = system.rows
+        n_rows = system.num_rows
+        cost = system.cost
+        build_note = system.note
+    elif method == "poolopt":
+        rows = _poolopt_rows(analysis, bench, plan)
+        n_rows = len(rows)
+        cost = n_rows * (analysis.row_price or 1.0)
+        build_note = (
+            f"Pooloptimerare v1 forward ({bench.get('label')}, "
+            f"{bench.get('source_config_id')}): sökningens radval på "
+            f"referensmodellen, prognosomsättning "
+            f"{int(analysis.turnover or 0)}, ingen jackpot.")
+    else:
+        rows = _ph5_control_rows(analysis, bench, horizon)
+        n_rows = len(rows)
+        cost = n_rows * (analysis.row_price or 1.0)
+        build_note = (f"PH5 forward research-only: {method}, "
+                      f"{n_rows} frysta rader")
+    return rows, n_rows, cost, build_note
+
+
 def freeze_due(store: Storage, product: str, draw: Draw,
                sharp: Optional[dict] = None, movement: Optional[dict] = None,
                jackpot: Optional[float] = None,
@@ -580,48 +634,8 @@ def freeze_due(store: Storage, product: str, draw: Draw,
                 if turnover_used > (analysis.turnover or 0.0):
                     analysis.turnover = turnover_used
                 jp = max(0.0, jackpot or 0.0)
-            method = bench.get("method", "varderader")
-            if method == "varderader":
-                system = build_ev_system(
-                    analysis, bench["strategy"], bench["budget"],
-                    row_price=analysis.row_price or 1.0,
-                    value_weight=bench["value_weight"], plan=plan, jackpot=jp,
-                    full_universe=bool(bench.get("full_universe")),
-                    draw_risk=bool(bench.get("draw_risk", True)),
-                    prob_base=bench.get("prob_base", "svs"))
-                rows = system.rows
-                n_rows = system.num_rows
-                cost = system.cost
-                build_note = system.note
-                if bench.get("full_universe"):
-                    build_note = (
-                        f"Fullt 3^{len(analysis.matches)}-kandidatuniversum. "
-                        f"{build_note or ''}").strip()
-            elif method == "matematiskt":
-                system = build_max_math_system(
-                    analysis, bench["strategy"],
-                    row_price=analysis.row_price or 1.0,
-                    value_weight=bench["value_weight"],
-                    draw_risk=bool(bench.get("draw_risk", True)))
-                rows = system.rows
-                n_rows = system.num_rows
-                cost = system.cost
-                build_note = system.note
-            elif method == "poolopt":
-                rows = _poolopt_rows(analysis, bench, plan)
-                n_rows = len(rows)
-                cost = n_rows * (analysis.row_price or 1.0)
-                build_note = (
-                    f"Pooloptimerare v1 forward ({bench.get('label')}, "
-                    f"{bench.get('source_config_id')}): sökningens radval på "
-                    f"referensmodellen, prognosomsättning "
-                    f"{int(analysis.turnover or 0)}, ingen jackpot.")
-            else:
-                rows = _ph5_control_rows(analysis, bench, horizon)
-                n_rows = len(rows)
-                cost = n_rows * (analysis.row_price or 1.0)
-                build_note = (f"PH5 forward research-only: {method}, "
-                              f"{n_rows} frysta rader")
+            rows, n_rows, cost, build_note = build_config_rows(
+                analysis, bench, horizon, plan, jp)
             if not rows:
                 continue   # gick inte att bygga — nästa varv försöker igen
             if stale_note:
@@ -727,6 +741,44 @@ def counterfactual_payout(
             round(published, 2), complete, note)
 
 
+UNRESOLVABLE_NOTE = "utfall saknas för minst en match"
+
+
+def counterfactual_settle(store: Storage, product: str, draw_number: int,
+                          events: list[int], rows, cost: Optional[float]
+                          ) -> Optional[dict]:
+    """PH3:s kontrafaktiska rättning av konkreta rader mot settlementlagret.
+
+    Officiellt utfall per eventNumber ur `pool_event_settlement` (struken
+    match = SvS fastställda tecken), publicerade vinnare/belopp ur
+    `pool_payout_tier` och egen utspädning via `counterfactual_payout`
+    (0 officiella vinnare = rullpott okänd ⇒ ofullständigt facit). Delas med
+    spel-ai-kompisens rättning. None = utfall saknas för minst en match.
+    `rows` = sekvenser av tecken i `events`-ordning (listor eller strängar)."""
+    outcomes = dict(store.conn.execute(
+        "SELECT event_number, outcome FROM pool_event_settlement "
+        "WHERE product=? AND draw_number=?", (product, draw_number)))
+    tiers = {int(r[0]): (r[1], r[2]) for r in store.conn.execute(
+        "SELECT correct, winners, amount FROM pool_payout_tier "
+        "WHERE product=? AND draw_number=? AND correct IS NOT NULL",
+        (product, draw_number))}
+    if any(outcomes.get(e) not in ("1", "X", "2") for e in events):
+        return None
+    facit = [outcomes[e] for e in events]
+    dist: dict[int, int] = {}
+    for signs in rows:
+        correct = sum(1 for sign, res in zip(signs, facit) if sign == res)
+        dist[correct] = dist.get(correct, 0) + 1
+    correct_max = max(dist) if dist else 0
+    payout, published, payout_complete, payout_note = \
+        counterfactual_payout(dist, tiers)
+    roi = (round(payout / cost - 1.0, 4)
+           if payout_complete and payout is not None and cost else None)
+    return {"dist": dist, "correct_max": correct_max, "payout": payout,
+            "published": published, "complete": payout_complete,
+            "note": payout_note, "roi": roi}
+
+
 def settle_pending(store: Storage, now: Optional[dt.datetime] = None) -> dict:
     """Settla frysta system där omgångens facit finns i settlementlagret."""
     now = now or dt.datetime.now(dt.timezone.utc)
@@ -751,34 +803,25 @@ def settle_pending(store: Storage, now: Optional[dt.datetime] = None) -> dict:
                  product, draw_number, horizon, key))
             report["cancelled"] += 1
             continue
-        outcomes = dict(store.conn.execute(
-            "SELECT event_number, outcome FROM pool_event_settlement "
-            "WHERE product=? AND draw_number=?", (product, draw_number)))
-        tiers = {int(r[0]): (r[1], r[2]) for r in store.conn.execute(
-            "SELECT correct, winners, amount FROM pool_payout_tier "
-            "WHERE product=? AND draw_number=? AND correct IS NOT NULL",
-            (product, draw_number))}
         events = [int(e) for e in events_order.split(",")]
-        note = None
-        if any(outcomes.get(e) not in ("1", "X", "2") for e in events):
+        facit = counterfactual_settle(store, product, draw_number, events,
+                                      _decode_rows(rows_text), cost)
+        if facit is None:
             # utfall saknas för någon match (extremfall) — märk, försök inte
-            note = "utfall saknas för minst en match"
+            note = UNRESOLVABLE_NOTE
             store.conn.execute(
                 "UPDATE pool_system_ledger SET settled_at=?, settle_note=? "
                 "WHERE product=? AND draw_number=? AND horizon=? AND config_key=?",
                 (_iso(now), note, product, draw_number, horizon, key))
             report["unresolvable"] += 1
             continue
-        facit = [outcomes[e] for e in events]
-        dist: dict[int, int] = {}
-        for signs in _decode_rows(rows_text):
-            correct = sum(1 for sign, res in zip(signs, facit) if sign == res)
-            dist[correct] = dist.get(correct, 0) + 1
-        correct_max = max(dist) if dist else 0
-        payout, published, payout_complete, payout_note = \
-            counterfactual_payout(dist, tiers)
-        roi = (round(payout / cost - 1.0, 4)
-               if payout_complete and payout is not None and cost else None)
+        dist = facit["dist"]
+        correct_max = facit["correct_max"]
+        payout = facit["payout"]
+        published = facit["published"]
+        payout_complete = facit["complete"]
+        payout_note = facit["note"]
+        roi = facit["roi"]
         store.conn.execute(
             "UPDATE pool_system_ledger SET settled_at=?, correct_max=?, "
             "correct_dist=?, payout_kr=?, published_payout_kr=?, "
