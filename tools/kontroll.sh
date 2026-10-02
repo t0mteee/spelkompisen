@@ -15,6 +15,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # använder samma runtime.
 RUNTIME="$HOME/.local/spelkompisen-runtime/bin"
 [ -d "$RUNTIME" ] && export PATH="$RUNTIME:$PATH"
+# Som pre-push-krok ärver skriptet gits repomiljö (GIT_DIR m.fl.; i en worktree en
+# absolut sökväg). Testerna kör git i egna tillfälliga repon och får inte se den —
+# annars skriver test_backup_db mot arbetsrepot ("remote origin already exists").
+unset $(git rev-parse --local-env-vars 2>/dev/null)
 DEL="${1:-allt}"
 fel=0
 resultat=()
