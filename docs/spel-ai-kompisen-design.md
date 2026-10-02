@@ -34,7 +34,7 @@ Alla rekommendationer i beslutslistan v2 är godkända, plus två tillägg från
 | 16 | Nytt UI enligt avsnitt 10; Spelkompisens vyer nås via "Verktyg" |
 | 17 | "Jag spelade detta" för pool och live; riktiga resultat följs separat |
 | 18 | Notiser enligt avsnitt 9 |
-| 19 | Notiskanal: ntfy med slumpat ämne; Claude-appens notiser provas |
+| 19 | Notiskanal: ntfy med slumpat ämne; Claude-appens notiser provas. **2026-10-02: agentens chatt i Claude-appen** (avsnitt 9) |
 | 20 | Sofascore: Flashscore som resultatkälla i Spelkompisen; V2.2-frågan blir eget ⚖ |
 | 21 | Agenten kan lämna egna förslag (avsnitt 8) |
 | 22 | Fyra roller, varav en tänker som en människa som använder verktyget (avsnitt 6) |
@@ -257,8 +257,11 @@ igenom dem varje morgon. Ingen notis per spel; gårdagens resultat i morgonrappo
 
 ## 9. Notiser
 
-- Kanal: ntfy med ett långt slumpat ämne i `backend/.env`. Claude-appens egna notiser provas
-  för agentens del.
+- Kanal sedan 2026-10-02: **agentens chatt i Claude-appen.** Saman har inte satt upp ntfy
+  och väntade sig rapporterna där. Facitsidans chattbud lämnar händelserna i chatten; se
+  `docs/spelai-facit.md` avsnitt 15. Pushen till telefonen är fortfarande ntfy, med ett
+  långt slumpat ämne i `backend/.env`. Saman hade inte fått ämnet och prenumererar från
+  2026-10-02.
 - Notis vid: nytt beslut, poolförslag (en per spel och tidpunkt), morgonrapport, klart eller
   misslyckat arbete, driftsättning eller återställning, missat förslag, agentsessionen nere mer
   än 30 min, kassaspärr.

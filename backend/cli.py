@@ -1279,11 +1279,12 @@ def cmd_spelai_tick() -> int:
 
     Läser in agentens utkorg, fryser standard och agentens förslag ur
     poolvarvets indatapaket (agenten i sandbox), markerar missade fönster,
-    rättar och skickar notiser. Kör aldrig parallellt med sig själv."""
+    rättar, skickar notiser och lämnar rapporterna i agentens chatt.
+    Kör aldrig parallellt med sig själv."""
     import fcntl
     import json as _json
     from app import pool_settlement
-    from app.spelai import notis, sandbox, schemalaggare, tillstand
+    from app.spelai import chattbud, notis, sandbox, schemalaggare, tillstand
     store = Storage()
     lock_path = store.db_path.parent / "spelai-tick.lock"
     try:
@@ -1297,7 +1298,8 @@ def cmd_spelai_tick() -> int:
             report = schemalaggare.tick(
                 store, runner=sandbox.runner_for(cfg), clock=tillstand.now_utc,
                 sender=None, topic_name=notis.topic(),
-                code_version=pool_settlement._git_hash())  # noqa: SLF001
+                code_version=pool_settlement._git_hash(),  # noqa: SLF001
+                chatt_runner=chattbud.claude_runner())
     finally:
         store.close()
     if report.get("fel"):

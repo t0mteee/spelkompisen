@@ -1,13 +1,15 @@
 """Schemaläggaren (`cli.py spelai-tick`, launchd `com.saman.spelai.schema`).
 
 Varje tick: läs in utkorgen, frys de indatapaket som poolvarvet sparat
-(respekterar paus), markera missade fönster, rätta mot facit och skicka
-notiser. Varje steg isoleras — ett fel i ett steg bokförs som `tick_fel` och
-stoppar inte de andra. Rollkörningar (fas F) startas inte här ännu.
+(respekterar paus), markera missade fönster, rätta mot facit, skicka
+notiser och lämna rapporterna i agentens chatt i Claude-appen (`chattbud`,
+sist eftersom budet tar upp mot en halv minut). Varje steg isoleras — ett
+fel i ett steg bokförs som `tick_fel` och stoppar inte de andra.
+Rollkörningar (fas F) startas inte här ännu.
 
-Klockan injiceras (`clock`), liksom agentkörningen (`runner`), utkorgen och
-notissändaren, så att testerna aldrig kör agentkod, skickar notiser eller
-läser väggklockan.
+Klockan injiceras (`clock`), liksom agentkörningen (`runner`), utkorgen,
+notissändaren och chattbudet (`chatt_runner`, None = av), så att testerna
+aldrig kör agentkod, skickar notiser eller meddelanden eller läser väggklockan.
 """
 from __future__ import annotations
 
@@ -15,14 +17,15 @@ import datetime as dt
 from pathlib import Path
 from typing import Callable, Optional
 
-from . import frysning, inkorg, notis, ratta, schema, tillstand
+from . import chattbud, frysning, inkorg, notis, ratta, schema, tillstand
 
-STEG = ("inkorg", "frysning", "missat", "rattning", "notiser")
+STEG = ("inkorg", "frysning", "missat", "rattning", "notiser", "chatt")
 
 
 def tick(store, *, runner, clock: Callable[[], dt.datetime],
          utkorg: Path = inkorg.UTKORG_DEFAULT, sender=None,
-         topic_name: Optional[str] = None, code_version: str = "dev") -> dict:
+         topic_name: Optional[str] = None, code_version: str = "dev",
+         chatt_runner=None) -> dict:
     conn = store.conn
     if not schema.tables_exist(conn):
         return {"fel": "spelai-tabellerna saknas — kör scripts/migrera_spelai.py"}
@@ -36,6 +39,7 @@ def tick(store, *, runner, clock: Callable[[], dt.datetime],
         ("rattning", lambda: ratta.settle(store, now=clock())),
         ("notiser", lambda: notis.skicka(conn, now=clock(), sender=sender,
                                          topic_name=topic_name)),
+        ("chatt", lambda: chattbud.skicka(conn, now=clock(), runner=chatt_runner)),
     )
     for name, step in steps:
         try:

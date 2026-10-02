@@ -172,7 +172,10 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       (launchd com.saman.spelai.schema, varje minut) fryser standard + agent.
                       Standarden ÄR PH3 (`build_config_rows`: dr1-b256/b512-medel,
                       ph5-v4 5000, reducedmax-v2 20000, mathmax-v2 39366), rättning via
-                      `counterfactual_settle` — skriv aldrig en parallell byggare
+                      `counterfactual_settle` — skriv aldrig en parallell byggare.
+                      Sist i varje tick lämnar `chattbud.py` beslut, poolförslag och
+                      rollkörningar i agentens chatt i Claude-appen (Haiku-bud, låst av
+                      PreToolUse-kroken `budkrok.py` till chattsessionen; facit §15)
   app/live_radar.py   shadow-radar för pågående matcher: Flashscore ankare, FotMob sekundär,
                       Sofascore URKOPPLAD ur radarn (kvar för resultat/frånvaro)
   app/live_signal_ledger.py append-only-journal över första Följer/Stark per match,
@@ -824,6 +827,10 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
   agentrepot pushas BARA via den betrodda spegeln `~/spel-ai-spegel.git` (`app/spelai/spegel.py`,
   aldrig git med agentrepot som arbetskatalog, inga krokar). Skärmbilder åt Användaren tas av
   facitsidan med `tools/spelai/skarmbild.mjs` (bara ursprunget 127.0.0.1:5176 nås).
+  Facitsidans chattbud (`app/spelai/chattbud.py`) är den ENDA som skickar meddelanden till
+  agentens chatt. Agentens sessioner nekas `SendMessage`, eftersom meddelanden mellan
+  sessioner når alla sessioner på servern, även Home Assistant. Budet och chatten måste köra i
+  samma behörighetsläge (acceptEdits), annars hålls meddelandet för Samans godkännande.
 - Rör ALDRIG `/Users/saman/svs` eller `/Users/saman/vm` från detta projekt.
 - **Uppdatera STATUS-blocket i `docs/plan.md` när en etapp/delmål blir klar — skriv över,
   stapla inte;** flytta det gamla blocket överst i `docs/status-historik.md`.

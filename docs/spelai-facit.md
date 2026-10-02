@@ -525,5 +525,45 @@ varvet (RunAtLoad) skapar spegeln och pushar agentens `main`, och om klockan
 **Utelämnat i fas F:** Användarens korta körningar vid 6 h- och
 30 min-förslagen (designens avsnitt 6; bara söndagens genomgång är
 schemalagd), forskningspasset 15:00 från vecka 2, chattsessionen
-(`com.saman.spelai.chatt`, tmux + Remote Control) och visning av rollernas
+(`com.saman.spelai.chatt`; i drift sedan 2026-10-02 utan tmux, och rapporterna
+dit beskrivs i avsnitt 15) och visning av rollernas
 status i API/UI (finns redan i `GET /api/spelai/korningar`).
+
+## 15. Chattbudet: rapporterna i agentens chatt (2026-10-02)
+
+Saman läser agenten i Claude-appen, i Remote Control-chatten `spel-ai-kompisen`.
+Han har inte satt upp ntfy och väntade sig rapporterna i chatten (besked
+2026-10-02). Därför lämnar `app/spelai/chattbud.py` samma händelser som notiserna
+bygger på i chatten. Det sker som sista steget i `spelai-tick`. ntfy-notiserna
+är orörda.
+
+| Vad | Hur |
+|---|---|
+| Händelser | `notis.kandidater`: nya beslut som inte besvarats, officiella poolförslag (30 min; 6 h-versionen syns bara i appen), missade förslag, rollkörningar klara eller misslyckade, dagens tak |
+| Samling | Allt som väntar i ett tick blir ETT meddelande. Det viktigaste kommer först (beslut, fel, missat, pool, tak, klart), med högst 8 poster. Första raden står för sig själv, eftersom appen bara visar den tills man fäller ut |
+| Mottagare | `claude agents --json`: den äldsta interaktiva sessionen i `~/spel-ai-kompisen` vars namn börjar med `spel-ai-kompisen`, alltså den chattservern skapar vid start. Finns ingen sådan görs inget modellanrop, och händelserna väntar |
+| Budet | `claude -p --model haiku --restricted --strict-mcp-config --tools SendMessage --permission-mode acceptEdits --permission-prompts none --no-session-persistence --name Facitsidan`, med ren miljö, katalogen `~/.spelai-bud` och tidsgränsen 90 s |
+| Låsning | PreToolUse-kroken `app/spelai/budkrok.py <mottagare>` stoppar (exit 2) varje SendMessage till någon annan och varje prenumeration (`notify_when_idle`). Provad skarpt 2026-10-02: fel mottagare stoppades, och budet hade bara SendMessage och inga MCP-servrar |
+| Kvitto | Leveransen räknas när stream-json visar minst ett SendMessage till mottagaren med `success: true`. Annars bokförs `chatt_fel`, och nästa försök görs tidigast efter 10 min |
+| Journal | `chatt` per händelse (dedup `chatt:<id>`), `chatt_leverans` (mottagare, nycklar, antal levererade, kostnad, sekunder) och `chatt_fel` |
+| Tysta timmar | 23–07 som notiserna; beslut med sista tid går fram ändå |
+
+**Behörighetsläget måste vara detsamma som chattens.** Chattens läge är acceptEdits,
+satt i `com.saman.spelai.chatt`. Med olika lägen håller mottagaren meddelandet för
+Samans godkännande. Byts chattens läge måste budets bytas samtidigt.
+
+**Kostnad.** Budet kostar under en cent per leverans (Haiku). Varje leverans väcker
+dessutom Koordinatorn (Opus) i chatten. En kall tur är cirka 63 000 tokens
+cacheskrivning, mätt på provmeddelandet 2026-10-02. Därför går 6 h-förslagen inte
+till chatten.
+
+**Koordinatorns svar** styrs av agentrepots `.claude/agents/koordinatorn.md`:
+högst två rader och inget arbete för en rapport. **Pushen till telefonen sköts av
+ntfy** (`notis.py`, oförändrad). Koordinatorn skickar ingen PushNotification för
+rapporter, så att Saman inte får samma sak två gånger.
+
+**Agentens egna sessioner får inte skicka meddelanden till andra sessioner.**
+`SendMessage` nekas i agentrepots `.claude/settings.json` sedan 2026-10-02. Claude
+Codes meddelanden mellan sessioner når alla sessioner på servern, även Home
+Assistant (`rahbari-f6`) och Claude Desktop-sessionen i Spelkompisen. Budet är den
+enda avsändaren, och det tillhör facitsidan.
