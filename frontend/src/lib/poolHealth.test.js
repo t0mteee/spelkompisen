@@ -2,7 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   splitPoolIssues, poolIssueLabel, poolNoticeSummary, splitServerIssues, kindLabel,
-  sinceText, serverIssueText, serverNoticeSummary, vaktNotesSummary,
+  sinceText, serverIssueText, serverNoticeSummary, vaktNotesSummary, kandaSummary,
+  kandaText,
 } from './poolHealth.js'
 
 const issues = [
@@ -74,4 +75,23 @@ test('vaktens noteringar sammanfattas utan att bli larm', () => {
     'Vakten noterade senaste 7 dygnen: test bytte status · avläsningspunkt nådd')
   assert.equal(vaktNotesSummary({ notes: [] }), null)
   assert.equal(vaktNotesSummary(null), null)
+})
+
+test('kända fel larmar inte men visar beslutet', () => {
+  const vakt = { kanda: [
+    { kind: 'kalla_nere', key: 'sofa_live', message: 'sofa_live har fallerat: status 403',
+      since: '2026-09-25T10:43:18Z', beslut: 'Beslut 20: Flashscore ersätter Sofascore.',
+      till: '2026-10-31' },
+    { kind: 'jobb_exit', key: 'kalltest', message: 'Källprov avslutades med kod 1',
+      beslut: 'Följer Sofascore-beslutet.', till: 'inte ett datum' },
+  ] }
+  assert.equal(kandaSummary(vakt),
+    'Kända fel som inte larmar (2): datakälla svarar inte · jobb avslutades med fel')
+  assert.equal(kandaText(vakt.kanda[0]),
+    'sofa_live har fallerat: status 403 · sedan 25/9 12:43 · ' +
+    'Beslut 20: Flashscore ersätter Sofascore. · larmar igen efter 31/10')
+  assert.equal(kandaText(vakt.kanda[1]),
+    'Källprov avslutades med kod 1 · Följer Sofascore-beslutet.')
+  assert.equal(kandaSummary({ kanda: [] }), null)
+  assert.equal(kandaSummary(undefined), null)
 })

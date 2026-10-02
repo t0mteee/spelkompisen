@@ -99,6 +99,29 @@ export function serverNoticeSummary(warnings) {
   return kinds.length ? `Drift att se över: ${kinds.join(' · ')}` : null
 }
 
+// Kända fel (vakten v2, docs/vakt.md): utredda fel med fattat beslut. De larmar
+// inte under "Driften behöver tillsyn" utan visas dämpat med beslutet, tills
+// kvitteringen löper ut eller felet ändrar karaktär — då larmar de igen.
+export function kandaSummary(vakt) {
+  const kanda = vakt?.kanda || []
+  if (!kanda.length) return null
+  const kinds = [...new Set(kanda.map((item) => kindLabel(item.kind)))]
+  return `Kända fel som inte larmar (${kanda.length}): ${kinds.join(' · ')}`
+}
+
+// "31/10" för kvitteringens sista dag; tom sträng utan giltigt datum.
+function dagText(datum) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(datum || '')
+  return m ? `${Number(m[3])}/${Number(m[2])}` : ''
+}
+
+export function kandaText(item) {
+  const until = dagText(item.till)
+  const parts = [item.message, sinceText(item.since), item.beslut,
+    until ? `larmar igen efter ${until}` : '']
+  return parts.filter(Boolean).join(' · ')
+}
+
 export function vaktNotesSummary(vakt) {
   const notes = vakt?.notes || []
   if (!notes.length) return null

@@ -637,6 +637,19 @@ class PoolHealthVaktTests(Base):
         self.assertEqual(["test_status_andrad"], [n["kind"] for n in payload["vakt"]["notes"]])
         self.assertEqual("2026-09-25T23:45:00Z", payload["vakt"]["checked_at"])
 
+    def test_kanda_fel_blir_inga_issues_men_listas_med_beslut(self):
+        status = self.status("2026-09-25T23:45:00Z")
+        status["findings"][0]["kand"] = {"varfor": "antibot", "beslut": "Beslut 20",
+                                         "kvitterad": "2026-10-02", "till": "2026-10-31"}
+        payload = self.health(status)
+        self.assertEqual({"backend_5xx"}, {i["kind"] for i in payload["issues"]})
+        self.assertEqual("ok", payload["status"])          # bara en varning kvar
+        kand = payload["vakt"]["kanda"]
+        self.assertEqual(["kalla_nere"], [k["kind"] for k in kand])
+        self.assertEqual(("error", "sofa_model", "Beslut 20", "2026-10-31", "antibot"),
+                         (kand[0]["level"], kand[0]["key"], kand[0]["beslut"],
+                          kand[0]["till"], kand[0]["varfor"]))
+
     def test_gammal_saknad_och_trasig_status_varnar(self):
         missing = self.health()
         self.assertEqual(["vakt_missing"], [i["kind"] for i in missing["issues"]])
@@ -663,10 +676,72 @@ class PoolHealthVaktTests(Base):
             self.assertEqual(self.status_dir / "vakt.json", vakt.default_status_path())
 
 
+class KandaFelTests(Base):
+    """Vakten v2: kända fel larmar inte men syns med beslut (docs/vakt.md)."""
+    NU = t("2026-10-02T12:00:00Z")
+
+    @staticmethod
+    def fynd(*extra):
+        return [
+            vakt._finding("error", "kallor", "kalla_nere", "sofa_live",
+                          "sofa_live har fallerat i 30 källprov i rad: status 403"),
+            vakt._finding("error", "kallor", "kalla_nere", "sofa_model",
+                          "sofa_model har fallerat i 30 källprov i rad: 0/8 OK · "
+                          "säsonger status 403"),
+            vakt._finding("warning", "jobb", "jobb_exit", "kalltest",
+                          "Källprov avslutades senast med kod 1"),
+            *extra]
+
+    def test_sofascore_403_och_kalltestet_ar_kanda(self):
+        out = {f["key"]: f for f in vakt.markera_kanda(self.fynd(), self.NU)}
+        for key in ("sofa_live", "sofa_model", "kalltest"):
+            self.assertIn("eslut 20", out[key]["kand"]["beslut"], key)
+            self.assertEqual("2026-10-31", out[key]["kand"]["till"])
+        self.assertEqual("error", out["sofa_live"]["level"])       # nivån rörs inte
+
+    def test_ny_kalla_nere_gor_kalltestet_okant_igen(self):
+        ny = vakt._finding("error", "kallor", "kalla_nere", "pinnacle",
+                           "pinnacle har fallerat i 2 källprov i rad: status 500")
+        out = {f["key"]: f for f in vakt.markera_kanda(self.fynd(ny), self.NU)}
+        self.assertNotIn("kand", out["pinnacle"])
+        self.assertNotIn("kand", out["kalltest"])
+        self.assertIn("kand", out["sofa_live"])
+
+    def test_annat_fel_hos_sofascore_ar_ett_nytt_fel(self):
+        findings = self.fynd()
+        findings[0]["message"] = "sofa_live har fallerat i 2 källprov i rad: timeout"
+        out = {f["key"]: f for f in vakt.markera_kanda(findings, self.NU)}
+        self.assertNotIn("kand", out["sofa_live"])
+        self.assertNotIn("kand", out["kalltest"])
+        self.assertIn("kand", out["sofa_model"])
+
+    def test_kvitteringen_galler_fran_kvitterad_till_och_med_till(self):
+        fore = t("2026-10-01T21:59:00Z")        # 23:59 svensk tid 1/10
+        sista = t("2026-10-31T22:59:00Z")       # 23:59 svensk tid 31/10 (vintertid)
+        efter = t("2026-10-31T23:00:00Z")       # 00:00 svensk tid 1/11
+        for now, kant in ((fore, False), (sista, True), (efter, False)):
+            out = vakt.markera_kanda(self.fynd(), now)
+            self.assertEqual(kant, all("kand" in f for f in out), now)
+            self.assertEqual(kant, any("kand" in f for f in out), now)
+
+    def test_kand_raknas_for_sig_och_bars_aldrig_over(self):
+        def kallor(_ctx):
+            return self.fynd()[:2]
+        status = self.run_vakt((("kallor", "kallor", kallor),), now=self.NU)
+        self.assertEqual({"kanda": 2}, status["counts"])
+        self.assertEqual("vakt-v2", status["version"])
+        text = vakt.format_status(status)
+        self.assertIn("· 2 kända ·", text)
+        self.assertIn("(känt, larmar inte till och med 2026-10-31)", text)
+        later = self.run_vakt((("kallor", "kallor", kallor),), now=t("2026-11-02T12:00:00Z"))
+        self.assertEqual({"error": 2}, later["counts"])
+        self.assertTrue(all("kand" not in f for f in later["findings"]))
+
+
 class WriteStatusTests(Base):
     def test_atomisk_skrivning_och_en_loggrad_per_korning(self):
         status = self.run_vakt(())
-        self.assertEqual("vakt-v1", status["version"])
+        self.assertEqual("vakt-v2", status["version"])
         on_disk = json.loads((self.status_dir / vakt.STATUS_FILE).read_text())
         self.assertEqual(status["checked_at"], on_disk["checked_at"])
         self.assertEqual([], [p.name for p in self.status_dir.iterdir()

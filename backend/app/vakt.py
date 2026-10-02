@@ -44,7 +44,7 @@ from zoneinfo import ZoneInfo
 
 from .storage import DEFAULT_DB
 
-VERSION = "vakt-v1"
+VERSION = "vakt-v2"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = DEFAULT_DB.parent
 STATUS_DIR_ENV = "SPELKOMPISEN_VAKT_DIR"
@@ -112,6 +112,33 @@ DISK_ERROR_GB = 3
 INFO_HOLD_H = 7 * 24
 
 AREAS = ("jobb", "kallor", "backend", "drift", "tester", "server", "experiment")
+
+# Kända fel (vakten v2, 2026-10-02). Ett utrett fel med fattat beslut larmar inte
+# längre under "Driften behöver tillsyn" utan visas dämpat som känt, med orsak och
+# beslut (`markera_kanda`). En kvittering gäller bara medan fyndet ser likadant ut
+# (`text` i meddelandet) och bara från `kvitterad` till och med `till`, svensk tid.
+# Därefter larmar fyndet igen, så att inget glöms bort. `foljd_av` kvitterar ett
+# fynd som bara är en följd av andra fynd (källprovet avslutar med 1 när en kritisk
+# källa fallerar), men bara när ALLA fynd av det slaget är kvitterade. Nivån ändras
+# aldrig. Listan ändras bara av Claude eller Codex, med datum och skäl.
+KANDA_FEL: tuple[dict, ...] = (
+    {"kind": "kalla_nere", "key": "sofa_live", "text": "status 403",
+     "kvitterad": "2026-10-02", "till": "2026-10-31",
+     "varfor": "Sofascore svarar 403 med en antibot-utmaning sedan 25/9, och "
+               "källgränsen stänger den vägen.",
+     "beslut": "Beslut 20: Flashscore ersätter Sofascore som resultatkälla "
+               "(docs/backlog.md 21)."},
+    {"kind": "kalla_nere", "key": "sofa_model", "text": "status 403",
+     "kvitterad": "2026-10-02", "till": "2026-10-31",
+     "varfor": "Samma antibot-stängning som sofa_live; Flashscore täcker frånvaron.",
+     "beslut": "Beslut 20: Flashscore ersätter Sofascore som resultatkälla "
+               "(docs/backlog.md 21)."},
+    {"kind": "jobb_exit", "key": "kalltest", "foljd_av": "kalla_nere",
+     "kvitterad": "2026-10-02", "till": "2026-10-31",
+     "varfor": "Källprovet avslutar med kod 1 när en kritisk källa fallerar, och i dag "
+               "fallerar bara de kvitterade Sofascore-källorna.",
+     "beslut": "Följer Sofascore-beslutet; ett källprov utan Sofascore ingår i beslut 20."},
+)
 
 Runner = Callable[..., tuple[int, str, str]]
 
@@ -903,6 +930,45 @@ def merge_findings(new: list[dict], previous: list[dict], now: dt.datetime,
     return out
 
 
+def _dygnsstart(datum: str) -> dt.datetime:
+    """'2026-10-31' → 00:00 svensk tid den dagen, som UTC."""
+    return dt.datetime.fromisoformat(datum).replace(tzinfo=LOCAL_TZ).astimezone(
+        dt.timezone.utc)
+
+
+def markera_kanda(findings: list[dict], now: dt.datetime,
+                  kanda: Sequence[dict] = KANDA_FEL) -> list[dict]:
+    """Märk utredda fynd med `kand` (orsak, beslut, giltig till). Nivån rörs inte."""
+    def giltig(regel: dict) -> bool:
+        return (_dygnsstart(regel["kvitterad"]) <= now
+                < _dygnsstart(regel["till"]) + dt.timedelta(days=1))
+
+    def passar(regel: dict, finding: dict) -> bool:
+        return (finding.get("kind") == regel["kind"]
+                and str(finding.get("key", "")) == regel["key"]
+                and (not regel.get("text")
+                     or regel["text"] in str(finding.get("message") or "")))
+
+    def kand(regel: dict) -> dict:
+        return {key: regel[key] for key in ("varfor", "beslut", "kvitterad", "till")}
+
+    for finding in findings:
+        finding.pop("kand", None)          # bärs aldrig över från förra läget
+    regler = [regel for regel in kanda if giltig(regel)]
+    for finding in findings:
+        regel = next((r for r in regler if not r.get("foljd_av") and passar(r, finding)),
+                     None)
+        if regel:
+            finding["kand"] = kand(regel)
+    for regel in (r for r in regler if r.get("foljd_av")):
+        orsaker = [f for f in findings if f.get("kind") == regel["foljd_av"]]
+        if orsaker and all(f.get("kand") for f in orsaker):
+            for finding in findings:
+                if passar(regel, finding):
+                    finding["kand"] = kand(regel)
+    return findings
+
+
 def run(*, now: Optional[dt.datetime] = None, data_dir: Optional[Path] = None,
         db_path: Optional[Path] = None, repo: Optional[Path] = None,
         status_dir: Optional[Path] = None, runner: Runner = local_runner,
@@ -941,12 +1007,18 @@ def run(*, now: Optional[dt.datetime] = None, data_dir: Optional[Path] = None,
                 "dess senaste kända fynd visas oförändrade", error=error),
                 "check": "vakt"})
         check_summary[name]["ms"] = int((time.monotonic() - t0) * 1000)
-    merged = merge_findings(findings, previous.get("findings") or [], now, failed)
+    merged = markera_kanda(
+        merge_findings(findings, previous.get("findings") or [], now, failed), now)
+    # Kända fel räknas för sig: `error`/`warning` är bara det som larmar.
+    counts = dict(Counter(f["level"] for f in merged if not f.get("kand")))
+    kanda = sum(1 for f in merged if f.get("kand"))
+    if kanda:
+        counts["kanda"] = kanda
     return {
         "version": VERSION,
         "checked_at": _iso(now),
         "duration_s": round(time.monotonic() - t_all, 2),
-        "counts": dict(Counter(f["level"] for f in merged)),
+        "counts": counts,
         "findings": merged,
         "checks": check_summary,
         "paths": {"data_dir": str(data_dir), "db": str(ctx.db_path), "repo": str(ctx.repo)},
@@ -977,10 +1049,13 @@ def format_status(status: dict, verbose: bool = True) -> str:
     counts = status.get("counts") or {}
     out = [f"VAKTEN {status.get('version')} · {status.get('checked_at')} · "
            f"{counts.get('error', 0)} fel · {counts.get('warning', 0)} varningar · "
-           f"{counts.get('info', 0)} noteringar · {status.get('duration_s')} s"]
+           f"{counts.get('info', 0)} noteringar · {counts.get('kanda', 0)} kända · "
+           f"{status.get('duration_s')} s"]
     mark = {"error": "✗", "warning": "!", "info": "·"}
     for finding in status.get("findings") or []:
         flag = " (kvar)" if finding.get("held") or finding.get("carried") else ""
+        if isinstance(finding.get("kand"), dict):
+            flag += f" (känt, larmar inte till och med {finding['kand'].get('till')})"
         out.append(f"  {mark.get(finding['level'], '?')} {finding['kind']}"
                    f"[{finding.get('key', '')}]{flag}: {finding['message']} "
                    f"(sedan {finding.get('since')})")

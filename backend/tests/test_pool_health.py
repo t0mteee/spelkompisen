@@ -282,6 +282,20 @@ class PoolHealthFreshnessTests(unittest.TestCase):
         rep = pool_health.report(self.store, now=NOW, products=("stryktipset",))
         self.assertEqual([5001], [i["draw_number"] for i in self._coverage(rep)])
 
+    def test_olistade_matcher_varnar_forst_inom_24_timmar(self):
+        for number, hours in ((5000, 40), (5001, 20)):
+            self._open_draw(number=number, hours=hours)
+            self._price(1, 10, number=number)
+            self._capture(1, 10, "matched", number=number)
+            for event in (2, 3, 4):
+                self._capture(event, 10, "not_listed", number=number)
+        rep = pool_health.report(self.store, now=NOW, products=("stryktipset",))
+        self.assertEqual([5001], [i["draw_number"] for i in self._coverage(rep)])
+        self._capture(2, 5, "ambiguous", number=5000)       # inte längre bara olistade
+        rep = pool_health.report(self.store, now=NOW, products=("stryktipset",))
+        self.assertEqual([5000, 5001],
+                         sorted(i["draw_number"] for i in self._coverage(rep)))
+
     def test_stoppad_styrkeshadow_varnar_bara_nar_spaaret_har_samlat(self):
         manifest = {"source_versions": {"model_signal_version": "m-old"}}
         with patch("app.pool_strength_shadow.load_manifest", return_value=manifest), \

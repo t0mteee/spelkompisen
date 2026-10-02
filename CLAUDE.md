@@ -156,13 +156,15 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       `pool-reserve-ou-v2` sedan 2026-09-24T19:51:01Z: gemensam kö per basvarv (`register`
                       i produktloopen, `run_queue` efter): aldrig kontrollerad → äldst →
                       närmast spelstopp, 3 anrop, 15 min cooldown, inget efter spelstopp
-  app/vakt.py         DRIFTVAKTEN vakt-v1 (2026-10-01; `cli.py vakt`, launchd
+  app/vakt.py         DRIFTVAKTEN vakt-v2 (2026-10-01; `cli.py vakt`, launchd
                       `com.saman.spelkompisen.vakt` var 30:e min): källprov, jobb, append-only-
                       insamling, backendloggar, driftkopia mot GitHub, nattlig testsvit i
                       temporär worktree, disk och testkatalog. Ingen AI, inga källanrop, DB
                       `mode=ro` (`Storage(read_only=True)`). Läget i `backend/data/vakt/vakt.json`;
                       `/api/health` visar fel/varningar som `product: "server"` ("Drift att se
-                      över" på Idag), info-fynd under `vakt.notes`. Trösklar: `docs/vakt.md`
+                      över" på Idag), info-fynd under `vakt.notes`. Trösklar: `docs/vakt.md`.
+                      Kända fel (`KANDA_FEL`: utrett, beslut, sista dag) larmar inte utan
+                      listas under `vakt.kanda` och startar ingen larmkörning hos agenten
   app/spelai/         FACITSIDAN för spel-ai-kompisen (i drift 2026-10-01T19:34:31Z,
                       docs/spel-ai-kompisen-design.md + docs/spelai-facit.md): fryser,
                       validerar och rättar agentens poolförslag mot standarden. Tabellerna

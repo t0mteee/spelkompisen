@@ -286,6 +286,12 @@ class DueTests(Base):
                       "since": iso(SONDAG_12 - dt.timedelta(minutes=5))})
         self.assertFalse([u for u in self.uppgifter(SONDAG_12) if u.startswith("larm")])
 
+    def test_kant_fel_ger_ingen_larmkorning(self):
+        self.vaktfel({"level": "error", "kind": "kalla_nere", "key": "sofa_live",
+                      "since": iso(SONDAG_12 - dt.timedelta(minutes=5)),
+                      "kand": {"beslut": "Beslut 20", "till": "2026-10-31"}})
+        self.assertFalse([u for u in self.uppgifter(SONDAG_12) if u.startswith("larm")])
+
     def test_trasig_eller_saknad_vaktfil_ger_inga_larm(self):
         self.assertFalse([u for u in self.uppgifter(SONDAG_12) if u.startswith("larm")])
         self.vakt.write_text("{inte json", encoding="utf-8")

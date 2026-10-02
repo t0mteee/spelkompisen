@@ -136,3 +136,32 @@ driftrubrik. Saknas `vakt.json` ⇒ `vakt_missing`; äldre än 90 min ⇒ `vakt_
 
 Första kontrollen läser loggarnas sista 5 MB och kan därför visa gamla 5xx-/
 undantagsskov i 30 min, märkta "vaktens första läsning".
+
+## Kända fel (vakten v2, 2026-10-02)
+
+Ett utrett fel med fattat beslut ska inte ligga rött på Idag i veckor. `KANDA_FEL` i
+`app/vakt.py` kvitterar sådana fynd:
+
+| Fält | Betydelse |
+|---|---|
+| `kind`, `key` | vilket fynd |
+| `text` | måste finnas i meddelandet; annars är det ett nytt fel (403 → timeout larmar igen) |
+| `foljd_av` | fyndet är en följd av andra fynd (källprovets kod 1) och kvitteras bara när ALLA fynd av den sorten är kvitterade |
+| `kvitterad`, `till` | giltighet i svensk tid, till och med `till`; därefter larmar fyndet igen |
+| `varfor`, `beslut` | visas i appen |
+
+Ett känt fynd behåller sin nivå men får `kand` i `vakt.json`. Det räknas under
+`counts.kanda` i stället för `error`/`warning` och blir ingen issue i `/api/health`;
+där listas det under `vakt.kanda`. Det startar ingen larmkörning hos agentens Driften.
+På Idag visas det under "Kända fel som inte larmar". Listan ändras bara av Claude eller
+Codex, med datum och skäl.
+
+| Kvitterat 2026-10-02 | Till och med | Beslut |
+|---|---|---|
+| `kalla_nere` sofa_live, sofa_model (status 403) | 31/10 | beslut 20: Flashscore ersätter Sofascore |
+| `jobb_exit` kalltest (följd av `kalla_nere`) | 31/10 | följer Sofascore-beslutet |
+
+Samma dag ändrades poolhälsans Pinnacle-täckning (`SHARP_NOT_LISTED_WITHIN_H` i
+`app/pool_health.py`). Saknas priserna bara för att Pinnacle inte listat matcherna
+varnar den först inom 24 h före spelstopp. Landslag och lag med en match emellan listas
+ofta först efter den matchen. Övriga orsaker varnar inom 48 h som förut.

@@ -14,7 +14,7 @@ import { recentlySettled } from './lib/coupons.js'
 import { newsworthy, progressText } from './lib/tests.js'
 import {
   splitPoolIssues, poolIssueLabel, poolNoticeSummary, splitServerIssues, kindLabel,
-  serverIssueText, serverNoticeSummary, vaktNotesSummary,
+  serverIssueText, serverNoticeSummary, vaktNotesSummary, kandaSummary, kandaText,
 } from './lib/poolHealth.js'
 import { LabbV3 } from './labb/LabbV3.jsx'
 import { BeslutView } from './beslut/BeslutView.jsx'
@@ -230,6 +230,7 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponge
   const { errors: serverErrors, warnings: serverWarnings } =
     splitServerIssues(health?.pools?.issues)
   const vaktNotes = health?.vakt?.notes || []
+  const vaktKanda = health?.vakt?.kanda || []
   const v22Issues = health?.v22?.issues || []
   // Tystnad i Oddset-varvet, liveradarn eller pooltick (oddset_health).
   const oddsetIssues = health?.oddset?.issues || []
@@ -282,6 +283,19 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponge
               <li key={`${note.kind}-${note.key || i}`}>
                 <b>{kindLabel(note.kind)}</b>
                 <span>{serverIssueText(note)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {vaktKanda.length > 0 && (
+        <details className="v3notice">
+          <summary>{kandaSummary(health.vakt)}</summary>
+          <ul>
+            {vaktKanda.map((item, i) => (
+              <li key={`${item.kind}-${item.key || i}`}>
+                <b>{kindLabel(item.kind)}</b>
+                <span>{kandaText(item)}</span>
               </li>
             ))}
           </ul>

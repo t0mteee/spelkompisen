@@ -207,8 +207,8 @@ prioritetsordning. ⚖ = kräver Samans beslut.
       `SOFA_UT`, så ett källbyte där kräver omfrysning. Rekommendation: Flashscore som
       resultatkälla för ligorna utan football-data, källprovet utan Sofascore, och V2.2-frågan
       som eget ⚖.
-    - Vakten v2: kvittering av kända fel (Sofascore ligger annars rött på Idag tills beslutet
-      är fattat), horisontrevision per omgång (missade h24/h3/m20), röktest av den byggda
+    - Vakten v2: kvitteringen av kända fel är klar 2026-10-02 (`KANDA_FEL` i `app/vakt.py`;
+      Sofascore och källprovet är kvitterade till och med 31/10). Kvar: horisontrevision per omgång (missade h24/h3/m20), röktest av den byggda
       appen i headless Chrome (kupongkraschen 24–27/9 hade fångats) och larm när en liga
       saknar resultat ett dygn efter avspark.
     - spel-ai-kompisen är godkänd (Saman 2026-10-01, beslut 20 = Flashscore som resultatkälla).

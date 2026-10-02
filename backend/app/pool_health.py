@@ -40,6 +40,13 @@ BACKUP_MAX_AGE_H = 36
 # — tidigt saknade priser kan vara Pinnacles eget utbud.
 SHARP_COVERAGE_WITHIN_H = 48
 SHARP_COVERAGE_MIN_SHARE = 0.70
+# Saknas priserna bara för att Pinnacle inte listat matcherna (`not_listed`) är det
+# Pinnacles eget utbud så länge mer än 24 h återstår: landslag och lag med en match
+# emellan listas ofta först efter den matchen (Europatipset 2613, 2026-10-02: fyra
+# måndagsmatcher saknades 45 h före spelstopp medan lagen spelade). Inom 24 h, när
+# h24-fångsten görs, varnar det som förut. Tvetydig länk, saknad moneyline och för
+# gamla priser varnar inom 48 h som förut.
+SHARP_NOT_LISTED_WITHIN_H = 24
 # Driftvakten (app/vakt.py, docs/vakt.md) skriver sitt läge var 30:e minut.
 # 90 min = två missade körningar plus marginal för den nattliga testsviten
 # (upp till 15 min i samma körning).
@@ -122,7 +129,9 @@ def _vakt_issues(issues: list[dict], path: Path,
 
     Info-fynd (experimentnoteringar) läggs ALDRIG här: frontendens
     `splitPoolIssues` räknar allt som inte är 'warning' som fel. De returneras
-    i stället som `{checked_at, notes}` och visas under `vakt` i /api/health."""
+    i stället som `{checked_at, notes}` och visas under `vakt` i /api/health.
+    Kända fel (vakten v2: fynd med `kand`, docs/vakt.md) blir inga issues utan
+    listas under `vakt.kanda` med orsak, beslut och sista dag."""
     try:
         status = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -141,7 +150,7 @@ def _vakt_issues(issues: list[dict], path: Path,
                f"driftvakten kontrollerade senast {when} (gräns {VAKT_MAX_AGE_MIN} min) "
                "— dess fynd nedan kan vara inaktuella",
                checked_at=status.get("checked_at"))
-    notes = []
+    notes, kanda = [], []
     for finding in status.get("findings") or []:
         if not isinstance(finding, dict):
             continue
@@ -149,6 +158,12 @@ def _vakt_issues(issues: list[dict], path: Path,
                  if finding.get(key) is not None}
         if finding.get("held") or finding.get("carried"):
             extra["held"] = True
+        kand = finding.get("kand")
+        if isinstance(kand, dict) and finding.get("level") in ("error", "warning"):
+            kanda.append({"kind": finding.get("kind"), "level": finding.get("level"),
+                          "message": finding.get("message"), **extra,
+                          **{key: kand.get(key) for key in ("varfor", "beslut", "till")}})
+            continue
         if finding.get("level") in ("error", "warning"):
             _issue(issues, finding["level"], "server", str(finding.get("kind")),
                    str(finding.get("message") or finding.get("kind")), **extra)
@@ -156,7 +171,7 @@ def _vakt_issues(issues: list[dict], path: Path,
             notes.append({"kind": finding.get("kind"),
                           "message": finding.get("message"), **extra})
     return {"checked_at": status.get("checked_at"), "version": status.get("version"),
-            "notes": notes}
+            "notes": notes, "kanda": kanda}
 
 
 def report(store, *, now: Optional[dt.datetime] = None,
@@ -227,6 +242,10 @@ def report(store, *, now: Optional[dt.datetime] = None,
             if (draw["close"] - now).total_seconds() / 3600 > SHARP_COVERAGE_WITHIN_H:
                 continue
             cov = _sharp_coverage(store, product, draw, now)
+            hours_left = (draw["close"] - now).total_seconds() / 3600
+            if (cov and set(cov["reasons"]) == {"not_listed"}
+                    and hours_left > SHARP_NOT_LISTED_WITHIN_H):
+                continue         # Pinnacle har inte listat matcherna än
             if cov and cov["fresh"] / cov["n"] < SHARP_COVERAGE_MIN_SHARE:
                 from .pool_sharp_freshness import reason_label
                 reasons = sorted(cov["reasons"].items(),

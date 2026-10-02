@@ -213,6 +213,8 @@ def _larm(conn, now: dt.datetime, vakt_path: Optional[Path]) -> list[dict]:
         since = utc(finding.get("since"))
         if finding.get("level") != "error" or since is None or since <= start:
             continue
+        if finding.get("kand"):          # utrett och kvitterat i vakten (docs/vakt.md)
+            continue
         if str(finding.get("key") or "") == EGET_JOBB:
             continue
         kind = str(finding.get("kind") or "okant")[:60]
