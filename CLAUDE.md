@@ -180,7 +180,10 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       `counterfactual_settle` — skriv aldrig en parallell byggare.
                       Sist i varje tick lämnar `chattbud.py` beslut, poolförslag och
                       rollkörningar i agentens chatt i Claude-appen (Haiku-bud, låst av
-                      PreToolUse-kroken `budkrok.py` till chattsessionen; facit §15)
+                      PreToolUse-kroken `budkrok.py` till chattsessionen; facit §15).
+                      `livekassa.py` (fas E) lägger agentens FIKTIVA livespel mot Svenska
+                      Spels liveodds och rättar dem (`agent.live` i sandbox; regler i
+                      koden, aldrig hos agenten; facit §16). Inga riktiga spel, aldrig
   app/live_radar.py   shadow-radar för pågående matcher: Flashscore ankare, FotMob sekundär,
                       Sofascore URKOPPLAD ur radarn (kvar för resultat/frånvaro)
   app/live_signal_ledger.py append-only-journal över första Följer/Stark per match,

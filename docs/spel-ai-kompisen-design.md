@@ -306,7 +306,7 @@ poolförslag och livespel via en flagga som facitsidan läser.
 | B | Facitsidan: tabeller (skript + backup), validering, standard, rättning, inkorg, API, schemaläggare utan agent | tester gröna; en torrkörning fryser standarden vid 6 h och 30 min för nästa omgång |
 | C | Sidoprojektet: privat repo, gaffel med `upstream`, egen venv och node_modules, portarna, `agent.db`, minnesfiler, sidoprojektets CLAUDE.md, rollerna, sandboxinställningar | gränsproven i avsnitt 11 godkända |
 | D | Poolförslag hela vägen: agentens första strategi = Spelkompisens byggare per nivå, notiser, Pool-fliken | ett riktigt förslag 6 h och 30 min före ett spelstopp, rättat efter omgången |
-| E | Livekassan: livepriser, bokföring, rättning, Live-fliken; agentens första livemodell | spel bokförs och rättas under en matchdag |
+| E | Livekassan: livepriser, bokföring, rättning, Live-fliken; agentens första livemodell | spel bokförs och rättas under en matchdag. **I drift 2026-10-03** (beslut 3, agentens kontrakt; `docs/spelai-facit.md` avsnitt 16) |
 | F | Agentkörningar: chattsession med Remote Control, schemalagda roller, tak, journal, morgonrapport | en hel dag med morgonrunda, forskningspass och motiveringar |
 | G | UI klart: Hem, Beslut, Agent; Spelkompisens Idag-banner; ⚖-punkterna flyttade till inkorgen | Saman kan svara på ett beslut i mobilen |
 | H | Provvecka och utvärdering: kvot, kvalitet, notiser, UI | dag 8 |

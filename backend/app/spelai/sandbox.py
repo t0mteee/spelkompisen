@@ -94,22 +94,30 @@ def tillganglig(cfg: AgentConfig) -> tuple[bool, Optional[str]]:
     return True, None
 
 
-def command(cfg: AgentConfig, indata: Path, nivaer: list[int]) -> list[str]:
+MODULER = ("agent.forslag", "agent.live")
+
+
+def command(cfg: AgentConfig, indata: Path, nivaer: Optional[list[int]],
+            modul: str = "agent.forslag") -> list[str]:
+    """`agent.forslag` (poolen, med --nivaer) eller `agent.live` (fas E)."""
+    if modul not in MODULER:
+        raise ValueError(f"okänd agentmodul: {modul}")
     cmd = [cfg.sandbox_exec,
            "-D", f"HOME={cfg.home}",
            "-D", f"AGENT_DATA={Path(cfg.data_dir).resolve()}",
            "-D", f"DB_SHM={Path(cfg.db_path).resolve()}-shm",
            "-f", str(cfg.profile),
-           str(cfg.agent_python), "-B", "-m", "agent.forslag",
-           "--indata", str(indata),
-           "--nivaer", ",".join(str(int(n)) for n in nivaer)]
+           str(cfg.agent_python), "-B", "-m", modul,
+           "--indata", str(indata)]
+    if nivaer is not None:
+        cmd += ["--nivaer", ",".join(str(int(n)) for n in nivaer)]
     if os.path.exists(NICE):   # beslut 8: låg prioritet
         cmd = [NICE, "-n", "10", *cmd]
     return cmd
 
 
-def run(cfg: AgentConfig, payload: dict, nivaer: list[int],
-        timeout: float = TIMEOUT_S) -> AgentSvar:
+def run(cfg: AgentConfig, payload: dict, nivaer: Optional[list[int]],
+        timeout: float = TIMEOUT_S, modul: str = "agent.forslag") -> AgentSvar:
     """Kör agenten EN gång för alla nivåer. Läser bara stdout."""
     ok, reason = tillganglig(cfg)
     if not ok:
@@ -125,7 +133,7 @@ def run(cfg: AgentConfig, payload: dict, nivaer: list[int],
                    (str(cfg.agent_dir), str(Path(cfg.agent_dir).parent)))}
         try:
             proc = subprocess.Popen(
-                command(cfg, path, nivaer), cwd=str(cfg.agent_dir), env=env,
+                command(cfg, path, nivaer, modul), cwd=str(cfg.agent_dir), env=env,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 stdin=subprocess.DEVNULL, start_new_session=True)
         except OSError as exc:
@@ -160,3 +168,8 @@ Runner = Callable[[dict, list[int], float], AgentSvar]
 
 def runner_for(cfg: AgentConfig) -> Runner:
     return lambda payload, nivaer, timeout: run(cfg, payload, nivaer, timeout)
+
+
+def live_runner_for(cfg: AgentConfig) -> Callable[[dict, float], AgentSvar]:
+    """`agent.live` (fas E): samma sandbox, en match per anrop, inga nivåer."""
+    return lambda payload, timeout: run(cfg, payload, None, timeout, modul="agent.live")

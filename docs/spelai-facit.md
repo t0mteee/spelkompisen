@@ -567,3 +567,80 @@ rapporter, så att Saman inte får samma sak två gånger.
 Codes meddelanden mellan sessioner når alla sessioner på servern, även Home
 Assistant (`rahbari-f6`) och Claude Desktop-sessionen i Spelkompisen. Budet är den
 enda avsändaren, och det tillhör facitsidan.
+
+## 16. Livekassan (fas E, 2026-10-03)
+
+Saman valde beslut 3 ("bygg fas E") 2026-10-03, med agentens livekontrakt.
+`app/spelai/livekassa.py` lägger agentens fiktiva livespel mot Svenska Spels
+liveodds och rättar dem. **Inga riktiga spel läggs, aldrig.**
+
+### Reglerna (designens avsnitt 7, i facitsidans kod)
+
+| Regel | Värde | Var |
+|---|---|---|
+| Startkassa | 10 000 kr | `START_KR` |
+| Insats | 50–200 kr | `MIN_INSATS_KR`, `MAX_INSATS_KR` |
+| Per match | högst 3 spel och 600 kr | `MAX_SPEL_PER_MATCH`, `MAX_INSATS_PER_MATCH_KR` |
+| Spärr | inget spel som tar tillgänglig kassa under 7 500 kr | `SPARR_KR` |
+| Pris | Svenska Spels livepris, öppet och högst 60 s gammalt vid bokföringen | `MAX_PRIS_ALDER_S` |
+| Samma lina | samma lina och tecken spelas bara en gång per match | `prova` |
+| Marknad | Ö/U på fulltid (`ou`); sida kommer när agenten har en modell för den | `MARKNADER` |
+
+Kassan räknas ur tabellerna, aldrig ur ett sparat saldo: saldo = 10 000 + avgjort
+netto, tillgängligt = saldo − insatser i öppna spel.
+
+### Varvet (`varv`, steget `livespel` i spelai-tick)
+
+1. Utan någon Oddset-match med Kambi-id och avspark inom [nu − 3 h, nu + 5 min]
+   görs inga anrop alls.
+2. `kambi.live_lagen()` ger Svenska Spels livelista med eget matchläge (minut och
+   ställning) i ett anrop. Snittet med Oddsets matcher är varvets pågående matcher.
+3. Varje match högst en gång per 110 s (radarns kadens är 2–3 min) och högst
+   12 matcher per tick. Den match som väntat längst går först.
+4. `kambi.live_ou_lines()` ger ALLA fulltidslinor för Ö/U, öppna och stängda. Varje
+   lina och tecken bokförs i `spelai_live_price` med observationstid efter anropet
+   minus HTTP Age (Kambis liveflöde har ingen Age). Funktionen är medvetet skild
+   från `live_total`/`live_events`, som radarns versionerade prisprocess använder.
+5. Agenten körs i samma sandbox som poolförslagen (`sandbox.live_runner_for`:
+   `agent.live --indata`, inget nät, databasen mode=ro). Indata följer kontraktet i
+   beslut 3: `nu`, `match_ref` (Kambi-id), `lage` (Svenska Spels, så att agenten
+   kan jämföra med Flashscore och avstå om ställningarna skiljer), `priser`,
+   `lagda_spel` och `kassa_kr` (tillgängligt).
+6. Varje föreslaget spel prövas mot reglerna (`prova`) och bokförs i
+   `spelai_live_bet`, eller avvisas med skäl (`live_avvisat` i journalen). Agentfel
+   bokförs som `live_agentfel`, högst en gång per match och timme.
+7. Pausen (Pausa i appen) stoppar nya spel; rättningen fortsätter.
+
+### Rättningen (`ratta`, steget `liverattning`)
+
+Ett spel rättas tidigast 110 min efter avspark, när matchens normaltidsresultat
+finns. Källan och matchningen är radarns: `flashscore_data.refresh_recent_results`
+(med egen spärr, högst var tionde minut, metanyckeln `spelai_live_resultat_at`),
+`oddset_data.merged_results` och `live_signal_ledger._result_for`. Landslag
+matchas på landskod (radarns v13). Asian-reglerna (`ou_utfall`) ger vinst,
+halv vinst, push, halv förlust och förlust; för över är de låsta mot radarns
+`_over_profit`. `next_price_*` är nästa öppna pris på samma lina och tecken
+efter spelet: prisrörelsen, inte facit.
+
+### API och app
+
+`GET /api/spelai/live` returnerar `kassa`, `graf` (saldot efter varje rättat spel),
+`oppna`, `avgjorda` (senaste 50), `per_marknad` (antal, insats, netto, ROI) och
+`regler`. Agentens app (5176) proxar `/api/spelai/*` hit och visar det under Live.
+
+### Agentens del
+
+Modellen `live-ou-v0` ligger i agentrepot (`backend/agent/live.py`). Den lägger
+högst ett spel per match om 50 kr, mellan minut 10 och 80, vid minst 10 %
+förväntat värde. Den avstår när matchläget är äldre än 5 min, priset äldre än
+60 s eller ställningen skiljer mellan Svenska Spel och Flashscore. **Ingen fördel
+är visad:** spelen finns för att facit ska kunna mäta. Agenten går igenom
+gårdagens livespel i morgonrundan. Inga notiser skickas per spel.
+
+### Prov före driftsättning
+
+- 20 egna tester.
+- Ett läsprov mot riktig data 2026-10-03 cirka 12:40: 21 pågående matcher hos
+  Svenska Spel, linorna 1,5 och 2,5 lästa med öppna priser.
+- `agent.live` körd i den riktiga sandboxen. Den svarade giltigt och avstod
+  ("matchen finns inte i Spelkompisens schema").

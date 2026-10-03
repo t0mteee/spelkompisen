@@ -1279,7 +1279,8 @@ def cmd_spelai_tick() -> int:
 
     Läser in agentens utkorg, fryser standard och agentens förslag ur
     poolvarvets indatapaket (agenten i sandbox), markerar missade fönster,
-    rättar, skickar notiser och lämnar rapporterna i agentens chatt.
+    rättar, skickar notiser, lägger och rättar livekassans fiktiva spel (fas E)
+    och lämnar rapporterna i agentens chatt.
     Kör aldrig parallellt med sig själv."""
     import fcntl
     import json as _json
@@ -1299,7 +1300,8 @@ def cmd_spelai_tick() -> int:
                 store, runner=sandbox.runner_for(cfg), clock=tillstand.now_utc,
                 sender=None, topic_name=notis.topic(),
                 code_version=pool_settlement._git_hash(),  # noqa: SLF001
-                chatt_runner=chattbud.claude_runner())
+                chatt_runner=chattbud.claude_runner(),
+                live_runner=sandbox.live_runner_for(cfg))
     finally:
         store.close()
     if report.get("fel"):

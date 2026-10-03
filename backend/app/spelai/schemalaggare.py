@@ -2,7 +2,8 @@
 
 Varje tick: läs in utkorgen, frys de indatapaket som poolvarvet sparat
 (respekterar paus), markera missade fönster, rätta mot facit, skicka
-notiser och lämna rapporterna i agentens chatt i Claude-appen (`chattbud`,
+notiser, lägga och rätta livekassans fiktiva spel (`livekassa`, fas E) och
+lämna rapporterna i agentens chatt i Claude-appen (`chattbud`,
 sist eftersom budet tar upp mot en halv minut). Varje steg isoleras — ett
 fel i ett steg bokförs som `tick_fel` och stoppar inte de andra.
 Rollkörningar (fas F) startas inte här ännu.
@@ -17,15 +18,16 @@ import datetime as dt
 from pathlib import Path
 from typing import Callable, Optional
 
-from . import chattbud, frysning, inkorg, notis, ratta, schema, tillstand
+from . import chattbud, frysning, inkorg, livekassa, notis, ratta, schema, tillstand
 
-STEG = ("inkorg", "frysning", "missat", "rattning", "notiser", "chatt")
+STEG = ("inkorg", "frysning", "missat", "rattning", "notiser", "livespel",
+        "liverattning", "chatt")
 
 
 def tick(store, *, runner, clock: Callable[[], dt.datetime],
          utkorg: Path = inkorg.UTKORG_DEFAULT, sender=None,
          topic_name: Optional[str] = None, code_version: str = "dev",
-         chatt_runner=None) -> dict:
+         chatt_runner=None, live_runner=None) -> dict:
     conn = store.conn
     if not schema.tables_exist(conn):
         return {"fel": "spelai-tabellerna saknas — kör scripts/migrera_spelai.py"}
@@ -39,6 +41,11 @@ def tick(store, *, runner, clock: Callable[[], dt.datetime],
         ("rattning", lambda: ratta.settle(store, now=clock())),
         ("notiser", lambda: notis.skicka(conn, now=clock(), sender=sender,
                                          topic_name=topic_name)),
+        # Fas E: livekassan. `live_runner` None = av (testerna kör aldrig agentkod
+        # och anropar aldrig Kambi eller Flashscore).
+        ("livespel", lambda: livekassa.varv(store, runner=live_runner, clock=clock)),
+        ("liverattning", lambda: livekassa.ratta(store, now=clock())
+         if live_runner is not None else {}),
         ("chatt", lambda: chattbud.skicka(conn, now=clock(), runner=chatt_runner)),
     )
     for name, step in steps:

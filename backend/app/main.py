@@ -2316,6 +2316,21 @@ async def spelai_paus(request: Request):
         store.close()
 
 
+@app.get("/api/spelai/live")
+def spelai_live():
+    """Livekassan (fas E): kassa, graf, öppna och avgjorda spel, per marknad.
+    Bara läsning; agentens app (5176) visar den under Live."""
+    from .spelai import livekassa as spelai_live_mod, schema as spelai_schema
+    from .spelai import tillstand as spelai_tid
+    store = Storage()
+    try:
+        if not spelai_schema.tables_exist(store.conn):
+            raise HTTPException(status_code=404, detail="spelai-tabellerna saknas")
+        return spelai_live_mod.payload(store.conn, now=spelai_tid.now_utc())
+    finally:
+        store.close()
+
+
 @app.get("/api/spelai/korningar")
 def spelai_korningar(limit: int = Query(100, ge=1, le=500)):
     from .spelai import api as spelai_api, tillstand as spelai_tid

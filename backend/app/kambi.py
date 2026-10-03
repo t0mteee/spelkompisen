@@ -337,3 +337,85 @@ def live_events(timeout: float = 15.0, operator: str = "svenskaspel") -> list[di
                         "away": event["awayName"], "start": event.get("start"),
                         "group": event.get("group")})
     return out
+
+
+def _heltal(value) -> Optional[int]:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def live_lagen(timeout: float = 15.0, operator: str = "svenskaspel") -> dict[str, dict]:
+    """Pågående fotbollsmatcher med Svenska Spels EGET matchläge (livekassan).
+
+    Ett anrop: ``{event_id: {"minut", "period", "hemma_mal", "borta_mal"}}`` ur
+    ``liveData``. Facitsidan skickar läget till agenten, som jämför det med
+    Flashscores och avstår när ställningarna skiljer sig. Fel bubblar upp: utan
+    en lyckad livelista läggs inga spel. Medvetet skild från `live_events`,
+    som radarns versionerade prisprocess använder.
+    """
+    base = BASE_TPL.format(op=operator)
+    global last_age_s
+    r = httpx.get(f"{base}/event/live/open.json", params=PARAMS,
+                  headers=HEADERS, timeout=timeout)
+    r.raise_for_status()
+    last_age_s = _age_s(r)
+    out: dict[str, dict] = {}
+    for row in (r.json() or {}).get("liveEvents") or []:
+        event = row.get("event") or {}
+        if event.get("sport") != "FOOTBALL" or not event.get("id"):
+            continue
+        live = row.get("liveData") or {}
+        clock = live.get("matchClock") or {}
+        score = live.get("score") or {}
+        out[str(event["id"])] = {"minut": _heltal(clock.get("minute")),
+                                 "period": clock.get("periodId"),
+                                 "hemma_mal": _heltal(score.get("home")),
+                                 "borta_mal": _heltal(score.get("away"))}
+    return out
+
+
+def live_ou_lines(event_id: str, timeout: float = 8.0,
+                  operator: str = "svenskaspel") -> list[dict]:
+    """ALLA fulltidslinor för live Ö/U, öppna och stängda (livekassan).
+
+    ``[{"line", "main", "O": {"odds", "open"}, "U": {"odds", "open"}}]``. Ett
+    tecken är öppet bara när erbjudandet inte är suspenderat OCH utfallet är
+    OPEN — samma två nivåer som `live_total`. Fel bubblar upp: livekassan
+    bokför aldrig ett pris den inte observerat. Skild från `live_total`, som
+    bara ger huvudlinan och ingår i radarns versionerade prisprocess.
+    """
+    base = BASE_TPL.format(op=operator)
+    global last_age_s
+    r = httpx.get(f"{base}/betoffer/event/{event_id}.json", params=PARAMS,
+                  headers=HEADERS, timeout=timeout)
+    r.raise_for_status()
+    last_age_s = _age_s(r)
+    out: list[dict] = []
+    for offer in (r.json() or {}).get("betOffers") or []:
+        criterion = offer.get("criterion") or {}
+        label = (criterion.get("label") or "").strip()
+        english = (criterion.get("englishLabel") or "").strip()
+        tags = set(offer.get("tags") or [])
+        if ((label != "Antal mål" and english != "Total Goals") or
+                criterion.get("lifetime") != "FULL_TIME" or
+                "OFFERED_LIVE" not in tags):
+            continue
+        by_line: dict[float, dict] = {}
+        for outcome in offer.get("outcomes") or []:
+            if outcome.get("type") not in {"OT_OVER", "OT_UNDER"} or outcome.get("line") is None:
+                continue
+            by_line.setdefault(float(outcome["line"]) / 1000, {})[outcome["type"]] = outcome
+        for line, sides in sorted(by_line.items()):
+            entry = {"line": line, "main": "MAIN_LINE" in tags}
+            for key, side in (("O", "OT_OVER"), ("U", "OT_UNDER")):
+                outcome = sides.get(side)
+                odds = _milli(outcome.get("odds")) if outcome else None
+                if odds:
+                    entry[key] = {"odds": odds,
+                                  "open": (not offer.get("suspended") and
+                                           outcome.get("status") == "OPEN")}
+            if "O" in entry or "U" in entry:
+                out.append(entry)
+    return out

@@ -217,8 +217,8 @@ prioritetsordning. ⚖ = kräver Samans beslut.
       Saman godkänner arbetskatalogen `~/spel-ai-kompisen` (chatten och de tillåtande
       reglerna kräver det); flytta driftsättningsregeln från `/tmp` (agentskrivbar) till en
       katalog agenten inte kan skriva; beslutssvar bara via Spelkompisens proxy med en
-      hemlig rubrik (agentens serverkod når i dag 8002); livekassan med
-      livepriser på facitsidan (fas E); "Jag spelade detta" och notisloggen i agentens app;
+      hemlig rubrik (agentens serverkod når i dag 8002); livekassan (fas E) är i drift
+      sedan 2026-10-03; "Jag spelade detta" och notisloggen i agentens app;
       notislänk via Tailscale utanför hemmanätet; bredda 6h-toleransen till 35 min om
       missarna syns i facit.
 
