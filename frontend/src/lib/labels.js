@@ -178,6 +178,7 @@ export const LABB_LEAGUE = {
   belgian_pro_league: 'Belgiska Pro League',
   primeira_liga: 'Primeira Liga',
   bolivian_primera: 'Bolivianska Primera División',
+  nations_league: 'Nations League', landskamper: 'Landskamper',
 }
 export const LABB_MARKET = {
   '1x2': '1X2', ah: 'AH', ou: 'Ö/U', cor: 'Hörnor',

@@ -1,7 +1,8 @@
 # Spelkompisen
 
 Personligt lokalt verktyg som kombinerar **SvS kompisen** (poolspels-analys: Stryktipset,
-Europatipset, Topptipset, Bomben) med en **Oddset-del**: enskilda matcher i 20 ligor med
+Europatipset, Topptipset, Bomben) med en **Oddset-del**: enskilda matcher i 22 ligor
+(klubbar och sedan 2026-10-03 landslag) med
 sharp-odds, oddsrörelser, egen modell och värdespels-tips (1X2, asian handicap,
 över/under, hörnor på sikt).
 
@@ -124,6 +125,8 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/storage.py      SQLite (data/stryktips.db): snapshots, sharp_snapshots, dedup, movement,
                       pool_match_diagnostic (matcharens närmaste avvisade kandidat, ren diagnostik)
   app/oddset.py       Oddset-insamling (LEAGUES, BOOKS, collect, matches_payload)
+  app/landslag.py     landslagens identitet: FIFA-landskod ur svenska och engelska namn.
+                      Ligor med `landslag: True` kopplas bara på kod (`_resolve_landslag`)
   app/oddset_value.py sharp-värdemotor, ANCHOR_SOURCES, drift_adjust, clv_report
   app/oddset_ledger.py WP5-forskningsfacit: prediktioner frysta vid T−24h/T−3h/T−20m
   app/oddset_model.py xG-viktad Poisson + DC, cached_fit, elo_for, powerrank
@@ -305,6 +308,10 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
   signal↔resultat). Presentationsskillnad ⇒ `LIVE_TEAM_ALIASES`; samma klubb i
   resultathistoriken ⇒ Oddsets `TEAM_ALIASES`. Kända falska par skrivs explicit i
   `LIVE_TEAM_REJECTED` — aldrig en generell regel (flerords-prefix gjorde LAFC = Galaxy).
+- **Landslag kopplas bara på landskod** (`app/landslag.py`), aldrig på namnlikhet:
+  Svenska Spel skriver svenska namn, Pinnacle engelska, och "Irland" ligger inuti
+  "Nordirland". Ett okänt namn ger en egen rad, inte en gissning, och rapporteras som
+  `okanda_landslag`. Lägg ALDRIG landsnamn i `TEAM_ALIASES` (V2.2:s fingeravtryck).
 - **KOHORTREGELN:** en rad hör till vN bara om vN-KODEN producerade den OCH den
   observerades i vN:s DEKLARERADE fönster — annars `transitional`, som ingår i INGEN
   kohort. Rader flyttas ALDRIG till föregående kohort. `radar_version` MÅSTE ligga i

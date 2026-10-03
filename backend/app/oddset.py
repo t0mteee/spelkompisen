@@ -131,6 +131,29 @@ LEAGUES = [
     # (+0,0036 till +0,0125 logloss), och Ligue 2 saknar dessutom xG.
     {"key": "ligue_1", "name": "Ligue 1", "pin_id": 2036,
      "kambi": "football/france/ligue_1", "altenar": None},
+    # Landslagen (2026-10-03, Samans beställning under landslagsuppehållet:
+    # Oddset var nästan tomt medan Nations League spelades). Verifierat mot
+    # aktuellt utbud samma kväll: Pinnacle `UEFA - Nations League A/B/C/D`
+    # 200719/200721/200726/200727 och `International - Friendlies` 2117; Kambi
+    # `football/uefa_nations_league` (23 event) och
+    # `football/international_friendly_matches` (5 event). VM-kvalets Kambi-väg
+    # finns men är tom, och Pinnacle saknar kvalliga just nu — läggs till när
+    # kvalet startar och ids kan verifieras.
+    #
+    # `landslag: True` byter kopplingen mellan källorna från namnlikhet till
+    # landskod (app/landslag.py, `_resolve_landslag`): Svenska Spel skriver
+    # svenska namn, Pinnacle engelska, och "Irland" ligger inuti "Nordirland".
+    # Ren sharp-väg som cuperna: ingen modell (ingen landslags-Elo eller xG),
+    # egna utforskande facitgrupper. Liveradarn följer INTE med här: en ny
+    # liga i radarscopet kräver en ny radarversion med egen metodnot.
+    {"key": "nations_league", "name": "Nations League",
+     "pin_ids": [200719, 200721, 200726, 200727],
+     "kambi_paths": ["football/uefa_nations_league"],
+     "altenar": None, "landslag": True},
+    {"key": "landskamper", "name": "Landskamper",
+     "pin_ids": [2117],
+     "kambi_paths": ["football/international_friendly_matches"],
+     "altenar": None, "landslag": True},
 ]
 # Actionable = får skapa spelbar signal, Kelly, notis och CLV-/value_log-rader.
 ACTIONABLE_LEAGUE_KEYS = frozenset(
@@ -380,8 +403,33 @@ def _resolve(cands: list[dict], home: str, away: str, start: Optional[str],
     return best
 
 
+def _resolve_landslag(cands: list[dict], home: str, away: str,
+                      start: Optional[str]) -> Optional[dict]:
+    """Landslag kopplas på landskod, aldrig på namnlikhet (app/landslag.py).
+
+    Båda lagen måste ha en känd kod och vara desamma i samma ordning, och
+    avsparken måste ligga inom 2 h. Fler än en kandidat ger ingen koppling;
+    ett okänt namn ger en egen rad i stället för en gissning."""
+    from .landslag import kod
+    home_code, away_code = kod(home), kod(away)
+    if not home_code or not away_code:
+        return None
+    t = _parse_ts(start)
+    hits = []
+    for cand in cands:
+        if (kod(cand.get("home") or "") != home_code
+                or kod(cand.get("away") or "") != away_code):
+            continue
+        tc = _parse_ts(cand.get("start"))
+        if t and tc and abs((t - tc).total_seconds()) > 2 * 3600:
+            continue
+        hits.append(cand)
+    return hits[0] if len(hits) == 1 else None
+
+
 def _resolve_source(cands: list[dict], home: str, away: str,
-                    start: Optional[str], source_id, id_field: str) -> Optional[dict]:
+                    start: Optional[str], source_id, id_field: str,
+                    resolver=None) -> Optional[dict]:
     """Länka ett källevent utan att någonsin byta en redan låst identitet.
 
     Exakt externt id vinner. Fuzzy-matchning får bara använda kandidater där
@@ -401,7 +449,7 @@ def _resolve_source(cands: list[dict], home: str, away: str,
                 continue
         return cand
     available = [cand for cand in cands if not cand.get(id_field)]
-    return _resolve(available, home, away, start)
+    return (resolver or _resolve)(available, home, away, start)
 
 
 def _resolve_team_pair(cands: list[dict], home: str, away: str,
@@ -422,6 +470,13 @@ def _resolve_team_pair(cands: list[dict], home: str, away: str,
     if len(ranked) > 1 and abs(ranked[0][0] - ranked[1][0]) < 0.05:
         return None
     return ranked[0][1]
+
+
+def _okanda_landslag(*names: str) -> list[str]:
+    """Landslagsnamn utan kod. Pinnacles låtsasdeltagare ("DR Congo (Corners)")
+    är marknader, inte lag, och räknas inte."""
+    from .landslag import kod
+    return [name for name in names if name and "(" not in name and not kod(name)]
 
 
 # --- Pinnacle per liga ---------------------------------------------------------
@@ -639,6 +694,9 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
     try:
         for lg in (LEAGUES if leagues is None else leagues):
             research_only = bool(lg.get("research_only"))
+            # Landslag kopplas på landskod, aldrig på namnlikhet (_resolve_landslag).
+            resolver = _resolve_landslag if lg.get("landslag") else _resolve
+            okanda_landslag: set[str] = set()
             cands = [m for m in store.oddset_matches(since=since, until=list_until)
                      if m["league"] == lg["key"]]
             rows_saved, n_pin, n_kambi = 0, 0, 0
@@ -688,9 +746,11 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     "pinnacle_id", r["id"])
                 ex = (_resolve_source(
                     [locked], r["home"], r["away"], r["start"],
-                    r["id"], "pinnacle_id") if locked else None) or _resolve_source(
+                    r["id"], "pinnacle_id", resolver) if locked else None) or _resolve_source(
                     cands, r["home"], r["away"], r["start"],
-                    r["id"], "pinnacle_id")
+                    r["id"], "pinnacle_id", resolver)
+                if lg.get("landslag"):
+                    okanda_landslag.update(_okanda_landslag(r["home"], r["away"]))
                 mid = ex["id"] if ex else f"pin:{r['id']}"
                 m = {"id": mid, "league": lg["key"], "home": r["home"], "away": r["away"],
                      "start": r["start"], "pinnacle_id": r["id"], "status": r.get("status")}
@@ -770,9 +830,11 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     "kambi_id", e["id"])
                 id_match = (_resolve_source(
                     [locked], e["home"], e["away"], e["start"],
-                    e["id"], "kambi_id") if locked else None) or _resolve_source(
+                    e["id"], "kambi_id", resolver) if locked else None) or _resolve_source(
                     cands, e["home"], e["away"], e["start"],
-                    e["id"], "kambi_id")
+                    e["id"], "kambi_id", resolver)
+                if lg.get("landslag"):
+                    okanda_landslag.update(_okanda_landslag(e["home"], e["away"]))
                 # Kambis tidiga höst/vår-scheman använder ibland en gemensam
                 # placeholdertid för nästan hela omgången. Pinnacle-raden är
                 # då starttidskanon; team-only används endast mot en redan
@@ -884,7 +946,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     book_at = e.get("_at") or book_at
                     ex = next((c for c in cands if c.get("kambi_id") == e["id"]), None) \
                         if book.get("kambi_op") else None
-                    ex = ex or _resolve(cands, e["home"], e["away"], e["start"])
+                    ex = ex or resolver(cands, e["home"], e["away"], e["start"])
                     if not ex or (e.get("start") or "9") <= at:
                         continue   # skapa inga matcher från sidoböcker; hoppa live
                     claim = str(e.get("id"))
@@ -988,7 +1050,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 anchor_seen: set[str] = set()
                 anchor_claims: dict[str, str] = {}
                 for e in a_rows:
-                    ex = _resolve(cands, e["home"], e["away"], e["start"])
+                    ex = resolver(cands, e["home"], e["away"], e["start"])
                     if not ex or (e.get("start") or "9") <= at:
                         continue   # börsen får aldrig skapa matchidentiteter
                     claim = str(e.get("id"))
@@ -1058,7 +1120,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     mb_seen: set[str] = set()
                     mb_claims: dict[str, str] = {}
                     for e in mb_rows:
-                        ex = _resolve(fast_cands, e["home"], e["away"], e["start"])
+                        ex = resolver(fast_cands, e["home"], e["away"], e["start"])
                         if not ex or (e.get("start") or "9") <= live_guard:
                             continue   # referensen skapar ALDRIG matchidentiteter
                         claim = str(e.get("id"))
@@ -1090,6 +1152,9 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 "saved_rows": rows_saved,
                 "pinnacle_cache_age_s": pin_cache_age_s if pin_ok else None,
                 "pinnacle_observed_at": pin_observed_at if pin_ok else None}
+            if okanda_landslag:
+                # Namn som saknas i app/landslag.py får ingen koppling — lägg till dem där.
+                report["leagues"][lg["key"]]["okanda_landslag"] = sorted(okanda_landslag)
     finally:
         pin.close()
         if smarkets_client is not None:

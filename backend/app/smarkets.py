@@ -75,6 +75,13 @@ LEAGUE_SLUGS = {
                       "uefa-europa-league-qualification"),
     "conference_league": ("international-clubs-uefa-conference-league",
                           "uefa-europa-conference-league-qualification"),
+    # Landslagen (2026-10-03): Smarkets listade INGA landskamper — 0 av 50
+    # kommande fotbollsevent under Nations League-helgen (bara CL, Conference,
+    # Premier League och Argentina). None = prövad och frånvarande, ingen
+    # gissad slug; fyll i när en riktig full_slug observerats. Landslag
+    # kopplas då på landskod (oddset._resolve_landslag), aldrig fuzzy.
+    "nations_league": None,
+    "landskamper": None,
 }
 
 
