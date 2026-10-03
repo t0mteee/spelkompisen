@@ -896,5 +896,129 @@ class MultiSourceLeagueTests(unittest.TestCase):
             {"key": "allsvenskan", "kambi": "football/sweden/allsvenskan"}))
 
 
+class _NoExchange:
+    """Smarkets/Matchbook utan nät: inga event, inget att stänga."""
+
+    def upcoming_events(self, *_args, **_kwargs) -> list:
+        return []
+
+    def close(self) -> None:
+        pass
+
+
+class IdentityBeyondListWindowTests(unittest.TestCase):
+    """Länkningen får inte begränsas av listfönstret (2026-10-03).
+
+    Pinnacle och Svenska Spel listade Champions League och Premier League
+    3–6 veckor före avspark, i olika varv. Med bara 10-dygnsfönstret som
+    länkkandidater fick varje källa en egen rad, och de write-once käll-id:na
+    höll isär dem (Arsenal–Lille pin:1636267513/svs:1028943219).
+    """
+
+    LEAGUE = {"key": "lanktest", "name": "Länktest", "pin_id": 77,
+              "kambi": "football/lanktest", "altenar": None}
+
+    @staticmethod
+    def _start(days: float, hours: float = 0) -> str:
+        return (dt.datetime.now(dt.timezone.utc)
+                + dt.timedelta(days=days, hours=hours)).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ")
+
+    @staticmethod
+    def _pin(start: str) -> dict:
+        return {"id": "p1", "home": "Arsenal", "away": "Lille",
+                "start": start, "status": "pending",
+                "odds_source": "pinnacle",
+                "odds": {"1": 1.50, "X": 4.40, "2": 6.50}}
+
+    @staticmethod
+    def _kambi(start: str) -> dict:
+        return {"id": "k1", "home": "Arsenal", "away": "Lille",
+                "start": start, "odds": {"1": 1.45, "X": 4.30, "2": 6.25}}
+
+    def _collect(self, store: Storage, pin_rows: list[dict],
+                 kambi_rows: list[dict]) -> list[dict]:
+        with mock.patch.object(oddset, "Pinnacle", return_value=_Pin()), \
+                mock.patch.object(oddset, "pinnacle_league_index",
+                                  return_value=pin_rows), \
+                mock.patch.object(oddset.kambi, "league_events",
+                                  return_value=kambi_rows), \
+                mock.patch.object(oddset, "BOOKS", []), \
+                mock.patch("app.smarkets.Smarkets",
+                           return_value=_NoExchange()), \
+                mock.patch("app.matchbook.Matchbook",
+                           return_value=_NoExchange()):
+            oddset.collect(store, leagues=[self.LEAGUE], deep=False)
+        return [m for m in store.oddset_matches(since="2000-01-01T00:00:00Z")
+                if m["league"] == "lanktest"]
+
+    def test_svenska_spel_lankar_mot_pinnacle_rad_bortom_listfonstret(self):
+        start = self._start(20)
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                self._collect(store, [self._pin(start)], [])
+                rows = self._collect(
+                    store, [self._pin(start)], [self._kambi(start)])
+            finally:
+                store.close()
+
+        self.assertEqual(1, len(rows))
+        self.assertEqual(("pin:p1", "p1", "k1"), (
+            rows[0]["id"], rows[0]["pinnacle_id"], rows[0]["kambi_id"]))
+
+    def test_pinnacle_lankar_mot_svenska_spel_rad_bortom_listfonstret(self):
+        start = self._start(20)
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                self._collect(store, [], [self._kambi(start)])
+                rows = self._collect(
+                    store, [self._pin(start)], [self._kambi(start)])
+            finally:
+                store.close()
+
+        self.assertEqual(1, len(rows))
+        self.assertEqual(("svs:k1", "p1", "k1"), (
+            rows[0]["id"], rows[0]["pinnacle_id"], rows[0]["kambi_id"]))
+
+    def test_redan_delade_rader_slas_inte_ihop_av_insamlingen(self):
+        """Käll-id:n är write-once: en befintlig dubblett läker inte i
+        insamlingen. Den kräver scripts/migrera_oddset_identitetspar.py."""
+        start = self._start(20)
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                store.oddset_upsert_match({
+                    "id": "pin:p1", "league": "lanktest", "home": "Arsenal",
+                    "away": "Lille", "start": start, "pinnacle_id": "p1"})
+                store.oddset_upsert_match({
+                    "id": "svs:k1", "league": "lanktest", "home": "Arsenal",
+                    "away": "Lille", "start": start, "kambi_id": "k1"})
+                rows = self._collect(
+                    store, [self._pin(start)], [self._kambi(start)])
+            finally:
+                store.close()
+
+        self.assertEqual({("pin:p1", "p1", None), ("svs:k1", None, "k1")}, {
+            (row["id"], row["pinnacle_id"], row["kambi_id"]) for row in rows})
+
+    def test_bredare_kandidatmangd_behaller_tidsgransen(self):
+        """Samma lagpar mer än 2 h ifrån varandra är två matcher, även långt
+        fram: fler kandidater får aldrig lätta på länkreglerna."""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Storage(Path(tmp) / "test.db")
+            try:
+                self._collect(store, [self._pin(self._start(20))], [])
+                rows = self._collect(
+                    store, [self._pin(self._start(20))],
+                    [self._kambi(self._start(20, hours=3))])
+            finally:
+                store.close()
+
+        self.assertEqual({("pin:p1", "p1", None), ("svs:k1", None, "k1")}, {
+            (row["id"], row["pinnacle_id"], row["kambi_id"]) for row in rows})
+
+
 if __name__ == "__main__":
     unittest.main()

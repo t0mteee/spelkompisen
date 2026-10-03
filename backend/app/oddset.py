@@ -698,8 +698,21 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
             # Landslag kopplas på landskod, aldrig på namnlikhet (_resolve_landslag).
             resolver = _resolve_landslag if lg.get("landslag") else _resolve
             okanda_landslag: set[str] = set()
-            cands = [m for m in store.oddset_matches(since=since, until=list_until)
-                     if m["league"] == lg["key"]]
+            # IDENTITET ≠ LISTFÖNSTER (2026-10-03). Pinnacle och Svenska Spel
+            # länkas mot ligans ALLA kommande rader (`link_cands`). Fönstret
+            # [nu−12 h, nu+LIST_WINDOW_D_FWD] (`cands`) styr som förut bara
+            # frånvaromarkering, sidoböcker och ankare. När bara fönstret var
+            # kandidater fick en match som källorna listade mer än tio dygn
+            # före avspark, i olika varv, en rad per källa — och käll-id:n är
+            # write-once, så raderna slogs aldrig ihop (Arsenal–Lille
+            # pin:1636267513/svs:1028943219; 301 av 308 delade par sedan juli).
+            # Länkreglerna är oförändrade (_resolve: 0,55 per sida, 0,75 för
+            # paret, ±2 h). Listorna delar dict-objekt, så en länk i varvet syns
+            # i båda.
+            link_cands = [m for m in store.oddset_matches(since=since)
+                          if m["league"] == lg["key"]]
+            cands = [m for m in link_cands
+                     if (m.get("start") or "9") <= list_until]
             rows_saved, n_pin, n_kambi = 0, 0, 0
 
             pin_ok, pin_error = True, None
@@ -748,7 +761,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 ex = (_resolve_source(
                     [locked], r["home"], r["away"], r["start"],
                     r["id"], "pinnacle_id", resolver) if locked else None) or _resolve_source(
-                    cands, r["home"], r["away"], r["start"],
+                    link_cands, r["home"], r["away"], r["start"],
                     r["id"], "pinnacle_id", resolver)
                 if lg.get("landslag"):
                     okanda_landslag.update(_okanda_landslag(r["home"], r["away"]))
@@ -758,6 +771,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 store.oddset_upsert_match(m, prefer_names=False)
                 if not ex:
                     cands.append(m)
+                    link_cands.append(m)
                 elif not ex.get("pinnacle_id"):
                     ex["pinnacle_id"] = r["id"]
                 if (r.get("start") or "9") <= at:
@@ -832,14 +846,15 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 id_match = (_resolve_source(
                     [locked], e["home"], e["away"], e["start"],
                     e["id"], "kambi_id", resolver) if locked else None) or _resolve_source(
-                    cands, e["home"], e["away"], e["start"],
+                    link_cands, e["home"], e["away"], e["start"],
                     e["id"], "kambi_id", resolver)
                 if lg.get("landslag"):
                     okanda_landslag.update(_okanda_landslag(e["home"], e["away"]))
                 # Kambis tidiga höst/vår-scheman använder ibland en gemensam
                 # placeholdertid för nästan hela omgången. Pinnacle-raden är
                 # då starttidskanon; team-only används endast mot en redan
-                # verifierad Pinnacle-identitet i researchligor.
+                # verifierad Pinnacle-identitet i researchligor. Den vägen
+                # saknar tidsankare och stannar därför i listfönstret.
                 team_match = (
                     _resolve_team_pair(
                         [cand for cand in cands
@@ -855,6 +870,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 store.oddset_upsert_match(m, prefer_names=True)
                 if not ex:
                     cands.append(m)
+                    link_cands.append(m)
                 elif not ex.get("kambi_id"):
                     ex["kambi_id"] = e["id"]
                 if (e.get("start") or "9") <= at:

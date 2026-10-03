@@ -718,6 +718,10 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
   `pinnacle_id`/`kambi_id` är write-once, globalt unika och får aldrig bytas via fuzzy.
   Samtidiga prisvarianter eller id-krock ger `data_conflict`: visa råodds diagnostiskt men
   stoppa värde, steam, modell, ledger, CLV och notiser (`docs/oddset-identitetsaudit-2026-07-26.md`).
+  **Länkkandidaterna är ligans ALLA kommande rader (`link_cands`)**; listfönstret (10 d)
+  styr bara frånvaromarkering, sidoböcker och ankare. Med bara fönstret fick matcher som
+  listas tidigt en rad per källa som aldrig slogs ihop (2026-10-03,
+  `docs/overlamningar/overlamning-2026-10-03-oddset-identitet.md`).
 - Resultatidentitet: fuzzy auto-merge kräver >0,75 och ALLA sådana länkar ska synas i
   `cli.py modeldata` tills de flyttats till `TEAM_ALIAS`/meta. 0,55–0,75 mergas aldrig.
   Kända falska par i `TEAM_REJECTED_LINKS`.

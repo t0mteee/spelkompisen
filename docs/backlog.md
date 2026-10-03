@@ -222,6 +222,22 @@ prioritetsordning. ⚖ = kräver Samans beslut.
       notislänk via Tailscale utanför hemmanätet; bredda 6h-toleransen till 35 min om
       missarna syns i facit.
 
+22. ⏳ **Oddsets delade identiteter 2026-10-03**
+    (`docs/overlamningar/overlamning-2026-10-03-oddset-identitet.md`). Länkningen prövade bara
+    listfönstret (10 d). Matcher som båda källorna listade tidigare fick en `pin:`- och en
+    `svs:`-rad: 30–33 % av matcherna 7–20/9 och 71–100 % efter landslagsuppehållet. ✅ Koden
+    rättad (`link_cands`), samma länkregler.
+    - ⚖ **Kör `scripts/migrera_oddset_identitetspar.py`** (170 kommande par, torrkört, plan i
+      `docs/oddset-identitetspar-plan-2026-10-03.json`). Rekommendation: ja, före
+      2026-10-07T17:00Z, då frånvarocapturen börjar för de första paren.
+    - ⚖ 60 amber-modellflaggor på SvS-raderna: lämna på gammalt id (rekommendation) eller
+      flytta till Pinnacle-raden.
+    - ⚖ Datumnot från driftsättningen i stället för `DATA_VERSION`-bump (rekommendation);
+      gäller även V2.2, som åter ser Kambis visningsnamn på tidigt listade matcher.
+    - ⚖ PSG-alias i `TEAM_ALIASES` (10 delade par sedan augusti, 3 kommande). Rör Ligue 1:s
+      resultatnormalisering, därför eget beslut. Žalgiris och DAC har inga kommande matcher.
+    - Vaktkontroll som larmar när torrkörningen hittar nya par.
+
 ## 2026-08-11 — AWS korrekt omtestat och avfärdat
 
 - **❌ AWS Lightsail Stockholm är avfärdat.** En ny adress (`51.20.96.34`)

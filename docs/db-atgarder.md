@@ -8,6 +8,39 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-10-03 — Oddsets identitetspar (FÖRESLAGEN, väntar på Samans godkännande)
+
+**Bakgrund.** `oddset.collect()` länkade bara mot rader inom listfönstret
+[nu−12 h, nu+10 d]. Matcher som Pinnacle och Svenska Spel listade mer än tio
+dygn före avspark, i olika varv, fick en `pin:`- och en `svs:`-rad, och de
+write-once käll-id:na höll isär dem. Koden är rättad (`link_cands`). Analys och
+tabeller: `docs/overlamningar/overlamning-2026-10-03-oddset-identitet.md`.
+
+**Skript.** `backend/scripts/migrera_oddset_identitetspar.py`. Utan `--kor` är
+det en ren läsning (`mode=ro`) som skriver en plan. `--kor --plan <fil>` tar en
+onlinebackup med SQLite:s backup-API till
+`backend/data/backups/stryktips-<UTC-tid>-fore-oddset-identitetspar.db`. Den
+slår ihop bara de par i den granskade planen som fortfarande uppfyller
+reglerna: samma liga, avspark högst 15 min isär och mellan nu + 49 h och
+2026-10-31, insamlingens egen förstalänk, minst ena laget strikt lika, lika
+truppmarkörer, entydigt och inga referenser utanför `oddset_odds`,
+`oddset_sharp_alt` och `oddset_matchbook_liquidity`. Pinnacle-raden är kanon.
+Kambi-id, Kambis namn och oddshistorik flyttas dit, och SvS-raden tas bort.
+Amber-modellflaggor i `oddset_value_log` lämnas på sitt gamla id. En transaktion;
+antal, samtidiga prisvarianter och kvarvarande par kontrolleras före commit,
+`integrity_check` efter. Tester: `tests/test_migrera_oddset_identitetspar.py`.
+
+**Torrkörning 2026-10-03T10:33:33Z.** 170 par (exakt 120, ordmängd 29, ena
+laget 21), 0 överhoppade, 2 380 oddsrader att flytta, 60 modellflaggor i 43
+par lämnas kvar. Plan: `docs/oddset-identitetspar-plan-2026-10-03.json`.
+De 138 passerade paren berörs inte; deras WP5-, V2.2- och frånvarocaptures
+finns på båda raderna.
+
+**Ej körd.** Kör efter godkännande med snapshot-jobbet stoppat, före
+2026-10-07T17:00Z. Utfallet förs in här.
+
+---
+
 ## 2026-10-01 — spel-ai-kompisens facitsida (`spelai_*`, körd 2026-10-01T19:34:31Z)
 
 `backend/scripts/migrera_spelai.py` skapar tolv additiva tabeller
