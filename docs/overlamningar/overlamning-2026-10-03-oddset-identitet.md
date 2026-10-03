@@ -9,13 +9,13 @@
 - **Commit 6f1db2e (landslag) är inte orsaken.** Den ändrar bara kopplingen
   för ligor med `landslag: True`, och den första delade matchen skapades
   2026-08-30, en månad tidigare.
-- **Rättelsen är i drift** (I DRIFT: fylls i vid driftsättning).
+- **Rättelsen är i drift sedan 2026-10-03T20:45:28Z** (commit 77bc50d,
+  driftsatt tillsammans med livekassan b9de5c0 och Smarkets dd1375e).
   Länkningen prövar nu ligans alla kommande rader. Länkreglerna är oförändrade.
-- **170 kommande par** kan slås ihop med `backend/scripts/migrera_oddset_identitetspar.py`.
-  Skriptet är torrkört mot produktionen men **inte kört**. Det väntar på
-  Samans godkännande (⚖ 1 nedan). Det bör köras före **2026-10-07T17:00Z**.
-  Därefter börjar frånvarocapturen 48 h före de första paren, och de paren
-  hoppas då över.
+- **De 170 kommande paren är sammanslagna** sedan 2026-10-03T20:46:40Z, efter
+  Samans godkännande. Det gjordes med `backend/scripts/migrera_oddset_identitetspar.py`:
+  backup först, 0 par kvar, `integrity_check` ok och 0 identitetskonflikter.
+  Utfallet står i avsnitt 5.
 - **138 passerade par lämnas orörda.** Append-only-tabeller (WP5, V2.2,
   frånvaro) refererar båda raderna.
 
@@ -93,8 +93,9 @@ Manchester City–PSG är dessutom ett namnfall (se 6). `PSG` och
 
 - Svenska Spels och Expekts priser ligger på en rad utan Pinnacle. Ingen
   sharp-värdering mot Svenska Spel kan ske för de matcherna.
-- 60 amber-modellflaggor (43 par) har loggats på Svenska Spel-raderna. De kan
-  aldrig stängas, eftersom raden saknar Pinnacle.
+- Amber-modellflaggor har loggats på Svenska Spel-raderna: 60 i 43 par
+  10:30Z och 88 i 44 par vid migreringen. De kan aldrig stängas, eftersom
+  raden saknar Pinnacle.
 
 ### Passerade matcher (138 par, främst 7–20/9)
 
@@ -139,7 +140,31 @@ Tester i `tests/test_oddset_collect.py::IdentityBeyondListWindowTests`:
 | Befintlig dubblett slås inte ihop av insamlingen | grön | grön |
 | Samma lagpar 3 h ifrån varandra förblir två matcher | grön | grön |
 
-## 5. Migreringen (ej körd)
+## 5. Migreringen (körd 2026-10-03T20:46:40Z)
+
+### Utfall i drift
+
+Saman godkände körningen 18:4x samma dag. Snapshot-jobbet var vilande när det
+stoppades (20:46:35Z) och startades igen 20:47:21Z, så inget varv avbröts.
+
+| Mått | Före | Efter |
+|---|---:|---:|
+| Godkända par / sammanslagna | 170 | 170 (0 kvar att göra) |
+| `oddset_matches` | 3 934 | 3 764 |
+| `oddset_odds` totalt | 898 318 | 898 318 |
+| Oddsrader på SvS-id | 2 805 | 0 (flyttade: svenskaspel 1 805, expekt 754, smarkets 186, ninjacasino 60) |
+| `oddset_sharp_alt` / `oddset_matchbook_liquidity` på SvS-id | 0 / 0 | 0 / 0 |
+| Modellflaggor kvar på gammalt SvS-id | 88 i 44 par | 88 i 44 par |
+| Pinnacle-rader med Kambi-id (av 170) | 0 | 170 |
+| Identitetskonflikter på de sammanslagna raderna | 0 | 0 |
+| `integrity_check` | — | ok |
+
+Backup: `backend/data/backups/stryktips-2026-10-03T204640Z-fore-oddset-identitetspar.db`
+(895 MB). Torrkörningen 20:46:26Z gav samma 170 par som den granskade planen.
+Den gav 0 par efteråt. Arsenal–Lille (`pin:1636267513`, Kambi 1028943219)
+bär nu pinnacle, derived, svenskaspel, expekt och smarkets på samma rad.
+
+### Reglerna
 
 `backend/scripts/migrera_oddset_identitetspar.py` slår ihop ett par bara när
 allt nedan gäller:
@@ -200,13 +225,14 @@ Smarkets 10) gav inga samtidiga prisvarianter. `oddset_latest` väljer senaste
 `fetched_at`, så ett gammalt fragment kan visas som senaste pris tills källan
 setts i nästa varv. Värde kräver ändå ett pris som bekräftats inom 45 min.
 
-### Körning efter godkännande
+### Så kördes den
 
-Kör inom ett pool- och agentfritt fönster (h24/h3 ±45 min, m20 och agentens
-6h-/30m-fönster blockerar).
+Körningen gjordes i ett pool- och agentfritt fönster (h24/h3 ±45 min, m20 och
+agentens 6h-/30m-fönster blockerar). `tjanster.sh` kräver `--ja` utan
+terminal. Plisten har `RunAtLoad`, så `start` kör ett varv direkt.
 
 ```bash
-cd ~/spelkompisen && tools/tjanster.sh stopp snapshot
+cd ~/spelkompisen && tools/tjanster.sh stopp snapshot --ja
 ```
 
 ```bash
@@ -218,13 +244,12 @@ cd ~/spelkompisen/backend && .venv/bin/python -B scripts/migrera_oddset_identite
 ```
 
 ```bash
-cd ~/spelkompisen && tools/tjanster.sh start snapshot
+cd ~/spelkompisen && tools/tjanster.sh start snapshot --ja
 ```
 
 Snapshot-jobbet stoppas så att inget varv med gamla kandidatlistor i minnet
-skriver sidoboksodds till en borttagen `svs:`-rad. Efteråt: torrkörningen ska
-visa 0 par, Arsenal–Lille ska ha både Pinnacle och Svenska Spel på
-`pin:1636267513`, och utfallet förs in i `docs/db-atgarder.md`.
+skriver sidoboksodds till en borttagen `svs:`-rad. Skriptet är idempotent: en
+ny körning med samma plan slår ihop 0 par och tar en ny backup.
 
 ## 6. Namnmissar (separat fynd, inte fönstret)
 
@@ -243,20 +268,19 @@ inte länkningen.
 
 ## 7. ⚖ Beslut för Saman
 
-1. **Kör migreringen?** Rekommendation: ja, före 2026-10-07T17:00Z. Efter det
-   hoppar skriptet över de par som fått frånvarocapture, och de förblir
-   delade.
-2. **De 60 modellflaggorna på SvS-raderna.** Rekommendation: lämna dem på sitt
-   gamla id. De loggades med en modell utan Pinnacle-ankare, eftersom
-   Pinnacle låg på den andra raden. Med rätt länk hade de sett annorlunda ut
-   eller inte funnits. De stängs aldrig, precis som i dag, och utfallsvisningen
-   upphör för dem. Alternativet är att flytta dem till Pinnacle-raden. Då
-   stängs de mot Pinnacle och kommer in i modellens forwardfacit.
+1. ✅ **Kör migreringen?** Saman: ja (2026-10-03 18:4x). Körd 20:46:40Z.
+2. ✅ **Modellflaggorna på SvS-raderna** (88 vid körningen). Saman godkände
+   rekommendationen att lämna dem på sitt gamla id. De loggades med en modell
+   utan Pinnacle-ankare, eftersom Pinnacle låg på den andra raden. Med rätt
+   länk hade de sett annorlunda ut eller inte funnits. De stängs aldrig,
+   precis som tidigare, och utfallsvisningen upphör för dem.
 3. **Signalversion.** Rättelsen ändrar populationen: matcher som listas tidigt
    får åter SvS bredvid Pinnacle. Det gäller främst de stora ligorna och
    cuperna. Rekommendation: ingen `DATA_VERSION`-bump, eftersom signalernas
    innebörd är oförändrad och ingen befintlig signal var fel. Använd i stället
    en **datumnot** från driftsättningen, så att skörden kan redovisa regimen.
+   Datumnoten är införd: 2026-10-03T20:45:28Z (koden) och 20:46:40Z (de
+   sammanslagna paren). Ingen bump är gjord, men beslutet ligger kvar hos Saman.
    Samma not gäller V2.2. Efter rättelsen ser V2.2 Kambis visningsnamn på
    tidigt listade matcher, som före september, i stället för Pinnacles.
    Ingen ny manifestversion föreslås.

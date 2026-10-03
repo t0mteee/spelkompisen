@@ -226,14 +226,14 @@ prioritetsordning. ⚖ = kräver Samans beslut.
     (`docs/overlamningar/overlamning-2026-10-03-oddset-identitet.md`). Länkningen prövade bara
     listfönstret (10 d). Matcher som båda källorna listade tidigare fick en `pin:`- och en
     `svs:`-rad: 30–33 % av matcherna 7–20/9 och 71–100 % efter landslagsuppehållet. ✅ Koden
-    rättad (`link_cands`), samma länkregler.
-    - ⚖ **Kör `scripts/migrera_oddset_identitetspar.py`** (170 kommande par, torrkört, plan i
-      `docs/oddset-identitetspar-plan-2026-10-03.json`). Rekommendation: ja, före
-      2026-10-07T17:00Z, då frånvarocapturen börjar för de första paren.
-    - ⚖ 60 amber-modellflaggor på SvS-raderna: lämna på gammalt id (rekommendation) eller
-      flytta till Pinnacle-raden.
-    - ⚖ Datumnot från driftsättningen i stället för `DATA_VERSION`-bump (rekommendation);
-      gäller även V2.2, som åter ser Kambis visningsnamn på tidigt listade matcher.
+    rättad (`link_cands`), samma länkregler, i drift 2026-10-03T20:45:28Z.
+    - ✅ 2026-10-03T20:46:40Z **migreringen körd** efter Samans godkännande: 170 av 170 par
+      sammanslagna, `integrity_check` ok, 0 identitetskonflikter (`docs/db-atgarder.md`).
+    - ✅ Modellflaggorna på SvS-raderna (88 i 44 par) ligger kvar på sina gamla id (Samans
+      godkännande av rekommendationen).
+    - ⚖ Datumnot 2026-10-03T20:45:28Z/20:46:40Z är införd i stället för en `DATA_VERSION`-bump
+      (rekommendation); gäller även V2.2, som åter ser Kambis visningsnamn på tidigt listade
+      matcher. Ändras bara om Saman vill bumpa.
     - ⚖ PSG-alias i `TEAM_ALIASES` (10 delade par sedan augusti, 3 kommande). Rör Ligue 1:s
       resultatnormalisering, därför eget beslut. Žalgiris och DAC har inga kommande matcher.
     - Vaktkontroll som larmar när torrkörningen hittar nya par.

@@ -8,7 +8,7 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
-## 2026-10-03 — Oddsets identitetspar (FÖRESLAGEN, väntar på Samans godkännande)
+## 2026-10-03 — Oddsets identitetspar (körd 2026-10-03T20:46:40Z)
 
 **Bakgrund.** `oddset.collect()` länkade bara mot rader inom listfönstret
 [nu−12 h, nu+10 d]. Matcher som Pinnacle och Svenska Spel listade mer än tio
@@ -36,8 +36,20 @@ par lämnas kvar. Plan: `docs/oddset-identitetspar-plan-2026-10-03.json`.
 De 138 passerade paren berörs inte; deras WP5-, V2.2- och frånvarocaptures
 finns på båda raderna.
 
-**Ej körd.** Kör efter godkännande med snapshot-jobbet stoppat, före
-2026-10-07T17:00Z. Utfallet förs in här.
+**Körd 2026-10-03T20:46:40Z** efter Samans godkännande samma kväll, i
+produktionscommit `77bc50d` (driftsatt 20:45:28Z). Snapshot-jobbet var vilande
+och urladdat 20:46:35–20:47:21Z; inget varv avbröts. Torrkörningen 20:46:26Z
+gav samma 170 par som den granskade planen. Backup:
+`backend/data/backups/stryktips-2026-10-03T204640Z-fore-oddset-identitetspar.db`
+(895 MB). Utfall: **170 av 170** par sammanslagna. `oddset_matches` gick från
+**3 934 till 3 764**. `oddset_odds` var oförändrat **898 318**, varav 2 805 rader
+flyttade (svenskaspel 1 805, expekt 754, smarkets 186, ninjacasino 60).
+`oddset_sharp_alt` och `oddset_matchbook_liquidity` hade 0 rader att flytta. 88
+amber-modellflaggor i 44 par ligger kvar på sina gamla SvS-id.
+`PRAGMA integrity_check`: **ok**. Efterkontrollen visade 0 par kvar i
+torrkörningen, 170 Pinnacle-rader med Kambi-id, 0 rader kvar på SvS-id och 0
+identitetskonflikter (`Storage.oddset_identity_conflicts`) på de sammanslagna
+raderna.
 
 ---
 
