@@ -9,8 +9,9 @@
 - **Commit 6f1db2e (landslag) är inte orsaken.** Den ändrar bara kopplingen
   för ligor med `landslag: True`, och den första delade matchen skapades
   2026-08-30, en månad tidigare.
-- **Rättelsen är i drift sedan 2026-10-03T20:45:28Z** (commit 77bc50d,
-  driftsatt tillsammans med livekassan b9de5c0 och Smarkets dd1375e).
+- **Rättelsen är i drift sedan 2026-10-03T20:45:28Z** (commit 77bc50d, pull
+  och omstart av backend). Livekassan b9de5c0 och Smarkets dd1375e hade en
+  annan session redan dragit ned 18:46.
   Länkningen prövar nu ligans alla kommande rader. Länkreglerna är oförändrade.
 - **De 170 kommande paren är sammanslagna** sedan 2026-10-03T20:46:40Z, efter
   Samans godkännande. Det gjordes med `backend/scripts/migrera_oddset_identitetspar.py`:
