@@ -100,6 +100,13 @@ LEAGUE_NAMES = {
     ("INT", "Europa League Qualification"): "europa_league",
     ("INT", "Conference League"): "conference_league",
     ("INT", "Conference League Qualification"): "conference_league",
+    # Landslagen (v13, 2026-10-03). FotMob har en rubrik per grupp; alla 14
+    # är avlästa ur FotMobs egna dagslistor 2026-10-03–06 (primaryId
+    # 9806–9809 för League A–D), liksom "Friendlies" (114).
+    **{("INT", f"UEFA Nations League {league} Grp. {group}"): "nations_league"
+       for league, groups in (("A", 4), ("B", 4), ("C", 4), ("D", 2))
+       for group in range(1, groups + 1)},
+    ("INT", "Friendlies"): "landskamper",
 }
 
 # FotMob-statistiknyckel → vår kolumn. Endast kumulativa ALL-värden.
@@ -277,20 +284,20 @@ def _scope_friendlies(store, live: list[dict],
     """Släpp bara in träningsmatcher som finns i Oddset — SAMMA delade spärr
     (inkl. spegelvänd hemma/borta) som Sofascore-varvet, tillämpad FÖRE
     detaljanropen så att bortfiltrerade matcher inte kostar trafik."""
-    from .live_radar import known_friendly
-    if not any(m["league"] == "friendlies" for m in live):
+    from .live_radar import GATED_LEAGUES, known_friendly
+    if not any(m["league"] in GATED_LEAGUES for m in live):
         return live
     if known_matches is None:
         now = _now()
         known_matches = store.oddset_matches(
             _iso(now - dt.timedelta(hours=6)),
             _iso(now + dt.timedelta(hours=6)))
-    friendlies = [m for m in known_matches
-                  if m.get("league") == "friendlies"]
+    known_by_league = {league: [m for m in known_matches if m.get("league") == league]
+                       for league in GATED_LEAGUES}
     return [m for m in live
-            if m["league"] != "friendlies"
+            if m["league"] not in GATED_LEAGUES
             or known_friendly(m.get("home") or "", m.get("away") or "",
-                              _start_ts(m), friendlies)]
+                              _start_ts(m), known_by_league[m["league"]])]
 
 
 def _rank(match: dict) -> tuple:

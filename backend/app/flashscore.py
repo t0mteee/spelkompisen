@@ -137,6 +137,14 @@ LEAGUE_NAMES = {
     "EUROPE: Europa League - Qualification": "europa_league",
     "EUROPE: Conference League": "conference_league",
     "EUROPE: Conference League - Qualification": "conference_league",
+    # Landslagen (v13, 2026-10-03). Avlästa ur Flashscores egna dagsfeeds
+    # 2026-10-03–06. Damernas "WORLD: Friendly International Women" och
+    # CONCACAF:s Nations League ligger medvetet utanför scopet.
+    "EUROPE: UEFA Nations League - League A": "nations_league",
+    "EUROPE: UEFA Nations League - League B": "nations_league",
+    "EUROPE: UEFA Nations League - League C": "nations_league",
+    "EUROPE: UEFA Nations League - League D": "nations_league",
+    "WORLD: Friendly International": "landskamper",
 }
 
 # Flashscores statistiketiketter → våra kolumner. Bara kumulativa helmatchsmått.
@@ -556,19 +564,20 @@ def _scope_friendlies(store, live: list[dict],
     """Släpp bara in träningsmatcher som finns i Oddset — SAMMA delade spärr
     (inkl. spegelvänd hemma/borta) som Sofascore- och FotMob-varven, tillämpad
     FÖRE statistikanropen så att bortfiltrerade matcher inte kostar trafik."""
-    from .live_radar import known_friendly
-    if not any(m["league"] == "friendlies" for m in live):
+    from .live_radar import GATED_LEAGUES, known_friendly
+    if not any(m["league"] in GATED_LEAGUES for m in live):
         return live
     if known_matches is None:
         now = _now()
         known_matches = store.oddset_matches(
             _iso(now - dt.timedelta(hours=6)),
             _iso(now + dt.timedelta(hours=6)))
-    friendlies = [m for m in known_matches if m.get("league") == "friendlies"]
+    known_by_league = {league: [m for m in known_matches if m.get("league") == league]
+                       for league in GATED_LEAGUES}
     return [m for m in live
-            if m["league"] != "friendlies"
+            if m["league"] not in GATED_LEAGUES
             or known_friendly(m.get("home") or "", m.get("away") or "",
-                              m.get("start_ts"), friendlies)]
+                              m.get("start_ts"), known_by_league[m["league"]])]
 
 
 def _rank(match: dict, observed_at: dt.datetime) -> tuple:

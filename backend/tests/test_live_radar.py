@@ -150,8 +150,8 @@ class LiveRadarTests(unittest.TestCase):
             self.assertNotIn(league, live_radar.SOFA_UT)
             self.assertEqual(0, live_radar.LEAGUE_PRIORITY[league])
 
-    def test_v12_och_alla_synliga_ligor_har_liveprioritet(self):
-        self.assertEqual("chance-gap-shadow-v12", live_radar.RADAR_VERSION)
+    def test_v13_och_alla_synliga_ligor_har_liveprioritet(self):
+        self.assertEqual("chance-gap-shadow-v13", live_radar.RADAR_VERSION)
         # Passerade gränser är frysta — en ändring skulle märka om historiska
         # captures och tyst blanda ihop kohorterna.
         self.assertEqual("2026-08-01T08:00:00Z",
@@ -173,12 +173,24 @@ class LiveRadarTests(unittest.TestCase):
         self.assertEqual("2026-08-21T22:00:00Z",
                          live_radar.RADAR_V11_STARTED_AT)
         self.assertEqual("2026-09-02T22:00:00Z",
+                         live_radar.RADAR_V12_STARTED_AT)
+        self.assertEqual("2026-10-03T08:45:00Z",
                          live_radar.RADAR_VERSION_STARTED_AT)
         for key in ("bestadeild", "premier_league", "serie_a", "la_liga",
                     "bundesliga", "championship", "danish_superliga",
                     "belgian_pro_league", "primeira_liga",
-                    "bolivian_primera", "ligue_1"):
+                    "bolivian_primera", "ligue_1", "nations_league"):
             self.assertEqual(0, live_radar.LEAGUE_PRIORITY[key])
+        self.assertEqual(1, live_radar.LEAGUE_PRIORITY["landskamper"])
+
+    def test_landslag_lankas_pa_landskod_och_klubbar_som_forut(self):
+        self.assertTrue(live_radar._same_team("Kroatien", "Croatia"))
+        self.assertTrue(live_radar._same_team("Bosnien-Hercegovina",
+                                              "Bosnia and Herzegovina"))
+        self.assertFalse(live_radar._same_team("Irland", "Northern Ireland"))
+        self.assertFalse(live_radar._same_team("Ireland", "Northern Ireland"))
+        self.assertTrue(live_radar._same_team("Djurgården", "Djurgårdens IF"))
+        self.assertFalse(live_radar._same_team("Inter", "Inter Miami"))
 
     def test_global_friendly_requires_match_in_our_oddset_view(self):
         friendly = event()

@@ -25,7 +25,7 @@ from scripts import migrera_radar_event_id_text, migrera_radar_settlement
 # Klockan ligger i den AKTIVA radarkohortens fönster. Flyttas gränsen
 # (ny signalversion) måste den här följa med, annars blir fixturens
 # captures `transitional` och tillhör per definition ingen kohort.
-NOW = dt.datetime(2026, 9, 3, 5, 0, tzinfo=dt.timezone.utc)
+NOW = dt.datetime(2026, 10, 4, 5, 0, tzinfo=dt.timezone.utc)
 T0 = NOW - dt.timedelta(hours=5)     # stängd serie: sista capture > 3 h gammal
 HISTORICAL_NOW = dt.datetime(2026, 8, 4, 12, 0, tzinfo=dt.timezone.utc)
 
@@ -548,6 +548,20 @@ class CohortBoundaryTests(unittest.TestCase):
         self.assertEqual(
             live_radar.RADAR_V12_VERSION,
             live_radar.cohort_for("2026-09-02T22:00:00Z",
+                                  produced_by=live_radar.RADAR_V12_VERSION))
+
+    def test_v13_landslag_scope_start_is_a_clean_boundary(self):
+        self.assertEqual(
+            live_radar.RADAR_TRANSITIONAL,
+            live_radar.cohort_for("2026-10-03T08:44:59Z",
+                                  produced_by=live_radar.RADAR_V13_VERSION))
+        self.assertEqual(
+            live_radar.RADAR_V13_VERSION,
+            live_radar.cohort_for("2026-10-03T08:45:00Z",
+                                  produced_by=live_radar.RADAR_V13_VERSION))
+        self.assertEqual(
+            live_radar.RADAR_TRANSITIONAL,
+            live_radar.cohort_for("2026-10-03T08:45:00Z",
                                   produced_by=live_radar.RADAR_V12_VERSION))
 
     def test_declared_start_before_the_real_switch_yields_transitional(self):

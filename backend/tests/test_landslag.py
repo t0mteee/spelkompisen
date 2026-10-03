@@ -107,9 +107,15 @@ class LandslagsLigorTests(unittest.TestCase):
         self.assertEqual([200719, 200721, 200726, 200727],
                          leagues["nations_league"]["pin_ids"])
         self.assertFalse(nya & set(oddset_data.MODEL_LEAGUES))
-        # Liveradarn följer med först i en ny radarversion med egen metodnot.
+        # Liveradarn följer med sedan v13 (docs/radar-scope-v13-2026-10-03.md):
+        # via Flashscore och FotMob, aldrig via Sofascore (urkopplad).
+        from app import flashscore, fotmob
         self.assertFalse(nya & set(live_radar.TARGET_UT.values()))
-        self.assertFalse(nya & set(live_radar.LEAGUE_PRIORITY))
+        self.assertLessEqual(nya, set(live_radar.LEAGUE_PRIORITY))
+        self.assertLessEqual(nya, set(flashscore.LEAGUE_NAMES.values()))
+        self.assertLessEqual(nya, set(fotmob.LEAGUE_NAMES.values()))
+        self.assertIn("landskamper", live_radar.GATED_LEAGUES)
+        self.assertNotIn("WORLD: Friendly International Women", flashscore.LEAGUE_NAMES)
         # Klubbligorna kopplas som förut, på namnlikhet.
         self.assertFalse(any(lg.get("landslag") for lg in oddset.LEAGUES
                              if lg["key"] not in nya))

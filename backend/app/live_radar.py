@@ -44,7 +44,8 @@ RADAR_V9_VERSION = "chance-gap-shadow-v9"
 RADAR_V10_VERSION = "chance-gap-shadow-v10"
 RADAR_V11_VERSION = "chance-gap-shadow-v11"
 RADAR_V12_VERSION = "chance-gap-shadow-v12"
-RADAR_VERSION = RADAR_V12_VERSION
+RADAR_V13_VERSION = "chance-gap-shadow-v13"
+RADAR_VERSION = RADAR_V13_VERSION
 
 # En observation som inte bevisligen hör till någon kohort. Se `cohort_for`.
 RADAR_TRANSITIONAL = "transitional"
@@ -113,7 +114,25 @@ RADAR_V11_STARTED_AT = "2026-08-21T22:00:00Z"
 # Gränsen ligger framåt vid midnatt CEST; eventuell koddrift före den blir
 # transitional och får aldrig blandas in i v11 eller v12.
 RADAR_V12_STARTED_AT = "2026-09-02T22:00:00Z"
-RADAR_VERSION_STARTED_AT = RADAR_V12_STARTED_AT
+# v13 (2026-10-03): landslagen läggs till — Nations League A–D och
+# landskamper (vänskap), på Samans beställning under landslagsuppehållet.
+# Populationen ändras, och identitetsregeln får ett tillägg: är BÅDA namnen
+# kända landslag avgör FIFA-landskoden (app/landslag.py) i `_same_team`.
+# Oddset visar Svenska Spels svenska namn ("Kroatien"), providrarna engelska
+# ("Croatia"). Klubbnamn är aldrig exakta landsnamn, så klubbligornas
+# länkning är oförändrad. Landskamper går genom samma Oddset-spärr som
+# klubbarnas träningsmatcher (`GATED_LEAGUES`): 24 landskamper fanns i
+# Flashscores dagsfeed, 5–7 i Oddset. Trösklar, providers, källrankning och
+# prisprocess är oförändrade.
+#
+# Ligarubrikerna är AVLÄSTA ur providrarnas egna flöden 2026-10-03–06, aldrig
+# gissade: Flashscore "EUROPE: UEFA Nations League - League A/B/C/D" och
+# "WORLD: Friendly International" (damernas rubrik lämnas utanför); FotMob
+# ("INT", "UEFA Nations League A–D Grp. n"), 14 grupprubriker, och
+# ("INT", "Friendlies"). Gränsen ligger framåt, strax efter driftsättningen
+# 10:30 CEST i förmiddagsluckan då ingen match i scopet pågår.
+RADAR_V13_STARTED_AT = "2026-10-03T08:45:00Z"
+RADAR_VERSION_STARTED_AT = RADAR_V13_STARTED_AT
 
 # OBSERVERADE växlingar — när koden faktiskt bytte.
 #
@@ -332,6 +351,9 @@ TARGET_UT = {tournament_id: league for league, tournament_id in SOFA_UT.items()}
 for _friendly_ut in (853, 35960, 27113, 27120, 32053, 32366, 27118):
     TARGET_UT[_friendly_ut] = "friendlies"
 FRIENDLY_UT = frozenset({853, 35960, 27113, 27120, 32053, 32366, 27118})
+# Globala vänskapsturneringar: bara matcher som finns i Oddset släpps in i
+# radarn (`known_friendly`). Landskamper (v13) går genom samma spärr.
+GATED_LEAGUES = frozenset({"friendlies", "landskamper"})
 
 # Europacuperna (2026-07-28): kvalet delar huvudturneringens UT hos Sofascore
 # (verifierat: Maccabi TA–Sheriff ut=679, Austria Wien–Liepaja ut=17015), så
@@ -367,7 +389,8 @@ LEAGUE_PRIORITY = {"allsvenskan": 0, "superettan": 0, "eliteserien": 0,
                    "primeira_liga": 0, "bolivian_primera": 0,
                    "ligue_1": 0,
                    "champions_league": 0, "europa_league": 0,
-                   "conference_league": 0, "friendlies": 1}
+                   "conference_league": 0, "nations_league": 0,
+                   "friendlies": 1, "landskamper": 1}
 
 STAT_KEYS = {
     "expectedGoals": ("xg_home", "xg_away"),
@@ -975,7 +998,8 @@ def previous_capture(earlier: list[dict],
 def declared_version_at(observed_at: str) -> str:
     """Vilken kohort som DEKLARERAT äger observationsögonblicket."""
     observed = _parse_iso(observed_at)
-    for version, start in ((RADAR_V12_VERSION, RADAR_V12_STARTED_AT),
+    for version, start in ((RADAR_V13_VERSION, RADAR_V13_STARTED_AT),
+                           (RADAR_V12_VERSION, RADAR_V12_STARTED_AT),
                            (RADAR_V11_VERSION, RADAR_V11_STARTED_AT),
                            (RADAR_V10_VERSION, RADAR_V10_STARTED_AT),
                            (RADAR_V9_VERSION, RADAR_V9_STARTED_AT),
@@ -1099,7 +1123,15 @@ def _same_team(a: str, b: str) -> bool:
     'Djurgården' ↔ 'Djurgårdens IF' blir djurgarden ↔ djurgardens. Prefixregeln
     med minst fyra tecken täcker det utan att öppna för allmän likhetsmatchning.
     Ingen träff = matchen visas utan FotMob-data; vi gissar aldrig.
+
+    Landslag (v13): är BÅDA namnen kända landslag avgör landskoden — Oddset
+    visar svenska namn, providrarna engelska, och "Irland" ligger inuti
+    "Nordirland". Klubbnamn är aldrig exakta landsnamn och påverkas inte.
     """
+    from .landslag import kod
+    code_a, code_b = kod(a or ""), kod(b or "")
+    if code_a and code_b:
+        return code_a == code_b
     x, y = live_norm_team(a), live_norm_team(b)
     x, y = LIVE_TEAM_ALIASES.get(x, x), LIVE_TEAM_ALIASES.get(y, y)
     # Bekräftat olika klubbar stoppas FÖRE all likhetslogik. Hellre två kort
