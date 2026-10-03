@@ -304,6 +304,11 @@
 .v3notice ul { display: grid; gap: 8px; margin: 9px 0 1px; padding-left: 18px; }
 .v3notice li { padding-left: 2px; }
 .v3notice li b, .v3notice li span { display: block; }
+/* Kända fel (vakten v2): utredda och larmar inte — grå, längst ned på Idag. */
+.v3notice.v3known {
+  margin: 12px 0 0; border-color: var(--line); background: var(--panel);
+}
+.v3notice.v3known summary { color: var(--muted); font-weight: 500; }
 .v3notice li b { color: var(--text); font-size: 11px; }
 .v3notice li span { margin-top: 2px; }
 .v3grid {

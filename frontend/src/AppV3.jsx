@@ -288,19 +288,6 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponge
           </ul>
         </details>
       )}
-      {vaktKanda.length > 0 && (
-        <details className="v3notice">
-          <summary>{kandaSummary(health.vakt)}</summary>
-          <ul>
-            {vaktKanda.map((item, i) => (
-              <li key={`${item.kind}-${item.key || i}`}>
-                <b>{kindLabel(item.kind)}</b>
-                <span>{kandaText(item)}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
       {poolErrors.length > 0 && (
         <div className="v3alert" role="alert">
           <b>⚠️ Poolinsamlingen behöver tillsyn</b>
@@ -599,6 +586,20 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponge
             Topptipset Dagens, Stryk och Extra räknas som ett spel.</span>
         </div>
       </div>
+      {/* Kända fel (vakten v2) larmar inte: grå och längst ned, inte bland larmen. */}
+      {vaktKanda.length > 0 && (
+        <details className="v3notice v3known">
+          <summary>{kandaSummary(health.vakt)}</summary>
+          <ul>
+            {vaktKanda.map((item, i) => (
+              <li key={`${item.kind}-${item.key || i}`}>
+                <b>{kindLabel(item.kind)}</b>
+                <span>{kandaText(item)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   )
 }
