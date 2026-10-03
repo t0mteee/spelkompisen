@@ -668,9 +668,10 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
     # som kan vara plockade/suspenderade. Gamla priser i DB räcker inte.
     present: set[tuple] = set()
     pin = Pinnacle()
-    # Smarkets-ankaret: ETT anrop ger alla kommande fotbollsevent, som sedan
-    # delas mellan ligorna. Fel här får aldrig fälla insamlingen — ankaret är
-    # ett tillägg, inte en förutsättning.
+    # Smarkets-ankaret: kommande fotbollsevent hämtas EN gång per varv (sida
+    # för sida sedan 2026-09-19, se smarkets.upcoming_events) och delas mellan
+    # ligorna. Fel här får aldrig fälla insamlingen — ankaret är ett tillägg,
+    # inte en förutsättning.
     from . import smarkets
     smarkets_client = smarkets.Smarkets()
     smarkets_events: Optional[list[dict]] = None

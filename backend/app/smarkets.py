@@ -4,7 +4,12 @@ Verifierat 2026-07-24. Fyra anrop räcker för en hel liga (allt batchbart):
 
   GET /v3/events/?type=football_match&state=upcoming&limit=1000
         -> alla kommande fotbollsevent; ligan ligger i `full_slug`
-           (t.ex. /sport/football/sweden-allsvenskan/2026/07/25/...)
+           (t.ex. /sport/football/sweden-allsvenskan/2026/07/25/...).
+           SIDINDELAT sedan 2026-09-19 (mellan 16:00Z och 16:14Z): Smarkets
+           ger högst 50 event per svar, sorterade på id, oavsett `limit`, och
+           pekar vidare med `pagination.next_page`. Utan bläddring såg vi bara
+           de 50 äldsta eventen, och från 2026-09-22 gav nästan alla ligor
+           0 rader med ok-status. upcoming_events() följer därför sidorna.
   GET /v3/events/{id1,id2,...}/markets/     -> marknader, 1X2 = "Full-time result"
   GET /v3/markets/{m1,m2,...}/contracts/    -> kontrakt, slug home/draw/away
   GET /v3/markets/{m1,m2,...}/quotes/       -> orderboken per kontrakt
@@ -26,6 +31,7 @@ för att lita på den. Se docs/forbattringar.md.
 from __future__ import annotations
 
 import datetime as dt
+import urllib.parse
 from typing import Optional
 
 import httpx
@@ -35,7 +41,8 @@ HEADERS = {"User-Agent": "spelkompisen/1.0 (personligt analysverktyg)",
            "Accept": "application/json"}
 MARKET_1X2 = "Full-time result"
 SIGN_BY_SLUG = {"home": "1", "draw": "X", "away": "2"}
-EVENT_LIMIT = 1000
+EVENT_LIMIT = 1000  # begärd sidstorlek; Smarkets ger högst 50 sedan 2026-09-19
+MAX_PAGES = 60      # tak för bläddringen; 2026-10-03 räckte 19 sidor (916 event)
 BATCH = 40          # max id:n per batchat anrop — håll URL:en rimlig
 
 # Våra ligor → Smarkets ligasegment i full_slug (verifierat 2026-07-24;
@@ -64,24 +71,33 @@ LEAGUE_SLUGS = {
     # Smarkets kör TVÅ aktiva slugs för Besta deild (uppmätt 2026-07-27:
     # en bettable match under vardera) — värdet får därför vara en tupel.
     "bestadeild": ("iceland-premier-league", "iceland-besta-deild"),
-    # Europacuperna (2026-07-28): kvalslugs + Conference-huvudslug OBSERVERADE
-    # i upcoming-listan (9/9/37+8 event). CL/EL-huvudslugs är mönsterhärledda
-    # ur `international-clubs-uefa-conference-league` och overifierade tills
-    # ligafasen startar i september — en oanvänd slug matchar aldrig fel,
-    # den matchar bara ingenting.
-    "champions_league": ("international-clubs-uefa-champions-league",
+    # Europacuperna. Ligafasens slugs avlästa 2026-10-03 ur Smarkets egna
+    # full_slug i den sidbläddrade upcoming-listan (18 event vardera) och ur
+    # kompetitionsnoderna under /sport/football: uefa-champions-league
+    # (25363462), uefa-europa-league (25502999), uefa-europa-conference-league
+    # (42371743). Kvalnoderna *-qualification (41813154/41813166/42279468) är
+    # fortfarande aktiva; kvalslugsen observerades 2026-07-28 och gav rader
+    # till 2026-08-27 (CL 39, EL 51, Conference 145 matcher), men listar inga
+    # event förrän nästa kval. De tidigare huvudslugsen
+    # `international-clubs-uefa-*` (CL/EL mönsterhärledda ur en Conference-
+    # slug från juli) finns inte bland noderna, och Europa Leagues första
+    # ligafasomgång 16–17/9, före sidindelningen, fick inga Smarkets-rader.
+    "champions_league": ("uefa-champions-league",
                          "uefa-champions-league-qualification"),
-    "europa_league": ("international-clubs-uefa-europa-league",
+    "europa_league": ("uefa-europa-league",
                       "uefa-europa-league-qualification"),
-    "conference_league": ("international-clubs-uefa-conference-league",
+    "conference_league": ("uefa-europa-conference-league",
                           "uefa-europa-conference-league-qualification"),
-    # Landslagen (2026-10-03): Smarkets listade INGA landskamper — 0 av 50
-    # kommande fotbollsevent under Nations League-helgen (bara CL, Conference,
-    # Premier League och Argentina). None = prövad och frånvarande, ingen
-    # gissad slug; fyll i när en riktig full_slug observerats. Landslag
-    # kopplas då på landskod (oddset._resolve_landslag), aldrig fuzzy.
-    "nations_league": None,
-    "landskamper": None,
+    # Landslagen, avlästa 2026-10-03 ur den sidbläddrade listan: Nations
+    # League A–D 10/8/8/2 event och `international-friendlies` 9 event. Den
+    # tidigare noteringen "0 av 50" byggde på första sidan ensam. Noderna
+    # uefa-nations-league-finals och -promotion-relegation finns men saknar
+    # event och ligger utanför Pinnacle-scopet A–D. Landslag kopplas på
+    # landskod (oddset._resolve_landslag), aldrig fuzzy; alla 69 landsnamn
+    # i listan gav en FIFA-kod.
+    "nations_league": ("uefa-nations-league-a", "uefa-nations-league-b",
+                       "uefa-nations-league-c", "uefa-nations-league-d"),
+    "landskamper": "international-friendlies",
 }
 
 
@@ -113,7 +129,8 @@ class Smarkets:
     def __exit__(self, *exc) -> None:
         self.close()
 
-    def _get(self, path: str, params: Optional[dict] = None) -> dict:
+    def _get(self, path: str,
+             params: Optional[dict | list[tuple[str, str]]] = None) -> dict:
         r = self._client.get(f"{BASE}{path}", params=params)
         r.raise_for_status()
         return r.json()
@@ -133,17 +150,34 @@ class Smarkets:
         return out
 
     def upcoming_events(self) -> list[dict]:
-        """Alla kommande fotbollsevent (ett anrop, delas mellan ligorna)."""
-        data = self._get("/events/", {"type": "football_match",
-                                      "state": "upcoming",
-                                      "limit": EVENT_LIMIT})
-        return data.get("events") or []
+        """Alla kommande fotbollsevent, sida för sida (delas mellan ligorna).
+
+        `next_page` följs ordagrant: det är Smarkets egen fråga för nästa sida
+        (samma filter + `pagination_last_id`). Tar listan inte slut inom
+        MAX_PAGES är det ett FEL, aldrig en kortare lista — collect() markerar
+        varje kandidat som saknas i svaret `unavailable`, och en sida vi aldrig
+        läste är ingen observation (observationstidsregeln 6).
+        """
+        params: dict | list[tuple[str, str]] = {
+            "type": "football_match", "state": "upcoming", "limit": EVENT_LIMIT}
+        events: list[dict] = []
+        for _ in range(MAX_PAGES):
+            data = self._get("/events/", params)
+            events.extend(data.get("events") or [])
+            next_page = (data.get("pagination") or {}).get("next_page")
+            if not next_page:
+                return events
+            params = urllib.parse.parse_qsl(
+                urllib.parse.urlsplit(next_page).query)
+        raise RuntimeError(
+            f"smarkets: listan tog inte slut på {MAX_PAGES} sidor "
+            f"({len(events)} event) — en ofullständig lista används inte")
 
     def league_events(self, league: str, strict: bool = False,
                       events: Optional[list[dict]] = None) -> list[dict]:
         """Normaliserade 1X2-rader för en av VÅRA ligenycklar.
 
-        Skicka in `events` från upcoming_events() för att dela ett anrop
+        Skicka in `events` från upcoming_events() för att dela bläddringen
         mellan flera ligor. Returnerar per match:
           {id, home, away, start, odds{1,X,2}, back{1,X,2}, lay{1,X,2}}
         där `odds` är MID (fair-ankaret) och `back` är det man faktiskt kan

@@ -42,6 +42,52 @@ def _fake_get(path, params=None):
     raise AssertionError(f"oväntad path: {path}")
 
 
+# Ligafasens och landslagens full_slug är ordagranna ur Smarkets sidbläddrade
+# upcoming-lista 2026-10-03. Kvalets rader har samma form; kvalsegmenten
+# observerades 2026-07-28 men listar inga event förrän nästa kval.
+SLUG_FIXTURES = {
+    "cl": "/sport/football/uefa-champions-league/2026/10/14/19-00/"
+          "shakhtar-donetsk-vs-aek-athens",
+    "cl-kval": "/sport/football/uefa-champions-league-qualification/"
+               "2026/07/29/18-00/a-vs-b",
+    "el": "/sport/football/uefa-europa-league/2026/10/15/16-45/"
+          "sc-uniao-torreense-vs-sunderland",
+    "el-kval": "/sport/football/uefa-europa-league-qualification/"
+               "2026/07/31/17-00/c-vs-d",
+    "ecl": "/sport/football/uefa-europa-conference-league/2026/10/15/16-45/"
+           "kaa-gent-vs-agf-aarhus",
+    "ecl-kval": "/sport/football/uefa-europa-conference-league-qualification/"
+                "2026/07/30/16-00/e-vs-f",
+    "nl-a": "/sport/football/uefa-nations-league-a/2026/10/03/16-00/"
+            "croatia-vs-england",
+    "nl-b": "/sport/football/uefa-nations-league-b/2026/10/03/18-45/"
+            "north-macedonia-vs-scotland",
+    "nl-c": "/sport/football/uefa-nations-league-c/2026/10/03/13-00/"
+            "finland-vs-albania",
+    "nl-d": "/sport/football/uefa-nations-league-d/2026/10/04/16-00/"
+            "malta-vs-andorra",
+    "vanskap": "/sport/football/international-friendlies/2026/10/03/14-00/"
+               "india-vs-brazil",
+}
+
+
+def _orderbok_for_alla(path, params=None):
+    """Komplett 1X2-orderbok för varje id i ett batchat anrop."""
+    ids = path.split("/")[2].split(",")
+    if path.startswith("/events/") and path.endswith("/markets/"):
+        return {"markets": [{"id": f"m-{i}", "event_id": i,
+                             "name": "Full-time result", "state": "open"}
+                            for i in ids]}
+    if path.endswith("/contracts/"):
+        return {"contracts": [{"id": f"{m}-{s}", "market_id": m, "slug": s}
+                              for m in ids for s in ("home", "draw", "away")]}
+    if path.endswith("/quotes/"):
+        return {f"{m}-{s}": {"bids": [{"price": 3000}],
+                             "offers": [{"price": 3400}]}
+                for m in ids for s in ("home", "draw", "away")}
+    raise AssertionError(f"oväntad path: {path}")
+
+
 class SmarketsTests(unittest.TestCase):
     def setUp(self):
         self.client = smarkets.Smarkets.__new__(smarkets.Smarkets)
@@ -92,6 +138,66 @@ class SmarketsTests(unittest.TestCase):
         self.assertEqual([], self.client.league_events("allsvenskan"))
         with self.assertRaises(RuntimeError):
             self.client.league_events("allsvenskan", strict=True)
+
+    def _ids_per_liga(self, leagues):
+        events = [{"id": key, "name": "Hemma vs Borta", "bettable": True,
+                   "full_slug": slug, "start_datetime": "2026-10-15T19:00:00Z"}
+                  for key, slug in SLUG_FIXTURES.items()]
+        self.client._get = _orderbok_for_alla   # noqa: SLF001
+        return {league: {r["id"] for r in self.client.league_events(
+                    league, strict=True, events=events)}
+                for league in leagues}
+
+    def test_cupernas_slugs_avlasta_2026_10_03(self):
+        # Ligafas + kval per cup; "uefa-europa-league" får inte ta
+        # Conference-raderna eller kvalets och tvärtom.
+        self.assertEqual({
+            "champions_league": {"cl", "cl-kval"},
+            "europa_league": {"el", "el-kval"},
+            "conference_league": {"ecl", "ecl-kval"},
+        }, self._ids_per_liga(
+            ("champions_league", "europa_league", "conference_league")))
+
+    def test_landslagens_slugs_avlasta_2026_10_03(self):
+        self.assertEqual({
+            "nations_league": {"nl-a", "nl-b", "nl-c", "nl-d"},
+            "landskamper": {"vanskap"},
+        }, self._ids_per_liga(("nations_league", "landskamper")))
+
+    def test_upcoming_foljer_sidorna_till_slutet(self):
+        # Sedan 2026-09-19 ger Smarkets högst 50 event per svar och pekar
+        # vidare med next_page; första sidan ensam är inte hela listan.
+        fragor = []
+
+        def sidor(path, params=None):
+            fragor.append(dict(params))
+            if "pagination_last_id" not in fragor[-1]:
+                return {"events": [{"id": "1"}, {"id": "2"}],
+                        "pagination": {"next_page": (
+                            "?state=upcoming&type=football_match&limit=50"
+                            "&sort=id&pagination_last_id=2")}}
+            return {"events": [{"id": "3"}], "pagination": {"next_page": None}}
+
+        self.client._get = sidor   # noqa: SLF001
+        self.assertEqual(["1", "2", "3"],
+                         [e["id"] for e in self.client.upcoming_events()])
+        # nästa sida är Smarkets egen fråga, ordagrant
+        self.assertEqual({"state": "upcoming", "type": "football_match",
+                          "limit": "50", "sort": "id",
+                          "pagination_last_id": "2"}, fragor[1])
+        self.assertEqual(2, len(fragor))
+
+    def test_ofullstandig_bladdring_ar_ett_fel_inte_en_kortare_lista(self):
+        # En oläst sida får aldrig bli "matchen saknas hos Smarkets".
+        def utan_slut(path, params=None):
+            sista = int(dict(params).get("pagination_last_id", 0)) + 1
+            return {"events": [{"id": str(sista)}],
+                    "pagination": {"next_page": f"?pagination_last_id={sista}"}}
+
+        self.client._get = utan_slut   # noqa: SLF001
+        with mock.patch.object(smarkets, "MAX_PAGES", 3):
+            with self.assertRaises(RuntimeError):
+                self.client.upcoming_events()
 
 
 if __name__ == "__main__":
