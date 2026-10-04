@@ -1,0 +1,110 @@
+{
+ "generated_at": "2026-10-04T08:23:01Z",
+ "lower": "2026-10-06T09:23:01Z",
+ "upper": "2026-10-31T23:59:59Z",
+ "pairs": [
+  {
+   "pin": "pin:1636549962",
+   "svs": "svs:1027973940",
+   "league": "ligue_1",
+   "start": "2026-10-10T18:45:00Z",
+   "rule": "ena laget",
+   "pin_names": "Paris Saint-Germain–Le Mans",
+   "svs_names": "PSG–Le Mans",
+   "moved": {
+    "oddset_odds": 51,
+    "oddset_sharp_alt": 0,
+    "oddset_matchbook_liquidity": 0
+   },
+   "left": {
+    "oddset_value_log": 0
+   },
+   "sources": {
+    "expekt": 8,
+    "smarkets": 14,
+    "svenskaspel": 29
+   },
+   "svs_row": {
+    "kambi_id": "1027973940",
+    "home": "PSG",
+    "away": "Le Mans",
+    "start": "2026-10-10T18:45:00Z",
+    "updated_at": "2026-10-04T08:01:07Z"
+   },
+   "pin_updated_at": "2026-10-04T08:01:05Z"
+  },
+  {
+   "pin": "pin:1636267533",
+   "svs": "svs:1028943200",
+   "league": "champions_league",
+   "start": "2026-10-14T19:00:00Z",
+   "rule": "ena laget",
+   "pin_names": "Manchester City–Paris Saint-Germain",
+   "svs_names": "Manchester City–PSG",
+   "moved": {
+    "oddset_odds": 12,
+    "oddset_sharp_alt": 0,
+    "oddset_matchbook_liquidity": 0
+   },
+   "left": {
+    "oddset_value_log": 0
+   },
+   "sources": {
+    "expekt": 3,
+    "svenskaspel": 9
+   },
+   "svs_row": {
+    "kambi_id": "1028943200",
+    "home": "Manchester City",
+    "away": "PSG",
+    "start": "2026-10-14T19:00:00Z",
+    "updated_at": "2026-10-04T08:00:25Z"
+   },
+   "pin_updated_at": "2026-10-04T08:00:25Z"
+  },
+  {
+   "pin": "pin:1637154821",
+   "svs": "svs:1027973858",
+   "league": "ligue_1",
+   "start": "2026-10-17T15:15:00Z",
+   "rule": "ena laget",
+   "pin_names": "Strasbourg–Paris Saint-Germain",
+   "svs_names": "Strasbourg–PSG",
+   "moved": {
+    "oddset_odds": 8,
+    "oddset_sharp_alt": 0,
+    "oddset_matchbook_liquidity": 0
+   },
+   "left": {
+    "oddset_value_log": 0
+   },
+   "sources": {
+    "expekt": 3,
+    "svenskaspel": 5
+   },
+   "svs_row": {
+    "kambi_id": "1027973858",
+    "home": "Strasbourg",
+    "away": "PSG",
+    "start": "2026-10-17T15:15:00Z",
+    "updated_at": "2026-10-04T08:01:08Z"
+   },
+   "pin_updated_at": "2026-10-04T08:01:05Z"
+  }
+ ],
+ "skipped": [],
+ "blocking_tables": [
+  "oddset_absence_capture",
+  "oddset_absence_player",
+  "oddset_live_signal",
+  "oddset_prediction_capture",
+  "oddset_prediction_log",
+  "oddset_v22_shadow_capture",
+  "oddset_v2_feature_capture"
+ ],
+ "movable_tables": [
+  "oddset_odds",
+  "oddset_sharp_alt",
+  "oddset_matchbook_liquidity"
+ ]
+}

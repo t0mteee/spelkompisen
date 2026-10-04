@@ -889,6 +889,22 @@ class MultiSourceLeagueTests(unittest.TestCase):
         # Okända namn passerar orörda — listan är observerade par, ingen regel.
         self.assertEqual("fram reykjavik", oddset.norm_team("Fram Reykjavík"))
 
+    def test_kallkopplingens_alias_rar_inte_norm_team(self) -> None:
+        """PSG (Svenska Spel) ↔ Paris Saint-Germain (Pinnacle), 2026-10-04.
+
+        Aliaset gäller bara kopplingen mellan oddskällorna. `norm_team` är
+        oförändrad, så resultatnormaliseringen, poolmatcharen och liveradarns
+        länk ser samma namn som före beslutet."""
+        self.assertEqual("psg", oddset.norm_team("PSG"))
+        self.assertLess(oddset._team_sim("PSG", "Paris Saint-Germain"),
+                        oddset.MIN_TEAM_SIDE_SIM)
+        self.assertEqual(1.0, oddset._team_pair_score(
+            "PSG", "Le Mans", "Paris Saint-Germain", "Le Mans"))
+        cand = {"id": "pin:1", "home": "Paris Saint-Germain", "away": "Le Mans",
+                "start": "2026-10-10T18:45:00Z"}
+        self.assertIs(cand, oddset._resolve(
+            [cand], "PSG", "Le Mans", "2026-10-10T18:45:00Z"))
+
     def test_vanlig_liga_faller_tillbaka_pa_singelfalten(self) -> None:
         self.assertEqual([1728], oddset._pin_ids(
             {"key": "allsvenskan", "pin_id": 1728}))

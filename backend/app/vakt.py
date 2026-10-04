@@ -44,7 +44,9 @@ from zoneinfo import ZoneInfo
 
 from .storage import DEFAULT_DB
 
-VERSION = "vakt-v2"
+# v2 (2026-10-02): kända fel (KANDA_FEL). v3 (2026-10-04): H. Oddsets
+# matchidentitet (`check_identitet`).
+VERSION = "vakt-v3"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = DEFAULT_DB.parent
 STATUS_DIR_ENV = "SPELKOMPISEN_VAKT_DIR"
@@ -879,6 +881,90 @@ def check_experiment(ctx: Ctx, catalog: Optional[Callable[[Ctx], dict]] = None) 
     return findings
 
 
+# ── H. Oddsets matchidentitet ────────────────────────────────────────────
+#
+# En match ska ha EN rad med både Pinnacle- och Svenska Spel-id. En ren
+# Pinnacle-rad och en ren Svenska Spel-rad i samma liga, med avspark högst 2 h
+# isär, samma truppmarkörer och minst ett gemensamt lag, är samma match i två
+# identiteter, eftersom ett lag spelar en match i taget. Så såg listfönsterfelet
+# ut (170 kommande par 2026-10-03) och namnmissen PSG ↔ Paris Saint-Germain.
+# Insamlingen läker aldrig en sådan dubblett (käll-id:n är write-once), och
+# Svenska Spels odds saknar då Pinnacle-ankare. Landslag jämförs på landskod.
+IDENTITET_MAX_START_H = 2
+IDENTITET_EXEMPEL = 3
+# Truppmarkörer som i live_radar._SQUAD_MARKERS plus Svenska Spels damformer;
+# U-åldrar känns igen som "u" + siffror.
+IDENTITET_TRUPP = frozenset({"b", "ii", "reserve", "reserves", "academy", "youth",
+                             "women", "damer", "dam", "ladies", "wfc", "lfc"})
+
+
+def check_identitet(ctx: Ctx) -> list[dict]:
+    from .landslag import kod
+    from .oddset import LEAGUES, ODDS_LINK_ALIASES, norm_team
+
+    conn = _ro_connect(ctx.db_path)
+    try:
+        rows = [dict(zip(("id", "league", "home", "away", "start", "pin", "kambi"), row))
+                for row in conn.execute(
+                    "SELECT id, league, home, away, start, pinnacle_id, kambi_id "
+                    "FROM oddset_matches "
+                    "WHERE (pinnacle_id IS NULL) != (kambi_id IS NULL)")]
+    finally:
+        conn.close()
+    for row in rows:
+        row["at"] = _at(row["start"])
+    rows = [row for row in rows if row["at"] and row["at"] >= ctx.now]
+    landslag = {league["key"] for league in LEAGUES if league.get("landslag")}
+
+    def trupp(name: str) -> frozenset[str]:
+        return frozenset(token for token in norm_team(name or "").split()
+                         if token in IDENTITET_TRUPP
+                         or (token.startswith("u") and token[1:].isdigit()))
+
+    def lag(name: str, league: str) -> Optional[str]:
+        if league in landslag:
+            return kod(name or "")
+        normalized = norm_team(name or "")
+        return ODDS_LINK_ALIASES.get(normalized, normalized) or None
+
+    pins: dict[str, list[dict]] = {}
+    for row in rows:
+        if row["pin"] is not None:
+            pins.setdefault(row["league"], []).append(row)
+    limit = dt.timedelta(hours=IDENTITET_MAX_START_H)
+    pairs = []
+    for svs in (row for row in rows if row["kambi"] is not None):
+        teams = {lag(svs["home"], svs["league"]), lag(svs["away"], svs["league"])} - {None}
+        for pin in pins.get(svs["league"], ()):
+            if abs(pin["at"] - svs["at"]) > limit:
+                continue
+            if (trupp(pin["home"]) != trupp(svs["home"])
+                    or trupp(pin["away"]) != trupp(svs["away"])):
+                continue
+            if teams & {lag(pin["home"], pin["league"]), lag(pin["away"], pin["league"])}:
+                pairs.append({"league": svs["league"], "start": svs["start"],
+                              "pin": pin["id"], "svs": svs["id"],
+                              "pin_names": f"{pin['home']}–{pin['away']}",
+                              "svs_names": f"{svs['home']}–{svs['away']}"})
+    pairs.sort(key=lambda pair: (pair["start"], pair["pin"]))
+    ctx.summary["identitet"] = {
+        "delade": len(pairs),
+        "rena_pinnacle": sum(len(group) for group in pins.values()),
+        "rena_svenskaspel": sum(1 for row in rows if row["kambi"] is not None)}
+    if not pairs:
+        return []
+    examples = "; ".join(f"{pair['svs_names']} {pair['start'][:16]}Z ({pair['league']})"
+                         for pair in pairs[:IDENTITET_EXEMPEL])
+    more = f" och {len(pairs) - IDENTITET_EXEMPEL} till" if len(pairs) > IDENTITET_EXEMPEL else ""
+    return [_finding(
+        "warning", "jobb", "oddset_delad_identitet", "oddset",
+        f"{len(pairs)} kommande Oddset-matcher har en Pinnacle-rad och en "
+        f"Svenska Spel-rad, så Svenska Spels odds saknar Pinnacle-ankare: "
+        f"{examples}{more}. Utred namn eller avsparkstid "
+        "(docs/overlamningar/overlamning-2026-10-03-oddset-identitet.md).",
+        pairs=pairs[:20])]
+
+
 # ── körning ──────────────────────────────────────────────────────────────
 
 CHECKS: tuple[tuple[str, str, Callable[[Ctx], list[dict]]], ...] = (
@@ -890,6 +976,7 @@ CHECKS: tuple[tuple[str, str, Callable[[Ctx], list[dict]]], ...] = (
     ("tester", "tester", check_tester),
     ("server", "server", check_server),
     ("experiment", "experiment", check_experiment),
+    ("identitet", "jobb", check_identitet),
 )
 
 

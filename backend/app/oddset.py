@@ -353,6 +353,18 @@ TEAM_ALIASES = {
     "milton keynes dons": "mk dons",
 }
 
+# Källkopplingens EGNA alias (2026-10-04, Samans beslut). Gäller bara när
+# Oddsets källor kopplas ihop (`_team_pair_score`), aldrig `norm_team`.
+# TEAM_ALIASES slår igenom i resultatnormaliseringen, poolmatcharen och
+# liveradarns länk (norm_team körs före LIVE_TEAM_ALIASES), och PSG-namnen där
+# är redan rätt eller ett eget beslut: poolen skriver "Paris Saint-Germain",
+# Flashscore "PSG" i radarns v13-kohort. Svenska Spel skriver `PSG` och
+# Pinnacle `Paris Saint-Germain`: likheten 0,27 höll isär alla tio PSG-matcher
+# sedan augusti. Endast observerade par, samma regel som TEAM_ALIASES.
+ODDS_LINK_ALIASES = {
+    "psg": "paris saint germain",
+}
+
 
 def norm_team(name: str) -> str:
     """Normalisera klubbnamn för källmatchning: gemener, inga diakriter,
@@ -366,8 +378,11 @@ def norm_team(name: str) -> str:
     return TEAM_ALIASES.get(out, out)
 
 
-def _team_sim(a: str, b: str) -> float:
+def _team_sim(a: str, b: str,
+              aliases: Optional[dict[str, str]] = None) -> float:
     na, nb = norm_team(a), norm_team(b)
+    if aliases:
+        na, nb = aliases.get(na, na), aliases.get(nb, nb)
     if not na or not nb:
         return 0.0
     if na == nb or na in nb or nb in na:
@@ -377,8 +392,8 @@ def _team_sim(a: str, b: str) -> float:
 
 def _team_pair_score(home_a: str, away_a: str,
                      home_b: str, away_b: str) -> float:
-    home_score = _team_sim(home_a, home_b)
-    away_score = _team_sim(away_a, away_b)
+    home_score = _team_sim(home_a, home_b, ODDS_LINK_ALIASES)
+    away_score = _team_sim(away_a, away_b, ODDS_LINK_ALIASES)
     if min(home_score, away_score) < MIN_TEAM_SIDE_SIM:
         return 0.0
     return (home_score + away_score) / 2

@@ -159,10 +159,11 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       `pool-reserve-ou-v2` sedan 2026-09-24T19:51:01Z: gemensam kö per basvarv (`register`
                       i produktloopen, `run_queue` efter): aldrig kontrollerad → äldst →
                       närmast spelstopp, 3 anrop, 15 min cooldown, inget efter spelstopp
-  app/vakt.py         DRIFTVAKTEN vakt-v2 (2026-10-01; `cli.py vakt`, launchd
+  app/vakt.py         DRIFTVAKTEN vakt-v3 (2026-10-01; `cli.py vakt`, launchd
                       `com.saman.spelkompisen.vakt` var 30:e min): källprov, jobb, append-only-
                       insamling, backendloggar, driftkopia mot GitHub, nattlig testsvit i
-                      temporär worktree, disk och testkatalog. Ingen AI, inga källanrop, DB
+                      temporär worktree, disk, testkatalog och Oddsets delade identiteter
+                      (samma match i en Pinnacle- och en SvS-rad). Ingen AI, inga källanrop, DB
                       `mode=ro` (`Storage(read_only=True)`). Läget i `backend/data/vakt/vakt.json`;
                       `/api/health` visar fel/varningar som `product: "server"` ("Drift att se
                       över" på Idag), info-fynd under `vakt.notes`. Trösklar: `docs/vakt.md`.
@@ -721,7 +722,10 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
   **Länkkandidaterna är ligans ALLA kommande rader (`link_cands`)**; listfönstret (10 d)
   styr bara frånvaromarkering, sidoböcker och ankare. Med bara fönstret fick matcher som
   listas tidigt en rad per källa som aldrig slogs ihop (2026-10-03,
-  `docs/overlamningar/overlamning-2026-10-03-oddset-identitet.md`).
+  `docs/overlamningar/overlamning-2026-10-03-oddset-identitet.md`). Ett namn som bara
+  skiljer mellan oddskällorna (SvS `PSG` ↔ Pinnacle `Paris Saint-Germain`) går i
+  `ODDS_LINK_ALIASES`, inte i `TEAM_ALIASES`. TEAM_ALIASES slår igenom i resultaten,
+  poolmatcharen och radarns länk.
 - Resultatidentitet: fuzzy auto-merge kräver >0,75 och ALLA sådana länkar ska synas i
   `cli.py modeldata` tills de flyttats till `TEAM_ALIAS`/meta. 0,55–0,75 mergas aldrig.
   Kända falska par i `TEAM_REJECTED_LINKS`.

@@ -222,7 +222,7 @@ prioritetsordning. ⚖ = kräver Samans beslut.
       notislänk via Tailscale utanför hemmanätet; bredda 6h-toleransen till 35 min om
       missarna syns i facit.
 
-22. ⏳ **Oddsets delade identiteter 2026-10-03**
+22. ✅ (2026-10-04) **Oddsets delade identiteter 2026-10-03**
     (`docs/overlamningar/overlamning-2026-10-03-oddset-identitet.md`). Länkningen prövade bara
     listfönstret (10 d). Matcher som båda källorna listade tidigare fick en `pin:`- och en
     `svs:`-rad: 30–33 % av matcherna 7–20/9 och 71–100 % efter landslagsuppehållet. ✅ Koden
@@ -231,12 +231,15 @@ prioritetsordning. ⚖ = kräver Samans beslut.
       sammanslagna, `integrity_check` ok, 0 identitetskonflikter (`docs/db-atgarder.md`).
     - ✅ Modellflaggorna på SvS-raderna (88 i 44 par) ligger kvar på sina gamla id (Samans
       godkännande av rekommendationen).
-    - ⚖ Datumnot 2026-10-03T20:45:28Z/20:46:40Z är införd i stället för en `DATA_VERSION`-bump
-      (rekommendation); gäller även V2.2, som åter ser Kambis visningsnamn på tidigt listade
-      matcher. Ändras bara om Saman vill bumpa.
-    - ⚖ PSG-alias i `TEAM_ALIASES` (10 delade par sedan augusti, 3 kommande). Rör Ligue 1:s
-      resultatnormalisering, därför eget beslut. Žalgiris och DAC har inga kommande matcher.
-    - Vaktkontroll som larmar när torrkörningen hittar nya par.
+    - ✅ 2026-10-04 Saman: låt vara. Datumnoten 2026-10-03T20:45:28Z/20:46:40Z gäller i
+      stället för en `DATA_VERSION`-bump, även för V2.2 (Kambis visningsnamn på tidigt
+      listade matcher).
+    - ✅ 2026-10-04 Saman: rätta PSG. Det görs med källkopplingens eget alias
+      (`oddset.ODDS_LINK_ALIASES`), inte `TEAM_ALIASES`, som också hade ändrat radarns
+      v13-länk och resultatnormaliseringen. De tre delade PSG-paren är sammanslagna
+      (`docs/db-atgarder.md`). Žalgiris och DAC har inga kommande matcher.
+    - ✅ 2026-10-04 Saman: kör. Vaktkontroll H (vakt-v3) larmar med `oddset_delad_identitet`
+      (varning) när en kommande match får två rader (`docs/vakt.md`).
 
 ## 2026-08-11 — AWS korrekt omtestat och avfärdat
 

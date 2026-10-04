@@ -8,6 +8,22 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-10-04 — Oddsets PSG-par (godkänd, körs efter driftsättningen)
+
+**Bakgrund.** Svenska Spel skriver `PSG` och Pinnacle `Paris Saint-Germain`.
+Likheten 0,27 höll isär alla PSG-matcher sedan augusti, även inom listfönstret.
+Saman beslutade 2026-10-04 att rätta det. Källkopplingens eget alias
+(`oddset.ODDS_LINK_ALIASES`) kopplar nya PSG-matcher. De tre redan delade
+kommande paren slås ihop med samma skript som 2026-10-03
+(`backend/scripts/migrera_oddset_identitetspar.py`), samma regler, backup först
+och snapshot-jobbet stoppat.
+
+**Torrkörning 2026-10-04T08:23:01Z** (med aliaset): 3 par (alla "ena laget"),
+0 överhoppade, 71 oddsrader att flytta, 0 modellflaggor. Plan:
+`docs/oddset-identitetspar-plan-2026-10-04-psg.json`.
+
+---
+
 ## 2026-10-03 — Oddsets identitetspar (körd 2026-10-03T20:46:40Z)
 
 **Bakgrund.** `oddset.collect()` länkade bara mot rader inom listfönstret

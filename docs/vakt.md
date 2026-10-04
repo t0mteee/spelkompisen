@@ -76,6 +76,7 @@ driftrubrik. Saknas `vakt.json` ⇒ `vakt_missing`; äldre än 90 min ⇒ `vakt_
 | **F. server** | `disk_lag` | warning < 10 GB, error < 3 GB | ledigt på volymen med `backend/data`; databasens storlek står i `checks.server.db_bytes` |
 | **G. experiment** — `pool_tests.catalog()` (samma som `/api/pool/tests`) | `test_status_andrad` (key `id:före->efter`) | info | ett tests rubrikstatus bytte sedan förra körningen |
 | | `avlasningspunkt_nadd` (key = test) | info | underlaget PASSERADE kravet (`n/krav` gick från under till på/över) medan testet fortfarande `samlar` |
+| **H. identitet** (vakt-v3, 2026-10-04) — `oddset_matches`, databasen `mode=ro` | `oddset_delad_identitet` (key `oddset`) | warning | en kommande match har en ren Pinnacle-rad och en ren Svenska Spel-rad: samma liga, avspark högst 2 h isär, samma truppmarkörer och minst ett gemensamt lag (`norm_team` + `oddset.ODDS_LINK_ALIASES`; landslag på landskod). Meddelandet visar tre exempel och `pairs` högst 20 |
 
 **Hålltider:** info-fynd ligger kvar 7 dygn efter senaste observation;
 `backend_5xx`, `backend_traceback` och backendens `natverk_nere` ligger kvar 24 h
@@ -123,6 +124,15 @@ driftrubrik. Saknas `vakt.json` ⇒ `vakt_missing`; äldre än 90 min ⇒ `vakt_
   `avlasningspunkt_nadd` noterar bara ÖVERGÅNGEN: poolopt står på 62/40 efter sin
   avläsning vid 40 och ska inte läsas av igen förrän vid 120 (Samans beslut 5aA),
   så ett permanent "nått" vore en inbjudan att titta. Första körningen är baslinje.
+- **Oddsets matchidentitet (H)** fångar samma match i två rader, både
+  listfönsterfelet (170 par 2026-10-03) och namnmissar som PSG ↔ Paris
+  Saint-Germain. Ett gemensamt lag räcker som bevis, eftersom ett lag spelar en
+  match i taget. Truppmarkörerna (U21, dam, II …) måste vara lika, och damlandslag
+  och U-landslag får ingen landskod. Bara kommande matcher räknas; tider jämförs
+  som tider. Nivån är varning: den startar ingen larmkörning hos agenten (bara
+  `error` gör det), och åtgärden är ett beslut, inte en omstart. Insamlingen läker
+  aldrig en dubblett själv (käll-id:n är write-once). Utredning och sammanslagning:
+  `docs/overlamningar/overlamning-2026-10-03-oddset-identitet.md`.
 
 ## Driftsättning (efter merge till main)
 

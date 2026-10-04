@@ -447,6 +447,74 @@ class InsamlingTests(Base):
         self.assertFalse((self.root / "finns-inte").exists())
 
 
+class IdentitetTests(Base):
+    """H. Oddsets matchidentitet: en match i två rader (2026-10-04)."""
+
+    def rows(self, *matches: tuple) -> None:
+        store = Storage(self.data / "stryktips.db")
+        try:
+            for mid, league, home, away, start in matches:
+                source = {"pinnacle_id": mid[4:]} if mid.startswith("pin:") \
+                    else {"kambi_id": mid[4:]}
+                store.oddset_upsert_match({"id": mid, "league": league, "home": home,
+                                           "away": away, "start": start, **source})
+        finally:
+            store.close()
+
+    def test_samma_match_i_tva_rader_larmar(self):
+        self.rows(
+            # Namnmiss: PSG ↔ Paris Saint-Germain, ett gemensamt lag räcker.
+            ("pin:1", "ligue_1", "Paris Saint-Germain", "Le Mans", "2026-10-10T18:45:00Z"),
+            ("svs:2", "ligue_1", "PSG", "Le Mans", "2026-10-10T18:45:00Z"),
+            # Listfönsterfelet: exakt samma namn, en rad per källa.
+            ("pin:3", "premier_league", "Arsenal", "Leeds United", "2026-10-10T11:30:00Z"),
+            ("svs:4", "premier_league", "Arsenal", "Leeds", "2026-10-10T11:30:00Z"),
+            # Landslag på landskod.
+            ("pin:5", "nations_league", "Ireland", "Northern Ireland", "2026-10-06T18:45:00Z"),
+            ("svs:6", "nations_league", "Irland", "Nordirland", "2026-10-06T18:45:00Z"))
+
+        findings = vakt.check_identitet(self.ctx())
+
+        self.assertEqual(1, len(findings))
+        finding = findings[0]
+        self.assertEqual(("warning", "jobb", "oddset_delad_identitet", "oddset"), (
+            finding["level"], finding["area"], finding["kind"], finding["key"]))
+        self.assertEqual({("pin:1", "svs:2"), ("pin:3", "svs:4"), ("pin:5", "svs:6")},
+                         {(pair["pin"], pair["svs"]) for pair in finding["pairs"]})
+        self.assertIn("3 kommande", finding["message"])
+
+    def test_skilda_matcher_trupper_och_lankade_rader_larmar_inte(self):
+        self.rows(
+            # Olika landskamper vid samma avspark: inget gemensamt lag.
+            ("pin:1", "nations_league", "Moldova", "Slovakia", "2026-10-06T18:45:00Z"),
+            ("svs:2", "nations_league", "Kroatien", "Spanien", "2026-10-06T18:45:00Z"),
+            # A-laget och U21-laget är olika lag.
+            ("pin:3", "friendlies", "Arsenal", "Brentford", "2026-10-07T12:00:00Z"),
+            ("svs:4", "friendlies", "Arsenal U21", "Brentford U21", "2026-10-07T12:00:00Z"),
+            # Mer än 2 h isär: en annan match.
+            ("pin:5", "la_liga", "Getafe", "Elche", "2026-10-08T12:00:00Z"),
+            ("svs:6", "la_liga", "Getafe", "Elche", "2026-10-08T15:00:00Z"),
+            # Spelad match: inte längre ett driftfel att åtgärda.
+            ("pin:7", "serie_a", "Inter", "Parma", "2026-09-20T12:00:00Z"),
+            ("svs:8", "serie_a", "Inter", "Parma", "2026-09-20T12:00:00Z"))
+        store = Storage(self.data / "stryktips.db")
+        try:
+            # En rad med båda id:na är rätt läge.
+            store.oddset_upsert_match({
+                "id": "pin:9", "league": "bundesliga", "home": "Mainz 05",
+                "away": "Freiburg", "start": "2026-10-09T13:30:00Z",
+                "pinnacle_id": "9", "kambi_id": "10"})
+        finally:
+            store.close()
+
+        ctx = self.ctx()
+        self.assertEqual([], vakt.check_identitet(ctx))
+        self.assertEqual(0, ctx.summary["identitet"]["delade"])
+
+    def test_kontrollen_ingar_i_vakten(self):
+        self.assertIn(("identitet", "jobb", vakt.check_identitet), vakt.CHECKS)
+
+
 class DriftTests(Base):
     def runner(self, extra: dict | None = None) -> FakeRunner:
         base = {
@@ -729,7 +797,7 @@ class KandaFelTests(Base):
             return self.fynd()[:2]
         status = self.run_vakt((("kallor", "kallor", kallor),), now=self.NU)
         self.assertEqual({"kanda": 2}, status["counts"])
-        self.assertEqual("vakt-v2", status["version"])
+        self.assertEqual("vakt-v3", status["version"])
         text = vakt.format_status(status)
         self.assertIn("· 2 kända ·", text)
         self.assertIn("(känt, larmar inte till och med 2026-10-31)", text)
@@ -741,7 +809,7 @@ class KandaFelTests(Base):
 class WriteStatusTests(Base):
     def test_atomisk_skrivning_och_en_loggrad_per_korning(self):
         status = self.run_vakt(())
-        self.assertEqual("vakt-v2", status["version"])
+        self.assertEqual("vakt-v3", status["version"])
         on_disk = json.loads((self.status_dir / vakt.STATUS_FILE).read_text())
         self.assertEqual(status["checked_at"], on_disk["checked_at"])
         self.assertEqual([], [p.name for p in self.status_dir.iterdir()

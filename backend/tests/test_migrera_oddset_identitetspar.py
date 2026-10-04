@@ -204,9 +204,14 @@ class OddsetIdentityPairMigrationTests(unittest.TestCase):
         self.assertEqual("ena laget", rule(
             {**base, "home": "Augsburg", "away": "Bayern Munich"},
             {**base, "home": "FC Augsburg", "away": "Bayern München"}))
-        self.assertIsNone(rule(
+        # PSG kopplas sedan källkopplingens alias 2026-10-04
+        # (oddset.ODDS_LINK_ALIASES); namnen är fortfarande inte ordlika.
+        self.assertEqual("ena laget", rule(
             {**base, "home": "Manchester City", "away": "Paris Saint-Germain"},
             {**base, "home": "Manchester City", "away": "PSG"}))
+        self.assertIsNone(rule(
+            {**base, "home": "Manchester City", "away": "Chelsea"},
+            {**base, "home": "Manchester City", "away": "Brentford"}))
         landslag = {"league": "nations_league"}
         self.assertEqual("landskod", rule(
             {**landslag, "home": "Ireland", "away": "Northern Ireland"},

@@ -19,6 +19,10 @@
   Utfallet står i avsnitt 5.
 - **138 passerade par lämnas orörda.** Append-only-tabeller (WP5, V2.2,
   frånvaro) refererar båda raderna.
+- **2026-10-04 (Samans beslut):** signalversionen lämnas med datumnot. PSG
+  kopplas via källkopplingens eget alias, och de tre delade PSG-paren är
+  sammanslagna. Driftvakten fick kontroll H, som larmar när en match får två
+  rader (avsnitt 8).
 
 ## 1. Mekanismen i koden
 
@@ -255,7 +259,7 @@ ny körning med samma plan slår ihop 0 par och tar en ny backup.
 ## 6. Namnmissar (separat fynd, inte fönstret)
 
 16 delningar sedan juli beror på namnen och hade skett även inom fönstret.
-Ingen av dem är med i planen.
+Ingen av dem är med i planen från 2026-10-03. PSG är rättat 2026-10-04 (avsnitt 8).
 
 | Lag | Pinnacle | Svenska Spel | Par | Varav kommande |
 |---|---|---|---:|---:|
@@ -275,22 +279,57 @@ inte länkningen.
    utan Pinnacle-ankare, eftersom Pinnacle låg på den andra raden. Med rätt
    länk hade de sett annorlunda ut eller inte funnits. De stängs aldrig,
    precis som tidigare, och utfallsvisningen upphör för dem.
-3. **Signalversion.** Rättelsen ändrar populationen: matcher som listas tidigt
-   får åter SvS bredvid Pinnacle. Det gäller främst de stora ligorna och
-   cuperna. Rekommendation: ingen `DATA_VERSION`-bump, eftersom signalernas
-   innebörd är oförändrad och ingen befintlig signal var fel. Använd i stället
-   en **datumnot** från driftsättningen, så att skörden kan redovisa regimen.
-   Datumnoten är införd: 2026-10-03T20:45:28Z (koden) och 20:46:40Z (de
-   sammanslagna paren). Ingen bump är gjord, men beslutet ligger kvar hos Saman.
-   Samma not gäller V2.2. Efter rättelsen ser V2.2 Kambis visningsnamn på
-   tidigt listade matcher, som före september, i stället för Pinnacles.
-   Ingen ny manifestversion föreslås.
-4. **PSG-alias** (`psg` → `paris saint germain` i `TEAM_ALIASES`).
-   Rekommendation: ja, men som eget beslut. Aliaset ändrar `norm_team` och
-   därmed resultatnormaliseringen i Ligue 1, som är en modelliga. Det finns
-   redan en resultatrad med `psg` i Ligue 1. V2.2 berörs inte, eftersom Ligue 1
-   inte ingår i `FIT_POOLS`. Žalgiris och DAC har inga kommande matcher.
-5. **Uppföljning** (inget beslut): en vaktkontroll som larmar när
-   torrkörningen hittar nya par. Efter rättelsen ska inga nya par uppstå
-   annat än vid namnmissar eller tider som skiljer mer än 2 h vid första
-   listningen.
+3. ✅ **Signalversion.** Saman 2026-10-04: låt vara. Datumnoten gäller,
+   2026-10-03T20:45:28Z för koden och 20:46:40Z för de sammanslagna paren.
+   Ingen `DATA_VERSION`-bump: signalernas innebörd är oförändrad och ingen
+   befintlig signal var fel. Skörden redovisar regimen. Samma not gäller
+   V2.2, som efter rättelsen ser Kambis visningsnamn på tidigt listade matcher,
+   som före september. Ingen ny manifestversion.
+4. ✅ **PSG.** Saman 2026-10-04: rätta. Det görs med källkopplingens EGET
+   alias (`oddset.ODDS_LINK_ALIASES`, `psg` → `paris saint germain`), inte i
+   `TEAM_ALIASES`. Avsnitt 8 förklarar varför. Žalgiris och DAC har inga
+   kommande matcher.
+5. ✅ **Vaktkontroll.** Saman 2026-10-04: kör. Den finns i vakt-v3 som
+   kontroll H, se avsnitt 8.
+
+## 8. 2026-10-04: PSG och vaktkontrollen
+
+### PSG via källkopplingens alias
+
+Förslaget i går var ett alias i `TEAM_ALIASES`. Det hade ändrat `norm_team`,
+och den används på fler ställen än källkopplingen:
+
+| Läsare av `norm_team` | PSG-namnen där | Följd av ett globalt alias |
+|---|---|---|
+| Oddsets källkoppling | SvS `PSG`, Pinnacle `Paris Saint-Germain` | önskad: matcherna kopplas |
+| Poolmatcharen (pool-name-v7) | Svenska Spels pool skriver `Paris Saint-Germain` (21 poolhändelser, aldrig `PSG`) | ingen |
+| Liveradarns länk (v13, kohort sedan 2026-10-03T08:45Z) | Flashscore `PSG`, FotMob `PSG` eller `Paris Saint-Germain` | ändrad länkväg mitt i kohorten; kohortregeln kräver då en ny radarversion |
+| Resultatnormaliseringen (Ligue 1) | en resultatrad `psg` | ändrad modelldata |
+| Modellen | Ligue 1 ger inga modellprognoser (0 sedan 21/8) | ingen |
+
+`ODDS_LINK_ALIASES` används bara i `_team_pair_score`, alltså av
+`_resolve` (Pinnacle, Svenska Spel, sidoböcker, Smarkets, Matchbook) och av
+migreringsskriptet. `norm_team("PSG")` är fortfarande `psg`, vilket ett test
+låser. Rättelsen ändrar alltså bara Oddsets källkoppling. Det är samma mönster
+som poolens `_POOL_TEAM_ALIASES` och radarns `LIVE_TEAM_ALIASES`.
+
+De tre redan delade paren slogs ihop med samma skript och granskade plan
+(`docs/oddset-identitetspar-plan-2026-10-04-psg.json`). Utfallet står i
+`docs/db-atgarder.md`.
+
+| Avspark (UTC) | Pinnacle-rad | Svenska Spel-rad | Match |
+|---|---|---|---|
+| 2026-10-10 18:45 | `pin:1636549962` | `svs:1027973940` | PSG–Le Mans (Ligue 1) |
+| 2026-10-14 19:00 | `pin:1636267533` | `svs:1028943200` | Manchester City–PSG (CL) |
+| 2026-10-17 15:15 | `pin:1637154821` | `svs:1027973858` | Strasbourg–PSG (Ligue 1) |
+
+### Vaktkontroll H (vakt-v3)
+
+`check_identitet` i `app/vakt.py` letar efter kommande matcher med en ren
+Pinnacle-rad och en ren Svenska Spel-rad. Raderna ska ha samma liga, avspark
+högst 2 h isär, samma truppmarkörer och minst ett gemensamt lag (landslag på
+landskod). Ett lag spelar en match i taget, så ett gemensamt lag räcker. Då
+fångas både listfönsterfelet och namnmissar. Fyndet `oddset_delad_identitet`
+är en varning under "Drift att se över" på Idag. Det startar ingen larmkörning
+hos agenten, eftersom bara `error` gör det. Före PSG-sammanslagningen hittade
+den exakt de tre PSG-paren och inget annat. Trösklar: `docs/vakt.md`.
