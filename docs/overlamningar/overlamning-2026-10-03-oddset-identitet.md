@@ -313,8 +313,10 @@ migreringsskriptet. `norm_team("PSG")` är fortfarande `psg`, vilket ett test
 låser. Rättelsen ändrar alltså bara Oddsets källkoppling. Det är samma mönster
 som poolens `_POOL_TEAM_ALIASES` och radarns `LIVE_TEAM_ALIASES`.
 
-De tre redan delade paren slogs ihop med samma skript och granskade plan
-(`docs/oddset-identitetspar-plan-2026-10-04-psg.json`). Utfallet står i
+De tre redan delade paren slogs ihop 2026-10-04T08:32:12Z med samma skript
+och en granskad plan (`docs/oddset-identitetspar-plan-2026-10-04-psg.json`):
+3 av 3 par, 80 oddsrader flyttade, `integrity_check` ok och 0
+identitetskonflikter. Koden (`e3f9507`) driftsattes 08:30:11Z. Detaljer i
 `docs/db-atgarder.md`.
 
 | Avspark (UTC) | Pinnacle-rad | Svenska Spel-rad | Match |

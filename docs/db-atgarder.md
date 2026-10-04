@@ -8,7 +8,7 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
-## 2026-10-04 — Oddsets PSG-par (godkänd, körs efter driftsättningen)
+## 2026-10-04 — Oddsets PSG-par (körd 2026-10-04T08:32:12Z)
 
 **Bakgrund.** Svenska Spel skriver `PSG` och Pinnacle `Paris Saint-Germain`.
 Likheten 0,27 höll isär alla PSG-matcher sedan augusti, även inom listfönstret.
@@ -21,6 +21,19 @@ och snapshot-jobbet stoppat.
 **Torrkörning 2026-10-04T08:23:01Z** (med aliaset): 3 par (alla "ena laget"),
 0 överhoppade, 71 oddsrader att flytta, 0 modellflaggor. Plan:
 `docs/oddset-identitetspar-plan-2026-10-04-psg.json`.
+
+**Körd 2026-10-04T08:32:12Z** efter driftsättningen av `e3f9507` (08:30:11Z).
+Snapshot-jobbet var vilande och urladdat 08:32:04–08:32:21Z; inget varv
+avbröts. Torrkörningen 08:32:04Z gav samma 3 par som planen. Backup:
+`backend/data/backups/stryktips-2026-10-04T083212Z-fore-oddset-identitetspar.db`.
+Utfall: **3 av 3** par sammanslagna. `oddset_matches` gick från **3 768 till
+3 765**. `oddset_odds` var oförändrat (902 097 i backupen), varav **80 rader
+flyttade** (svenskaspel 50, expekt 16, smarkets 14). `oddset_sharp_alt` och
+`oddset_matchbook_liquidity` hade 0 rader på SvS-id, och inga modellflaggor
+fanns där. Skriptets `moved_rows` (366 odds, 1 316 sharp_alt) är raderna på
+hela paren före, inte de flyttade. `PRAGMA integrity_check`: **ok**.
+Identitetskonflikter: 0. Driftvaktens kontroll H visade 0 delade par efteråt
+(vakt-v3, 08:33:03Z).
 
 ---
 
