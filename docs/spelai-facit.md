@@ -372,14 +372,23 @@ Notiserna skickas av `spelai-tick` som förut (avsnitt 9), ur journalen.
 
 ### Vad som är due (`app/spelai/roller.py`)
 
-| Prioritet | Uppgift (stabil nyckel) | Roll | Modell | Tid | Turer | När |
-|---|---|---|---|---|---|---|
-| 1 | `motivering:<produkt>:<omgång>:<horisont>` | forskaren | sonnet | 10 min | 25 | agentens förslag (6h/30m, `fryst`) frystes de senaste 2 h och har annan `rows_hash` än standarden på minst en nivå (båda `fryst`) |
-| 2 | `larm:<kind>:<key>` | driften | sonnet | 20 min | 40 | `level: error` i vaktens `vakt.json` med `since` EFTER `facit_start`; högst 3 larmkörningar per svenskt dygn |
-| 3 | `morgonrunda:<YYYY-MM-DD>` | driften | sonnet | 20 min | 40 | 07:00 ≤ svensk tid < 22:00, en per dygn |
-| 4 | `forskningspass:<YYYY-MM-DD>` | forskaren | opus | 40 min | 80 | 10:00 ≤ svensk tid < 22:00, en per dygn |
-| 5 | `veckogenomgang:<ISO-år>-W<vv>` | anvandaren | sonnet | 15 min | 30 | söndag 11:00 ≤ svensk tid < 22:00, en per vecka |
+| Prioritet | Uppgift (stabil nyckel) | Roll | Modell | Effort | Tid | Turer | När |
+|---|---|---|---|---|---|---|---|
+| 1 | `motivering:<produkt>:<omgång>:<horisont>` | forskaren | sonnet | medium | 10 min | 25 | agentens förslag (6h/30m, `fryst`) frystes de senaste 2 h och har annan `rows_hash` än standarden på minst en nivå (båda `fryst`) |
+| 2 | `larm:<kind>:<key>` | driften | sonnet | medium | 20 min | 40 | `level: error` i vaktens `vakt.json` med `since` EFTER `facit_start`; högst 3 larmkörningar per svenskt dygn |
+| 3 | `morgonrunda:<YYYY-MM-DD>` | driften | sonnet | medium | 20 min | 40 | 07:00 ≤ svensk tid < 22:00, en per dygn |
+| 4 | `forskningspass:<YYYY-MM-DD>` | forskaren | opus | high | 40 min | 80 | 10:00 ≤ svensk tid < 22:00, en per dygn |
+| 5 | `veckogenomgang:<ISO-år>-W<vv>` | anvandaren | sonnet | medium | 15 min | 30 | söndag 11:00 ≤ svensk tid < 22:00, en per vecka |
 
+* **Effort skickas alltid uttryckligen** (`--effort`, sedan 2026-10-05). Utan
+  flaggan gällde modellens standard i Claude Code: de första körningarna
+  2026-10-01 (Sonnet 5) fick high, alla därefter (Opus 5.5 och Sonnet 5.5)
+  medium. Vilken modell `sonnet`/`opus` pekar på följer Claude Code-versionen;
+  exakt modell per körning står i `spelai_run.usage_json` (`modelUsage`) och
+  nivån i `roll_start`. När chatten startar en roll som underagent gäller i
+  stället rollfilens `effort:` i agentrepots `.claude/agents/` (Forskaren och
+  Granskaren high, Driften och Användaren medium). Med `--agent` ignorerar
+  Claude Code den raden. Chattens egen nivå väljs i appen.
 * Så länge agenten kör `standard-v1` (samma rader som standarden) blir det
   inga motiveringar.
 * Inget är due vid paus (`spelai_state` `paus`), när rollåset hålls av en

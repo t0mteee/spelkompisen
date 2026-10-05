@@ -217,15 +217,18 @@ förbättring.
 
 ## 6. Agenten och rollerna
 
-| Roll | Ansvar | När | Modell |
+| Roll | Ansvar | När | Modell (effort) |
 |---|---|---|---|
-| **Koordinatorn** | Chattar med Saman, fördelar arbete, skriver journal och morgonrapport | alltid nåbar i Claude-appen | Opus |
-| **Forskaren** | Pool, odds och live: provar idéer i bakgrunden och sköter de officiella strategierna | forskningspass 10:00 (och 15:00 från vecka 2), motiveringar till förslagen | Opus |
-| **Granskaren** | Prövar varje påstådd förbättring och varje strategibyte mot facit; letar efter tur, överanpassning och data som inte fanns i tid. Kan stoppa ett påstående, inte en driftsättning | före varje byte och varje "förbättring" | Opus |
-| **Användaren** | Använder appen som Saman: öppnar den i headless Chrome i mobilformat (390×844) när Saman skulle göra det, läser skärmbilderna och lämnar förslag på det som är otydligt | vid förslagen 6 h och 30 min före stopp (kort), söndagar en hel genomgång | Sonnet |
-| **Driften** | Vaktens larm, felsökning, rättningar, nya datakällor | morgonrunda 07:00 och vid nytt rött larm (högst 3 per dygn) | Sonnet |
+| **Koordinatorn** | Chattar med Saman, fördelar arbete, skriver journal och morgonrapport | alltid nåbar i Claude-appen | Opus (väljs i appen; high rekommenderat) |
+| **Forskaren** | Pool, odds och live: provar idéer i bakgrunden och sköter de officiella strategierna | forskningspass 10:00 (och 15:00 från vecka 2), motiveringar till förslagen | Opus (high); motiveringarna Sonnet (medium) |
+| **Granskaren** | Prövar varje påstådd förbättring och varje strategibyte mot facit; letar efter tur, överanpassning och data som inte fanns i tid. Kan stoppa ett påstående, inte en driftsättning | före varje byte och varje "förbättring" | Opus (high) |
+| **Användaren** | Använder appen som Saman: öppnar den i headless Chrome i mobilformat (390×844) när Saman skulle göra det, läser skärmbilderna och lämnar förslag på det som är otydligt | vid förslagen 6 h och 30 min före stopp (kort), söndagar en hel genomgång | Sonnet (medium) |
+| **Driften** | Vaktens larm, felsökning, rättningar, nya datakällor | morgonrunda 07:00 och vid nytt rött larm (högst 3 per dygn) | Sonnet (medium) |
 
 - Rollerna definieras som Claude Code-agenter i sidoprojektets `.claude/agents/`.
+- Effort sätts uttryckligen sedan 2026-10-05: schemat skickar `--effort` per uppgift
+  (`roller.TYPER`), och rollfilernas `effort:` gäller när chatten startar en roll som
+  underagent. Se `docs/spelai-facit.md`, "Vad som är due".
 - Schemalagda rollkörningar startas av facitsidans schemaläggare som separata
   `claude -p`-körningar med rollens instruktioner, inom taket. Varje körning bokförs i
   `spelai_run` med användning ur `--output-format json`.

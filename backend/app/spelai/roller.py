@@ -43,14 +43,20 @@ DB_I_TEXT = "~/spelkompisen/backend/data/stryktips.db"
 
 ROLLER = ("driften", "forskaren", "granskaren", "anvandaren", "koordinatorn")
 MODELLER = ("sonnet", "opus")
+EFFORTER = ("medium", "high")
 
-# (roll, modell, timeout_s, max_turns) per uppgiftstyp — designens avsnitt 6.
+# (roll, modell, effort, timeout_s, max_turns) per uppgiftstyp — designens
+# avsnitt 6. Effort skickas ALLTID uttryckligen (`--effort`); utan flaggan
+# gäller modellens standard (Sonnet 5 high, Opus/Sonnet 5.5 medium), och
+# vilken modell aliaset pekar på följer Claude Code-versionen. Rollfilernas
+# `effort:` gäller bara när chatten startar rollen som underagent — med
+# `--agent` ignorerar Claude Code den raden.
 TYPER = {
-    "motivering": ("forskaren", "sonnet", 10 * 60, 25),
-    "larm": ("driften", "sonnet", 20 * 60, 40),
-    "morgonrunda": ("driften", "sonnet", 20 * 60, 40),
-    "forskningspass": ("forskaren", "opus", 40 * 60, 80),
-    "veckogenomgang": ("anvandaren", "sonnet", 15 * 60, 30),
+    "motivering": ("forskaren", "sonnet", "medium", 10 * 60, 25),
+    "larm": ("driften", "sonnet", "medium", 20 * 60, 40),
+    "morgonrunda": ("driften", "sonnet", "medium", 20 * 60, 40),
+    "forskningspass": ("forskaren", "opus", "high", 40 * 60, 80),
+    "veckogenomgang": ("anvandaren", "sonnet", "medium", 15 * 60, 30),
 }
 TYP_TEXT = {"motivering": "motivering", "larm": "larmkörning",
             "morgonrunda": "morgonrunda", "forskningspass": "forskningspass",
@@ -90,10 +96,10 @@ def _namn(product: str) -> str:
 
 def _post(typ: str, uppgift: str, prompt: str, *, dedup: Optional[str] = None,
           **extra) -> dict:
-    roll, model, timeout_s, max_turns = TYPER[typ]
+    roll, model, effort, timeout_s, max_turns = TYPER[typ]
     return {"roll": roll, "uppgift": uppgift, "prompt": prompt,
             "timeout_s": timeout_s, "max_turns": max_turns, "model": model,
-            "typ": typ, "dedup": dedup or uppgift, **extra}
+            "effort": effort, "typ": typ, "dedup": dedup or uppgift, **extra}
 
 
 def _gjord(conn, post_dedup: str, uppgift: Optional[str] = None) -> bool:
@@ -386,6 +392,7 @@ def run(conn, post: dict, *, runner: Runner,
     dedup = post.get("dedup") or post["uppgift"]
     if not tillstand.logga(conn, "roll_start", post["uppgift"],
                            {"roll": post["roll"], "model": post["model"],
+                            "effort": post.get("effort"),
                             "started_at": iso(started), "timeout_s": post["timeout_s"],
                             "max_turns": post["max_turns"]},
                            now=started, dedup_key=f"roll_start:{dedup}"):
@@ -463,9 +470,12 @@ def stada_avbrutna(conn, *, now: dt.datetime) -> list[str]:
 def kommando(post: dict, claude_bin: Path = CLAUDE_BIN) -> list[str]:
     if post["roll"] not in ROLLER or post["model"] not in MODELLER:
         raise ValueError(f"okänd roll/modell: {post['roll']}/{post['model']}")
+    if post.get("effort") not in EFFORTER:
+        raise ValueError(f"okänd effort: {post.get('effort')}")
     if post["prompt"].startswith("-"):
         raise ValueError("prompten får inte börja med '-'")
     return [str(claude_bin), "-p", "--agent", post["roll"], "--model", post["model"],
+            "--effort", post["effort"],
             "--permission-mode", "acceptEdits", "--permission-prompts", "none",
             "--output-format", "json", "--max-turns", str(int(post["max_turns"])),
             post["prompt"]]

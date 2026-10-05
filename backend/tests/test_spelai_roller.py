@@ -123,6 +123,9 @@ class DueTests(Base):
         self.assertEqual(("anvandaren", "sonnet", 900, 30),
                          tuple(typer["veckogenomgang"][k] for k in
                                ("roll", "model", "timeout_s", "max_turns")))
+        self.assertEqual({"motivering": "medium", "larm": "medium", "morgonrunda": "medium",
+                          "forskningspass": "high", "veckogenomgang": "medium"},
+                         {typ: post["effort"] for typ, post in typer.items()})
         for post in poster:
             self.assertIn("SAMMANFATTNING:", post["prompt"])
             self.assertIn("12:00 svensk tid", post["prompt"])     # klockan injiceras
@@ -508,15 +511,20 @@ class RiktigKorareTests(unittest.TestCase):
 
     def post(self, timeout_s=30):
         return {"roll": "driften", "uppgift": "morgonrunda:2026-10-04", "prompt": "Gör X.",
-                "timeout_s": timeout_s, "max_turns": 40, "model": "sonnet"}
+                "timeout_s": timeout_s, "max_turns": 40, "model": "sonnet",
+                "effort": "medium"}
 
     def test_kommandot_och_ren_miljo(self):
         argv = roller.kommando(self.post(), Path("/x/claude"))
         self.assertEqual(["/x/claude", "-p", "--agent", "driften", "--model", "sonnet",
+                          "--effort", "medium",
                           "--permission-mode", "acceptEdits", "--permission-prompts", "none",
                           "--output-format", "json", "--max-turns", "40", "Gör X."], argv)
         with self.assertRaises(ValueError):
             roller.kommando(self.post() | {"roll": "okand"})
+        for effort in ("xhigh", None):       # bara uttryckliga, kända nivåer
+            with self.assertRaises(ValueError):
+                roller.kommando(self.post() | {"effort": effort})
         os.environ["SPELAI_NTFY_TOPIC"] = "hemligt"
         try:
             env_ut = self.root / "env.txt"
