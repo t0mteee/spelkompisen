@@ -209,6 +209,39 @@ class AliasTests(unittest.TestCase):
         self.assertIsNone(v7("Corinthians", "Estudiantes", [other], "2026-10-02T02:15:00+02:00", "BRA", "ARG"))
 
 
+    def test_topptipset_4369_argentina_och_colombia(self):
+        # Pinnacles egna namn, avsparkar och id:n ur indexet 2026-10-05.
+        est = row("1637175501", "Estudiantes de La Plata", "Gimnasia Mendoza",
+                  "2026-10-05T22:00:00Z", "Argentina - Liga Pro")
+        ban = row("1637175522", "Banfield", "Rosario Central", "2026-10-06T00:15:00Z",
+                  "Argentina - Liga Pro")
+        med = row("1637185133", "Independiente Medellin", "Independiente Santa Fe",
+                  "2026-10-06T00:00:00Z", "Colombia - Primera A")
+        index = [est, ban, med]
+        self.assertEqual(("1637175501", "A", False), ident(v7(
+            "Estudiantes", "Gimnasia y Esgrima Mendoza", index, "2026-10-06T00:00:00+02:00",
+            "ARG", "ARG")))
+        self.assertEqual(("1637175522", "A", False), ident(v7(
+            "Banfield", "Rosario", index, "2026-10-06T02:15:00+02:00", "ARG", "ARG")))
+        self.assertEqual(("1637185133", "A", False), ident(v7(
+            "Independiente Medellin", "Santa Fe", index, "2026-10-06T02:00:00+02:00",
+            "COL", "COL")))
+
+    def test_rosario_och_santa_fe_bara_mot_belagd_motstandare(self):
+        leones = row("syn-leones", "Banfield", "Leones de Rosario", "2026-10-06T00:15:00Z",
+                     "Argentina - Liga Pro")
+        self.assertIsNone(v7("Banfield", "Rosario", [leones], "2026-10-06T02:15:00+02:00",
+                             "ARG", "ARG"))
+        union = row("syn-union", "Union de Santa Fe", "Defensa y Justicia",
+                    "2026-10-10T00:45:00Z", "Argentina - Liga Pro")
+        self.assertIsNone(v7("Santa Fe", "Defensa y Justicia", [union],
+                             "2026-10-10T02:45:00+02:00", "ARG", "ARG"))
+        central = row("syn-central", "Rosario Central", "Racing Club", "2026-10-06T00:15:00Z",
+                      "Argentina - Liga Pro")
+        self.assertIsNone(v7("Rosario", "Racing Club", [central], "2026-10-06T02:15:00+02:00",
+                             "ARG", "ARG"))
+
+
 class OforandradeVagarTests(unittest.TestCase):
     def test_bomben_far_inga_ligamarkorer_men_svs_damform_galler(self):
         pin = Pinnacle.__new__(Pinnacle)

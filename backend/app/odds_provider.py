@@ -149,6 +149,10 @@ _POOL_TEAM_ALIASES = {
     # annat lag i indexet normaliseras till "junior" (Boca/Argentinos/Rampla
     # Juniors är ordet "juniors").
     "junior": "junior de barranquilla",
+    # Topptipset 4369: Estudiantes–Gimnasia y Esgrima Mendoza 2026-10-05 22:00Z
+    # mot Pinnacles "Gimnasia Mendoza" vid exakt avspark, id 1637175501. Namnet
+    # bär staden, så det pekar bara på en klubb (Gimnasia La Plata är en annan).
+    "gimnasia y esgrima mendoza": "gimnasia mendoza",
     # MEDVETET INTE alias: Aguilas (indexet har både Aguilas–Hercules i Spanien
     # och Aguilas Doradas i Colombia), Fortaleza (Fortaleza och Fortaleza
     # CEIF), America (Club America och America Mineiro). Samma klass som
@@ -159,7 +163,18 @@ _POOL_TEAM_ALIASES = {
 _POOL_CONTEXT_ALIASES = {("estudiantes", "lanus"): "estudiantes de la plata",
                          # Topptipset 4361: Platense–Estudiantes 2026-10-02 00:15Z mot
                          # "Platense – Estudiantes de La Plata" vid exakt avspark (v7).
-                         ("estudiantes", "platense"): "estudiantes de la plata"}
+                         ("estudiantes", "platense"): "estudiantes de la plata",
+                         # Topptipset 4369, Pinnacles index 2026-10-05 09:50Z, alla vid
+                         # exakt avspark. Rosario och Santa Fe pekar på flera klubbar
+                         # (Leones de Rosario; Union, Colon och Independiente Santa Fe)
+                         # och får därför bara kontextalias, som Estudiantes.
+                         # Estudiantes de La Plata–Gimnasia Mendoza 22:00Z, id 1637175501.
+                         ("estudiantes", "gimnasia mendoza"): "estudiantes de la plata",
+                         # Banfield–Rosario Central 2026-10-06 00:15Z, id 1637175522.
+                         ("rosario", "banfield"): "rosario central",
+                         # Independiente Medellin–Independiente Santa Fe 2026-10-06
+                         # 00:00Z, id 1637185133.
+                         ("santa fe", "independiente medellin"): "independiente santa fe"}
 _SQUAD_MARKERS = frozenset({"b", "ii", "reserve", "reserves", "academy",
                             "youth", "women", "damer"})
 # pool-name-v7: damformer i SvS EGNA lagnamn. SvS skriver damlandslag med
