@@ -672,7 +672,7 @@ kan inte driftsätta själv (sandboxen nekar launchctl, Chrome och SSH-nyckeln).
 lägger i stället en **driftsättningsbegäran** i utkorgen. Saman godkänner eller
 avvisar den på Spelkompisens beslutssida (`#/beslut`), och facitsidan kör de
 fasta stegen. Kod: `app/spelai/driftsattning.py`, sandboxprofilen
-`app/spelai/bygg.sb`, steget `driftsattning` sist i `spelai-tick`.
+`app/spelai/bygg.sb`, steget `driftsattning` i `spelai-tick` (före chatten).
 
 ### Begärans format (agentens fil i `~/spel-ai-data/utkorg/`)
 
@@ -710,8 +710,8 @@ fasta stegen. Kod: `app/spelai/driftsattning.py`, sandboxprofilen
 
 Bara ett effektivt svar 0 från beslutssidan räknas: Origin 5175/5181 och en
 webbläsare (misstänkta svar räknas aldrig). Varje begäran körs högst en gång
-(`driftsattning_start:<inbox-id>` i `spelai_event`), en åt gången, sist i
-spelai-ticken. Stegen körs i den här ordningen:
+(`driftsattning_start:<inbox-id>` i `spelai_event`), en åt gången, i
+spelai-ticken före chattsteget. Stegen körs i den här ordningen:
 
 1. **Commitkontroll:** `main` hämtas till spegeln och måste vara exakt `commit`.
 2. **Bygge och installation** (`bygg_app`).

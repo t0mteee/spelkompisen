@@ -2,10 +2,11 @@
 
 Varje tick: läs in utkorgen, frys de indatapaket som poolvarvet sparat
 (respekterar paus), markera missade fönster, rätta mot facit, skicka
-notiser, lägga och rätta livekassans fiktiva spel (`livekassa`, fas E) och
-lämna rapporterna i agentens chatt i Claude-appen (`chattbud`,
-sist eftersom budet tar upp mot en halv minut). Varje steg isoleras — ett
-fel i ett steg bokförs som `tick_fel` och stoppar inte de andra.
+notiser, lägga och rätta livekassans fiktiva spel (`livekassa`, fas E), köra
+godkända driftsättningar (`driftsattning`) och lämna rapporterna i agentens
+chatt i Claude-appen (`chattbud`, sist eftersom budet tar upp mot en halv
+minut). Varje steg isoleras — ett fel i ett steg bokförs som `tick_fel` och
+stoppar inte de andra.
 Rollkörningar (fas F) startas inte här ännu.
 
 Klockan injiceras (`clock`), liksom agentkörningen (`runner`), utkorgen,
@@ -22,7 +23,7 @@ from . import (chattbud, driftsattning, frysning, inkorg, livekassa, notis, ratt
                schema, tillstand)
 
 STEG = ("inkorg", "frysning", "missat", "rattning", "notiser", "livespel",
-        "liverattning", "chatt", "driftsattning")
+        "liverattning", "driftsattning", "chatt")
 
 
 def tick(store, *, runner, clock: Callable[[], dt.datetime],
@@ -47,12 +48,13 @@ def tick(store, *, runner, clock: Callable[[], dt.datetime],
         ("livespel", lambda: livekassa.varv(store, runner=live_runner, clock=clock)),
         ("liverattning", lambda: livekassa.ratta(store, now=clock())
          if live_runner is not None else {}),
-        ("chatt", lambda: chattbud.skicka(conn, now=clock(), runner=chatt_runner)),
-        # Godkända driftsättningar (beslutssidan), sist: bygget tar upp mot en
+        # Godkända driftsättningar (beslutssidan), före chatten som alltid går
+        # sist. Kör bara när en begäran är godkänd; bygget tar då upp mot en
         # minut. `drift_miljo` None = av (testerna bygger, startar om och
         # pushar aldrig något).
         ("driftsattning", lambda: driftsattning.kor(conn, now=clock, env=drift_miljo)
          if drift_miljo is not None else {}),
+        ("chatt", lambda: chattbud.skicka(conn, now=clock(), runner=chatt_runner)),
     )
     for name, step in steps:
         try:
