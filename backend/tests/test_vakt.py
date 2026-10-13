@@ -515,6 +515,116 @@ class IdentitetTests(Base):
         self.assertIn(("identitet", "jobb", vakt.check_identitet), vakt.CHECKS)
 
 
+class PoolPinnacleTests(Base):
+    """I. Poolmatch utan Pinnacle 6 h före stopp trots kandidat (vakt-v4).
+
+    Fallet Topptipset 4383 2026-10-13: match 4 Bucaramanga–Aguilas not_listed,
+    medan diagnostiken visade Atletico Bucaramanga–Aguilas Doradas vid samma avspark.
+    """
+    NOW = t("2026-10-13T19:00:00Z")
+
+    def db(self, close="2026-10-13T22:29:00Z", status="not_listed",
+           cand_start="2026-10-13T23:30:00Z", seen="2026-10-13T18:56:29Z"):
+        store = Storage(self.data / "stryktips.db")
+        try:
+            store.conn.execute("INSERT OR REPLACE INTO draws VALUES ('topptipset', 4383, 'Open', ?)",
+                               (close,))
+            for event, st in ((3, "matched"), (4, status)):
+                store.conn.execute(
+                    "INSERT INTO pool_market_capture VALUES ('topptipset', 4383, 'sharp', ?, "
+                    "?, ?, 1, 0)", (event, "2026-10-13T18:56:29Z", st))
+            # En äldre capture som var matchad: senaste observationen gäller.
+            store.conn.execute(
+                "INSERT INTO pool_market_capture VALUES ('topptipset', 4383, 'sharp', 4, "
+                "'2026-10-13T12:00:00Z', 'matched', 1, 0)")
+            store.conn.execute(
+                "INSERT INTO pool_match_diagnostic (product, draw_number, event_number, svs_home, "
+                "svs_away, match_start, cand_home, cand_away, cand_start, side_home, side_away, "
+                "score, swapped, first_seen_at, last_seen_at, n_seen) VALUES ('topptipset', 4383, "
+                "4, 'Bucaramanga', 'Aguilas', '2026-10-14T01:30:00+02:00', 'Atletico Bucaramanga', "
+                "'Aguilas Doradas', ?, 1, 0, 0.5, 0, ?, ?, 1)", (cand_start, seen, seen))
+            store.conn.commit()
+        finally:
+            store.close()
+
+    def test_kandidat_vid_samma_avspark_larmar_rott(self):
+        self.db()
+        findings = vakt.check_poolpinnacle(self.ctx())
+        self.assertEqual(1, len(findings))
+        finding = findings[0]
+        self.assertEqual(("error", "jobb", "pool_pinnacle_saknas", "topptipset:4383"), (
+            finding["level"], finding["area"], finding["kind"], finding["key"]))
+        self.assertEqual([4], [e["event"] for e in finding["events"]])
+        self.assertIn("Atletico Bucaramanga–Aguilas Doradas", finding["message"])
+
+    def test_tyst_utanfor_sex_timmar_och_efter_stopp(self):
+        self.db(close="2026-10-14T01:30:00Z")          # 6,5 h kvar
+        self.assertEqual([], vakt.check_poolpinnacle(self.ctx()))
+        self.assertEqual([], vakt.check_poolpinnacle(self.ctx(now=t("2026-10-14T01:31:00Z"))))
+
+    def test_tyst_nar_matchad_kandidat_annan_avspark_eller_gammal_diagnostik(self):
+        self.db(status="matched")
+        self.assertEqual([], vakt.check_poolpinnacle(self.ctx()))
+        self.tearDown(); self.setUp()
+        self.db(cand_start="2026-10-14T00:00:00Z")     # 30 min isär: annan match
+        self.assertEqual([], vakt.check_poolpinnacle(self.ctx()))
+        self.tearDown(); self.setUp()
+        self.db(seen="2026-10-13T12:00:00Z")           # inte från senaste varvet
+        self.assertEqual([], vakt.check_poolpinnacle(self.ctx()))
+
+    def test_kontrollen_ingar_i_vakten(self):
+        self.assertIn(("poolpinnacle", "jobb", vakt.check_poolpinnacle), vakt.CHECKS)
+
+
+class RollerTests(Base):
+    """J. Två misslyckade rollkörningar i rad larmar rött (vakt-v4).
+
+    Fallet 7–8/10: forskningspass och morgonrunda föll med "OAuth session expired".
+    """
+    NOW = t("2026-10-08T10:00:00Z")
+
+    def runs(self, *rows):
+        from app.spelai.schema import apply_schema
+        store = Storage(self.data / "stryktips.db")
+        try:
+            apply_schema(store.conn)
+            for role, status, started, note in rows:
+                store.conn.execute(
+                    "INSERT INTO spelai_run (role, task, started_at, status, note, recorded_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?)", (role, f"{role}:x", started, status, note, started))
+            store.conn.commit()
+        finally:
+            store.close()
+
+    OAUTH = "success: Failed to authenticate: OAuth session expired and could not be refreshed"
+
+    def test_tva_fel_i_rad_for_samma_roll_larmar_med_orsak(self):
+        self.runs(("forskaren", "klar", "2026-10-06T08:00:00Z", "ok"),
+                  ("forskaren", "fel", "2026-10-07T08:00:00Z", self.OAUTH),
+                  ("driften", "fel", "2026-10-08T05:00:00Z", self.OAUTH),
+                  ("forskaren", "timeout", "2026-10-08T08:00:00Z", "timeout"))
+        findings = vakt.check_roller(self.ctx())
+        self.assertEqual(["forskaren"], [f["key"] for f in findings])
+        finding = findings[0]
+        self.assertEqual(("error", "roll_fel_i_rad"), (finding["level"], finding["kind"]))
+        self.assertEqual("2026-10-07T08:00:00Z", finding["since"])
+        self.assertEqual(2, finding["antal"])
+        self.assertIn("timeout", finding["message"])
+
+    def test_lyckad_korning_slacker(self):
+        self.runs(("driften", "fel", "2026-10-07T05:00:00Z", self.OAUTH),
+                  ("driften", "fel", "2026-10-08T05:00:00Z", self.OAUTH),
+                  ("driften", "klar", "2026-10-08T09:00:00Z", "ok"))
+        self.assertEqual([], vakt.check_roller(self.ctx()))
+
+    def test_utan_spelai_tabeller_ar_kontrollen_tyst(self):
+        Storage(self.data / "stryktips.db").close()
+        self.assertEqual([], vakt.check_roller(self.ctx()))
+
+    def test_kontrollen_ingar_i_vakten(self):
+        self.assertIn(("roller", "jobb", vakt.check_roller), vakt.CHECKS)
+
+
 class DriftTests(Base):
     def runner(self, extra: dict | None = None) -> FakeRunner:
         base = {
@@ -797,7 +907,7 @@ class KandaFelTests(Base):
             return self.fynd()[:2]
         status = self.run_vakt((("kallor", "kallor", kallor),), now=self.NU)
         self.assertEqual({"kanda": 2}, status["counts"])
-        self.assertEqual("vakt-v3", status["version"])
+        self.assertEqual("vakt-v4", status["version"])
         text = vakt.format_status(status)
         self.assertIn("· 2 kända ·", text)
         self.assertIn("(känt, larmar inte till och med 2026-10-31)", text)
@@ -809,7 +919,7 @@ class KandaFelTests(Base):
 class WriteStatusTests(Base):
     def test_atomisk_skrivning_och_en_loggrad_per_korning(self):
         status = self.run_vakt(())
-        self.assertEqual("vakt-v3", status["version"])
+        self.assertEqual("vakt-v4", status["version"])
         on_disk = json.loads((self.status_dir / vakt.STATUS_FILE).read_text())
         self.assertEqual(status["checked_at"], on_disk["checked_at"])
         self.assertEqual([], [p.name for p in self.status_dir.iterdir()

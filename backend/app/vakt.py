@@ -46,7 +46,7 @@ from .storage import DEFAULT_DB
 
 # v2 (2026-10-02): kända fel (KANDA_FEL). v3 (2026-10-04): H. Oddsets
 # matchidentitet (`check_identitet`).
-VERSION = "vakt-v3"
+VERSION = "vakt-v4"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = DEFAULT_DB.parent
 STATUS_DIR_ENV = "SPELKOMPISEN_VAKT_DIR"
@@ -965,6 +965,120 @@ def check_identitet(ctx: Ctx) -> list[dict]:
         pairs=pairs[:20])]
 
 
+# ── I. poolens Pinnacle-länk före spelstopp (vakt-v4, 2026-10-13) ──────────
+# Beslut koordinatorn-2026-10-13-pool-namnmatchning (Saman, val 0): en poolmatch
+# som 6 h före spelstopp saknar Pinnacle fast poolmatcharens egen diagnostik
+# (`pool_match_diagnostic`) visar en kandidat inom avsparksankaret är ett namnfel,
+# inte en match Pinnacle saknar. Det larmar rött, i tid före frysningarna, i
+# stället för att upptäckas i analysen. `pool_market_capture` (append-only) är
+# beviset på senaste observationen; diagnostiken måste vara skriven i samma varv.
+POOL_PINNACLE_FORE_STOPP_H = 6
+POOL_PINNACLE_MATCHAD = ("matched", "derived")
+POOL_PINNACLE_EXEMPEL = 4
+
+
+def check_poolpinnacle(ctx: Ctx) -> list[dict]:
+    from .odds_provider import POOL_ANCHOR_S
+
+    horizon = ctx.now + dt.timedelta(hours=POOL_PINNACLE_FORE_STOPP_H)
+    conn = _ro_connect(ctx.db_path)
+    try:
+        draws = [(product, number, _at(close)) for product, number, close in conn.execute(
+            "SELECT product, draw_number, reg_close_time FROM draws WHERE state='Open'")]
+        draws = [d for d in draws if d[2] and ctx.now < d[2] <= horizon]
+        missing: dict[tuple, list[dict]] = {}
+        for product, number, close in draws:
+            latest: dict[int, tuple[dt.datetime, str]] = {}
+            for event, fetched, status in conn.execute(
+                    "SELECT event_number, fetched_at, status FROM pool_market_capture "
+                    "WHERE product=? AND draw_number=? AND source='sharp'", (product, number)):
+                at = _at(fetched)
+                if at and (event not in latest or at > latest[event][0]):
+                    latest[event] = (at, status)
+            for event, (at, status) in sorted(latest.items()):
+                if status in POOL_PINNACLE_MATCHAD:
+                    continue
+                for row in conn.execute(
+                        "SELECT svs_home, svs_away, match_start, cand_home, cand_away, "
+                        "cand_start, last_seen_at FROM pool_match_diagnostic "
+                        "WHERE product=? AND draw_number=? AND event_number=?",
+                        (product, number, event)):
+                    svs_home, svs_away, start, cand_home, cand_away, cand_start, seen = row
+                    kick, cand_kick, seen_at = _at(start), _at(cand_start), _at(seen)
+                    if not (kick and cand_kick and seen_at) or seen_at < at:
+                        continue          # gammal diagnostik: inte senaste varvet
+                    if abs((kick - cand_kick).total_seconds()) > POOL_ANCHOR_S:
+                        continue
+                    missing.setdefault((product, number, close), []).append({
+                        "event": event, "status": status, "svs": f"{svs_home}–{svs_away}",
+                        "kandidat": f"{cand_home}–{cand_away}", "start": _iso(kick)})
+                    break
+    finally:
+        conn.close()
+    ctx.summary["poolpinnacle"] = {"omgangar": len(draws),
+                                   "saknade": sum(len(v) for v in missing.values())}
+    findings = []
+    for (product, number, close), events in sorted(missing.items()):
+        examples = "; ".join(f"match {e['event']} {e['svs']} (kandidat {e['kandidat']})"
+                             for e in events[:POOL_PINNACLE_EXEMPEL])
+        more = (f" och {len(events) - POOL_PINNACLE_EXEMPEL} till"
+                if len(events) > POOL_PINNACLE_EXEMPEL else "")
+        findings.append(_finding(
+            "error", "jobb", "pool_pinnacle_saknas", f"{product}:{number}",
+            f"{product} {number} (spelstopp {close.astimezone(LOCAL_TZ):%d/%m %H:%M}) saknar "
+            f"Pinnacle för {len(events)} match(er) fast Pinnacle har en kandidat vid samma "
+            f"avspark: {examples}{more}. Namnregeln i app/odds_provider.py "
+            "(pool_match_diagnostic visar kandidaten).",
+            events=events, spelstopp=_iso(close)))
+    return findings
+
+
+# ── J. agentens rollkörningar (vakt-v4, 2026-10-13) ───────────────────────
+# Beslut koordinatorn-2026-10-08-larm-rollfel (Saman, val 0): Claude-inloggningen
+# gick ut 7/10 och fyra schemalagda körningar föll med "OAuth session expired"
+# utan larm. Två misslyckade körningar i rad för SAMMA roll i `spelai_run`
+# (append-only) larmar rött med orsaken i texten; en lyckad körning släcker.
+# `timeout` räknas som misslyckad, precis som `fel`.
+ROLL_FEL_STATUS = ("fel", "timeout")
+ROLL_FEL_I_RAD = 2
+
+
+def check_roller(ctx: Ctx) -> list[dict]:
+    conn = _ro_connect(ctx.db_path)
+    try:
+        try:
+            rows = conn.execute(
+                "SELECT id, role, task, status, note, started_at FROM spelai_run "
+                "ORDER BY id").fetchall()
+        except Exception as exc:  # noqa: BLE001
+            if "no such table" in str(exc):
+                return []         # spelai inte migrerad: inget att vakta
+            raise
+    finally:
+        conn.close()
+    by_role: dict[str, list[tuple]] = {}
+    for row in rows:
+        by_role.setdefault(row[1], []).append(row)
+    findings = []
+    for role, runs in sorted(by_role.items()):
+        streak = []
+        for run in reversed(runs):
+            if run[3] not in ROLL_FEL_STATUS:
+                break
+            streak.append(run)
+        if len(streak) < ROLL_FEL_I_RAD:
+            continue
+        latest, first = streak[0], streak[-1]
+        orsak = (latest[4] or latest[3] or "okänd orsak").strip()
+        findings.append(_finding(
+            "error", "jobb", "roll_fel_i_rad", role,
+            f"Agentens roll {role} har misslyckats {len(streak)} gånger i rad "
+            f"(senast {latest[2] or 'körning'} {latest[5][:16]}Z): {orsak[:200]}",
+            since=first[5], antal=len(streak), orsak=orsak[:500]))
+    ctx.summary["roller"] = {"roller": len(by_role), "larm": len(findings)}
+    return findings
+
+
 # ── körning ──────────────────────────────────────────────────────────────
 
 CHECKS: tuple[tuple[str, str, Callable[[Ctx], list[dict]]], ...] = (
@@ -977,6 +1091,8 @@ CHECKS: tuple[tuple[str, str, Callable[[Ctx], list[dict]]], ...] = (
     ("server", "server", check_server),
     ("experiment", "experiment", check_experiment),
     ("identitet", "jobb", check_identitet),
+    ("poolpinnacle", "jobb", check_poolpinnacle),
+    ("roller", "jobb", check_roller),
 )
 
 
