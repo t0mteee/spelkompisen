@@ -1,0 +1,60 @@
+;; spel-ai-kompisen: Seatbelt-profil för BYGGET av agentens app vid en godkänd
+;; driftsättning (app/spelai/driftsattning.py, beslut koordinatorn-2026-10-13-
+;; driftsattning-via-beslut). Bygget kör agentens kod (vite.config.js och
+;; plugin), så det körs aldrig utanför en profil som Spelkompisen äger.
+;;
+;; Parametrar (-D):
+;;   HOME   hemkatalogen (/Users/saman)
+;;   BYGG   byggkatalogen: en ren `git archive` av den godkända commiten under
+;;          ~/spel-ai-data/driftsattning/<id>/bygg — det ENDA som får skrivas
+;;
+;; I SBPL vinner den SISTA regeln som matchar.
+(version 1)
+(allow default)
+
+;; Skrivning bara i byggkatalogen, temp och vites egna cachekataloger (vite
+;; buntar sin konfiguration till node_modules/.vite-temp). Agentens repo,
+;; Spelkompisen och databasen kan inte ändras av bygget.
+(deny file-write*)
+(allow file-write*
+    (subpath (param "BYGG"))
+    (subpath "/private/tmp")
+    (subpath "/private/var/folders")
+    (literal "/dev/null")
+    (literal "/dev/zero")
+    (literal "/dev/dtracehelper")
+    (literal "/dev/tty")
+    (regex #"/node_modules/\.vite(-temp)?(/|$)"))
+
+;; Hemligheter, databasen och syskonprojekten: varken läsning eller skrivning.
+(deny file-read* file-write*
+    (subpath (string-append (param "HOME") "/.ssh"))
+    (subpath (string-append (param "HOME") "/svs"))
+    (subpath (string-append (param "HOME") "/vm"))
+    (subpath (string-append (param "HOME") "/spelkompisen/backend/data"))
+    (subpath (string-append (param "HOME") "/.config/gh"))
+    (subpath (string-append (param "HOME") "/.aws"))
+    (subpath (string-append (param "HOME") "/.gnupg"))
+    (subpath (string-append (param "HOME") "/.claude"))
+    (subpath (string-append (param "HOME") "/Library/Keychains"))
+    (literal (string-append (param "HOME") "/.netrc"))
+    (literal (string-append (param "HOME") "/.git-credentials"))
+    (regex #"/\.env$")
+    (regex #"/\.env\.[^/]*$"))
+
+;; Inget nät alls: ett bygge behöver inget.
+(deny network*)
+(allow network* (local unix-socket) (remote unix-socket))
+
+;; Inga vägar ut ur sandboxen via andra processer.
+(deny appleevent-send)
+(deny process-exec
+    (literal "/bin/launchctl")
+    (literal "/usr/bin/osascript")
+    (literal "/usr/bin/open")
+    (literal "/usr/bin/ssh")
+    (literal "/usr/bin/git")
+    (literal "/usr/bin/sandbox-exec"))
+(deny mach-lookup
+    (global-name "com.apple.coreservices.launchservicesd")
+    (global-name "com.apple.coreservices.appleevents"))

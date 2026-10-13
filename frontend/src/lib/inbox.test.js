@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { answerText, inboxSummary, kindLabel, recommendedIndex, splitInbox } from './inbox.js'
+import { answerText, deployResultText, inboxSummary, isDeploy, itemLabel, kindLabel, recommendedIndex, splitInbox } from './inbox.js'
 
 const beslut = (id, status = 'vantar', svar = null) => ({
   id, typ: 'beslut', status, svar, rubrik: `b${id}`,
@@ -41,4 +41,29 @@ test('answerText visar valt alternativ och utgångna beslut', () => {
 test('kindLabel', () => {
   assert.equal(kindLabel('forslag_spelrad'), 'Spelråd')
   assert.equal(kindLabel('beslut'), 'Beslut')
+})
+
+const drift = (status = 'vantar', svar = null, resultat = null) => ({
+  id: 9, typ: 'beslut', status, svar, rubrik: 'Ny Live-flik',
+  alternativ: [{ text: 'Godkänn: kör stegen' }, { text: 'Avvisa' }],
+  driftsattning: { commit: 'a'.repeat(40), steg: ['bygg_app', 'push'], resultat },
+})
+
+test('driftsättning känns igen och räknas som beslut', () => {
+  assert.equal(isDeploy(drift()), true)
+  assert.equal(isDeploy(beslut(1)), false)
+  assert.equal(itemLabel(drift()), 'Driftsättning')
+  assert.equal(itemLabel(beslut(1)), 'Beslut')
+  assert.deepEqual(splitInbox([drift()]).beslut.map((p) => p.id), [9])
+})
+
+test('driftsättningens resultat i klartext', () => {
+  assert.equal(deployResultText(drift()), null)
+  assert.equal(deployResultText(drift('besvarad', null, { status: 'pagar' })), 'Körs nu')
+  assert.equal(deployResultText(drift('besvarad', null, { status: 'avbruten', orsak: 'fel commit' })),
+    'Avbruten: fel commit')
+  const klar = drift('besvarad', { val: '0', tid: '2026-10-14T08:00:00Z' }, { status: 'gron' })
+  assert.match(answerText(klar), /Godkänd · Klar, grön hälsa$/)
+  const nej = drift('besvarad', { val: '1', tid: '2026-10-14T08:00:00Z' })
+  assert.match(answerText(nej), /Avvisad$/)
 })

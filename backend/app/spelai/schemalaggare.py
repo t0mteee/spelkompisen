@@ -18,16 +18,17 @@ import datetime as dt
 from pathlib import Path
 from typing import Callable, Optional
 
-from . import chattbud, frysning, inkorg, livekassa, notis, ratta, schema, tillstand
+from . import (chattbud, driftsattning, frysning, inkorg, livekassa, notis, ratta,
+               schema, tillstand)
 
 STEG = ("inkorg", "frysning", "missat", "rattning", "notiser", "livespel",
-        "liverattning", "chatt")
+        "liverattning", "chatt", "driftsattning")
 
 
 def tick(store, *, runner, clock: Callable[[], dt.datetime],
          utkorg: Path = inkorg.UTKORG_DEFAULT, sender=None,
          topic_name: Optional[str] = None, code_version: str = "dev",
-         chatt_runner=None, live_runner=None) -> dict:
+         chatt_runner=None, live_runner=None, drift_miljo=None) -> dict:
     conn = store.conn
     if not schema.tables_exist(conn):
         return {"fel": "spelai-tabellerna saknas — kör scripts/migrera_spelai.py"}
@@ -47,6 +48,11 @@ def tick(store, *, runner, clock: Callable[[], dt.datetime],
         ("liverattning", lambda: livekassa.ratta(store, now=clock())
          if live_runner is not None else {}),
         ("chatt", lambda: chattbud.skicka(conn, now=clock(), runner=chatt_runner)),
+        # Godkända driftsättningar (beslutssidan), sist: bygget tar upp mot en
+        # minut. `drift_miljo` None = av (testerna bygger, startar om och
+        # pushar aldrig något).
+        ("driftsattning", lambda: driftsattning.kor(conn, now=clock, env=drift_miljo)
+         if drift_miljo is not None else {}),
     )
     for name, step in steps:
         try:

@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import { get } from '../lib/api.js'
 import { LoadingState, ErrorState } from '../components/ui.jsx'
-import { answerText, deadlineText, isDecision, kindLabel, recommendedIndex, splitInbox } from '../lib/inbox.js'
+import { answerText, deadlineText, isDecision, isDeploy, itemLabel, recommendedIndex, splitInbox } from '../lib/inbox.js'
 import { agentAppUrl } from '../lib/routes.js'
 
 async function postAnswer(id, val, kommentar) {
@@ -41,16 +41,32 @@ function InboxCard({ item, focused, onAnswered }) {
       setBusy(false)
     }
   }
+  const deploy = isDeploy(item) ? item.driftsattning : null
   return (
     <article id={`beslut-${item.id}`} className={`v3beslut${focused ? ' focus' : ''}`}>
       <div className="v3beslut-chips">
-        <span>{kindLabel(item.typ)}</span>
+        <span>{itemLabel(item)}</span>
         <span>{item.kalla}</span>
         {item.sista_tid && <span className="warn">{deadlineText(item.sista_tid)}</span>}
       </div>
       <h3>{item.rubrik}</h3>
       <p className="v3beslut-why">{item.varfor}</p>
-      {decision ? (
+      {deploy && (
+        <div className="v3beslut-deploy">
+          <p>Commit <code title={deploy.commit}>{deploy.commit.slice(0, 12)}</code> i agentens repo.
+            Godkänn kör bara de här stegen, i den här ordningen, och tar sedan en skärmbild
+            (390×844) och kontrollerar hälsan. Röd hälsa lägger tillbaka förra bygget.</p>
+          <ol>{(deploy.steg_text || deploy.steg).map((text) => <li key={text}>{text}</li>)}</ol>
+        </div>
+      )}
+      {deploy ? (
+        <div className="v3beslut-actions two">
+          <button type="button" className="primary" disabled={busy} onClick={() => send('0')}>
+            Godkänn driftsättningen
+          </button>
+          <button type="button" disabled={busy} onClick={() => send('1')}>Avvisa</button>
+        </div>
+      ) : decision ? (
         <div className="v3beslut-actions">
           {(item.alternativ || []).map((alt, index) => (
             <button key={index} type="button" disabled={busy}
@@ -161,7 +177,7 @@ export function BeslutView({ focus = null }) {
             {besvarade.slice(0, 30).map((item) => (
               <li key={item.id}>
                 <b>{item.rubrik}</b>
-                <span>{kindLabel(item.typ)} · {item.kalla} · {answerText(item)}</span>
+                <span>{itemLabel(item)} · {item.kalla} · {answerText(item)}</span>
               </li>
             ))}
           </ul>

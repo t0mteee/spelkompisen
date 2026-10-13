@@ -11,6 +11,28 @@ export const KIND_LABEL = {
 
 export const kindLabel = (typ) => KIND_LABEL[typ] || typ
 
+// Driftsättning (2026-10-13): ett beslut med fasta alternativ 0 = Godkänn,
+// 1 = Avvisa och begäran i `driftsattning` (commit, steg, resultat).
+export const isDeploy = (item) => Boolean(item?.driftsattning)
+export const itemLabel = (item) => (isDeploy(item) ? 'Driftsättning' : kindLabel(item?.typ))
+
+const DEPLOY_STATUS = {
+  pagar: 'Körs nu',
+  gron: 'Klar, grön hälsa',
+  gron_utan_push: 'Klar, grön hälsa, men pushen misslyckades',
+  aterstalld: 'Röd hälsa: förra bygget återställt',
+  rod: 'Röd hälsa, även efter återställning',
+  avbruten: 'Avbruten',
+}
+
+// "Klar, grön hälsa" / "Avbruten: <orsak>" — null innan den körts.
+export function deployResultText(item) {
+  const res = item?.driftsattning?.resultat
+  if (!res) return null
+  const text = DEPLOY_STATUS[res.status] || res.status
+  return res.orsak ? `${text}: ${res.orsak}` : text
+}
+
 export const isDecision = (item) => item?.typ === 'beslut'
 
 export function splitInbox(poster) {
@@ -56,6 +78,11 @@ export function answerText(item) {
   if (!svar) return ''
   const when = new Date(svar.tid)
   const tid = Number.isNaN(when.getTime()) ? '' : when.toLocaleString('sv-SE', TIME)
+  if (isDeploy(item)) {
+    const valt = svar.val === '0' ? 'Godkänd' : svar.val === '1' ? 'Avvisad' : svar.val
+    const tidText = Number.isNaN(when.getTime()) ? '' : when.toLocaleString('sv-SE', TIME)
+    return [tidText, valt, deployResultText(item)].filter(Boolean).join(' · ')
+  }
   const alt = isDecision(item) ? (item.alternativ || [])[Number(svar.val)] : null
   const val = isDecision(item)
     ? (alt ? alt.text : svar.val)

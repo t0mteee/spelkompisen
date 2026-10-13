@@ -664,3 +664,76 @@ gårdagens livespel i morgonrundan. Inga notiser skickas per spel.
   Svenska Spel, linorna 1,5 och 2,5 lästa med öppna priser.
 - `agent.live` körd i den riktiga sandboxen. Den svarade giltigt och avstod
   ("matchen finns inte i Spelkompisens schema").
+
+## 17. Driftsättning via beslutssidan (2026-10-13)
+
+Beslut koordinatorn-2026-10-13-driftsattning-via-beslut (Saman, val 0). Agenten
+kan inte driftsätta själv (sandboxen nekar launchctl, Chrome och SSH-nyckeln). Den
+lägger i stället en **driftsättningsbegäran** i utkorgen. Saman godkänner eller
+avvisar den på Spelkompisens beslutssida (`#/beslut`), och facitsidan kör de
+fasta stegen. Kod: `app/spelai/driftsattning.py`, sandboxprofilen
+`app/spelai/bygg.sb`, steget `driftsattning` sist i `spelai-tick`.
+
+### Begärans format (agentens fil i `~/spel-ai-data/utkorg/`)
+
+```json
+{"id": "koordinatorn-2026-10-14-drift-live-flik",
+ "typ": "driftsattning",
+ "kalla": "Koordinatorn",
+ "rubrik": "Ny Live-flik med kassan per dag",
+ "varfor": "Vad som ändrats, i klartext för Saman (högst 4 000 tecken).",
+ "commit": "325e3be3eea69e5e664e85e5279e8feb8126c88d",
+ "steg": ["bygg_app", "omstart_api", "push"],
+ "sista_tid": "2026-10-15T18:00:00Z"}
+```
+
+- `commit`: HELA hashen (40 tecken, gemener). Den måste vara agentrepots `main`
+  när stegen körs, annars avbryts allt före bygget.
+- `steg`: en icke-tom delmängd av den fasta listan. Ordningen spelar ingen roll,
+  eftersom de alltid körs som nedan:
+  - `bygg_app`: bygg appen ur en ren `git archive` av commiten (aldrig ur
+    arbetskopian) med `vite build` i sandboxprofilen `bygg.sb` (inget nät, ingen
+    git, skrivning bara i byggkatalogen). Sedan byts `frontend/dist`, förra
+    bygget sparas, och spelai-app (5176) startas om.
+  - `omstart_api`: starta om spelai-api (8003). Kräver att varje spårad fil under
+    `backend/` i arbetskopian är byte-identisk med commiten, eftersom tjänsten
+    kör arbetskopian.
+  - `push`: pusha `main` till GitHub via den betrodda spegeln (`spegel.py`,
+    samma väg som rollkörningarna). Pushen görs bara vid grön hälsa.
+- `alternativ` får INTE anges. Kortet får alltid de fasta valen 0 = "Godkänn: kör
+  stegen" och 1 = "Avvisa". Okända steg, dubbletter, en kort hash eller egna
+  alternativ gör att filen avvisas, med orsak i `utkorg/avvisade/`.
+- Inget fritt kommando finns. Stegen rör aldrig Spelkompisen eller dess
+  databas, och git körs aldrig med agentrepot som arbetskatalog.
+
+### Körning efter Godkänn
+
+Bara ett effektivt svar 0 från beslutssidan räknas: Origin 5175/5181 och en
+webbläsare (misstänkta svar räknas aldrig). Varje begäran körs högst en gång
+(`driftsattning_start:<inbox-id>` i `spelai_event`), en åt gången, sist i
+spelai-ticken. Stegen körs i den här ordningen:
+
+1. **Commitkontroll:** `main` hämtas till spegeln och måste vara exakt `commit`.
+2. **Bygge och installation** (`bygg_app`).
+3. **Omstart** av de berörda tjänsterna (`tools/spelkompisen_tjanster.py`).
+4. **Hälsa:** 8003 `/api/agent/health` och 5176 `/` ska svara 200 inom 45 s.
+5. **Skärmbild** av appens Hem i 390×844 med den betrodda `tools/spelai/skarmbild.mjs`.
+6. **Röd hälsa:** förra `dist` läggs tillbaka, tjänsterna startas om och hälsan
+   prövas igen. Status `aterstalld` (grön igen) eller `rod`. Ingen push.
+   API-koden kan inte återställas av facitsidan (agentrepot rörs aldrig med git),
+   så en röd API-hälsa efter återställningen är agentens att rätta.
+7. **Push** (`push`) vid grön hälsa.
+
+### Resultatet (läses av agenten)
+
+`~/spel-ai-data/driftsattning/<id>/`:
+- `resultat.json`: `status` (`gron`, `gron_utan_push`, `aterstalld`, `rod` eller
+  `avbruten`), `orsak`, `commit`, `steg`, `godkand`, `start`, `slut`, `halsa`
+  (+ `halsa_efter_aterstallning`), `skarmbild`, `push` och `logg`, en rad per
+  steg med tid.
+- `hem-390x844.png`: skärmbilden.
+- `bygg.log`: vites utskrift.
+- `dist-forra/`: bygget före driftsättningen.
+
+Samma sammanfattning skrivs som `driftsattning_klar` i `spelai_event` och visas
+på kortet under Besvarade.

@@ -280,6 +280,10 @@
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px;
 }
 .v3beslut-error { margin: 0; color: #e88a91; font-size: 12px; }
+.v3beslut-deploy { display: grid; gap: 4px; padding: 8px 10px; border-radius: 8px; background: var(--panel2); font-size: 12px; color: var(--muted); }
+.v3beslut-deploy p { margin: 0; }
+.v3beslut-deploy code { color: var(--text); }
+.v3beslut-deploy ol { margin: 0; padding-left: 18px; color: var(--text); }
 .v3beslut-saved { margin: 0; color: #7fd1a6; font-size: 12px; }
 .v3beslut-comments { margin: 0; padding-left: 18px; color: var(--muted); font-size: 11px; }
 .v3beslut-done { display: grid; gap: 6px; margin: 0; padding-left: 0; list-style: none; }

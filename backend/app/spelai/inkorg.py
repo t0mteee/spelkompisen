@@ -13,6 +13,11 @@ Filformat:
      "alternativ": [{"text": "...", "rekommenderas": true, "kvot": 10}, ...],
      "sista_tid": "2026-10-02T18:00:00Z"}            # valfri
 
+Driftsättning (2026-10-13, `driftsattning.py`): `"typ": "driftsattning"` med
+`"commit"` (40 hex) och `"steg"` ur `driftsattning.STEG` och utan `alternativ`.
+Den lagras som ett beslut med FASTA alternativ (0 = Godkänn, 1 = Avvisa) och
+begäran i första alternativet; formatet står i docs/spelai-facit.md avsnitt 17.
+
 Svar: beslut besvaras med alternativets index ("0", "1", ...) eller
 "kommentar"; förslag med "kor_nu", "nej" eller "kommentar". Ett svar utan
 webbläsar-User-Agent sparas men märks `misstankt`, ger en `spelai_event` och
@@ -35,6 +40,7 @@ from .tillstand import iso, utc
 
 UTKORG_DEFAULT = Path.home() / "spel-ai-data" / "utkorg"
 TYPER = ("beslut", "forslag_forbattring", "forslag_spelrad")
+FIL_TYPER = (*TYPER, "driftsattning")     # driftsättning lagras som beslut
 FORSLAG_VAL = ("kor_nu", "nej", "kommentar")
 MAX_FILE_BYTES = 64 * 1024
 MAX_ALTERNATIV = 8
@@ -64,10 +70,19 @@ def validera(data) -> dict:
         raise Ogiltig("fältet 'id' saknas eller har ogiltiga tecken "
                       "(A–Z, 0–9, . _ : -, högst 100)")
     typ = data.get("typ")
-    if typ not in TYPER:
-        raise Ogiltig(f"fältet 'typ' måste vara ett av {', '.join(TYPER)}")
+    if typ not in FIL_TYPER:
+        raise Ogiltig(f"fältet 'typ' måste vara ett av {', '.join(FIL_TYPER)}")
     out = {"external_id": ext_id, "typ": typ, "kalla": _text(data, "kalla"),
            "rubrik": _text(data, "rubrik"), "varfor": _text(data, "varfor")}
+    if typ == "driftsattning":
+        from . import driftsattning
+        try:
+            payload = driftsattning.validera(data)
+        except driftsattning.Ogiltig as exc:
+            raise Ogiltig(str(exc)) from None
+        out.update(typ="beslut", alternativ=driftsattning.alternativ(payload))
+        out["sista_tid"] = _sista_tid(data)
+        return out
     alternativ = data.get("alternativ", [])
     if not isinstance(alternativ, list) or len(alternativ) > MAX_ALTERNATIV:
         raise Ogiltig(f"'alternativ' måste vara en lista med högst {MAX_ALTERNATIV}")
@@ -91,20 +106,23 @@ def validera(data) -> dict:
     if sum(1 for alt in clean if alt["rekommenderas"]) > 1:
         raise Ogiltig("högst ett alternativ får rekommenderas")
     out["alternativ"] = clean
-    sista = data.get("sista_tid")
-    if sista is not None:
-        if not isinstance(sista, str):
-            raise Ogiltig("'sista_tid' måste vara en ISO-tid")
-        try:
-            parsed = dt.datetime.fromisoformat(sista.replace("Z", "+00:00"))
-        except ValueError:
-            raise Ogiltig("'sista_tid' är inte en ISO-tid") from None
-        if parsed.tzinfo is None:
-            raise Ogiltig("'sista_tid' måste ha tidszon (t.ex. Z)")
-        out["sista_tid"] = iso(parsed)
-    else:
-        out["sista_tid"] = None
+    out["sista_tid"] = _sista_tid(data)
     return out
+
+
+def _sista_tid(data: dict) -> Optional[str]:
+    sista = data.get("sista_tid")
+    if sista is None:
+        return None
+    if not isinstance(sista, str):
+        raise Ogiltig("'sista_tid' måste vara en ISO-tid")
+    try:
+        parsed = dt.datetime.fromisoformat(sista.replace("Z", "+00:00"))
+    except ValueError:
+        raise Ogiltig("'sista_tid' är inte en ISO-tid") from None
+    if parsed.tzinfo is None:
+        raise Ogiltig("'sista_tid' måste ha tidszon (t.ex. Z)")
+    return iso(parsed)
 
 
 def _move(path: Path, target_dir: Path, now: dt.datetime) -> Path:
@@ -183,6 +201,7 @@ def status(conn, item: dict, now: dt.datetime) -> str:
 
 
 def lista(conn, *, now: dt.datetime, limit: int = 200) -> list[dict]:
+    from . import driftsattning
     out = []
     for row in conn.execute(
             "SELECT id, external_id, typ, kalla, rubrik, varfor, alternativ_json, "
@@ -194,6 +213,11 @@ def lista(conn, *, now: dt.datetime, limit: int = 200) -> list[dict]:
                 "skapad": row[8]}
         item["svar"] = _effektivt(conn, item["id"])
         item["status"] = status(conn, item, now)
+        payload = driftsattning.payload_for(item["alternativ"])
+        if payload:
+            item["driftsattning"] = {
+                **payload, "steg_text": [driftsattning.STEG_TEXT[s] for s in payload["steg"]],
+                "resultat": driftsattning.status(conn, item["id"])}
         item["kommentarer"] = [
             {"kommentar": k, "tid": t, "misstankt": bool(m)}
             for k, t, m in conn.execute(

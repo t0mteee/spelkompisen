@@ -77,6 +77,46 @@ def _senast_hamtad(spegel: Path) -> Optional[dt.datetime]:
     return dt.datetime.fromtimestamp(fetch_head.stat().st_mtime, dt.timezone.utc)
 
 
+def _skapa(conn, runner: Runner, spegel: Path, now: dt.datetime) -> Optional[str]:
+    """Skapa den bara spegeln om den saknas. Returnerar ett fel eller None."""
+    if (spegel / "HEAD").exists():
+        return None
+    rc, _out, err = runner(["/usr/bin/git", "-c", "core.hooksPath=/dev/null",
+                            "init", "--bare", "-q", str(spegel)], _miljo(), TIMEOUT_S)
+    if rc != 0:
+        return f"git init: {err.strip()[-300:]}"
+    tillstand.logga(conn, "spegel_skapad", str(spegel), None, now=now)
+    return None
+
+
+def hamta_main(conn, *, now: dt.datetime, kalla: Path = AGENT_REPO,
+               spegel: Path = SPEGEL, runner: Runner = _local_runner
+               ) -> tuple[Optional[str], Optional[str]]:
+    """Hämta agentrepots `main` till spegeln (aldrig git I agentrepot).
+
+    Returnerar (sha, fel). Driftsättningen (`driftsattning.py`) kontrollerar
+    commiten och bygger ur `git archive` härifrån."""
+    if not (kalla / ".git").exists():
+        return None, f"källan saknas: {kalla}"
+    fel = _skapa(conn, runner, spegel, now)
+    if fel:
+        return None, fel
+    rc, _out, err = _git(runner, spegel, "fetch", "--quiet", "--no-tags",
+                         str(kalla), "+refs/heads/main:refs/heads/main")
+    if rc != 0:
+        return None, f"fetch: {err.strip()[-300:]}"
+    main = _rev(runner, spegel, "refs/heads/main")
+    return (main, None) if main else (None, "main saknas i spegeln")
+
+
+def arkiv(commit: str, mal: Path, *paths: str, spegel: Path = SPEGEL,
+          runner: Runner = _local_runner) -> Optional[str]:
+    """`git archive` (tar) av en commit i spegeln till filen `mal`. Fel eller None."""
+    rc, _out, err = _git(runner, spegel, "archive", "--format=tar", "-o", str(mal),
+                         commit, *paths)
+    return None if rc == 0 else f"archive: {err.strip()[-300:]}"
+
+
 def spegla(conn, *, now: dt.datetime, kalla: Path = AGENT_REPO,
            spegel: Path = SPEGEL, remote: str = REMOTE,
            runner: Runner = _local_runner, intervall: dt.timedelta = INTERVALL) -> dict:
@@ -88,11 +128,9 @@ def spegla(conn, *, now: dt.datetime, kalla: Path = AGENT_REPO,
         return {"fel": f"källan saknas: {kalla}"}
     report: dict = {}
     if not (spegel / "HEAD").exists():
-        rc, _out, err = runner(["/usr/bin/git", "-c", "core.hooksPath=/dev/null",
-                                "init", "--bare", "-q", str(spegel)], _miljo(), TIMEOUT_S)
-        if rc != 0:
-            return {"fel": f"git init: {err.strip()[-300:]}"}
-        tillstand.logga(conn, "spegel_skapad", str(spegel), None, now=now)
+        fel = _skapa(conn, runner, spegel, now)
+        if fel:
+            return {"fel": fel}
         report["skapad"] = True
     rc, _out, err = _git(runner, spegel, "fetch", "--quiet", "--no-tags",
                          str(kalla), "+refs/heads/main:refs/heads/main")
