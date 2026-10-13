@@ -108,6 +108,13 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       vinner herrraden som i v6. SvS egna damformer (Dam, WFC, LFC, Ladies)
                       är truppmarkörer som gäller båda lagen. U-ålder/reserv/ungdom är veto
                       överallt. `docs/overlamningar/overlamning-2026-09-30-poolnamn-v7.md`.
+                      **v8 sedan 2026-10-13T20:11:47Z (första poolticken; beslut 2026-10-13, val 0):** nivå D =
+                      ena sidan exakt/alias + andra ett icke-generiskt delnamn (PSV/PSV
+                      Eindhoven, Inter/Internazionale) inom ankaret; rankas EFTER F, kräver
+                      att det exakta laget finns i EN behörig rad och samma trupp på
+                      Pinnacles båda sidor. Dammarkören är skiljeregel även för landslag
+                      (SvS skrev "USA – Spanien" utan Dam för damlandskampen); U-ålder är
+                      fortfarande veto. Kontextaliasen styr sina par ensamma.
   app/sharp_service.py Pinnacle för poolen: `VarvIndex` = ETT index per basvarv delat av
                       alla produkter och omgångar; avslag bokförs i `pool_match_diagnostic`
   app/pool_capture_refresh.py m20-reserv för PIT: exakt Pinnacle-id, färsk 1X2 + total
@@ -159,11 +166,13 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       `pool-reserve-ou-v2` sedan 2026-09-24T19:51:01Z: gemensam kö per basvarv (`register`
                       i produktloopen, `run_queue` efter): aldrig kontrollerad → äldst →
                       närmast spelstopp, 3 anrop, 15 min cooldown, inget efter spelstopp
-  app/vakt.py         DRIFTVAKTEN vakt-v3 (2026-10-01; `cli.py vakt`, launchd
+  app/vakt.py         DRIFTVAKTEN vakt-v4 (2026-10-01; `cli.py vakt`, launchd
                       `com.saman.spelkompisen.vakt` var 30:e min): källprov, jobb, append-only-
                       insamling, backendloggar, driftkopia mot GitHub, nattlig testsvit i
                       temporär worktree, disk, testkatalog och Oddsets delade identiteter
-                      (samma match i en Pinnacle- och en SvS-rad). Ingen AI, inga källanrop, DB
+                      (samma match i en Pinnacle- och en SvS-rad). vakt-v4 (2026-10-13): poolmatch
+                      utan Pinnacle 6 h före stopp trots kandidat, agentroll som fallerat två
+                      gånger i rad, livespel orättat 3 h efter slut. Ingen AI, inga källanrop, DB
                       `mode=ro` (`Storage(read_only=True)`). Läget i `backend/data/vakt/vakt.json`;
                       `/api/health` visar fel/varningar som `product: "server"` ("Drift att se
                       över" på Idag), info-fynd under `vakt.notes`. Trösklar: `docs/vakt.md`.
@@ -417,6 +426,9 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
   bekräftelse. Värde/modell/steam/facit kräver `available` och högst 45 min gammal
   bekräftelse. Pinnacles HTTP `Age` dras av före båda tidsstämplarna; cacheobjekt äldre än
   5 min öppnar inte notisgrinden. Källfel får aldrig markera ett pris unavailable.
+  Kambis 1X2 före match med `suspended` eller ett icke-OPEN utfall är däremot en OBSERVERAD
+  stängning: unavailable, aldrig ett bekräftat pris (2026-10-13). Pinnacles Age sparas per
+  ny rad i `oddset_odds.cache_age_s` (NULL = inte mätt).
 
 ### 🕐 OBSERVATIONSTIDSREGELN — läs innan du skriver en ny insamlare
 
@@ -851,6 +863,10 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
   agentens chatt. Agentens sessioner nekas `SendMessage`, eftersom meddelanden mellan
   sessioner når alla sessioner på servern, även Home Assistant. Budet och chatten måste köra i
   samma behörighetsläge (acceptEdits), annars hålls meddelandet för Samans godkännande.
+  **Driftsättning (2026-10-13):** agentens app driftsätts BARA via en godkänd begäran på
+  beslutssidan (`app/spelai/driftsattning.py`, format i `docs/spelai-facit.md` § 17): fasta
+  steg (bygg_app i `bygg.sb` ur `git archive` av commiten, omstart_api, push via spegeln),
+  inget fritt kommando, återställning av förra bygget vid röd hälsa.
 - Rör ALDRIG `/Users/saman/svs` eller `/Users/saman/vm` från detta projekt.
 - **Uppdatera STATUS-blocket i `docs/plan.md` när en etapp/delmål blir klar — skriv över,
   stapla inte;** flytta det gamla blocket överst i `docs/status-historik.md`.

@@ -1,10 +1,36 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-10-01 — driftvakten, Sofascore stängd, plan för agent)
+## STATUS (2026-10-13 — agentbesluten: poolnamn v8, vakt-v4, driftsättning)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Överlämning:
-`docs/overlamningar/overlamning-2026-09-24-status-och-beslut.md`.
+`docs/overlamningar/overlamning-2026-10-13-agentbeslut.md`.
+
+**Nytt 2026-10-13 (Samans svar på sex agentbeslut, alla val 0):**
+- **pool-name-v8** (i drift från poolticken 2026-10-13T20:11:47Z): nivå D = ena
+  sidan exakt/alias och andra ett icke-generiskt delnamn inom avsparksankaret,
+  rankad efter F, så ingen v7-länk ändras. Dammarkören blir skiljeregel även för
+  landslag, och Århus → AGF får alias. Topptipset 4383 gick från 5 till 8 av 8
+  länkade (USA–Spanien var damlandskampen), och 4382:s Inter och PSV länkas
+  framåt. Uppspelning mot `pool_match_diagnostic` gav bara rätt klubbar. PH3,
+  pit-v4 och pit-total-v1 fortsätter med datumnot, som vid v5–v7.
+- **vakt-v4**: `pool_pinnacle_saknas` (poolmatch utan Pinnacle 6 h före stopp
+  trots kandidat vid samma avspark), `roll_fel_i_rad` (två misslyckade körningar
+  i rad för samma roll) och `livespel_orattat` (öppet 3 h efter förväntat slut),
+  alla röda. `docs/vakt.md` I–K.
+- **Livekassan**: `RESULTAT_ALIAS` (bara livekassan; radarns namnregel orörd).
+  Spel 13 och 26 rättas i efterhand; spel 9 rättades redan 13/10 09:03Z.
+- **Kambi 1X2 före match**: suspended eller ett icke-OPEN utfall är en observerad
+  stängning (unavailable), aldrig ett bekräftat pris. Pinnacles Age sparas per ny
+  rad (`oddset_odds.cache_age_s`, additiv kolumn). Facitsidan fryser inga
+  oddsflaggor åt agenten.
+- **Driftsättning via beslutssidan**: agentens begäran (`typ: driftsattning`,
+  `docs/spelai-facit.md` § 17) får fasta knappar Godkänn/Avvisa. Efter Godkänn
+  kör spelai-ticken commitkontroll via spegeln, bygge ur `git archive` i
+  `bygg.sb`, omstart, hälsa, skärmbild 390×844, återställning vid rött och push
+  via spegeln.
+- Väntar medvetet: granskaren-2026-10-08-v8-utanfor-1x2 (Samans val: vänta).
+
 
 **Drift:** endast MacBook-servern 192.168.50.100, backend 8002 och byggd
 frontend 5175. Launchd och `tools/tjanster.sh` gäller; ny tjänst `backup`

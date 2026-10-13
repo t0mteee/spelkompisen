@@ -1,5 +1,111 @@
 # Statushistorik — daterade statusblock ur `docs/plan.md`
 
+## STATUS (2026-10-01 — driftvakten, Sofascore stängd, plan för agent)
+
+Projektets aktuella kontrakt står här; historiska statusblock finns i
+`docs/status-historik.md`. Överlämning:
+`docs/overlamningar/overlamning-2026-09-24-status-och-beslut.md`.
+
+**Drift:** endast MacBook-servern 192.168.50.100, backend 8002 och byggd
+frontend 5175. Launchd och `tools/tjanster.sh` gäller; ny tjänst `backup`
+(04:15). Full kontroll via `tools/kontroll.sh`, som sätter `SPELKOMPISEN_DB`
+till en temporär fil så att testerna aldrig öppnar produktionsdatabasen.
+
+**Kontrakt oförändrade:** live-radar chance-gap-shadow-v13 (landslag, 2026-10-03), V2.2 manifest
+v10/sharp s-2f14f9a6, amber-modell, powerrank-v2. Poolens champion
+dr1-b256-medel, radprofiler, pool-draw-risk-v1, matematiskt max v2 och
+reducerat max v2 oförändrade. Inga modellpromotioner.
+
+**Nytt 2026-10-01, driftvakten vakt-v1 (i drift 14:40:28Z):** `cli.py vakt` körs var
+30:e minut (launchd `com.saman.spelkompisen.vakt`) och kontrollerar källprovet, jobben,
+insamlingens livstecken i append-only-tabellerna, backendloggarna, driftkopian mot GitHub,
+testsviten varje natt i en temporär worktree, disken och testernas avläsningspunkter —
+utan AI, utan källanrop och med databasen `mode=ro`. Fel och varningar visas under
+"Driften behöver tillsyn" och "Drift att se över" på Idag; trösklar i `docs/vakt.md`.
+Första fyndet: **Sofascore svarar 403 med antibot-utmaning sedan 2026-09-25T10:43Z** och är
+stängd enligt källgränsen. Sedan dess saknas Sofascores resultat, xG/statistik och frånvaro
+(veckan 18–24/9: 111 resultatrader i 15 ligor och 96 statistikrader). Flashscore täcker
+frånvaron och en del statistik. Landslagsuppehållet gör att bara träningsmatcherna hittills
+saknar resultat (3 av 18); från nästa ligaomgång saknar ligor utan football-data resultat.
+⚖ ersättning i backlog 21. **spel-ai-kompisen godkänd av Saman 2026-10-01:** en självständig agent
+i ett privat sidoprojekt, mätt av en betrodd facitsida i Spelkompisen. Kontraktet och byggordningen
+står i `docs/spel-ai-kompisen-design.md`.
+
+**spel-ai-kompisen i drift 2026-10-01T19:34:31Z (fas B och D, delar av G):** facitsidan (`app/spelai/`, tabellerna `spelai_*` via migrering med backup) fryser agentens och standardens poolförslag 6 h och 30 min före spelstopp på alla nivåer (256 alla poolspel; 512/5 000/20 000/39 366 Stryktipset och Europatipset) och rättar dem som PH3. Agentens startstrategi `standard-v1` ger exakt standardens rader (provat i sandboxen på Stryktipset 4973, alla fem nivåer). Beslutssidan `#/beslut` och raden "N beslut väntar" på Idag; agentens app (5176) och agent-API (8003) kör i Spelkompisens sandbox. **Fas F i drift 2026-10-01T21:17Z:** `com.saman.spelai.roller` (var 5:e min) startar agentens rollkörningar (`claude -p --agent <roll>` i agentrepot, ren miljö, högst en åt gången, tak 8/dygn och absolut 12) — morgonrunda 07, forskningspass 10, motiveringar när agenten avviker från standarden, larm från vakten och söndagens UI-genomgång med skärmbilder som facitsidan tar — och speglar agentrepot till GitHub via en betrodd bar spegel. Gränsprovet av Claude-sandboxen (19 prov) nekade alla förbjudna försök. Chattservern (`com.saman.spelai.chatt`, Remote Control) är i drift sedan 2026-10-02 00:14. Sedan 2026-10-02 lämnar facitsidans chattbud beslut, officiella poolförslag och rollkörningar i chatten i Claude-appen (`docs/spelai-facit.md` avsnitt 15); pushen till telefonen går via ntfy, som Saman prenumererar på sedan samma dag. **Fas E (livekassan) i drift 2026-10-03** (Samans beslut 3): facitsidan lägger agentens fiktiva livespel mot Svenska Spels liveodds för över/under. Reglerna: 10 000 kr, 50–200 kr, högst 3 spel och 600 kr per match, spärr vid 7 500 kr, priset högst 60 s gammalt. Spelen rättas mot radarns resultatkälla och visas under Live i agentens app (`docs/spelai-facit.md` avsnitt 14 och 16).
+
+**Landslag i Oddset 2026-10-03 (Samans beställning under landslagsuppehållet):** Nations League (Pinnacle A–D 200719/200721/200726/200727, Kambi `football/uefa_nations_league`) och landskamper (Pinnacle 2117, Kambi `football/international_friendly_matches`) samlas som ren sharp-väg utan modell, med egna utforskande facitgrupper. Svenska Spels svenska och Pinnacles engelska namn kopplas på FIFA-landskod (`app/landslag.py`, 202 landslag), aldrig på namnlikhet; okända namn rapporteras som `okanda_landslag`. Prov mot tom databas 2026-10-03 cirka 10:00: 26 av 31 matcher kopplade till båda källorna. De övriga fem saknades hos en källa (Ryssland och Belarus utan Svenska Spel-utbud, Sri Lanka–Djibouti, två matcher 6/10 som Pinnacle inte listat än). Liveradarn följer med sedan v13, ren start 2026-10-03T08:45Z, med landskodsidentitet i `_same_team` och landskamper bakom samma Oddset-spärr som träningsmatcherna (`docs/radar-scope-v13-2026-10-03.md`).
+
+**Smarkets-skuggan lagad 2026-10-03:** Smarkets ger sedan 2026-09-19 (mellan 16:00Z och 16:14Z) högst 50 event per svar och pekar vidare med `pagination.next_page`. Klienten läste bara första sidan, alltså de 50 äldsta eventen. Från 22/9 gav nästan alla ligor 0 rader med ok-status (tyst fel), och kandidater utan rad märktes `unavailable` fast deras sida aldrig lästes. `smarkets.upcoming_events()` bläddrar nu till slutet (19 sidor, 918 event, 1,5 s). Om sidtaket nås blir det ett fel, aldrig en kortare lista. Cupernas ligafas (`uefa-champions-league`, `uefa-europa-league`, `uefa-europa-conference-league`, kvalslugsen behållna) och landslagen (Nations League A–D, `international-friendlies`) är avlästa ur Smarkets egna `full_slug`. Skuggserien har ett hål från 2026-09-19T16:00Z till driftsättningen; Smarkets-frånvaro i det fönstret bevisar ingenting. Andra ankaret är fortfarande bortkopplat från värderingen, och `ANCHOR_SOURCES`-spärren står kvar.
+
+**Oddsets delade identiteter 2026-10-03 (rättelse i drift 2026-10-03T20:45:28Z, datumnot):** `collect()` länkade bara mot listfönstret (10 d). Matcher som Pinnacle och Svenska Spel listade tidigare, i olika varv, fick en `pin:`- och en `svs:`-rad som de write-once käll-id:na höll isär: 30–33 % av matcherna 7–20/9 och 71–100 % efter landslagsuppehållet (301 av 308 par sedan juli). Svenska Spels odds låg då utan Pinnacle-ankare. Nu länkas mot ligans alla kommande rader (`link_cands`) med oförändrade regler. De 170 kommande paren slogs ihop 2026-10-03T20:46:40Z efter Samans godkännande (`scripts/migrera_oddset_identitetspar.py`, backup före, `integrity_check` ok, 0 identitetskonflikter); 138 passerade par lämnas. 2026-10-04 (Samans beslut): datumnoten gäller utan versionsbyte; PSG kopplas via källkopplingens eget alias (`ODDS_LINK_ALIASES`, inte `TEAM_ALIASES`, som hade ändrat radarns v13-länk), och de tre PSG-paren är sammanslagna; driftvakten vakt-v3 larmar med `oddset_delad_identitet` när en kommande match får två rader. `docs/overlamningar/overlamning-2026-10-03-oddset-identitet.md`, backlog 22.
+
+**Nytt 2026-09-24 (statusauditen och Samans beslut samma dag):**
+- **pool-sharp-freshness-v1** (i drift 14:11:09Z): ett cachat Pinnacle-pris
+  används bara om det är högst 90 min gammalt och ingen observation efter
+  priset sagt att länken tappats. Gäller analys, bygge, PH3-frysningar,
+  rörelser/steam, poolens CLV-logg, notiser och Ö/U-reserven. Oddsvarningen
+  visar orsaken; poolhälsan varnar när under 70 % av en omgångs matcher har
+  färsk Pinnacle inom 48 h före stopp. CLV-stängningen kräver en bekräftad
+  länk högst 90 min före avspark eller spelstopp.
+- **pool-name-v5** (i drift 14:30:53Z, beslut 1A): tidsankare ±15 min,
+  nivåer A/B/C/F, landsnamn bara för landslag och bara exakt. De öppna
+  omgångarna gick från 62 till 94 av 106 länkade matcher (Stryktipset 4972
+  från 0 till 13) utan ändrade eller förlorade länkar, bekräftat i drift i
+  basvarvet 14:57Z. m20-reserven
+  använder redan hämtade svar när budgeten är slut. pit-v4 och pit-total-v1
+  fortsätter med datumnot.
+- **Styrkeshadowen**: manifest v2 (`ps-8cbcf320`, fryst 14:13:13Z, beslut 3A)
+  efter tyst stopp 2026-08-21. Stopp syns nu i rapport, gater och poolhälsa.
+- **Pooloptimeraren** avläst vid 40 parade omgångar (beslut 5aA): ingen cell
+  passerad, ingen utmanare. Sista avläsning vid 120 framåtomgångar.
+- **Sharp-utmanaren** fortsätter med samma nyckel (beslut 5bA). Primär
+  jämförelse utesluter omgångar frysta med inaktuellt Pinnacle före
+  färskhetsregeln: 8 av 49 vid 180 min och 6 av 49 vid 20 min.
+- **Backup** (beslut "backup ja"): nattlig onlinekopia 04:15, 14 dagar lokalt
+  och senaste kopian i det privata repot `spelkompisen-backup`.
+  Återställningen är verifierad, och poolhälsan varnar om kopian blir äldre
+  än 36 h eller inte når GitHub. `docs/backup.md`.
+- Småfel rättade: settlementurvalet tolkar spelstopp som tid (facit för
+  ospelade omgångar två timmar tidigare), κ-texten i portföljkortet och
+  teckenandelar för spelade reducerade kuponger.
+
+**Kväll 2026-09-24 ("fixa det också"), i drift 2026-09-24T19:51:01Z:** matcharen **pool-name-v6**
+(truppmarkörer ur Pinnacles liganamn; inga av dagens länkar ändrade), omsättnings-
+prognosen **tp2** (sann median, dagtypsläge, svensk veckodag; Europatipset 2610 gick
+från 9,0 till 4,5 Mkr), utdelningsprognosen med minimiutdelning 15 kr och garanti på
+egen rad, oddsrörelse per match (SvS-serie för olänkade matcher), Ö/U-reservens
+gemensamma kö (pool-reserve-ou-v2), m20-reservens avslagsorsaker, kupongdetaljens
+markering av inaktuella priser, ren läsning i `/api/external-odds`, avstängd
+trådinsamlare och tidsjämförelser i sharp-serien. tp2 och rörelsen ändrar PH3:s
+radval (datumnot).
+
+**Nytt 2026-09-30, pool-name-v7 (i drift 2026-09-29T23:47:34Z, Samans beslut):** ligans
+dammarkör är veto för landslag (SvS skriver alltid Dam) men bara skiljeregel för omärkta
+klubbnamn — en damrad länkas när ingen herrrad kvalificerar inom ankaret, annars vinner
+herrraden som i v6. SvS egna damformer (Dam, WFC, LFC, Ladies) är truppmarkörer som
+gäller båda lagen. Alias: Sporting Jax, Junior de Barranquilla, Estudiantes mot Platense.
+Bakgrund: damernas Champions League i Topptipset 4359 hade 2 av 8 länkade i v6 fastän fyra
+rader fanns i Pinnacles index med exakt avspark. Första basvarvet med v7 (23:57:43Z):
+4359 från 2 till 6 av 8, 4360 från 5 till 7 av 8, 4361 från 4 till 5 av 8; 38 av 45 matcher
+i de öppna omgångarna oförändrade och de sju ändrade exakt de avsedda, ingen länk tappad.
+Kvar olistade hos Pinnacle: Malmö FF–St. Pölten, Rangers LFC–Hammarby, Panama–Nya Zeeland
+och tre landskamper 2/10.
+`docs/overlamningar/overlamning-2026-09-30-poolnamn-v7.md`.
+
+**PIT:** pit-v4 + pit-total-v1 med datumnoter 14/9, 15/9, 21/9, 24/9 och 30/9.
+Redovisa regimerna vid skörd. Systemjämförelsens nycklar är oförändrade;
+färskhetsregeln är en datumnot från 14:11:09Z.
+
+**Grindar avlästa 2026-09-24:** poolopt 47/40 par, avläst vid 40 (ej
+passerad). Sharp-utmanaren 49/40 par (41/43 efter uteslutning). PH3
+Topptipset "ingen utmanare" 52/53. PH4 out-of-time Stryk 9/40, Europa 17/40.
+
+**Nästa steg:** följ första dygnet med v5 i poolhälsan och
+`pool_match_diagnostic`, och kör täckningsrapporten `--sedan 2026-09-24`
+omkring 2026-10-01 som egen regim. Kvarvarande fynd står i backloggen
+(punkt 19).
+
+
 ## STATUS (2026-09-24 — färska Pinnacle-priser, matchregel v5, backup och avläsningar)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
