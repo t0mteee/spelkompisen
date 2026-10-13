@@ -631,6 +631,17 @@ halv vinst, push, halv förlust och förlust; för över är de låsta mot radar
 `_over_profit`. `next_price_*` är nästa öppna pris på samma lina och tecken
 efter spelet: prisrörelsen, inte facit.
 
+**Namnalias och larm (2026-10-13, beslut drift-2026-10-12-live-orattade, val 0).**
+Svenska Spels och Pinnacles lagnamn skiljer sig ibland från resultatens kanon
+(football-data "Ath Madrid", "Nott'm Forest", "Charlton"), och då fick spel 13 och
+26 aldrig facit (spel 9 rättades 2026-10-13T09:03Z när football-data-raden kom).
+`livekassa.RESULTAT_ALIAS` översätter de namnen, men BARA när de råa namnen inte gav
+något resultat. Radarns `_same_team` och Oddsets `TEAM_ALIASES` rörs inte (de styr
+signalversioner och V2.2). Spelen rättas i efterhand av samma `ratta` som alltid,
+med `settled_at` = rättningstiden. Inget bakfylls: resultatet är settlat fakta.
+Vakten larmar rött (`livespel_orattat`) när ett spel är öppet mer än 3 h efter
+förväntat slut (avspark + 110 min), se `docs/vakt.md`.
+
 ### API och app
 
 `GET /api/spelai/live` returnerar `kassa`, `graf` (saldot efter varje rättat spel),

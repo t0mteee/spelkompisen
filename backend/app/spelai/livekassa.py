@@ -361,13 +361,40 @@ def hamta_resultat(store, matcher: list[dict], now: dt.datetime) -> dict:
     return report
 
 
+# Beslut drift-2026-10-12-live-orattade (Saman, val 0). Oddsets lagnamn (ur
+# Svenska Spel/Pinnacle) mot resultatens kanon (football-data) där radarns
+# namnregel inte räcker. Bara livekassan: radarns `_same_team` och Oddsets
+# TEAM_ALIASES styr signalversioner och V2.2-fingeravtryck och rörs inte.
+# Aliaset prövas ENBART när de råa namnen inte gav något resultat, så en liga
+# vars resultat bär det långa namnet (Flashscore i cuperna) påverkas inte.
+# Nyckel och värde är `norm_team`-former; belägg i kommentaren.
+RESULTAT_ALIAS = {
+    # Spel 13: Alaves–Atlético Madrid 2026-10-10, fd "Ath Madrid".
+    "atletico madrid": "ath madrid",
+    # Spel 26: Crystal Palace–Nottingham 2026-10-11, fd "Nott'm Forest".
+    "nottingham": "nottm forest",
+    "nottingham forest": "nottm forest",
+    # Spel 9: Charlton Athletic–Bristol City 2026-10-10, fd "Charlton".
+    "charlton athletic": "charlton",
+}
+
+
 def _resultat(store, match: dict) -> Optional[dict]:
     from .. import oddset_data
     from ..live_signal_ledger import _result_for
+    from ..oddset import norm_team
     results = oddset_data.merged_results(store, match["league"])
-    found = _result_for({"start_at": match["start"], "captured_at": match["start"],
-                         "home": match["home"], "away": match["away"]}, results)
-    return found[0] if found else None
+    names = [(match["home"], match["away"])]
+    aliased = tuple(RESULTAT_ALIAS.get(norm_team(name), name)
+                    for name in (match["home"], match["away"]))
+    if aliased != names[0]:
+        names.append(aliased)
+    for home, away in names:
+        found = _result_for({"start_at": match["start"], "captured_at": match["start"],
+                             "home": home, "away": away}, results)
+        if found:
+            return found[0]
+    return None
 
 
 def ratta(store, *, now: dt.datetime,

@@ -625,6 +625,50 @@ class RollerTests(Base):
         self.assertIn(("roller", "jobb", vakt.check_roller), vakt.CHECKS)
 
 
+class LivespelTests(Base):
+    """K. Livespel orättat 3 h efter förväntat slut (vakt-v4)."""
+    NOW = t("2026-10-12T10:00:00Z")
+
+    def spel(self, *, start="2026-10-11T13:00:00Z", settled=False):
+        from app.spelai.schema import apply_schema
+        store = Storage(self.data / "stryktips.db")
+        try:
+            apply_schema(store.conn)
+            store.oddset_upsert_match({"id": "pin:1", "league": "premier_league",
+                                       "home": "Crystal Palace", "away": "Nottingham",
+                                       "start": start, "kambi_id": "1028072779"})
+            cur = store.conn.execute(
+                "INSERT INTO spelai_live_bet (match_ref, minute, market, line, sign, odds, "
+                "price_observed_at, stake_kr, placed_at) VALUES ('1028072779', 54, 'ou', "
+                "3.5, 'U', 3.8, '2026-10-11T14:17:30Z', 50, '2026-10-11T14:17:41Z')")
+            if settled:
+                store.conn.execute(
+                    "INSERT INTO spelai_live_result (bet_id, outcome, net_kr, settled_at) "
+                    "VALUES (?, 'forlust', -50, '2026-10-11T15:00:00Z')", (cur.lastrowid,))
+            store.conn.commit()
+        finally:
+            store.close()
+
+    def test_oppet_spel_efter_tre_timmar_larmar(self):
+        self.spel()
+        findings = vakt.check_livespel(self.ctx())
+        self.assertEqual(["livekassa"], [f["key"] for f in findings])
+        self.assertEqual(("error", "livespel_orattat"), (findings[0]["level"], findings[0]["kind"]))
+        self.assertIn("Crystal Palace–Nottingham", findings[0]["message"])
+        self.assertEqual("2026-10-11T14:50:00Z", findings[0]["since"])
+
+    def test_tyst_fore_gransen_och_nar_rattat(self):
+        self.spel()
+        # Avspark 13:00 + 110 min = 14:50; gränsen 17:50.
+        self.assertEqual([], vakt.check_livespel(self.ctx(now=t("2026-10-11T17:49:00Z"))))
+        self.tearDown(); self.setUp()
+        self.spel(settled=True)
+        self.assertEqual([], vakt.check_livespel(self.ctx()))
+
+    def test_kontrollen_ingar_i_vakten(self):
+        self.assertIn(("livespel", "jobb", vakt.check_livespel), vakt.CHECKS)
+
+
 class DriftTests(Base):
     def runner(self, extra: dict | None = None) -> FakeRunner:
         base = {

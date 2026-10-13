@@ -1079,6 +1079,55 @@ def check_roller(ctx: Ctx) -> list[dict]:
     return findings
 
 
+# ── K. livekassans orättade spel (vakt-v4, 2026-10-13) ────────────────────
+# Beslut drift-2026-10-12-live-orattade (Saman, val 0): tre livespel stod
+# orättade i dygn för att lagnamnen inte matchade resultaten. Ett spel som
+# fortfarande är öppet 3 h efter förväntat slut (avspark + livekassans
+# RATTAS_EFTER) larmar rött. `spelai_live_bet`/`_result` är append-only.
+LIVESPEL_OPPET_EFTER_H = 3
+
+
+def check_livespel(ctx: Ctx) -> list[dict]:
+    from .spelai import livekassa
+
+    conn = _ro_connect(ctx.db_path)
+    try:
+        try:
+            oppna = livekassa._spel(conn, "WHERE r.bet_id IS NULL")
+        except Exception as exc:  # noqa: BLE001
+            if "no such table" in str(exc):
+                return []         # spelai inte migrerad: inget att vakta
+            raise
+        sena = []
+        for bet in oppna:
+            match = livekassa._match_for_ref(conn, bet["match_ref"])
+            start = _at(match["start"]) if match else None
+            if start is None:      # okänd match: räkna från när spelet lades
+                placed = _at(bet["placed_at"])
+                start = placed and placed - dt.timedelta(minutes=int(bet["minute"] or 0))
+            if start is None:
+                continue
+            slut = start + livekassa.RATTAS_EFTER
+            if ctx.now - slut > dt.timedelta(hours=LIVESPEL_OPPET_EFTER_H):
+                sena.append({"id": bet["id"], "match_ref": bet["match_ref"],
+                             "match": (f"{match['home']}–{match['away']}" if match
+                                       else bet["match_ref"]),
+                             "forvantat_slut": _iso(slut), "insats_kr": bet["stake_kr"]})
+    finally:
+        conn.close()
+    ctx.summary["livespel"] = {"oppna": len(oppna), "sena": len(sena)}
+    if not sena:
+        return []
+    exempel = "; ".join(f"spel {b['id']} {b['match']}" for b in sena[:5])
+    mer = f" och {len(sena) - 5} till" if len(sena) > 5 else ""
+    return [_finding(
+        "error", "jobb", "livespel_orattat", "livekassa",
+        f"{len(sena)} livespel är fortfarande orättade mer än {LIVESPEL_OPPET_EFTER_H} h "
+        f"efter förväntat slut: {exempel}{mer}. Resultatet saknas eller lagnamnen "
+        "matchar inte (app/spelai/livekassa.py, RESULTAT_ALIAS).",
+        spel=sena[:20], since=min(b["forvantat_slut"] for b in sena))]
+
+
 # ── körning ──────────────────────────────────────────────────────────────
 
 CHECKS: tuple[tuple[str, str, Callable[[Ctx], list[dict]]], ...] = (
@@ -1093,6 +1142,7 @@ CHECKS: tuple[tuple[str, str, Callable[[Ctx], list[dict]]], ...] = (
     ("identitet", "jobb", check_identitet),
     ("poolpinnacle", "jobb", check_poolpinnacle),
     ("roller", "jobb", check_roller),
+    ("livespel", "jobb", check_livespel),
 )
 
 

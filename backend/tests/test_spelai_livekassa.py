@@ -316,6 +316,42 @@ class RattningTests(Base):
         self.assertTrue(refresh.call_args.kwargs["force"])
 
 
+class ResultatAliasTests(Base):
+    """Beslut drift-2026-10-12-live-orattade: spel 13 och 26 fick aldrig facit."""
+
+    def resultat(self, league, date, home, away, hg, ag, source="fd"):
+        self.store.oddset_save_result({"league": league, "date": date, "home": home,
+                                       "away": away, "home_raw": home, "away_raw": away,
+                                       "hg": hg, "ag": ag, "source": source})
+
+    def test_spel_13_och_26_hittar_football_data_raden(self):
+        self.resultat("la_liga", "2026-10-10", "alaves", "ath madrid", 1, 2)
+        self.resultat("premier_league", "2026-10-11", "crystal palace", "nottm forest", 3, 1)
+        self.resultat("championship", "2026-10-10", "charlton", "bristol city", 1, 1)
+        for home, away, league, start, mal in (
+                ("Alaves", "Atlético Madrid", "la_liga", "2026-10-10T14:15:00Z", (1, 2)),
+                ("Crystal Palace", "Nottingham", "premier_league", "2026-10-11T13:00:00Z", (3, 1)),
+                ("Charlton Athletic", "Bristol City", "championship", "2026-10-10T11:30:00Z",
+                 (1, 1))):
+            match = {"league": league, "home": home, "away": away, "start": start}
+            found = livekassa._resultat(self.store, match)  # noqa: SLF001
+            self.assertEqual(mal, (found["hg"], found["ag"]), home)
+
+    def test_raa_namn_vinner_fore_aliaset(self):
+        # Cupresultat bär ofta det långa namnet: aliaset får inte ta över.
+        self.resultat("champions_league", "2026-10-10", "atletico madrid", "inter", 2, 0,
+                      source="flashscore")
+        match = {"league": "champions_league", "home": "Atlético Madrid", "away": "Inter",
+                 "start": "2026-10-10T19:00:00Z"}
+        self.assertEqual((2, 0), tuple(livekassa._resultat(self.store, match)[k]  # noqa: SLF001
+                                       for k in ("hg", "ag")))
+
+    def test_utan_resultat_ingen_gissning(self):
+        match = {"league": "la_liga", "home": "Alaves", "away": "Atlético Madrid",
+                 "start": "2026-10-10T14:15:00Z"}
+        self.assertIsNone(livekassa._resultat(self.store, match))  # noqa: SLF001
+
+
 class PayloadTests(Base):
     def test_kassa_graf_spel_och_marknader(self):
         self.lagg_in(stake=50.0, net=55.0)
