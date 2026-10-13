@@ -45,7 +45,7 @@ class GeneriskaDelnamnTests(unittest.TestCase):
         self.assertEqual(PLYMOUTH["odds"], h["odds"])
         self.assertEqual(PLYMOUTH["total"], h["total"])          # samma fysiska match
         self.assertEqual(op.POOL_MATCH_VERSION, h["match_version"])
-        self.assertEqual("pool-name-v7", h["match_version"])
+        self.assertEqual("pool-name-v8", h["match_version"])
 
     def test_cambridge_wimbledon_exakt_plus_delnamn(self):
         h = hit("Cambridge", "Wimbledon", [CAMBRIDGE], home_iso="ENG", away_iso="ENG")
@@ -101,7 +101,11 @@ class GeneriskaDelnamnTests(unittest.TestCase):
         start = "2026-09-15T18:00:00Z"
         miami = row("m", "Inter Miami", "Lazio", start)
         barca_sc = row("sc", "Barcelona SC", "Sevilla", start)
-        self.assertIsNone(hit("Inter", "Lazio", [miami], start))
+        # pool-name-v8 (beslut koordinatorn-2026-10-13-pool-namnmatchning): ett
+        # exakt lag + avspark inom ankaret räcker när andra sidan är ett delnamn,
+        # eftersom Lazio bara spelar en match i taget. SC-skillnaden står kvar.
+        self.assertEqual(("m", "D"), (hit("Inter", "Lazio", [miami], start)["id"],
+                                      hit("Inter", "Lazio", [miami], start)["match_tier"]))
         self.assertIsNone(hit("Barcelona", "Sevilla", [barca_sc], start))
         right = row("fcb", "Barcelona", "Sevilla", start)
         for index in ([barca_sc, right], [right, barca_sc]):
@@ -252,7 +256,11 @@ class AliasOchDiagnostikTests(unittest.TestCase):
     def test_tvetydiga_kortnamn_far_inget_alias(self):
         start = "2026-09-28T03:10:00+02:00"
         cali = row("1636918709", "Deportivo Cali", "Aguilas Doradas", "2026-09-28T01:10:00Z")
-        self.assertIsNone(hit("Deportivo Cali", "Aguilas", [cali], start, "COL", "COL"))
+        # Fortfarande inget globalt alias, men v8:s nivå D länkar med exakt
+        # motståndare och avspark (Topptipset 4354 match 6).
+        self.assertEqual(("1636918709", "D"), (
+            hit("Deportivo Cali", "Aguilas", [cali], start, "COL", "COL")["id"],
+            hit("Deportivo Cali", "Aguilas", [cali], start, "COL", "COL")["match_tier"]))
         self.assertEqual(0.0, op.team_sim("Aguilas", "Aguilas Doradas"))
 
     def test_estudiantes_kontextalias_ar_niva_a_och_fortsatt_bundet(self):
@@ -273,7 +281,7 @@ class AliasOchDiagnostikTests(unittest.TestCase):
         self.assertEqual(("name_mismatch", 0, None),
                          (diag["reason"], diag["qualifying_candidates"], diag["qualifying_tier"]))
         self.assertEqual(("Wycombe Wanderers", "Bolton Wanderers"), (diag["cand_home"], diag["cand_away"]))
-        self.assertEqual("pool-name-v7", diag["match_version"])
+        self.assertEqual("pool-name-v8", diag["match_version"])
         with tempfile.TemporaryDirectory() as temp:
             store = Storage(Path(temp) / "t.db")
             try:

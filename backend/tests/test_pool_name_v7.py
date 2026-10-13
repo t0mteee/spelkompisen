@@ -86,7 +86,7 @@ class DamformerINamnetTests(unittest.TestCase):
         self.assertFalse(op.women_marked(None, ""))
 
     def test_versionen(self):
-        self.assertEqual("pool-name-v7", op.POOL_MATCH_VERSION)
+        self.assertEqual("pool-name-v8", op.POOL_MATCH_VERSION)
 
 
 class DamklubbTests(unittest.TestCase):
@@ -95,7 +95,7 @@ class DamklubbTests(unittest.TestCase):
         self.assertEqual(("wcl-hacken", "A", False), ident(h))
         self.assertEqual(HACKEN_JUVENTUS_W["odds"], h["odds"])
         self.assertEqual(HACKEN_JUVENTUS_W["total"], h["total"])
-        self.assertEqual("pool-name-v7", h["match_version"])
+        self.assertEqual("pool-name-v8", h["match_version"])
         self.assertEqual(("wcl-lyon", "A", False),
                          ident(v7("Lyon", "Chelsea", [LYON_CHELSEA_W], SVS_LYO_CHE, "FRA", "ENG")))
         # Speglad orientering följer med som för alla rader.
@@ -160,11 +160,12 @@ class DamklubbTests(unittest.TestCase):
 
 
 class DamlandslagTests(unittest.TestCase):
-    def test_omarkt_landslag_lankas_aldrig_till_damrad(self):
-        # SvS skriver "Kina Dam": ett omärkt landslag är herrlandslaget (v6:s veto kvar).
-        diag = {}
-        self.assertIsNone(v7("Kina", "Japan", [CHINA_JAPAN_W], SVS_CHN_JPN, "CHN", "JPN", diag))
-        self.assertEqual(("name_mismatch", 0), (diag["reason"], diag["qualifying_candidates"]))
+    def test_omarkt_landslag_foredrar_herrraden(self):
+        # pool-name-v8: SvS skriver inte alltid "Dam" (Topptipset 4383 USA–Spanien),
+        # så dammarkören är en skiljeregel även för landslag: herrraden vinner,
+        # utan herrrad länkas damraden (test_pool_name_v8).
+        self.assertEqual(("syn-dam", "A", False),
+                         ident(v7("Kina", "Japan", [CHINA_JAPAN_W], SVS_CHN_JPN, "CHN", "JPN")))
         self.assertEqual(("syn-herr", "A", False),
                          ident(v7("Kina", "Japan", [CHINA_JAPAN_W, CHINA_JAPAN_M], SVS_CHN_JPN, "CHN", "JPN")))
 
@@ -203,10 +204,13 @@ class AliasTests(unittest.TestCase):
                   "Argentina - Primera Division")
         self.assertEqual(("arg", "A", False),
                          ident(v7("Platense", "Estudiantes", [arg], "2026-10-02T02:15:00+02:00", "ARG", "ARG")))
-        # Ett generellt Estudiantes-alias finns fortfarande inte (Rio Cuarto, Caseros).
+        # Ett generellt Estudiantes-alias finns fortfarande inte (Rio Cuarto, Caseros),
+        # men v8:s nivå D länkar med exakt motståndare och avspark.
         other = row("lib", "Corinthians", "Estudiantes de La Plata", "2026-10-02T00:15:00Z",
                     "CONMEBOL - Libertadores")
-        self.assertIsNone(v7("Corinthians", "Estudiantes", [other], "2026-10-02T02:15:00+02:00", "BRA", "ARG"))
+        self.assertEqual(("lib", "D", False), ident(
+            v7("Corinthians", "Estudiantes", [other], "2026-10-02T02:15:00+02:00", "BRA", "ARG")))
+        self.assertEqual(0, op.team_sim("Estudiantes", "Estudiantes de La Plata"))
 
 
     def test_topptipset_4369_argentina_och_colombia(self):
@@ -230,16 +234,27 @@ class AliasTests(unittest.TestCase):
     def test_rosario_och_santa_fe_bara_mot_belagd_motstandare(self):
         leones = row("syn-leones", "Banfield", "Leones de Rosario", "2026-10-06T00:15:00Z",
                      "Argentina - Liga Pro")
+        # pool-name-v8: kontextaliaset är fortfarande ingen global regel (nivå A
+        # bara mot belagd motståndare), men nivå D länkar den rad där motståndaren
+        # är exakt och avsparken inom ankaret: ett lag spelar en match i taget.
+        # Där paret har ett belagt kontextalias styr det ensamt: Banfield–Rosario
+        # är Rosario Central, så Leones de Rosario länkas inte ens på nivå D.
         self.assertIsNone(v7("Banfield", "Rosario", [leones], "2026-10-06T02:15:00+02:00",
                              "ARG", "ARG"))
         union = row("syn-union", "Union de Santa Fe", "Defensa y Justicia",
                     "2026-10-10T00:45:00Z", "Argentina - Liga Pro")
-        self.assertIsNone(v7("Santa Fe", "Defensa y Justicia", [union],
-                             "2026-10-10T02:45:00+02:00", "ARG", "ARG"))
+        self.assertEqual(("syn-union", "D", False), ident(
+            v7("Santa Fe", "Defensa y Justicia", [union], "2026-10-10T02:45:00+02:00", "ARG", "ARG")))
         central = row("syn-central", "Rosario Central", "Racing Club", "2026-10-06T00:15:00Z",
                       "Argentina - Liga Pro")
-        self.assertIsNone(v7("Rosario", "Racing Club", [central], "2026-10-06T02:15:00+02:00",
-                             "ARG", "ARG"))
+        self.assertEqual(("syn-central", "D", False), ident(
+            v7("Rosario", "Racing Club", [central], "2026-10-06T02:15:00+02:00", "ARG", "ARG")))
+        # Den belagda kontextraden (nivå A) vinner alltid över nivå D.
+        ban = row("1637175522", "Banfield", "Rosario Central", "2026-10-06T00:15:00Z",
+                  "Argentina - Liga Pro")
+        for index in ([leones, ban], [ban, leones]):
+            self.assertEqual(("1637175522", "A", False), ident(
+                v7("Banfield", "Rosario", index, "2026-10-06T02:15:00+02:00", "ARG", "ARG")))
 
 
 class OforandradeVagarTests(unittest.TestCase):
@@ -297,7 +312,7 @@ class SharpServiceTests(unittest.TestCase):
     def test_damcupsraden_ger_odds_i_poolmatcharen(self):
         result = self.collect([HACKEN_JUVENTUS_W])
         self.assertEqual({1: "matched"}, result["status"])
-        self.assertEqual(("wcl-hacken", "Hacken", "pool-name-v7"),
+        self.assertEqual(("wcl-hacken", "Hacken", "pool-name-v8"),
                          (result["hits"][1]["id"], result["hits"][1]["home"],
                           result["hits"][1]["match_version"]))
 

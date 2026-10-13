@@ -23,7 +23,7 @@ class PoolNames4346Tests(unittest.TestCase):
         self.assertEqual(event["id"], hit["id"])
         self.assertEqual(event["odds"], hit["odds"])
         self.assertEqual(event["total"], hit["total"])
-        self.assertEqual("pool-name-v7", hit["match_version"])
+        self.assertEqual("pool-name-v8", hit["match_version"])
         self.assertEqual("A", hit["match_tier"])     # kontextaliaset räknas som exakt
         # Ett generellt Estudiantes-alias skulle även träffa andra klubbar.
         self.assertEqual(0, odds_provider.team_sim("Estudiantes", "Estudiantes de La Plata"))
@@ -39,8 +39,11 @@ class PoolNames4346Tests(unittest.TestCase):
                     self.assertEqual(right["id"], self.match(index)["id"])
 
     def test_kontextalias_kraver_motstandare_och_nara_kand_tid(self):
-        for opponent in ("Lanus U20", "Flamengo"):
-            self.assertIsNone(self.match([self.event(home=opponent)], home=opponent))
+        # Olika trupp på Pinnacles sidor är aldrig en träff.
+        self.assertIsNone(self.match([self.event(home="Lanus U20")], home="Lanus U20"))
+        # pool-name-v8: annan exakt motståndare vid exakt avspark ger nivå D
+        # (Topptipset 4386 Estudiantes–Flamengo), inte kontextaliasets nivå A.
+        self.assertEqual("D", self.match([self.event(home="Flamengo")], home="Flamengo")["match_tier"])
         for time in (None, "trasig-tid", "2026-09-22T00:31:00Z"):
             self.assertIsNone(self.match([self.event(start=time)]))
         self.assertIsNone(pinnacle.match_index("Lanús", "Estudiantes", None, None,

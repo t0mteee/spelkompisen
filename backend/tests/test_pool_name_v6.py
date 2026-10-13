@@ -114,7 +114,7 @@ class LigamarkorTests(unittest.TestCase):
         self.assertEqual("Sweden U21", op.with_league_squad("Sweden U21", ("u21",)))
         self.assertEqual("Chelsea women", op.with_league_squad("Chelsea", ("women",)))
         self.assertEqual("Chelsea", op.with_league_squad("Chelsea", ()))
-        self.assertEqual("pool-name-v7", op.POOL_MATCH_VERSION)
+        self.assertEqual("pool-name-v8", op.POOL_MATCH_VERSION)
 
 
 class SoccerIndexLigaTests(unittest.TestCase):
@@ -143,19 +143,20 @@ class U21Tests(unittest.TestCase):
         h = v6("England", "Spanien", index, SVS_ENG_ESP, "ENG", "ESP")
         self.assertEqual(("1636346499", "A", False), (h["id"], h["match_tier"], h["swapped"]))
         self.assertEqual(ENGLAND_SPAIN["odds"], h["odds"])
-        self.assertEqual("pool-name-v7", h["match_version"])
+        self.assertEqual("pool-name-v8", h["match_version"])
         # v5 som jämförelse: tre rader med samma namn på nivå A ⇒ tvetydig, ingen länk.
         diag = {}
         self.assertIsNone(v5("England", "Spanien", index, SVS_ENG_ESP, "ENG", "ESP", diag))
         self.assertEqual("ambiguous", diag["reason"])
 
     def test_utan_seniorrad_lankas_aldrig_u21_eller_damraden(self):
-        # Landslag: dammarkören är veto även i v7 (SvS skriver "Kina Dam").
-        for index in ([ENGLAND_SPAIN_U21], [ENGLAND_SPAIN_W], [ENGLAND_SPAIN_U21, ENGLAND_SPAIN_W]):
+        # U21 är veto. Damraden är sedan v8 en skiljeregel även för landslag
+        # (test_pool_name_v8), så här prövas bara U21-raden.
+        for index in ([ENGLAND_SPAIN_U21],):
             diag = {}
             self.assertIsNone(v6("England", "Spanien", index, SVS_ENG_ESP, "ENG", "ESP", diag))
             self.assertEqual(("name_mismatch", 0), (diag["reason"], diag["qualifying_candidates"]))
-            self.assertIn(diag["cand_league"], (U21, ENGLAND_SPAIN_W["league"]))
+            self.assertEqual(U21, diag["cand_league"])
         # v5 länkade den ensamma U21-raden: det är felet v6 stänger.
         self.assertEqual("syn-u21", v5("England", "Spanien", [ENGLAND_SPAIN_U21], SVS_ENG_ESP,
                                        "ENG", "ESP")["id"])

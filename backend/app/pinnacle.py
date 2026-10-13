@@ -18,8 +18,8 @@ from typing import Optional
 import httpx
 
 # `_best_side` återexporteras: scripts/pool_tackning_rapport.py importerar den här.
-from .odds_provider import (EXACT, PART, _best_side, pool_side_score, pool_side_relation,  # noqa: F401
-                            pool_name_candidates, _hours_apart, _parse_time,
+from .odds_provider import (EXACT, PART, WEAK, _best_side, pool_side_score, pool_side_relation,  # noqa: F401
+                            _norm_team, _squad, pool_name_candidates, _hours_apart, _parse_time,
                             english_name, COMBINED_MIN, HOME_AWAY_MIN,
                             TIME_WINDOW_H, POOL_ANCHOR_S, POOL_MATCH_VERSION, women_marked,
                             diagnostic_team_sim, is_side_market, league_squad,
@@ -448,7 +448,10 @@ class Pinnacle:
 # (HOME_AWAY_MIN/COMBINED_MIN). Bästa nivån vinner; mer än en kandidat eller
 # orientering på den nivån är tvetydigt. En lägre nivå blockerar aldrig en
 # högre. Utan känd SvS-avspark gäller v4-vägen oförändrad.
-_TIERS = ("A", "B", "C", "F")
+# pool-name-v8: D = ena sidan exakt/alias, andra ett icke-generiskt delnamn
+# (`odds_provider.pool_weak`). D rankas sist, så v7:s länkar är oförändrade,
+# och kräver dessutom att det exakta laget finns i EN behörig rad.
+_TIERS = ("A", "B", "C", "F", "D")
 # Konfidens för en delnamnssida: A 1,0 · B 0,9 · C 0,8. F behåller sitt
 # snittvärde. Beslutet bärs av `match_tier`, inte av siffran.
 _PART_STRENGTH = 0.8
@@ -471,6 +474,8 @@ def _pool_tier(home_rel: tuple, away_rel: tuple) -> tuple[Optional[str], float]:
     if (score_home >= HOME_AWAY_MIN and score_away >= HOME_AWAY_MIN
             and (score_home + score_away) / 2 >= COMBINED_MIN):
         return "F", (score_home + score_away) / 2
+    if {kind_home, kind_away} == {EXACT, WEAK}:
+        return "D", (1.0 + _PART_STRENGTH) / 2
     return None, 0.0
 
 
@@ -521,11 +526,15 @@ def match_index(home: str, away: str, home_iso: Optional[str],
     Avsparksankare, nivåer och trösklar är desamma. Bomben (`Pinnacle.match`)
     och vägen utan SvS-avspark (v4) får inga ligamarkörer.
 
-    pool-name-v7 (2026-09-30): ligans dammarkör är veto för landslag och för
-    SvS-namn med egen damform, men bara en skiljeregel för omärkta klubbnamn:
-    en damrad får då länkas när ingen herrrad kvalificerar inom ankaret;
-    finns en herrrad på någon nivå vinner den som i v6. En damform i SvS-
-    namnet gäller båda lagen. U-åldrar, reserv och ungdom är veto som förut.
+    pool-name-v7 (2026-09-30): ligans dammarkör är veto för SvS-namn med egen
+    damform, men bara en skiljeregel för omärkta namn: en damrad får då
+    länkas när ingen herrrad kvalificerar inom ankaret; finns en herrrad på
+    någon nivå vinner den som i v6. En damform i SvS-namnet gäller båda
+    lagen. U-åldrar, reserv och ungdom är veto som förut.
+
+    pool-name-v8 (2026-10-13): skiljeregeln gäller även landslag (Topptipset
+    4383: SvS "USA – Spanien" utan Dam var damlandskampen, Pinnacles enda rad
+    "International - Friendlies Women" vid exakt avspark), och nivå D tillkommer.
 
     Ren funktion utan nätverk; indexordning får aldrig välja odds. Med känd
     SvS-avspark är bara kandidater med känd avspark inom POOL_ANCHOR_S
@@ -545,11 +554,12 @@ def match_index(home: str, away: str, home_iso: Optional[str],
         home, away = with_league_squad(home, ("women",)), with_league_squad(away, ("women",))
     home_cands, home_national = pool_name_candidates(home, home_iso)
     away_cands, away_national = pool_name_candidates(away, away_iso)
-    # Ligans dammarkör är veto för landslag (SvS skriver Dam) och för märkta
-    # SvS-namn; för omärkta klubbnamn är den bara en skiljeregel (nedan).
-    women_veto = svs_women or home_national or away_national
+    # Ligans dammarkör är veto för märkta SvS-namn; för omärkta namn, även
+    # landslag sedan v8, är den bara en skiljeregel (nedan).
+    women_veto = svs_women
     qualifying = []          # (nivå, rad, speglad, konfidens, damrad ur ligan)
     audit_candidates = []
+    exact_rows = {"home": set(), "away": set()}   # v8: rader där sidan är exakt
     for g in index:
         if is_side_market(g["home"], g["away"]):
             continue
@@ -574,10 +584,20 @@ def match_index(home: str, away: str, home_iso: Optional[str],
         rel_h2 = pool_side_relation(home_cands, g_away, away, g_home, gap_h, home_national)
         rel_a2 = pool_side_relation(away_cands, g_home, home, g_away, gap_h, away_national)
         if eligible:
+            for side, rels in (("home", (rel_h, rel_h2)), ("away", (rel_a, rel_a2))):
+                if any(rel[0] == EXACT for rel in rels):
+                    exact_rows[side].add(id(g))
             for swapped, (side_h, side_a) in ((False, (rel_h, rel_a)), (True, (rel_h2, rel_a2))):
                 tier, confidence = _pool_tier(side_h, side_a)
-                if tier:
-                    qualifying.append((tier, g, swapped, confidence, soft_women))
+                if tier == "D":
+                    # En rad med olika trupp på sidorna (Lanus U20 – Estudiantes
+                    # de La Plata) är aldrig en ensidig träff.
+                    if _squad(_norm_team(g_home)) != _squad(_norm_team(g_away)):
+                        continue
+                    exact_side = "home" if side_h[0] == EXACT else "away"
+                    qualifying.append((tier, g, swapped, confidence, soft_women, exact_side))
+                elif tier:
+                    qualifying.append((tier, g, swapped, confidence, soft_women, None))
         if diag is not None:
             audit_candidates.append(_audit_entry(
                 home, away, g, (rel_h[1], rel_a[1]), (rel_h2[1], rel_a2[1]), gap_h))
@@ -585,18 +605,22 @@ def match_index(home: str, away: str, home_iso: Optional[str],
     # bort (v6:s val); bara utan herrrad får de konkurrera sinsemellan.
     if any(not q[4] for q in qualifying):
         qualifying = [q for q in qualifying if not q[4]]
+    # pool-name-v8: nivå D kräver att det exakta laget finns i EN behörig rad.
+    shared_exact = [q for q in qualifying if q[0] == "D" and len(exact_rows[q[5]]) != 1]
+    qualifying = [q for q in qualifying if q not in shared_exact]
     best_rank = min((_TIERS.index(q[0]) for q in qualifying), default=None)
     top = [q for q in qualifying if _TIERS.index(q[0]) == best_rank]
     if len(top) != 1:
         if diag is not None and audit_candidates:
             candidates = [c for _, c in sorted(audit_candidates, key=lambda c: c[0], reverse=True)[:5]]
             diag.update({**candidates[0], "candidates": candidates,
-                         "reason": "ambiguous" if len(top) > 1 else "name_mismatch",
+                         "reason": ("ambiguous" if len(top) > 1 or (not top and shared_exact)
+                                    else "name_mismatch"),
                          "qualifying_candidates": len(top),
                          "qualifying_tier": _TIERS[best_rank] if top else None,
                          "match_version": POOL_MATCH_VERSION})
         return None
-    tier, best, best_swapped, confidence, _ = top[0]
+    tier, best, best_swapped, confidence, _, _ = top[0]
     return _hit(best, best_swapped, confidence, tier)
 
 

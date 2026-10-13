@@ -104,7 +104,7 @@ def _ratio(a: str, b: str) -> float:
 # Poolens egna bekräftade kortnamn. Ändra inte Oddsets/modellens globala
 # alias för att rätta poolmatcharen. Evidens: täckningsrapport 2026-09-13
 # och NameRuleTests (Svenska Spel ↔ Pinnacle).
-POOL_MATCH_VERSION = "pool-name-v7"
+POOL_MATCH_VERSION = "pool-name-v8"
 _POOL_TEAM_ALIASES = {
     "leeds": "leeds united",
     "nottingham": "nottingham forest",
@@ -153,6 +153,12 @@ _POOL_TEAM_ALIASES = {
     # mot Pinnacles "Gimnasia Mendoza" vid exakt avspark, id 1637175501. Namnet
     # bär staden, så det pekar bara på en klubb (Gimnasia La Plata är en annan).
     "gimnasia y esgrima mendoza": "gimnasia mendoza",
+    # pool-name-v8 (beslut drift-2026-10-12-pool-agf-alias). Topptipset 4380:
+    # Århus–Sönderjyske 2026-10-12 17:00Z mot Pinnacles "AGF – Sonderjyske" vid
+    # exakt avspark, id 1637171526 (Oddset skriver "AGF Aarhus"). "aarhus" ensamt
+    # är INTE alias: VSK Aarhus är en annan klubb i samma index.
+    "arhus": "agf",
+    "agf aarhus": "agf",
     # MEDVETET INTE alias: Aguilas (indexet har både Aguilas–Hercules i Spanien
     # och Aguilas Doradas i Colombia), Fortaleza (Fortaleza och Fortaleza
     # CEIF), America (Club America och America Mineiro). Samma klass som
@@ -324,7 +330,7 @@ _POOL_NATIONS = {
 _POOL_SV_EXTRA = {"COD": ("DR Kongo",), "GBR": ("England",)}
 _SAINT = frozenset({"st", "sankt", "saint"})
 _COUNTRY_FILLER = frozenset({"och", "and"})
-EXACT, PART = "exact", "part"
+EXACT, PART, WEAK = "exact", "part", "weak"
 _sv_translation = None
 _country_names: frozenset[str] | None = None
 
@@ -497,13 +503,55 @@ def pool_part(a: Optional[str], b: Optional[str]) -> bool:
     return False
 
 
+# --- pool-name-v8: ensidig nivå D ---------------------------------------------
+# Beslut koordinatorn-2026-10-13-pool-namnmatchning (Saman, val 0). Ett lag
+# spelar en match i taget: när ena sidan är exakt/alias och avsparken ligger
+# inom POOL_ANCHOR_S räcker det att den andra sidan är ett DELNAMN av samma
+# klubb, även när skillnaden inte är ett klubbformsord (PSV / PSV Eindhoven,
+# Aguilas / Aguilas Doradas, CS Cartagines / Cartagines) eller en förkortning
+# av första ordet (Inter / Internazionale). Nivån D rankas EFTER F, så en
+# länk som fanns i v7 kan aldrig ändras eller göras tvetydig av den.
+# Landsnamn, olika trupp, kända falska par och SC-skillnaden (Barcelona ≠
+# Barcelona SC) ger aldrig D.
+_WEAK_PREFIX_MIN = 4
+
+
+def pool_weak(a: Optional[str], b: Optional[str]) -> bool:
+    """Icke-generiskt delnamn för nivå D (aldrig ensamt en länk)."""
+    if not a or not b:
+        return False
+    na, nb = _norm_team(a), _norm_team(b)
+    if not na or not nb or na == nb or _squad(na) != _squad(nb):
+        return False
+    pair = frozenset((na, nb))
+    if pair in _rejected() or pair in _POOL_REJECTED_PARTS:
+        return False
+    if any(is_country_name(name) for name in (a, b, na, nb)):
+        return False
+    core_a = [t for t in na.split() if not _is_squad_token(t)]
+    core_b = [t for t in nb.split() if not _is_squad_token(t)]
+    if ("sc" in core_a) != ("sc" in core_b):
+        return False
+    short, long_ = sorted((core_a, core_b), key=len)
+    n = len(short)
+    if not n or all(t in _POOL_GENERIC_WORDS for t in short):
+        return False
+    if n < len(long_) and any(long_[i:i + n] == short for i in range(len(long_) - n + 1)):
+        return True
+    # Förkortning av första ordet: Inter / Internazionale.
+    if n == 1 and len(short[0]) >= _WEAK_PREFIX_MIN:
+        other = core_b if short is core_a else core_a
+        return other[0] != short[0] and other[0].startswith(short[0])
+    return False
+
+
 def pool_side_relation(candidates: list[str], target: str, opponent: str,
                        target_opponent: str, gap_h: Optional[float],
                        national: bool = False) -> tuple[Optional[str], float]:
     """(relation, sidopoäng) för EN sida i pool-name-v5.
 
     'exact' = exakt/alias (1,0); 'part' = generiskt delnamn (sidopoäng 0 som
-    i v4); None = ingetdera, med stavningslikheten för nivå F. Kontextalias
+    i v4); 'weak' = icke-generiskt delnamn för v8:s nivå D; None = ingetdera, med stavningslikheten för nivå F. Kontextalias
     styrs enbart av sin egen regel. Landsnamn matchas bara exakt: ett igenkänt
     landslag hos SvS eller ett landsnamn hos Pinnacle får varken delnamn eller
     stavningslikhet (England~Finland 0,714 och France~Ukraine 0,615 är olika
@@ -524,6 +572,8 @@ def pool_side_relation(candidates: list[str], target: str, opponent: str,
         return None, 0.0
     if pool_part(candidates[0], target):
         return PART, score
+    if pool_weak(candidates[0], target):
+        return WEAK, score
     return None, score
 
 
