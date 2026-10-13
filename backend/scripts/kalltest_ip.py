@@ -261,11 +261,6 @@ CHECKS = (
      "sharp-ankaret: hela värdemotorn, CLV-facitet och steam"),
     ("kambi", check_kambi, True,
      "SvS Oddset-priser: det vi faktiskt kan spela"),
-    ("sofa_model", check_sofascore_model, True,
-     "MODELLENS datarygg: historisk xG, frånvaro, cupresultat och "
-     "WP9c-schema (refresh_all)"),
-    ("sofa_live", check_sofascore_live, False,
-     "Sofascores livefeed; diagnostik, inte krav för modellservern"),
     ("flashscore", check_flashscore, True,
      "live-radarns primära chansdata (xG/skott) sedan 2026-08-01"),
     ("fotmob", check_fotmob, False,
@@ -273,6 +268,59 @@ CHECKS = (
     ("altenar", check_altenar, False,
      "sidobok (Ninja) för 1X2/Ö/U/hörnor — mjuk bok, inget ankare"),
 )
+
+
+# Sofascore har svarat 403 (antibot) sedan 2026-09-25 och Flashscore har tagit
+# över. Beslut koordinatorn-2026-10-14-sofascore-larm (Saman, val 0): ur det
+# ordinarie källprovet, men ett tyst veckoprov i en EGEN logg säger till om
+# källan börjar svara igen. Veckoprovet påverkar aldrig exitkoden.
+VECKOPROV = (
+    ("sofa_model", check_sofascore_model,
+     "Sofascores modellendpoints (historisk xG, frånvaro, cupresultat)"),
+    ("sofa_live", check_sofascore_live, "Sofascores livefeed"),
+)
+VECKOPROV_LOG = "sofascore-veckoprov.jsonl"
+VECKOPROV_DAGAR = 7
+
+
+def _veckoprov_dags(path: Path, now: dt.datetime) -> bool:
+    """Dags när loggen saknar en läsbar rad från de senaste VECKOPROV_DAGAR."""
+    if not path.exists():
+        return True
+    senaste = None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            when = dt.datetime.fromisoformat(
+                str(json.loads(line)["at"]).replace("Z", "+00:00"))
+        except (ValueError, KeyError, TypeError):
+            continue
+        senaste = when if senaste is None else max(senaste, when)
+    return senaste is None or now - senaste >= dt.timedelta(days=VECKOPROV_DAGAR)
+
+
+def run_veckoprov(log_path: Path, quiet: bool, checks=VECKOPROV,
+                  now: dt.datetime | None = None) -> bool:
+    """Kör veckoprovet om det är dags. Returnerar om det kördes."""
+    if not _veckoprov_dags(log_path, now or dt.datetime.now(dt.timezone.utc)):
+        return False
+    run_id = f"{_now()}-{uuid.uuid4().hex[:8]}"
+    with log_path.open("a", encoding="utf-8") as log:
+        for name, check, _feeds in checks:
+            try:
+                ok, note = check()
+            except Exception as exc:  # noqa: BLE001 — nätfel är ett mätvärde
+                ok, note = False, f"{type(exc).__name__}: {str(exc)[:80]}"
+            infrastructure_error = _infrastructure_reason(note)
+            log.write(json.dumps({
+                "schema_version": 2, "run_id": run_id, "at": _now(), "source": name,
+                "ok": ok, "transport_ok": ok,
+                "outcome": ("infrastructure_error" if infrastructure_error
+                            else "ok" if ok else "source_error"),
+                "infrastructure_error": infrastructure_error, "note": note},
+                ensure_ascii=False) + "\n")
+            if not quiet:
+                print(f"{'✅' if ok else '·'} {name:12s} [veckoprov] {note}")
+    return True
 
 
 def _infrastructure_reason(note: str) -> str | None:
@@ -503,8 +551,11 @@ def main() -> None:
     parser.add_argument("--logg", type=Path,
                         help="egen loggfil (bra när flera IP-test arkiveras)")
     args = parser.parse_args()
-    sys.exit(report(args.logg) if args.rapport else
-             run_once(args.tyst, args.logg))
+    if args.rapport:
+        sys.exit(report(args.logg))
+    code = run_once(args.tyst, args.logg)
+    run_veckoprov((args.logg or LOG).with_name(VECKOPROV_LOG), args.tyst)
+    sys.exit(code)
 
 
 if __name__ == "__main__":

@@ -58,11 +58,11 @@ class KalltestReportTests(unittest.TestCase):
     def test_missing_support_source_does_not_block_critical_use(self):
         with tempfile.TemporaryDirectory() as temp:
             log = Path(temp) / "log.jsonl"
-            self._write_log(log, missing="sofa_live")
+            self._write_log(log, missing="fotmob")
             code, output = self._report(log)
         self.assertEqual(0, code)
         self.assertIn("användbar för alla kritiska funktioner", output)
-        self.assertIn("sofa_live", output)
+        self.assertIn("fotmob", output)
 
     def test_report_requires_real_72_hour_span(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -225,6 +225,46 @@ class KalltestProbeTests(unittest.TestCase):
         self.assertEqual(["ok", "infrastructure_error"],
                          [row["outcome"] for row in rows])
         self.assertEqual("dns", rows[1]["infrastructure_error"])
+
+
+
+class VeckoprovTests(unittest.TestCase):
+    """Beslut koordinatorn-2026-10-14-sofascore-larm (val 0)."""
+    NOW = dt.datetime(2026, 10, 14, 12, tzinfo=dt.timezone.utc)
+
+    def test_sofascore_ar_ur_det_ordinarie_kallprovet(self):
+        names = {name for name, *_ in kalltest.CHECKS}
+        self.assertFalse(names & {"sofa_model", "sofa_live"})
+        self.assertEqual({"sofa_model", "sofa_live"},
+                         {name for name, *_ in kalltest.VECKOPROV})
+
+    def test_veckoprovet_kor_en_gang_per_vecka_i_egen_logg(self):
+        calls = []
+        checks = (("sofa_live", lambda: calls.append(1) or (False, "status 403"), ""),)
+        with tempfile.TemporaryDirectory() as temp:
+            log = Path(temp) / kalltest.VECKOPROV_LOG
+            self.assertTrue(kalltest.run_veckoprov(log, True, checks, self.NOW))
+            row = json.loads(log.read_text(encoding="utf-8"))
+            self.assertEqual(("sofa_live", False, "source_error"),
+                             (row["source"], row["ok"], row["outcome"]))
+            self.assertFalse(kalltest.run_veckoprov(log, True, checks, self.NOW))
+            later = self.NOW + dt.timedelta(days=kalltest.VECKOPROV_DAGAR)
+            row["at"] = self.NOW.strftime("%Y-%m-%dT%H:%M:%SZ")
+            log.write_text(json.dumps(row) + "\n", encoding="utf-8")
+            self.assertFalse(kalltest.run_veckoprov(
+                log, True, checks, later - dt.timedelta(minutes=1)))
+            self.assertTrue(kalltest.run_veckoprov(log, True, checks, later))
+        self.assertEqual(2, len(calls))
+
+    def test_kraschande_prov_ar_ett_matvarde(self):
+        def boom():
+            raise RuntimeError("curl_cffi saknas")
+        with tempfile.TemporaryDirectory() as temp:
+            log = Path(temp) / kalltest.VECKOPROV_LOG
+            kalltest.run_veckoprov(log, True, (("sofa_model", boom, ""),), self.NOW)
+            row = json.loads(log.read_text(encoding="utf-8"))
+        self.assertFalse(row["ok"])
+        self.assertIn("curl_cffi saknas", row["note"])
 
 
 if __name__ == "__main__":

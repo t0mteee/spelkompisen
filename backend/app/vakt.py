@@ -45,8 +45,9 @@ from zoneinfo import ZoneInfo
 from .storage import DEFAULT_DB
 
 # v2 (2026-10-02): kända fel (KANDA_FEL). v3 (2026-10-04): H. Oddsets
-# matchidentitet (`check_identitet`).
-VERSION = "vakt-v4"
+# matchidentitet (`check_identitet`). v4 (2026-10-13): I–K. v5 (2026-10-14):
+# Sofascore ur källprovet, L. veckoprovet säger till när Sofascore svarar igen.
+VERSION = "vakt-v5"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = DEFAULT_DB.parent
 STATUS_DIR_ENV = "SPELKOMPISEN_VAKT_DIR"
@@ -123,24 +124,10 @@ AREAS = ("jobb", "kallor", "backend", "drift", "tester", "server", "experiment")
 # fynd som bara är en följd av andra fynd (källprovet avslutar med 1 när en kritisk
 # källa fallerar), men bara när ALLA fynd av det slaget är kvitterade. Nivån ändras
 # aldrig. Listan ändras bara av Claude eller Codex, med datum och skäl.
-KANDA_FEL: tuple[dict, ...] = (
-    {"kind": "kalla_nere", "key": "sofa_live", "text": "status 403",
-     "kvitterad": "2026-10-02", "till": "2026-10-31",
-     "varfor": "Sofascore svarar 403 med en antibot-utmaning sedan 25/9, och "
-               "källgränsen stänger den vägen.",
-     "beslut": "Beslut 20: Flashscore ersätter Sofascore som resultatkälla "
-               "(docs/backlog.md 21)."},
-    {"kind": "kalla_nere", "key": "sofa_model", "text": "status 403",
-     "kvitterad": "2026-10-02", "till": "2026-10-31",
-     "varfor": "Samma antibot-stängning som sofa_live; Flashscore täcker frånvaron.",
-     "beslut": "Beslut 20: Flashscore ersätter Sofascore som resultatkälla "
-               "(docs/backlog.md 21)."},
-    {"kind": "jobb_exit", "key": "kalltest", "foljd_av": "kalla_nere",
-     "kvitterad": "2026-10-02", "till": "2026-10-31",
-     "varfor": "Källprovet avslutar med kod 1 när en kritisk källa fallerar, och i dag "
-               "fallerar bara de kvitterade Sofascore-källorna.",
-     "beslut": "Följer Sofascore-beslutet; ett källprov utan Sofascore ingår i beslut 20."},
-)
+# Tom sedan 2026-10-14: Sofascores tre kvitteringar (beslut 20) ersattes av
+# beslut koordinatorn-2026-10-14-sofascore-larm (val 0), som tog Sofascore ur
+# källprovet och lade det i ett tyst veckoprov (L).
+KANDA_FEL: tuple[dict, ...] = ()
 
 Runner = Callable[..., tuple[int, str, str]]
 
@@ -1128,6 +1115,48 @@ def check_livespel(ctx: Ctx) -> list[dict]:
         spel=sena[:20], since=min(b["forvantat_slut"] for b in sena))]
 
 
+# ── L. Sofascores veckoprov (vakt-v5, 2026-10-14) ─────────────────────────
+# Sofascore svarar 403 (antibot) sedan 2026-09-25 och är ur det ordinarie
+# källprovet. Källprovsjobbet provar den en gång i veckan i en egen logg
+# (scripts/kalltest_ip.py, VECKOPROV). Provet är tyst: det säger bara till när
+# Sofascore svarar igen, eller som notering när provet slutat köras.
+VECKOPROV_LOG = "sofascore-veckoprov.jsonl"
+VECKOPROV_STALE_D = 7 + 1
+
+
+def check_sofascore(ctx: Ctx) -> list[dict]:
+    path = ctx.data_dir / VECKOPROV_LOG
+    if not path.exists():
+        return []                  # inget prov ännu: källprovet kör det inom 6 h
+    runs: dict[str, dict] = {}
+    for row in _read_jsonl(path):
+        run = runs.setdefault(str(row.get("run_id") or str(row["at"])[:16]),
+                              {"at": _at(row["at"]), "rows": []})
+        run["at"] = min(run["at"], _at(row["at"]))
+        run["rows"].append(row)
+    if not runs:
+        return []
+    latest = max(runs.values(), key=lambda run: run["at"])
+    ctx.summary["sofascore"] = {"senaste_prov": _iso(latest["at"]),
+                                "svarar": sorted(str(r.get("source")) for r in latest["rows"]
+                                                 if _outcome(r) == "ok")}
+    findings = []
+    svarar = ctx.summary["sofascore"]["svarar"]
+    if svarar:
+        findings.append(_finding(
+            "warning", "kallor", "sofascore_svarar", "sofascore",
+            f"Sofascore svarar igen i veckoprovet {_iso(latest['at'])} "
+            f"({', '.join(svarar)}). Källan har varit stängd sedan 2026-09-25; "
+            "pröva om den kan tas tillbaka i källprovet (beslut 20).",
+            since=_iso(latest["at"])))
+    if ctx.now - latest["at"] > dt.timedelta(days=VECKOPROV_STALE_D):
+        findings.append(_finding(
+            "info", "kallor", "sofascore_veckoprov_gammalt", "sofascore",
+            f"Sofascores veckoprov kördes senast {_iso(latest['at'])} — "
+            "kontrollera jobbet kalltest"))
+    return findings
+
+
 # ── körning ──────────────────────────────────────────────────────────────
 
 CHECKS: tuple[tuple[str, str, Callable[[Ctx], list[dict]]], ...] = (
@@ -1143,6 +1172,7 @@ CHECKS: tuple[tuple[str, str, Callable[[Ctx], list[dict]]], ...] = (
     ("poolpinnacle", "jobb", check_poolpinnacle),
     ("roller", "jobb", check_roller),
     ("livespel", "jobb", check_livespel),
+    ("sofascore", "kallor", check_sofascore),
 )
 
 
@@ -1190,8 +1220,9 @@ def _dygnsstart(datum: str) -> dt.datetime:
 
 
 def markera_kanda(findings: list[dict], now: dt.datetime,
-                  kanda: Sequence[dict] = KANDA_FEL) -> list[dict]:
+                  kanda: Optional[Sequence[dict]] = None) -> list[dict]:
     """Märk utredda fynd med `kand` (orsak, beslut, giltig till). Nivån rörs inte."""
+    kanda = KANDA_FEL if kanda is None else kanda
     def giltig(regel: dict) -> bool:
         return (_dygnsstart(regel["kvitterad"]) <= now
                 < _dygnsstart(regel["till"]) + dt.timedelta(days=1))

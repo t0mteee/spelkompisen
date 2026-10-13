@@ -669,6 +669,42 @@ class LivespelTests(Base):
         self.assertIn(("livespel", "jobb", vakt.check_livespel), vakt.CHECKS)
 
 
+class SofascoreVeckoprovTests(Base):
+    """L. Tyst veckoprov: säger bara till när Sofascore svarar igen (vakt-v5)."""
+    NOW = t("2026-10-14T12:00:00Z")
+
+    def prov(self, at: str, live_ok: bool, model_ok: bool = False):
+        run = f"{at}-x"
+        rows = [kalltest_row(run, at, "sofa_model", model_ok, SOFA_MODEL_403),
+                kalltest_row(run, at, "sofa_live", live_ok, "status 403")]
+        with (self.data / vakt.VECKOPROV_LOG).open("a") as handle:
+            handle.writelines(json.dumps(row) + "\n" for row in rows)
+
+    def test_tyst_utan_logg_och_nar_sofascore_fortfarande_nekar(self):
+        self.assertEqual([], vakt.check_sofascore(self.ctx()))
+        self.prov("2026-10-14T06:00:00Z", False)
+        self.assertEqual([], vakt.check_sofascore(self.ctx()))
+
+    def test_sager_till_nar_sofascore_svarar_igen(self):
+        self.prov("2026-10-07T06:00:00Z", False)
+        self.prov("2026-10-14T06:00:00Z", True)
+        (f,) = vakt.check_sofascore(self.ctx())
+        self.assertEqual(("warning", "sofascore_svarar", "sofascore"),
+                         (f["level"], f["kind"], f["key"]))
+        self.assertIn("sofa_live", f["message"])
+        self.assertNotIn("sofa_model", f["message"])
+        self.assertEqual("2026-10-14T06:00:00Z", f["since"])
+
+    def test_gammalt_prov_blir_en_notering(self):
+        self.prov("2026-10-05T06:00:00Z", False)
+        (f,) = vakt.check_sofascore(self.ctx())
+        self.assertEqual(("info", "sofascore_veckoprov_gammalt"), (f["level"], f["kind"]))
+
+    def test_kontrollen_ingar_i_vakten_och_sofascore_ar_inte_kand(self):
+        self.assertIn(("sofascore", "kallor", vakt.check_sofascore), vakt.CHECKS)
+        self.assertEqual((), vakt.KANDA_FEL)
+
+
 class DriftTests(Base):
     def runner(self, extra: dict | None = None) -> FakeRunner:
         base = {
@@ -898,9 +934,30 @@ class PoolHealthVaktTests(Base):
             self.assertEqual(self.status_dir / "vakt.json", vakt.default_status_path())
 
 
+# Sofascores kvitteringar 2026-10-02–2026-10-14 (beslut 20). Listan i vakten är
+# tom sedan Sofascore lyftes ur källprovet; mekanismen prövas med de riktiga raderna.
+SOFASCORE_KANDA = (
+    {"kind": "kalla_nere", "key": "sofa_live", "text": "status 403",
+     "kvitterad": "2026-10-02", "till": "2026-10-31", "varfor": "antibot",
+     "beslut": "Beslut 20: Flashscore ersätter Sofascore som resultatkälla"},
+    {"kind": "kalla_nere", "key": "sofa_model", "text": "status 403",
+     "kvitterad": "2026-10-02", "till": "2026-10-31", "varfor": "antibot",
+     "beslut": "Beslut 20: Flashscore ersätter Sofascore som resultatkälla"},
+    {"kind": "jobb_exit", "key": "kalltest", "foljd_av": "kalla_nere",
+     "kvitterad": "2026-10-02", "till": "2026-10-31", "varfor": "följd",
+     "beslut": "Följer Sofascore-beslutet (beslut 20)"},
+)
+
+
 class KandaFelTests(Base):
     """Vakten v2: kända fel larmar inte men syns med beslut (docs/vakt.md)."""
     NU = t("2026-10-02T12:00:00Z")
+
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch.object(vakt, "KANDA_FEL", SOFASCORE_KANDA)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     @staticmethod
     def fynd(*extra):
@@ -951,7 +1008,7 @@ class KandaFelTests(Base):
             return self.fynd()[:2]
         status = self.run_vakt((("kallor", "kallor", kallor),), now=self.NU)
         self.assertEqual({"kanda": 2}, status["counts"])
-        self.assertEqual("vakt-v4", status["version"])
+        self.assertEqual(vakt.VERSION, status["version"])
         text = vakt.format_status(status)
         self.assertIn("· 2 kända ·", text)
         self.assertIn("(känt, larmar inte till och med 2026-10-31)", text)
@@ -963,7 +1020,7 @@ class KandaFelTests(Base):
 class WriteStatusTests(Base):
     def test_atomisk_skrivning_och_en_loggrad_per_korning(self):
         status = self.run_vakt(())
-        self.assertEqual("vakt-v4", status["version"])
+        self.assertEqual(vakt.VERSION, status["version"])
         on_disk = json.loads((self.status_dir / vakt.STATUS_FILE).read_text())
         self.assertEqual(status["checked_at"], on_disk["checked_at"])
         self.assertEqual([], [p.name for p in self.status_dir.iterdir()

@@ -166,13 +166,15 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       `pool-reserve-ou-v2` sedan 2026-09-24T19:51:01Z: gemensam kö per basvarv (`register`
                       i produktloopen, `run_queue` efter): aldrig kontrollerad → äldst →
                       närmast spelstopp, 3 anrop, 15 min cooldown, inget efter spelstopp
-  app/vakt.py         DRIFTVAKTEN vakt-v4 (2026-10-01; `cli.py vakt`, launchd
+  app/vakt.py         DRIFTVAKTEN vakt-v5 (2026-10-01; `cli.py vakt`, launchd
                       `com.saman.spelkompisen.vakt` var 30:e min): källprov, jobb, append-only-
                       insamling, backendloggar, driftkopia mot GitHub, nattlig testsvit i
                       temporär worktree, disk, testkatalog och Oddsets delade identiteter
                       (samma match i en Pinnacle- och en SvS-rad). vakt-v4 (2026-10-13): poolmatch
                       utan Pinnacle 6 h före stopp trots kandidat, agentroll som fallerat två
-                      gånger i rad, livespel orättat 3 h efter slut. Ingen AI, inga källanrop, DB
+                      gånger i rad, livespel orättat 3 h efter slut. vakt-v5 (2026-10-14): Sofascore ur
+                      källprovet; ett tyst veckoprov (egen logg) säger bara till när den svarar
+                      igen. Ingen AI, inga källanrop, DB
                       `mode=ro` (`Storage(read_only=True)`). Läget i `backend/data/vakt/vakt.json`;
                       `/api/health` visar fel/varningar som `product: "server"` ("Drift att se
                       över" på Idag), info-fynd under `vakt.notes`. Trösklar: `docs/vakt.md`.

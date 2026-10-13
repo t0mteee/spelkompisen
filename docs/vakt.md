@@ -80,6 +80,8 @@ driftrubrik. Saknas `vakt.json` ⇒ `vakt_missing`; äldre än 90 min ⇒ `vakt_
 | **I. poolens Pinnacle-länk** (vakt-v4, 2026-10-13, beslut koordinatorn-2026-10-13-pool-namnmatchning) — `draws`, `pool_market_capture`, `pool_match_diagnostic`, `mode=ro` | `pool_pinnacle_saknas` (key `produkt:omgång`) | error | spelstopp inom **6 h**, senaste sharp-capture för matchen är inte `matched`/`derived`, och poolmatcharens diagnostik från samma varv (`last_seen_at` ≥ capturen) har en kandidat med avspark inom `POOL_ANCHOR_S` (15 min). Alltså ett namnfel, inte en match Pinnacle saknar. Meddelandet visar SvS-namn och kandidat; `events` per match |
 | **J. agentens roller** (vakt-v4, 2026-10-13, beslut koordinatorn-2026-10-08-larm-rollfel) — `spelai_run`, `mode=ro` | `roll_fel_i_rad` (key = roll) | error | de **2** senaste körningarna för samma roll har status `fel` eller `timeout`; `since` = första misslyckade körningen i serien, orsaken (`note`, t.ex. "OAuth session expired") står i meddelandet. En lyckad körning släcker. Larmkörningen hos agenten dedupliceras på `since`, så en serie ger högst ett larm |
 | **K. livekassan** (vakt-v4, 2026-10-13, beslut drift-2026-10-12-live-orattade) — `spelai_live_bet`/`spelai_live_result`, `oddset_matches`, `mode=ro` | `livespel_orattat` (key `livekassa`) | error | ett fiktivt livespel saknar facit mer än **3 h** efter förväntat slut (avspark + `livekassa.RATTAS_EFTER` 110 min; okänd match räknas från när spelet lades minus spelminuten). `since` = tidigaste förväntade slutet, `spel` högst 20 |
+| **L. Sofascores veckoprov** (vakt-v5, 2026-10-14, beslut koordinatorn-2026-10-14-sofascore-larm) — `backend/data/sofascore-veckoprov.jsonl` | `sofascore_svarar` (key `sofascore`) | warning | minst en Sofascore-endpoint svarade OK i senaste veckoprovet. Sofascore är ur det ordinarie källprovet sedan 2026-10-14; `kalltest_ip.py` provar den en gång i veckan (`VECKOPROV`, egen logg, påverkar aldrig exitkoden). Ett nekat prov är tyst |
+| | `sofascore_veckoprov_gammalt` | info | senaste veckoprovet äldre än 8 dygn |
 
 **Hålltider:** info-fynd ligger kvar 7 dygn efter senaste observation;
 `backend_5xx`, `backend_traceback` och backendens `natverk_nere` ligger kvar 24 h
@@ -169,10 +171,11 @@ där listas det under `vakt.kanda`. Det startar ingen larmkörning hos agentens 
 På Idag visas det under "Kända fel som inte larmar". Listan ändras bara av Claude eller
 Codex, med datum och skäl.
 
-| Kvitterat 2026-10-02 | Till och med | Beslut |
-|---|---|---|
-| `kalla_nere` sofa_live, sofa_model (status 403) | 31/10 | beslut 20: Flashscore ersätter Sofascore |
-| `jobb_exit` kalltest (följd av `kalla_nere`) | 31/10 | följer Sofascore-beslutet |
+Listan är **tom sedan 2026-10-14**. Där stod 2026-10-02–2026-10-14 Sofascores
+`kalla_nere` (sofa_live, sofa_model, status 403) och källprovets `jobb_exit`, kvitterade
+till 31/10 enligt beslut 20. Beslut koordinatorn-2026-10-14-sofascore-larm (val 0) tog
+Sofascore ur källprovet i stället och lade det i ett tyst veckoprov (L). Mekanismen
+prövas i `tests/test_vakt.py` med de riktiga raderna.
 
 Samma dag ändrades poolhälsans Pinnacle-täckning (`SHARP_NOT_LISTED_WITHIN_H` i
 `app/pool_health.py`). Saknas priserna bara för att Pinnacle inte listat matcherna
