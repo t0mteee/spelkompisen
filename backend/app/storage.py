@@ -1269,7 +1269,13 @@ class Storage:
                     "ALTER TABLE oddset_live_flashscore ADD COLUMN possession_away REAL",
                     "ALTER TABLE oddset_live_flashscore ADD COLUMN stage_label TEXT",
                     "ALTER TABLE oddset_live_flashscore ADD COLUMN stage_name TEXT",
-                    "ALTER TABLE pool_backfill_log ADD COLUMN retry_after TEXT"):
+                    "ALTER TABLE pool_backfill_log ADD COLUMN retry_after TEXT",
+                    # Pinnacles HTTP Age per prisrad (2026-10-13, beslut granskaren-
+                    # 2026-10-11-kambi-suspended). fetched_at är redan bakåtdaterad
+                    # med Age; utan Age gick det inte att se när en rörelse blev
+                    # KÄND (fetched_at + cache_age_s = hämtningstid). Additiv och
+                    # nullbar: NULL = inte mätt (äldre rader och andra källor).
+                    "ALTER TABLE oddset_odds ADD COLUMN cache_age_s INTEGER"):
             try:   # migreringar för befintliga DB:er
                 self.conn.execute(mig)
             except sqlite3.OperationalError:
@@ -2097,12 +2103,15 @@ class Storage:
         return {r["sign"]: dict(r) for r in rows}
 
     def oddset_save_market(self, match_id: str, source: str, market: str,
-                           rows: dict, fetched_at: str) -> int:
+                           rows: dict, fetched_at: str,
+                           cache_age_s: Optional[int] = None) -> int:
         """Registrera ett lyckat marknadssvar.
 
         rows = {sign: {'odds': float, 'line': float|None}}. Ett oförändrat pris
         flyttar last_seen_at utan ny historikpunkt. Saknade tecken markeras som
         unavailable; metoden ska därför bara anropas när källsvaret lyckades.
+        `cache_age_s` (Pinnacle) sparas på den NYA raden: Age vid den
+        observation som först såg priset.
         """
         prev = self._oddset_latest_values(match_id, source, market)
         n = 0
@@ -2139,9 +2148,10 @@ class Storage:
                 continue
             self.conn.execute(
                 "INSERT INTO oddset_odds(match_id, source, market, sign, line, odds, "
-                "fetched_at, last_seen_at, available) VALUES(?,?,?,?,?,?,?,?,1)",
+                "fetched_at, last_seen_at, available, cache_age_s) "
+                "VALUES(?,?,?,?,?,?,?,?,1,?)",
                 (match_id, source, market, sign, val.get("line"), val.get("odds"),
-                 fetched_at, fetched_at))
+                 fetched_at, fetched_at, cache_age_s))
             n += 1
         self._commit()
         return n
@@ -2157,10 +2167,12 @@ class Storage:
             self._commit()
 
     def oddset_save_odds(self, match_id: str, source: str,
-                         odds: dict, fetched_at: str) -> int:
+                         odds: dict, fetched_at: str,
+                         cache_age_s: Optional[int] = None) -> int:
         """Bekvämlighet för 1X2."""
         rows = {s: {"odds": odds.get(s), "line": None} for s in ("1", "X", "2")}
-        return self.oddset_save_market(match_id, source, "1x2", rows, fetched_at)
+        return self.oddset_save_market(match_id, source, "1x2", rows, fetched_at,
+                                       cache_age_s)
 
     def oddset_save_matchbook_liquidity(self, match_id: str, liquidity: dict,
                                         seen_at: str) -> int:

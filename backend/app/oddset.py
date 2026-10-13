@@ -637,18 +637,19 @@ _PAIR_KEYS = {"ah": ("H", "A"), "ou": ("O", "U"), "cor": ("O", "U")}
 
 
 def _observe_pair_market(store: Storage, mid: str, source: str, market: str,
-                         value: Optional[dict], at: str) -> int:
+                         value: Optional[dict], at: str,
+                         cache_age_s: Optional[int] = None) -> int:
     """Registrera en enskild parmarknad efter ett lyckat källsvar."""
     k1, k2 = _PAIR_KEYS[market]
     rows = ({
             k1: {"odds": value[k1], "line": value["line"]},
             k2: {"odds": value[k2], "line": value["line"]}}
             if value else {})
-    return store.oddset_save_market(mid, source, market, rows, at)
+    return store.oddset_save_market(mid, source, market, rows, at, cache_age_s)
 
 
 def _observe_pair_markets(store: Storage, mid: str, source: str,
-                          row: dict, at: str) -> int:
+                          row: dict, at: str, cache_age_s: Optional[int] = None) -> int:
     """Registrera alla parmarknader efter ett lyckat källsvar.
 
     Även en saknad marknad är information: en tidigare rad ska då markeras
@@ -657,7 +658,7 @@ def _observe_pair_markets(store: Storage, mid: str, source: str,
     n = 0
     for market in _PAIR_KEYS:
         n += _observe_pair_market(
-            store, mid, source, market, row.get(market), at)
+            store, mid, source, market, row.get(market), at, cache_age_s)
     return n
 
 
@@ -794,7 +795,8 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 pin_seen.add(str(r["id"]))
                 if r["odds_source"]:
                     rows_saved += store.oddset_save_odds(
-                        mid, r["odds_source"], r["odds"], pin_observed_at)
+                        mid, r["odds_source"], r["odds"], pin_observed_at,
+                        cache_age_s=pin_cache_age_s)
                     other = "derived" if r["odds_source"] == "pinnacle" else "pinnacle"
                     store.oddset_mark_market_unavailable(mid, other, "1x2")
                     if (pin_cache_age_s <= PINNACLE_PRESENT_MAX_AGE_S and
@@ -805,7 +807,8 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     store.oddset_mark_market_unavailable(mid, "derived", "1x2")
                 if not research_only:
                     rows_saved += _observe_pair_markets(
-                        store, mid, "pinnacle", r, pin_observed_at)
+                        store, mid, "pinnacle", r, pin_observed_at,
+                        cache_age_s=pin_cache_age_s)
                     for mk_ in _PAIR_KEYS:
                         if (pin_cache_age_s <= PINNACLE_PRESENT_MAX_AGE_S and
                                 r.get(mk_)):
@@ -891,9 +894,16 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 if (e.get("start") or "9") <= at:
                     continue   # live — spara inte
                 kambi_seen.add(str(e["id"]))
-                rows_saved += store.oddset_save_odds(mid, "svenskaspel", e["odds"], kambi_at)
-                if all(e["odds"].get(s) for s in ("1", "X", "2")):
-                    present.add((mid, "svenskaspel", "1x2"))
+                if e.get("suspended"):
+                    # Observerad stängning (suspended/icke-OPEN): inget bekräftat
+                    # pris, ingen presence. Samma regel som livevägen.
+                    store.oddset_mark_market_unavailable(mid, "svenskaspel", "1x2")
+                    report["kambi_suspended"] = report.get("kambi_suspended", 0) + 1
+                else:
+                    rows_saved += store.oddset_save_odds(
+                        mid, "svenskaspel", e["odds"], kambi_at)
+                    if all(e["odds"].get(s) for s in ("1", "X", "2")):
+                        present.add((mid, "svenskaspel", "1x2"))
                 market_until = deep_until if deep else fast_until
                 if (not research_only and
                         (e.get("start") or "9") <= market_until):
@@ -989,10 +999,14 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                             f"{book_claims[ex['id']]} och {claim} -> {ex['id']}")
                         continue
                     book_claims[ex["id"]] = claim
-                    rows_saved += store.oddset_save_odds(ex["id"], book["key"], e["odds"], book_at)
                     book_seen.add(ex["id"])
-                    if all(e["odds"].get(s) for s in ("1", "X", "2")):
-                        present.add((ex["id"], book["key"], "1x2"))
+                    if e.get("suspended"):      # bara Kambi-operatörerna bär flaggan
+                        store.oddset_mark_market_unavailable(ex["id"], book["key"], "1x2")
+                    else:
+                        rows_saved += store.oddset_save_odds(
+                            ex["id"], book["key"], e["odds"], book_at)
+                        if all(e["odds"].get(s) for s in ("1", "X", "2")):
+                            present.add((ex["id"], book["key"], "1x2"))
                     # TOTALT ANTAL MÅL FRÅN ALTENAR (2026-07-25). Låg gratis i
                     # samma svar men slängdes. Det spelar roll för att Ö/U annars
                     # bara fanns hos SvS och Pinnacle: Expekts deep-priser är

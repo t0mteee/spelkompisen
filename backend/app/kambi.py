@@ -52,7 +52,14 @@ def _main_pair(pairs: list[tuple]) -> Optional[dict]:
 def league_events(path: str, timeout: float = 25.0,
                   operator: str = "svenskaspel", strict: bool = False) -> list[dict]:
     """Matcher + 1X2 för en ligaväg (t.ex. 'football/sweden/allsvenskan').
-    Returnerar [{id, home, away, start, odds{'1','X','2'}}]. Tom lista vid fel."""
+    Returnerar [{id, home, away, start, odds{'1','X','2'}, suspended}]. Tom lista vid fel.
+
+    `suspended` (2026-10-13, beslut granskaren-2026-10-11-kambi-suspended): True
+    när Fulltid-erbjudandet är suspenderat eller något 1X2-utfall SYNS med en
+    annan status än OPEN — samma två nivåer som `live_1x2`/`live_total`. Ett
+    synligt men stängt pris är en observerad stängning, inget bekräftat pris.
+    Oddsen följer med oförändrade (diagnostik); insamlingen avgör vad som sparas.
+    """
     global last_age_s
     try:
         r = httpx.get(f"{BASE_TPL.format(op=operator)}/listView/{path}.json", params=PARAMS,
@@ -72,11 +79,16 @@ def league_events(path: str, timeout: float = 25.0,
         if not home or not away:
             continue
         odds = {"1": None, "X": None, "2": None}
+        suspended = False
         for bo in ev.get("betOffers") or []:
             if (bo.get("criterion") or {}).get("label") != "Fulltid":
                 continue
+            suspended = bool(bo.get("suspended"))
             for o in bo.get("outcomes") or []:
                 t = o.get("type")
+                if (t in ("OT_ONE", "OT_CROSS", "OT_TWO")
+                        and o.get("status") not in (None, "OPEN")):
+                    suspended = True
                 if t == "OT_ONE":
                     odds["1"] = _milli(o.get("odds"))
                 elif t == "OT_CROSS":
@@ -85,7 +97,7 @@ def league_events(path: str, timeout: float = 25.0,
                     odds["2"] = _milli(o.get("odds"))
             break
         out.append({"id": str(e.get("id")), "home": home, "away": away,
-                    "start": e.get("start"), "odds": odds})
+                    "start": e.get("start"), "odds": odds, "suspended": suspended})
     return out
 
 
