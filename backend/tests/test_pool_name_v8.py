@@ -85,6 +85,18 @@ class VerkligaFallTests(unittest.TestCase):
         self.assertEqual("vsk aarhus", op._norm_team("VSK Aarhus"))
         self.assertLess(op.team_sim("Århus", "VSK Aarhus"), op.HOME_AWAY_MIN)
 
+    def test_europatipset_2616_sheffield_u_ar_sheffield_united(self):
+        pin = row("shu", "Portsmouth", "Sheffield United", "2026-10-14T18:45:00Z",
+                  "England - Championship")
+        wed = row("shw", "Portsmouth", "Sheffield Wednesday", "2026-10-14T18:45:00Z",
+                  "England - Championship")
+        self.assertEqual(("shu", "A", False), ident(v8(
+            "Portsmouth", "Sheffield U", [pin], "2026-10-14T20:45:00+02:00", "GBR", "GBR")))
+        for index in ([pin, wed], [wed, pin]):
+            self.assertEqual(("shu", "A", False), ident(v8(
+                "Portsmouth", "Sheffield U", index, "2026-10-14T20:45:00+02:00", "GBR", "GBR")))
+        self.assertEqual("sheffield wednesday", op._norm_team("Sheffield Wednesday"))
+
 
 class SkyddTests(unittest.TestCase):
     def test_d_kraver_avspark_inom_ankaret(self):

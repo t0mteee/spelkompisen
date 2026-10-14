@@ -159,6 +159,10 @@ _POOL_TEAM_ALIASES = {
     # är INTE alias: VSK Aarhus är en annan klubb i samma index.
     "arhus": "agf",
     "agf aarhus": "agf",
+    # Beslut driften-2026-10-14-sheffield-u-alias (val 0): Europatipset 2616
+    # Portsmouth–Sheffield U 2026-10-14 18:45Z mot Pinnacles "Sheffield United"
+    # vid exakt avspark (även Topptipset 4306). Wednesday berörs inte.
+    "sheffield u": "sheffield united",
     # MEDVETET INTE alias: Aguilas (indexet har både Aguilas–Hercules i Spanien
     # och Aguilas Doradas i Colombia), Fortaleza (Fortaleza och Fortaleza
     # CEIF), America (Club America och America Mineiro). Samma klass som
