@@ -355,7 +355,7 @@ def hamta_resultat(store, matcher: list[dict], now: dt.datetime) -> dict:
                for m in matcher]
     try:
         report = flashscore_data.refresh_recent_results(store, signals, now=now,
-                                                        force=True)
+                                                        force=True, ensidig=True)
     finally:
         store.meta_set(RESULTAT_NYCKEL, iso(now))
     return report

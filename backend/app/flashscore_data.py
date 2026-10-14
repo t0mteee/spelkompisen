@@ -197,6 +197,36 @@ def _recent_signals(signals: list[dict], now: dt.datetime) -> list[dict]:
     return out
 
 
+# Livekassans ensidiga steg (beslut drift-2026-10-12-live-orattade, rättat
+# 2026-10-15): Oddsets namn "Derby County"/"Lincoln City" mot Flashscores
+# "Derby"/"Lincoln" klarar inte `_same` på båda sidor, så spelen rättades först
+# när nattens modelldata sparat resultatet. Ett lag spelar en match i taget:
+# samma liga, avspark högst 15 min isär, ETT lag lika och EN kandidat räcker.
+# Bara livekassan begär steget; radarns signaljournal är oförändrad.
+ENSIDIG_AVSPARK_S = 15 * 60
+
+
+def _one_side_finished(candidates: list[dict], signal: dict) -> Optional[dict]:
+    reference = _signal_start(signal)
+    if reference is None:
+        return None
+    hits = []
+    for candidate in candidates:
+        if (candidate.get("league") != signal.get("league") or
+                str(candidate.get("stage")) != "3" or
+                candidate.get("home_score") is None or
+                candidate.get("away_score") is None or
+                not candidate.get("start_ts")):
+            continue
+        start = dt.datetime.fromtimestamp(candidate["start_ts"], dt.timezone.utc)
+        if abs((start - reference).total_seconds()) > ENSIDIG_AVSPARK_S:
+            continue
+        if (_same(candidate.get("home") or "", signal.get("home") or "")
+                or _same(candidate.get("away") or "", signal.get("away") or "")):
+            hits.append(candidate)
+    return hits[0] if len(hits) == 1 else None
+
+
 def _finished_signal(candidates: list[dict], signal: dict) -> Optional[dict]:
     """Entydigt Flashscore-slut för en signal, annars ingenting.
 
@@ -235,8 +265,11 @@ def _finished_signal(candidates: list[dict], signal: dict) -> Optional[dict]:
 
 def refresh_recent_results(store: Storage, signals: list[dict], *,
                            now: Optional[dt.datetime] = None,
-                           force: bool = False) -> dict:
-    """Rätta färska signalmatcher enbart mot Flashscores färdigfeed."""
+                           force: bool = False, ensidig: bool = False) -> dict:
+    """Rätta färska signalmatcher enbart mot Flashscores färdigfeed.
+
+    `ensidig` (bara livekassan) prövar `_one_side_finished` när båda lagen
+    inte matchar strikt."""
     from .oddset_data import _mark, _stale
     now = now or _now()
     recent = _recent_signals(signals, now)
@@ -277,6 +310,8 @@ def refresh_recent_results(store: Storage, signals: list[dict], *,
         with store.bulk():
             for signal in unique.values():
                 found = _finished_signal(candidates, signal)
+                if not found and ensidig and signal.get("provider") != "flashscore":
+                    found = _one_side_finished(candidates, signal)
                 if not found:
                     continue
                 report["matched"] += 1

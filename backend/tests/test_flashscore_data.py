@@ -163,6 +163,39 @@ class RefreshLiveResultTests(unittest.TestCase):
         self.assertEqual(1, report["matched"])
         self.assertEqual(1, report["saved"])
 
+    def _run_ensidig(self, signals, rows, ensidig=True):
+        def day(_self, offset, status):
+            return (rows if offset == -1 else [], NOW)
+
+        with patch.object(flashscore.Flashscore, "day", day):
+            return flashscore_data.refresh_recent_results(
+                self.store, signals, now=NOW, force=True, ensidig=ensidig)
+
+    def test_livekassans_ensidiga_steg_derby_county_ar_derby(self):
+        # QPR–Derby County 2026-10-14 18:45Z: Flashscore skriver "Derby".
+        signal = self._signal(provider=None, provider_event_id=None,
+                              league="championship", home="QPR", away="Derby County")
+        row = self._finished(flashscore_id="x", league="championship", home="QPR",
+                             away="Derby", home_score=4, away_score=1)
+        self.assertEqual(0, self._run_ensidig([signal], [row], ensidig=False)["matched"])
+        report = self._run_ensidig([signal], [row])
+        self.assertEqual(1, report["saved"])
+        saved = self.store.oddset_results("championship")[0]
+        self.assertEqual(("QPR", "Derby", 4, 1),
+                         (saved["home_raw"], saved["away_raw"], saved["hg"], saved["ag"]))
+
+    def test_ensidigt_kraver_en_kandidat_och_avspark_inom_15_min(self):
+        signal = self._signal(provider=None, provider_event_id=None,
+                              league="championship", home="QPR", away="Derby County")
+        row = self._finished(flashscore_id="x", league="championship", home="QPR",
+                             away="Derby")
+        late = dict(row, start_ts=row["start_ts"] + 16 * 60)
+        self.assertEqual(0, self._run_ensidig([signal], [late])["matched"])
+        twin = dict(row, flashscore_id="y", away="Derby U21")
+        self.assertEqual(0, self._run_ensidig([signal], [row, twin])["matched"])
+        other_league = dict(row, league="league_one")
+        self.assertEqual(0, self._run_ensidig([signal], [other_league])["matched"])
+
     def test_recent_filter_ignores_still_live_and_old_signals(self):
         signals = [
             self._signal(match_key="live", start_at=(
