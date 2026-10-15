@@ -17,6 +17,7 @@ Användning (från backend/ med aktiverat venv):
     python cli.py vakt [--tester-nu] # driftvakten (docs/vakt.md), launchd var 30:e min
     python cli.py spelai-tick       # facitsidan för spel-ai-kompisen (docs/spelai-facit.md)
     python cli.py spelai-roller     # agentens rollkörningar, spegel, skärmbilder (fas F)
+    python cli.py spelai-genomfor   # genomför besvarade beslut automatiskt (2026-10-15)
     python cli.py history 4956 1 1  # oddshistorik draw=4956 event=1 sign=1
     python cli.py backtest 25 stryktipset  # kalibrera modellen mot facit
 
@@ -1382,6 +1383,41 @@ def cmd_spelai_roller() -> int:
     return 0
 
 
+def cmd_spelai_genomfor() -> int:
+    """Besvarade beslut genomförs automatiskt (app/spelai/genomforande.py,
+    launchd com.saman.spelai.genomfor var 2:a min). En session åt gången:
+    fil-låset hålls hela sessionen, och launchd startar ingen ny instans medan
+    en körs. Skriver i loggen bara när något hänt."""
+    import fcntl
+    import json as _json
+    from app.spelai import genomforande, schema as spelai_schema, tillstand
+    store = Storage()
+    data = store.db_path.parent
+    report: dict = {}
+    try:
+        conn = store.conn
+        if not spelai_schema.tables_exist(conn):
+            return 0
+        with open(data / "spelai-genomfor.lock", "w") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return 0
+            stadade = genomforande.stada_avbrutna(conn, now=tillstand.now_utc())
+            if stadade:
+                report["stadade"] = stadade
+            got = genomforande.kor(conn, now=tillstand.now_utc)
+            if got:
+                report["genomforande"] = got
+    finally:
+        store.close()
+    if report:
+        stamp = tillstand.iso(tillstand.now_utc())
+        print(f"[{stamp}] spelai-genomfor: "
+              + _json.dumps(report, ensure_ascii=False, default=str))
+    return 0
+
+
 def cmd_vakt(rest: list[str]) -> int:
     """Driftvakten (app/vakt.py, docs/vakt.md): deterministiska kontroller av
     källprov, jobb, backendloggar, driftkopia, tester, disk och experiment.
@@ -1623,6 +1659,8 @@ def main() -> None:
         sys.exit(cmd_spelai_tick())
     elif cmd == "spelai-roller":
         sys.exit(cmd_spelai_roller())
+    elif cmd == "spelai-genomfor":
+        sys.exit(cmd_spelai_genomfor())
     elif cmd == "vakt":
         cmd_vakt(rest)
     elif cmd == "xgbackfill":

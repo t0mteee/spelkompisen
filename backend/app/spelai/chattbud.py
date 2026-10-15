@@ -58,7 +58,7 @@ MAX_POSTER = 8
 POST_MAX = 320
 TEXT_MAX = 2400
 INTE_I_CHATTEN = ("6h",)       # horisonter vars poolförslag bara syns i appen
-PRIORITET = {"beslut": 0, "roll_fel": 1, "missat": 2, "pool": 3,
+PRIORITET = {"beslut": 0, "genomforande": 1, "roll_fel": 1, "missat": 2, "pool": 3,
              "kvot_slut": 4, "roll_klar": 5}
 _NAMN_OK = re.compile(r"^[A-Za-z0-9._-]{1,80}$")
 _STYRTECKEN = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")

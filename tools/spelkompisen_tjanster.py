@@ -98,6 +98,17 @@ SERVICES: tuple[Service, ...] = (
                 "till GitHub. Poolförslagen fryses ändå av facitsidan.",
     ),
     Service(
+        "spelai-genomfor", "Beslut genomförs", "com.saman.spelai.genomfor",
+        "spel-ai-kompisen", "genomför besvarade beslut, kontroll var 2:a min",
+        scheduled=True,
+        help_text="När du svarat på ett beslut från agenten startar den en "
+                  "Claude-session i Spelkompisen som genomför valet med tester, "
+                  "commit, push och driftsättning. En session åt gången. "
+                  "Vänteläge mellan körningarna är normalt.",
+        warning="Besvarade beslut genomförs inte förrän tjänsten startas igen; "
+                "de väntar och körs då i tur och ordning.",
+    ),
+    Service(
         "spelai-chatt", "Agentens chatt", "com.saman.spelai.chatt", "spel-ai-kompisen",
         "Remote Control-server för chatten med agenten",
         "Gör att du kan chatta med agenten från Claude-appen och claude.ai/code. "
@@ -403,12 +414,13 @@ USAGE = """Användning:
   tjanster.sh omstart <tjänst ...>
 
 Tjänster:
-  backend frontend snapshot pool spelai spelai-roller spelai-chatt spelai-api spelai-app kalltest backup vakt awake menubar charter bonus
+  backend frontend snapshot pool spelai spelai-roller spelai-genomfor spelai-chatt spelai-api spelai-app kalltest backup vakt awake menubar charter bonus
 Grupper:
   all            alla tjänster
   spelkompisen   API, webb och Spelkompisens två insamlare
   spelai         spel-ai-kompisens facitsida (schemaläggaren)
   spelai-roller  spel-ai-kompisens rollkörningar och GitHub-spegel
+  spelai-genomfor besvarade beslut genomförs automatiskt
   spelai-chatt   spel-ai-kompisens chatt (Remote Control)
   spelai-api     spel-ai-kompisens agent-API (8003, sandbox)
   spelai-app     spel-ai-kompisens app (5176, sandbox)

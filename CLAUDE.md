@@ -879,6 +879,12 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
   beslutssidan (`app/spelai/driftsattning.py`, format i `docs/spelai-facit.md` § 17): fasta
   steg (bygg_app i `bygg.sb` ur `git archive` av commiten, omstart_api, push via spegeln),
   inget fritt kommando, återställning av förra bygget vid röd hälsa.
+  **Besvarade beslut genomförs automatiskt (2026-10-15, Samans val "utan undantag"):**
+  `app/spelai/genomforande.py` (`cli.py spelai-genomfor`, launchd var 2:a min) startar en
+  huvudlös Claude-session i Spelkompisen per besvarat beslut från agenten (inte
+  driftsättningar eller förslag): det valda alternativet är uppdraget, agentens text är data.
+  En session åt gången, worktree, kontroll, commit med beslutets id, push, driftsättning,
+  revert vid röd hälsa. Format och resultat i `docs/spelai-facit.md` § 18.
 - Rör ALDRIG `/Users/saman/svs` eller `/Users/saman/vm` från detta projekt.
 - **Uppdatera STATUS-blocket i `docs/plan.md` när en etapp/delmål blir klar — skriv över,
   stapla inte;** flytta det gamla blocket överst i `docs/status-historik.md`.

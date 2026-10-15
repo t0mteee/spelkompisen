@@ -201,7 +201,7 @@ def status(conn, item: dict, now: dt.datetime) -> str:
 
 
 def lista(conn, *, now: dt.datetime, limit: int = 200) -> list[dict]:
-    from . import driftsattning
+    from . import driftsattning, genomforande
     out = []
     for row in conn.execute(
             "SELECT id, external_id, typ, kalla, rubrik, varfor, alternativ_json, "
@@ -218,6 +218,8 @@ def lista(conn, *, now: dt.datetime, limit: int = 200) -> list[dict]:
             item["driftsattning"] = {
                 **payload, "steg_text": [driftsattning.STEG_TEXT[s] for s in payload["steg"]],
                 "resultat": driftsattning.status(conn, item["id"])}
+        elif item["typ"] == "beslut":
+            item["genomforande"] = genomforande.status(conn, item["id"])
         item["kommentarer"] = [
             {"kommentar": k, "tid": t, "misstankt": bool(m)}
             for k, t, m in conn.execute(

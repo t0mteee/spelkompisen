@@ -113,6 +113,13 @@ export function BeslutView({ focus = null }) {
     load()
     get('/api/spelai/notiser').then(setNotiser).catch(() => setNotiser(null))
   }, [])
+  // Ett beslut som genomförs uppdateras av sig självt medan sidan är synlig.
+  const running = (data?.poster || []).some((p) => p.genomforande?.status === 'pagar')
+  useEffect(() => {
+    if (!running) return undefined
+    const timer = setInterval(() => { if (!document.hidden) load() }, 30000)
+    return () => clearInterval(timer)
+  }, [running])
   useEffect(() => {
     if (focus == null || !data) return
     document.getElementById(`beslut-${focus}`)?.scrollIntoView({ block: 'start' })

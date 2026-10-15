@@ -35,6 +35,31 @@ export function deployResultText(item) {
 
 export const isDecision = (item) => item?.typ === 'beslut'
 
+// Automatiskt genomförande (2026-10-15, backend/app/spelai/genomforande.py):
+// efter ditt svar genomför en Claude-session i Spelkompisen valet.
+const IMPLEMENT_STATUS = {
+  pagar: 'Genomförs nu',
+  genomfort: 'Genomfört',
+  ingen_andring: 'Ingen ändring behövdes',
+  misslyckades: 'Kunde inte genomföras',
+  aterstallt: 'Röd hälsa: återställt',
+  timeout: 'Avbrutet vid tidsgränsen',
+  avbruten: 'Avbrutet',
+  fel: 'Misslyckades',
+  oklart: 'Slutade utan resultat',
+}
+
+// "Genomfört: <sammanfattning> (commit abc1234)" — null innan något startat.
+export function implementText(item) {
+  const res = item?.genomforande
+  if (!res) return null
+  const text = IMPLEMENT_STATUS[res.status] || res.status
+  const detail = res.sammanfattning || res.orsak
+  const retry = res.omforsok ? ', nytt försök om en timme' : ''
+  const commit = res.commit ? ` (commit ${String(res.commit).slice(0, 7)})` : ''
+  return `${text}${detail ? `: ${detail}` : ''}${commit}${retry}`
+}
+
 export function splitInbox(poster) {
   const all = poster || []
   return {
@@ -87,5 +112,5 @@ export function answerText(item) {
   const val = isDecision(item)
     ? (alt ? alt.text : svar.val)
     : ({ kor_nu: 'Kör nu', nej: 'Nej' }[svar.val] || svar.val)
-  return [tid, val].filter(Boolean).join(' · ')
+  return [tid, val, implementText(item)].filter(Boolean).join(' · ')
 }

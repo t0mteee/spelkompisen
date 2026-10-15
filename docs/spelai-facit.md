@@ -737,3 +737,37 @@ spelai-ticken före chattsteget. Stegen körs i den här ordningen:
 
 Samma sammanfattning skrivs som `driftsattning_klar` i `spelai_event` och visas
 på kortet under Besvarade.
+
+## 18. Besvarade beslut genomförs automatiskt (2026-10-15)
+
+Beslut koordinatorn-2026-10-14-genomfor-beslut-automatiskt (Saman, val 1: "Ja,
+genomför allt automatiskt utan undantag"). Ditt svar på beslutssidan är
+godkännandet. Kod: `backend/app/spelai/genomforande.py`, jobb
+`cli.py spelai-genomfor` (launchd `com.saman.spelai.genomfor`, var 2:a min,
+tjänsten `spelai-genomfor`).
+
+**Vad som körs.** Ett beslut (`typ: "beslut"`, inte driftsättning eller förslag)
+med ett giltigt svar: från webbläsaren, inte misstänkt, ett alternativ (inte bara
+en kommentar) och besvarat efter 2026-10-14T23:00Z. Äldsta svaret först, en
+session åt gången. Sessionen är en huvudlös `claude -p` (Opus, effort high) i
+`~/spelkompisen` med Spelkompisens CLAUDE.md, behörighetsläge `auto` och 90 min
+tidsgräns. Den räknas inte mot agentens tak och skriver ingen `spelai_run`-rad.
+
+**Uppdraget** är det valda alternativet och din kommentar. Beslutets text är
+agentens och skickas som data inom `<beslut>`. Sessionen arbetar i ett eget
+worktree, kör kontrollen, committar med beslutets id, fast-forwardar `main`,
+pushar genom hooken, driftsätter och kontrollerar hälsan; röd hälsa ⇒ `git
+revert`, push och omstart. Kräver valet ingen ändring ändras inget.
+
+**Resultat.** Sista raden `RESULTAT: {"status", "commit", "sammanfattning"}`
+med status `genomfort`, `ingen_andring`, `misslyckades` eller `aterstallt`;
+jobbet lägger till `timeout`, `avbruten`, `fel` och `oklart` (ingen
+resultatrad). Det skrivs till `~/spel-ai-data/genomforande/<id>/` (`resultat.json`,
+`uppdrag-<n>.txt`, `session-<n>.json`) och som `genomforande_klar:<id>:<n>` i
+`spelai_event`, visas under Besvarade på beslutssidan (som uppdateras var 30:e s
+medan något genomförs) och går som notis och till chatten.
+
+**Nya försök.** Ett fel innan något gjorts (användningsgräns, inloggning, inget
+svar) prövas igen efter 1 h, högst tre försök; bara slutresultatet rapporteras.
+Allt annat väntar på dig. En session som dog utan resultat märks `avbruten` och
+prövas inte igen.

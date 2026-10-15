@@ -128,6 +128,40 @@ def kandidater(conn, *, now: dt.datetime) -> list[dict]:
                     "exempt": sista_at is not None, "close": None,
                     "title": "Nytt beslut", "message": f"{msg}: {rubrik[:120]}"})
     out.extend(_roll_kandidater(conn, since=since))
+    out.extend(_genomforande_kandidater(conn, since=since))
+    return out
+
+
+GENOMFORANDE_TITEL = {"genomfort": "Beslut genomfört", "ingen_andring": "Beslut: ingen ändring",
+                      "aterstallt": "Beslut återställt", "misslyckades": "Beslut misslyckades"}
+
+
+def _genomforande_kandidater(conn, *, since: dt.datetime) -> list[dict]:
+    """Automatiskt genomförda beslut (app/spelai/genomforande.py)."""
+    out: list[dict] = []
+    for at, detail_json, dedup_key in conn.execute(
+            "SELECT at, detail_json, dedup_key FROM spelai_event "
+            "WHERE kind='genomforande_klar' ORDER BY id DESC LIMIT 100"):
+        at_t = utc(at)
+        if at_t is None or at_t < since:
+            continue
+        try:
+            detail = json.loads(detail_json or "{}")
+        except ValueError:
+            detail = {}
+        status = str(detail.get("status") or "")
+        if detail.get("omforsok"):
+            continue                 # prövas igen; bara slutresultatet rapporteras
+        titel = GENOMFORANDE_TITEL.get(status, "Beslutet kunde inte genomföras")
+        rubrik = str(detail.get("rubrik") or detail.get("id") or "")[:120]
+        text = " ".join(str(detail.get("sammanfattning") or detail.get("orsak") or "").split())
+        commit = str(detail.get("commit") or "")[:7]
+        message = f"{rubrik}: {text[:SAMMANFATTNING_MAX]}" if text else rubrik
+        if commit:
+            message += f" (commit {commit})"
+        out.append({"key": "genomforande:" + dedup_key.split(":", 1)[1],
+                    "kind": "genomforande", "exempt": False, "close": None,
+                    "title": titel, "message": message})
     return out
 
 

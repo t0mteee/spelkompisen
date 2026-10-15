@@ -71,7 +71,8 @@ JOBS: tuple[tuple[str, bool], ...] = (
     # spel-ai-kompisens facitsida (docs/spelai-facit.md), varje minut, dess
     # rollkörningar (var 5:e min) och agentens API och app (KeepAlive, i
     # Spelkompisens sandbox tjanst.sb)
-    ("spelai", False), ("spelai-roller", False), ("spelai-chatt", True),
+    ("spelai", False), ("spelai-roller", False), ("spelai-genomfor", False),
+    ("spelai-chatt", True),
     ("spelai-api", True),
     ("spelai-app", True))
 # Insamlingens liv bevisas BARA av append-only-tabeller (observationstids-

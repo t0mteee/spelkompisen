@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { answerText, deployResultText, inboxSummary, isDeploy, itemLabel, kindLabel, recommendedIndex, splitInbox } from './inbox.js'
+import { answerText, deployResultText, implementText, inboxSummary, isDeploy, itemLabel, kindLabel, recommendedIndex, splitInbox } from './inbox.js'
 
 const beslut = (id, status = 'vantar', svar = null) => ({
   id, typ: 'beslut', status, svar, rubrik: `b${id}`,
@@ -66,4 +66,16 @@ test('driftsättningens resultat i klartext', () => {
   assert.match(answerText(klar), /Godkänd · Klar, grön hälsa$/)
   const nej = drift('besvarad', { val: '1', tid: '2026-10-14T08:00:00Z' })
   assert.match(answerText(nej), /Avvisad$/)
+})
+
+test('implementText visar det automatiska genomförandet', () => {
+  const item = (genomforande) => ({ typ: 'beslut', status: 'besvarad', genomforande,
+    alternativ: [{ text: 'Lägg aliaset' }], svar: { val: '0', tid: '2026-10-15T08:00:00Z' } })
+  assert.equal(implementText(item(null)), null)
+  assert.equal(implementText(item({ status: 'pagar' })), 'Genomförs nu')
+  assert.equal(implementText(item({ status: 'genomfort', sammanfattning: 'Aliaset ligger i v8.',
+    commit: 'abcdef1234' })), 'Genomfört: Aliaset ligger i v8. (commit abcdef1)')
+  assert.equal(implementText(item({ status: 'fel', orsak: 'session limit', omforsok: true })),
+    'Misslyckades: session limit, nytt försök om en timme')
+  assert.match(answerText(item({ status: 'pagar' })), /Lägg aliaset · Genomförs nu$/)
 })

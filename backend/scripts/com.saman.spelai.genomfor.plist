@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.saman.spelai.genomfor</string>
+
+    <!-- Besvarade beslut genomförs automatiskt (2026-10-15, beslut
+         koordinatorn-2026-10-14-genomfor-beslut-automatiskt, val 1;
+         app/spelai/genomforande.py, docs/spelai-facit.md avsnitt 18).
+         Startar HÖGST EN `claude -p`-session i ~/spelkompisen per varv. En
+         session kan pågå i upp till 90 min; launchd startar ingen ny instans
+         medan en körs, och kommandot tar dessutom ett fil-lås. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/saman/spelkompisen/backend/.venv/bin/python</string>
+        <string>-B</string>
+        <string>cli.py</string>
+        <string>spelai-genomfor</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/saman/spelkompisen/backend</string>
+
+    <key>StartInterval</key>
+    <integer>120</integer>
+
+    <key>Nice</key>
+    <integer>5</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/saman/spelkompisen/backend/data/spelai-genomfor.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/saman/spelkompisen/backend/data/spelai-genomfor.err.log</string>
+</dict>
+</plist>
