@@ -17,6 +17,11 @@ Projektets aktuella kontrakt står här; historiska statusblock finns i
 - **vakt-v5** (beslut koordinatorn-2026-10-14-sofascore-larm, val 0): Sofascore
   ur källprovet, tyst veckoprov i egen logg som bara säger till när källan svarar
   igen. `KANDA_FEL` är tom.
+- **pool-name-v9** (beslut koordinatorn-2026-10-15-pinnacle-alias, val 0): svenska
+  klubbnamn jämförs utan IF/BoIS/FK/BK och utan genitiv-s på ordet framför formen
+  (Topptipset 4390 Sandviken–Östersund, 4395 Varberg–Helsingborg), plus poolaliaset
+  SC Delhi → Sporting Club Delhi (4386). Krockprov mot 2 011 namn i
+  `pool_match_diagnostic`: bara de tre avsedda namnen fick ny nyckel.
 - **pool-name-v8** fick aliaset Sheffield U → Sheffield United (beslut
   driften-2026-10-14-sheffield-u-alias, val 0; Europatipset 2616 gick utan
   Pinnacle för matchen innan det var på plats).

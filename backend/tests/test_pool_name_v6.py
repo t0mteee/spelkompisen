@@ -114,7 +114,7 @@ class LigamarkorTests(unittest.TestCase):
         self.assertEqual("Sweden U21", op.with_league_squad("Sweden U21", ("u21",)))
         self.assertEqual("Chelsea women", op.with_league_squad("Chelsea", ("women",)))
         self.assertEqual("Chelsea", op.with_league_squad("Chelsea", ()))
-        self.assertEqual("pool-name-v8", op.POOL_MATCH_VERSION)
+        self.assertEqual("pool-name-v9", op.POOL_MATCH_VERSION)
 
 
 class SoccerIndexLigaTests(unittest.TestCase):
@@ -143,7 +143,7 @@ class U21Tests(unittest.TestCase):
         h = v6("England", "Spanien", index, SVS_ENG_ESP, "ENG", "ESP")
         self.assertEqual(("1636346499", "A", False), (h["id"], h["match_tier"], h["swapped"]))
         self.assertEqual(ENGLAND_SPAIN["odds"], h["odds"])
-        self.assertEqual("pool-name-v8", h["match_version"])
+        self.assertEqual("pool-name-v9", h["match_version"])
         # v5 som jämförelse: tre rader med samma namn på nivå A ⇒ tvetydig, ingen länk.
         diag = {}
         self.assertIsNone(v5("England", "Spanien", index, SVS_ENG_ESP, "ENG", "ESP", diag))

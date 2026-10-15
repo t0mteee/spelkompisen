@@ -115,6 +115,11 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       Pinnacles båda sidor. Dammarkören är skiljeregel även för landslag
                       (SvS skrev "USA – Spanien" utan Dam för damlandskampen); U-ålder är
                       fortfarande veto. Kontextaliasen styr sina par ensamma.
+                      **v9 sedan driftsättningen 2026-10-15 (beslut koordinatorn-2026-10-15-
+                      pinnacle-alias, val 0):** svenska klubbformerna IF, BoIS, FK och BK tas
+                      bort vid jämförelsen, och ordet FRAMFÖR formen tappar sitt genitiv-s
+                      (Sandviken = Sandvikens IF, Varberg = Varbergs BoIS). Bara de fyra
+                      formerna; ett s utan klubbform rörs aldrig (Degerfors, Rangers).
   app/sharp_service.py Pinnacle för poolen: `VarvIndex` = ETT index per basvarv delat av
                       alla produkter och omgångar; avslag bokförs i `pool_match_diagnostic`
   app/pool_capture_refresh.py m20-reserv för PIT: exakt Pinnacle-id, färsk 1X2 + total

@@ -42,8 +42,8 @@ SVS_CL = "2026-10-13T21:00:00+02:00"
 
 class VersionTests(unittest.TestCase):
     def test_versionen(self):
-        self.assertEqual("pool-name-v8", op.POOL_MATCH_VERSION)
-        self.assertEqual("pool-name-v8", v8("Århus", "Sönderjyske", [AGF],
+        self.assertEqual("pool-name-v9", op.POOL_MATCH_VERSION)
+        self.assertEqual("pool-name-v9", v8("Århus", "Sönderjyske", [AGF],
                                             "2026-10-12T19:00:00+02:00")["match_version"])
 
 

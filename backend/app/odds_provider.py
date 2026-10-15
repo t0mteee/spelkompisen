@@ -104,7 +104,7 @@ def _ratio(a: str, b: str) -> float:
 # Poolens egna bekräftade kortnamn. Ändra inte Oddsets/modellens globala
 # alias för att rätta poolmatcharen. Evidens: täckningsrapport 2026-09-13
 # och NameRuleTests (Svenska Spel ↔ Pinnacle).
-POOL_MATCH_VERSION = "pool-name-v8"
+POOL_MATCH_VERSION = "pool-name-v9"
 _POOL_TEAM_ALIASES = {
     "leeds": "leeds united",
     "nottingham": "nottingham forest",
@@ -163,6 +163,10 @@ _POOL_TEAM_ALIASES = {
     # Portsmouth–Sheffield U 2026-10-14 18:45Z mot Pinnacles "Sheffield United"
     # vid exakt avspark (även Topptipset 4306). Wednesday berörs inte.
     "sheffield u": "sheffield united",
+    # Beslut koordinatorn-2026-10-15-pinnacle-alias (val 0): Topptipset 4386
+    # SC Delhi–Mohun Bagan 2026-10-16 14:00Z mot Pinnacles "Sporting Club
+    # Delhi" vid exakt avspark (stavningen 0,37). SC = Sporting Club här.
+    "delhi sc": "sporting club delhi",
     # MEDVETET INTE alias: Aguilas (indexet har både Aguilas–Hercules i Spanien
     # och Aguilas Doradas i Colombia), Fortaleza (Fortaleza och Fortaleza
     # CEIF), America (Club America och America Mineiro). Samma klass som
@@ -219,6 +223,36 @@ def _norm_team(name: str) -> str:
     return cached
 
 
+# --- pool-name-v9: svenska klubbnamn ------------------------------------------
+# Beslut koordinatorn-2026-10-15-pinnacle-alias (Saman, val 0). Svenska Spel
+# skriver svenska lag utan klubbform och genitiv-s ("Sandviken", "Varberg"),
+# Pinnacle med ("Sandvikens IF", "Varbergs BoIS", "Ostersunds FK"). Vid
+# jämförelsen tas klubbformen bort och, när den står EFTER ett ord, även det
+# ordets genitiv-s. Bara dessa fyra former (beslutet) och bara ordet framför
+# formen: ett avslutande s i allmänhet är en del av namnet (Degerfors, Rangers,
+# Lanus). `_norm_team` är orörd; regeln är ett extra exakt-villkor i `team_sim`.
+_SE_CLUB_FORMS = frozenset({"if", "bois", "fk", "bk"})
+_se_key_cache: dict[str, Optional[str]] = {}
+
+
+def _swedish_key(name: str) -> Optional[str]:
+    """Namnet utan svensk klubbform och genitiv-s, normaliserat; None utan form."""
+    if name in _se_key_cache:
+        return _se_key_cache[name]
+    kept: list[str] = []
+    found = False
+    for word in name.split():
+        if re.sub(r"[^a-z]", "", word.casefold()) in _SE_CLUB_FORMS:
+            found = True
+            if kept and len(kept[-1]) >= 4 and kept[-1].casefold().endswith("s"):
+                kept[-1] = kept[-1][:-1]
+            continue
+        kept.append(word)
+    key = _norm_team(" ".join(kept)) if found and kept else None
+    _se_key_cache[name] = key or None
+    return key or None
+
+
 def _squad(normalized: str) -> frozenset[str]:
     return frozenset(token for token in normalized.split()
                      if token in _SQUAD_MARKERS
@@ -251,6 +285,9 @@ def team_sim(a: Optional[str], b: Optional[str]) -> float:
         return 0.0
     if na == nb:
         return 1.0
+    ka, kb = _swedish_key(a), _swedish_key(b)
+    if (ka or kb) and (ka or na) == (kb or nb):
+        return 1.0                           # pool-name-v9: Sandviken = Sandvikens IF
     if na in nb or nb in na:
         return 0.0
     return _ratio(na, nb)
