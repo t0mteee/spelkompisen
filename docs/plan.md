@@ -34,6 +34,11 @@ Projektets aktuella kontrakt står här; historiska statusblock finns i
   2026-10-14T23:00Z, status på beslutssidan och i chatten (facit § 18). Jobbet
   `spelai-genomfor` aktiveras när plisten ligger i `~/Library/LaunchAgents/` och
   `tools/tjanster.sh start spelai-genomfor` körts; tills dess larmar vakten om jobbet.
+- **Resultat för alla livematcher** (beslut forskaren-2026-10-15-resultat-alla-
+  livematcher, val 0): steget `liveresultat` i spelai-tick skickar högst en gång i
+  timmen alla matcher med livepriser (avspark 100 min–36 h bakåt) till samma
+  Flashscore-hämtning som livekassans spel. Bara `oddset_results`; rättningen orörd.
+  Landskamper kan missa när engelska och svenska namn skiljer (facit § 16).
 - Väntar medvetet: granskaren-2026-10-08-v8-utanfor-1x2 (Samans val: vänta).
 
 **Drift:** endast MacBook-servern 192.168.50.100, backend 8002 och byggd

@@ -200,7 +200,9 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       PreToolUse-kroken `budkrok.py` till chattsessionen; facit §15).
                       `livekassa.py` (fas E) lägger agentens FIKTIVA livespel mot Svenska
                       Spels liveodds och rättar dem (`agent.live` i sandbox; regler i
-                      koden, aldrig hos agenten; facit §16). Inga riktiga spel, aldrig
+                      koden, aldrig hos agenten; facit §16). Inga riktiga spel, aldrig.
+                      En gång i timmen hämtas Flashscore-resultat för ALLA matcher med
+                      livepriser (`hamta_resultat_alla`, bara `oddset_results`)
   app/live_radar.py   shadow-radar för pågående matcher: Flashscore ankare, FotMob sekundär,
                       Sofascore URKOPPLAD ur radarn (kvar för resultat/frånvaro)
   app/live_signal_ledger.py append-only-journal över första Följer/Stark per match,

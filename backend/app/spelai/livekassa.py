@@ -21,6 +21,13 @@ Varv (`varv`, i spelai-tick; varje match högst en gång per `VARV_PER_MATCH_S`)
    det i `spelai_live_bet`. Ett avvisat spel bokförs i journalen
    (`live_avvisat`) med skäl.
 
+Resultat för alla livematcher (`hamta_resultat_alla`, beslut
+forskaren-2026-10-15-resultat-alla-livematcher, val 0): högst en gång i timmen
+skickas varje match med en rad i `spelai_live_price` och avspark 100 min–36 h
+bakåt till samma Flashscore-hämtning, även utan spel. Resultaten hamnar bara i
+`oddset_results`, så agentens livestudier inte bara får facit där modellen
+spelade. Rättningen är orörd.
+
 Rättning (`ratta`): ett spel rättas när matchens normaltidsresultat finns.
 Resultatkällan och matchningen är desamma som i radarns signaljournal
 (Flashscores färdigfeed, `oddset_data.merged_results`, `_result_for`), och
@@ -50,6 +57,9 @@ SCHEMA_EFTER = dt.timedelta(minutes=5)     # ... eller inom 5 min
 RATTAS_EFTER = dt.timedelta(minutes=110)   # tidigast efter avspark
 RESULTAT_SPARR = dt.timedelta(minutes=10)  # egen spärr för Flashscore-hämtningen
 RESULTAT_NYCKEL = "spelai_live_resultat_at"
+ALLA_SPARR = dt.timedelta(hours=1)          # resultat för alla livematcher
+ALLA_NYCKEL = "spelai_live_resultat_alla_at"
+ALLA_FONSTER = (dt.timedelta(minutes=100), dt.timedelta(hours=36))  # avspark bakåt
 MARKNADER = frozenset({"ou"})
 MOTIVERING_MAX = 400
 TECKEN_TEXT = {"O": "över", "U": "under"}
@@ -358,6 +368,48 @@ def hamta_resultat(store, matcher: list[dict], now: dt.datetime) -> dict:
                                                         force=True, ensidig=True)
     finally:
         store.meta_set(RESULTAT_NYCKEL, iso(now))
+    return report
+
+
+def hamta_resultat_alla(store, *, now: dt.datetime,
+                        resultat_kalla: Callable = None) -> dict:
+    """Flashscores färdigfeed för ALLA matcher med livepriser, högst en gång i
+    timmen (beslut forskaren-2026-10-15-resultat-alla-livematcher, val 0).
+
+    Samma `refresh_recent_results` (ensidig) som spelens hämtning, samma
+    dagsfeeder (offset −2..0) och samma fönster (avspark 100 min–36 h bakåt).
+    Rättar ingenting: resultaten hamnar bara i `oddset_results`. Egen spärr,
+    så att spelens tiominutershämtning inte äts upp av timsteget."""
+    senast = utc(store.meta_get(ALLA_NYCKEL) or "")
+    if senast is not None and now - senast < ALLA_SPARR:
+        return {"status": "sparr"}
+    conn = store.conn
+    # Priserna bokförs under matchen, alltså efter avspark: en rad hämtad före
+    # fönstrets början kan inte höra till en match inom fönstret.
+    refs = [row[0] for row in conn.execute(
+        "SELECT DISTINCT match_ref FROM spelai_live_price WHERE fetched_at >= ?",
+        (iso(now - ALLA_FONSTER[1]),))]
+    matcher = []
+    for ref in sorted(refs):
+        match = _match_for_ref(conn, ref)
+        start = utc(match["start"]) if match else None
+        if start and ALLA_FONSTER[0] <= now - start <= ALLA_FONSTER[1]:
+            matcher.append(match)
+    report = {"matcher": len(matcher)}
+    if matcher:
+        if resultat_kalla is None:
+            from .. import flashscore_data
+            resultat_kalla = flashscore_data.refresh_recent_results
+        signals = [{"match_key": f"spelai-live:{m['id']}", "league": m["league"],
+                    "home": m["home"], "away": m["away"], "start_at": m["start"]}
+                   for m in matcher]
+        try:
+            report.update(resultat_kalla(store, signals, now=now, force=True,
+                                         ensidig=True))
+        finally:
+            store.meta_set(ALLA_NYCKEL, iso(now))
+    else:
+        store.meta_set(ALLA_NYCKEL, iso(now))
     return report
 
 

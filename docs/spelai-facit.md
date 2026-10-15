@@ -642,6 +642,19 @@ med `settled_at` = rättningstiden. Inget bakfylls: resultatet är settlat fakta
 Vakten larmar rött (`livespel_orattat`) när ett spel är öppet mer än 3 h efter
 förväntat slut (avspark + 110 min), se `docs/vakt.md`.
 
+**Resultat för alla livematcher (2026-10-15, beslut
+forskaren-2026-10-15-resultat-alla-livematcher, val 0).** Hämtningen ovan gäller
+bara matcher med öppna spel, så i ligor utan football-data fanns resultat nästan
+bara där agenten spelade (68 av 209 matcher med livepriser 10-03–10-13 saknade
+resultat). Steget `liveresultat` (`livekassa.hamta_resultat_alla`, efter
+`liverattning`) skickar högst en gång i timmen (metanyckeln
+`spelai_live_resultat_alla_at`) varje match med en rad i `spelai_live_price` och
+avspark 100 min–36 h bakåt till samma `refresh_recent_results` (ensidig, samma
+dagsfeeder offset −2..0). Resultaten hamnar bara i `oddset_results`; rättningen och
+spelens tiominutersspärr är orörda. Landskamper kan fortfarande missa när
+Flashscores engelska namn inte matchar Svenska Spels svenska: hämtningen jämför
+namn, inte landskod.
+
 ### API och app
 
 `GET /api/spelai/live` returnerar `kassa`, `graf` (saldot efter varje rättat spel),

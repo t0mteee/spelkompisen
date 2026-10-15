@@ -2,7 +2,8 @@
 
 Varje tick: läs in utkorgen, frys de indatapaket som poolvarvet sparat
 (respekterar paus), markera missade fönster, rätta mot facit, skicka
-notiser, lägga och rätta livekassans fiktiva spel (`livekassa`, fas E), köra
+notiser, lägga och rätta livekassans fiktiva spel (`livekassa`, fas E), en gång
+i timmen hämta resultat för alla matcher med livepriser, köra
 godkända driftsättningar (`driftsattning`) och lämna rapporterna i agentens
 chatt i Claude-appen (`chattbud`, sist eftersom budet tar upp mot en halv
 minut). Varje steg isoleras — ett fel i ett steg bokförs som `tick_fel` och
@@ -23,7 +24,7 @@ from . import (chattbud, driftsattning, frysning, inkorg, livekassa, notis, ratt
                schema, tillstand)
 
 STEG = ("inkorg", "frysning", "missat", "rattning", "notiser", "livespel",
-        "liverattning", "driftsattning", "chatt")
+        "liverattning", "liveresultat", "driftsattning", "chatt")
 
 
 def tick(store, *, runner, clock: Callable[[], dt.datetime],
@@ -47,6 +48,11 @@ def tick(store, *, runner, clock: Callable[[], dt.datetime],
         # och anropar aldrig Kambi eller Flashscore).
         ("livespel", lambda: livekassa.varv(store, runner=live_runner, clock=clock)),
         ("liverattning", lambda: livekassa.ratta(store, now=clock())
+         if live_runner is not None else {}),
+        # Resultat för alla matcher med livepriser, högst en gång i timmen
+        # (beslut forskaren-2026-10-15-resultat-alla-livematcher). Bara
+        # oddset_results; rättningen ovan är orörd.
+        ("liveresultat", lambda: livekassa.hamta_resultat_alla(store, now=clock())
          if live_runner is not None else {}),
         # Godkända driftsättningar (beslutssidan), före chatten som alltid går
         # sist. Kör bara när en begäran är godkänd; bygget tar då upp mot en

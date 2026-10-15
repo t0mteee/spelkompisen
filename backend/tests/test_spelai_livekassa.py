@@ -316,6 +316,93 @@ class RattningTests(Base):
         self.assertTrue(refresh.call_args.kwargs["force"])
 
 
+class ResultatAllaTests(Base):
+    """Beslut forskaren-2026-10-15-resultat-alla-livematcher, val 0: resultat
+    för alla matcher med livepriser, inte bara de med spel."""
+
+    def pris(self, ref, at):
+        livekassa.bokfor_priser(self.conn, ref, FejkKambi().linor, fetched_at=at)
+
+    def match(self, ref, start, home="Hem", away="Borta"):
+        self.store.oddset_upsert_match({
+            "id": f"svs:{ref}", "league": "superettan", "home": home, "away": away,
+            "start": iso(start), "kambi_id": ref})
+
+    def test_alla_matcher_med_priser_i_fonstret_utan_spel(self):
+        nu = AVSPARK + dt.timedelta(hours=3)
+        self.pris(REF, AVSPARK + dt.timedelta(minutes=30))           # 3 h sedan: med
+        self.match("9002", nu - dt.timedelta(minutes=60))              # för färsk
+        self.pris("9002", nu - dt.timedelta(minutes=30))
+        self.match("9003", nu - dt.timedelta(hours=40))                # för gammal
+        self.pris("9003", nu - dt.timedelta(hours=39))
+        self.match("9004", nu - dt.timedelta(hours=30), "Öster", "GAIS")  # med
+        self.pris("9004", nu - dt.timedelta(hours=29))
+        self.match("9005", nu - dt.timedelta(hours=5))                 # inga priser
+        anrop = []
+
+        def kalla(store, signals, **kw):
+            anrop.append((signals, kw))
+            return {"eligible": len(signals), "saved": 1}
+
+        rep = livekassa.hamta_resultat_alla(self.store, now=nu, resultat_kalla=kalla)
+        self.assertEqual(0, len(self.bets()))
+        self.assertEqual(1, len(anrop))
+        signals, kw = anrop[0]
+        self.assertEqual([("nations_league", "Kroatien", iso(AVSPARK)),
+                          ("superettan", "Öster", iso(nu - dt.timedelta(hours=30)))],
+                         [(s["league"], s["home"], s["start_at"]) for s in signals])
+        self.assertEqual({"now": nu, "force": True, "ensidig": True}, kw)
+        self.assertEqual((2, 1), (rep["matcher"], rep["saved"]))
+
+    def test_hogst_en_gang_i_timmen_och_rattar_ingenting(self):
+        nu = AVSPARK + dt.timedelta(hours=3)
+        self.pris(REF, AVSPARK + dt.timedelta(minutes=30))
+        anrop = []
+        kalla = lambda store, signals, **kw: anrop.append(signals) or {}  # noqa: E731
+        livekassa.hamta_resultat_alla(self.store, now=nu, resultat_kalla=kalla)
+        self.assertEqual({"status": "sparr"}, livekassa.hamta_resultat_alla(
+            self.store, now=nu + dt.timedelta(minutes=59), resultat_kalla=kalla))
+        livekassa.hamta_resultat_alla(self.store, now=nu + dt.timedelta(minutes=61),
+                                      resultat_kalla=kalla)
+        self.assertEqual(2, len(anrop))
+        self.assertEqual([], self.events("live_rattat"))
+        # Spelens tiominutershämtning har egen spärr och påverkas inte.
+        self.assertIsNone(self.store.meta_get(livekassa.RESULTAT_NYCKEL))
+
+    def test_utan_matcher_inget_anrop_men_sparren_satts(self):
+        anrop = []
+        rep = livekassa.hamta_resultat_alla(
+            self.store, now=NU, resultat_kalla=lambda *a, **kw: anrop.append(a) or {})
+        self.assertEqual(({"matcher": 0}, []), (rep, anrop))
+        self.assertEqual({"status": "sparr"}, livekassa.hamta_resultat_alla(
+            self.store, now=NU + dt.timedelta(minutes=5)))
+
+    def test_flashscore_resultat_hamnar_i_oddset_results(self):
+        nu = AVSPARK + dt.timedelta(hours=3)
+        self.pris(REF, AVSPARK + dt.timedelta(minutes=30))
+        rad = {"league": "nations_league", "stage": "3", "home": "Kroatien",
+               "away": "England", "home_score": 1, "away_score": 2,
+               "start_ts": int(AVSPARK.timestamp())}
+
+        class FejkFlashscore:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def day(self, offset, status):
+                return ([rad] if offset == 0 else []), nu
+
+        with patch("app.flashscore.Flashscore", FejkFlashscore):
+            rep = livekassa.hamta_resultat_alla(self.store, now=nu)
+        self.assertEqual(1, rep["saved"])
+        row = self.conn.execute(
+            "SELECT hg, ag, source FROM oddset_results WHERE league='nations_league'"
+        ).fetchone()
+        self.assertEqual((1, 2, "flashscore"), tuple(row))
+
+
 class ResultatAliasTests(Base):
     """Beslut drift-2026-10-12-live-orattade: spel 13 och 26 fick aldrig facit."""
 
@@ -437,6 +524,7 @@ class KopplingTests(unittest.TestCase):
     def test_schemalaggaren_har_livestegen_fore_chatten(self):
         steg = schemalaggare.STEG
         self.assertLess(steg.index("livespel"), steg.index("liverattning"))
+        self.assertLess(steg.index("liverattning"), steg.index("liveresultat"))
         self.assertEqual("chatt", steg[-1])
 
 
