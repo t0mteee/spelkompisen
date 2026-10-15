@@ -24,8 +24,11 @@ Projektets aktuella kontrakt står här; historiska statusblock finns i
   ≤ 15 min, ett lag lika, en kandidat): "Derby County"/"Lincoln City" mot
   "Derby"/"Lincoln" rättades annars först av nattens modelldata.
 - **Automatiskt genomförande av besvarade beslut** (beslut koordinatorn-2026-10-14-
-  genomfor-beslut-automatiskt, val 1) är byggt och testat i ett worktree men INTE i
-  drift: behörighetsklassaren nekade commit och push. Väntar på Samans besked.
+  genomfor-beslut-automatiskt, val 1) är på main sedan 2026-10-15 (`3d0bbfb`):
+  `app/spelai/genomforande.py` kör `claude -p` per besvarat beslut efter
+  2026-10-14T23:00Z, status på beslutssidan och i chatten (facit § 18). Jobbet
+  `spelai-genomfor` aktiveras när plisten ligger i `~/Library/LaunchAgents/` och
+  `tools/tjanster.sh start spelai-genomfor` körts; tills dess larmar vakten om jobbet.
 - Väntar medvetet: granskaren-2026-10-08-v8-utanfor-1x2 (Samans val: vänta).
 
 **Drift:** endast MacBook-servern 192.168.50.100, backend 8002 och byggd
