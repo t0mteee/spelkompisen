@@ -104,8 +104,9 @@ def skew_rejected(skew_s: float) -> bool:
 
 # Flashscores ligarubriker ("LAND: Namn") → projektets liganycklar. Explicit
 # tabell, aldrig fuzzy (handbolls-läxan). Verifierade mot dagsfeeden
-# 2026-08-01; cupnamnen är antagna tills ligafasen startar i september och
-# ska verifieras mot feeden då — precis som FotMob-tabellens motsvarighet.
+# 2026-08-01. Cupernas ligafasrubriker antogs vara de nakna cupnamnen och
+# verifierades aldrig: ligafasen heter "... - League phase" och föll därför
+# utanför radarn och resultatsteget från september till 2026-10-15.
 LEAGUE_NAMES = {
     "SWEDEN: Allsvenskan": "allsvenskan",
     "SWEDEN: Superettan": "superettan",
@@ -137,6 +138,13 @@ LEAGUE_NAMES = {
     "EUROPE: Europa League - Qualification": "europa_league",
     "EUROPE: Conference League": "conference_league",
     "EUROPE: Conference League - Qualification": "conference_league",
+    # Ligafasen (v14, beslut koordinatorn-2026-10-15-flashscore-cuper).
+    # Avlästa ur Flashscores egna dagsfeeds 2026-10-15 (EL/ECL 15/10 och
+    # 22/10, CL 20–21/10). Slutspelets rubriker läggs till först när de
+    # syns i feeden; ungdoms-, dam- och regioncuperna ligger utanför.
+    "EUROPE: Champions League - League phase": "champions_league",
+    "EUROPE: Europa League - League phase": "europa_league",
+    "EUROPE: Conference League - League phase": "conference_league",
     # Landslagen (v13, 2026-10-03). Avlästa ur Flashscores egna dagsfeeds
     # 2026-10-03–06. Damernas "WORLD: Friendly International Women" och
     # CONCACAF:s Nations League ligger medvetet utanför scopet.

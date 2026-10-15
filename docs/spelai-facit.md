@@ -626,7 +626,10 @@ Ett spel rättas tidigast 110 min efter avspark, när matchens normaltidsresulta
 finns. Källan och matchningen är radarns: `flashscore_data.refresh_recent_results`
 (med egen spärr, högst var tionde minut, metanyckeln `spelai_live_resultat_at`),
 `oddset_data.merged_results` och `live_signal_ledger._result_for`. Landslag
-matchas på landskod (radarns v13). Asian-reglerna (`ou_utfall`) ger vinst,
+matchas på landskod (radarns v13). Europacupernas ligafas ingår sedan radarns
+v14 (2026-10-15, beslut koordinatorn-2026-10-15-flashscore-cuper); tidigare
+saknades den i Flashscores feed hos oss och cupspelen kunde bara rättas av
+modelldatan. Asian-reglerna (`ou_utfall`) ger vinst,
 halv vinst, push, halv förlust och förlust; för över är de låsta mot radarns
 `_over_profit`. `next_price_*` är nästa öppna pris på samma lina och tecken
 efter spelet: prisrörelsen, inte facit.

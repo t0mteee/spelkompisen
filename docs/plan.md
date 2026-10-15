@@ -39,6 +39,14 @@ Projektets aktuella kontrakt står här; historiska statusblock finns i
   timmen alla matcher med livepriser (avspark 100 min–36 h bakåt) till samma
   Flashscore-hämtning som livekassans spel. Bara `oddset_results`; rättningen orörd.
   Landskamper kan missa när engelska och svenska namn skiljer (facit § 16).
+- **Liveradarn v14, Europacupernas ligafas hos Flashscore** (beslut
+  koordinatorn-2026-10-15-flashscore-cuper, val 0): Flashscores rubrik är
+  `EUROPE: Champions League - League phase` (EL/ECL likadant), inte det antagna
+  nakna cupnamnet, så cuperna saknades i `oddset_live_flashscore` och i
+  resultatsteget sedan kvalet (livekassan avstod alla cupmatcher). Ändrat
+  källval ⇒ `chance-gap-shadow-v14`, ren start 2026-10-15T22:00:00Z. Prov mot
+  54 kommande cupmatcher: 51 får Flashscores resultat (24 strikt, 27 ensidigt).
+  `docs/radar-scope-v14-2026-10-15.md`.
 - Väntar medvetet: granskaren-2026-10-08-v8-utanfor-1x2 (Samans val: vänta).
 
 **Drift:** endast MacBook-servern 192.168.50.100, backend 8002 och byggd
@@ -46,7 +54,7 @@ frontend 5175. Launchd och `tools/tjanster.sh` gäller; ny tjänst `backup`
 (04:15). Full kontroll via `tools/kontroll.sh`, som sätter `SPELKOMPISEN_DB`
 till en temporär fil så att testerna aldrig öppnar produktionsdatabasen.
 
-**Kontrakt oförändrade:** live-radar chance-gap-shadow-v13 (landslag, 2026-10-03), V2.2 manifest
+**Kontrakt oförändrade:** live-radar chance-gap-shadow-v14 (cupernas ligafas hos Flashscore, 2026-10-15T22:00Z), V2.2 manifest
 v10/sharp s-2f14f9a6, amber-modell, powerrank-v2. Poolens champion
 dr1-b256-medel, radprofiler, pool-draw-risk-v1, matematiskt max v2 och
 reducerat max v2 oförändrade. Inga modellpromotioner.

@@ -45,7 +45,8 @@ RADAR_V10_VERSION = "chance-gap-shadow-v10"
 RADAR_V11_VERSION = "chance-gap-shadow-v11"
 RADAR_V12_VERSION = "chance-gap-shadow-v12"
 RADAR_V13_VERSION = "chance-gap-shadow-v13"
-RADAR_VERSION = RADAR_V13_VERSION
+RADAR_V14_VERSION = "chance-gap-shadow-v14"
+RADAR_VERSION = RADAR_V14_VERSION
 
 # En observation som inte bevisligen hör till någon kohort. Se `cohort_for`.
 RADAR_TRANSITIONAL = "transitional"
@@ -132,7 +133,21 @@ RADAR_V12_STARTED_AT = "2026-09-02T22:00:00Z"
 # ("INT", "Friendlies"). Gränsen ligger framåt, strax efter driftsättningen
 # 10:30 CEST i förmiddagsluckan då ingen match i scopet pågår.
 RADAR_V13_STARTED_AT = "2026-10-03T08:45:00Z"
-RADAR_VERSION_STARTED_AT = RADAR_V13_STARTED_AT
+# v14 (2026-10-15, beslut koordinatorn-2026-10-15-flashscore-cuper, val 0):
+# Flashscore följer Europacupernas LIGAFAS. Cuperna har legat i scopet sedan
+# 2026-07-28, men Flashscores rubrik för ligafasen är "EUROPE: Champions
+# League - League phase" (Europa/Conference likadant), inte det nakna
+# cupnamnet som tabellen antog — så sedan september kom cupernas livebild
+# bara från FotMob. Nu kan Flashscore väljas som källa för cupmatcherna, och
+# källvalet per signal ändras; det är en ändrad datagenererande process och
+# kräver en ren kohort. Trösklar, providers, källrankning, identitetsregler,
+# prisprocess och matchtak är oförändrade.
+#
+# Rubrikerna är AVLÄSTA ur Flashscores dagsfeeds 2026-10-15 (offset 0, 5–7).
+# Gränsen ligger framåt vid midnatt CEST: kvällens sista cupmatcher startar
+# 19:00Z och inget annat i scopet pågår vid gränsen.
+RADAR_V14_STARTED_AT = "2026-10-15T22:00:00Z"
+RADAR_VERSION_STARTED_AT = RADAR_V14_STARTED_AT
 
 # OBSERVERADE växlingar — när koden faktiskt bytte.
 #
@@ -998,7 +1013,8 @@ def previous_capture(earlier: list[dict],
 def declared_version_at(observed_at: str) -> str:
     """Vilken kohort som DEKLARERAT äger observationsögonblicket."""
     observed = _parse_iso(observed_at)
-    for version, start in ((RADAR_V13_VERSION, RADAR_V13_STARTED_AT),
+    for version, start in ((RADAR_V14_VERSION, RADAR_V14_STARTED_AT),
+                           (RADAR_V13_VERSION, RADAR_V13_STARTED_AT),
                            (RADAR_V12_VERSION, RADAR_V12_STARTED_AT),
                            (RADAR_V11_VERSION, RADAR_V11_STARTED_AT),
                            (RADAR_V10_VERSION, RADAR_V10_STARTED_AT),

@@ -57,6 +57,23 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(["friendlies", "allsvenskan"],
                          [r["league"] for r in rows])
 
+    def test_europacupernas_ligafas_ingar_men_inte_ungdomscupen(self):
+        # Rubrikerna avlästa ur Flashscores dagsfeeds 2026-10-15 (v14).
+        feed = "SA÷1¬"
+        for i, header in enumerate((
+                "EUROPE: Champions League - League phase",
+                "EUROPE: Europa League - League phase",
+                "EUROPE: Conference League - League phase",
+                "EUROPE: UEFA Youth League - League phase",
+                "EUROPE: Champions League - Qualification")):
+            feed += (f"~ZA÷{header}¬ZEE÷z{i}¬~AA÷CUP{i}¬AB÷2¬AC÷12¬"
+                     f"AD÷{MATCH_START}¬AE÷Hemma (Eng)¬AF÷Borta (Esp)¬")
+        rows = flashscore.parse_day_feed(feed)
+        self.assertEqual(
+            [("CUP0", "champions_league"), ("CUP1", "europa_league"),
+             ("CUP2", "conference_league"), ("CUP4", "champions_league")],
+            [(r["flashscore_id"], r["league"]) for r in rows])
+
     def test_unknown_league_never_inherits_the_previous_key(self):
         rows = flashscore.parse_day_feed(DAY_FEED)
         self.assertNotIn("OKAND99", [r["flashscore_id"] for r in rows])
