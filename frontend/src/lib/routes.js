@@ -1,7 +1,8 @@
 // Hash-rutter: EN källa till vilken vy, underflik och detalj som är öppen.
 // Utan hash startar appen alltid i Idag (den lätta översikten). En hash är
 // ett uttryckligt direktlänkskontrakt: `#/kuponger/12` öppnar din kupong 12,
-// `#/tester/ph5/stryktipset/4969/h3/<nyckel>` exakt den testkupongen.
+// `#/tester/ph5/stryktipset/4969/h3/<nyckel>` exakt den testkupongen och
+// `#/live` livesidan med alla pågående poolomgångar.
 // Ren logik utan React så `node --test` når den.
 const HIST_TABS = new Set(['kuponger', 'tester', 'facit'])
 
@@ -28,7 +29,7 @@ export function parseRoute(hash) {
     const id = rest[0] != null && rest[0] !== '' ? Number(rest[0]) : null
     return { view: 'beslut', item: Number.isFinite(id) ? id : null }
   }
-  if (head === 'pool' || head === 'labb') return { view: head }
+  if (head === 'pool' || head === 'labb' || head === 'live') return { view: head }
   if (head === 'oddset') return { view: 'oddset', focus: rest[0] || null }
   return { view: 'idag' }
 }

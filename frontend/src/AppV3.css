@@ -1068,3 +1068,84 @@
   .composition-row { font-size: 12px; }
   .composition-sign b { font-size: 11px; white-space: nowrap; }
 }
+
+/* Livesidan (#/live, 2026-10-15): alla pågående poolomgångar sida vid sida. */
+.lv { display: flex; flex-direction: column; gap: 12px; min-width: 0; max-width: 100%; }
+.lv > * { min-width: 0; max-width: 100%; }
+.lv-top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.lv-top h2 { margin: 0; }
+.lv-top button { margin-left: auto; }
+.lv-fresh { color: var(--muted); font-size: 12px; }
+.lv-fresh.stale { color: #e8b35e; }
+.lv-jump { display: flex; gap: 6px; flex-wrap: wrap; }
+.lv-jump a { font-size: 12px; padding: 4px 9px; border: 1px solid var(--line);
+  border-radius: 999px; color: var(--text); text-decoration: none; background: var(--panel); }
+.lv-grid { display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 430px), 1fr)); align-items: start; }
+.lv-card { gap: 10px; scroll-margin-top: 70px; min-width: 0; overflow: hidden; }
+.lv-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.lv-head h3 { margin: 0; font-size: 15px; }
+.lv-phase { margin-left: auto; font-size: 11.5px; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.lv-phase.live { color: var(--green); border-color: var(--green); }
+.lv-phase.klar { color: #dca85e; border-color: #dca85e; }
+.lv-phase.fel { color: #e88a91; border-color: #e88a91; }
+.lv-today .lv-phase { margin-left: 8px; }
+.lv-forecast { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 12.5px; }
+.lv-forecast b { color: var(--v3acc); }
+.lv-matches { width: 100%; border-collapse: collapse; font-size: 12.5px; table-layout: fixed; }
+.lv-matches col.c-n { width: 22px; } .lv-matches col.c-tid { width: 48px; }
+.lv-matches col.c-sc { width: 44px; } .lv-matches col.c-nu { width: 30px; }
+.lv-matches col.c-k { width: 74px; }
+.lv-matches th { text-align: left; color: var(--muted); font-weight: 600; font-size: 11px;
+  padding: 3px 4px; border-bottom: 1px solid var(--line); }
+.lv-matches td { padding: 4px; border-bottom: 1px solid #ffffff0d; vertical-align: top; }
+.lv-matches tr.live td { background: #1e3a2f40; }
+.lv-matches tr.done td { color: var(--muted); }
+.lv-matches tr.done .lv-name > span:first-child, .lv-matches tr.done .lv-score { color: var(--text); }
+.lv-name { min-width: 0; overflow-wrap: anywhere; }
+.lv-probs { display: block; font-size: 10.5px; color: var(--muted); }
+.lv-clock { white-space: nowrap; color: var(--muted); }
+.lv-clock.live { color: var(--green); font-weight: 700; }
+.lv-score { white-space: nowrap; font-weight: 700; font-variant-numeric: tabular-nums; }
+.lv-now { display: inline-block; min-width: 18px; text-align: center; border-radius: 4px;
+  padding: 0 4px; border: 1px dashed #77858f; }
+.lv-now.final { border-style: solid; background: var(--panel2); }
+.lv-now.prov { border-color: #edc66d; }
+.lv-signs { display: inline-flex; gap: 3px; }
+.lv-sign { display: inline-block; min-width: 18px; text-align: center; border-radius: 4px;
+  padding: 0 3px; border: 1px solid var(--line); color: var(--muted); font-weight: 700; }
+.lv-sign.hit { border: 1px solid #65d9a0; background: #224639; color: #c9ffe4; }
+.lv-sign.miss { border: 1px solid #f48383; background: #492b31; color: #ffd0d0; }
+.lv-sign.leading { border: 1px dashed #65d9a0; color: #c9ffe4; }
+.lv-sign.behind { border: 1px dashed #f48383; color: #ffb4b4; }
+.lv-coupon { display: flex; flex-direction: column; gap: 6px; padding: 10px;
+  border: 1px solid var(--line); border-radius: 9px; background: var(--panel2); }
+.lv-couponhead { display: flex; align-items: baseline; gap: 10px; }
+.lv-couponhead a { text-decoration: none; }
+.lv-levels { display: flex; flex-wrap: wrap; gap: 6px; }
+.lv-level { display: flex; flex-direction: column; padding: 5px 9px; border-radius: 7px;
+  border: 1px solid var(--line); background: var(--panel); font-size: 12px; min-width: 76px; }
+.lv-level b { font-size: 11px; color: var(--muted); }
+.lv-level span { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.lv-level i { font-style: normal; font-size: 10.5px; color: var(--muted); }
+.lv-level.dead span { color: var(--muted); text-decoration: line-through; }
+.lv-krav { display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; }
+.lv-kravhead { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.lv-kravrow em { font-style: normal; font-weight: 700; color: var(--v3acc); }
+.lv-rows summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+.lv-rows ul { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 2px; font-size: 12px; }
+.lv-rows li { display: grid; grid-template-columns: 56px 110px minmax(0, 1fr); gap: 6px; }
+.lv-need { font-family: ui-monospace, monospace; overflow-wrap: anywhere; }
+
+@media (max-width: 760px) {
+  .lv-jump { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
+  .lv-jump a { white-space: nowrap; }
+  .lv-matches { font-size: 12px; }
+  .lv-matches col.c-n { width: 18px; } .lv-matches col.c-tid { width: 40px; }
+  .lv-matches col.c-sc { width: 36px; } .lv-matches col.c-nu { width: 26px; }
+  .lv-matches col.c-k { width: 66px; }
+  .lv-matches td, .lv-matches th { padding: 4px 2px; }
+  .lv-rows li { grid-template-columns: 50px minmax(0, 1fr); }
+  .lv-rows li .lv-need { grid-column: 1 / -1; }
+}

@@ -117,6 +117,8 @@ _pool_live_cache: dict[tuple, tuple[float, dict, dict]] = {}
 # serien slutar vid sista basvarvet före stopp, men försäljningen fortsätter till
 # spelstopp — potten ska räknas på det som faktiskt omsattes.
 _pool_live_sale: dict[tuple[str, int], float] = {}
+# Radpriset ur samma payload: livesidans prognos för omgångar utan egen kupong.
+_pool_live_row_price: dict[tuple[str, int], float] = {}
 _pool_live_lock = threading.Lock()
 
 
@@ -181,6 +183,9 @@ def _pool_live_states(store: Storage,
                     sale = _svs_float(raw.get("currentNetSale"))
                     if sale:
                         _pool_live_sale[key] = sale
+                    price = _svs_float(raw.get("rowPrice"))
+                    if price:
+                        _pool_live_row_price[key] = price
                 except Exception as source_exc:  # noqa: BLE001
                     errors_by_draw[key] = source_exc
 
@@ -1198,6 +1203,50 @@ def pool_played_detail(coupon_id: int):
         store.close()
 
 
+# Livesidan (2026-10-15, app/pool_live_view.py): livebilden räknas i bakgrunden
+# var 20:e s när något pågår och delas av /api/pool/live, Idag och Mina
+# kuponger. Tråden startar vid första läsningen, inte vid uppstart, så att
+# tester och kommandon som importerar appen aldrig startar källanrop.
+def _build_pool_live() -> dict:
+    from . import pool_live_view
+    store = Storage()
+    try:
+        return pool_live_view.bygg(
+            store, dt.datetime.now(dt.timezone.utc),
+            states_fn=lambda st, keys: _pool_live_states(st, keys),
+            forecast_fn=_draw_forecast,
+            row_price_fn=lambda p, n: _pool_live_row_price.get((p, int(n))))
+    finally:
+        store.close()
+
+
+def _live_hub():
+    global _pool_live_hub
+    if _pool_live_hub is None:
+        from .pool_live_view import LiveHub
+        _pool_live_hub = LiveHub(_build_pool_live)
+    _pool_live_hub.start()
+    return _pool_live_hub
+
+
+_pool_live_hub = None
+# Mina kuponger återanvänder hubbens kupongbild bara när den är färskare än så.
+_POOL_LIVE_REUSE_S = 45.0
+
+
+@app.get("/api/pool/live")
+def pool_live():
+    """Livesidan: alla pågående poolomgångar med ställning, prognos och egna
+    kuponger (levande rader per nivå, chans, krav för alla rätt). Läser bara
+    hubbens senaste bygge; LIVEBILD, aldrig facit."""
+    hub = _live_hub()
+    payload = hub.snapshot() or {"draws": [], "active": False}
+    out = {k: v for k, v in payload.items() if k != "coupon_live"}
+    age = hub.age_s()
+    out["age_s"] = round(age, 1) if age is not None else None
+    return out
+
+
 @app.get("/api/pool/played")
 def pool_played_list(live: bool = True, chance: bool = True):
     """Spelade kuponger med LIVESTATUS för öppna omgångar.
@@ -1218,14 +1267,24 @@ def pool_played_list(live: bool = True, chance: bool = True):
             # per unik omgång; Flashscore- och liveprislistorna hämtas en gång
             # för samtliga öppna omgångar i samma request. 1X2-kedjan frågar
             # Kambi först och tar Ninja/Pinnacle bara för kvarvarande luckor.
+            # Hubbens färska kupongbild (samma live_status, med chans och
+            # prognos) går före; bara kuponger den inte täcker räknas här.
+            reused: dict = {}
+            hub = _pool_live_hub
+            if hub is not None and (hub.age_s() or 1e9) <= _POOL_LIVE_REUSE_S:
+                reused = (hub.snapshot() or {}).get("coupon_live") or {}
+            for item in out:
+                if not item["settled_at"] and item["id"] in reused:
+                    item["live"] = dict(reused[item["id"]])
             keys = list(dict.fromkeys(
                 (item["product"], item["draw_number"])
-                for item in out if not item["settled_at"]))
-            states_by_draw, errors_by_draw = _pool_live_states(store, keys)
+                for item in out if not item["settled_at"] and "live" not in item))
+            states_by_draw, errors_by_draw = (
+                _pool_live_states(store, keys) if keys else ({}, {}))
             forecasts: dict[tuple, dict | None] = {}
 
             for item in out:
-                if item["settled_at"]:
+                if item["settled_at"] or "live" in item:
                     continue
                 key = (item["product"], item["draw_number"])
                 try:
@@ -1261,11 +1320,33 @@ def pool_played_list(live: bool = True, chance: bool = True):
         store.close()
 
 
+# Idag frågar /api/payouts för varje spelform vid varje laddning, och varje svar
+# hämtade omgången från Svenska Spel (~0,5 s). Omsättningen ändras inte på
+# sekunder: svaret delas i `_PAYOUTS_TTL_S` (2026-10-15). Insamlingsvarven går
+# aldrig hit, så ingen cachad siffra bokförs som en observation.
+_PAYOUTS_TTL_S = 60.0
+_payouts_cache: dict[tuple, tuple[float, dict]] = {}
+
+
 @app.get("/api/payouts")
 def payouts(product: str = "stryktipset", draw: int | None = None):
     """Prispott per vinstnivå beräknad från AKTUELL omsättning och Svenska Spels
     officiella vinstplan. Antal vinnare (och därmed kr/vinnare) räknar frontend
     ut från nuvarande streck. EV blir då rätt — inte baserat på förra omgången."""
+    import time as _time
+    key = (product, draw)
+    hit = _payouts_cache.get(key)
+    if hit and _time.monotonic() - hit[0] < _PAYOUTS_TTL_S:
+        return hit[1]
+    result = _payouts_uncached(product, draw)
+    if draw is not None:
+        if len(_payouts_cache) > 64:
+            _payouts_cache.clear()
+        _payouts_cache[key] = (_time.monotonic(), result)
+    return result
+
+
+def _payouts_uncached(product: str, draw: int | None) -> dict:
     plan = PRIZE_PLANS.get(product)
     if not plan:
         return {"available": False}

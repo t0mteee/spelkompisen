@@ -59,3 +59,8 @@ test('agentens app på samma värd, port 5176', () => {
   assert.equal(agentAppUrl(loc, 'pool'), 'http://macbook-pro-server.tail71ffdc.ts.net:5176/#/pool')
   assert.equal(agentAppUrl(null), 'http://127.0.0.1:5176/')
 })
+
+test('livesidan har en egen direktlänk', () => {
+  assert.deepEqual(parseRoute('#/live'), { view: 'live' })
+  assert.equal(formatRoute({ view: 'live' }), '#/live')
+})

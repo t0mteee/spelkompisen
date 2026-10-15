@@ -759,16 +759,26 @@ måste Saman lägga in en Bash-behörighetsregel — se `docs/live-kallor-2026-0
   börjar i Idag när adressen saknar hash (återinför inte `svs_v3_view`). En hash är
   DIREKTLÄNKSKONTRAKTET (`lib/routes.js`, 2026-09-13): `#/kuponger[/id]`,
   `#/tester[/test[/produkt/omg/horisont/nyckel]]`, `#/facit[/spel]`, `#/pool`,
-  `#/oddset[/fokus]`, `#/labb` öppnar direkt där, även efter omladdning. Navigering
+  `#/oddset[/fokus]`, `#/labb`, `#/live` öppnar direkt där, även efter omladdning. Navigering
   pushar hash; stäng/"← Tillbaka" backar i webbläsarhistoriken.
 - Inga `cursor: help`-frågetecken; förklaringar som title-tooltips.
 - Oddset-delen: röd = oddset NER (ökad vinstchans), grön = UPP (vm-konvention).
 - **Idag** är en lätt översikt: `/api/dashboard/oddset`, `/api/oddset/predictions/summary`
-  och `/api/pool/played?live=false` — aldrig de fulla rapporterna. Idag visar Mina kuponger
-  ÖVERST (pågående med lätt livebild, nya egna resultat inom 7 dygn) och ett Tester-kort
+  `/api/pool/played?live=false` och `/api/pool/live` (färdigräknad) — aldrig de fulla
+  rapporterna, och Idag räknar aldrig själv liverättning. Idag visar "Live nu" och Mina
+  kuponger ÖVERST (nya egna resultat inom 7 dygn) och ett Tester-kort
   med bara nyheter ur `/api/pool/tests` (underlag klart/granskad), aldrig `/api/pool/systems`. Idag startar inget
   nätarbete de första 650 ms; sekundära kort väntar 1 200 ms; timers och requests rensas
   vid vybyte. Driftlarm (pool, V2.2, Oddset-tystnad) visas överst på Idag.
+- **Live** (`#/live`, 2026-10-15, `src/live/LiveView.jsx` + `lib/liveView.js`): alla
+  pågående poolomgångar sida vid sida (spelstopp passerat ≤ 12 h och ej settlad, plus egna
+  kupongers omgångar 30 min före stopp). `backend/app/pool_live_view.py`s `LiveHub` räknar
+  livebilden i BAKGRUNDEN var 20:e s när något pågår (120 s annars, tråden startar vid
+  första läsningen) och `GET /api/pool/live` läser bara senaste bygget; sidan pollar var
+  20:e s medan den syns, Idag-kortet var 30:e s. Samma `event_state`/`live_status`/
+  `payout_forecast` som Mina kuponger — som återanvänder hubbens kupongbild när den är
+  ≤ 45 s. "Krävs för alla rätt" = heja-matrisens `top` per öppen match. LIVEBILD, aldrig
+  facit. `/api/payouts` delar svaret i 60 s per (produkt, omgång).
 - **Oddset** laddar progressivt: `/api/oddset/matches?light=true&compact=true&movement=false&limit=40`
   först, hela `compact=true`-listan efter 1,2 s; råa `pts` bara för öppnad match via
   `/api/oddset/movement`. 40 matcher renderas åt gången. Återinför inte all historik i

@@ -24,9 +24,12 @@ import { beginRequest, payoutMatchesSelection, requestIsCurrent, uniqueDraws } f
 import { projectionBasisText } from './playRec.js'
 import { PoolInputWarning } from './components/PoolInputWarning.jsx'
 import { BuilderGuide } from './components/BuilderGuide.jsx'
+import { LiveView } from './live/LiveView.jsx'
+import { liveSummary } from './lib/liveView.js'
 
 const VIEWS = [
   { id: 'idag', label: 'Idag', icon: '☀️' },
+  { id: 'live', label: 'Live', icon: '🔴' },
   { id: 'pool', label: 'Poolspel', icon: '🎟️' },
   { id: 'oddset', label: 'Oddset', icon: '⚡' },
   { id: 'historik', label: 'Historik', icon: '🗄' },
@@ -51,13 +54,14 @@ const ROW_MODELS = [
   },
 ]
 const ROW_MODEL_LABEL = Object.fromEntries(ROW_MODELS.map((model) => [model.id, model.label]))
-function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponger, openTester, openBeslut }) {
+function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponger, openTester, openBeslut, openLive }) {
   const [pool, setPool] = useState(null)
   const [oddset, setOddset] = useState(null)
   const [ledger, setLedger] = useState(null)
   const [hist, setHist] = useState(null)
   const [tests, setTests] = useState(null)
   const [played, setPlayed] = useState(null)
+  const [live, setLive] = useState(null)
   const [health, setHealth] = useState(null)
   // spel-ai-kompisens inkorg: beslut och förslag som väntar på Saman.
   const [inbox, setInbox] = useState(null)
@@ -138,15 +142,11 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponge
       guarded(request('/api/pool/tests'), setTests)
       guarded(request('/api/health'), setHealth)
       guarded(request('/api/spelai/inbox'), setInbox)
-      guarded(request('/api/pool/played?live=false'), (data) => {
-        setPlayed(data)
-        if (!data) return
-        if ((data.coupons || []).some((coupon) => !coupon.settled_at)) {
-          // Idag visar faktisk matchstatus och levande rader, inte den dyrare
-          // oddsbaserade chansen som hör till Historiks detaljkort.
-          guarded(request('/api/pool/played?chance=false'), setPlayed)
-        }
-      })
+      // Kupongerna utan livebild (snabbt). Livebilden kommer färdigräknad ur
+      // backendens bakgrundshubb (/api/pool/live, 2026-10-15); Idag räknar
+      // aldrig själv liverättning eller chans och väntar aldrig på källorna.
+      guarded(request('/api/pool/played?live=false'), setPlayed)
+      guarded(request('/api/pool/live'), setLive)
       Promise.all(HIST_FAMILIES.map((p) =>
         request(`/api/pool/history?product=${p.id}&limit=1${IS_FAMILY(p.id) ? '&family=1' : ''}`)
           .then((j) => [p.id, j]).catch(() => [p.id, null])
@@ -172,6 +172,17 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponge
   // load/clearDeferred hör till mountens controller och ska inte bytas under
   // dess livstid; varje ny vy får en ny komponent/controller.
   }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Live nu-kortet följer hubben var 30:e s medan något pågår, utan att resten
+  // av Idag laddas om (den laddar om varannan minut som förut).
+  const liveActive = Boolean(live?.active)
+  useEffect(() => {
+    if (!liveActive) return undefined
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'visible') get('/api/pool/live').then(setLive).catch(() => {})
+    }, 30000)
+    return () => window.clearInterval(id)
+  }, [liveActive])
 
   // värdespel + rörelser ur samma payload som Oddset-vyn (sanerad: research bär inga).
   // Urvalet ligger i delade oddsetBestValue (App.jsx) — samma som 💰-korten/Rek.
@@ -349,6 +360,19 @@ function DashboardV3({ openPool, openOddset, openHistorik, openLabb, openKuponge
           plats för liga, avspark och pris på samma rad. */}
       {/* Mina kuponger först (2026-09-13): det man faktiskt följer. Lätt
           livebild (ingen chansberäkning); allt annat bakom "alla →". */}
+      {liveSummary(live) && (
+        <div className="v3card lv-today">
+          <div className="v3cardhead"><h3>🔴 Live nu</h3>
+            <button className="v3more" onClick={() => openLive()}>följ live →</button></div>
+          {liveSummary(live).map((row) => (
+            <button key={row.key} className="v3couponrow" onClick={() => openLive()}>
+              <span><b>{row.name} #{row.draw}</b>
+                <span className={`lv-phase ${row.phase.key}`}>{row.phase.text}</span></span>
+              {row.detail && <span className="v3hint">{row.detail}</span>}
+            </button>
+          ))}
+        </div>
+      )}
       {played && (played.coupons || []).length > 0 && (() => {
         const open = played.coupons.filter((c) => !c.settled_at)
         const recent = recentlySettled(played.coupons, 7)
@@ -1236,8 +1260,10 @@ export default function AppV3() {
         {view === 'idag' && <ErrBoundary>
           <DashboardV3 openPool={openPool} openOddset={openOddset}
             openHistorik={openHistorik} openLabb={() => go('labb')}
-            openKuponger={openKuponger} openTester={openTester} openBeslut={openBeslut} />
+            openKuponger={openKuponger} openTester={openTester} openBeslut={openBeslut}
+            openLive={() => go('live')} />
         </ErrBoundary>}
+        {view === 'live' && <ErrBoundary><LiveView /></ErrBoundary>}
         {view === 'pool' && <ErrBoundary><PoolV3 /></ErrBoundary>}
         {view === 'oddset' && <ErrBoundary><OddsetView focus={route.focus || null} /></ErrBoundary>}
         {view === 'historik' && <ErrBoundary>
