@@ -55,7 +55,7 @@ class NotisTests(unittest.TestCase):
         self.assertIn("Stryktipset 4973", message)
         self.assertIn("2 nivåer", message)
         self.assertNotIn("1X2", message)
-        self.assertEqual("http://x", link)
+        self.assertEqual("http://x:5176/", link)     # poolförslag: agentens app
         # dedup: samma händelse skickas aldrig igen
         self.assertEqual(0, notis.skicka(self.conn, now=DAG, sender=self.sender,
                                          topic_name="t")["skickade"])
@@ -149,6 +149,53 @@ class NotisTests(unittest.TestCase):
         self.assertFalse(notis.aviseras("topptipset", "30m", None))
         self.assertFalse(notis.aviseras("stryktipset", "6h", kl))
         self.assertTrue(notis.aviseras("stryktipset", "30m", kl.replace(hour=22)))
+
+    def test_lank_for_beslut_oppnar_beslutssidan_ovrigt_agentens_app(self):
+        bas = "http://100.106.151.124:5175/"
+        self.assertEqual("http://100.106.151.124:5175/#/beslut/28",
+                         notis.lank_for(bas, {"kind": "beslut", "inbox_id": 28}))
+        self.assertEqual("http://100.106.151.124:5175/#/beslut/28",
+                         notis.lank_for(bas, {"kind": "genomforande", "inbox_id": 28}))
+        self.assertEqual("http://100.106.151.124:5175/#/beslut",
+                         notis.lank_for(bas, {"kind": "genomforande", "inbox_id": None}))
+        self.assertEqual("http://100.106.151.124:5176/",
+                         notis.lank_for(bas, {"kind": "pool"}))
+        self.assertEqual("http://100.106.151.124:5176/",
+                         notis.lank_for(bas, {"kind": "roll_klar"}))
+        # sökväg/hash i basen ignoreras; ogiltig eller saknad bas ger ingen länk
+        self.assertEqual("http://h:5175/#/beslut/3",
+                         notis.lank_for("http://h:5175/#/idag", {"kind": "beslut",
+                                                                 "inbox_id": 3}))
+        for bas in (None, "", "macbook:5175", "ftp://h/", "http://[::1"):
+            self.assertIsNone(notis.lank_for(bas, {"kind": "beslut", "inbox_id": 1}))
+
+    def test_beslutsnotisen_lankar_till_posten(self):
+        self.conn.execute(
+            "INSERT INTO spelai_inbox (external_id, typ, kalla, rubrik, varfor, "
+            "alternativ_json, payload_hash, created_at) VALUES ('b-1', 'beslut', "
+            "'Koordinatorn', 'Rubrik', 'för att', '[{\"text\": \"a\"}]', 'h', ?)",
+            (DAG.strftime("%Y-%m-%dT%H:%M:%SZ"),))
+        self.conn.commit()
+        inbox_id = self.conn.execute("SELECT id FROM spelai_inbox").fetchone()[0]
+        notis.skicka(self.conn, now=DAG, sender=self.sender, topic_name="t",
+                     link="http://h:5175/")
+        self.assertEqual([f"http://h:5175/#/beslut/{inbox_id}"], [s[3] for s in self.sent])
+
+    def test_testnotis_bokfors_med_adressen(self):
+        rep = notis.testnotis(self.conn, now=DAG, sender=self.sender, topic_name="t",
+                              link="http://h:5175/", inbox_id=28)
+        self.assertTrue(rep["skickad"])
+        self.assertEqual(("Testnotis", "http://h:5175/#/beslut/28"),
+                         (self.sent[0][1], self.sent[0][3]))
+        utan = notis.testnotis(self.conn, now=DAG, sender=self.sender, topic_name=None,
+                               link="http://h:5175/")
+        self.assertEqual((False, "ämne saknas"), (utan["skickad"], utan["orsak"]))
+        self.assertEqual(1, len(self.sent))
+        import json
+        rader = [json.loads(d) for (d,) in self.conn.execute(
+            "SELECT detail_json FROM spelai_event WHERE kind='notis_test' ORDER BY id")]
+        self.assertEqual(["http://h:5175/#/beslut/28", "http://h:5175/#/beslut"],
+                         [r["lank"] for r in rader])
 
     def test_tysta_timmar(self):
         self.assertTrue(notis.tysta_timmar(NATT))

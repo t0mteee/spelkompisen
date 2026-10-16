@@ -19,6 +19,11 @@ INTE Spelkompisens pausade odds-/signalnotiser (`NTFY_TOPIC`).
   `roll_fel` (fel/timeout/avbruten) utan felutskrift — och `kvot_slut` en
   gång per dygn. Samma tysta timmar och dedup.
 * Aldrig rader, insatser eller loggar — bara vad som hänt och en länk.
+* Länken (beslut koordinatorn-2026-10-16-notislank, val 0): `SPELAI_NOTIS_LANK`
+  är Spelkompisens BASADRESS (byggd frontend 5175, Tailscale-adressen så att
+  den fungerar hemma och borta). `lank_for` bygger direktlänken: beslut och
+  genomförda beslut öppnar beslutssidan på posten (`#/beslut/<id>`), allt
+  annat agentens app på samma värd, port 5176 (som `agentAppUrl` i frontenden).
 * Dedup per händelse-id: `spelai_event.dedup_key = notis:<id>`.
 """
 from __future__ import annotations
@@ -28,6 +33,7 @@ import json
 import os
 import re
 from typing import Callable, Optional
+from urllib.parse import urlsplit
 
 from ..svenskaspel import PRODUCTS, family_of
 from . import tillstand
@@ -35,6 +41,8 @@ from .tillstand import LOCAL_TZ, iso, utc
 
 TOPIC_ENV = "SPELAI_NTFY_TOPIC"
 LINK_ENV = "SPELAI_NOTIS_LANK"
+AGENT_APP_PORT = 5176
+BESLUT_KINDS = ("beslut", "genomforande")
 QUIET_FROM, QUIET_TO = 23, 7
 LOOKBACK_H = 12
 HORISONT_TEXT = {"6h": "förhandsversion 6 h", "30m": "officiellt förslag 30 min"}
@@ -72,6 +80,24 @@ def ntfy_sender(topic_name: str, title: str, message: str,
         return response.status_code < 400
     except Exception:  # noqa: BLE001 — notiser får aldrig fälla tick
         return False
+
+
+def lank_for(base: Optional[str], item: dict) -> Optional[str]:
+    """Notisens direktlänk ur Spelkompisens basadress; None utan giltig bas."""
+    if not base:
+        return None
+    try:
+        parts = urlsplit(base.strip())
+        host = parts.hostname
+    except ValueError:
+        return None
+    if parts.scheme not in ("http", "https") or not host:
+        return None
+    if item.get("kind") in BESLUT_KINDS:
+        inbox_id = item.get("inbox_id")
+        vy = f"#/beslut/{inbox_id}" if inbox_id is not None else "#/beslut"
+        return f"{parts.scheme}://{parts.netloc}/{vy}"
+    return f"{parts.scheme}://{host}:{AGENT_APP_PORT}/"
 
 
 def _namn(product: str) -> str:
@@ -146,6 +172,7 @@ def kandidater(conn, *, now: dt.datetime) -> list[dict]:
         if sista_at is not None:
             msg += f" senast {sista_at.astimezone(LOCAL_TZ).strftime('%d/%m %H:%M')}"
         out.append({"key": f"beslut:{inbox_id}", "kind": "beslut",
+                    "inbox_id": inbox_id,
                     "exempt": sista_at is not None, "close": None,
                     "title": "Nytt beslut", "message": f"{msg}: {rubrik[:120]}"})
     out.extend(_roll_kandidater(conn, since=since))
@@ -181,7 +208,8 @@ def _genomforande_kandidater(conn, *, since: dt.datetime) -> list[dict]:
         if commit:
             message += f" (commit {commit})"
         out.append({"key": "genomforande:" + dedup_key.split(":", 1)[1],
-                    "kind": "genomforande", "exempt": False, "close": None,
+                    "kind": "genomforande", "inbox_id": detail.get("inbox_id"),
+                    "exempt": False, "close": None,
                     "title": titel, "message": message})
     return out
 
@@ -258,7 +286,8 @@ def skicka(conn, *, now: dt.datetime, sender: Optional[Sender] = None,
                             now=now, dedup_key=dedup)
             report["utan_amne"] += 1
             continue
-        ok = (sender or ntfy_sender)(topic_name, item["title"], item["message"], link)
+        ok = (sender or ntfy_sender)(topic_name, item["title"], item["message"],
+                                     lank_for(link, item))
         if ok:
             tillstand.logga(conn, "notis", item["key"], {**detail, "skickad": True},
                             now=now, dedup_key=dedup)
@@ -267,3 +296,29 @@ def skicka(conn, *, now: dt.datetime, sender: Optional[Sender] = None,
             tillstand.logga(conn, "notis_fel", item["key"], detail, now=now)
             report["fel"] += 1
     return report
+
+
+def testnotis(conn, *, now: dt.datetime, sender: Optional[Sender] = None,
+              topic_name: Optional[str] = None, link: Optional[str] = None,
+              inbox_id: Optional[int] = None) -> dict:
+    """En testnotis med beslutssidans länk (`cli.py spelai-testnotis`).
+
+    Bokförs i journalen som `notis_test` med adressen, så att det syns vilken
+    länk som provades och om ntfy tog emot den. Ingen dedup: varje prov räknas."""
+    link = link if link is not None else (os.environ.get(LINK_ENV) or None)
+    url = lank_for(link, {"kind": "beslut", "inbox_id": inbox_id})
+    detail = {"lank": url, "bas": link, "skickad": False}
+    if not topic_name:
+        detail["orsak"] = "ämne saknas"
+    elif not url:
+        detail["orsak"] = f"{LINK_ENV} saknas eller är ogiltig"
+    else:
+        detail["skickad"] = bool((sender or ntfy_sender)(
+            topic_name, "Testnotis",
+            "Tryck här: länken ska öppna beslutssidan i Spelkompisen "
+            "(Tailscale behöver vara på i telefonen).", url))
+        if not detail["skickad"]:
+            detail["orsak"] = "ntfy svarade inte"
+    tillstand.logga(conn, "notis_test", str(inbox_id) if inbox_id else None,
+                    detail, now=now)
+    return detail

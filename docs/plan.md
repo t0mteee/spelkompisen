@@ -7,6 +7,11 @@ Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/overlamningar/overlamning-2026-10-13-agentbeslut.md`.
 
 **Nytt 2026-10-16:**
+- **Notislänken öppnar beslutssidan** (beslut koordinatorn-2026-10-16-notislank,
+  val 0): `SPELAI_NOTIS_LANK` = `http://100.106.151.124:5175/` (Tailscale-IP,
+  Tailscale måste vara på i telefonen). `notis.lank_for`: beslut → `#/beslut/<id>`,
+  övriga notiser → agentens app på 5176. Testnotis: `cli.py spelai-testnotis`
+  (journalen `notis_test`). `docs/spelai-facit.md` § 9.
 - **Färre poolnotiser** (beslut koordinatorn-2026-10-16-notiser-pool, val 0):
   `notis.aviseras` i `notis.kandidater` styr både ntfy och chattbudet. 6 h-
   versionen ger ingen notis; Topptipset-familjen aviseras bara när spelstoppet

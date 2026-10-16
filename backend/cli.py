@@ -18,6 +18,7 @@ Användning (från backend/ med aktiverat venv):
     python cli.py spelai-tick       # facitsidan för spel-ai-kompisen (docs/spelai-facit.md)
     python cli.py spelai-roller     # agentens rollkörningar, spegel, skärmbilder (fas F)
     python cli.py spelai-genomfor   # genomför besvarade beslut automatiskt (2026-10-15)
+    python cli.py spelai-testnotis [inbox-id]  # testnotis med beslutssidans länk
     python cli.py history 4956 1 1  # oddshistorik draw=4956 event=1 sign=1
     python cli.py backtest 25 stryktipset  # kalibrera modellen mot facit
 
@@ -1383,6 +1384,22 @@ def cmd_spelai_roller() -> int:
     return 0
 
 
+def cmd_spelai_testnotis(rest: list) -> int:
+    """Skicka en testnotis med beslutssidans länk och bokför den i journalen
+    (beslut koordinatorn-2026-10-16-notislank). `inbox-id` länkar till posten."""
+    import json as _json
+    from app.spelai import notis, tillstand
+    inbox_id = int(rest[0]) if rest else None
+    store = Storage()
+    try:
+        detail = notis.testnotis(store.conn, now=tillstand.now_utc(),
+                                 topic_name=notis.topic(), inbox_id=inbox_id)
+    finally:
+        store.close()
+    print(_json.dumps(detail, ensure_ascii=False))
+    return 0 if detail["skickad"] else 1
+
+
 def cmd_spelai_genomfor() -> int:
     """Besvarade beslut genomförs automatiskt (app/spelai/genomforande.py,
     launchd com.saman.spelai.genomfor var 2:a min). En session åt gången:
@@ -1661,6 +1678,8 @@ def main() -> None:
         sys.exit(cmd_spelai_roller())
     elif cmd == "spelai-genomfor":
         sys.exit(cmd_spelai_genomfor())
+    elif cmd == "spelai-testnotis":
+        sys.exit(cmd_spelai_testnotis(rest))
     elif cmd == "vakt":
         cmd_vakt(rest)
     elif cmd == "xgbackfill":

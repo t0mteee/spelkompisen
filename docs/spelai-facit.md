@@ -305,6 +305,22 @@ med sista tid; uppskjutna notiser skickas efter 07 om spelstoppet inte
 passerat. Aldrig rader, insatser eller loggar. Dedup via
 `spelai_event.dedup_key = notis:<händelse>`. Spelkompisens `NTFY_TOPIC` rörs inte.
 
+**Länken sedan 2026-10-16** (beslut koordinatorn-2026-10-16-notislank, val 0):
+`SPELAI_NOTIS_LANK` är Spelkompisens basadress, i drift
+`http://100.106.151.124:5175/` (serverns Tailscale-IP, byggd frontend). Förut
+pekade den på agentens app (`…ts.net:5176/`), så ett nytt beslut öppnade inte
+beslutssidan. `notis.lank_for` bygger nu länken per notis: beslut och genomförda
+beslut öppnar `#/beslut/<inkorgs-id>` på 5175 (svar tas bara emot därifrån),
+poolförslag, missade förslag, rollkörningar och dagens tak agentens app på samma
+värd, port 5176. Bas med sökväg/hash ignoreras; ogiltig bas ger ingen länk.
+**Telefonen behöver Tailscale påslaget**, hemma som borta (hemma går trafiken
+direkt över LAN ändå). Tailscale-IP:n valdes framför MagicDNS-namnet
+(`macbook-pro-server.tail71ffdc.ts.net`) eftersom den inte kräver att iOS-appen
+använder Tailscales DNS. Utan Tailscale hemma fungerar `http://192.168.50.100:5175/#/beslut`
+för hand. `cli.py spelai-testnotis [inkorgs-id]` skickar en testnotis med
+beslutssidans länk och bokför provet i journalen (`spelai_event` kind
+`notis_test`, med `lank`, `bas` och `skickad`).
+
 ## 10. API (backend 8002)
 
 | Väg | Vad |

@@ -201,6 +201,9 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       Vilka poolförslag som aviseras (ntfy och chatt) avgör ENBART
                       `notis.aviseras`: ingen 6 h-notis, Topptipset bara med spelstopp
                       12:00–22:00 svensk tid, missade/ogiltiga alltid (2026-10-16).
+                      `SPELAI_NOTIS_LANK` är Spelkompisens BASADRESS (Tailscale-IP:n,
+                      5175); `notis.lank_for` länkar beslut till `#/beslut/<id>` och
+                      övrigt till agentens app på 5176 (2026-10-16, facit § 9)
                       `livekassa.py` (fas E) lägger agentens FIKTIVA livespel mot Svenska
                       Spels liveodds och rättar dem (`agent.live` i sandbox; regler i
                       koden, aldrig hos agenten; facit §16). Inga riktiga spel, aldrig.
