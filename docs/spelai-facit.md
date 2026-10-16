@@ -293,7 +293,14 @@ alternativ bär `kvot` (klippt mot 12), annars 8. Används av fas F.
 ntfy med ämnet i `SPELAI_NTFY_TOPIC` (gitignorerade `backend/.env`); valfri länk i
 `SPELAI_NOTIS_LANK`. Utan ämne bokförs bara `spelai_event` (kind `notis`,
 `skickad: false`). En notis per spel och tidpunkt (samlad för alla nivåer), per
-nytt beslut och per missat förslag. Tysta timmar 23–07 svensk tid utom beslut
+nytt beslut och per missat förslag. **Färre poolnotiser sedan 2026-10-16** (beslut
+koordinatorn-2026-10-16-notiser-pool, val 0; `notis.aviseras`): 6 h-versionen ger
+ingen notis i någon kanal, och Topptipset-familjen (Topptipset, Extra, Stryk)
+aviseras bara när spelstoppet ligger 12:00–22:00 svensk tid, inklusive (okänt
+spelstopp aviseras inte). Stryktipset och Europatipset som förut. Missade eller
+ogiltiga förslag (agentens förslag saknas eller är ogiltigt på någon nivå)
+aviseras alltid, även vid 6 h. Regeln sitter i `notis.kandidater` och gäller därför
+både ntfy och chattbudet; frysning, facit och mätning är orörda. Tysta timmar 23–07 svensk tid utom beslut
 med sista tid; uppskjutna notiser skickas efter 07 om spelstoppet inte
 passerat. Aldrig rader, insatser eller loggar. Dedup via
 `spelai_event.dedup_key = notis:<händelse>`. Spelkompisens `NTFY_TOPIC` rörs inte.
@@ -548,7 +555,7 @@ bygger på i chatten. Det sker som sista steget i `spelai-tick`. ntfy-notiserna
 
 | Vad | Hur |
 |---|---|
-| Händelser | `notis.kandidater`: nya beslut som inte besvarats, officiella poolförslag (30 min; 6 h-versionen syns bara i appen), missade förslag, rollkörningar klara eller misslyckade, dagens tak |
+| Händelser | `notis.kandidater`: nya beslut som inte besvarats, officiella poolförslag enligt `notis.aviseras` (avsnitt 9: ingen 6 h-version, Topptipset bara med spelstopp 12–22), missade och ogiltiga förslag, rollkörningar klara eller misslyckade, dagens tak |
 | Samling | Allt som väntar i ett tick blir ETT meddelande. Det viktigaste kommer först (beslut, fel, missat, pool, tak, klart), med högst 8 poster. Första raden står för sig själv, eftersom appen bara visar den tills man fäller ut |
 | Mottagare | `claude agents --json`: den äldsta interaktiva sessionen i `~/spel-ai-kompisen` vars namn börjar med `spel-ai-kompisen`, alltså den chattservern skapar vid start. Finns ingen sådan görs inget modellanrop, och händelserna väntar |
 | Budet | `claude -p --model haiku --restricted --strict-mcp-config --tools SendMessage --permission-mode acceptEdits --permission-prompts none --no-session-persistence --name Facitsidan`, med ren miljö, katalogen `~/.spelai-bud` och tidsgränsen 90 s |
@@ -564,11 +571,11 @@ Samans godkännande. Byts chattens läge måste budets bytas samtidigt.
 **Kostnad.** Budet kostar under en cent per leverans (Haiku). Varje leverans väcker
 dessutom Koordinatorn (Opus) i chatten. En kall tur är cirka 63 000 tokens
 cacheskrivning, mätt på provmeddelandet 2026-10-02. Därför går 6 h-förslagen inte
-till chatten.
+till chatten (utom missade eller ogiltiga, se avsnitt 9).
 
 **Koordinatorns svar** styrs av agentrepots `.claude/agents/koordinatorn.md`:
 högst två rader och inget arbete för en rapport. **Pushen till telefonen sköts av
-ntfy** (`notis.py`, oförändrad). Koordinatorn skickar ingen PushNotification för
+ntfy** (`notis.py`). Koordinatorn skickar ingen PushNotification för
 rapporter, så att Saman inte får samma sak två gånger.
 
 **Agentens egna sessioner får inte skicka meddelanden till andra sessioner.**

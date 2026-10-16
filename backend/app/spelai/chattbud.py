@@ -23,9 +23,11 @@ så att Saman inte får samma sak två gånger.
   (`success: true`) till mottagaren. Annars bokförs `chatt_fel`, och nästa
   försök görs tidigast efter `OMFORSOK`.
 * Tysta timmar 23–07 som notiserna, men beslut med sista tid går fram ändå.
-  Ett beslut som redan besvarats skickas aldrig. 6-timmarsversionen av
-  poolförslagen går inte till chatten: varje rapport väcker chattens Opus, och
-  det officiella förslaget kommer 30 minuter före spelstopp.
+  Ett beslut som redan besvarats skickas aldrig. Vilka poolförslag som
+  rapporteras avgör `notis.aviseras` i kandidaterna, samma regel som ntfy:
+  ingen 6 h-version (varje rapport väcker chattens Opus, och det officiella
+  förslaget kommer 30 minuter före spelstopp), Topptipset bara med spelstopp
+  12:00–22:00, missade och ogiltiga förslag alltid.
 * Dedup per händelse: `spelai_event.dedup_key = chatt:<id>`. Varje leverans
   bokförs dessutom som `chatt_leverans` med mottagare och kostnad.
 * ntfy-notiserna (`notis.py`) påverkas inte; de är telefonens push.
@@ -57,7 +59,6 @@ OMFORSOK = dt.timedelta(minutes=10)
 MAX_POSTER = 8
 POST_MAX = 320
 TEXT_MAX = 2400
-INTE_I_CHATTEN = ("6h",)       # horisonter vars poolförslag bara syns i appen
 PRIORITET = {"beslut": 0, "genomforande": 1, "roll_fel": 1, "missat": 2, "pool": 3,
              "kvot_slut": 4, "roll_klar": 5}
 _NAMN_OK = re.compile(r"^[A-Za-z0-9._-]{1,80}$")
@@ -256,8 +257,6 @@ def vantande(conn, *, now: dt.datetime) -> tuple[list[dict], int]:
     for item in notis.kandidater(conn, now=now):
         key = item["key"]
         if tillstand.har_handelse(conn, f"chatt:{key}"):
-            continue
-        if item["kind"] == "pool" and key.rsplit(":", 1)[-1] in INTE_I_CHATTEN:
             continue
         if item["close"] is not None and item["close"] <= now:
             continue

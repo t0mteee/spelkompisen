@@ -1,10 +1,18 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-10-15 — livesidan för poolspelen, Sofascore-veckoprov, livekassans länk)
+## STATUS (2026-10-16 — färre poolnotiser; 2026-10-15 livesidan för poolspelen, Sofascore-veckoprov, livekassans länk)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
 `docs/overlamningar/overlamning-2026-10-13-agentbeslut.md`.
+
+**Nytt 2026-10-16:**
+- **Färre poolnotiser** (beslut koordinatorn-2026-10-16-notiser-pool, val 0):
+  `notis.aviseras` i `notis.kandidater` styr både ntfy och chattbudet. 6 h-
+  versionen ger ingen notis; Topptipset-familjen aviseras bara när spelstoppet
+  ligger 12:00–22:00 svensk tid (inklusive); Stryktipset/Europatipset som förut;
+  missade och ogiltiga förslag alltid. Frysning, facit och mätning orörda
+  (`docs/spelai-facit.md` § 9 och § 15).
 
 **Nytt 2026-10-14/15:**
 - **Livesidan `#/live`** (Samans önskemål 2026-10-15): alla pågående poolomgångar

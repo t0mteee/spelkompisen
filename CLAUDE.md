@@ -198,6 +198,9 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       Sist i varje tick lämnar `chattbud.py` beslut, poolförslag och
                       rollkörningar i agentens chatt i Claude-appen (Haiku-bud, låst av
                       PreToolUse-kroken `budkrok.py` till chattsessionen; facit §15).
+                      Vilka poolförslag som aviseras (ntfy och chatt) avgör ENBART
+                      `notis.aviseras`: ingen 6 h-notis, Topptipset bara med spelstopp
+                      12:00–22:00 svensk tid, missade/ogiltiga alltid (2026-10-16).
                       `livekassa.py` (fas E) lägger agentens FIKTIVA livespel mot Svenska
                       Spels liveodds och rättar dem (`agent.live` i sandbox; regler i
                       koden, aldrig hos agenten; facit §16). Inga riktiga spel, aldrig.

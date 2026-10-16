@@ -4,7 +4,12 @@
 skickas ingenting — händelsen bokförs ändå i `spelai_event`. Detta återaktiverar
 INTE Spelkompisens pausade odds-/signalnotiser (`NTFY_TOPIC`).
 
-* En notis per spel och tidpunkt (6 h/30 min), samlad för alla nivåer.
+* En notis per spel för det officiella förslaget (30 min), samlad för alla
+  nivåer. Färre poolnotiser (beslut koordinatorn-2026-10-16-notiser-pool,
+  val 0, `aviseras`): 6 h-versionen aviseras inte, och Topptipset-familjen
+  bara när spelstoppet ligger 12:00–22:00 svensk tid (inklusive). Missade
+  eller ogiltiga förslag aviseras alltid. Frysning, facit och mätning orörda.
+  Regeln gäller i kandidaterna, alltså både ntfy och chattbudet.
 * En notis per nytt beslut och per missat förslag.
 * Tysta timmar 23–07 svensk tid — utom beslut med sista tid. En notis som
   hamnar i tysta timmar skjuts upp (kandidaterna härleds ur tabellerna), den
@@ -24,7 +29,7 @@ import os
 import re
 from typing import Callable, Optional
 
-from ..svenskaspel import PRODUCTS
+from ..svenskaspel import PRODUCTS, family_of
 from . import tillstand
 from .tillstand import LOCAL_TZ, iso, utc
 
@@ -37,6 +42,8 @@ ROLL_TEXT = {"motivering": "motivering", "larm": "larmkörning",
              "morgonrunda": "morgonrunda", "forskningspass": "forskningspass",
              "veckogenomgang": "veckogenomgång"}
 SAMMANFATTNING_MAX = 180
+TYSTA_HORISONTER = ("6h",)          # poolförslag som bara syns i appen
+TOPPTIPS_FONSTER = (dt.time(12, 0), dt.time(22, 0))   # spelstopp, svensk tid, inklusive
 _RAD = re.compile(r"\b[1X2]{8,}\b")
 
 Sender = Callable[[str, str, str, Optional[str]], bool]
@@ -71,6 +78,18 @@ def _namn(product: str) -> str:
     return PRODUCTS.get(product, {}).get("name", product)
 
 
+def aviseras(product: str, horizon: str, close: Optional[dt.datetime]) -> bool:
+    """Får ett felfritt poolförslag aviseras? Missade/ogiltiga frågar aldrig här."""
+    if horizon in TYSTA_HORISONTER:
+        return False
+    if family_of(product) == "topptipset":
+        if close is None:
+            return False                 # okänt spelstopp ligger inte i fönstret
+        lokal = close.astimezone(LOCAL_TZ).time().replace(second=0, microsecond=0)
+        return TOPPTIPS_FONSTER[0] <= lokal <= TOPPTIPS_FONSTER[1]
+    return True
+
+
 def kandidater(conn, *, now: dt.datetime) -> list[dict]:
     """Notiser som borde finnas, härledda ur tabellerna (dedup sker i skicka)."""
     since = now - dt.timedelta(hours=LOOKBACK_H)
@@ -103,6 +122,8 @@ def kandidater(conn, *, now: dt.datetime) -> list[dict]:
             continue
         nivaer = len(statuses["standard"])
         ogiltiga = sum(1 for s in statuses["agent"] if s != "fryst")
+        if not ogiltiga and not aviseras(product, horizon, close):
+            continue
         extra = (f" Agentens förslag saknas eller är ogiltigt på {ogiltiga} "
                  f"nivå{'er' if ogiltiga != 1 else ''} — standarden visas."
                  if ogiltiga else "")

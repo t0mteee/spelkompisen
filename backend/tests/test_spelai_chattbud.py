@@ -206,13 +206,14 @@ class SkickaTests(unittest.TestCase):
                                    json.dumps(detail), dedup))
         self.conn.commit()
 
-    def forslag(self, horizon, frozen, close):
-        for role in ("agent", "standard"):
+    def forslag(self, horizon, frozen, close, product="stryktipset", agent="fryst"):
+        for role, status in (("agent", agent), ("standard", "fryst")):
             self.conn.execute(
                 "INSERT INTO spelai_pool_proposal (product, draw_number, level_kr, "
                 "horizon, role, status, rows_text, reg_close_time, frozen_at) "
-                "VALUES ('stryktipset', 4973, 256, ?, ?, 'fryst', ?, ?, ?)",
-                (horizon, role, "1X21X21X21X21", close.isoformat(), frozen.isoformat()))
+                "VALUES (?, 4973, 256, ?, ?, ?, ?, ?, ?)",
+                (product, horizon, role, status, "1X21X21X21X21", close.isoformat(),
+                 frozen.isoformat()))
         self.conn.commit()
 
     def beslut(self, external_id, created, sista=None):
@@ -257,6 +258,17 @@ class SkickaTests(unittest.TestCase):
         runner = FejkRunner()
         self.assertEqual({}, chattbud.skicka(self.conn, now=DAG, runner=runner, repo=REPO))
         self.assertEqual([], runner.anrop)
+
+    def test_samma_poolregel_som_ntfy(self):
+        """Beslut koordinatorn-2026-10-16-notiser-pool: Topptipset 12–22, ogiltigt alltid."""
+        self.forslag("30m", DAG, DAG + dt.timedelta(hours=8), product="topptipset")
+        runner = FejkRunner()
+        self.assertEqual({}, chattbud.skicka(self.conn, now=DAG, runner=runner, repo=REPO))
+        self.forslag("6h", DAG, DAG + dt.timedelta(hours=6), agent="ogiltigt")
+        rep = chattbud.skicka(self.conn, now=DAG, runner=runner, repo=REPO)
+        self.assertEqual(1, rep["skickade"])
+        self.assertIn("förhandsversion 6 h", runner.bud[0][-1])
+        self.assertNotIn("Topptipset", runner.bud[0][-1])
 
     def test_tysta_timmar_skjuter_upp_men_beslut_med_sista_tid_gar_fram(self):
         self.handelse("roll_klar", "forskningspass:2026-10-03",

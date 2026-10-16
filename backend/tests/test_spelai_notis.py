@@ -30,16 +30,20 @@ class NotisTests(unittest.TestCase):
         self.sent.append((topic, title, message, link))
         return True
 
-    def _forslag(self, frozen, close, statuses=("fryst", "fryst"), levels=(256, 512)):
+    def _forslag(self, frozen, close, statuses=("fryst", "fryst"), levels=(256, 512),
+                 product="stryktipset", draw_number=4973, horizon="30m"):
         for level in levels:
             for role, status in zip(("agent", "standard"), statuses):
                 self.conn.execute(
                     "INSERT INTO spelai_pool_proposal (product, draw_number, level_kr, "
                     "horizon, role, status, rows_text, reg_close_time, frozen_at) "
-                    "VALUES ('stryktipset', 4973, ?, '30m', ?, ?, ?, ?, ?)",
-                    (level, role, status, "1X21X21X21X21", close.isoformat(),
-                     frozen.isoformat()))
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (product, draw_number, level, horizon, role, status,
+                     "1X21X21X21X21", close.isoformat(), frozen.isoformat()))
         self.conn.commit()
+
+    def _nycklar(self):
+        return sorted(k["key"] for k in notis.kandidater(self.conn, now=DAG))
 
     def test_en_samlad_notis_per_spel_och_tidpunkt_utan_rader(self):
         self._forslag(DAG, DAG + dt.timedelta(minutes=30))
@@ -100,6 +104,51 @@ class NotisTests(unittest.TestCase):
         self._forslag(DAG, DAG + dt.timedelta(minutes=30), statuses=("missat", "missat"))
         notis.skicka(self.conn, now=DAG, sender=self.sender, topic_name="t")
         self.assertEqual("Poolförslag missat", self.sent[0][1])
+
+    def test_sexh_aviseras_bara_missat_eller_ogiltigt(self):
+        """Beslut koordinatorn-2026-10-16-notiser-pool, val 0."""
+        close = DAG + dt.timedelta(hours=6)
+        self._forslag(DAG, close, horizon="6h", draw_number=1)
+        self._forslag(DAG, close, horizon="6h", draw_number=2,
+                      statuses=("ogiltigt", "fryst"))
+        self._forslag(DAG, close, horizon="6h", draw_number=3,
+                      statuses=("missat", "missat"))
+        self.assertEqual(["missat:stryktipset:3:6h", "pool:stryktipset:2:6h"],
+                         self._nycklar())
+        notis.skicka(self.conn, now=DAG, sender=self.sender, topic_name="t")
+        self.assertEqual({"Poolförslag missat", "Poolförslag klart"},
+                         {t for _, t, _, _ in self.sent})
+        self.assertIn("ogiltigt på 2 nivåer", self.sent[0][2] + self.sent[1][2])
+
+    def test_topptipset_bara_med_spelstopp_12_till_22_svensk_tid(self):
+        # 2026-10-04 är sommartid: svensk tid = UTC+2
+        def stopp(h, m):
+            return dt.datetime(2026, 10, 4, h - 2, m, tzinfo=UTC)
+        fall = [("topptipset", 1, stopp(11, 59)), ("topptipset", 2, stopp(12, 0)),
+                ("topptipsetextra", 3, stopp(22, 0)),
+                ("topptipsetstryk", 4, stopp(22, 1)),
+                ("stryktipset", 5, stopp(23, 30)), ("europatipset", 6, stopp(9, 0))]
+        for product, nr, close in fall:
+            self._forslag(DAG, close, product=product, draw_number=nr, levels=(256,))
+        # ogiltigt och missat aviseras även utanför fönstret
+        self._forslag(DAG, stopp(23, 0), product="topptipset", draw_number=7,
+                      levels=(256,), statuses=("ogiltigt", "fryst"))
+        self._forslag(DAG, stopp(8, 0), product="topptipsetextra", draw_number=8,
+                      levels=(256,), statuses=("missat", "missat"))
+        self.assertEqual(["missat:topptipsetextra:8:30m", "pool:europatipset:6:30m",
+                          "pool:stryktipset:5:30m", "pool:topptipset:2:30m",
+                          "pool:topptipset:7:30m", "pool:topptipsetextra:3:30m"],
+                         self._nycklar())
+
+    def test_aviseras(self):
+        kl = dt.datetime(2026, 10, 4, 10, 0, 30, tzinfo=UTC)   # 12:00:30 svensk tid
+        self.assertTrue(notis.aviseras("topptipset", "30m", kl))
+        self.assertTrue(notis.aviseras("topptipset", "30m",
+                                       kl.replace(hour=20, second=59)))  # 22:00:59
+        self.assertFalse(notis.aviseras("topptipset", "30m", kl.replace(hour=20, minute=1)))
+        self.assertFalse(notis.aviseras("topptipset", "30m", None))
+        self.assertFalse(notis.aviseras("stryktipset", "6h", kl))
+        self.assertTrue(notis.aviseras("stryktipset", "30m", kl.replace(hour=22)))
 
     def test_tysta_timmar(self):
         self.assertTrue(notis.tysta_timmar(NATT))
