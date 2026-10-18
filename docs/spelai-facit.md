@@ -613,7 +613,7 @@ liveodds och rättar dem. **Inga riktiga spel läggs, aldrig.**
 | Startkassa | 10 000 kr | `START_KR` |
 | Insats | 50–200 kr | `MIN_INSATS_KR`, `MAX_INSATS_KR` |
 | Per match | högst 3 spel och 600 kr | `MAX_SPEL_PER_MATCH`, `MAX_INSATS_PER_MATCH_KR` |
-| Spärr | inget spel som tar tillgänglig kassa under 7 500 kr | `SPARR_KR` |
+| Spärr | inget spel som tar tillgänglig kassa under 0 kr (7 500 kr till och med 2026-10-18; beslut koordinatorn-2026-10-18-livekassa-till-noll, val 0) | `SPARR_KR` |
 | Pris | Svenska Spels livepris, öppet och högst 60 s gammalt vid bokföringen | `MAX_PRIS_ALDER_S` |
 | Samma lina | samma lina och tecken spelas bara en gång per match | `prova` |
 | Marknad | Ö/U på fulltid (`ou`); sida kommer när agenten har en modell för den | `MARKNADER` |

@@ -29,7 +29,7 @@ Alla rekommendationer i beslutslistan v2 är godkända, plus två tillägg från
 | 11 | Strategibyten är fria men loggas; facit skrivs aldrig om |
 | 12 | 39 366 kr levereras som M-system att markera |
 | 13 | Livekassan enligt avsnitt 7, med Svenska Spels liveodds som pris |
-| 14 | Livekassan under 7 500 kr ⇒ inga nya spel och ett beslut till Saman |
+| 14 | Livekassan: inget spel som tar tillgänglig kassa under 0 kr (7 500 kr till och med 2026-10-18; beslut koordinatorn-2026-10-18-livekassa-till-noll, val 0) |
 | 15 | Beslutsinkorgen samlar även Spelkompisens ⚖, och Idag visar "N beslut väntar" |
 | 16 | Nytt UI enligt avsnitt 10; Spelkompisens vyer nås via "Verktyg" |
 | 17 | "Jag spelade detta" för pool och live; riktiga resultat följs separat |
@@ -171,7 +171,8 @@ migreringsskript, backup och rapport (`docs/db-atgarder.md`). Allt är append-on
 - Agentens livemodell anropas i sandbox med matchläget (minut, ställning, statistik,
   förväntad matchbild före avspark, aktuella priser) och svarar med spelavsikter.
 - Validering: insats 50–200 kr i steg om 50, högst 3 spel och 600 kr per match, priset högst
-  60 s gammalt och marknaden öppen, kassan minst 7 500 kr. Ett godkänt spel bokförs till det
+  60 s gammalt och marknaden öppen, tillgänglig kassa minst 0 kr efter spelet (7 500 kr till och
+  med 2026-10-18). Ett godkänt spel bokförs till det
   observerade priset. Inga villkor i efterhand.
 - Rättning på ordinarie tid; handikapp med push och halvvinst. Priset vid nästa observation
   sparas som realismmått och används aldrig för att sortera bort spel.
@@ -245,7 +246,7 @@ förbättring.
 alla nivåer.
 
 **Live:** fiktiv kassa 10 000 kr; 50–200 kr per spel; 1–3 spel per match; över/under och sida;
-Svenska Spels liveodds; spärr vid 7 500 kr. Koden lägger spelen i livevarvet; agenten går
+Svenska Spels liveodds; spärr vid 0 kr (7 500 kr till och med 2026-10-18). Koden lägger spelen i livevarvet; agenten går
 igenom dem varje morgon. Ingen notis per spel; gårdagens resultat i morgonrapporten.
 
 ## 8. Beslut och förslag

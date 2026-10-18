@@ -187,11 +187,17 @@ class VarvTests(Base):
         self.assertEqual(1, len(self.events("live_agentfel")))
 
     def test_sparren_stoppar_agenten(self):
-        self.lagg_in(stake=200, net=-2_480, ref="annan")    # saldo 7 520 kr
+        self.lagg_in(stake=200, net=-9_960, ref="annan")    # saldo 40 kr < minsta insats
         agent = FejkAgent(spela())
         rep = livekassa.varv(self.store, runner=agent, clock=Klocka(NU), kambi_mod=FejkKambi())
         self.assertEqual(0, rep["agent"])
         self.assertEqual([], agent.indata)
+
+    def test_agenten_spelar_under_gamla_sparren(self):
+        self.lagg_in(stake=200, net=-2_480, ref="annan")    # saldo 7 520 kr
+        agent = FejkAgent(spela())
+        rep = livekassa.varv(self.store, runner=agent, clock=Klocka(NU), kambi_mod=FejkKambi())
+        self.assertEqual(1, rep["agent"])
 
 
 class ReglerTests(Base):
@@ -235,8 +241,16 @@ class ReglerTests(Base):
                                     i_match=[self.bet(200, 0.5), self.bet(250, 1.5)]))
         self.assertEqual("samma lina och tecken är redan spelade",
                          self.prova(i_match=[self.bet(sign="O")]))
-        self.assertEqual("spärren vid 7 500 kr",
-                         self.prova(kassa_nu={"tillgangligt": 7_540.0}))
+        self.assertEqual("kassan skulle hamna under 0 kr",
+                         self.prova(kassa_nu={"tillgangligt": 40.0}))
+
+    def test_sparren_ligger_vid_0_kr(self):
+        """Beslut koordinatorn-2026-10-18-livekassa-till-noll: spel till 0 kr."""
+        self.assertEqual(0.0, livekassa.SPARR_KR)
+        self.assertIsNone(self.prova(kassa_nu={"tillgangligt": 7_540.0}))
+        self.assertIsNone(self.prova(kassa_nu={"tillgangligt": 50.0}))
+        self.assertEqual("kassan skulle hamna under 0 kr",
+                         self.prova(kassa_nu={"tillgangligt": 49.99}))
 
 
 class RattningTests(Base):
@@ -444,7 +458,7 @@ class PayloadTests(Base):
         self.lagg_in(stake=50.0, net=55.0)
         self.lagg_in(stake=100.0, line=1.5, sign="U")
         data = livekassa.payload(self.conn, now=NU)
-        self.assertEqual({"start": 10_000.0, "sparr": 7_500.0, "saldo": 10_055.0,
+        self.assertEqual({"start": 10_000.0, "sparr": 0.0, "saldo": 10_055.0,
                           "i_spel": 100.0, "tillgangligt": 9_955.0}, data["kassa"])
         self.assertEqual([10_000.0, 10_055.0], [p["saldo"] for p in data["graf"]])
         oppet = data["oppna"][0]

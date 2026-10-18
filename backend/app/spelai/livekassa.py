@@ -3,7 +3,9 @@
 Samans regler (designens avsnitt 7, beslut 3 i inkorgen 2026-10-03):
 * fiktiv kassa 10 000 kr,
 * 50–200 kr per spel, högst 3 spel och 600 kr per match,
-* spärr vid 7 500 kr,
+* spärr vid 0 kr: ett spel godkänns så länge tillgänglig kassa efter spelet är
+  minst 0 kr (beslut koordinatorn-2026-10-18-livekassa-till-noll, val 0; spärren
+  låg vid 7 500 kr till och med 2026-10-18),
 * Svenska Spels liveodds.
 
 Koden lägger spelen i livevarvet. Agenten går igenom dem i morgonrundan, och
@@ -44,7 +46,7 @@ from . import tillstand
 from .tillstand import iso, utc
 
 START_KR = 10_000.0
-SPARR_KR = 7_500.0
+SPARR_KR = 0.0                    # tillgängligt efter spelet får inte bli < 0
 MIN_INSATS_KR, MAX_INSATS_KR = 50.0, 200.0
 MAX_SPEL_PER_MATCH = 3
 MAX_INSATS_PER_MATCH_KR = 600.0
@@ -190,7 +192,7 @@ def prova(spel: dict, priser: dict, i_match: list[dict], kassa_nu: dict,
            and b["sign"] == sign for b in i_match):
         return "samma lina och tecken är redan spelade"
     if kassa_nu["tillgangligt"] - stake < SPARR_KR:
-        return "spärren vid 7 500 kr"
+        return "kassan skulle hamna under 0 kr"
     return None
 
 
