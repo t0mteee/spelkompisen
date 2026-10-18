@@ -50,7 +50,7 @@ class VerkligaFallTests(unittest.TestCase):
             "SC Delhi", "Mohun Bagan", [DELHI], "2026-10-16T16:00:00+02:00", "IND", "IND")))
 
     def test_versionen(self):
-        self.assertEqual("pool-name-v9", op.POOL_MATCH_VERSION)
+        self.assertEqual("pool-name-v10", op.POOL_MATCH_VERSION)
 
 
 class RegelTests(unittest.TestCase):

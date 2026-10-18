@@ -120,6 +120,9 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       bort vid jämförelsen, och ordet FRAMFÖR formen tappar sitt genitiv-s
                       (Sandviken = Sandvikens IF, Varberg = Varbergs BoIS). Bara de fyra
                       formerna; ett s utan klubbform rörs aldrig (Degerfors, Rangers).
+                      **v10 (beslut drift-2026-10-18-pool-perez-zeledon-alias, val 0):**
+                      poolaliasen Perez Zeledon → Municipal Perez Zeledon och CS Herediano
+                      → Herediano (Topptipset 4394). Inga regeländringar.
   app/sharp_service.py Pinnacle för poolen: `VarvIndex` = ETT index per basvarv delat av
                       alla produkter och omgångar; avslag bokförs i `pool_match_diagnostic`
   app/pool_capture_refresh.py m20-reserv för PIT: exakt Pinnacle-id, färsk 1X2 + total

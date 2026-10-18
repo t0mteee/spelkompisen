@@ -86,7 +86,7 @@ class DamformerINamnetTests(unittest.TestCase):
         self.assertFalse(op.women_marked(None, ""))
 
     def test_versionen(self):
-        self.assertEqual("pool-name-v9", op.POOL_MATCH_VERSION)
+        self.assertEqual("pool-name-v10", op.POOL_MATCH_VERSION)
 
 
 class DamklubbTests(unittest.TestCase):
@@ -95,7 +95,7 @@ class DamklubbTests(unittest.TestCase):
         self.assertEqual(("wcl-hacken", "A", False), ident(h))
         self.assertEqual(HACKEN_JUVENTUS_W["odds"], h["odds"])
         self.assertEqual(HACKEN_JUVENTUS_W["total"], h["total"])
-        self.assertEqual("pool-name-v9", h["match_version"])
+        self.assertEqual("pool-name-v10", h["match_version"])
         self.assertEqual(("wcl-lyon", "A", False),
                          ident(v7("Lyon", "Chelsea", [LYON_CHELSEA_W], SVS_LYO_CHE, "FRA", "ENG")))
         # Speglad orientering följer med som för alla rader.
@@ -312,7 +312,7 @@ class SharpServiceTests(unittest.TestCase):
     def test_damcupsraden_ger_odds_i_poolmatcharen(self):
         result = self.collect([HACKEN_JUVENTUS_W])
         self.assertEqual({1: "matched"}, result["status"])
-        self.assertEqual(("wcl-hacken", "Hacken", "pool-name-v9"),
+        self.assertEqual(("wcl-hacken", "Hacken", "pool-name-v10"),
                          (result["hits"][1]["id"], result["hits"][1]["home"],
                           result["hits"][1]["match_version"]))
 

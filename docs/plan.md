@@ -1,12 +1,17 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-10-18 — poolvarianterna städade; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-10-18 — poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
 `docs/overlamningar/overlamning-2026-10-13-agentbeslut.md`.
 
 **Nytt 2026-10-18:**
+- **pool-name-v10** (beslut drift-2026-10-18-pool-perez-zeledon-alias, val 0):
+  poolaliasen Perez Zeledon → Municipal Perez Zeledon och CS Herediano → Herediano
+  (Topptipset 4394 match 8 fick `not_listed`, sidopoäng 0,0/0,0 i
+  `pool_match_diagnostic`). Krockprov mot 2 025 namn i diagnostiken: bara de två
+  avsedda namnen fick ny nyckel. Frysta kuponger orörda, inget bakfyllt.
 - **Poolvarianterna städade** (beslut koordinatorn-2026-10-18-stada-poolvarianter,
   val 0; underlag spel-ai-kompisens P2-granskning). PENSIONERADE (fryses inte
   längre, historiken kvar som pensionerad, inga nycklar ändrade): tuff på alla

@@ -104,7 +104,7 @@ def _ratio(a: str, b: str) -> float:
 # Poolens egna bekräftade kortnamn. Ändra inte Oddsets/modellens globala
 # alias för att rätta poolmatcharen. Evidens: täckningsrapport 2026-09-13
 # och NameRuleTests (Svenska Spel ↔ Pinnacle).
-POOL_MATCH_VERSION = "pool-name-v9"
+POOL_MATCH_VERSION = "pool-name-v10"
 _POOL_TEAM_ALIASES = {
     "leeds": "leeds united",
     "nottingham": "nottingham forest",
@@ -167,6 +167,13 @@ _POOL_TEAM_ALIASES = {
     # SC Delhi–Mohun Bagan 2026-10-16 14:00Z mot Pinnacles "Sporting Club
     # Delhi" vid exakt avspark (stavningen 0,37). SC = Sporting Club här.
     "delhi sc": "sporting club delhi",
+    # pool-name-v10 (beslut drift-2026-10-18-pool-perez-zeledon-alias, val 0):
+    # Topptipset 4394 Perez Zeledon–CS Herediano 2026-10-18 22:00Z mot
+    # Pinnacles "Municipal Perez Zeledon – Herediano" vid exakt avspark;
+    # pool_match_diagnostic gav sidopoängen 0,0/0,0. "CS" (Club Sport) är inget
+    # klubbformsord i normaliseringen, därför alias även för Herediano.
+    "perez zeledon": "municipal perez zeledon",
+    "cs herediano": "herediano",
     # MEDVETET INTE alias: Aguilas (indexet har både Aguilas–Hercules i Spanien
     # och Aguilas Doradas i Colombia), Fortaleza (Fortaleza och Fortaleza
     # CEIF), America (Club America och America Mineiro). Samma klass som
