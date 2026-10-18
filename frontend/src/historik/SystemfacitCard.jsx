@@ -129,6 +129,10 @@ export function SystemfacitCard({ product = 'alla', initialOpen = null, onOpenSy
           samma benchmarkfamilj på samma spelform, så deras omgångar hör till
           samma jämförelse. Pareringen sker på produkt OCH omgång, så de tre
           nummerserierna kan inte blandas ihop.
+          {' '}Sedan 2026-10-18 visas bara standarderna: championen 256 kr medel
+          och 512 kr medel. 256 kr säker mäts vidare utan att visas; tuff, 144
+          och 1 024 kr, 512 kr säker och Pinnacle-basen är pensionerade och
+          ligger kvar under pensionerade testkonfigurationer.
         </span>
 
         {!champRows.length && (
@@ -155,7 +159,11 @@ export function SystemfacitCard({ product = 'alla', initialOpen = null, onOpenSy
                 </tr></thead>
                 <tbody>
                   {champRows.map((r) => {
-                    const b = r.best_challenger
+                    // Dolda utmanare (256 kr säker) mäts vidare men visas inte;
+                    // listan är redan sorterad på delta. Slår en dold utmanare
+                    // championen sägs det ändå, utan att den visas.
+                    const b = (r.challengers || []).find((c) => !c.hidden) || null
+                    const hiddenWins = r.promotable && r.best_challenger?.hidden
                     return (
                       <tr key={`${r.product}-${r.horizon}`}>
                         <td>{PRODUCT_LABEL[r.product] || r.product}</td>
@@ -169,9 +177,11 @@ export function SystemfacitCard({ product = 'alla', initialOpen = null, onOpenSy
                         <td className={b ? roiCls(b.delta_roi) : ''}>
                           {b ? pctSigned(b.delta_roi) : '–'}</td>
                         <td>{b ? b.n_paired : '–'}</td>
-                        <td>{r.promotable
-                          ? <b className="v3pos">utmanare slår championen</b>
-                          : <span className="v3hint">samlar underlag</span>}</td>
+                        <td>{hiddenWins
+                          ? <b className="v3pos">dold utmanare slår championen (se Tester)</b>
+                          : r.promotable
+                            ? <b className="v3pos">utmanare slår championen</b>
+                            : <span className="v3hint">samlar underlag</span>}</td>
                       </tr>
                     )
                   })}

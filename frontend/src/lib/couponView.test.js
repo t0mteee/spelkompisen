@@ -23,6 +23,9 @@ test('göm bara gamla reducerade 40000, bevara övriga tester och tecken', () =>
   assert.equal(visibleResearch({ research_family: 'max40' }), false)
   assert.equal(visibleResearch({ config_key: 'mathmax-v2-dr1-b39366-ev50' }), true)
   assert.equal(visibleResearch({ config_key: 'reducedmax-v2-dr1-b20000-ev50' }), true)
+  // Aktiv men dold nyckel (2026-10-18): fryses vidare, visas inte.
+  assert.equal(visibleResearch({ config_key: 'reducedmax-v2-dr1-b20000-ev80', hidden: true }), false)
+  assert.equal(visibleResearch({ config_key: 'dr1-b256-saker', hidden: true }), false)
   assert.equal(selectionReason('värde X 1.05, X-skydd 30%, total 2.25'), 'värde X 1.05')
   assert.equal(selectionReason('Så valdes raderna. pool-draw-risk-v1: X-golv i 3 lågmåls-/hög-X-match(er).'), 'Så valdes raderna.')
 })

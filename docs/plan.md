@@ -1,10 +1,26 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-10-16 — färre poolnotiser; 2026-10-15 livesidan för poolspelen, Sofascore-veckoprov, livekassans länk)
+## STATUS (2026-10-18 — poolvarianterna städade; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
 `docs/overlamningar/overlamning-2026-10-13-agentbeslut.md`.
+
+**Nytt 2026-10-18:**
+- **Poolvarianterna städade** (beslut koordinatorn-2026-10-18-stada-poolvarianter,
+  val 0; underlag spel-ai-kompisens P2-granskning). PENSIONERADE (fryses inte
+  längre, historiken kvar som pensionerad, inga nycklar ändrade): tuff på alla
+  budgetar, `dr1-b144-*`, `dr1-b1024-*`, `dr1-b512-saker`, `dr1-b256-medel-sharp`
+  och de tre `poolopt-v1`-armarna (grinden `avslutad`, ingen sista avläsning vid
+  120). DOLDA men frysta: `dr1-b256-saker`, PH5:s byggarslump/favoritrad/maxev,
+  `reducedmax-v2-…-ev80` och `mathmax-v2-…-ev80` — `hidden` i API-svaren, borta ur
+  Tester/Autopool, prövas igen vid n ≥ 40 (kring mitten av december). SYNLIGA:
+  standarderna `dr1-b256-medel`, `dr1-b512-medel`, `ph5-v4-dr1-b5000-medel`,
+  `reducedmax-v2-dr1-b20000-ev50`, `mathmax-v2-dr1-b39366-ev50`. Byggaren erbjuder
+  bara säker/medel (ett sparat tuff-läge börjar om på medel). Championens
+  utmanarfamilj är nu 256 säker och 512 medel, så FDR-familjen är mindre än förr;
+  pensionerade utmanares historik ingår inte i rapporten. Facitsidan, standarden
+  per nivå och historiska rader orörda. Ingen förbättring påstås.
 
 **Nytt 2026-10-16:**
 - **Notislänken öppnar beslutssidan** (beslut koordinatorn-2026-10-16-notislank,
@@ -70,7 +86,8 @@ till en temporär fil så att testerna aldrig öppnar produktionsdatabasen.
 **Kontrakt oförändrade:** live-radar chance-gap-shadow-v14 (cupernas ligafas hos Flashscore, 2026-10-15T22:00Z), V2.2 manifest
 v10/sharp s-2f14f9a6, amber-modell, powerrank-v2. Poolens champion
 dr1-b256-medel, radprofiler, pool-draw-risk-v1, matematiskt max v2 och
-reducerat max v2 oförändrade. Inga modellpromotioner.
+reducerat max v2 oförändrade (PH3-utmanarna städade 2026-10-18, se ovan).
+Inga modellpromotioner.
 
 **Nytt 2026-10-01, driftvakten vakt-v1 (i drift 14:40:28Z):** `cli.py vakt` körs var
 30:e minut (launchd `com.saman.spelkompisen.vakt`) och kontrollerar källprovet, jobben,

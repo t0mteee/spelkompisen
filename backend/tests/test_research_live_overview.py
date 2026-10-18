@@ -98,7 +98,7 @@ class ResearchGroupTests(unittest.TestCase):
 
 
 class ConfigurationRegistryTests(unittest.TestCase):
-    def test_poolopt_overview_raknar_faktiska_frysningar_som_aktiva(self):
+    def test_poolopt_overview_visar_pensionerade_frysningar_som_historik(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = Storage(Path(tmp) / "t.db")
             try:
@@ -113,10 +113,13 @@ class ConfigurationRegistryTests(unittest.TestCase):
                         "256,'medel',0.3,1,1,1,'1,2,3,4,5,6,7,8','11111111',"
                         "'hash',8,1000,'live',0)", (config["key"],))
                 report = pool_system_ledger.poolopt_overview(store)
-                self.assertEqual(1, report["summary"]["draws"])
-                self.assertEqual(3, report["summary"]["freezes"])
+                # Pensionerad 2026-10-18: raderna ligger kvar som arkiv.
+                self.assertEqual(0, report["summary"]["draws"])
+                self.assertEqual(1, report["summary"]["all_draws"])
+                self.assertEqual(3, report["summary"]["all_freezes"])
+                self.assertEqual(0, report["summary"]["methods"])
                 self.assertEqual(3, len(report["groups"]))
-                self.assertTrue(all(not t["retired"] for t in report["tests"]))
+                self.assertTrue(all(t["retired"] for t in report["tests"]))
                 self.assertEqual({"poolopt"}, {t["method"] for t in report["tests"]})
             finally:
                 store.close()
@@ -131,9 +134,11 @@ class ConfigurationRegistryTests(unittest.TestCase):
             for config in configs:
                 with self.subTest(key=config["key"]):
                     meta = p._bench(config["key"])
-                    self.assertFalse(meta["retired"])
+                    retired = config["key"] in p.RETIRED_KEYS
+                    self.assertEqual(retired, meta["retired"])
                     self.assertEqual(research, meta["research"])
-                    self.assertEqual(not research, meta["promotion_eligible"])
+                    self.assertEqual(not research and not retired,
+                                     meta["promotion_eligible"])
                     self.assertNotEqual("legacy", meta["method"])
                     if research:
                         self.assertFalse(meta["primary"])
@@ -147,7 +152,8 @@ class ConfigurationRegistryTests(unittest.TestCase):
         p = pool_system_ledger
         configs = (*p.RETIRED_BENCHMARKS, *p.PH5_RETIRED_CONFIGS,
                    *p.MATHMAX_RETIRED_CONFIGS, *p.REDUCEDMAX_RETIRED_CONFIGS,
-                   *p.MAX40_RETIRED_CONFIGS, {"key": "unknown"})
+                   *p.MAX40_RETIRED_CONFIGS, {"key": "unknown"},
+                   *({"key": key} for key in p.RETIRED_2026_10_18))
         for config in configs:
             with self.subTest(key=config["key"]):
                 meta = p._bench(config["key"])

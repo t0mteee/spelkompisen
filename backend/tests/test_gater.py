@@ -12,7 +12,7 @@ from tests.test_research_gate import freeze
 REQUIRED = {"spar", "namn", "status", "n", "krav", "dagar", "dagar_krav", "ci", "anm"}
 SPAR = {"sharp-clv", "wp5-ledger", "v2.2", "radar-blindtest", "ph3-champion",
         "poolstyrka", "ph4-pit-v4", "pit-total-v1",
-        "ph5-v4", "mathmax-v2", "reducedmax-v2", "poolopt-v1", "max40-v1 (avslutad)"}
+        "ph5-v4", "mathmax-v2", "reducedmax-v2", "poolopt-v1 (avslutad)", "max40-v1 (avslutad)"}
 PROGNOS = {"topptipset": {"ph4_oot": 102, "ph4_oot_krav": 40},
            "stryktipset": {"ph4_oot": 8, "ph4_oot_krav": 40}, "basis": "test"}
 

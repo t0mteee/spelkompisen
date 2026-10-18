@@ -304,13 +304,13 @@ def _ci(ci) -> str:
 
 def format_report(payload: dict) -> str:
     out = [f"GRINDAR — {payload['checked_at']} · {payload['note']}", ""]
-    out.append(f"  {'spår':20} {'grind':38} {'status':18} {'n/krav':>10} {'dagar':>8} {'KI':20} anm")
+    out.append(f"  {'spår':22} {'grind':38} {'status':18} {'n/krav':>10} {'dagar':>8} {'KI':20} anm")
     last = None
     for g in payload["gates"]:
         if g["spar"] != last:
             out.append("")
             last = g["spar"]
-        out.append(f"  {g['spar'][:20]:20} {g['namn'][:38]:38} {g['status']:18} "
+        out.append(f"  {g['spar'][:22]:22} {g['namn'][:38]:38} {g['status']:18} "
                    f"{_frac(g['n'], g['krav']):>10} {_frac(g['dagar'], g['dagar_krav']):>8} "
                    f"{_ci(g['ci']):20} {g['anm']}")
     fel = [g for g in payload["gates"] if g["status"] == "fel"]

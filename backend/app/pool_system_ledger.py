@@ -71,11 +71,37 @@ RISK_PROFILES = (("saker", "säker", 0.2),
                  ("tuff", "tuff", 0.8))
 BUDGETS = (144.0, 256.0, 512.0, 1024.0)
 CHAMPION_KEY = "dr1-b256-medel"
+
+# STÄDNINGEN 2026-10-18 (beslut koordinatorn-2026-10-18-stada-poolvarianter,
+# val 0; underlag spel-ai-kompisens P2-granskning). Nycklarna fryses inte
+# längre men deras rader ligger kvar och redovisas som pensionerade — en
+# config_key ändras aldrig i efterhand. Ingen förbättring påstås: tuff gav
+# sämst utfall överallt, övriga mätte budgetar och armar som inte spelas.
+# Generationens definition (BENCHMARKS, PROB_BASE_CHALLENGERS,
+# POOLOPT_FORWARD_CONFIGS) står kvar så att historiken bär sina parametrar.
+RETIRED_2026_10_18 = (
+    "dr1-b144-saker", "dr1-b144-medel", "dr1-b144-tuff",
+    "dr1-b256-tuff", "dr1-b512-saker", "dr1-b512-tuff",
+    "dr1-b1024-saker", "dr1-b1024-medel", "dr1-b1024-tuff",
+    "dr1-b256-medel-sharp",
+    "poolopt-v1-b256-traff", "poolopt-v1-b256-balans", "poolopt-v1-b256-xkvot",
+)
 RETIRED_KEYS = (
     "ev50-medel-vw50", "ev50-tuff-vw80", "ev256-medel-vw50",
     *(f"b{int(budget)}-{slug}" for budget in BUDGETS
       for slug, _strategy, _weight in RISK_PROFILES),
+    *RETIRED_2026_10_18,
 )
+# DOLDA men aktiva (samma beslut): fortsätter frysas, settlas och räknas i
+# sina grindar, men visas inte i UI:t (`hidden` i API-svaren). Prövas igen
+# vid n ≥ 40 parade omgångar. Synliga är bara standarderna per nivå
+# (`spelai.frysning.STANDARD_CONFIGS`). Att dölja är inte att pensionera.
+HIDDEN_KEYS = frozenset({
+    "dr1-b256-saker",
+    "ph5-v4-dr1-b5000-byggarslump", "ph5-v4-dr1-b5000-favoritrad",
+    "ph5-v4-dr1-b5000-maxev",
+    "reducedmax-v2-dr1-b20000-ev80", "mathmax-v2-dr1-b39366-ev80",
+})
 
 RETIRED_BENCHMARKS = tuple(
     {"key": f"b{int(budget)}-{slug}", "budget": budget,
@@ -349,10 +375,17 @@ def benchmarks_for(product: str) -> tuple[dict, ...]:
     dyker en konfiguration upp i tabellen som varvet inte längre fryser.
     """
     if product in EIGHT_MATCH_PRODUCTS:
-        return (*(b for b in BENCHMARKS
-                  if b["budget"] <= EIGHT_MATCH_MAX_BUDGET),
-                *PROB_BASE_CHALLENGERS)
-    return BENCHMARKS
+        family = (*(b for b in BENCHMARKS
+                    if b["budget"] <= EIGHT_MATCH_MAX_BUDGET),
+                  *PROB_BASE_CHALLENGERS)
+    else:
+        family = BENCHMARKS
+    return _active(family)
+
+
+def _active(configs: tuple[dict, ...]) -> tuple[dict, ...]:
+    """Pensionerade nycklar fryses aldrig mer, oavsett familj."""
+    return tuple(c for c in configs if c["key"] not in RETIRED_KEYS)
 
 
 def research_families_for(
@@ -363,6 +396,16 @@ def research_families_for(
     Hälsokontrollen behöver veta VILKEN familj som saknas. Den gamla platta
     listan fick annars ett bortfall i en maxfamilj att heta "PH5 saknas".
     """
+    families: dict[str, tuple[dict, ...]] = {}
+    for family, configs in _research_families_all(product, draw_number).items():
+        if _active(configs):
+            families[family] = _active(configs)
+    return families
+
+
+def _research_families_all(
+        product: str,
+        draw_number: Optional[int] = None) -> dict[str, tuple[dict, ...]]:
     families: dict[str, tuple[dict, ...]] = {}
     if product in PH5_FORWARD_PRODUCTS:
         start = PH5_FORWARD_START_DRAW_BY_PRODUCT.get(
@@ -838,6 +881,15 @@ def settle_pending(store: Storage, now: Optional[dt.datetime] = None) -> dict:
 
 
 def _bench(key: str, stored: Optional[dict] = None) -> dict:
+    """`_bench_params` plus pensionering och dold-markering per nyckel."""
+    bench = _bench_params(key, stored)
+    if key in RETIRED_KEYS:
+        bench.update(primary=False, retired=True, promotion_eligible=False)
+    bench["hidden"] = key in HIDDEN_KEYS
+    return bench
+
+
+def _bench_params(key: str, stored: Optional[dict] = None) -> dict:
     """Konfigurationens parametrar — även för pensionerade nycklar.
 
     Gamla rader måste kunna visas med samma kolumner som nya. Parametrarna
@@ -1004,7 +1056,8 @@ def champion_report(store: Storage) -> dict:
                 test_key = (family, horizon, key)
                 p_value = _signflip_p(diffs, test_key)
                 entry["challengers"].append({
-                    "config_key": key, "n_paired": len(shared),
+                    "config_key": key, "hidden": key in HIDDEN_KEYS,
+                    "n_paired": len(shared),
                     "roi": round(sum(roi[key][d] for d in shared) / len(shared), 4),
                     "delta_roi": round(sum(diffs) / len(diffs), 4),
                     "p_value": p_value, "key": test_key,
@@ -1435,6 +1488,7 @@ def _research_overview(
             "method": bench["method"],
             "label": bench.get("label"),
             "retired": bench["retired"],
+            "hidden": bench["hidden"],
             "settled_at": row[11], "correct_max": row[12],
             "correct_dist": json.loads(row[13]) if row[13] else None,
             "payout_kr": row[14],
@@ -1522,7 +1576,9 @@ def _research_overview(
             "model_x_outcomes_omitted": sum(
                 t["x_outcomes_omitted"] for t in model_tests),
         },
-        "configs": [dict(config) for config in configs],
+        "configs": [{**config, "retired": _bench(config["key"])["retired"],
+                     "hidden": config["key"] in HIDDEN_KEYS}
+                    for config in configs],
         "products": list(products),
         # Per testkategori (arm/metod × frystid): saldo, träffar per nivå, ROI.
         "groups": groups,
@@ -1585,13 +1641,14 @@ def reducedmax_overview(store: Storage) -> dict:
 
 
 def poolopt_overview(store: Storage) -> dict:
-    """Pooloptimerarens tre forwardarmar (256 rader, Topptipset-familjen)."""
+    """Pooloptimerarens tre forwardarmar (256 rader, Topptipset-familjen),
+    pensionerade 2026-10-18 och kvar som historik."""
     return _research_overview(
         store,
         configs=POOLOPT_FORWARD_CONFIGS,
         products=POOLOPT_FORWARD_PRODUCTS,
         rows_per_test=256,
-        active_methods=len(POOLOPT_FORWARD_CONFIGS),
+        active_methods=len(_active(POOLOPT_FORWARD_CONFIGS)),
         start_draws=POOLOPT_FORWARD_START_DRAW_BY_PRODUCT,
         paired_overlap=True,
     )
@@ -1658,6 +1715,7 @@ def summary(store: Storage) -> dict:
             # vilket läste som procent och veckonummer. De är egna fält nu.
             "budget": bench["budget"], "strategy": bench["strategy"],
             "value_weight": bench["value_weight"], "retired": bench["retired"],
+            "hidden": bench["hidden"],
             "research": bench["research"],
             "promotion_eligible": bench["promotion_eligible"],
             "method": bench["method"],
@@ -1712,11 +1770,12 @@ def summary(store: Storage) -> dict:
             "close": r[15],
             "budget": bench["budget"], "strategy": bench["strategy"],
             "value_weight": bench["value_weight"], "retired": bench["retired"],
+            "hidden": bench["hidden"],
             "research": bench["research"],
             "promotion_eligible": bench["promotion_eligible"],
             "method": bench["method"],
         })
-    return {"benchmarks": [dict(b) for b in BENCHMARKS],
+    return {"benchmarks": [dict(b) for b in _active(BENCHMARKS)],
             "research_configs": [dict(c) for c in PH5_FORWARD_CONFIGS],
             "champion_key": CHAMPION_KEY,
             "retired_keys": list(RETIRED_KEYS),
@@ -1746,7 +1805,7 @@ def research_groups(tests: list[dict]) -> list[dict]:
         group = groups.setdefault(key, {
             "key": ":".join(key),
             "product": test["product"], "config_key": test["config_key"],
-            "retired": test["retired"],
+            "retired": test["retired"], "hidden": test.get("hidden", False),
             # `label` bara när armen har en egen etikett; PH5:s metoder
             # namnges av frontendens PH5_METHOD_LABEL via `method`.
             "label": test.get("label"),
@@ -1859,7 +1918,11 @@ RESEARCH_GATES: dict[str, dict] = {
                 "preliminary_from": 10, "pair": "all_active", "unit": "product"},
     "reducedmax": {"doc": "docs/maxtester-2026-08-29.md", "min_paired_draws": 40,
                    "preliminary_from": 10, "pair": "all_active", "unit": "product"},
+    # Pensionerad 2026-10-18 (beslut koordinatorn-2026-10-18-stada-
+    # poolvarianter) före avslutsgränsen 120; ingen sista avläsning görs.
     "poolopt": {"doc": "docs/poolopt-v1-forward-2026-09-02.md", "min_paired_draws": 40,
+                "closed": True,
+                "closed_note": "pensionerad 2026-10-18 före sista avläsningen",
                 "pair": "champion", "unit": "family", "per_arm": True,
                 "end_after_forward_draws": 120,
                 # Samans beslut 5aA 2026-09-24: EXAKT två avläsningar, vid 40
@@ -1959,6 +2022,10 @@ def research_gate(store: Storage, family: str) -> dict:
         done = [r for r in gate.get("readings") or () if paired >= r["paired"]]
         if gate.get("closed"):
             status = "avslutad"
+            note = " · ".join(
+                ([gate["closed_note"]] if gate.get("closed_note") else [])
+                + [f"avläst vid {r['paired']} par {r['date']}: {r['result']}"
+                   for r in done])
         elif done:
             # Avläst enligt plan. `underlag klart` vore en inbjudan att titta
             # igen; nästa och sista avläsning sker vid avslutsgränsen.

@@ -702,14 +702,18 @@ function PoolV3() {
   const [movement, setMovement] = useState(null)
   const [payouts, setPayouts] = useState(null)
   const [sys, setSys] = useState(null)
-  const [strategy, setStrategy] = useState(saved.strategy || 'medel')
+  // Ett sparat tuff-läge (borttaget 2026-10-18) börjar om på medel och
+  // medels startpunkt på värdereglaget.
+  const savedRetiredStrategy = saved.strategy && !STRATEGIES.includes(saved.strategy)
+  const [strategy, setStrategy] = useState(savedRetiredStrategy ? 'medel' : (saved.strategy || 'medel'))
   // 256 = PH3:s champion (`b256-medel`). Standarden MÅSTE spegla championen,
   // annars mäter systemfacit en byggare som inte är den du faktiskt kör: fram
   // till 2026-08-05 stod reglaget på 128 medan championen var registrerad som
   // 50 kr, så etiketten "champion = dagens byggare" var osann.
   const [budget, setBudget] = useState(saved.budget || 256)
   const [sysType, setSysType] = useState(saved.sysType || 'ev')
-  const [valueWeight, setValueWeight] = useState(saved.valueWeight ?? 50)
+  const [valueWeight, setValueWeight] = useState(
+    savedRetiredStrategy ? STRATEGY_EV.medel : (saved.valueWeight ?? 50))
   const [rowModel, setRowModel] = useState(() => {
     if (saved.rowModel === 'portfolio_v1') return 'standard'
     if (!ROW_MODELS.some((model) => model.id === saved.rowModel)) return 'standard'

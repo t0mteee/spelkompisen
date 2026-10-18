@@ -11,6 +11,8 @@ import { FORECAST_NOTE, perRowText, minPayoutNote } from '../lib/forecast.js'
 import { LoadingState, EmptyState, ErrorState, kr } from '../App.jsx'
 
 const VIEW_KEY = 'svs_forward_view'
+// Familjer vars andra arm fryses dold (beslut koordinatorn-2026-10-18-stada-poolvarianter).
+const HIDDEN_ARM_FAMILIES = new Set(['mathmax', 'reducedmax'])
 const VIEWS = ['omgangar', 'kuponger', 'metoder']
 const readView = () => {
   try { const v = localStorage.getItem(VIEW_KEY); return VIEWS.includes(v) ? v : 'omgangar' } catch { return 'omgangar' }
@@ -90,7 +92,9 @@ export function ForwardTestV3({ family, open = null, onOpenCoupon = null, onClos
     setMode(next); setLimit(20)
     try { localStorage.setItem(VIEW_KEY, next) } catch { /* ok */ }
   }
-  const methodSource = (data.tests || []).length ? data.tests : data.configs || []
+  const visibleTests = (data.tests || []).filter((test) => !test.hidden)
+  const methodSource = visibleTests.length ? visibleTests
+    : (data.configs || []).filter((config) => !config.hidden)
   const methods = [...new Map(methodSource.map((test) => [
     forwardTestFilterKey(test), forwardTestLabel(test),
   ])).entries()]
@@ -148,6 +152,9 @@ export function ForwardTestV3({ family, open = null, onOpenCoupon = null, onClos
             Skillnaden i facit kan då kopplas till armvalet, inte till en annan
             omgång eller ett senare odds. {meta.archived
               ? 'Piloten fryser inga nya kuponger.' : ''}</p>
+          {HIDDEN_ARM_FAMILIES.has(family) && <p>Sedan 2026-10-18 visas bara
+            <b> EV medel</b>, standarden. EV högt fryses och rättas vidare utan att
+            visas och prövas igen vid 40 parade omgångar.</p>}
           <div className="v3ph5methods v3max40methods">
             <span><b>EV medel</b> medelstrategi · 50 % värdevikt</span>
             <span><b>EV högt</b> tuff strategi · 80 % värdevikt</span>
@@ -157,6 +164,9 @@ export function ForwardTestV3({ family, open = null, onOpenCoupon = null, onClos
             tjugo minuter före stopp. Jämför metoder inom samma omgång och frystid; tiderna är inte oberoende försök. Resultatet är
             kontrafaktiskt: systemet lämnades aldrig in, så kronor och ROI visar
             vad testet uppskattas ha gett — inte pengar som vunnits eller förlorats.</p>
+          <p>Sedan 2026-10-18 visas bara <b>Värderader</b>, standarden. De tre
+            kontrollerna fryses och rättas vidare utan att visas och prövas igen
+            vid 40 parade omgångar.</p>
           <div className="v3ph5methods">
             <span><b>Värderader</b> appens balanserade modell</span>
             <span><b>Max-EV</b> prioriterar värde hårdast</span>

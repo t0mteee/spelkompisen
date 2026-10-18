@@ -13,9 +13,12 @@ import { useSortedRows, SortableTable } from './components/SortableTable.jsx'
 import { StreckBar, changePoints, MovementChart } from './components/charts.jsx'
 import { oddsetBestValue, OddsetView } from './oddset/OddsetView.jsx'
 
-const STRATEGIES = ['säker', 'medel', 'tuff']
+// Profilen tuff togs bort ur byggaren 2026-10-18 (beslut koordinatorn-2026-10-18-
+// stada-poolvarianter: sämst utfall överallt). Backend kan fortfarande bygga den
+// för historikens och forskningsarmarnas skull; den erbjuds bara inte här.
+const STRATEGIES = ['säker', 'medel']
 // strategin sätter en startpunkt på EV-/värdereglaget (samma axel), så de inte krockar
-const STRATEGY_EV = { säker: 20, medel: 50, tuff: 80 }
+const STRATEGY_EV = { säker: 20, medel: 50 }
 // budgetsteg (tak för insatsen) – slider istället för sifferfält.
 // 144 är en exakt Hamming-täckning (R 4-4-144) och ingår i PH3:s
 // benchmarkmatris sedan 2026-08-05, så reglaget måste kunna nå den.

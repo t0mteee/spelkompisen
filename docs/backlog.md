@@ -65,6 +65,7 @@ prioritetsordning. ⚖ = kräver Samans beslut.
    `poolopt` (Topptipset 4309/Stryk 979/Extra 1864→). Grind 40 parade omg;
    avslut 120. `docs/poolopt-v1-forward-2026-09-02.md`. **Nästa version (v2,
    512 rader, X-risk v1 som champion) startas INTE förrän forward har 40.**
+   Pensionerad 2026-10-18 (beslut koordinatorn-2026-10-18-stada-poolvarianter).
 9. ✅ (2026-09-02) **Sannolikhetsbas** — EV-byggaren rankar på SvS-odds men
    väljer kandidater på Pinnacle. `prob_base` infört (standard byte-identisk);
    PH3-utmanare `dr1-b256-medel-sharp` i Topptipset-familjen. Retro på pit-v4:

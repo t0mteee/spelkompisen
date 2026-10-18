@@ -71,7 +71,7 @@ class PoolHealthTests(unittest.TestCase):
             self.store, now=NOW, products=("stryktipset",))
         freezes = [i for i in rep["issues"] if i["kind"] == "freeze_incomplete"]
         self.assertEqual(1, len(freezes))
-        self.assertIn("h3 har 0/12", freezes[0]["message"])
+        self.assertIn("h3 har 0/3", freezes[0]["message"])   # städad 2026-10-18
         kinds = {i["kind"] for i in rep["issues"]}
         self.assertIn("ph5_freeze_incomplete", kinds)
         self.assertIn("mathmax_freeze_incomplete", kinds)
@@ -94,7 +94,7 @@ class PoolHealthTests(unittest.TestCase):
             self.store, now=NOW, products=("stryktipset",))
         messages = [i["message"] for i in rep["issues"]
                     if i["kind"] == "freeze_incomplete"]
-        self.assertEqual(["h3 har 0/12 frysta system"], messages)
+        self.assertEqual(["h3 har 0/3 frysta system"], messages)
         self.assertFalse(any(i["kind"].endswith("_freeze_incomplete")
                              and i["kind"] != "freeze_incomplete"
                              for i in rep["issues"]))
@@ -144,11 +144,10 @@ class PoolHealthTests(unittest.TestCase):
         self.assertEqual("ok", rep["status"])
         self.assertTrue(freezes)
         self.assertTrue(all(i["level"] == "warning" for i in freezes))
-        # Antalet är familjens egen längd (9 benchmark + sannolikhetsbas-
-        # utmanaren sedan 2026-09-02) — en ny utmanare ska höja talet här,
-        # aldrig tysta larmet.
+        # Antalet är familjens egen längd (tre nycklar efter städningen
+        # 2026-10-18) — en ny utmanare ska höja talet här, aldrig tysta larmet.
         n = len(benchmarks_for("topptipset"))
-        self.assertEqual(10, n)
+        self.assertEqual(3, n)
         self.assertEqual(
             [f"3 timmar före spelstopp: 0 av {n} testsystem sparades",
              f"20 minuter före spelstopp: 0 av {n} testsystem sparades"],

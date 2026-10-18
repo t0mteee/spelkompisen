@@ -404,7 +404,8 @@ class SystemLedgerTests(unittest.TestCase):
         self.assertEqual(4, len(rows))
         self.assertTrue(all((r[1], r[2]) == (5000, 5000.0) for r in rows))
         self.assertEqual(4, len({r[3] for r in rows}))
-        self.assertEqual(12, len(pool_system_ledger.benchmarks_for("stryktipset")))
+        # Städningen 2026-10-18: 256 medel (champion), 256 säker (dold), 512 medel.
+        self.assertEqual(3, len(pool_system_ledger.benchmarks_for("stryktipset")))
         self.assertEqual((), pool_system_ledger.research_configs_for(
             "stryktipset", draw.draw_number - 1))
 
@@ -585,10 +586,18 @@ class SystemLedgerTests(unittest.TestCase):
         from app.builder import STRATEGIES
         for bench in pool_system_ledger.BENCHMARKS:
             self.assertIn(bench["strategy"], STRATEGIES, bench["key"])
-        # Pensionerade nycklar får aldrig återuppstå i matrisen — en config_key
-        # ändras aldrig i efterhand, och gamla kohorter blandas aldrig in.
+        # Pensionerade nycklar får aldrig återuppstå i en frysfamilj — en
+        # config_key ändras aldrig i efterhand, och gamla kohorter blandas
+        # aldrig in. Generation 2:s definition står kvar för historikens
+        # parametrar, men det som fryses är benchmarks_for().
+        retired_2026_10_18 = set(pool_system_ledger.RETIRED_2026_10_18)
         for retired in pool_system_ledger.RETIRED_KEYS:
-            self.assertNotIn(retired, keys)
+            if retired not in retired_2026_10_18:
+                self.assertNotIn(retired, keys)
+            for product in ("stryktipset", "europatipset", "topptipset",
+                            "topptipsetstryk", "topptipsetextra"):
+                self.assertNotIn(retired, [
+                    b["key"] for b in pool_system_ledger.benchmarks_for(product)])
 
     def test_8_matchsspelen_har_budgettak(self):
         """1 024 rader är 15,6 % av Topptipsets HELA utfallsrum (3^8 = 6 561)
@@ -599,13 +608,15 @@ class SystemLedgerTests(unittest.TestCase):
             budgets = {b["budget"]
                        for b in pool_system_ledger.benchmarks_for(product)}
             self.assertNotIn(1024.0, budgets, product)
-            self.assertEqual({144.0, 256.0, 512.0}, budgets, product)
-        for product in ("stryktipset", "europatipset"):
-            budgets = {b["budget"]
-                       for b in pool_system_ledger.benchmarks_for(product)}
-            self.assertIn(1024.0, budgets, product)
-            self.assertEqual(len(pool_system_ledger.BENCHMARKS),
-                             len(pool_system_ledger.benchmarks_for(product)))
+            self.assertTrue(budgets <= {144.0, 256.0, 512.0}, product)
+        # Taket filtrerar fortfarande generationens definition: en b1024-nyckel
+        # kan aldrig bli en Topptipset-frysning även om den återinfördes.
+        self.assertIn(1024.0, {b["budget"] for b in pool_system_ledger.BENCHMARKS})
+        # Efter städningen 2026-10-18 delar alla spel samma tre nycklar.
+        for product in ("stryktipset", "europatipset", "topptipset"):
+            self.assertEqual(
+                ["dr1-b256-saker", "dr1-b256-medel", "dr1-b512-medel"],
+                [b["key"] for b in pool_system_ledger.benchmarks_for(product)])
         # Championen måste överleva taket i ALLA produkter, annars har
         # rapporten ingen baslinje att jämföra mot.
         for product in ("topptipset", "stryktipset"):
@@ -673,8 +684,8 @@ class ChampionReportTests(unittest.TestCase):
     def test_challenger_is_compared_on_the_same_draws_only(self):
         """En utmanare som saknar de dåliga omgångarna får inte se bättre ut."""
         champion = pool_system_ledger.CHAMPION_KEY
-        challenger = next(b["key"] for b in pool_system_ledger.BENCHMARKS
-                          if not b["primary"])
+        challenger = next(b["key"] for b in pool_system_ledger.benchmarks_for(
+            "topptipset") if not b["primary"])
         for draw, payout in ((1, 0.0), (2, 0.0), (3, 600.0)):
             self._row(champion, draw, 256.0, payout)
         # utmanaren finns BARA i den lönsamma omgången
@@ -690,8 +701,8 @@ class ChampionReportTests(unittest.TestCase):
 
     def test_tiny_samples_get_no_p_value_and_are_never_promotable(self):
         champion = pool_system_ledger.CHAMPION_KEY
-        challenger = next(b["key"] for b in pool_system_ledger.BENCHMARKS
-                          if not b["primary"])
+        challenger = next(b["key"] for b in pool_system_ledger.benchmarks_for(
+            "topptipset") if not b["primary"])
         for draw in (1, 2):
             self._row(champion, draw, 256.0, 0.0)
             self._row(challenger, draw, 256.0, 5000.0)
@@ -1051,12 +1062,17 @@ class ProbBaseChallengerTests(unittest.TestCase):
         self.assertEqual(self._build(plain).rows,
                          self._build(plain, prob_base="sharp").rows)
 
-    def test_utmanaren_finns_bara_i_topptipsfamiljen_och_ror_inte_matrisen(self):
+    def test_utmanaren_var_topptipsfamiljens_och_ar_pensionerad(self):
         key = "dr1-b256-medel-sharp"
-        top = {b["key"]: b for b in pool_system_ledger.benchmarks_for("topptipset")}
-        self.assertIn(key, top)
-        self.assertEqual("sharp", top[key]["prob_base"])
-        self.assertFalse(top[key]["primary"])
+        config = next(b for b in pool_system_ledger.PROB_BASE_CHALLENGERS
+                      if b["key"] == key)
+        self.assertEqual("sharp", config["prob_base"])
+        self.assertFalse(config["primary"])
+        # Pensionerad 2026-10-18: fryses inte längre, historiken kvar.
+        self.assertIn(key, pool_system_ledger.RETIRED_KEYS)
+        self.assertNotIn(key, {b["key"] for b in
+                               pool_system_ledger.benchmarks_for("topptipset")})
+        self.assertTrue(pool_system_ledger._bench(key)["retired"])  # noqa: SLF001
         self.assertEqual(pool_system_ledger.CHAMPION_KEY.replace("-sharp", ""),
                          pool_system_ledger.CHAMPION_KEY)
         for product in ("stryktipset", "europatipset"):
@@ -1204,11 +1220,15 @@ class PoolOptForwardTests(unittest.TestCase):
     def test_familjen_startar_pa_forregistrerad_omgang_och_bara_8_matchsspel(self):
         start = pool_system_ledger.POOLOPT_FORWARD_START_DRAW_BY_PRODUCT
         for product, first in start.items():
-            self.assertNotIn("poolopt", pool_system_ledger.research_families_for(
+            self.assertNotIn("poolopt", pool_system_ledger._research_families_all(  # noqa: SLF001
                 product, first - 1))
-            fam = pool_system_ledger.research_families_for(product, first)["poolopt"]
+            fam = pool_system_ledger._research_families_all(  # noqa: SLF001
+                product, first)["poolopt"]
             self.assertEqual(["poolopt-v1-b256-traff", "poolopt-v1-b256-balans",
                               "poolopt-v1-b256-xkvot"], [c["key"] for c in fam])
+            # Pensionerad 2026-10-18: familjen är inte längre aktiv.
+            self.assertNotIn("poolopt", pool_system_ledger.research_families_for(
+                product, first))
             self.assertTrue(all(c["method"] == "poolopt" and c["budget"] == 256.0
                                 and c["research_family"] == "poolopt" for c in fam))
         for product in ("stryktipset", "europatipset"):
@@ -1242,19 +1262,28 @@ class PoolOptForwardTests(unittest.TestCase):
             120000.0, 1.0, plan)
         self.assertEqual([list(r) for r in expected.rows], rows)
 
-    def test_freeze_due_fryser_tre_poolopt_armar_med_exakt_256_rader(self):
+    def test_pensionerade_poolopt_armar_bygger_fortfarande_exakt_256_rader(self):
         start = pool_system_ledger.POOLOPT_FORWARD_START_DRAW_BY_PRODUCT["topptipset"]
         close = NOW + dt.timedelta(minutes=178)
         draw = _draw_fixture(close)
         draw.draw_number = start
         rep = pool_system_ledger.freeze_due(
             self.store, "topptipset", draw, now=NOW, code_version="test")
-        rows = self.store.conn.execute(
-            "SELECT config_key, n_rows, cost_kr, rows_text FROM pool_system_ledger "
-            "WHERE config_key LIKE 'poolopt-%' ORDER BY config_key").fetchall()
-        self.assertEqual(3, len(rows))
-        self.assertGreaterEqual(rep["frozen"], 3 + len(
-            pool_system_ledger.benchmarks_for("topptipset")))
+        # Pensionerade 2026-10-18: varvet fryser dem inte längre.
+        self.assertEqual(0, self.store.conn.execute(
+            "SELECT COUNT(*) FROM pool_system_ledger "
+            "WHERE config_key LIKE 'poolopt-%'").fetchone()[0])
+        self.assertEqual(rep["frozen"], len(
+            pool_system_ledger.benchmarks_for("topptipset")))   # bara h3 öppen
+        # Definitionen och radvalet står kvar (historiken ska gå att granska).
+        analysis = analyze_draw(draw, {}, {})
+        plan = pool_system_ledger._prize_plan("topptipset")  # noqa: SLF001
+        rows = []
+        for config in pool_system_ledger.POOLOPT_FORWARD_CONFIGS:
+            built, n_rows, cost, _note = pool_system_ledger.build_config_rows(
+                analysis, config, "h3", plan, 0.0)
+            rows.append((config["key"], n_rows, cost,
+                         "\n".join("".join(r) for r in built)))
         for key, n_rows, cost, text in rows:
             self.assertEqual(256, n_rows)
             self.assertEqual(256.0, cost)
@@ -1275,3 +1304,88 @@ class PoolOptForwardTests(unittest.TestCase):
         self.assertNotEqual(set(by_key["poolopt-v1-b256-xkvot"]),
                             set(by_key["poolopt-v1-b256-traff"]))
         self.assertIs(pool_optimizer.select_rows, pool_optimizer.select_rows)
+
+
+class StadningTests(unittest.TestCase):
+    """Beslut koordinatorn-2026-10-18-stada-poolvarianter, val 0: bara
+    standarderna synliga, tretton nycklar pensionerade, sex aktiva men dolda."""
+
+    STANDARD = {"dr1-b256-medel", "dr1-b512-medel", "ph5-v4-dr1-b5000-medel",
+                "reducedmax-v2-dr1-b20000-ev50", "mathmax-v2-dr1-b39366-ev50"}
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Storage(Path(self.tmp.name) / "test.db")
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+
+    def test_standarderna_ar_synliga_och_ingen_ar_dold_eller_pensionerad(self):
+        from app.spelai.frysning import STANDARD_CONFIGS
+        self.assertEqual(self.STANDARD, set(STANDARD_CONFIGS.values()))
+        self.assertFalse(self.STANDARD & pool_system_ledger.HIDDEN_KEYS)
+        self.assertFalse(self.STANDARD & set(pool_system_ledger.RETIRED_KEYS))
+        self.assertFalse(pool_system_ledger.HIDDEN_KEYS
+                         & set(pool_system_ledger.RETIRED_KEYS))
+        self.assertEqual(13, len(pool_system_ledger.RETIRED_2026_10_18))
+
+    def test_pensionerade_fryses_inte_dolda_fryses_och_markeras(self):
+        close = NOW + dt.timedelta(minutes=178)
+        draw = _draw_fixture(close, n_events=13, product="stryktipset")
+        draw.draw_number = pool_system_ledger.PH5_FORWARD_START_DRAW
+        pool_system_ledger.freeze_due(
+            self.store, "stryktipset", draw, now=NOW, code_version="test")
+        frozen = {k for (k,) in self.store.conn.execute(
+            "SELECT config_key FROM pool_system_ledger")}
+        self.assertFalse(frozen & set(pool_system_ledger.RETIRED_KEYS))
+        # Grupp 2 fortsätter frysas trots att den döljs.
+        self.assertTrue(pool_system_ledger.HIDDEN_KEYS <= frozen)
+        self.assertTrue(self.STANDARD <= frozen)
+
+        # En historisk rad för en pensionerad nyckel ligger kvar och visas som
+        # pensionerad, aldrig som en levande utmanare.
+        self.store.conn.execute(
+            "INSERT INTO pool_system_ledger (product, draw_number, horizon, "
+            "config_key, frozen_at, lag_min, timely, code_version, budget, "
+            "strategy, value_weight, row_price, n_rows, cost_kr, events_order, "
+            "rows_text, rows_hash, n_events_covered, turnover_used, "
+            "turnover_basis, jackpot_used) VALUES ('stryktipset',4960,'h3',"
+            "'dr1-b256-tuff','2026-08-10T10:00:00Z',1,1,'test',256,'tuff',0.8,"
+            "1.0,256,256.0,'1,2','1,1','h',2,1000,'live',0)")
+        self.store.conn.commit()
+        groups = {g["config_key"]: g
+                  for g in pool_system_ledger.summary(self.store)["groups"]}
+        self.assertTrue(groups["dr1-b256-tuff"]["retired"])
+        self.assertFalse(groups["dr1-b256-tuff"]["hidden"])
+        self.assertTrue(groups["dr1-b256-saker"]["hidden"])
+        self.assertFalse(groups["dr1-b256-saker"]["retired"])
+        for key in self.STANDARD:
+            self.assertFalse(groups[key]["hidden"] or groups[key]["retired"], key)
+
+        ph5 = pool_system_ledger.ph5_overview(self.store)
+        hidden = {t["config_key"] for t in ph5["tests"] if t["hidden"]}
+        self.assertEqual({"ph5-v4-dr1-b5000-byggarslump",
+                          "ph5-v4-dr1-b5000-favoritrad",
+                          "ph5-v4-dr1-b5000-maxev"}, hidden)
+        self.assertTrue(all(g["hidden"] == (g["config_key"] in hidden)
+                            for g in ph5["groups"]))
+        self.assertEqual(hidden, {c["key"] for c in ph5["configs"] if c["hidden"]})
+
+    def test_championrapporten_markerar_dold_utmanare(self):
+        for draw in (1, 2, 3):
+            for key in ("dr1-b256-medel", "dr1-b256-saker", "dr1-b512-medel"):
+                self.store.conn.execute(
+                    "INSERT INTO pool_system_ledger (product, draw_number, horizon, "
+                    "config_key, frozen_at, lag_min, timely, code_version, budget, "
+                    "strategy, value_weight, row_price, n_rows, cost_kr, "
+                    "events_order, rows_text, rows_hash, n_events_covered, "
+                    "turnover_used, turnover_basis, jackpot_used, correct_max, "
+                    "payout_kr, payout_complete) VALUES ('stryktipset',?,'m20',?,"
+                    "'2026-10-19T10:00:00Z',1,1,'test',256,'medel',0.5,1.0,256,"
+                    "256.0,'1,2','1,1','h',2,1000,'live',0,10,100.0,1)",
+                    (draw, key))
+        self.store.conn.commit()
+        entry = pool_system_ledger.champion_report(self.store)["rows"][0]
+        flags = {c["config_key"]: c["hidden"] for c in entry["challengers"]}
+        self.assertEqual({"dr1-b256-saker": True, "dr1-b512-medel": False}, flags)

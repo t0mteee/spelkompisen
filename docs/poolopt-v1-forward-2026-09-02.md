@@ -1,6 +1,11 @@
 # Pooloptimerare v1 — fullsökning, nominering och forwardtest
 
 Datum: 2026-09-02. Förregistreringen: `docs/pooloptimerare-v1-forregistrering.md`.
+
+> **Pensionerad 2026-10-18** (beslut koordinatorn-2026-10-18-stada-poolvarianter,
+> val 0): de tre armarna fryses inte längre. Avläsningen vid 40 (2026-09-24)
+> passerade ingen cell; den sista avläsningen vid 120 görs inte. Historiken
+> ligger kvar under oförändrade nycklar och grinden står `avslutad`.
 Piloten: `docs/pooloptimerare-v1-pilot-2026-08-30.md`.
 
 ## Fullsökningen (körd 2026-09-02, lokalt, read-only)

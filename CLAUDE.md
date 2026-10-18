@@ -162,7 +162,7 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/pool_strength_shadow.py pool-strength-blend-v1 (Historik → Poolmodell)
   app/pool_optimizer.py pooloptimerarens radvalskärna (poolopt-topptips256-v1);
                       scripts/optimera_topptips256.py är skalet, PH3:s
-                      `poolopt`-forwardarmar byggs av SAMMA rows_for()
+                      `poolopt`-armarna (pensionerade 2026-10-18) byggdes av SAMMA rows_for()
   app/pool_portfolio.py experimentell kupongtäckning: offline-screening och explicit
                       manuellt testval (högst 512 kr), ALDRIG standard/automatisk frysning;
                       scripts/prova_pool_portfolio.py använder samma väljare
@@ -285,6 +285,16 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
   512 (3^8 = 6 561 rader; 1 024 vore mattbombning). En `config_key` ändras aldrig i
   efterhand — nya nycklar räcker, ingen migrering. Championen MÅSTE spegla appens
   budgetreglage. Promotion kräver BH-FDR över hela utmanarfamiljen OCH ≥ 40 parade omgångar.
+- **STÄDNINGEN 2026-10-18 (beslut koordinatorn-2026-10-18-stada-poolvarianter, val 0):**
+  `RETIRED_KEYS` fick 13 nycklar (`RETIRED_2026_10_18`: tuff på alla budgetar, 144 och
+  1 024 kr, 512 säker, `dr1-b256-medel-sharp`, de tre `poolopt`-armarna). `benchmarks_for`
+  och `research_families_for` filtrerar bort pensionerade nycklar; definitionerna står kvar
+  för historikens parametrar. `HIDDEN_KEYS` (256 säker, PH5:s tre kontroller, mathmax/
+  reducedmax ev80) fryses, settlas och räknas i sina grindar men bär `hidden` i API-svaren
+  och visas inte i UI:t (`visibleResearch`, `forwardView`); prövas igen vid n ≥ 40.
+  Synliga är bara standarderna per nivå (`spelai.frysning.STANDARD_CONFIGS`). Byggaren
+  erbjuder inte längre profilen tuff (backend kan fortfarande bygga den). Att DÖLJA är
+  inte att PENSIONERA — en dold nyckel ska aldrig sluta frysas tyst.
 - **FÄRSKHETSREGELN I PH3 (datumnot, Samans beslut 2026-09-24):** från 2026-09-24T14:11:09Z
   (första pooltick 14:12Z) fryses alla nycklar med bara färsk Pinnacle; inaktuella priser
   listas i frysningens `build_note`. Nycklarna är OFÖRÄNDRADE (båda sidor i varje par får
@@ -295,19 +305,19 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
   radvalet för `dr1-*` och poolopt-v1. Nycklarna är oförändrade.
 - **SANNOLIKHETSBAS (2026-09-02):** `build_ev_system(prob_base=)` — `"svs"` (SvS-odds
   först, Pinnacle reserv) är byte-identisk standard i appen; `"sharp"` mäts ENBART som
-  utmanaren `dr1-b256-medel-sharp` (8-matchsspelen). En ändrad bas är en ny nyckel,
+  utmanaren `dr1-b256-medel-sharp` (8-matchsspelen, pensionerad 2026-10-18). En ändrad bas är en ny nyckel,
   aldrig en ändring av championen. Pinnacle är sharp-eligible vid h3 i bara ~20 % av
   Topptipsomgångarna (m20 ~64 %) — h3 är en tunn horisont för allt Pinnacle-baserat där.
-- Research-familjer (`research_families_for`: ph5, mathmax, reducedmax, `poolopt`) får
-  nominera, aldrig promovera. `poolopt`-armarna byggs av `pool_optimizer.rows_for` med
+- Research-familjer (`research_families_for`: ph5, mathmax, reducedmax) får nominera,
+  aldrig promovera. `poolopt`-armarna byggdes av `pool_optimizer.rows_for` med
   prognosomsättningen och UTAN jackpot — exakt som sökningen kördes.
-- **AVLÄSNINGAR (Samans beslut 2026-09-24):** `poolopt` läses av EXAKT två gånger —
-  vid 40 parade omgångar (gjord 2026-09-24: ingen cell passerad,
-  `docs/poolopt-v1-avlasning-2026-09-24.md`) och sist vid 120 framåtomgångar. Inga
-  avläsningar däremellan; `underlag klart` är ingen inbjudan att titta.
-  `dr1-b256-medel-sharp` fortsätter med samma nyckel, men dess primära jämförelse
-  utesluter omgångar frysta med inaktuellt Pinnacle-underlag före färskhetsregeln
-  (regeln låst i `docs/ph3-sannolikhetsbas-v1-2026-09-02.md` innan effekten räknades;
+- **AVLÄSNINGAR (Samans beslut 2026-09-24):** `poolopt` lästes av vid 40 parade omgångar
+  (2026-09-24: ingen cell passerad, `docs/poolopt-v1-avlasning-2026-09-24.md`) och
+  pensionerades 2026-10-18 före den sista avläsningen vid 120 — grinden står `avslutad`
+  (`RESEARCH_GATES["poolopt"]["closed"]`), ingen sista avläsning görs.
+  `dr1-b256-medel-sharp` är pensionerad sedan 2026-10-18; om dess historik läses gäller
+  att den primära jämförelsen utesluter omgångar frysta med inaktuellt Pinnacle-underlag
+  före färskhetsregeln (regeln låst i `docs/ph3-sannolikhetsbas-v1-2026-09-02.md`;
   8 av 49 vid 180 min och 6 av 49 vid 20 min utesluts).
 - **SPELFAMILJ, INTE PRODUKTSLUG:** `champion_report()` grupperar på `family_of()`;
   `_paired_draw_roi` parar på `(produkt, omgång)`. Produktslug, settlementidentitet och

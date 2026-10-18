@@ -148,9 +148,9 @@ export const FORWARD_TEST = {
   },
   poolopt: {
     endpoint: '/api/pool/poolopt', rowLabel: '256',
-    title: 'Pooloptimerare v1 · tre armar à 256 rader (Topptipset)',
+    title: 'Pooloptimerare v1 · avslutad 2026-10-18',
     loading: 'Hämtar pooloptimerarens forwardtest…', filterLabel: 'Arm',
-    paired: true,
+    paired: true, archived: true,
   },
 }
 export const forwardTestLabel = (test) => test.method === 'byggarslump'

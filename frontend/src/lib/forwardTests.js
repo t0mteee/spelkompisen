@@ -10,9 +10,12 @@ export function matchesForwardFilters(item, filters) {
       || (filters.version === 'aldre' ? item.retired === true : item.retired === false))
 }
 
+// Dolda armar (`hidden`) fryses och rättas vidare men visas inte.
 export function forwardView(data, filters) {
-  const tests = (data.tests || []).filter((test) => matchesForwardFilters(test, filters))
-  const groups = (data.groups || []).filter((group) => matchesForwardFilters(group, filters))
+  const tests = (data.tests || []).filter((test) => !test.hidden
+    && matchesForwardFilters(test, filters))
+  const groups = (data.groups || []).filter((group) => !group.hidden
+    && matchesForwardFilters(group, filters))
   const drawKey = (test) => `${test.product}:${test.draw_number}`
   return {
     tests, groups,

@@ -18,24 +18,26 @@ from .storage import Storage
 # Ordningen är katalogens ordning: det man följer först överst.
 CATALOG: tuple[dict, ...] = (
     {"id": "standard", "title": "Standardjämförelsen", "icon": "📋", "kind": "ph3",
-     "purpose": "Slår någon av tolv utmanare (144–1 024 kr × säker/medel/tuff) eller "
-                "Pinnacle-basen appens champion 256 kr medel? Parade omgångar, FDR över hela familjen.",
+     "purpose": "Slår 512 kr medel (eller den dolda 256 kr säker) appens champion 256 kr medel? "
+                "Parade omgångar, FDR över hela familjen. Övriga utmanare pensionerade 2026-10-18.",
      "doc": "docs/ph3-gate-2026-07-26.md", "coupons": "benchmark"},
     {"id": "ph5", "title": "5 000-testet", "icon": "🧪", "kind": "research",
      "purpose": "Ger Värderader mer tillbaka än Max-EV, Favoritrad och Slumpurval på samma "
-                "5 000 rader, samma omgång och samma frystid?",
+                "5 000 rader, samma omgång och samma frystid? Kontrollarmarna fryses dolda "
+                "och prövas vid 40 parade omgångar.",
      "doc": "docs/ph5-forward-2026-08-15.md", "coupons": "research"},
     {"id": "mathmax", "title": "Matematiskt max 39 366", "icon": "🧮", "kind": "research",
      "purpose": "Ett äkta M-system (3 spikar, 1 halv, 9 hela): tjänar EV medel eller EV högt "
-                "mest på fulla garderingar?",
+                "mest på fulla garderingar? EV högt fryses dold och prövas vid 40 parade omgångar.",
      "doc": "docs/maxtester-2026-08-29.md", "coupons": "research"},
     {"id": "reducedmax", "title": "Reducerat max 20 000", "icon": "✂️", "kind": "research",
      "purpose": "Största reducerade systemet som ryms i den externa radvägen: EV medel mot EV högt "
-                "på 20 000 rader.",
+                "på 20 000 rader. EV högt fryses dold och prövas vid 40 parade omgångar.",
      "doc": "docs/maxtester-2026-08-29.md", "coupons": "research"},
     {"id": "poolopt", "title": "Optimerare 256", "icon": "🔬", "kind": "research",
-     "purpose": "Tre optimerade armar (träff, balans, X-kvot) à 256 rader mot championen på "
-                "Topptipset-familjen. Kan bara nominera en PH3-utmanare, aldrig promoveras direkt.",
+     "archived": True,
+     "purpose": "Avslutad: tre optimerade armar (träff, balans, X-kvot) à 256 rader mot "
+                "championen på Topptipset-familjen. Ligger kvar för revision.",
      "doc": "docs/poolopt-v1-forward-2026-09-02.md", "coupons": "research"},
     {"id": "poolstyrka", "title": "Poolstyrka", "icon": "🧬", "kind": "strength",
      "purpose": "Förbättrar 90 % Pinnacle + 10 % lagstyrka Pinnacles 1X2-prognos på poolmatcher? "
@@ -66,16 +68,17 @@ DECISIONS: dict[str, dict] = {
               "text": "Piloten rankade 40 000 enskilda rader och var reducerad, inte matematisk. "
                       "Ersatt av Matematiskt max 39 366 och Reducerat max 20 000.",
               "doc": "docs/max40-forward-2026-08-26.md"},
-    "poolopt": {"date": "2026-09-24", "verdict": "avläst vid 40: ej passerad",
-                "text": "Formell avläsning på de 40 första parade omgångarna per arm och "
-                        "frystid: ingen cell har undre KI90 över noll för träff-Δ eller ROI-Δ, "
-                        "så ingen utmanare föreslås. Sista avläsning vid 120 framåtomgångar; "
-                        "inga avläsningar däremellan (Samans beslut 5aA).",
+    "poolopt": {"date": "2026-10-18", "verdict": "avslutad",
+                "text": "Pensionerad före sista avläsningen (beslut koordinatorn-2026-10-18-"
+                        "stada-poolvarianter): armarna fryses inte längre, historiken ligger "
+                        "kvar. Avläsningen vid 40 (2026-09-24) passerade ingen cell.",
                 "doc": "docs/poolopt-v1-avlasning-2026-09-24.md"},
-    "standard": {"date": "2026-08-05", "verdict": "generation 2",
-                 "text": "Matrisen byttes till 144/256/512/1024 kr × säker/medel/tuff med 256 kr "
-                         "medel som champion; Pinnacle-basen tillkom 2026-09-02.",
-                 "doc": "docs/db-atgarder.md"},
+    "standard": {"date": "2026-10-18", "verdict": "städad",
+                 "text": "Bara 256 kr medel (champion) och 512 kr medel syns; 256 kr säker fryses "
+                         "dold. Tuff på alla budgetar, 144 och 1 024 kr, 512 kr säker och "
+                         "Pinnacle-basen är pensionerade (beslut koordinatorn-2026-10-18-"
+                         "stada-poolvarianter). Ingen förbättring påstås.",
+                 "doc": "docs/plan.md"},
 }
 
 # Statustrappan i rangordning: katalogens rubrikstatus är den cell som kommit

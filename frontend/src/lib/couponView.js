@@ -11,8 +11,11 @@ export function coverageResult(events, best, complete) {
     reductionLoss: Math.max(0, events.length - missing - best) }
 }
 
+// `hidden` = aktiv nyckel som fortsätter frysas men inte visas (beslut
+// koordinatorn-2026-10-18-stada-poolvarianter). Backend märker, UI:t döljer.
 export function visibleResearch(test) {
-  return test.research_family !== 'max40' && !test.config_key?.startsWith('max40-')
+  return !test.hidden && test.research_family !== 'max40'
+    && !test.config_key?.startsWith('max40-')
 }
 
 export function selectionReason(reason) {

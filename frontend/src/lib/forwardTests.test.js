@@ -43,3 +43,14 @@ test('saknad aktivmetadata faller inte öppet; tomt och okänt filter ger noll',
   assert.equal(forwardView({}, filters).draws, 0)
   assert.equal(forwardView({ tests: [coupon()] }, { ...filters, product: 'saknas' }).coupons, 0)
 })
+
+test('dolda armar fryses vidare men syns varken i lista, grupper eller summering', () => {
+  const tests = [coupon(), coupon({ config_key: 'ph5-v4-dr1-b5000-maxev', method: 'maxev', hidden: true })]
+  const data = { tests, groups: tests.map((row) => ({ ...row, n: 1 })) }
+  for (const version of ['aktuell', 'alla']) {
+    const view = forwardView(data, { ...filters, version })
+    assert.equal(view.coupons, 1)
+    assert.equal(view.groups.length, 1)
+    assert.equal(view.tests[0].config_key, 'current')
+  }
+})
