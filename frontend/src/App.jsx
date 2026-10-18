@@ -600,18 +600,20 @@ function svsUrl(product, draw) {
   return `https://spela.svenskaspel.se/topptipset/?draw=${draw}&product=${SVS_PID[product] || 25}`
 }
 
+// `hidden` = erbjuds inte i byggaren (beslut koordinatorn-2026-10-18-stada-
+// byggaren-2, val 0). Definitionerna står kvar: backend bygger dem fortfarande.
 const SYSTEM_BASE = [
   { id: 'ev', label: 'Värderader (EV × träffchans)', q: 'ev=true' },
-  { id: 'farg', label: 'Färgreducering (min/max per färg)', q: 'color=true' },
+  { id: 'farg', label: 'Färgreducering (min/max per färg)', q: 'color=true', hidden: true },
   { id: 'math', label: 'Matematiskt (alla kombinationer)', q: 'reduced=false' },
   { id: 'red', label: 'Reducerat (värde)', q: 'reduced=true' },
-  { id: 'g', label: 'Egen reducering (garanti)', q: 'reduced=true&guarantee=', dynamic: true },
+  { id: 'g', label: 'Egen reducering (garanti)', q: 'reduced=true&guarantee=', dynamic: true, hidden: true },
 ]
 const SYSTEM_SVS = [
-  { id: 'svs_r409', label: 'Svenska Spel R 4-0-9 (12 rätt, 9 rad)', q: `sv_rsystem=${encodeURIComponent('R 4-0-9')}` },
-  { id: 'svs_r0716', label: 'Svenska Spel R 0-7-16 (12 rätt, 16 rad)', q: `sv_rsystem=${encodeURIComponent('R 0-7-16')}` },
-  { id: 'svs_r3324', label: 'Svenska Spel R 3-3-24 (12 rätt, 24 rad)', q: `sv_rsystem=${encodeURIComponent('R 3-3-24')}` },
-  { id: 'svs_r44144', label: 'Svenska Spel R 4-4-144 (12 rätt, 144 rad)', q: `sv_rsystem=${encodeURIComponent('R 4-4-144')}` },
+  { id: 'svs_r409', label: 'Svenska Spel R 4-0-9 (12 rätt, 9 rad)', q: `sv_rsystem=${encodeURIComponent('R 4-0-9')}`, hidden: true },
+  { id: 'svs_r0716', label: 'Svenska Spel R 0-7-16 (12 rätt, 16 rad)', q: `sv_rsystem=${encodeURIComponent('R 0-7-16')}`, hidden: true },
+  { id: 'svs_r3324', label: 'Svenska Spel R 3-3-24 (12 rätt, 24 rad)', q: `sv_rsystem=${encodeURIComponent('R 3-3-24')}`, hidden: true },
+  { id: 'svs_r44144', label: 'Svenska Spel R 4-4-144 (12 rätt, 144 rad)', q: `sv_rsystem=${encodeURIComponent('R 4-4-144')}`, hidden: true },
 ]
 
 function egnaRaderUrl(product) {

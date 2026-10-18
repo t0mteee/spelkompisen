@@ -1,5 +1,9 @@
 # Kompletterande kuponger — 2026-08-15
 
+> **Gömt i byggaren sedan 2026-10-18** (beslut koordinatorn-2026-10-18-stada-byggaren-2,
+> val 0): läget erbjuds inte längre i appen. Backend (`complementary=true`) och historiska
+> A/B-kuponger är orörda. Texten nedan beskriver kontraktet som det var.
+
 ## Aktuellt kontrakt (v2)
 
 Poolbyggaren har ett frivilligt läge **Två kompletterande kuponger** för

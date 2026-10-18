@@ -637,8 +637,15 @@ notiser; promotion sker bara enligt `docs/tva-ankare-2026-07-25.md`.
   (`jackpot_source='verified_endpoint'`) ≤ `regCloseTime` — aldrig `draw.fund`, aldrig
   dagens jackpotlista; NULL = oobserverad, aldrig 0. `_projected_turnover` är jackpotblind
   tills `JACKPOT_MODEL_MIN_N` (30/produkt).
-- **Värderader**: score = P(rad)^k × EV(rad) där k = 2·(1−value_weight); reglaget är enda
-  risk-axeln (strategin sätter bara startpunkten 20/50/80).
+- **Värderader**: score = P(rad)^k × EV(rad) där k = 2·(1−value_weight).
+  **Byggaren i appen (beslut koordinatorn-2026-10-18-stada-byggaren-2, val 0):** värdevikten
+  är LÅST på 50 % och reglaget gömt (`lib/builderOptions.js`, `BUILDER_VALUE_WEIGHT`) —
+  även vid strategin säker, som i PH3 (`dr1-*-saker`) mäts med 0,2. Systemtyperna är bara
+  Värderader (förval), Reducerat och Matematiskt; Färgreducering, Egen reducering och
+  Svenska Spels R-system bär `hidden` i `SYSTEM_BASE`/`SYSTEM_SVS`. Radprofilerna
+  (Träffsäkrare, Radform v1, Täckningstest v1) och Två kompletterande kuponger erbjuds inte.
+  Backend och `builder.py` bygger allt som förut (delad kod med max-systemen); `ROW_MODELS`
+  står kvar för historiska kupongers etiketter.
 - **X-skydd (`pool-draw-risk-v1`):** vid Pinnacle-total ≤ 2,25 skyddas X från 29,5 %
   (32 % utan total) i ALLA automatiska systembyggen. Totalen sparas point-in-time.
 - **RLM**: folket och devigad sharp åt olika håll (◆ smart pengar / ⚠ fadea).
@@ -673,7 +680,8 @@ notiser; promotion sker bara enligt `docs/tva-ankare-2026-07-25.md`.
   `/api/pool/played/import/preview` skriver inget; först `/api/pool/played/import` skapar
   ledgerraden. Filnamnets omgång används för Stryk/Europa; omdöpt fil kräver manuellt
   omgångsnummer och konflikt faller stängt.
-- R 4-0-9 / R 0-7-16 / R 4-4-144 är exakta Hamming-täckningar; R 3-3-24 är greedy (38 rader).
+- R 4-0-9 / R 0-7-16 / R 4-4-144 är exakta Hamming-täckningar; R 3-3-24 är greedy: 36–41 rader beroende på `PYTHONHASHSEED`
+  (lika lägen bryts i mängdens iterationsordning), aldrig SvS 24. Gömt i byggaren sedan 2026-10-18.
 
 ### CLV-facit (signalvalidering)
 

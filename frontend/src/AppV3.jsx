@@ -19,13 +19,14 @@ import {
 import { LabbV3 } from './labb/LabbV3.jsx'
 import { BeslutView } from './beslut/BeslutView.jsx'
 import { inboxSummary } from './lib/inbox.js'
-import { AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel, BombenView, OddsetView, Legend, Collection, LoadingState, ErrorState, ErrBoundary, STRATEGIES, STRATEGY_EV, BUDGET_STOPS, SYSTEM_BASE, SYSTEM_SVS, FAMILY, kr, fmtClose, PlayRec, oddsetBestValue } from './App.jsx'
+import { AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel, BombenView, OddsetView, Legend, Collection, LoadingState, ErrorState, ErrBoundary, STRATEGIES, BUDGET_STOPS, SYSTEM_BASE, SYSTEM_SVS, FAMILY, kr, fmtClose, PlayRec, oddsetBestValue } from './App.jsx'
 import { beginRequest, payoutMatchesSelection, requestIsCurrent, uniqueDraws } from './poolSelection.js'
 import { projectionBasisText } from './playRec.js'
 import { PoolInputWarning } from './components/PoolInputWarning.jsx'
 import { BuilderGuide } from './components/BuilderGuide.jsx'
 import { LiveView } from './live/LiveView.jsx'
 import { liveSummary } from './lib/liveView.js'
+import { BUILDER_VALUE_WEIGHT, visibleSystemTypes, restoredSysType } from './lib/builderOptions.js'
 
 const VIEWS = [
   { id: 'idag', label: 'Idag', icon: '☀️' },
@@ -35,6 +36,9 @@ const VIEWS = [
   { id: 'historik', label: 'Historik', icon: '🗄' },
   { id: 'labb', label: 'Labb', icon: '🔬' },
 ]
+// Byggaren erbjuder bara Standard sedan 2026-10-18 (beslut koordinatorn-2026-
+// 10-18-stada-byggaren-2, val 0). Tabellen står kvar så att sparade och spelade
+// kuponger från de andra radprofilerna behåller sina etiketter.
 const ROW_MODELS = [
   {
     id: 'standard', label: 'Standard',
@@ -702,8 +706,7 @@ function PoolV3() {
   const [movement, setMovement] = useState(null)
   const [payouts, setPayouts] = useState(null)
   const [sys, setSys] = useState(null)
-  // Ett sparat tuff-läge (borttaget 2026-10-18) börjar om på medel och
-  // medels startpunkt på värdereglaget.
+  // Ett sparat tuff-läge (borttaget 2026-10-18) börjar om på medel.
   const savedRetiredStrategy = saved.strategy && !STRATEGIES.includes(saved.strategy)
   const [strategy, setStrategy] = useState(savedRetiredStrategy ? 'medel' : (saved.strategy || 'medel'))
   // 256 = PH3:s champion (`b256-medel`). Standarden MÅSTE spegla championen,
@@ -711,20 +714,11 @@ function PoolV3() {
   // till 2026-08-05 stod reglaget på 128 medan championen var registrerad som
   // 50 kr, så etiketten "champion = dagens byggare" var osann.
   const [budget, setBudget] = useState(saved.budget || 256)
-  const [sysType, setSysType] = useState(saved.sysType || 'ev')
-  const [valueWeight, setValueWeight] = useState(
-    savedRetiredStrategy ? STRATEGY_EV.medel : (saved.valueWeight ?? 50))
-  const [rowModel, setRowModel] = useState(() => {
-    if (saved.rowModel === 'portfolio_v1') return 'standard'
-    if (!ROW_MODELS.some((model) => model.id === saved.rowModel)) return 'standard'
-    if (saved.rowModel === 'row_shape_v1' && (saved.budget || 256) !== 384) {
-      return 'standard'
-    }
-    return saved.rowModel
-  })
-  const [complementaryMode, setComplementaryMode] = useState(
-    saved.sysType === 'ev' && saved.rowModel !== 'row_shape_v1'
-    && saved.complementaryMode === true)
+  // Ett sparat dolt val (Färgreducering, Egen reducering, R-system) börjar om
+  // på Värderader. Radprofil, två kuponger och värdereglaget erbjuds inte
+  // längre: varje bygge är Standard med värdevikten låst.
+  const [sysType, setSysType] = useState(
+    () => restoredSysType(saved.sysType, [...SYSTEM_BASE, ...SYSTEM_SVS]))
   const [picks, setPicks] = useState(saved.picks || {})
   const [pickRows, setPickRows] = useState(saved.pickRows || null)
   const [couponVariant, setCouponVariant] = useState(saved.couponVariant || null)
@@ -738,7 +732,7 @@ function PoolV3() {
   const [building, setBuilding] = useState(false)
   const buildSequence = useRef(0)
   useEffect(() => { buildSequence.current += 1 },
-    [product, draw, strategy, budget, valueWeight, sysType, rowModel, complementaryMode])
+    [product, draw, strategy, budget, sysType])
   // Varje omladdning får ett löpnummer. Ett sent svar från föregående
   // omgång får aldrig skriva över analys, rörelse eller pott för den som nu
   // är vald — särskilt jackpotten går direkt in i både ROI och radbyggaren.
@@ -832,13 +826,13 @@ function PoolV3() {
   useEffect(() => {
     try {
       localStorage.setItem('svs_state', JSON.stringify({
-        group: game, product, draw, picks, strategy, budget, sysType, valueWeight,
-        rowModel, complementaryMode, couponVariant, couponModel, couponValueWeight,
+        group: game, product, draw, picks, strategy, budget, sysType,
+        couponVariant, couponModel, couponValueWeight,
         pickRows: pickRows && pickRows.length <= 2048 ? pickRows : null,
       }))
     } catch { /* ok */ }
-  }, [game, product, draw, picks, pickRows, strategy, budget, sysType, valueWeight,
-    rowModel, complementaryMode, couponVariant, couponModel, couponValueWeight])
+  }, [game, product, draw, picks, pickRows, strategy, budget, sysType,
+    couponVariant, couponModel, couponValueWeight])
 
   const toggleSign = (ev, sign) => {
     setPickRows(null)
@@ -873,18 +867,9 @@ function PoolV3() {
   }
 
   const nMatches = analysis?.matches?.length || 0
-  const systemTypes = nMatches === 13 ? [...SYSTEM_BASE, ...SYSTEM_SVS] : SYSTEM_BASE
-  const rowModelAvailable = sysType === 'ev' && ['topptipset', 'stryktipset', 'europatipset']
-    .includes(FAMILY(product))
-  const availableRowModels = ROW_MODELS.filter((model) => (
-    model.id !== 'row_shape_v1' || FAMILY(product) === 'topptipset'))
-  const rowModelSupported = availableRowModels.some((model) => model.id === rowModel)
-  const activeRowModel = rowModelAvailable && rowModelSupported
-    && (rowModel !== 'row_shape_v1' || budget === 384)
-    && (rowModel !== 'portfolio_v1' || budget <= 512) ? rowModel : 'standard'
-  const effectiveValueWeight = activeRowModel === 'hit' ? 0
-    : activeRowModel === 'row_shape_v1' ? 50 : valueWeight
-  const activeRowModelInfo = ROW_MODELS.find((model) => model.id === activeRowModel)
+  const systemTypes = visibleSystemTypes(
+    nMatches === 13 ? [...SYSTEM_BASE, ...SYSTEM_SVS] : SYSTEM_BASE)
+  const effectiveValueWeight = BUILDER_VALUE_WEIGHT
   const budgetIdx = BUDGET_STOPS.reduce((best, v, i) =>
     Math.abs(v - budget) < Math.abs(BUDGET_STOPS[best] - budget) ? i : best, 0)
   const rowShares = (pickRows?.length && analysis?.matches?.length === pickRows[0]?.length) ? (() => {
@@ -912,10 +897,8 @@ function PoolV3() {
       const vw = effectiveValueWeight / 100
       const jp = currentPayouts?.jackpot != null
         ? `&jackpot=${encodeURIComponent(currentPayouts.jackpot)}` : ''
-      const pair = complementaryMode && sysType === 'ev'
-        && !['row_shape_v1', 'portfolio_v1'].includes(activeRowModel) ? '&complementary=true' : ''
       const built = await getDetail(
-        `/api/system?product=${product}&draw=${draw}&strategy=${encodeURIComponent(strategy)}&budget=${budget}&value_weight=${vw}&row_model=${activeRowModel}&${q}${jp}${pair}`,
+        `/api/system?product=${product}&draw=${draw}&strategy=${encodeURIComponent(strategy)}&budget=${budget}&value_weight=${vw}&row_model=standard&${q}${jp}`,
         'System')
       if (requestIsCurrent(loadSequence, selectionSequence) && buildId === buildSequence.current) setSys(built)
     } catch (e) {
@@ -1003,7 +986,6 @@ function PoolV3() {
                     <input type="radio" name="v3strategy" checked={strategy === s}
                       onChange={() => {
                         setStrategy(s)
-                        if (activeRowModel === 'standard') setValueWeight(STRATEGY_EV[s])
                         setSys(null)
                       }} />{s}
                   </label>
@@ -1014,70 +996,23 @@ function PoolV3() {
                     onChange={(e) => {
                       const nextBudget = BUDGET_STOPS[Number(e.target.value)]
                       setBudget(nextBudget)
-                      if (rowModel === 'row_shape_v1' && nextBudget !== 384) {
-                        setRowModel('standard')
-                      }
                       setSys(null)
                     }} />
                 </label>
                 <select value={sysType} onChange={(e) => {
                   const next = e.target.value
                   setSysType(next)
-                  if (next !== 'ev') setComplementaryMode(false)
                   setSys(null)
                 }}>
                   {systemTypes.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
                 </select>
-                <label className={`complementary-toggle ${complementaryMode ? 'active' : ''}`}
-                  title="Bygger två lika stora kuponger tillsammans. De får skilda ankare, högst 10 % identiska rader och tonar ned varandras ankartecken. Varje kupong kostar hela den valda insatsen.">
-                  <input type="checkbox" checked={complementaryMode}
-                    disabled={sysType !== 'ev' || ['row_shape_v1', 'portfolio_v1'].includes(activeRowModel)}
-                    onChange={(e) => { setComplementaryMode(e.target.checked); setSys(null) }} />
-                  Två kompletterande kuponger
-                </label>
                 <button className="primary" onClick={loadSystem} disabled={building}>
-                  {building ? 'Bygger kupong…' : complementaryMode && sysType === 'ev'
-                    && !['row_shape_v1', 'portfolio_v1'].includes(activeRowModel) ? 'Föreslå två kuponger' : 'Föreslå rad'}
+                  {building ? 'Bygger kupong…' : 'Föreslå rad'}
                 </button>
               </div>
               <BuilderGuide />
-              {rowModelAvailable && (
-                <fieldset className="rowprofiles">
-                  <legend>Radprofil</legend>
-                  <div className="rowprofile-options">
-                    {availableRowModels.map((model) => {
-                      const disabled = (model.id === 'row_shape_v1' && budget !== 384)
-                        || (model.id === 'portfolio_v1' && budget > 512)
-                      return (
-                      <label key={model.id}
-                        className={activeRowModel === model.id ? 'active' : ''}>
-                        <input type="radio" name="row-model" value={model.id}
-                          checked={activeRowModel === model.id} disabled={disabled}
-                          onChange={() => {
-                            setRowModel(model.id)
-                            if (model.id === 'hit') setValueWeight(0)
-                            if (model.id === 'row_shape_v1' || model.id === 'standard') {
-                              setValueWeight(50)
-                            }
-                            if (['row_shape_v1', 'portfolio_v1'].includes(model.id)) setComplementaryMode(false)
-                            setSys(null)
-                          }} />
-                        <span>{model.label}{disabled ? model.id === 'portfolio_v1' ? ' · högst 512 kr' : ' · kräver 384 kr' : ''}</span>
-                      </label>
-                      )
-                    })}
-                  </div>
-                  <p>{activeRowModelInfo?.note}</p>
-                </fieldset>
-              )}
-              <div className="evscale">
-                <span>Träffbart</span>
-                <input type="range" min="0" max="100" step="5"
-                  value={effectiveValueWeight} disabled={!['standard', 'portfolio_v1'].includes(activeRowModel)}
-                  onChange={(e) => { setValueWeight(Number(e.target.value)); setSys(null) }} />
-                <span>Max EV</span>
-                <span className="evval">{effectiveValueWeight}%</span>
-              </div>
+              <p className="hint">Värdevikten är låst på {BUILDER_VALUE_WEIGHT} %:
+                balans mellan träffchans och utdelningsvärde.</p>
               {sys && <PoolInputWarning key={`built:${product}:${draw}:${sys.input_health?.analysis_fetched_at}`}
                 health={sys.input_health} scope="Systembygget" compact />}
               {sys?.complementary?.available && sys.complementary.system && (
@@ -1147,7 +1082,7 @@ function PoolV3() {
                 picks={picks} pickRows={pickRows}
                 payouts={currentPayouts} product={product} draw={draw} onClear={clearCoupon}
                 buildConfig={{ strategy, budget,
-                  value_weight: couponValueWeight ?? valueWeight / 100,
+                  value_weight: couponValueWeight ?? BUILDER_VALUE_WEIGHT / 100,
                   source: couponVariant === 'Kupong A' ? 'byggare-komplement-a'
                     : couponVariant === 'Kupong B' ? 'byggare-komplement-b'
                       : couponVariant === 'Förslag' && couponModel === 'portfolio_v1'

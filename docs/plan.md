@@ -1,12 +1,23 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-10-18 — poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-10-18 — byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
 `docs/overlamningar/overlamning-2026-10-13-agentbeslut.md`.
 
 **Nytt 2026-10-18:**
+- **Byggaren städad** (beslut koordinatorn-2026-10-18-stada-byggaren-2, val 0; underlag
+  spel-ai-kompisens P3, Granskarens dom 2072939). Poolspelets byggare erbjuder bara
+  Värderader (förval), Reducerat och Matematiskt; Färgreducering, Egen reducering,
+  Svenska Spels R-system, radprofilerna Träffsäkrare/Radform v1/Täckningstest v1 och Två
+  kompletterande kuponger är gömda. Värdevikten är låst på 50 % och reglaget gömt — även
+  vid säker (PH3:s säker-nycklar mäts med 0,2, så säker i appen motsvarar ingen mätt
+  nyckel). Ett sparat dolt val börjar om på Värderader. `builder.py`, API:t, PH3 och
+  historiska kuponger med sina etiketter orörda. Iakttagelse (ej ändrad): R 3-3-24 byggs
+  med `_greedy_cover`, som inte är optimal och bryter lika lägen i mängdens
+  iterationsordning — 36–41 rader beroende på `PYTHONHASHSEED` (uppmätt 12 frön), aldrig
+  Svenska Spels 24; Forskarens 39 och CLAUDE.md:s 38 är två dragningar av samma slump.
 - **pool-name-v10** (beslut drift-2026-10-18-pool-perez-zeledon-alias, val 0):
   poolaliasen Perez Zeledon → Municipal Perez Zeledon och CS Herediano → Herediano
   (Topptipset 4394 match 8 fick `not_listed`, sidopoäng 0,0/0,0 i
