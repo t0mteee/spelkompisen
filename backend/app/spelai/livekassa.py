@@ -430,6 +430,11 @@ RESULTAT_ALIAS = {
     "nottingham forest": "nottm forest",
     # Spel 9: Charlton Athletic–Bristol City 2026-10-10, fd "Charlton".
     "charlton athletic": "charlton",
+    # Spel 80: Sabah FK–Borussia Dortmund 2026-10-20, Flashscore "Sabah Baku"/"Dortmund".
+    # norm_team tar bort klubbformen FK, så "Sabah FK" slås upp som "sabah".
+    "sabah": "sabah baku",
+    "sabah fk": "sabah baku",
+    "borussia dortmund": "dortmund",
 }
 
 

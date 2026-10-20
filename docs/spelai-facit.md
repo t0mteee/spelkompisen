@@ -668,6 +668,13 @@ med `settled_at` = rättningstiden. Inget bakfylls: resultatet är settlat fakta
 Vakten larmar rött (`livespel_orattat`) när ett spel är öppet mer än 3 h efter
 förväntat slut (avspark + 110 min), se `docs/vakt.md`.
 
+**Sabah och Dortmund (2026-10-21, beslut livekassa-alias-sabah-dortmund-2026-10-20,
+val 0).** Spel 80 (Sabah FK–Borussia Dortmund, Champions League 2026-10-20) låg orättat:
+Flashscores resultat heter "Sabah Baku"/"Dortmund". `RESULTAT_ALIAS` fick `borussia
+dortmund` → `dortmund` och `sabah` → `sabah baku` (`norm_team` tar bort klubbformen FK,
+så "Sabah FK" slås upp som `sabah`; `sabah fk` står med för fullständighet). Samma regel
+som förut: aliaset prövas bara när de råa namnen inte gav något resultat.
+
 **Resultat för alla livematcher (2026-10-15, beslut
 forskaren-2026-10-15-resultat-alla-livematcher, val 0).** Hämtningen ovan gäller
 bara matcher med öppna spel, så i ligor utan football-data fanns resultat nästan

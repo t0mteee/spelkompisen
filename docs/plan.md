@@ -6,6 +6,12 @@ Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
 `docs/overlamningar/overlamning-2026-10-13-agentbeslut.md`.
 
+**Nytt 2026-10-21:**
+- **Livekassans resultatalias för spel 80** (beslut livekassa-alias-sabah-dortmund-2026-10-20,
+  val 0): `RESULTAT_ALIAS` översätter Sabah FK → Sabah Baku och Borussia Dortmund →
+  Dortmund (Flashscores namn), så spel 80 rättas av nästa `ratta`. Inget bakfyllt
+  utöver settlat resultat; radarns och Oddsets alias orörda. `docs/spelai-facit.md` § 16.
+
 **Nytt 2026-10-18:**
 - **Livekassan spelar till 0 kr** (beslut koordinatorn-2026-10-18-livekassa-till-noll, val 0): `livekassa.SPARR_KR`
   = 0, så ett fiktivt livespel godkänns så länge tillgänglig kassa efter spelet är
