@@ -6,6 +6,7 @@ Användning (från backend/ med aktiverat venv):
     python cli.py snapshot          # hämta + spara snapshot i SQLite
     python cli.py smart             # launchd-passet för Oddset + snabbvarv
     python cli.py pool-tick         # poolkadens: 30 min / 5 min nära stopp
+    python cli.py atg [--tvinga]    # ATG Big 9/SP96-insamlingen (körs i pool-tick)
     python cli.py live-tick         # shadow-radar för pågående matcher
     python cli.py radar-settle      # settla radarögonblick (DB-only, shadow)
     python cli.py radar-facit       # signalfacit mot villkorad basrate (shadow)
@@ -490,8 +491,43 @@ def _hours_to_next_pool_close(store: Storage,
     return min(hours) if hours else None
 
 
+def _atg_pass(force: bool = False) -> dict:
+    """ATG:s Big 9/SP96 (beslut driften-2026-10-24-big9-atg): eget varv med egen
+    kadens (`atg.fetch_due`) och eget skyddsnät — får aldrig fälla poolvarvet.
+    Big 9-omgångar inne i ett facitfönster lämnas till facitsidans paket."""
+    from app import atg
+    from app.spelai import big9 as spelai_big9
+    try:
+        store = Storage()
+    except Exception as exc:  # noqa: BLE001
+        print(f"atg: databasen gick inte att öppna ({exc})")
+        return {"fel": str(exc)}
+    try:
+        report = atg.run_pass(
+            store.conn, clock=lambda: dt.datetime.now(dt.timezone.utc), force=force,
+            on_round=lambda conn, product, obs, now: spelai_big9.capture_due(
+                conn, product, obs, now=now))
+    except Exception as exc:  # noqa: BLE001
+        report = {"fel": f"{type(exc).__name__}: {exc}"}
+    finally:
+        store.close()
+    if "skipped" in report:
+        print(f"atg: {report['skipped']}")
+    elif "fel" in report:
+        print(f"atg: hämtningen misslyckades ({report['fel']})")
+    else:
+        captured = [f"{f['product']} {f['serial']} {','.join(f['facit']['captured'])}"
+                    for f in report.get("facit", [])
+                    if (f.get("facit") or {}).get("captured")]
+        print(f"atg: {report['rounds']} omgångar ({report['open']} öppna), "
+              f"{len(report['written'])} observationer ({report['reason']})"
+              + (f"; spelai-indata {'; '.join(captured)}" if captured else ""))
+    return report
+
+
 def cmd_pool_tick() -> None:
     """Kort launchd-jobb som inte blockeras av Oddsets långa insamlingspass."""
+    _atg_pass()
     now = dt.datetime.now(dt.timezone.utc)
     store = Storage()
     try:
@@ -1495,6 +1531,9 @@ def main() -> None:
         cmd_snapshot_smart(secs if secs is not None else 1500)
     elif cmd == "pool-tick":
         cmd_pool_tick()
+    elif cmd == "atg":
+        report = _atg_pass(force="--tvinga" in rest)
+        sys.exit(1 if "fel" in report else 0)
     elif cmd == "live-tick":
         # live-tick [budget_s] [intervall_s]; budget 0 = ett enda varv
         nums = [int(a) for a in rest if a.isdigit()]

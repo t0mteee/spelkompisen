@@ -75,7 +75,8 @@ def pool(conn, *, now: dt.datetime, product: Optional[str] = None,
             "spelstopp": d["close"],
             "nivaer": [{"niva_kr": lv, "horisonter": nivamap[lv]}
                        for lv in sorted(nivamap)]})
-    return {"tabeller": True, "omgangar": omgangar, "per_niva": per_niva(conn)}
+    return {"tabeller": True, "omgangar": omgangar, "per_niva": per_niva(conn),
+            "per_niva_atg": per_niva(conn, atg=True)}
 
 
 
@@ -85,24 +86,37 @@ def _rader(row: dict) -> list[str]:
     return [line for line in (row.get("rows_text") or "").splitlines() if line]
 
 
+def _symboler(product: Optional[str]) -> tuple[str, ...]:
+    """Tecknen per match: 1/X/2 för Svenska Spel, cellerna + W för Big 9 (ATG)."""
+    return nivaer.ATG_TOKENS if product and nivaer.ar_atg(product) else nivaer.SIGNS
+
+
 def _andelar(row: dict, rows: list[str], n_matches: int) -> list[dict]:
     """Andel av raderna per tecken och match. M-systemet räknas ur tecknen
-    (varje valt tecken bär 1/k av raderna) i stället för att räkna 39 366 rader."""
+    (varje valt tecken bär 1/k av raderna) i stället för att räkna 39 366 rader.
+    Big 9-rader är nio tokens med mellanslag (cell eller W)."""
+    symboler = _symboler(row.get("product"))
     if row.get("format") == "msystem" and row.get("msystem_json"):
         tecken = json.loads(row["msystem_json"])
-        return [{s: (1.0 / len(t) if s in t else 0.0) for s in nivaer.SIGNS}
+        return [{s: (1.0 / len(t) if s in t else 0.0) for s in symboler}
                 for t in tecken]
-    counts = [{s: 0 for s in nivaer.SIGNS} for _ in range(n_matches)]
+    atg_rad = symboler is nivaer.ATG_TOKENS
+    counts = [{s: 0 for s in symboler} for _ in range(n_matches)]
     for text in rows:
-        for i, sign in enumerate(text[:n_matches]):
+        tokens = nivaer.atg_tokens(text) if atg_rad else text
+        for i, sign in enumerate(tokens[:n_matches]):
             if sign in counts[i]:
                 counts[i][sign] += 1
     total = len(rows) or 1
-    return [{s: c[s] / total for s in nivaer.SIGNS} for c in counts]
+    return [{s: c[s] / total for s in symboler} for c in counts]
 
 
 def _tackta(andelar: list[dict]) -> list[str]:
-    return ["".join(s for s in nivaer.SIGNS if a.get(s)) for a in andelar]
+    out = []
+    for a in andelar:
+        valda = [s for s, v in a.items() if v]
+        out.append(",".join(valda) if any(len(s) > 1 for s in a) else "".join(valda))
+    return out
 
 
 def _matcher(conn, input_id: Optional[int], events: list[int]) -> list[dict]:
@@ -112,7 +126,9 @@ def _matcher(conn, input_id: Optional[int], events: list[int]) -> list[dict]:
         found = conn.execute("SELECT payload_json FROM spelai_input WHERE id=?",
                              (input_id,)).fetchone()
         if found:
-            draw = (json.loads(found[0]) or {}).get("draw") or {}
+            data = json.loads(found[0]) or {}
+            # Svenska Spel: draw; Big 9 (ATG): omgang — samma matchfält.
+            draw = data.get("draw") or data.get("omgang") or {}
             for match in draw.get("matches") or []:
                 home, away = match.get("home"), match.get("away")
                 label = (f"{home} – {away}" if home and away
@@ -173,16 +189,20 @@ def forslag(conn, proposal_id: int, *, med_rader: bool = False) -> Optional[dict
         out["rader_lista"] = rows
     return out
 
-def per_niva(conn) -> list[dict]:
+def per_niva(conn, *, atg: bool = False) -> list[dict]:
     """Facit per nivå för officiella (30m) förslag: parade omgångar där BÅDE
     agent och standard frystes och rättades komplett. Bara siffror — ingen
-    "förbättring" före gränserna i designens 5.6 (40 parade omgångar + BH-FDR)."""
+    "förbättring" före gränserna i designens 5.6 (40 parade omgångar + BH-FDR).
+    Big 9 (ATG) är ett eget spel och räknas separat (`atg=True`), aldrig ihop
+    med Svenska Spels 256-nivå."""
     rows = conn.execute(
         "SELECT p.product, p.draw_number, p.level_kr, p.role, r.payout_kr, r.cost_kr, "
         "r.payout_complete FROM spelai_pool_proposal p JOIN spelai_pool_result r "
         "ON r.proposal_id=p.id WHERE p.horizon='30m' AND p.status='fryst'").fetchall()
     pairs: dict = {}
     for product, draw_number, level, role, payout, cost, complete in rows:
+        if nivaer.ar_atg(product) != atg:
+            continue
         if not complete or payout is None or not cost:
             continue
         pairs.setdefault((level, product, draw_number), {})[role] = (payout, cost)

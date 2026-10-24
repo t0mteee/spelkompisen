@@ -27,7 +27,7 @@ from typing import Callable, Optional
 
 from .. import pool_system_ledger as ph3
 from ..analysis import analyze_draw
-from . import indata, nivaer, tillstand
+from . import big9, indata, nivaer, tillstand
 from .sandbox import AgentSvar, TIMEOUT_S
 from .tillstand import iso, utc
 
@@ -242,8 +242,12 @@ def process_inputs(conn, runner, *, clock: Clock, code_version: str = "dev") -> 
 
         # 1) standarden — fryses före agentkörningen
         levels = list(nivaer.nivaer_for(product))
+        atg_spel = big9.galler(product)
         try:
-            analysis, jp = analysis_from_payload(payload)
+            if atg_spel:     # Big 9 (ATG): egen byggare, se app/spelai/big9.py
+                analysis, jp = big9.round_from_payload(payload), None
+            else:
+                analysis, jp = analysis_from_payload(payload)
         except Exception as exc:  # noqa: BLE001
             analysis, jp = None, None
             analysis_error = f"{type(exc).__name__}: {exc}"
@@ -252,14 +256,16 @@ def process_inputs(conn, runner, *, clock: Clock, code_version: str = "dev") -> 
                 rad = Rad("saknas", f"underlaget gick inte att analysera ({analysis_error})")
             else:
                 try:
-                    form = build_standard(payload, level, analysis, jp)
+                    form = (big9.build_standard(payload, level, analysis) if atg_spel
+                            else build_standard(payload, level, analysis, jp))
                     rad = Rad("fryst", form.get("note"), form=form,
                               version=f"{STANDARD_PREFIX}:{form['config_key']}",
                               config_key=form["config_key"])
                 except Exception as exc:  # noqa: BLE001 — en nivå får inte stoppa resten
                     rad = Rad("saknas", f"standarden kunde inte byggas: "
                                         f"{type(exc).__name__}: {exc}"[:500],
-                              config_key=STANDARD_CONFIGS.get(level))
+                              config_key=(big9.STANDARD_KEYS.get(level) if atg_spel
+                                          else STANDARD_CONFIGS.get(level)))
             _insert(conn, payload, level, horizon, "standard", rad,
                     frozen_at=clock(), input_row=payload, code_version=code_version)
         conn.commit()
@@ -299,25 +305,30 @@ def mark_missed(conn, *, now: dt.datetime, code_version: str = "dev",
     """`missat`/`pausad` för horisonter utan paket när fönstret passerat.
 
     Bara fönster som ÖPPNADE efter facit_start räknas: gamla `Open`-rader i
-    `draws` och omgångar före driftsättningen är inga missar."""
+    `draws` och omgångar före driftsättningen är inga missar. Big 9 (ATG)
+    läser omgångarna ur ATG-insamlingen och kräver även `facit_start_big9`."""
     report = {"missat": 0, "pausad": 0}
     start_at = tillstand.facit_start(conn)
     if start_at is None:
         return report
     paused = tillstand.pausad(conn)
-    for product, draw_number, state, close_raw in conn.execute(
-            "SELECT product, draw_number, state, reg_close_time FROM draws "
-            "WHERE reg_close_time IS NOT NULL").fetchall():
-        if not nivaer.nivaer_for(product):
-            continue
+    draws = [(p, n, state, utc(close)) for p, n, state, close in conn.execute(
+        "SELECT product, draw_number, state, reg_close_time FROM draws "
+        "WHERE reg_close_time IS NOT NULL").fetchall()
+        if nivaer.nivaer_for(p) and not big9.galler(p)]
+    # Big 9 (ATG): omgångarna ur ATG-insamlingen, och bara fönster som öppnade
+    # efter facit_start_big9 — de gamla omgångarna i första hämtningen är inga missar.
+    atg_start = big9.facit_start(conn)
+    atg_rounds = big9.rounds_for_missed(conn) if atg_start is not None else []
+    for product, draw_number, state, close in [*draws, *atg_rounds]:
         if state and "cancel" in str(state).lower():
             continue
-        close = utc(close_raw)
         if close is None:
             continue
+        floor = max(start_at, atg_start) if big9.galler(product) else start_at
         for horizon in indata.HORIZONS:
             start, end = indata.window(close, horizon)
-            if start < start_at or now <= end + dt.timedelta(minutes=grace_min):
+            if start < floor or now <= end + dt.timedelta(minutes=grace_min):
                 continue
             if _has_rows(conn, product, draw_number, horizon):
                 continue

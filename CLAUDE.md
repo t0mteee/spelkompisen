@@ -132,6 +132,15 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       försök i pool-snapshot.log; budgeten stoppar bara NYA anrop.
   app/altenar.py      Ninja Casino/Altenar: listvy 1X2 + mål, eventdetalj för huvudlinan
                       totalt antal hörnor (bara i deep-/snabbfönstret)
+  app/atg.py          ATG:s Big 9 (BIG9) och Nya Big 9 (SP96): publika offering-listan,
+                      append-only `atg_offering_capture` (en rad per hämtning) +
+                      `atg_round_observation` (SELL_OPEN varje hämtning = presence),
+                      egen kadens först i pool-tick (6 h; T−7 h var 30:e min; varje tick
+                      i horisontfönstren), tabeller BARA via scripts/migrera_atg.py.
+                      `MEASURED` = bara big9; SP96 samlas in men mäts inte förrän Saman
+                      sagt att det räknas som Big 9 (beslut driften-2026-10-24-big9-atg)
+  app/big9_builder.py Big 9-byggaren (värderader medel, sex celler 1X2×Ö/U, Wild Card,
+                      7–9 rätt, golv 15 kr) — standarden på facitsidan
   app/betsson.py      Publik Betsson-bootstrap (ej inkopplad; events-table CloudFront-
                       blockerad utanför browser; KRÄVER brotli, se transportregeln)
   app/analysis.py     fair_prob (power-metod), värde, taggar, speltyp, mover-flagga
@@ -212,6 +221,9 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       koden, aldrig hos agenten; facit §16). Inga riktiga spel, aldrig.
                       En gång i timmen hämtas Flashscore-resultat för ALLA matcher med
                       livepriser (`hamta_resultat_alla`, bara `oddset_results`)
+                      `big9.py` (2026-10-24): Big 9 från ATG som produkt, nivå 256 kr
+                      (512 rader à 0,50 kr, nio tokens `1O`…`2U`/`W`), rättad mot ATG:s
+                      publicerade potter; räknas separat (`per_niva_atg`). facit § 19
   app/live_radar.py   shadow-radar för pågående matcher: Flashscore ankare, FotMob sekundär,
                       Sofascore URKOPPLAD ur radarn (kvar för resultat/frånvaro)
   app/live_signal_ledger.py append-only-journal över första Följer/Stark per match,
@@ -399,6 +411,8 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
   migrering `scripts/migrera_spelai.py [--db PATH]`; tjänsterna `tools/tjanster.sh status spelai`
   (schema), `spelai-roller` (rollkörningar + GitHub-spegel), `spelai-chatt` (Remote Control),
   `spelai-api` (8003) och `spelai-app` (5176). `cli.py spelai-roller` kör ett rollvarv för hand.
+- **ATG Big 9:** `cd backend && .venv/bin/python -B cli.py atg [--tvinga]` (körs annars
+  först i varje pool-tick med egen kadens); migrering `scripts/migrera_atg.py`.
 - V2.2-status: `cli.py v22audit`. Källhälsa/varvlucka: `cli.py kallhalsa [timmar]`
   (`—` i varvkolumnen = källan kördes inte; visar även Oddset- och poolhälsan).
 - **Dubblettjakt: `cli.py lanklucka [timmar]`** — providerpar med samma liga, samma

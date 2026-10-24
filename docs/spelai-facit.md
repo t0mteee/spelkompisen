@@ -817,3 +817,79 @@ medan något genomförs) och går som notis och till chatten.
 svar) prövas igen efter 1 h, högst tre försök; bara slutresultatet rapporteras.
 Allt annat väntar på dig. En session som dog utan resultat märks `avbruten` och
 prövas inte igen.
+
+## 19. Big 9 från ATG (2026-10-24)
+
+Beslut driften-2026-10-24-big9-atg (Saman, val 0): samla in Big 9 från ATG och
+lägg Big 9 som produkt på facitsidan, nivå 256 kr, standard = byggaren för Big 9
+(samma budget, strategi medel), frysning 6 h och 30 min före spelstopp. SP96
+samlas in samtidigt men **mäts inte** förrän Saman sagt att det räknas som Big 9.
+
+**Källan** (`backend/app/atg.py`): `GET https://www.atg.se/services/sports-info-offering/api/v1/offering`,
+publikt JSON utan inloggning, cookies eller utmaning (källgränsen). Ett svar
+innehåller alla ATG:s sportspel. BIG9- och SP96-posterna sparas append-only i
+`atg_round_observation` (`SELL_OPEN` vid varje hämtning som presence, andra lägen
+bara när innehållet är nytt), och varje hämtning, även en misslyckad, ger en rad i
+`atg_offering_capture`. Tabellerna skapas bara av `scripts/migrera_atg.py`, som
+också skriver `facit_start_big9`. Kadensen (`atg.fetch_due`) körs först i
+`cli.py pool-tick`, har eget skyddsnät och fäller aldrig poolvarvet. Den hämtar var
+6:e timme, från T−7 h var 30:e minut, varje tick (≥ 4 min) inne i ett
+horisontfönster och efter spelstopp var 30:e minut tills omgången är
+FINALIZED/CANCELED (högst 48 h). Manuellt: `cli.py atg [--tvinga]`. Driftvakten
+varnar (`insamling_star_still`, key `atg`) när ingen lyckad hämtning skett på 13 h.
+
+**Indatapaketet** (`app/spelai/big9.py`, schema `spelai-indata-big9-v1`) sparas i
+`spelai_input` när en BIG9-omgång observeras `SELL_OPEN` inne i 6h- eller
+30m-fönstret, med samma fönster och frister som Svenska Spels paket.
+`draw_number` = ATG:s `serialNumber`, `reg_close_time` = `startTime`. Paketet bär
+`omgang` (matcher med lag, avspark, odds 1X2/Ö/U, `streck` = `betDistribution`
+med sex celler och Wild Card-andel, Kambi- och Sportradar-id), `turnover` (live,
+median av de 8 senaste slutomsättningarna, used = max), `jackpot` (toppottens
+överskott över vinstplanen) och `rader` (radpris och tokens). ATG skickar
+platshållarresultat (0–0, kryss/under) även för ospelade matcher; `result`,
+`score` och `liveData` tas därför bort ur paketet.
+
+**Nivå och format** (`nivaer.py`): bara 256 kr, radpris 0,50 kr (`unitStake` 50
+öre, ATG:s regler), alltså högst 512 rader. Format `rows`; en rad är nio tokens
+med mellanslag i matchordning: `1O`, `1U`, `XO`, `XU`, `2O`, `2U` (1X2 + över/under
+2,5) eller `W` (Wild Card). I BIG9 ska varje rad ha exakt ett `W`. Exempel:
+`1O XU W 2O 1U 1O XO 2U 1O`. Agentsvaret har samma form som för poolspelen:
+`{"version": …, "forslag": {"256": {"format": "rows", "rows": [...]}}}`.
+
+**Standarden** (`config_key` `big9-varderader-v1-b256-medel`,
+`backend/app/big9_builder.py`, version `big9-varderader-v1`) är `build_ev_system`s
+metod (värderader) överförd till sex celler. ATG:s 1X2- och Ö/U-odds devigas var
+för sig med power-metoden. Ett Poissonsamband (total ur Ö/U, fördelning ur 1X2)
+anpassas exakt till båda marknaderna (IPF). Saknas odds används folkets
+fördelning. Fältets träffchans på en match är w + (1 − w) · streck(cell) med
+Wild Card-andelen w. Potterna är omsättning × 65 % × 40/20/40 % (7/8/9 rätt) plus
+jackpot på 9 rätt. EV räknas med Poisson-binomial för oss och fältet, κ = 1 och
+0 kr under minimiutdelningen 15 kr. Strategi medel ger score = P(rad) · EV(rad).
+Kandidaterna är de bästa cellerna på p²/q, med Wild Card prövat på varje match
+och ett universum på högst 60 000. SvS-byggarens X-skydd gäller inte. Bygget
+tar ≈ 0,4 s.
+
+**Rättning** (`big9.settle`, i steget `rattning`, `settlement_version`
+`spelai-big9-v1`) sker mot ATG:s FINALIZED-post. Bara `status DECIDED` är ett
+resultat; en struken match (`CANCELED`/`canceledAt`) är rätt för alla, och
+Wild Card är rätt. Utdelningen per egen vinnande rad är potten / (publicerade
+vinnande enheter + våra), nedåt till hela kronor, och 0 under minimiutdelningen.
+Regeln återger ATG:s publicerade belopp i alla 101 avgjorda omgångar
+(2025-02-01–2026-10-17) utan en enda avvikelse. En grupp utan vinnare har ändå
+sin pott publicerad, så facit blir komplett. En inställd omgång (CANCELED) ger
+`omgången ställdes in`. Append-once i `spelai_pool_result`.
+
+**Missat** räknas bara för fönster som öppnade efter `facit_start_big9`; de 101
+gamla omgångarna i första hämtningen är inga missar. **API:** `/api/spelai/pool`
+visar Big 9-omgångarna som andra produkter. `per_niva` gäller bara Svenska Spel,
+och Big 9 räknas separat i `per_niva_atg` (aldrig ihop med SvS 256).
+`/api/spelai/pool/forslag/<id>` ger andel per token och match.
+
+**Viktigt läge 2026-10-24.** ATG:s egen nyhet ("Nya Big 9 ger högre återbetalning
+och fler vinstchanser") säger att Nya Big 9 har premiär 2026-10-24: Wild Card tas
+bort, fyra vinstgrupper 6–9 rätt (35/15/15/35 %), återbetalning 75 % och
+uppskjuten match rättad som vinst för alla. Det är `gameType` SP96 ("Premiär!").
+Ingen BIG9-omgång har varit öppen sedan 2026-10-17. Fortsätter ATG bara med SP96
+fryser facitsidan inga Big 9-förslag förrän Saman avgör att SP96 räknas som Big 9.
+Då behövs bara `atg.MEASURED` plus SP96:s vinstregler (9 rätt utan vinnare går
+till 8 rätt) i rättningen, och insamlingen har redan dess data.

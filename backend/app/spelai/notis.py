@@ -35,8 +35,8 @@ import re
 from typing import Callable, Optional
 from urllib.parse import urlsplit
 
-from ..svenskaspel import PRODUCTS, family_of
-from . import tillstand
+from ..svenskaspel import family_of
+from . import nivaer, tillstand
 from .tillstand import LOCAL_TZ, iso, utc
 
 TOPIC_ENV = "SPELAI_NTFY_TOPIC"
@@ -101,7 +101,7 @@ def lank_for(base: Optional[str], item: dict) -> Optional[str]:
 
 
 def _namn(product: str) -> str:
-    return PRODUCTS.get(product, {}).get("name", product)
+    return nivaer.produktnamn(product)
 
 
 def aviseras(product: str, horizon: str, close: Optional[dt.datetime]) -> bool:

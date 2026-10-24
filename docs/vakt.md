@@ -64,6 +64,7 @@ driftrubrik. Saknas `vakt.json` ⇒ `vakt_missing`; äldre än 90 min ⇒ `vakt_
 | | `jobb_nere` | error | KeepAlive-tjänst (backend/frontend) utan PID |
 | | `jobb_exit` | warning | schemalagt jobb med senaste exit ≠ 0. Källprovet avslutar med 1 när en kritisk källa fallerar — meddelandet hänvisar då till `kalla_nere` |
 | **B. insamling** — append-only-tabeller, databasen `mode=ro` | `insamling_star_still` (key `pool`/`oddset`) | error | senaste `pool_market_capture.fetched_at` (bara när en öppen omgång finns) resp. Pinnacles icke-live-rad i `oddset_source_health_log` äldre än **90 min** |
+| B. insamling — ATG (Big 9, 2026-10-24) | `insamling_star_still` (key `atg`) | warning | senaste lyckade `atg_offering_capture.fetched_at` äldre än **13 h** (basvarvet går var 6:e timme); bara när tabellen finns |
 | **C. backend** — `backend-server.out.log` (accesslogg) | `backend_5xx` (key `access`) | warning | ≥ 5 svar 5xx sedan förra körningen, eller ≥ 3 på samma endpoint (sökväg utan querysträng); visar de värsta |
 | — `backend-server.err.log` | `backend_traceback` (key `err`) | warning | ≥ 1 nytt slutligt undantag som inte är nät; visar sista undantagsraden |
 | | `natverk_nere` (key `backend`) | warning | ≥ 1 nytt `ConnectError`/DNS-fel (`nodename nor servname` m.fl.) — nätet, inte en bugg. Timeouts räknas bara i sammanfattningen |

@@ -40,7 +40,9 @@ class PoolSchedulerTests(unittest.TestCase):
     def test_total_source_failure_is_retried_next_tick(self) -> None:
         store = mock.MagicMock()
         store.meta_get.return_value = None
+        # ATG-varvet (Big 9) har egen databasanslutning och egen kadens.
         with mock.patch.object(cli, "Storage", return_value=store) as storage, \
+                mock.patch.object(cli, "_atg_pass", return_value={}) as atg_pass, \
                 mock.patch.object(
                     cli, "_hours_to_next_pool_close", return_value=None), \
                 mock.patch.object(
@@ -48,7 +50,16 @@ class PoolSchedulerTests(unittest.TestCase):
             cli.cmd_pool_tick()
 
         self.assertEqual(1, storage.call_count)
+        atg_pass.assert_called_once_with()
         store.meta_set.assert_not_called()
+
+    def test_atg_fel_faller_inte_poolvarvet(self) -> None:
+        store = mock.MagicMock()
+        with mock.patch.object(cli, "Storage", return_value=store), \
+                mock.patch("app.atg.run_pass", side_effect=RuntimeError("trasig")):
+            report = cli._atg_pass()
+        self.assertIn("trasig", report["fel"])
+        store.close.assert_called_once_with()
 
 
 if __name__ == "__main__":

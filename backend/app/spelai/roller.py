@@ -30,8 +30,7 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from ..svenskaspel import PRODUCTS
-from . import schema, tillstand
+from . import nivaer, schema, tillstand
 from .tillstand import LOCAL_TZ, iso, utc
 
 HOME = Path.home()
@@ -91,7 +90,7 @@ def _klocka(now: dt.datetime) -> str:
 
 
 def _namn(product: str) -> str:
-    return PRODUCTS.get(product, {}).get("name", product)
+    return nivaer.produktnamn(product)
 
 
 def _post(typ: str, uppgift: str, prompt: str, *, dedup: Optional[str] = None,

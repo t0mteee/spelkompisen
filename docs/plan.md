@@ -1,12 +1,24 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-10-18 — livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-10-24 — Big 9 från ATG på facitsidan; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
 `docs/overlamningar/overlamning-2026-10-13-agentbeslut.md`.
 
 **Nytt 2026-10-24:**
+- **Big 9 från ATG på facitsidan** (beslut driften-2026-10-24-big9-atg, val 0).
+  `app/atg.py` samlar in ATG:s publika offering-lista (BIG9 och SP96) append-only
+  med egen kadens först i pool-tick; `app/big9_builder.py` är standarden
+  (`big9-varderader-v1-b256-medel`: värderader medel, sex celler 1X2 × Ö/U 2,5,
+  Wild Card, 7–9 rätt, 512 rader à 0,50 kr); `app/spelai/big9.py` fryser 6h/30m
+  ur samma fönster som poolspelen och rättar mot ATG:s publicerade potter (regeln
+  återger alla 101 avgjorda omgångars belopp exakt). Big 9 räknas separat
+  (`per_niva_atg`). SP96 samlas in men mäts inte. **OBS:** ATG:s egen nyhet säger
+  att "Nya Big 9" (= SP96: utan Wild Card, 6–9 rätt, 75 %) har premiär i dag och
+  ersätter Big 9. Ingen BIG9-omgång har varit öppen sedan 2026-10-17, så facitsidan
+  får inga Big 9-förslag förrän Saman avgör om SP96 räknas som Big 9.
+  `docs/spelai-facit.md` § 19.
 - **Tidskänsligt CDN-Age-test rättat** (beslut 2026-10-23-tester-roda-cdn-age, val 0):
   `test_book_cdn_age_backdates_confirmation` fällde nattkörningen 2026-10-23. Orsaken var
   den UNDRE gränsen: `report["at"]` sätts när `collect()` startar, så avdraget är 120 s

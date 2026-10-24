@@ -83,6 +83,9 @@ JOBS: tuple[tuple[str, bool], ...] = (
 # basvarv. `oddset_health` larmar redan efter 45 min på meta-stämplarna; det
 # här är vaktens oberoende bakstopp på själva artefakten.
 INSAMLING_MAX_MIN = 90
+# ATG hämtas var 6:e timme utan öppen omgång (app/atg.py): två missade
+# basvarv plus marginal.
+ATG_MAX = dt.timedelta(hours=13)
 
 # C. Backendloggarna (uvicorn under launchd, raderna saknar tidsstämpel).
 BACKEND_OUT_LOG = "backend-server.out.log"
@@ -422,6 +425,12 @@ def check_insamling(ctx: Ctx) -> list[dict]:
         pool = _latest_time(conn, "SELECT fetched_at FROM pool_market_capture")
         oddset = _latest_time(conn, "SELECT checked_at FROM oddset_source_health_log "
                                     "WHERE source='pinnacle' AND scope != 'live'")
+        # ATG:s Big 9/SP96 (beslut driften-2026-10-24-big9-atg): append-only-
+        # loggen, en rad per hämtning. Saknas tabellen är insamlingen inte på.
+        has_atg = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
+                               "AND name='atg_offering_capture'").fetchone()
+        atg_ok = (_latest_time(conn, "SELECT fetched_at FROM atg_offering_capture "
+                                     "WHERE ok=1") if has_atg else None)
     finally:
         conn.close()
     limit = dt.timedelta(minutes=INSAMLING_MAX_MIN)
@@ -439,9 +448,17 @@ def check_insamling(ctx: Ctx) -> list[dict]:
                 "error", "jobb", "insamling_star_still", key,
                 f"{what} {age} (gräns {INSAMLING_MAX_MIN} min)",
                 latest=latest and _iso(latest)))
+    if has_atg and (atg_ok is None or ctx.now - atg_ok > ATG_MAX):
+        age = f"på {_hours_text(ctx.now - atg_ok)}" if atg_ok else "någonsin"
+        findings.append(_finding(
+            "warning", "jobb", "insamling_star_still", "atg",
+            f"ATG-insamlingen (Big 9) har inte lyckats hämta {age} "
+            f"(gräns {int(ATG_MAX.total_seconds() // 3600)} h; atg_offering_capture)",
+            latest=atg_ok and _iso(atg_ok)))
     ctx.summary["insamling"] = {"pool_latest": pool and _iso(pool),
                                 "oddset_latest": oddset and _iso(oddset),
-                                "open_draws": len(open_draws)}
+                                "open_draws": len(open_draws),
+                                "atg_latest": atg_ok and _iso(atg_ok)}
     return findings
 
 

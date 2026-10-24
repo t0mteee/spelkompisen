@@ -4,6 +4,11 @@
 512, 5 000, 20 000 och 39 366 kr bara för Stryktipset och Europatipset.
 Radpriset är 1 kr för alla produkter, så nivån i kronor = högsta radantal.
 
+Big 9 (ATG, beslut driften-2026-10-24-big9-atg): bara 256 kr, radpris 0,50 kr
+(512 rader). En rad är nio tokens med mellanslag — cell `1O`/`1U`/`XO`/`XU`/
+`2O`/`2U` (1X2 + över/under 2,5) eller `W` (Wild Card) — och i BIG9 exakt ett
+`W` per rad. SP96 samlas in men mäts inte (`atg.MEASURED`).
+
 Två format:
 * `rows`    — lista av strängar, ett tecken (1/X/2) per match i omgångens
               matchordning, högst nivån rader och inga dubbletter.
@@ -16,6 +21,8 @@ import hashlib
 import itertools
 from typing import Iterable, Optional
 
+from .. import atg
+from ..big9_builder import CELLS as ATG_CELLS, TOKENS as ATG_TOKENS, WILDCARD
 from ..svenskaspel import GAME_GROUPS, PRODUCTS
 
 RADPRIS_KR = 1.0
@@ -36,7 +43,24 @@ class Ogiltigt(ValueError):
     """Ett förslag som inte får frysas som giltigt. Meddelandet är orsaken."""
 
 
+ATG_NIVAER = (256,)
+
+
+def ar_atg(product: str) -> bool:
+    return product in atg.PRODUCTS
+
+
+def radpris(product: str) -> float:
+    return atg.PRODUCTS[product]["row_price"] if ar_atg(product) else RADPRIS_KR
+
+
+def produktnamn(product: str) -> str:
+    return atg.namn(product) or PRODUCTS.get(product, {}).get("name", product)
+
+
 def nivaer_for(product: str) -> tuple[int, ...]:
+    if product in atg.MEASURED:
+        return ATG_NIVAER
     if product in STORA_PRODUKTER:
         return NIVAER_STORA
     if product in TOPPTIPSET_FAMILJ:
@@ -45,10 +69,12 @@ def nivaer_for(product: str) -> tuple[int, ...]:
 
 
 def produkter() -> tuple[str, ...]:
-    return tuple(p for p in PRODUCTS if nivaer_for(p))
+    return tuple(p for p in (*PRODUCTS, *atg.PRODUCTS) if nivaer_for(p))
 
 
 def antal_matcher(product: str) -> int:
+    if ar_atg(product):
+        return int(atg.PRODUCTS[product]["matches"])
     return int(PRODUCTS[product]["matches"])
 
 
@@ -81,7 +107,7 @@ def validera(product: str, level: int, forslag: dict,
     """Validera ETT förslag för en nivå. Returnerar normaliserad form:
     {format, rows (lista av strängar), tecken (msystem) | None, n_rows,
     cost_kr, rows_hash, motivering}. Kastar `Ogiltigt` med tydlig orsak."""
-    if product not in PRODUCTS:
+    if product not in PRODUCTS and not ar_atg(product):
         raise Ogiltigt(f"okänd produkt {product!r}")
     try:
         level = int(level)
@@ -102,6 +128,8 @@ def validera(product: str, level: int, forslag: dict,
         raise Ogiltigt("motivering_kort måste vara text")
     motivering = (motivering or "")[:MOTIVERING_MAX] or None
 
+    if ar_atg(product):
+        return _validera_atg(product, level, forslag, n_matches, motivering)
     if fmt == "rows":
         rows = forslag.get("rows")
         if not isinstance(rows, list) or not rows:
@@ -147,3 +175,45 @@ def validera(product: str, level: int, forslag: dict,
     return {"format": "msystem", "rows": None, "tecken": norm, "n_rows": n_rows,
             "cost_kr": n_rows * RADPRIS_KR,
             "rows_hash": rows_hash(expandera(norm)), "motivering": motivering}
+
+
+def atg_tokens(row: str) -> list[str]:
+    return row.split()
+
+
+def _validera_atg(product: str, level: int, forslag: dict, n_matches: int,
+                  motivering: Optional[str]) -> dict:
+    """Big 9-rader: nio tokens, högst nivån / 0,50 kr rader, inga dubbletter."""
+    price = radpris(product)
+    wildcard = bool(atg.PRODUCTS[product]["wildcard"])
+    tokens_ok = ATG_TOKENS if wildcard else ATG_CELLS
+    rows = forslag.get("rows")
+    if not isinstance(rows, list) or not rows:
+        raise Ogiltigt("rows måste vara en icke-tom lista")
+    if len(rows) * price > level:
+        raise Ogiltigt(f"{len(rows)} rader à {price:.2f} kr kostar "
+                       f"{len(rows) * price:.2f} kr — över nivån {level} kr")
+    seen: set[str] = set()
+    norm_rows = []
+    for index, row in enumerate(rows):
+        if not isinstance(row, str):
+            raise Ogiltigt(f"rad {index + 1} är inte en sträng")
+        tokens = atg_tokens(row)
+        if len(tokens) != n_matches:
+            raise Ogiltigt(f"rad {index + 1} har {len(tokens)} tokens, "
+                           f"omgången har {n_matches} matcher")
+        bad = [t for t in tokens if t not in tokens_ok]
+        if bad:
+            raise Ogiltigt(f"rad {index + 1} har ogiltig token {bad[0]!r} "
+                           f"(tillåtna: {', '.join(tokens_ok)})")
+        n_wild = tokens.count(WILDCARD)
+        if wildcard and n_wild != 1:
+            raise Ogiltigt(f"rad {index + 1} har {n_wild} Wild Card, ska ha exakt 1")
+        text = " ".join(tokens)
+        if text in seen:
+            raise Ogiltigt(f"rad {index + 1} ({text}) är en dubblett")
+        seen.add(text)
+        norm_rows.append(text)
+    return {"format": "rows", "rows": norm_rows, "tecken": None,
+            "n_rows": len(norm_rows), "cost_kr": len(norm_rows) * price,
+            "rows_hash": rows_hash(norm_rows), "motivering": motivering}

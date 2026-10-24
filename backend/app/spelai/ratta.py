@@ -6,6 +6,7 @@ tecken), publicerade vinnare/belopp ur `pool_payout_tier` och egen utspädning
 (`counterfactual_settle` → `counterfactual_payout`). 0 officiella vinnare på
 en nivå = rullpott okänd ⇒ ofullständigt facit, ROI räknas aldrig som noll.
 En inställd omgång är ingen observation. Append-once i `spelai_pool_result`.
+Big 9 (ATG) rättas av `big9.settle` i samma steg, mot ATG:s publicerade potter.
 """
 from __future__ import annotations
 
@@ -14,7 +15,7 @@ import json
 
 from .. import pool_settlement
 from .. import pool_system_ledger as ph3
-from . import nivaer
+from . import big9, nivaer
 from .tillstand import iso
 
 SETTLEMENT_VERSION = f"spelai-v1/{ph3.SETTLEMENT_VERSION}"
@@ -70,4 +71,8 @@ def settle(conn_or_store, *, now: dt.datetime) -> dict:
         report["rattade"] += 1
     if rows:
         conn.commit()
+    # Big 9 (ATG): eget facit ur ATG:s FINALIZED-post (app/spelai/big9.py).
+    atg_report = big9.settle(conn, now=now)
+    for key, value in atg_report.items():
+        report[key] += value
     return report
