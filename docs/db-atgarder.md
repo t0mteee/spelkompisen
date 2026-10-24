@@ -8,6 +8,25 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-10-24 — ATG-insamlingens tabeller för Big 9 (körd 2026-10-24T12:14:54Z)
+
+**Bakgrund.** Beslut driften-2026-10-24-big9-atg (val 0): samla in Big 9 från ATG
+och lägg Big 9 som produkt på facitsidan. Två nya append-only-tabeller
+(`atg_offering_capture`, `atg_round_observation`, fyra triggrar) och nyckeln
+`facit_start_big9` i `spelai_state`. Inga befintliga tabeller rörs.
+
+**Skript:** `backend/scripts/migrera_atg.py` (idempotent, prövat två gånger på en
+temporär databas). **Backup** (backup-API):
+`backend/data/backups/stryktips-2026-10-24-fore-atg.db`. **Utfall:** tabellerna
+skapade, 4 triggrar, `facit_start_big9` = 2026-10-24T12:14:54Z. Skyddade antal
+oförändrade (snapshots 424 523, sharp_snapshots 118 367, draws 371,
+pool_draw_settlement 8 534, pool_event_settlement 78 797, pool_system_ledger
+5 274, spelai_input 124, spelai_pool_proposal 402). `PRAGMA integrity_check`:
+**ok**. Första hämtningen 12:15:12Z (`cli.py atg`): 104 omgångar (BIG9 101
+FINALIZED och 2 CANCELED, SP96 1 SELL_OPEN), 104 observationer.
+
+---
+
 ## 2026-10-04 — Oddsets PSG-par (körd 2026-10-04T08:32:12Z)
 
 **Bakgrund.** Svenska Spel skriver `PSG` och Pinnacle `Paris Saint-Germain`.
