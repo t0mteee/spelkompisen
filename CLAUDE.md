@@ -137,10 +137,12 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       `atg_round_observation` (SELL_OPEN varje hämtning = presence),
                       egen kadens först i pool-tick (6 h; T−7 h var 30:e min; varje tick
                       i horisontfönstren), tabeller BARA via scripts/migrera_atg.py.
-                      `MEASURED` = bara big9; SP96 samlas in men mäts inte förrän Saman
-                      sagt att det räknas som Big 9 (beslut driften-2026-10-24-big9-atg)
-  app/big9_builder.py Big 9-byggaren (värderader medel, sex celler 1X2×Ö/U, Wild Card,
-                      7–9 rätt, golv 15 kr) — standarden på facitsidan
+                      `MEASURED` = bara sp96: SP96 ("Premiär!") ÄR Big 9 sedan
+                      2026-10-24 (beslut 2026-10-24-sp96-ar-big9, val 0); gamla BIG9
+                      samlas in om den dyker upp igen men mäts inte
+  app/big9_builder.py Big 9-byggaren (värderader medel, sex celler 1X2×Ö/U; BIG9 med Wild
+                      Card och 7–9 rätt, SP96 utan Wild Card och 6–9 rätt; minsta
+                      utdelning ur posten) — standarden på facitsidan
   app/betsson.py      Publik Betsson-bootstrap (ej inkopplad; events-table CloudFront-
                       blockerad utanför browser; KRÄVER brotli, se transportregeln)
   app/analysis.py     fair_prob (power-metod), värde, taggar, speltyp, mover-flagga
@@ -222,8 +224,10 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       En gång i timmen hämtas Flashscore-resultat för ALLA matcher med
                       livepriser (`hamta_resultat_alla`, bara `oddset_results`)
                       `big9.py` (2026-10-24): Big 9 från ATG som produkt, nivå 256 kr
-                      (512 rader à 0,50 kr, nio tokens `1O`…`2U`/`W`), rättad mot ATG:s
-                      publicerade potter; räknas separat (`per_niva_atg`). facit § 19
+                      (512 rader à 0,50 kr, nio tokens `1O`…`2U`, `W` bara i gamla
+                      BIG9), mäter SP96 (`big9-varderader-v1-sp96-b256-medel`, åter-
+                      betalningsandel ur potterna), rättad mot ATG:s publicerade
+                      potter; räknas separat (`per_niva_atg`). facit § 19
   app/live_radar.py   shadow-radar för pågående matcher: Flashscore ankare, FotMob sekundär,
                       Sofascore URKOPPLAD ur radarn (kvar för resultat/frånvaro)
   app/live_signal_ledger.py append-only-journal över första Följer/Stark per match,

@@ -893,3 +893,40 @@ Ingen BIG9-omgång har varit öppen sedan 2026-10-17. Fortsätter ATG bara med S
 fryser facitsidan inga Big 9-förslag förrän Saman avgör att SP96 räknas som Big 9.
 Då behövs bara `atg.MEASURED` plus SP96:s vinstregler (9 rätt utan vinnare går
 till 8 rätt) i rättningen, och insamlingen har redan dess data.
+
+### 19.1 SP96 är Big 9 (2026-10-24)
+
+Beslut 2026-10-24-sp96-ar-big9 (Koordinatorn, Samans val 0): SP96 ("Premiär!")
+är nya Big 9 och mäts på facitsidan — 256 kr först, standard = byggaren för SP96,
+samma budget, strategi medel, frysning 6 h och 30 min före spelstopp. Gamla BIG9
+samlas in om den dyker upp igen men mäts inte (inga nivåer, inga missar).
+
+* `atg.MEASURED = ("sp96",)`. Facitsidan visar SP96 som **Big 9** och BIG9 som
+  "Gamla Big 9 (BIG9)".
+* **Format:** nio celler `1O`…`2U` med mellanslag, **inget Wild Card** — `W` är
+  en ogiltig token i SP96 (`nivaer.atg_symboler`). Paketets `rader.tokens` och
+  facitsidans andelar har bara de sex cellerna. Radpris 0,50 kr (`unitStake` 50
+  öre), högst 512 rader. Radpriset är härlett ur svaret; ATG:s regelsida gick inte
+  att läsa ur publika sidor 2026-10-24.
+* **Standarden** har en egen nyckel, `big9-varderader-v1-sp96-b256-medel`
+  (BIG9:s `big9-varderader-v1-b256-medel` står kvar för historiken). Byggaren är
+  densamma (`big9-varderader-v1`) med `wildcard=False` och vinstgrupperna
+  6/7/8/9 = 35/15/15/35 %. **Återbetalningsandelen** läses ur omgångens
+  publicerade potter för de lägre grupperna (`big9.payout_ratio`): pott /
+  (omsättning × andel), när grupperna är eniga inom 0,5 procentenheter och andelen
+  inte överstiger 1 − uttag; annars 1 − uttag. Omgång 517 gav 72,75 % (= 75 % ×
+  0,97) i stället för uttagets 75 %; BIG9 ger 65 % = uttaget. Andelen och källan
+  står i paketets `omgang.aterbetalning` och i standardens not. Jackpoten är som
+  förut toppottens överskott över vinstplanen. Minsta utdelning läses ur posten
+  (10 kr i SP96). Paketschemat heter `spelai-indata-big9-v2` (fältet
+  `aterbetalning` tillkom; inga v1-paket finns).
+* **Rättningen** är oförändrad (`spelai-big9-v1`): varje vinstgrupps publicerade
+  pott delad med (publicerade vinnande enheter + våra), nedåt till hela kronor, 0
+  under minimiutdelningen; 6 rätt ingår. **Öppen punkt:** regeln är ommätt mot 101
+  BIG9-omgångar men inte mot SP96. Om SP96 flyttar en tom grupps pott till en
+  annan grupp (anteckningen ovan om 9 → 8 rätt är inte belagd) syns det som
+  skillnad mellan `payout_kr` och `published_payout_kr` vid den första rättningen
+  och ska då utredas.
+* **Missat:** fönster som öppnade efter `facit_start_big9` (2026-10-24T12:14:54Z).
+  Omgång 517:s 6h-fönster öppnade 08:00Z och räknas inte; dess 30m-fönster
+  (13:25–13:30Z) var det första som kunde frysas.

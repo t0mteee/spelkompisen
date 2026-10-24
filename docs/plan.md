@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-10-24 — Big 9 från ATG på facitsidan; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-10-24 — Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
@@ -14,11 +14,17 @@ Projektets aktuella kontrakt står här; historiska statusblock finns i
   Wild Card, 7–9 rätt, 512 rader à 0,50 kr); `app/spelai/big9.py` fryser 6h/30m
   ur samma fönster som poolspelen och rättar mot ATG:s publicerade potter (regeln
   återger alla 101 avgjorda omgångars belopp exakt). Big 9 räknas separat
-  (`per_niva_atg`). SP96 samlas in men mäts inte. **OBS:** ATG:s egen nyhet säger
-  att "Nya Big 9" (= SP96: utan Wild Card, 6–9 rätt, 75 %) har premiär i dag och
-  ersätter Big 9. Ingen BIG9-omgång har varit öppen sedan 2026-10-17, så facitsidan
-  får inga Big 9-förslag förrän Saman avgör om SP96 räknas som Big 9.
-  `docs/spelai-facit.md` § 19.
+  (`per_niva_atg`). `docs/spelai-facit.md` § 19.
+- **SP96 mäts som Big 9** (beslut 2026-10-24-sp96-ar-big9, val 0): `atg.MEASURED`
+  = `("sp96",)`; gamla BIG9 samlas in om den dyker upp igen men mäts inte. Standard
+  `big9-varderader-v1-sp96-b256-medel` = samma byggare utan Wild Card, 6–9 rätt
+  (35/15/15/35 %), 512 rader à 0,50 kr, strategi medel, frysning 6h/30m.
+  Återbetalningsandelen läses ur omgångens publicerade potter (omgång 517: 72,75 %,
+  inte uttagets 75 %), annars 1 − uttag; paketschema `spelai-indata-big9-v2`.
+  `W` är ogiltigt i SP96. Rättningen oförändrad; att den stämmer för SP96 prövas
+  vid första rättningen (`payout_kr` mot `published_payout_kr`). Omgång 517:s
+  6h-fönster öppnade före `facit_start_big9` och räknas inte. `docs/spelai-facit.md`
+  § 19.1.
 - **Tidskänsligt CDN-Age-test rättat** (beslut 2026-10-23-tester-roda-cdn-age, val 0):
   `test_book_cdn_age_backdates_confirmation` fällde nattkörningen 2026-10-23. Orsaken var
   den UNDRE gränsen: `report["at"]` sätts när `collect()` startar, så avdraget är 120 s
