@@ -431,6 +431,25 @@ class InsamlingTests(Base):
         self.assertTrue(all(f["level"] == "error" for f in findings))
         self.assertIn("120 min", next(f for f in findings if f["key"] == "pool")["message"])
 
+    def test_atg_varnar_forst_efter_13_h_och_bara_med_tabellen(self):
+        from app import atg
+        self.db("2026-09-25T23:30:00Z", "2026-09-25T23:40:00Z")
+        self.assertEqual([], vakt.check_insamling(self.ctx()))   # tabellen saknas
+        store = Storage(self.data / "stryktips.db")
+        try:
+            atg.apply_schema(store.conn)
+            self.assertEqual(["atg"], [f["key"] for f in vakt.check_insamling(self.ctx())])
+            for at, ok in (("2026-09-25T12:00:00Z", 1), ("2026-09-25T23:00:00Z", 0)):
+                store.conn.execute("INSERT INTO atg_offering_capture (fetched_at, ok) "
+                                   "VALUES (?, ?)", (at, ok))
+            store.conn.commit()
+        finally:
+            store.close()
+        self.assertEqual([], vakt.check_insamling(self.ctx()))   # 12 h sedan lyckad
+        findings = vakt.check_insamling(self.ctx(now=t("2026-09-26T01:30:00Z")))
+        self.assertEqual([("atg", "warning")], [(f["key"], f["level"]) for f in findings
+                                                 if f["key"] == "atg"])
+
     def test_utan_oppen_omgang_larmar_inte_poolen(self):
         self.db("2026-09-25T22:00:00Z", "2026-09-25T23:50:00Z", close="2026-09-25T12:00:00Z")
         self.assertEqual([], vakt.check_insamling(self.ctx()))
