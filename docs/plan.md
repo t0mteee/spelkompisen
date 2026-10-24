@@ -6,6 +6,14 @@ Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
 `docs/overlamningar/overlamning-2026-10-13-agentbeslut.md`.
 
+**Nytt 2026-10-24:**
+- **Tidskänsligt CDN-Age-test rättat** (beslut 2026-10-23-tester-roda-cdn-age, val 0):
+  `test_book_cdn_age_backdates_confirmation` fällde nattkörningen 2026-10-23. Orsaken var
+  den UNDRE gränsen: `report["at"]` sätts när `collect()` startar, så avdraget är 120 s
+  minus tiden fram till bokanropet, och gränsen 119 s föll så fort det tog över en sekund
+  (uppspelat med fördröjning: 114 s). Gränserna är nu `120 − elapsed − 1 ≤ avdrag ≤ 121`
+  med `elapsed < 60 s`. Bara testet ändrat; insamlingen orörd.
+
 **Nytt 2026-10-21:**
 - **Livekassans resultatalias för spel 80** (beslut livekassa-alias-sabah-dortmund-2026-10-20,
   val 0): `RESULTAT_ALIAS` översätter Sabah FK → Sabah Baku och Borussia Dortmund →
