@@ -2,11 +2,15 @@
 
 Beslut driften-2026-10-24-big9-atg (val 0): standarden för Big 9 är byggaren
 på samma budget, strategi medel, och hanterar Ö/U, Wild Card och 7–9 rätt.
+Beslut 2026-10-24-sp96-ar-big9 (val 0): samma byggare är standarden för SP96
+(nya Big 9) — `Big9Round.wildcard=False` (inget Wild Card, bara cellerna) och
+vinstgrupperna 6–9 rätt ur `splits`; byggaren är oförändrad.
 
 En Big 9-rad har per match EN cell av sex — 1X2 × Över/Under 2,5 — skriven
 som två tecken (`1O`, `1U`, `XO`, `XU`, `2O`, `2U`), och i BIG9 exakt ett
 Wild Card (`W`): matchen räknas som rätt oavsett utfall. Raden skrivs som nio
-tokens med mellanslag, t.ex. `1O XU W 2O 1U 1O XO 2U 1O`.
+tokens med mellanslag, t.ex. `1O XU W 2O 1U 1O XO 2U 1O`. SP96 saknar Wild
+Card: `1O XU 2U 2O 1U 1O XO 2U 1O`.
 
 Metoden är `builder.build_ev_system`s (värderader), överförd till sex celler:
 * Sannolikhet per cell (`p`): ATG:s 1X2- och Ö/U-odds devigas var för sig med
@@ -17,14 +21,15 @@ Metoden är `builder.build_ev_system`s (värderader), överförd till sex celler
 * Folket (`q`): `betDistribution`, sex celler i procent, golv 0,001 (streck-
   golvet). Wild Card-andelen per match ger fältets träffchans
   w + (1 − w) · q(cell).
-* Vinstpotter: omsättning × (1 − uttag) × vinstgrupp-andel; rullad jackpot
+* Vinstpotter: omsättning × återbetalningsandel × vinstgrupp-andel (andelen
+  läses ur ATG:s publicerade potter, annars 1 − uttag); rullad jackpot
   på toppgruppen. EV per rad = Σ P(k rätt) · pott_k / (fält · Q(k rätt) + 1)
   med Poisson-binomial för både oss och fältet, κ = 1 (ingen mätning finns),
   och 0 kr under minimiutdelningen (15 kr).
 * Strategi medel: värdevikt 0,5 ⇒ score = P(rad)^1 · EV(rad).
 * Kandidater: per match de bästa cellerna på p²/q (medel), de öppnaste
-  matcherna utökas tills universumet når `UNIVERSE_CAP`; Wild Card prövas på
-  varje match. Grovrankning på toppgruppen, full EV för de bästa
+  matcherna utökas tills universumet når `UNIVERSE_CAP`; Wild Card (där spelet
+  har det) prövas på varje match. Grovrankning på toppgruppen, full EV för de bästa
   `REFINE_CAP` (minst 2 × budgetens rader), därefter de bästa på score.
 SvS-byggarens X-skydd (`pool-draw-risk-v1`) gäller inte: det kräver Pinnacles
 total och är kalibrerat för 1X2-pooler.
@@ -66,7 +71,7 @@ class Big9Round:
     matches: list
     turnover: float              # värderingsomsättning (kr)
     row_price: float
-    payout_ratio: float          # 1 − uttag
+    payout_ratio: float          # återbetalningsandel (annars 1 − uttag)
     splits: dict                 # vinstgrupp → andel
     jackpot: float = 0.0         # rullad jackpot på toppgruppen (kr)
     min_dividend: float = 15.0   # kr per rad

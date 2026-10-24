@@ -1,6 +1,8 @@
 """Big 9 (ATG) på facitsidan: indatapaket, standard, rättning och missat.
 
-Beslut driften-2026-10-24-big9-atg (val 0). Samma flöde som Svenska Spels
+Beslut driften-2026-10-24-big9-atg (val 0). Sedan beslut 2026-10-24-sp96-ar-big9
+(val 0) är det SP96 (nya Big 9: utan Wild Card, 6–9 rätt, uttag 25 %) som mäts;
+gamla BIG9 samlas bara in (`atg.MEASURED`). Samma flöde som Svenska Spels
 poolspel (indata → frysning → rättning), men med ATG:s omgång som underlag:
 
 * Paketet sparas i `spelai_input` när ATG-insamlingen (`app/atg.py`) läser en
@@ -9,8 +11,10 @@ poolspel (indata → frysning → rättning), men med ATG:s omgång som underlag
   ATG:s `serialNumber`, `reg_close_time` = `startTime`. Ospelade matchers
   platshållarresultat (`result`/`score`/`liveData`) tas bort ur paketet.
 * Nivå: 256 kr = 512 rader à 0,50 kr. Format `rows`, nio tokens per rad
-  (`nivaer.ATG_TOKENS`), i BIG9 exakt ett Wild Card per rad.
-* Standard: `big9_builder.build_rows`, strategi medel, budgeten = nivån.
+  (`nivaer.atg_symboler`): i SP96 bara cellerna, i BIG9 exakt ett Wild Card.
+* Standard: `big9_builder.build_rows`, strategi medel, budgeten = nivån, en
+  `config_key` per spelform (`STANDARD_KEYS`). Återbetalningsandelen läses ur
+  omgångens publicerade potter (`payout_ratio`), annars 1 − uttag.
 * Rättning: ATG:s FINALIZED-post. En match räknas bara med `status DECIDED`;
   struken match (`CANCELED`/`canceledAt`) är rätt för alla; Wild Card är rätt.
   Utdelning per egen vinnande rad = potten / (publicerade vinnande enheter +
@@ -32,9 +36,14 @@ from .. import atg, big9_builder
 from . import indata, nivaer, schema, tillstand
 from .tillstand import iso, utc
 
-SCHEMA_VERSION = "spelai-indata-big9-v1"
+SCHEMA_VERSION = "spelai-indata-big9-v2"
 SETTLEMENT_VERSION = "spelai-big9-v1"
-STANDARD_KEYS = {256: "big9-varderader-v1-b256-medel"}
+# En nyckel per spelform: SP96 och BIG9 har olika regler och mäts aldrig ihop.
+STANDARD_KEYS = {"big9": {256: "big9-varderader-v1-b256-medel"},
+                 "sp96": {256: "big9-varderader-v1-sp96-b256-medel"}}
+# Potterna för de lägre vinstgrupperna får skilja högst så mycket i
+# återbetalningsandel för att andelen ska läsas ur potterna.
+RATIO_TOLERANCE = 0.005
 START_KEY = "facit_start_big9"
 TURNOVER_N = 8
 CANCELLED_NOTE = "omgången ställdes in (ATG CANCELED)"
@@ -44,6 +53,36 @@ _STRIP_MATCH = ("result", "score", "liveData")
 
 def galler(product: str) -> bool:
     return product in atg.MEASURED
+
+
+def standard_key(product: str, level) -> Optional[str]:
+    return STANDARD_KEYS.get(product, {}).get(int(level))
+
+
+def payout_ratio(record: dict, product: str) -> tuple[float, str]:
+    """Återbetalningsandel (andel av omsättningen) för vinstpotterna.
+
+    Ur omgångens publicerade potter för de LÄGRE vinstgrupperna (toppgruppen
+    bär jackpoten): pott / (omsättning × andel), när alla grupper ger samma
+    andel inom `RATIO_TOLERANCE` och den inte överstiger 1 − uttag. Annars
+    1 − uttag. SP96 omgång 517: 72,75 % mot uttagets 75 %; BIG9: 65 % = uttaget."""
+    cfg = atg.PRODUCTS[product]
+    nominal = 1.0 - float(record.get("takeoutPercentage") or 0) / 100.0
+    pool = record.get("pool") or {}
+    turnover = float(pool.get("turnover") or 0)
+    payouts = pool.get("payouts") or {}
+    top = max(cfg["splits"])
+    estimates = []
+    for k, share in cfg["splits"].items():
+        pot = (payouts.get(str(k)) or {}).get("pot")
+        if k == top or not isinstance(pot, (int, float)) or pot <= 0:
+            continue
+        if turnover > 0:
+            estimates.append(pot / (turnover * share))
+    if (estimates and max(estimates) - min(estimates) <= RATIO_TOLERANCE
+            and statistics.fmean(estimates) <= nominal + RATIO_TOLERANCE):
+        return min(statistics.fmean(estimates), nominal), "atg_potter"
+    return nominal, "uttag"
 
 
 # ── indatapaketet ────────────────────────────────────────────────────────
@@ -85,7 +124,7 @@ def build_payload(conn, product: str, obs: dict, horizon: str,
     close = obs["start"]
     pool = record.get("pool") or {}
     live = float(pool.get("turnover") or 0) / 100.0
-    ratio = 1.0 - float(record.get("takeoutPercentage") or 0) / 100.0
+    ratio, ratio_source = payout_ratio(record, product)
     payouts = pool.get("payouts") or {}
     top = max(cfg["splits"])
     top_pot = (payouts.get(str(top)) or {}).get("pot")
@@ -109,14 +148,18 @@ def build_payload(conn, product: str, obs: dict, horizon: str,
         "nivaer": list(nivaer.nivaer_for(product)),
         "n_matches": len(matches),
         "events_order": [m["event_number"] for m in matches],
-        "rader": {"radpris_kr": cfg["row_price"], "tokens": list(nivaer.ATG_TOKENS),
+        "rader": {"radpris_kr": cfg["row_price"],
+                  "tokens": list(nivaer.atg_symboler(product)),
                   "wildcard": cfg["wildcard"],
-                  "format": "nio tokens med mellanslag i matchordning; cell = "
-                            "1X2 + O/U (över/under 2,5), W = Wild Card"},
+                  "format": ("nio tokens med mellanslag i matchordning; cell = "
+                             "1X2 + O/U (över/under 2,5)"
+                             + (", W = Wild Card (exakt ett per rad)"
+                                if cfg["wildcard"] else "; inget Wild Card"))},
         "omgang": {
             "id": record.get("id"), "game_type": record.get("gameType"),
             "namn": record.get("name"), "status": record.get("status"),
             "uttag_procent": record.get("takeoutPercentage"),
+            "aterbetalning": {"andel": ratio, "kalla": ratio_source},
             "ou_grans": record.get("overUnderLimit"),
             "vinstgrupper": {str(k): v for k, v in cfg["splits"].items()},
             "pool": {"omsattning_kr": live,
@@ -199,11 +242,16 @@ def round_from_payload(payload: dict) -> big9_builder.Big9Round:
     pool = omgang.get("pool") or {}
     turnover = payload.get("turnover") or {}
     notes.append(f"omsättning {turnover.get('used', 0):.0f} kr ({turnover.get('basis')})")
+    ratio = (omgang.get("aterbetalning") or {}).get("andel")
+    if not isinstance(ratio, (int, float)) or ratio <= 0:
+        ratio = 1.0 - float(omgang.get("uttag_procent") or 0) / 100.0
+    notes.append(f"återbetalning {ratio:.2%} "
+                 f"({(omgang.get('aterbetalning') or {}).get('kalla', 'uttag')})")
     return big9_builder.Big9Round(
         product=product, matches=matches,
         turnover=float(turnover.get("used") or pool.get("omsattning_kr") or 0.0),
         row_price=cfg["row_price"],
-        payout_ratio=1.0 - float(omgang.get("uttag_procent") or 0) / 100.0,
+        payout_ratio=float(ratio),
         splits=dict(cfg["splits"]),
         jackpot=float((payload.get("jackpot") or {}).get("value") or 0.0),
         min_dividend=float(pool.get("minsta_utdelning_kr") or 0.0),
@@ -216,7 +264,7 @@ def build_standard(payload: dict, level: int, rnd=None) -> dict:
     out = nivaer.validera(payload["product"], level,
                           {"format": "rows", "rows": system.rows},
                           n_matches=len(rnd.matches))
-    out["config_key"] = STANDARD_KEYS[int(level)]
+    out["config_key"] = standard_key(payload["product"], level)
     out["note"] = system.note
     return out
 

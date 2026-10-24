@@ -87,8 +87,10 @@ def _rader(row: dict) -> list[str]:
 
 
 def _symboler(product: Optional[str]) -> tuple[str, ...]:
-    """Tecknen per match: 1/X/2 för Svenska Spel, cellerna + W för Big 9 (ATG)."""
-    return nivaer.ATG_TOKENS if product and nivaer.ar_atg(product) else nivaer.SIGNS
+    """Tecknen per match: 1/X/2 för Svenska Spel, cellerna (+ W där spelet har
+    Wild Card) för Big 9 (ATG)."""
+    return (nivaer.atg_symboler(product) if product and nivaer.ar_atg(product)
+            else nivaer.SIGNS)
 
 
 def _andelar(row: dict, rows: list[str], n_matches: int) -> list[dict]:
@@ -100,7 +102,7 @@ def _andelar(row: dict, rows: list[str], n_matches: int) -> list[dict]:
         tecken = json.loads(row["msystem_json"])
         return [{s: (1.0 / len(t) if s in t else 0.0) for s in symboler}
                 for t in tecken]
-    atg_rad = symboler is nivaer.ATG_TOKENS
+    atg_rad = bool(row.get("product")) and nivaer.ar_atg(row["product"])
     counts = [{s: 0 for s in symboler} for _ in range(n_matches)]
     for text in rows:
         tokens = nivaer.atg_tokens(text) if atg_rad else text

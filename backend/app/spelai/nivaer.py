@@ -7,7 +7,9 @@ Radpriset är 1 kr för alla produkter, så nivån i kronor = högsta radantal.
 Big 9 (ATG, beslut driften-2026-10-24-big9-atg): bara 256 kr, radpris 0,50 kr
 (512 rader). En rad är nio tokens med mellanslag — cell `1O`/`1U`/`XO`/`XU`/
 `2O`/`2U` (1X2 + över/under 2,5) eller `W` (Wild Card) — och i BIG9 exakt ett
-`W` per rad. SP96 samlas in men mäts inte (`atg.MEASURED`).
+`W` per rad. Sedan 2026-10-24 (beslut 2026-10-24-sp96-ar-big9) mäts bara SP96
+(nya Big 9, utan Wild Card: `W` är ogiltigt); gamla BIG9 har inga nivåer
+(`atg.MEASURED`).
 
 Två format:
 * `rows`    — lista av strängar, ett tecken (1/X/2) per match i omgångens
@@ -66,6 +68,11 @@ def nivaer_for(product: str) -> tuple[int, ...]:
     if product in TOPPTIPSET_FAMILJ:
         return (NIVA_ALLA,)
     return ()
+
+
+def atg_symboler(product: str) -> tuple[str, ...]:
+    """Tillåtna tokens per match: cellerna, plus `W` där spelet har Wild Card."""
+    return ATG_TOKENS if atg.PRODUCTS[product]["wildcard"] else ATG_CELLS
 
 
 def produkter() -> tuple[str, ...]:
@@ -186,7 +193,7 @@ def _validera_atg(product: str, level: int, forslag: dict, n_matches: int,
     """Big 9-rader: nio tokens, högst nivån / 0,50 kr rader, inga dubbletter."""
     price = radpris(product)
     wildcard = bool(atg.PRODUCTS[product]["wildcard"])
-    tokens_ok = ATG_TOKENS if wildcard else ATG_CELLS
+    tokens_ok = atg_symboler(product)
     rows = forslag.get("rows")
     if not isinstance(rows, list) or not rows:
         raise Ogiltigt("rows måste vara en icke-tom lista")

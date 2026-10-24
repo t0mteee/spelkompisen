@@ -264,7 +264,7 @@ def process_inputs(conn, runner, *, clock: Clock, code_version: str = "dev") -> 
                 except Exception as exc:  # noqa: BLE001 — en nivå får inte stoppa resten
                     rad = Rad("saknas", f"standarden kunde inte byggas: "
                                         f"{type(exc).__name__}: {exc}"[:500],
-                              config_key=(big9.STANDARD_KEYS.get(level) if atg_spel
+                              config_key=(big9.standard_key(product, level) if atg_spel
                                           else STANDARD_CONFIGS.get(level)))
             _insert(conn, payload, level, horizon, "standard", rad,
                     frozen_at=clock(), input_row=payload, code_version=code_version)

@@ -1,8 +1,9 @@
 """ATG:s sportpoolspel: Big 9 (BIG9) och Nya Big 9 (SP96), insamling.
 
 Beslut driften-2026-10-24-big9-atg (val 0): samla in Big 9 från ATG och lägg
-Big 9 som produkt på facitsidan. SP96 samlas in samtidigt men MÄTS INTE
-förrän Saman sagt att det räknas som Big 9 (`MEASURED`).
+Big 9 som produkt på facitsidan. Beslut 2026-10-24-sp96-ar-big9 (val 0): SP96
+("Premiär!" 2026-10-24) ÄR nya Big 9 och är den som mäts (`MEASURED`); gamla
+BIG9 samlas in om den dyker upp igen men mäts inte.
 
 Källan (källgränsen: publikt JSON-API utan inloggning, cookies eller utmaning):
 `GET https://www.atg.se/services/sports-info-offering/api/v1/offering` — EN
@@ -32,7 +33,12 @@ Regler ur ATG:s publika regler och svaret (ommätt mot 101 avgjorda BIG9-omgång
 * Utdelning per enhet = potten / vinnande enheter, avrundat NEDÅT till hela
   kronor; under `minUnitDividend` (15 kr) betalas 0 och potten rullar.
 * SP96 = "Nya Big 9" (ATG:s nyhet 2026-10-24): Wild Card borttaget, 6–9 rätt
-  35/15/15/35 % av 75 %. Struken/uppskjuten match rättas som rätt för alla.
+  35/15/15/35 %, `takeoutPercentage` 25, radpris 0,50 kr (`unitStake` 50),
+  minsta utdelning 10 kr (`minUnitDividend` 1000). Första observationen (omgång
+  517) hade potterna för 6–8 rätt = 72,75 % (75 % × 0,97) av omsättningen ×
+  andelen, så byggaren läser återbetalningsandelen ur potterna
+  (`spelai.big9.payout_ratio`), inte ur uttaget. Struken/uppskjuten match
+  rättas som rätt för alla.
 * `result`/`score` finns även på ospelade matcher (platshållare 0–0 "tie/
   under"): bara `status == DECIDED` är ett resultat.
 """
@@ -54,17 +60,17 @@ TIMEOUT_S = 30.0
 # Produkt (Spelkompisens slug) → ATG:s spelform. `wildcard` = en rad bär ett
 # Wild Card; `splits` = vinstgrupp → andel av återbetalningen (1 − uttag).
 PRODUCTS = {
-    "big9": {"game_type": "BIG9", "name": "Big 9", "matches": 9,
+    "big9": {"game_type": "BIG9", "name": "Gamla Big 9 (BIG9)", "matches": 9,
              "row_price": 0.5, "wildcard": True,
              "splits": {7: 0.40, 8: 0.20, 9: 0.40}},
-    "sp96": {"game_type": "SP96", "name": "Nya Big 9 (SP96)", "matches": 9,
+    "sp96": {"game_type": "SP96", "name": "Big 9", "matches": 9,
              "row_price": 0.5, "wildcard": False,
              "splits": {6: 0.35, 7: 0.15, 8: 0.15, 9: 0.35}},
 }
 GAME_TYPES = {cfg["game_type"]: slug for slug, cfg in PRODUCTS.items()}
-# Mäts på facitsidan. SP96 läggs till först när Saman sagt att det räknas
-# som Big 9 (beslutets alternativ 0).
-MEASURED = ("big9",)
+# Mäts på facitsidan. SP96 är Big 9 sedan 2026-10-24 (beslut
+# 2026-10-24-sp96-ar-big9, val 0); gamla BIG9 samlas bara in.
+MEASURED = ("sp96",)
 
 OPEN = "SELL_OPEN"
 DONE_STATES = ("FINALIZED", "CANCELED")
