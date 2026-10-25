@@ -675,6 +675,20 @@ dortmund` → `dortmund` och `sabah` → `sabah baku` (`norm_team` tar bort klub
 så "Sabah FK" slås upp som `sabah`; `sabah fk` står med för fullständighet). Samma regel
 som förut: aliaset prövas bara när de råa namnen inte gav något resultat.
 
+**Matcher över svensk midnatt (2026-10-25, beslut
+livekassa-saknat-resultat-nyrb-miami-2026-10-25, val 0).** Spel 111 (New York Red
+Bulls–Inter Miami CF, MLS, avspark 2026-10-24 21:30Z enligt Flashscore) låg orättat
+trots att färdigraden fanns (2–0, stadium 3). Det var varken alias eller fönster: matchen
+korsade svensk midnatt och Flashscore listade den i BÅDE dagsfeed −1 och 0 med samma id
+(`ClLZAU5M`). `refresh_recent_results` lade båda kopiorna i kandidatlistan, och
+entydighetskravet (`_finished_signal`/`_one_side_finished`: exakt en träff) avvisade
+matchen. Nu slår `flashscore_data._unique_finished` ihop kopior med samma id OCH samma
+liga, lag, avspark, stadium och ställning till en observation; skiljer de sig behålls
+båda och matchen avvisas som förut. Gäller samma väg för radarns signaljournal (facit,
+inte signal). Iakttagelse, ej ändrad: xG-kompletteringen (`refresh_xg`) och
+frånvaroläsningen (`refresh_absences`) läser också flera dagsfeeder utan att slå ihop
+kopior, så en midnattsmatch kan bli tvetydig även där.
+
 **Resultat för alla livematcher (2026-10-15, beslut
 forskaren-2026-10-15-resultat-alla-livematcher, val 0).** Hämtningen ovan gäller
 bara matcher med öppna spel, så i ligor utan football-data fanns resultat nästan

@@ -1,10 +1,20 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-10-24 — Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-10-25 — livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
 `docs/overlamningar/overlamning-2026-10-13-agentbeslut.md`.
+
+**Nytt 2026-10-25:**
+- **Flashscore-resultat för matcher över svensk midnatt** (beslut
+  livekassa-saknat-resultat-nyrb-miami-2026-10-25, val 0): spel 111 (New York Red
+  Bulls–Inter Miami CF) rättades inte eftersom matchen låg i både dagsfeed −1 och 0
+  med samma id, och två kopior bröt entydighetskravet i `refresh_recent_results`.
+  `flashscore_data._unique_finished` slår ihop identiska kopior (samma id, lag,
+  avspark, stadium, ställning); motstridiga kopior avvisas som förut. Gäller
+  livekassan och radarns signaljournal (facit). xG-/frånvarovägarna orörda
+  (iakttagelse). `docs/spelai-facit.md` § 16.
 
 **Nytt 2026-10-24:**
 - **Big 9 från ATG på facitsidan** (beslut driften-2026-10-24-big9-atg, val 0).

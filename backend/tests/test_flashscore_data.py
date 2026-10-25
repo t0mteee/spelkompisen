@@ -196,6 +196,45 @@ class RefreshLiveResultTests(unittest.TestCase):
         other_league = dict(row, league="league_one")
         self.assertEqual(0, self._run_ensidig([signal], [other_league])["matched"])
 
+    def _run_alla_dagar(self, signals, rows_per_offset, ensidig=True):
+        def day(_self, offset, status):
+            return (rows_per_offset.get(offset, []), NOW)
+
+        with patch.object(flashscore.Flashscore, "day", day):
+            return flashscore_data.refresh_recent_results(
+                self.store, signals, now=NOW, force=True, ensidig=ensidig)
+
+    def test_match_over_svensk_midnatt_i_tva_dagsfeeder_ar_en_kandidat(self):
+        # Spel 111: New York Red Bulls–Inter Miami 2026-10-24 21:30Z låg i både
+        # offset −1 och 0 med samma Flashscore-id och blev aldrig rättad.
+        signal = self._signal(provider=None, provider_event_id=None, league="mls",
+                              home="New York Red Bulls", away="Inter Miami CF")
+        row = self._finished(flashscore_id="ClLZAU5M", league="mls",
+                             home="New York Red Bulls", away="Inter Miami",
+                             home_score=2, away_score=0)
+        for ensidig in (False, True):
+            with self.subTest(ensidig=ensidig):
+                report = self._run_alla_dagar([signal], {-1: [row], 0: [dict(row)]},
+                                              ensidig=ensidig)
+                self.assertEqual(1, report["saved"])
+        saved = self.store.oddset_results("mls")
+        self.assertEqual([(2, 0)], [(r["hg"], r["ag"]) for r in saved])
+
+    def test_motstridiga_kopior_av_samma_id_avvisas(self):
+        signal = self._signal(provider=None, provider_event_id=None, league="mls",
+                              home="New York Red Bulls", away="Inter Miami CF")
+        row = self._finished(flashscore_id="ClLZAU5M", league="mls",
+                             home="New York Red Bulls", away="Inter Miami",
+                             home_score=2, away_score=0)
+        report = self._run_alla_dagar(
+            [signal], {-1: [row], 0: [dict(row, home_score=1)]})
+        self.assertEqual(0, report["matched"])
+        self.assertEqual([], self.store.oddset_results("mls"))
+
+    def test_olika_matcher_med_samma_lag_slas_inte_ihop(self):
+        rows = [self._finished(flashscore_id="a"), self._finished(flashscore_id="b")]
+        self.assertEqual(2, len(flashscore_data._unique_finished(rows)))
+
     def test_recent_filter_ignores_still_live_and_old_signals(self):
         signals = [
             self._signal(match_key="live", start_at=(

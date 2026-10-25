@@ -263,6 +263,29 @@ def _finished_signal(candidates: list[dict], signal: dict) -> Optional[dict]:
     return hits[0] if len(hits) == 1 else None
 
 
+# En match som korsar svensk midnatt listas i BÅDA dagsfeederna (New York Red
+# Bulls–Inter Miami 2026-10-24 21:30Z låg i offset −1 och 0 med samma id), och
+# två kopior av samma rad gjorde entydighetskravet till ett avslag. Kopior med
+# samma id och samma avspark, stadium och ställning är EN observation; skiljer
+# de sig behålls båda, så att motstridiga feeder fortfarande avvisas.
+_FINISHED_IDENTITY = ("league", "home", "away", "start_ts", "stage",
+                      "home_score", "away_score")
+
+
+def _unique_finished(rows: list[dict]) -> list[dict]:
+    seen: dict[str, list[tuple]] = {}
+    out = []
+    for row in rows:
+        fid = row.get("flashscore_id")
+        identity = tuple(row.get(field) for field in _FINISHED_IDENTITY)
+        if fid:
+            if identity in seen.setdefault(str(fid), []):
+                continue
+            seen[str(fid)].append(identity)
+        out.append(row)
+    return out
+
+
 def refresh_recent_results(store: Storage, signals: list[dict], *,
                            now: Optional[dt.datetime] = None,
                            force: bool = False, ensidig: bool = False) -> dict:
@@ -307,6 +330,7 @@ def refresh_recent_results(store: Storage, signals: list[dict], *,
                 except Exception as exc:  # noqa: BLE001 — nästa offset ändå
                     report["errors"].append(
                         f"dag {offset}: {type(exc).__name__}")
+        candidates = _unique_finished(candidates)
         with store.bulk():
             for signal in unique.values():
                 found = _finished_signal(candidates, signal)
