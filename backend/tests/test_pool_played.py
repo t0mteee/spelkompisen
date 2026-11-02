@@ -8,7 +8,7 @@ import unittest.mock
 from pathlib import Path
 from unittest.mock import patch
 
-from app import altenar, kambi, pinnacle, pool_played
+from app import kambi, pinnacle, pool_played
 from app.storage import Storage
 
 
@@ -736,30 +736,13 @@ class LiveOddsForRunningMatchTests(unittest.TestCase):
         state = self._state()
         with patch.object(kambi, "live_events", return_value=[CATALOGUE]), \
              patch.object(kambi, "live_1x2", return_value={}), \
-             patch.object(altenar, "live_events", return_value=[]), \
              patch.object(pinnacle.Pinnacle, "soccer_live_totals",
                           return_value=[]):
             pool_played.attach_live_odds(self.store, [state])
         self.assertIsNone(state["probs"], "prematch får aldrig återanvändas")
         self.assertEqual("live_saknas", state["probs_basis"])
 
-    def test_ninja_reprices_when_kambi_1x2_is_closed(self):
-        state = self._state()
-        ninja = {"id": "77", "home": "AIK", "away": "Örgryte IS",
-                 "start": state["start"], "odds_status": "captured",
-                 "odds": {"1": 9.0, "X": 4.5, "2": 1.3}}
-        with patch.object(kambi, "live_events", return_value=[CATALOGUE]), \
-             patch.object(kambi, "live_1x2", return_value={}), \
-             patch.object(altenar, "live_events", return_value=[ninja]), \
-             patch.object(pinnacle.Pinnacle, "soccer_live_totals",
-                          side_effect=AssertionError("Ninja ska räcka")):
-            pool_played.attach_live_odds(self.store, [state])
-
-        self.assertEqual("live", state["probs_basis"])
-        self.assertEqual("ninja", state["probs_source"])
-        self.assertGreater(state["probs"]["2"], 0.65)
-
-    def test_fresh_pinnacle_is_last_fallback_but_stale_is_rejected(self):
+    def test_fresh_pinnacle_is_fallback_but_stale_is_rejected(self):
         event = {"id": "88", "home": "AIK", "away": "Örgryte IS",
                  "start": self._state()["start"], "matchup_ids": ["881"],
                  "age_s": 400, "odds_status": "captured",
@@ -767,8 +750,7 @@ class LiveOddsForRunningMatchTests(unittest.TestCase):
         for age, expected in ((12, "pinnacle"), (120, None)):
             state = self._state()
             with patch.object(kambi, "live_events", return_value=[]), \
-                 patch.object(altenar, "live_events", return_value=[]), \
-                 patch.object(pinnacle.Pinnacle, "soccer_live_totals",
+                     patch.object(pinnacle.Pinnacle, "soccer_live_totals",
                               return_value=[event]), \
                  patch.object(pinnacle.Pinnacle, "refresh_live_1x2",
                               return_value={"status": "captured", "age_s": age,

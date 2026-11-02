@@ -23,13 +23,13 @@ from .storage import Storage
 
 LEAGUES = [
     {"key": "allsvenskan", "name": "Allsvenskan", "pin_id": 1728,
-     "kambi": "football/sweden/allsvenskan", "altenar": 3537},
+     "kambi": "football/sweden/allsvenskan"},
     {"key": "superettan", "name": "Superettan", "pin_id": 2476,
-     "kambi": "football/sweden/superettan", "altenar": 4825},
+     "kambi": "football/sweden/superettan"},
     {"key": "eliteserien", "name": "Eliteserien", "pin_id": 2333,
-     "kambi": "football/norway/eliteserien", "altenar": 3458},
+     "kambi": "football/norway/eliteserien"},
     {"key": "obosligaen", "name": "OBOS-ligaen", "pin_id": 2331,
-     "kambi": "football/norway/obos-ligaen", "altenar": None},
+     "kambi": "football/norway/obos-ligaen"},
     # Besta deild (2026-07-27, Samans beställning). Recon: Pinnacle 2102
     # ("Iceland - Premier League", 22 matchups), Kambi kör GAMLA namnet
     # urvalsdeild (besta_deildin = 404), Ninja/Altenar saknar ligan.
@@ -40,11 +40,11 @@ LEAGUES = [
     # sharp-ankrad väg; facitgruppen är ny och utforskande (BH-FDR) tills
     # egen volym finns. Smarkets/Matchbook omappade tills slug observerats.
     {"key": "bestadeild", "name": "Besta deild", "pin_id": 2102,
-     "kambi": "football/iceland/urvalsdeild", "altenar": None},
+     "kambi": "football/iceland/urvalsdeild"},
     {"key": "mls", "name": "MLS", "pin_id": 2663,
-     "kambi": "football/usa/mls", "altenar": None},
+     "kambi": "football/usa/mls"},
     {"key": "friendlies", "name": "Träningsmatcher", "pin_id": 1863,
-     "kambi": "football/club_friendly_matches", "altenar": None},
+     "kambi": "football/club_friendly_matches"},
     # Europacuperna (Samans beställning 2026-07-28): CL/EL/Conference INKL.
     # kval. Varje cup är TVÅ ligor hos Pinnacle och TVÅ vägar hos Kambi
     # (huvudturnering + kval) — `pin_ids`/`kambi_paths` listar båda och slås
@@ -57,18 +57,15 @@ LEAGUES = [
     {"key": "champions_league", "name": "Champions League",
      "pin_ids": [2627, 205451],
      "kambi_paths": ["football/champions_league",
-                     "football/champions_league_qualification"],
-     "altenar": None},
+                     "football/champions_league_qualification"]},
     {"key": "europa_league", "name": "Europa League",
      "pin_ids": [2630, 2632],
      "kambi_paths": ["football/europa_league",
-                     "football/europa_league_qualification"],
-     "altenar": None},
+                     "football/europa_league_qualification"]},
     {"key": "conference_league", "name": "Conference League",
      "pin_ids": [214101, 271382],
      "kambi_paths": ["football/conference_league",
-                     "football/conference_league_qualification"],
-     "altenar": None},
+                     "football/conference_league_qualification"]},
     # De fyra stora Europaligorna. FULLT FÖLJDA sedan 2026-08-07 (Samans
     # beslut inför säsongsstarten): sidoböcker, deep-marknader, värdesignaler,
     # CLV och notiser — precis som Allsvenskan.
@@ -84,7 +81,7 @@ LEAGUES = [
     # vore sämre än ingen. xG samlas framåt via flashscore_data och bakfylls
     # aldrig.
     {"key": "premier_league", "name": "Premier League", "pin_id": 1980,
-     "kambi": "football/england/premier_league", "altenar": None,},
+     "kambi": "football/england/premier_league"},
     # Championship (2026-09-02, Samans beställning). Tidigare fanns ligan
     # bara som football-data-matarliga till V2.2 och kunde därför varken
     # visas i Oddset eller länka liveradarns statistik till ett prematchpris.
@@ -92,23 +89,23 @@ LEAGUES = [
     # Pinnacle `England - Championship` 1977, Kambi-vägen nedan (16 event)
     # och Ninja/Altenar 2937 (engelska lag; 2962 är Skottland).
     {"key": "championship", "name": "Championship", "pin_id": 1977,
-     "kambi": "football/england/the_championship", "altenar": 2937},
+     "kambi": "football/england/the_championship"},
     {"key": "serie_a", "name": "Serie A", "pin_id": 2436,
-     "kambi": "football/italy/serie_a", "altenar": None,},
+     "kambi": "football/italy/serie_a"},
     {"key": "la_liga", "name": "La Liga", "pin_id": 2196,
-     "kambi": "football/spain/la_liga", "altenar": None,},
+     "kambi": "football/spain/la_liga"},
     {"key": "bundesliga", "name": "Bundesliga", "pin_id": 1842,
-     "kambi": "football/germany/bundesliga", "altenar": None,},
+     "kambi": "football/germany/bundesliga"},
     # Tre nya toppligor (2026-08-09, Samans beställning). Pinnacle-id och
     # Kambi-vägar är verifierade mot aktuellt utbud, inte mönsterhärledda.
     # De är fullt synliga/actionable för ren sharp-värdering men står utanför
     # MODEL_LEAGUES tills egen xG-/closehistorik har mätts och kalibrerats.
     {"key": "danish_superliga", "name": "Danska Superliga", "pin_id": 1913,
-     "kambi": "football/denmark/superligaen", "altenar": None},
+     "kambi": "football/denmark/superligaen"},
     {"key": "belgian_pro_league", "name": "Belgiska Pro League", "pin_id": 1817,
-     "kambi": "football/belgium/jupiler_pro_league", "altenar": None},
+     "kambi": "football/belgium/jupiler_pro_league"},
     {"key": "primeira_liga", "name": "Primeira Liga", "pin_id": 2386,
-     "kambi": "football/portugal/primeira_liga", "altenar": None},
+     "kambi": "football/portugal/primeira_liga"},
     # Bolivia (2026-08-09). Pinnacle, Sofascore, Flashscore, FotMob och
     # Smarkets är verifierade mot aktuella event. Kambi har ingen egen
     # ligaväg i nuvarande index men den giltiga landsvägen gör att ett
@@ -116,7 +113,7 @@ LEAGUES = [
     # Sharp/actionable som ligorna ovan, men ingen målmodell innan egen
     # xG-/closehistorik finns.
     {"key": "bolivian_primera", "name": "Bolivianska Primera División",
-     "pin_id": 5595, "kambi": "football/bolivia", "altenar": None},
+     "pin_id": 5595, "kambi": "football/bolivia"},
     # Ligue 1 (2026-08-21, Samans beställning). Alla källor verifierade mot
     # aktuellt utbud, inte mönsterhärledda: Pinnacle `France - Ligue 1` id
     # 2036 (420 matchups), Kambi `football/france/ligue_1` (9 event med 1X2
@@ -130,7 +127,7 @@ LEAGUES = [
     # uppmätt försämrar matarligepoolning modellen i alla fyra Europaligor
     # (+0,0036 till +0,0125 logloss), och Ligue 2 saknar dessutom xG.
     {"key": "ligue_1", "name": "Ligue 1", "pin_id": 2036,
-     "kambi": "football/france/ligue_1", "altenar": None},
+     "kambi": "football/france/ligue_1"},
     # Landslagen (2026-10-03, Samans beställning under landslagsuppehållet:
     # Oddset var nästan tomt medan Nations League spelades). Verifierat mot
     # aktuellt utbud samma kväll: Pinnacle `UEFA - Nations League A/B/C/D`
@@ -148,12 +145,10 @@ LEAGUES = [
     # liga i radarscopet kräver en ny radarversion med egen metodnot.
     {"key": "nations_league", "name": "Nations League",
      "pin_ids": [200719, 200721, 200726, 200727],
-     "kambi_paths": ["football/uefa_nations_league"],
-     "altenar": None, "landslag": True},
+     "kambi_paths": ["football/uefa_nations_league"], "landslag": True},
     {"key": "landskamper", "name": "Landskamper",
      "pin_ids": [2117],
-     "kambi_paths": ["football/international_friendly_matches"],
-     "altenar": None, "landslag": True},
+     "kambi_paths": ["football/international_friendly_matches"], "landslag": True},
 ]
 # Actionable = får skapa spelbar signal, Kelly, notis och CLV-/value_log-rader.
 ACTIONABLE_LEAGUE_KEYS = frozenset(
@@ -177,21 +172,16 @@ RESEARCH_LEAGUE_KEYS = frozenset(
     league["key"] for league in LEAGUES if league.get("research_only"))
 
 # Fler böcker (jämförelse + hitta boken som hänger efter). Kambi-operatörer delar
-# event-id:n med svenskaspel (trivial matchning); Altenar-böcker matchas fuzzy på
-# namn+avspark. Kambi-sidoboken hämtar bara 1X2; Altenars listvy ger dessutom
-# Ö/U och eventdetaljen ger totalhörnor i deep-/snabbfönstret.
+# event-id:n med svenskaspel (trivial matchning). Kambi-sidoboken hämtar bara 1X2.
 # Expekt kör Kambi via LeoVegas-avtalet (verifierat: Kambi-pressrelease, t.o.m. 2027).
+#
+# NINJA CASINO/ALTENAR ÄR BORTTAGEN SOM KÄLLA (beslut 2026-11-02-altenar-pausa,
+# val 1). Hela Altenar-värden (sb2frontend-altenar2.biahosted.com) har svarat
+# 403 på varje anrop sedan 2026-10-21, både `ninjacasinose` här och `betinia` i
+# källprovet; att runda leverantörens skydd är stängt enligt källgränsen.
+# Historiska `ninjacasino`-rader ligger kvar i databasen och visas som historik.
 BOOKS = [
     {"key": "expekt", "name": "Expekt", "kambi_op": "expektse"},
-    # Altenar är EN prisfeed med olika marginalpåslag per skin. Kartläggningen
-    # 2026-07-24 (docs/bookmakers-kartlaggning-2026-07-24.md) mätte elva skins;
-    # `betinia` (som vi körde) hade SÄMST marginal av alla. Uppmätt overround
-    # på plats, samma event och linjer överallt:
-    #   betinia 1,0949 · ninjacasino 1,0645/Superettan 1,0834
-    #   ninjacasinose = betiniase 1,0645/1,0664 (svensklicensierade skins)
-    # De två SE-skinnen är identiska; ninjacasinose är equal-best i alla tre
-    # ligor. Byt aldrig skin utan att mäta overrounden först.
-    {"key": "ninjacasino", "name": "Ninja Casino", "altenar": "ninjacasinose"},
 ]
 
 
@@ -944,35 +934,25 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                 kambi_ok and not deep_errors, deep_checked,
                 "; ".join(deep_errors) if deep_errors else kambi_error)
 
-            # Sidoböcker: Kambi-operatörer delar event-id:n, Altenar matchas
-            # fuzzy. Altenars listvy ger 1X2 + mål; hörnor hämtas ur eventvyn
-            # inom samma deep-/snabbfönster som Kambis detaljmarknader.
+            # Sidoböcker: Kambi-operatörer delar event-id:n med SvS.
             n_books = 0
             for book in (() if research_only else BOOKS):
-                if not book.get("kambi_op") and not (book.get("altenar") and lg.get("altenar")):
-                    continue
                 book_ok, book_error = True, None
                 book_at = _now_iso()   # fallback; sätts om per lyckat anrop nedan
                 try:
-                    if book.get("kambi_op"):
-                        b_rows = []
-                        for kambi_path in _kambi_paths(lg):
-                            b_batch = kambi.league_events(
-                                kambi_path, operator=book["kambi_op"],
-                                strict=True)
-                            # pristid = anropets tid − CDN-Age, inte varvets
-                            # start; stämplas per batch (cupernas två vägar)
-                            b_batch_at = cache_adjusted_iso(
-                                _now_iso(), kambi.last_age_s)
-                            for e in b_batch:
-                                e["_at"] = b_batch_at
-                            b_rows.extend(b_batch)
-                        book_at = cache_adjusted_iso(_now_iso(), kambi.last_age_s)
-                    else:
-                        from . import altenar
-                        b_rows = altenar.league_events(
-                            lg["altenar"], integration=book["altenar"], strict=True)
-                        book_at = cache_adjusted_iso(_now_iso(), altenar.last_age_s)
+                    b_rows = []
+                    for kambi_path in _kambi_paths(lg):
+                        b_batch = kambi.league_events(
+                            kambi_path, operator=book["kambi_op"],
+                            strict=True)
+                        # pristid = anropets tid − CDN-Age, inte varvets
+                        # start; stämplas per batch (cupernas två vägar)
+                        b_batch_at = cache_adjusted_iso(
+                            _now_iso(), kambi.last_age_s)
+                        for e in b_batch:
+                            e["_at"] = b_batch_at
+                        b_rows.extend(b_batch)
+                    book_at = cache_adjusted_iso(_now_iso(), kambi.last_age_s)
                 except Exception as exc:  # noqa: BLE001
                     b_rows = []
                     book_ok, book_error = False, str(exc)
@@ -982,12 +962,9 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     len(b_rows), book_error)
                 book_seen: set[str] = set()
                 book_claims: dict[str, str] = {}
-                book_deep_errors: list[str] = []
-                book_deep_checked = 0
                 for e in b_rows:
                     book_at = e.get("_at") or book_at
-                    ex = next((c for c in cands if c.get("kambi_id") == e["id"]), None) \
-                        if book.get("kambi_op") else None
+                    ex = next((c for c in cands if c.get("kambi_id") == e["id"]), None)
                     ex = ex or resolver(cands, e["home"], e["away"], e["start"])
                     if not ex or (e.get("start") or "9") <= at:
                         continue   # skapa inga matcher från sidoböcker; hoppa live
@@ -1007,68 +984,17 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                             ex["id"], book["key"], e["odds"], book_at)
                         if all(e["odds"].get(s) for s in ("1", "X", "2")):
                             present.add((ex["id"], book["key"], "1x2"))
-                    # TOTALT ANTAL MÅL FRÅN ALTENAR (2026-07-25). Låg gratis i
-                    # samma svar men slängdes. Det spelar roll för att Ö/U annars
-                    # bara fanns hos SvS och Pinnacle: Expekts deep-priser är
-                    # IDENTISKA med SvS (samma Kambi-feed), medan Altenar
-                    # prissätter själv — uppmätt Brommapojkarna–Hammarby
-                    # 2,25/1,57 @3,5 mot SvS 1,71/1,97 @3,0.
-                    if book.get("altenar"):
-                        # Även en SAKNAD Ö/U i ett lyckat listsvar är
-                        # information: en plockad marknad får inte ligga kvar
-                        # som spelbart spökpris i upp till 45 min (samma
-                        # mönster som cor-vägen nedan; granskningsfix F1).
-                        rows_saved += _observe_pair_market(
-                            store, ex["id"], book["key"], "ou", e.get("ou"),
-                            book_at)
-                        if e.get("ou"):
-                            present.add((ex["id"], book["key"], "ou"))
-                    elif e.get("ou"):
+                    if e.get("ou"):
                         rows_saved += _observe_pair_market(
                             store, ex["id"], book["key"], "ou", e["ou"], book_at)
                         present.add((ex["id"], book["key"], "ou"))
-                    market_until = deep_until if deep else fast_until
-                    if (book.get("altenar")
-                            and (e.get("start") or "9") <= market_until):
-                        book_deep_checked += 1
-                        try:
-                            from . import altenar
-                            mk = altenar.event_markets(
-                                e["id"], integration=book["altenar"], strict=True)
-                            detail_at = cache_adjusted_iso(
-                                _now_iso(), altenar.last_age_s)
-                            rows_saved += _observe_pair_market(
-                                store, ex["id"], book["key"], "cor",
-                                mk.get("cor"), detail_at)
-                            if mk.get("cor"):
-                                present.add((ex["id"], book["key"], "cor"))
-                        except Exception as exc:  # ett eventfel får inte dölja resten
-                            book_deep_errors.append(f"{e['id']}: {exc}")
-                            report["errors"].append(
-                                f"{book['key']}-deep {lg['key']} {e['id']}: {exc}")
-                        time.sleep(0.25)
                     n_books += 1
                 if book_ok:
-                    market_until = deep_until if deep else fast_until
                     for c in cands:
                         if c["id"] in book_seen or (c.get("start") or "9") <= at:
                             continue
                         store.oddset_mark_market_unavailable(
                             c["id"], book["key"], "1x2")
-                        if book.get("altenar"):
-                            # Mål ligger i det lyckade listsvaret. Saknas
-                            # matchen där är ett tidigare målpris inte spelbart.
-                            store.oddset_mark_market_unavailable(
-                                c["id"], book["key"], "ou")
-                            if (c.get("start") or "9") <= market_until:
-                                store.oddset_mark_market_unavailable(
-                                    c["id"], book["key"], "cor")
-                if book.get("altenar"):
-                    store.oddset_record_source_health(
-                        book["key"], lg["key"], "deep", at,
-                        book_ok and not book_deep_errors, book_deep_checked,
-                        ("; ".join(book_deep_errors)
-                         if book_deep_errors else book_error))
 
             # ANDRA SHARP-ANKARET (2026-07-24): Smarkets är en BÖRS, inte en
             # bok vi letar värde hos — uppmätt overround ~1,00 mot Svenska

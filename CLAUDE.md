@@ -29,12 +29,16 @@ bantningen 2026-09-02) — läs den när du undrar VARFÖR, inte varje session.
 - **En ny liga i radarscopet ändrar populationen** som kan producera en signal ⇒ ny
   radarversion, aldrig en utökning inne i en löpande version. `live_settlement` vägrar
   settla när radarversionen saknas i dess capture-tidslinje — spärren ska inte tas bort.
-- Liveblindtestets pris: SvS/Kambi, Ninja/Altenar och Pinnacles live-endpoints frågas vid
+- Liveblindtestets pris: SvS/Kambi och Pinnacles live-endpoints frågas vid
   första Följer/Stark. **Pinnacle får bara påverka spelet vid HTTP Age ≤ 90 s.** Linan väljs
-  först (färsk Pinnacle, annars Kambi, annars Ninja), sedan högsta Över-odds på EXAKT samma
+  först (färsk Pinnacle, annars Kambi), sedan högsta Över-odds på EXAKT samma
   lina. Alla källobservationer sparas i `oddset_live_signal_quote`; priser bakfylls aldrig.
-- Spelade poolkupongers liverättning: 1X2-kedjan Kambi → Ninja → Pinnacle (Age ≤ 90 s).
-  Saknar alla tre komplett 1X2 används den märkta ställnings-/tidsmodellen — enbart som
+- **Altenar (Ninja Casino/Betinia) är BORTTAGEN som källa helt sedan 2026-11-02** (beslut
+  2026-11-02-altenar-pausa, val 1): värden svarade 403 på varje anrop från 2026-10-21, och
+  att runda leverantörens skydd är stängt. Ingen insamling, inget källprov, ingen live-
+  reserv. Historiska `ninjacasino`-/`ninja`-rader ligger kvar och visas som historik.
+- Spelade poolkupongers liverättning: 1X2-kedjan Kambi → Pinnacle (Age ≤ 90 s).
+  Saknar båda komplett 1X2 används den märkta ställnings-/tidsmodellen — enbart som
   kupongchans, aldrig som system, värde eller facit. `chance_live_source_counts` visar valet.
 - PH5-/maxtestkuponger liverättas via rent läsande `GET /api/pool/systems/live`;
   `events_order` är alltid kanon för kolumnmatchningen. Livebilden skriver aldrig facit.
@@ -130,8 +134,6 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       2 s timeout/nätfas och 240 s cooldown/id. Ingen tips-/shadowinput.
                       Avslag bär namngiven orsak (`REJECT_REASONS`) och en loggrad per
                       försök i pool-snapshot.log; budgeten stoppar bara NYA anrop.
-  app/altenar.py      Ninja Casino/Altenar: listvy 1X2 + mål, eventdetalj för huvudlinan
-                      totalt antal hörnor (bara i deep-/snabbfönstret)
   app/atg.py          ATG:s Big 9 (BIG9) och Nya Big 9 (SP96): publika offering-listan,
                       append-only `atg_offering_capture` (en rad per hämtning) +
                       `atg_round_observation` (SELL_OPEN varje hämtning = presence),
@@ -294,9 +296,8 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
 - **INSTÄLLD OMGÅNG:** `settle_draw` skriver `draw_state='Cancelled'`; ledgern skiljer
   `cancelled` från `unresolvable`. **Att märka räcker inte — konsumenterna måste
   exkludera** (`/api/pool/history` räknar på icke-inställda; `archive_total` separat).
-- Live-1X2-källor: Kambi först, Ninjas `GetLiveEvents` reserv (bara `sportMarketId=70472`,
-  ej `isAlt`, kryss-id 2 — id 7 betyder `Ingen` och får ALDRIG bli X), Pinnacle sist
-  (Age ≤ 90 s). Samma-sida krävs; ensidigt namnbevis kräver avspark på båda sidor, ≤ 30 min
+- Live-1X2-källor: Kambi först, Pinnacle sist (Age ≤ 90 s); Ninja/Altenar borttagen
+  2026-11-02. Samma-sida krävs; ensidigt namnbevis kräver avspark på båda sidor, ≤ 30 min
   och EN kandidat.
 
 **pool_system_ledger.py — PH3**

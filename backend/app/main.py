@@ -1266,7 +1266,7 @@ def pool_played_list(live: bool = True, chance: bool = True):
             # ordinarie tid och livepriser är då identiska. Draw-data hämtas
             # per unik omgång; Flashscore- och liveprislistorna hämtas en gång
             # för samtliga öppna omgångar i samma request. 1X2-kedjan frågar
-            # Kambi först och tar Ninja/Pinnacle bara för kvarvarande luckor.
+            # Kambi först och tar Pinnacle bara för kvarvarande luckor.
             # Hubbens färska kupongbild (samma live_status, med chans och
             # prognos) går före; bara kuponger den inte täcker räknas här.
             reused: dict = {}

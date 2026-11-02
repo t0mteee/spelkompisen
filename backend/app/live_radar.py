@@ -3,8 +3,8 @@
 Radarn är informationsstöd, inte en spelmodell. Den läser separata,
 kumulativa serier från Flashscore, FotMob och Sofascore och visar en försiktig
 xG- eller proxyflagga. Modulen läser inga liveodds; den separata
-``live_signal_ledger`` observerar Kambi, Ninja och Pinnacle när en synlig
-signal först uppstår. Inga automatiska spel/notiser skapas.
+``live_signal_ledger`` observerar Kambi och Pinnacle (Ninja/Altenar till
+2026-11-02) när en synlig signal först uppstår. Inga automatiska spel/notiser skapas.
 """
 from __future__ import annotations
 
@@ -79,6 +79,8 @@ RADAR_V9_STARTED_AT = "2026-08-09T18:00:00Z"
 # Över-pris på exakt samma lina bland SvS, Ninja/Altenar och en tillräckligt
 # färsk Pinnacle-observation. Varje källsvar sparas separat. Signaltrösklarna
 # är oförändrade, men ROI-processen är ny och får därför en ren kohort.
+# Ninja/Altenar togs bort som källa 2026-11-02 (beslut 2026-11-02-altenar-
+# pausa, val 1) efter att ha svarat 403 på varje fråga sedan 2026-10-21.
 #
 # DEKLARATIONEN UTÖKAD SAMMA DYGN, före första observationen: Pinnacles pris
 # hämtas per matchup (`refresh_live_total`) i stället för ur bulkens

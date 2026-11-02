@@ -629,7 +629,8 @@ export function LabbV3() {
             <span>Nivåjämförelsen längre ned gör en annan kontroll: den visar
               vilket resultat man hade fått om man alltid väntat på just den
               nivån. Där kan samma match finnas både i Följer- och Stark-raden.</span>
-            <span>SvS, Ninja och Pinnacle frågas i signalögonblicket. Högsta
+            <span>SvS och Pinnacle frågas i signalögonblicket (Ninja till
+              2026-11-02). Högsta
               öppna Över-odds låses på exakt samma lina. En gammal
               Pinnacle-cache får aldrig vinna. Saknas ett färskt pris blir
               raden ingen insats och priset bakfylls aldrig.</span>

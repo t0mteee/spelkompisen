@@ -853,12 +853,13 @@ def attach_live_odds(store: Storage, states: list[dict]) -> None:
     (≈8 %) — en kupongchans räknad på det förra är inte ungefär rätt, den är
     fel. Matcher som INTE startat rör vi inte; där är prematch rätt pris.
 
-    Källstegen är Kambi → Ninja → färsk Pinnacle. Först när alla tre saknar
-    ett säkert, komplett 1X2 används den tydligt märkta skattningen från
+    Källstegen är Kambi → färsk Pinnacle. Ninja/Altenar togs bort som källa
+    (beslut 2026-11-02-altenar-pausa, val 1: 403 sedan 2026-10-21). Först när
+    båda saknar ett säkert, komplett 1X2 används den tydligt märkta skattningen från
     ställning + tid + prematchpris. Det här påverkar bara en redan inlämnad
     kupongs chansvy, aldrig tips, värde, CLV eller facit.
     """
-    from . import altenar, kambi, pinnacle
+    from . import kambi, pinnacle
     from .analysis import _power_probs
     running = [s for s in states if s.get("in_progress")]
     if not running:
@@ -897,24 +898,7 @@ def attach_live_odds(store: Storage, states: list[dict]) -> None:
             continue
         unresolved.append(state)
 
-    # 2. Ninja/Altenar — separat prismotor, live-CDN med max-age 3 s.
-    if unresolved:
-        try:
-            ninja_events = altenar.live_events(
-                integration="ninjacasinose", timeout=8.0, strict=True)
-        except Exception:  # noqa: BLE001 — reservkälla får aldrig fälla vyn
-            ninja_events = []
-        still_unresolved = []
-        for state in unresolved:
-            event = _live_event_for(ninja_events, state)
-            prices = (event or {}).get("odds")
-            if ((event or {}).get("odds_status") == "captured"
-                    and apply_price(state, prices, "ninja")):
-                continue
-            still_unresolved.append(state)
-        unresolved = still_unresolved
-
-    # 3. Pinnacle — endast per-matchup-pris med HTTP Age ≤90 s. Bulken används
+    # 2. Pinnacle — endast per-matchup-pris med HTTP Age ≤90 s. Bulken används
     # för identiteten och som reserv bara när även den råkar vara lika färsk.
     if unresolved:
         try:
@@ -997,7 +981,7 @@ def _live_event_for(catalogue: list[dict], state: dict) -> Optional[dict]:
         return None
 
     def distinct(events: list[dict]) -> list[dict]:
-        # Altenars samma event kan i princip förekomma under två menygrenar.
+        # Samma event kan i princip förekomma under två menygrenar.
         # Samma provider-id två gånger är en kandidat, inte tvetydighet.
         by_id = {}
         for event in events:

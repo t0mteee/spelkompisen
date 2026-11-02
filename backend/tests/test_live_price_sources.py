@@ -1,7 +1,6 @@
 import unittest
 from unittest import mock
 
-from app import altenar
 from app.pinnacle import Pinnacle
 
 
@@ -52,76 +51,6 @@ class PinnacleLiveTotalTests(unittest.TestCase):
         self.assertEqual(2.5, rows[0]["ou"]["line"])
         self.assertEqual("captured", rows[0]["odds_status"])
         self.assertEqual({"1": 1.8, "X": 3.6, "2": 4.4}, rows[0]["odds"])
-
-
-class AltenarLiveTotalTests(unittest.TestCase):
-    def test_open_and_suspended_totals_are_distinct(self):
-        payload = {
-            "events": [
-                {"id": 1, "sportId": 66, "status": 1,
-                 "name": "Hammarby vs. AIK", "marketIds": [10]},
-                {"id": 2, "sportId": 66, "status": 1,
-                 "name": "GAIS vs. Elfsborg", "marketIds": [20]},
-            ],
-            "markets": [
-                {"id": 10, "typeId": 18, "sv": "2.5", "oddIds": [101, 102]},
-                {"id": 20, "typeId": 18, "sv": "3.5", "oddIds": [201, 202]},
-            ],
-            "odds": [
-                {"id": 101, "typeId": 12, "price": 2.05, "oddStatus": 0},
-                {"id": 102, "typeId": 13, "price": 1.75, "oddStatus": 0},
-                {"id": 201, "typeId": 12, "price": 0, "oddStatus": 7},
-                {"id": 202, "typeId": 13, "price": 0, "oddStatus": 7},
-            ],
-        }
-        rows = altenar._live_rows(payload)
-        self.assertEqual("captured", rows[0]["status"])
-        self.assertEqual({"O": 2.05, "U": 1.75, "line": 2.5}, rows[0]["ou"])
-        self.assertEqual("suspended", rows[1]["status"])
-        self.assertIsNone(rows[1]["ou"])
-
-    def test_live_1x2_uses_the_canonical_match_result_market(self):
-        payload = {
-            "events": [
-                {"id": 1, "sportId": 66, "status": 1,
-                 "name": "Hapoel vs. Sabah", "marketIds": [10]},
-            ],
-            "markets": [
-                {"id": 10, "typeId": 1, "sportMarketId": 70472,
-                 "name": "1x2", "oddIds": [101, 102, 103]},
-            ],
-            "odds": [
-                {"id": 101, "typeId": 1, "price": 1.1, "oddStatus": 0},
-                {"id": 102, "typeId": 2, "price": 7.0, "oddStatus": 0},
-                {"id": 103, "typeId": 3, "price": 31.0, "oddStatus": 0},
-            ],
-        }
-        rows = altenar._live_rows(payload)
-        self.assertEqual({"1": 1.1, "X": 7.0, "2": 31.0}, rows[0]["odds"])
-        self.assertEqual("captured", rows[0]["odds_status"])
-
-    def test_next_goal_alt_market_is_never_treated_as_live_1x2(self):
-        """Driftfallet 2026-08-25: typ 7 är 'Ingen', inte kryss."""
-        payload = {
-            "events": [{"id": 1, "sportId": 66, "status": 1,
-                        "name": "Bodø/Glimt vs. Nijmegen", "marketIds": [10]}],
-            "markets": [{"id": 10, "typeId": 1, "sportMarketId": 0,
-                         "isAlt": True, "name": "Fjärde målet",
-                         "oddIds": [101, 102, 103]}],
-            "odds": [
-                {"id": 101, "typeId": 1, "name": "Bodø/Glimt",
-                 "price": 4.0, "oddStatus": 0},
-                {"id": 102, "typeId": 7, "name": "Ingen",
-                 "price": 1.25, "oddStatus": 0},
-                {"id": 103, "typeId": 3, "name": "Nijmegen",
-                 "price": 10.0, "oddStatus": 0},
-            ],
-        }
-
-        row = altenar._live_rows(payload)[0]
-
-        self.assertEqual("not_offered", row["odds_status"])
-        self.assertIsNone(row["odds"])
 
 
 class PinnacleLiveRefreshTests(unittest.TestCase):

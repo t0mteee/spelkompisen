@@ -178,6 +178,12 @@ till 31/10 enligt beslut 20. Beslut koordinatorn-2026-10-14-sofascore-larm (val 
 Sofascore ur källprovet i stället och lade det i ett tyst veckoprov (L). Mekanismen
 prövas i `tests/test_vakt.py` med de riktiga raderna.
 
+`kalla_nere:altenar` (Betinia, status 403 sedan 2026-10-21T12:19Z) släcktes på samma
+sätt men utan veckoprov: beslut 2026-11-02-altenar-pausa (val 1) tog bort Altenar som
+källa helt — ur källprovet, Oddset-insamlingen (Ninja Casino) och livekedjorna. Larmet
+försvinner vid första källprovet efter driftsättningen, eftersom bara källor i senaste
+körningen bedöms.
+
 Samma dag ändrades poolhälsans Pinnacle-täckning (`SHARP_NOT_LISTED_WITHIN_H` i
 `app/pool_health.py`). Saknas priserna bara för att Pinnacle inte listat matcherna
 varnar den först inom 24 h före spelstopp. Landslag och lag med en match emellan listas

@@ -240,19 +240,6 @@ def check_flashscore() -> tuple[bool, str, bool | None]:
             f"statistiktäckning {covered}/{tested}", coverage_ok)
 
 
-def check_altenar() -> tuple[bool, str]:
-    r = httpx.get("https://sb2frontend-altenar2.biahosted.com/api/Widget"
-                  "/GetEvents",
-                  params={"culture": "sv-SE", "timezoneOffset": "-120",
-                          "integration": "betinia", "deviceType": "1",
-                          "numFormat": "en-GB", "countryCode": "SE",
-                          "champIds": 3537, "sportId": 66,
-                          "eventCount": "50"},
-                  headers={"User-Agent": "Mozilla/5.0",
-                           "Accept": "application/json"}, timeout=TIMEOUT)
-    return _check_json(r, "events")
-
-
 # (namn, kontroll, kritisk?, vad den matar — visas när den fallerar)
 CHECKS = (
     ("svenskaspel", check_svenskaspel, True,
@@ -265,9 +252,10 @@ CHECKS = (
      "live-radarns primära chansdata (xG/skott) sedan 2026-08-01"),
     ("fotmob", check_fotmob, False,
      "live-radarns andra öga; radarn tappar täckning men modellen består"),
-    ("altenar", check_altenar, False,
-     "sidobok (Ninja) för 1X2/Ö/U/hörnor — mjuk bok, inget ankare"),
 )
+# Altenar (Betinia/Ninja Casino) har svarat 403 sedan 2026-10-21 och är
+# borttagen som källa helt (beslut 2026-11-02-altenar-pausa, val 1): inget
+# källprov, inget veckoprov. Vakten larmar bara på källor i senaste körningen.
 
 
 # Sofascore har svarat 403 (antibot) sedan 2026-09-25 och Flashscore har tagit

@@ -16,7 +16,7 @@ import random
 from collections import Counter
 from typing import Optional
 
-from . import (altenar, flashscore_data, kambi, live_radar, live_settlement,
+from . import (flashscore_data, kambi, live_radar, live_settlement,
                oddset_data, pinnacle)
 from .oddset import _team_sim
 from .storage import Storage
@@ -48,6 +48,9 @@ PINNACLE_LIVE_MAX_AGE_S = 90
 # bok gav mig" utan "vad fair value gav mig". Källan mäts och redovisas fullt
 # ut, men märks som ospelbar i per-källa-facitet så att den inte läses som ett
 # bokresultat. Samma princip som `ANCHOR_SOURCES` i oddset_value.
+# `ninja` (Altenar) frågas inte längre (beslut 2026-11-02-altenar-pausa, val 1:
+# 403 sedan 2026-10-21) men står kvar så att journalens äldre Ninja-rader
+# fortsatt räknas som spelbara i per-källa-facitet.
 PLAYABLE_LIVE_SOURCES = frozenset({"svenskaspel", "ninja"})
 
 
@@ -333,7 +336,7 @@ def _refresh_pinnacle(event: dict) -> Optional[dict]:
 class _LivePriceCollector:
     """Ett bulk-anrop per källa och radarvarv, sedan lokala matchningar.
 
-    Alla tre källor frågas även när den första ger pris. Det är nödvändigt för
+    Båda källorna frågas även när den första ger pris. Det är nödvändigt för
     att `bäst odds` ska vara ett observerat val och för att coverage ska kunna
     följas per källa. Fel isoleras per provider och får aldrig fälla signalen.
     """
@@ -348,10 +351,6 @@ class _LivePriceCollector:
             if source == "svenskaspel":
                 rows = kambi.live_events(timeout=8.0)
                 age_s = max(0, int(kambi.last_age_s or 0))
-            elif source == "ninja":
-                rows = altenar.live_events(
-                    integration="ninjacasinose", timeout=8.0, strict=True)
-                age_s = max(0, int(altenar.last_age_s or 0))
             elif source == "pinnacle":
                 with pinnacle.Pinnacle(timeout=8.0) as client:
                     rows = client.soccer_live_totals()
@@ -425,8 +424,9 @@ class _LivePriceCollector:
 
     def observe(self, match: dict, canonical: Optional[dict]) -> list[dict]:
         # Ordningen är fast men urvalet nedan är oberoende av anropsordningen.
+        # Ninja/Altenar är borttagen som källa (beslut 2026-11-02-altenar-pausa,
+        # val 1): alla anrop svarade 403 från 2026-10-21, så urvalet är detsamma.
         return [self._kambi(match, canonical),
-                self._listed("ninja", match),
                 self._listed("pinnacle", match)]
 
 
@@ -434,12 +434,12 @@ def _choose_live_price(observations: list[dict]) -> tuple[dict, list[dict]]:
     """Välj högsta Över-odds på exakt samma, förregistrerade huvudlina.
 
     Pinnacles färska huvudlina definierar spelet när den finns; annars behålls
-    Kambi som kontinuitetsankare och Ninja är sista reserv. Att jämföra 2.20
+    Kambi som kontinuitetsankare. Att jämföra 2.20
     på Ö3.5 med 1.90 på Ö2.5 vore inte `bäst odds` utan två olika spel.
     Därför jämförs böcker endast på samma lina; Pinnacles alternativlinor gör
     att den ändå ofta kan delta när en mjuk boks huvudlina väljs.
     """
-    priority = {"pinnacle": 0, "svenskaspel": 1, "ninja": 2}
+    priority = {"pinnacle": 0, "svenskaspel": 1}
     eligible = [obs for obs in observations
                 if obs.get("status") == "captured" and obs.get("main")]
     anchor = min(eligible, key=lambda obs: priority[obs["source"]], default=None)

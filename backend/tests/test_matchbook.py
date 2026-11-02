@@ -264,7 +264,7 @@ class CollectTests(unittest.TestCase):
     likviditetslagring — utan nätverk (alla källor stubbade)."""
 
     LEAGUE = {"key": "allsvenskan", "name": "Allsvenskan", "pin_id": 1,
-              "kambi": "football/sweden/allsvenskan", "altenar": None}
+              "kambi": "football/sweden/allsvenskan"}
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

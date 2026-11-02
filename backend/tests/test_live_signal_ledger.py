@@ -61,7 +61,6 @@ class LiveSignalLedgerTests(unittest.TestCase):
     def setUp(self):
         self._source_patchers = [
             patch.object(live_signal_ledger.kambi, "live_events", return_value=[]),
-            patch.object(live_signal_ledger.altenar, "live_events", return_value=[]),
             patch.object(live_signal_ledger.pinnacle.Pinnacle,
                          "soccer_live_totals", return_value=[]),
         ]
@@ -120,12 +119,7 @@ class LiveSignalLedgerTests(unittest.TestCase):
 
     def test_signal_locks_best_same_line_price_and_saves_all_sources(self):
         self.store.live_flashscore_save(capture(NOW, 30, xg_home=0.8))
-        kambi_market = {"ou": {"line": 2.5, "O": 1.98, "U": 1.82}}
-        ninja_rows = [{
-            "id": "n1", "home": "Hammarby", "away": "AIK",
-            "status": "captured", "ou": {"line": 2.5, "O": 2.08, "U": 1.72},
-            "offers": [{"line": 2.5, "O": 2.08, "U": 1.72}],
-        }]
+        kambi_market = {"ou": {"line": 2.5, "O": 2.08, "U": 1.72}}
         pinnacle_rows = [{
             "id": "p1", "home": "Hammarby IF", "away": "AIK",
             "status": "captured", "age_s": 20,
@@ -134,17 +128,17 @@ class LiveSignalLedgerTests(unittest.TestCase):
         }]
         with patch.object(live_signal_ledger.kambi, "live_total",
                           return_value=kambi_market), \
-                patch.object(live_signal_ledger.altenar, "live_events",
-                             return_value=ninja_rows), \
                 patch.object(live_signal_ledger.pinnacle.Pinnacle,
                              "soccer_live_totals", return_value=pinnacle_rows):
             report = live_signal_ledger.capture_signals(self.store, now=NOW)
 
         self.assertEqual(1, report["priced"])
         row = self.store.live_signal_facit_rows()[0]
-        self.assertEqual("ninja", row["odds_source"])
+        self.assertEqual("svenskaspel", row["odds_source"])
         self.assertEqual(2.08, row["over_odds"])
-        self.assertEqual(3, len(row["odds_quotes"]))
+        # Ninja/Altenar är borttagen som källa (beslut 2026-11-02-altenar-pausa).
+        self.assertEqual({"svenskaspel", "pinnacle"},
+                         {q["source"] for q in row["odds_quotes"]})
         self.assertEqual(1, sum(q["selected"] for q in row["odds_quotes"]))
 
     def test_level_escalation_is_a_new_decision_but_repeated_level_is_not(self):
@@ -430,26 +424,24 @@ class BestLivePriceTests(unittest.TestCase):
 
     def test_highest_over_price_wins_on_exact_same_line(self):
         selected, quotes = live_signal_ledger._choose_live_price([
-            self._obs("svenskaspel", 2.5, 1.95, 1.85),
-            self._obs("ninja", 2.5, 2.08, 1.72),
+            self._obs("svenskaspel", 2.5, 2.08, 1.72),
             self._obs("pinnacle", 2.5, 2.02, 1.78),
         ])
-        self.assertEqual("ninja", selected["odds_source"])
+        self.assertEqual("svenskaspel", selected["odds_source"])
         self.assertEqual(2.08, selected["over_odds"])
         self.assertEqual(1, sum(q["selected"] for q in quotes))
 
     def test_different_line_is_never_called_better_odds(self):
-        # Pinnacle definierar linan 2.5. Ninjas högre pris gäller Ö3.5 och är
+        # Pinnacle definierar linan 2.5. Kambis högre pris gäller Ö3.5 och är
         # ett annat spel, så det får inte vinna prisjämförelsen.
         selected, quotes = live_signal_ledger._choose_live_price([
-            self._obs("svenskaspel", 2.5, 1.95, 1.85),
-            self._obs("ninja", 3.5, 2.40, 1.45),
+            self._obs("svenskaspel", 3.5, 2.40, 1.45),
             self._obs("pinnacle", 2.5, 2.02, 1.78),
         ])
         self.assertEqual("pinnacle", selected["odds_source"])
-        ninja = next(q for q in quotes if q["source"] == "ninja")
-        self.assertEqual("line_mismatch", ninja["status"])
-        self.assertFalse(ninja["selected"])
+        kambi = next(q for q in quotes if q["source"] == "svenskaspel")
+        self.assertEqual("line_mismatch", kambi["status"])
+        self.assertFalse(kambi["selected"])
 
     def test_pinnacle_alt_line_can_beat_kambi_on_kambis_line(self):
         # Stale Pinnacle får inte ankra. Om den i stället vore färsk och hade
@@ -458,9 +450,8 @@ class BestLivePriceTests(unittest.TestCase):
                         offers=[{"line": 2.5, "O": 2.12, "U": 1.68}])
         selected, quotes = live_signal_ledger._choose_live_price([
             self._obs("svenskaspel", 2.5, 2.00, 1.80), pin,
-            self._obs("ninja", 2.5, 2.06, 1.74),
         ])
-        self.assertEqual("ninja", selected["odds_source"])
+        self.assertEqual("svenskaspel", selected["odds_source"])
         self.assertEqual("stale", next(q for q in quotes
                                         if q["source"] == "pinnacle")["status"])
 
@@ -471,7 +462,6 @@ class LiveSignalOddsStatusTests(unittest.TestCase):
     def setUp(self):
         self._source_patchers = [
             patch.object(live_signal_ledger.kambi, "live_events", return_value=[]),
-            patch.object(live_signal_ledger.altenar, "live_events", return_value=[]),
             patch.object(live_signal_ledger.pinnacle.Pinnacle,
                          "soccer_live_totals", return_value=[]),
         ]
@@ -580,7 +570,6 @@ class MatchKeyLockTests(unittest.TestCase):
     def setUp(self):
         self._source_patchers = [
             patch.object(live_signal_ledger.kambi, "live_events", return_value=[]),
-            patch.object(live_signal_ledger.altenar, "live_events", return_value=[]),
             patch.object(live_signal_ledger.pinnacle.Pinnacle,
                          "soccer_live_totals", return_value=[]),
         ]

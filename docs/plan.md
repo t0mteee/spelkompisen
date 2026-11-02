@@ -1,10 +1,25 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-10-25 — livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-11-02 — Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
 `docs/overlamningar/overlamning-2026-10-13-agentbeslut.md`.
+
+**Nytt 2026-11-02:**
+- **Altenar borttagen som källa helt** (beslut 2026-11-02-altenar-pausa, val 1). Hela
+  Altenar-värden har svarat 403 sedan 2026-10-21 — Betinia i källprovet (larmet
+  `kalla_nere:altenar` rött i 12 dygn) och Ninja Casino (`ninjacasinose`) i
+  Oddset-insamlingen, livejournalen och poolens liverättning; att runda skyddet är
+  stängt. Borta: `app/altenar.py`, `ninjacasino` ur `oddset.BOOKS` och ligornas
+  `altenar`-id, Ninja ur `live_signal_ledger` (prisval nu färsk Pinnacle → Kambi) och ur
+  `pool_played.attach_live_odds` (Kambi → Pinnacle), `check_altenar` ur källprovet (inget
+  veckoprov), N-raden och Ninja-källhälsan i Oddset-vyn. Larmet släcks vid nästa
+  källprov. Historiska `ninjacasino`-/`ninja`-rader orörda och visas som historik.
+  Iakttagelse (ej ändrad): radarns löpande kohort `chance-gap-shadow-v14` (från
+  2026-10-15T22:00Z) har 31 signaler prissatta av Ninja 16–20/10; från 2026-10-21 gav
+  Ninja bara `source_error`, så prisvalet efter borttagningen är detsamma som de senaste
+  tolv dygnen. Ingen ny radarversion — det är ett eget beslut om någon vill ha det.
 
 **Nytt 2026-10-25:**
 - **Flashscore-resultat för matcher över svensk midnatt** (beslut

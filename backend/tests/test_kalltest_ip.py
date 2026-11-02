@@ -227,6 +227,23 @@ class KalltestProbeTests(unittest.TestCase):
         self.assertEqual("dns", rows[1]["infrastructure_error"])
 
 
+class AltenarBorttagenTests(unittest.TestCase):
+    """Beslut 2026-11-02-altenar-pausa (val 1): Altenar borttagen som källa helt."""
+
+    def test_altenar_provas_varken_i_kallprovet_eller_veckoprovet(self):
+        names = {name for name, *_ in kalltest.CHECKS + kalltest.VECKOPROV}
+        self.assertNotIn("altenar", names)
+        self.assertFalse(hasattr(kalltest, "check_altenar"))
+
+    def test_altenar_finns_inte_i_insamlingen(self):
+        import importlib.util as util
+        from app import live_signal_ledger, oddset
+        self.assertIsNone(util.find_spec("app.altenar"))
+        self.assertFalse(any(book.get("altenar") for book in oddset.BOOKS))
+        self.assertFalse(any("altenar" in league for league in oddset.LEAGUES))
+        self.assertNotIn("ninjacasino", oddset.active_sources())
+        self.assertFalse(hasattr(live_signal_ledger, "altenar"))
+
 
 class VeckoprovTests(unittest.TestCase):
     """Beslut koordinatorn-2026-10-14-sofascore-larm (val 0)."""

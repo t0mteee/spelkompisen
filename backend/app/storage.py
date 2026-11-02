@@ -872,7 +872,7 @@ CREATE INDEX IF NOT EXISTS idx_live_signal_recent
 -- inklusive saknad match, suspension, källfel, stale cache och annan lina.
 CREATE TABLE IF NOT EXISTS oddset_live_signal_quote (
     signal_id          INTEGER NOT NULL,
-    source             TEXT NOT NULL,       -- svenskaspel | pinnacle | ninja
+    source             TEXT NOT NULL,       -- svenskaspel | pinnacle | ninja (historik)
     provider_event_id  TEXT,
     observed_at        TEXT,
     checked_at         TEXT NOT NULL,

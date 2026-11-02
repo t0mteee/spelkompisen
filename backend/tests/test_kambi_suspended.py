@@ -70,7 +70,7 @@ class CollectTests(unittest.TestCase):
         self.now = dt.datetime.now(dt.timezone.utc)
         self.start = (self.now + dt.timedelta(hours=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
         self.league = {"key": "test", "name": "Test", "pin_id": 1,
-                       "kambi": "football/test", "altenar": None}
+                       "kambi": "football/test"}
         self.store.oddset_upsert_match({
             "id": "m1", "league": "test", "home": "AIK", "away": "Hammarby",
             "start": self.start, "pinnacle_id": "p1", "kambi_id": "k1"})

@@ -26,7 +26,6 @@ export function OddsetLegend() {
             <b> P</b> = Pinnacle, världens skarpaste bok = vår referens för
             "sant" pris (<b>P~</b> = härlett ur handikapp när 1X2 inte öppnats) ·
             <b> E</b> = Expekt ·
-            <b> N</b> = Ninja/Altenar (1X2, Ö/U och hörnor när de finns) ·
             <b> M</b> = vår egen modell (amber, se nedan). Slå på <b>+ Fler odds</b>
             för att visa de spelbara sidoböckerna.</div>
           <div><b>Värde</b> = när en spelbar bok betalar MER än det sharpa priset.
@@ -111,9 +110,10 @@ export function oddsetBestValue(m) {
    att Pinnacle inte står här är MÄTT, inte principiellt: på matcher där ingen
    mjuk bok prissatt tar Pinnacle ~11,5 % marginal på 1X2 mot ~5,6 % i övrigt
    (uppmätt 2026-08-14 på 28 mot 132 matcher), och den uppmätta closing-driften
-   är 0,3–0,6 pp. Betinia ligger kvar i BOOK_NAME för historiken men samlas
-   inte längre. */
-export const PLAYABLE_BOOKS = ['svenskaspel', 'expekt', 'ninjacasino']
+   är 0,3–0,6 pp. Betinia och Ninja/Altenar ligger kvar i BOOK_NAME för
+   historiken men samlas inte längre (Altenar borttagen 2026-11-02, beslut
+   2026-11-02-altenar-pausa: 403 sedan 2026-10-21). */
+export const PLAYABLE_BOOKS = ['svenskaspel', 'expekt']
 
 // Nivå: OMTVISTAD när andra sharp-ankaret (Smarkets) värderar samma bokodds
 // negativt; annars STARK/EDGE/SVAG på kvalitet q — inte på rå edge.
@@ -684,14 +684,13 @@ export function OddsetView({ focus = null } = {}) {
             P{pin.derived ? '~' : ''} {pin[sign].toFixed(2)}{arrow(mvP)}{priceStamp(pin)}
           </div>
         )}
-        {showBooks && [['expekt', 'E', 'Expekt'], ['ninjacasino', 'N', 'Ninja/Altenar']].map(([bk, tag, label]) => {
+        {showBooks && [['expekt', 'E', 'Expekt']].map(([bk, tag, label]) => {
           const bo = m.odds?.[bk]?.['1x2']
           const mvB = m.movement?.[bk]?.['1x2']?.[sign]
           // Expekt delar Kambi-feed med SvS och identiska priser är brus.
-          // Altenar är en oberoende prismotor och ska alltid vara synlig.
-          if (bk === 'expekt' && bo?.[sign] && bo[sign] === svs?.[sign]) return null
+          if (bo?.[sign] && bo[sign] === svs?.[sign]) return null
           return bo?.[sign] ? (
-            <div className={quoteClass(`p bookquote ${bk === 'ninjacasino' ? 'ninjaquote' : ''}`, bo)}
+            <div className={quoteClass('p bookquote', bo)}
               key={bk} title={mvB?.pts?.length > 1 ? `${label}:\n${serie(mvB)}` : label}>
               {tag} {bo[sign].toFixed(2)}{arrow(mvB)}
               {v?.book === bk && edgePill(v, v.held_after_sharp ? 'kvar' : '')}{priceStamp(bo)}
@@ -739,17 +738,17 @@ export function OddsetView({ focus = null } = {}) {
             || edgePill(v2?.book === 'svenskaspel' ? v2 : null)}
         </div>
         {pinPair && <div className={quoteClass('p', pin)}>P {fmtL(pin.line)} · {pin[k1].toFixed(2)}{arrowAtLine(mvP1, pin.line)} / {pin[k2].toFixed(2)}{arrowAtLine(mvP2, pin.line)}{shiftBadge(mvP1, 'Pinnacle')}{priceStamp(pin)}</div>}
-        {showBooks && [['expekt', 'E', 'Expekt'], ['ninjacasino', 'N', 'Ninja/Altenar']].map(([bk, tag, label]) => {
+        {showBooks && [['expekt', 'E', 'Expekt']].map(([bk, tag, label]) => {
           const bo = m.odds?.[bk]?.[market]
           if (!bo?.[k1] || !bo?.[k2]) return null
           const mvB1 = m.movement?.[bk]?.[market]?.[k1]
           const mvB2 = m.movement?.[bk]?.[market]?.[k2]
           const sameAsSvs = bo.line === svs?.line
             && bo[k1] === svs?.[k1] && bo[k2] === svs?.[k2]
-          if (bk === 'expekt' && sameAsSvs) return null
+          if (sameAsSvs) return null
           const bv = v1?.book === bk ? v1 : v2?.book === bk ? v2 : null
           return (
-            <div className={quoteClass(`p bookquote ${bk === 'ninjacasino' ? 'ninjaquote' : ''}`, bo)}
+            <div className={quoteClass('p bookquote', bo)}
               key={bk} title={`${label} · ${MARKET_LABEL[market]}${bv?.held_after_sharp ? '\nPriset är färskt och återbekräftat efter Pinnacles senaste prisändring.' : ''}`}>
               {tag} {fmtL(bo.line)} · {bo[k1].toFixed(2)}{arrowAtLine(mvB1, bo.line)}
               {' '}/ {bo[k2].toFixed(2)}{arrowAtLine(mvB2, bo.line)}
@@ -832,7 +831,6 @@ export function OddsetView({ focus = null } = {}) {
   const healthDefs = [
     ['pinnacle', 'markets', 'P'], ['svenskaspel', '1x2', 'SvS'],
     ['svenskaspel', 'deep', 'SvS djup'], ['expekt', '1x2', 'E'],
-    ['ninjacasino', '1x2', 'Ninja'], ['ninjacasino', 'deep', 'Ninja djup'],
     ['smarkets', '1x2', 'Smarkets'],
     ['flashscore', 'live', 'Live Flashscore'],
     ['fotmob', 'live', 'Live FotMob'],
@@ -1431,7 +1429,7 @@ export function OddsetView({ focus = null } = {}) {
             Datakällor {sourceHealth.filter((h) => h.ok).length}/{sourceHealth.length}
           </button>
           <button className={`${showBooks ? 'lg on' : 'lg'} toolsmore`} onClick={() => setShowBooks(!showBooks)}
-            aria-pressed={showBooks} title="Visa eller dölj spelbara sidoböcker. Ninja/Altenar visas för 1X2, Ö/U och hörnor; Smarkets visas alltid som sharp-ankare.">
+            aria-pressed={showBooks} title="Visa eller dölj spelbara sidoböcker (Expekt). Smarkets visas alltid som sharp-ankare.">
             {showBooks ? '− Färre odds' : '+ Fler odds'}
           </button>
           <span className="hint odds-fetched">
@@ -1636,7 +1634,7 @@ export function OddsetView({ focus = null } = {}) {
             <button className={hideNoOdds ? 'lg on' : 'lg'}
               onClick={toggleNoOdds} aria-pressed={hideNoOdds}
               disabled={noOddsCount === 0}
-              title={'Matcher som ingen spelbar bok (SvS, Expekt, Ninja/Altenar) har prissatt — mest småskaliga träningsmatcher, plus omgångar där boken ännu inte öppnat.\nDe har Pinnacle-pris, men där tas ungefär dubbel marginal på just dessa matcher (~11,5 % mot ~5,6 %), så priset är sällan spelbart i praktiken.\nDe samlas in och spåras precis som förut — filtret är bara en vy.'}>
+              title={'Matcher som ingen spelbar bok (SvS, Expekt) har prissatt — mest småskaliga träningsmatcher, plus omgångar där boken ännu inte öppnat.\nDe har Pinnacle-pris, men där tas ungefär dubbel marginal på just dessa matcher (~11,5 % mot ~5,6 %), så priset är sällan spelbart i praktiken.\nDe samlas in och spåras precis som förut — filtret är bara en vy.'}>
               {hideNoOdds ? 'Visa utan odds' : 'Dölj utan odds'}
               {noOddsCount > 0 ? ` (${noOddsCount})` : ''}
             </button>
