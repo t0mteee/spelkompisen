@@ -435,6 +435,9 @@ RESULTAT_ALIAS = {
     "sabah": "sabah baku",
     "sabah fk": "sabah baku",
     "borussia dortmund": "dortmund",
+    # Spel 173: Shakhtar Donetsk–Sporting Lissabon 2026-11-03, Flashscore "Sporting CP"
+    # (beslut drift-2026-11-03-alias-sporting-lissabon).
+    "sporting lissabon": "sporting cp",
 }
 
 

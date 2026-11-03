@@ -675,6 +675,12 @@ dortmund` → `dortmund` och `sabah` → `sabah baku` (`norm_team` tar bort klub
 så "Sabah FK" slås upp som `sabah`; `sabah fk` står med för fullständighet). Samma regel
 som förut: aliaset prövas bara när de råa namnen inte gav något resultat.
 
+**Sporting Lissabon (2026-11-04, beslut drift-2026-11-03-alias-sporting-lissabon,
+val 0).** Spel 173 (Shakhtar Donetsk–Sporting Lissabon, Champions League 2026-11-03)
+låg orättat: Flashscores resultat heter "Sporting CP" (0–1). `RESULTAT_ALIAS` fick
+`sporting lissabon` → `sporting cp`; spelet rättas av nästa `ratta`, inga historiska
+rader ändras.
+
 **Matcher över svensk midnatt (2026-10-25, beslut
 livekassa-saknat-resultat-nyrb-miami-2026-10-25, val 0).** Spel 111 (New York Red
 Bulls–Inter Miami CF, MLS, avspark 2026-10-24 21:30Z enligt Flashscore) låg orättat
