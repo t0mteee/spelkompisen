@@ -1149,3 +1149,43 @@
   .lv-rows li { grid-template-columns: 50px minmax(0, 1fr); }
   .lv-rows li .lv-need { grid-column: 1 / -1; }
 }
+
+/* Big 9 (ATG) under Poolspel — beslut 2026-11-04-big9-i-byggaren */
+.big9 section { margin-top: 12px; }
+.big9 h3 { margin: 14px 0 6px; font-size: 13px; }
+.big9-scroll { overflow-x: auto; }
+.big9-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+.big9-table th, .big9-table td {
+  padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: center; white-space: nowrap;
+}
+.big9-table th { color: var(--muted); font-weight: 700; }
+.big9-table td.big9-match { text-align: left; white-space: normal; min-width: 160px; }
+.big9-table td small, .big9-match small { display: block; color: var(--muted); font-size: 11px; }
+.big9-odds { font-variant-numeric: tabular-nums; }
+.big9-cell span { font-weight: 700; }
+.big9-cell.hit { outline: 2px solid var(--v3acc); outline-offset: -2px; border-radius: 4px; }
+.big9-cover td.big9-mark { background: var(--panel2); color: var(--v3acc); font-weight: 700; }
+.big9-cover td.big9-empty { color: var(--muted); }
+.big9-rows td.big9-token { font-variant-numeric: tabular-nums; font-weight: 700; }
+.big9-hint { color: var(--muted); font-size: 12px; margin: 6px 0; }
+.big9-note { color: var(--muted); font-size: 11.5px; overflow-wrap: anywhere; }
+.big9-kpis { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12.5px; }
+.big9-kpis .pos { color: var(--green); }
+.big9-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.big9-btn {
+  background: var(--panel); border: 1px solid var(--line); color: var(--text);
+  border-radius: 8px; padding: 5px 12px; cursor: pointer; font-size: 12px; text-decoration: none;
+}
+.big9-btn.on, .big9-btn.primary { color: var(--v3acc); border-color: var(--v3acc-dim); font-weight: 700; }
+.big9-btn:disabled { opacity: 0.6; cursor: default; }
+.big9-atg { margin-left: auto; }
+.big9-text {
+  width: 100%; box-sizing: border-box; background: var(--panel2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px;
+  font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+}
+@media (max-width: 760px) {
+  .big9-atg { margin-left: 0; }
+  .big9-table th, .big9-table td { padding: 3px 4px; }
+}
+.big9 .controls .big9-btn { flex: 0 0 auto; width: auto; }

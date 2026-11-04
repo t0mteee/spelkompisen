@@ -9,6 +9,10 @@ export const POOL_GAMES = [
   { id: 'europatipset', label: 'Europatipset' },
   { id: 'bomben', label: 'Bomben' },
 ]
+/* Poolspelsvyns flikar: Svenska Spels spel plus ATG:s Big 9 (beslut
+   2026-11-04-big9-i-byggaren). Big 9 ligger INTE i POOL_GAMES, som Idag och
+   produktetiketterna läser mot Svenska Spels /api/draws. */
+export const POOL_TABS = [...POOL_GAMES, { id: 'big9', label: 'Big 9' }]
 export const HIST_PRODUCTS = [
   { id: 'stryktipset', label: 'Stryktipset' },
   { id: 'europatipset', label: 'Europatipset' },

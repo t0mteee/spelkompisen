@@ -5,7 +5,7 @@
 import './AppV3.css'
 import { useEffect, useRef, useState } from 'react'
 import { get, getDetail, readState } from './lib/api.js'
-import { POOL_GAMES, FAMILY_LABEL, HIST_FAMILIES, IS_FAMILY, hoursTo, closesIn, fmtDay, fmtKickoff, oddsSkift, selLabel3 } from './lib/labels.js'
+import { POOL_GAMES, POOL_TABS, FAMILY_LABEL, HIST_FAMILIES, IS_FAMILY, hoursTo, closesIn, fmtDay, fmtKickoff, oddsSkift, selLabel3 } from './lib/labels.js'
 import { HistorikHub } from './historik/HistorikHub.jsx'
 import { StatusChip, LagText } from './historik/MinaKuponger.jsx'
 import { StatusPill } from './historik/Tester.jsx'
@@ -18,6 +18,7 @@ import {
 } from './lib/poolHealth.js'
 import { LabbV3 } from './labb/LabbV3.jsx'
 import { BeslutView } from './beslut/BeslutView.jsx'
+import { Big9View } from './big9/Big9View.jsx'
 import { inboxSummary } from './lib/inbox.js'
 import { AnalysisTable, SystemView, CouponPanel, SharpPanel, SteamPanel, ClvPanel, BombenView, OddsetView, Legend, Collection, LoadingState, ErrorState, ErrBoundary, STRATEGIES, BUDGET_STOPS, SYSTEM_BASE, SYSTEM_SVS, FAMILY, kr, fmtClose, PlayRec, oddsetBestValue } from './App.jsx'
 import { beginRequest, payoutMatchesSelection, requestIsCurrent, uniqueDraws } from './poolSelection.js'
@@ -698,7 +699,7 @@ function PoolV3() {
   // useRef(...).current, som annars läses under render.
   const [saved] = useState(readState)
   const [game, setGame] = useState(
-    POOL_GAMES.some((g) => g.id === saved.group) ? saved.group : 'topptipset')
+    POOL_TABS.some((g) => g.id === saved.group) ? saved.group : 'topptipset')
   const [draws, setDraws] = useState([])
   const [product, setProduct] = useState(saved.product || game)
   const [draw, setDraw] = useState(saved.draw || null)
@@ -799,9 +800,17 @@ function PoolV3() {
       }
     }
   }
-  useEffect(() => { pickDraws(game, true) }, [])  // eslint-disable-line
+  // Big 9 (ATG) har egen vy och egna omgångar (Big9View); Svenska Spels
+  // /api/draws frågas aldrig om den.
+  useEffect(() => { if (game !== 'big9') pickDraws(game, true) }, [])  // eslint-disable-line
 
-  const switchGame = (g) => { setGame(g); pickDraws(g) }
+  const switchGame = (g) => {
+    setGame(g)
+    if (g !== 'big9') { pickDraws(g); return }
+    beginRequest(loadSequence)
+    setLoading(false); setErr(null); setDraws([]); setSys(null); setAnalysis(null)
+    setMovement(null); setPayouts(null)
+  }
   const changeDraw = (slug, dn) => {
     beginRequest(loadSequence)
     setProduct(slug); setDraw(dn); setSys(null); setAnalysis(null)
@@ -812,7 +821,7 @@ function PoolV3() {
 
   // tyst auto-uppdatering (bakgrundsjobbet skriver till DB:n var 5–30:e min)
   useEffect(() => {
-    if (!draw || game === 'bomben') return
+    if (!draw || game === 'bomben' || game === 'big9') return
     const tick = () => {
       if (document.visibilityState !== 'visible') return
       loadAnalysis(product, draw, true)
@@ -912,7 +921,7 @@ function PoolV3() {
     <div className="v3pool">
       <div className="v3poolbar">
         <nav className="v3subnav" aria-label="Spelform">
-          {POOL_GAMES.map((g) => (
+          {POOL_TABS.map((g) => (
             <button key={g.id} className={game === g.id ? 'on' : ''}
               onClick={() => switchGame(g.id)}>{g.label}</button>
           ))}
@@ -937,17 +946,19 @@ function PoolV3() {
             {currentPayouts?.available && <PlayRec payouts={currentPayouts} product={product} />}
           </span>
         )}
-        <span className="v3steps">
+        {game !== 'big9' && <span className="v3steps">
           {['Analys', 'Bygg', 'Kupong'].map((label, i) => <a key={label}
             href={`#${label.toLowerCase()}`} onClick={(event) => {
               event.preventDefault()
               document.getElementById(label.toLowerCase())?.scrollIntoView({ block: 'start' })
             }}>{i + 1} {label}</a>)}
-        </span>
+        </span>}
       </div>
 
       {err && <ErrorState message={err} />}
       {loading && <LoadingState label="Hämtar omgång och analys…" />}
+
+      {game === 'big9' && <ErrBoundary><Big9View /></ErrBoundary>}
 
       {game === 'bomben' && (
         <ErrBoundary>

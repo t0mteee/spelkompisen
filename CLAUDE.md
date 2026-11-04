@@ -148,6 +148,14 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/big9_builder.py Big 9-byggaren (värderader medel, sex celler 1X2×Ö/U; BIG9 med Wild
                       Card och 7–9 rätt, SP96 utan Wild Card och 6–9 rätt; minsta
                       utdelning ur posten) — standarden på facitsidan
+  app/big9_view.py    Big 9 i APPEN (Poolspel → Big 9, beslut 2026-11-04-big9-i-byggaren):
+                      `/api/big9/rounds|round|system`, rena läsningar av ATG-tabellerna.
+                      Bygger via `spelai.big9.build_payload(horizon=None)` +
+                      `round_from_payload` + `big9_builder.build_rows` — samma väg som
+                      standarden, aldrig en parallell byggare. Strategi medel (0,5) /
+                      säker (0,2), budget 16–1 024 kr, bara öppna omgångar (409 annars).
+                      Raderna som text/kupongbild; ATG:s radfilsformat är overifierat,
+                      Saman lägger in raderna själv på atg.se/sport/big9
   app/betsson.py      Publik Betsson-bootstrap (ej inkopplad; events-table CloudFront-
                       blockerad utanför browser; KRÄVER brotli, se transportregeln)
   app/analysis.py     fair_prob (power-metod), värde, taggar, speltyp, mover-flagga
@@ -253,6 +261,8 @@ frontend/ React + Vite, mörkt tema.
                       (5 000-test/maxtester/poolopt, omgångsvy), HistorikV3 (Facit &
                       prognos), SystemDetail (+ SystemGroupsTable, liverättning)
   src/labb/LabbV3.jsx  Labb = 100 % odds
+  src/big9/Big9View.jsx  Poolspel → Big 9 (ATG) + lib/big9.js; fliken ligger i `POOL_TABS`,
+                      INTE i `POOL_GAMES` (Idag/produktetiketterna läser den mot SvS)
   src/App.jsx + App.css  KOMPONENTBIBLIOTEKET (AnalysisTable, SystemView, CouponPanel,
                       PlayRec m.fl.) — re-exporterar även allt nedan
   src/lib/            ren logik utan React, testad med node --test: format.js,

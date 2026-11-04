@@ -133,7 +133,9 @@ def build_payload(conn, product: str, obs: dict, horizon: str,
         jackpot = max(0.0, top_pot / 100.0 - live * ratio * cfg["splits"][top])
     matches = sorted((_match_payload(m) for m in record.get("matches") or []),
                      key=lambda m: m["event_number"])
-    start, end = indata.window(close, horizon)
+    # horizon=None: appens byggare (app/big9_view.py) läser samma paket utan
+    # horisontfönster. Facitsidans paket har alltid en horisont.
+    window = indata.window(close, horizon) if horizon else None
     observed = obs["observed_at"]
     return {
         "schema": SCHEMA_VERSION,
@@ -144,7 +146,8 @@ def build_payload(conn, product: str, obs: dict, horizon: str,
         "observed_at": iso(observed),
         "captured_at": iso(now),
         "reg_close_time": iso(close),
-        "window": {"start": iso(start), "end": iso(end)},
+        "window": ({"start": iso(window[0]), "end": iso(window[1])}
+                   if window else None),
         "nivaer": list(nivaer.nivaer_for(product)),
         "n_matches": len(matches),
         "events_order": [m["event_number"] for m in matches],

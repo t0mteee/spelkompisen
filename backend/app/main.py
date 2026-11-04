@@ -2275,6 +2275,52 @@ def external_odds(product: str = "stryktipset", draw: int | None = None):
         store.close()
 
 
+# ── Big 9 (ATG) i appen (beslut 2026-11-04-big9-i-byggaren, app/big9_view.py) ─
+# Rena läsningar av ATG-insamlingens tabeller; byggaren lägger inga spel.
+
+@app.get("/api/big9/rounds")
+def big9_rounds():
+    from . import big9_view
+    store = Storage()
+    try:
+        return big9_view.rounds(store.conn, now=dt.datetime.now(dt.timezone.utc))
+    finally:
+        store.close()
+
+
+@app.get("/api/big9/round")
+def big9_round(product: str = "sp96", serial: int = Query(..., ge=1)):
+    from . import big9_view
+    store = Storage()
+    try:
+        found = big9_view.round_view(store.conn, product, serial,
+                                     now=dt.datetime.now(dt.timezone.utc))
+    finally:
+        store.close()
+    if found is None:
+        raise HTTPException(404, f"Big 9-omgång {serial} finns inte")
+    return found
+
+
+@app.get("/api/big9/system")
+def big9_system(product: str = "sp96", serial: int = Query(..., ge=1),
+                budget: int = 256, strategy: str = "medel"):
+    from . import big9_view
+    store = Storage()
+    try:
+        return big9_view.build_system(store.conn, product, serial, budget=budget,
+                                      strategy=strategy,
+                                      now=dt.datetime.now(dt.timezone.utc))
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except big9_view.Stangd as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    finally:
+        store.close()
+
+
 # ── spel-ai-kompisen: facitsidan (docs/spelai-facit.md) ──────────────────
 # GET är rena läsningar och svarar tomt när spelai-tabellerna saknas.
 # POST skriver bara nya rader (append-only) och lägger aldrig några spel.
