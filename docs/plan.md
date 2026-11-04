@@ -1,12 +1,18 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-11-04 — livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-11-04 — pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
 `docs/overlamningar/overlamning-2026-10-13-agentbeslut.md`.
 
 **Nytt 2026-11-04:**
+- **pool-name-v11** (beslut 2026-11-04-europa-2622-slavia, val 0): poolaliasen Slavia
+  Prag/Slavia Prague → Slavia Praha och Sparta Prag/Sparta Prague → Sparta Praha.
+  Europatipset 2622 match 1 (Slavia Prag–Arsenal, 20:00Z) fick ingen Pinnacle:
+  `pool_match_diagnostic` gav "Slavia Prague – Arsenal" vid exakt avspark sidopoäng
+  0,0/1,0. Krockprov mot 2 378 namn i diagnostiken: bara Slavia Prag, Slavia Prague och
+  Sparta Prague fick ny nyckel. Frysta kuponger orörda, inget bakfyllt.
 - **Livekassans resultatalias Sporting Lissabon** (beslut
   drift-2026-11-03-alias-sporting-lissabon, val 0): spel 173 (Shakhtar Donetsk–Sporting
   Lissabon, CL 2026-11-03) låg orättat eftersom Flashscores resultat heter "Sporting CP".

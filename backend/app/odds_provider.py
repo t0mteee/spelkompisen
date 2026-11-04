@@ -104,7 +104,7 @@ def _ratio(a: str, b: str) -> float:
 # Poolens egna bekräftade kortnamn. Ändra inte Oddsets/modellens globala
 # alias för att rätta poolmatcharen. Evidens: täckningsrapport 2026-09-13
 # och NameRuleTests (Svenska Spel ↔ Pinnacle).
-POOL_MATCH_VERSION = "pool-name-v10"
+POOL_MATCH_VERSION = "pool-name-v11"
 _POOL_TEAM_ALIASES = {
     "leeds": "leeds united",
     "nottingham": "nottingham forest",
@@ -174,6 +174,16 @@ _POOL_TEAM_ALIASES = {
     # klubbformsord i normaliseringen, därför alias även för Herediano.
     "perez zeledon": "municipal perez zeledon",
     "cs herediano": "herediano",
+    # pool-name-v11 (beslut 2026-11-04-europa-2622-slavia, val 0): Europatipset
+    # 2622 match 1 Slavia Prag–Arsenal 2026-11-04 20:00Z mot Pinnacles "Slavia
+    # Prague – Arsenal" vid exakt avspark (pool_match_diagnostic: sidopoäng
+    # 0,0/1,0). Svenska, engelska och tjeckiska stadsformen pekar på samma
+    # klubb; Sparta (Pinnacle "Sparta Prague") på samma sätt. Andra Prag-klubbar
+    # (Bohemians, Dukla, Admira) får inget alias förrän de är belagda.
+    "slavia prag": "slavia praha",
+    "slavia prague": "slavia praha",
+    "sparta prag": "sparta praha",
+    "sparta prague": "sparta praha",
     # MEDVETET INTE alias: Aguilas (indexet har både Aguilas–Hercules i Spanien
     # och Aguilas Doradas i Colombia), Fortaleza (Fortaleza och Fortaleza
     # CEIF), America (Club America och America Mineiro). Samma klass som
