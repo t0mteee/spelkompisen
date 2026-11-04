@@ -130,6 +130,9 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       **v11 (beslut 2026-11-04-europa-2622-slavia, val 0):** poolaliasen
                       Slavia Prag/Prague → Slavia Praha och Sparta Prag/Prague → Sparta
                       Praha (Europatipset 2622). Inga regeländringar.
+                      **v12 (beslut drift-2026-11-04-topptipset-4429-alajuelense-alias,
+                      val 0):** poolaliaset LD Alajuelense → Alajuelense (Topptipset
+                      4429). Inga regeländringar.
   app/sharp_service.py Pinnacle för poolen: `VarvIndex` = ETT index per basvarv delat av
                       alla produkter och omgångar; avslag bokförs i `pool_match_diagnostic`
   app/pool_capture_refresh.py m20-reserv för PIT: exakt Pinnacle-id, färsk 1X2 + total

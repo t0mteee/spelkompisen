@@ -104,7 +104,7 @@ def _ratio(a: str, b: str) -> float:
 # Poolens egna bekräftade kortnamn. Ändra inte Oddsets/modellens globala
 # alias för att rätta poolmatcharen. Evidens: täckningsrapport 2026-09-13
 # och NameRuleTests (Svenska Spel ↔ Pinnacle).
-POOL_MATCH_VERSION = "pool-name-v11"
+POOL_MATCH_VERSION = "pool-name-v12"
 _POOL_TEAM_ALIASES = {
     "leeds": "leeds united",
     "nottingham": "nottingham forest",
@@ -184,6 +184,14 @@ _POOL_TEAM_ALIASES = {
     "slavia prague": "slavia praha",
     "sparta prag": "sparta praha",
     "sparta prague": "sparta praha",
+    # pool-name-v12 (beslut drift-2026-11-04-topptipset-4429-alajuelense-alias,
+    # val 0): Topptipset 4429 match 8 CD Escorpiones Belen–LD Alajuelense
+    # 2026-11-05 02:00Z mot Pinnacles "Escorpiones Belen – Alajuelense" vid exakt
+    # avspark (pool_match_diagnostic: sidopoäng 0,0/0,0). "LD" (Liga Deportiva)
+    # är inget klubbformsord, samma klass som "CS Herediano" i v10. Med aliaset
+    # länkas paret på nivå D (Escorpiones-sidan är ett icke-generiskt delnamn).
+    # Alajuelense är ensamt om namnet i indexet och i diagnostikens 2 379 namn.
+    "ld alajuelense": "alajuelense",
     # MEDVETET INTE alias: Aguilas (indexet har både Aguilas–Hercules i Spanien
     # och Aguilas Doradas i Colombia), Fortaleza (Fortaleza och Fortaleza
     # CEIF), America (Club America och America Mineiro). Samma klass som
