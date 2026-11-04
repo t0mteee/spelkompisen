@@ -103,6 +103,13 @@ class Big9ViewTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             big9_view.build_system(self.conn, "sp96", 600, budget=256,
                                    strategy="tuff", now=self.now)
+        # en omgång före FULLT_SYSTEM_FRAN har de gamla raderna som standard
+        early = nivaer.FULLT_SYSTEM_FRAN["sp96"] - 1
+        atg.store_offering(self.conn, [record(serial=early)], {"http_status": 200},
+                           fetched_at=self.now, reason="test")
+        self.assertIsNone(big9_view.build_system(
+            self.conn, "sp96", early, budget=256, strategy="medel",
+            now=self.now)["standard_key"])
         with self.assertRaises(ValueError):       # Wild Card: inget fullt system
             big9_view.build_system(self.conn, "big9", 600, budget=256,
                                    strategy="medel", now=self.now)

@@ -24,7 +24,7 @@ import datetime as dt
 from typing import Optional
 
 from . import atg, big9_builder
-from .spelai import big9 as spelai_big9
+from .spelai import big9 as spelai_big9, nivaer
 
 ATG_URL = "https://www.atg.se/sport/big9"
 STRATEGY_VALUE_WEIGHT = {"säker": 0.2, "medel": 0.5}
@@ -193,6 +193,8 @@ def build_system(conn, product: str, serial: int, *, budget: int, strategy: str,
                      "away": m.get("away")} for m in matches],
         "coverage": coverage, "observed_at": payload["observed_at"],
         "close": payload["reg_close_time"], "atg_url": ATG_URL,
+        # bara när omgångens standard är ett fullt system är appens bygge standarden
         "standard_key": (standard_key if strategy == DEFAULT_STRATEGY
-                         and product in atg.MEASURED else None),
+                         and product in atg.MEASURED
+                         and nivaer.fullt_system(product, serial) else None),
     }
