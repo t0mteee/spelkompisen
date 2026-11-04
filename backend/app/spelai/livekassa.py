@@ -438,6 +438,11 @@ RESULTAT_ALIAS = {
     # Spel 173: Shakhtar Donetsk–Sporting Lissabon 2026-11-03, Flashscore "Sporting CP"
     # (beslut drift-2026-11-03-alias-sporting-lissabon).
     "sporting lissabon": "sporting cp",
+    # Spel 174: Manchester United–Roma 2026-11-03, Flashscore "Manchester Utd"/"AS Roma"
+    # (beslut drift-2026-11-04-alias-manchester-united). Serie A:s "roma" (fd och
+    # Flashscore) träffar på de råa namnen och når aldrig aliaset.
+    "manchester united": "manchester utd",
+    "roma": "as roma",
 }
 
 

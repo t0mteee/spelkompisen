@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-11-04 — livekassans alias Sporting Lissabon; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-11-04 — livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
@@ -12,6 +12,12 @@ Projektets aktuella kontrakt står här; historiska statusblock finns i
   Lissabon, CL 2026-11-03) låg orättat eftersom Flashscores resultat heter "Sporting CP".
   `livekassa.RESULTAT_ALIAS` fick `sporting lissabon` → `sporting cp`; nästa `ratta`
   rättar spelet och släcker `livespel_orattat:livekassa`. `docs/spelai-facit.md` § 16.
+- **Livekassans resultatalias Manchester United och Roma** (beslut
+  drift-2026-11-04-alias-manchester-united, val 0): spel 174 (Manchester United–Roma,
+  CL 2026-11-03) låg orättat eftersom Flashscores resultat heter "Manchester Utd"–"AS
+  Roma" (3–2). `RESULTAT_ALIAS` fick `manchester united` → `manchester utd` och `roma` →
+  `as roma`; nästa `ratta` rättar spelet. Serie A:s `roma` träffar på de råa namnen och
+  når aldrig aliaset. Inga historiska rader ändras. `docs/spelai-facit.md` § 16.
 
 **Nytt 2026-11-02:**
 - **Altenar borttagen som källa helt** (beslut 2026-11-02-altenar-pausa, val 1). Hela

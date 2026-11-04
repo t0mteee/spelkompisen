@@ -681,6 +681,13 @@ låg orättat: Flashscores resultat heter "Sporting CP" (0–1). `RESULTAT_ALIAS
 `sporting lissabon` → `sporting cp`; spelet rättas av nästa `ratta`, inga historiska
 rader ändras.
 
+**Manchester United och Roma (2026-11-04, beslut
+drift-2026-11-04-alias-manchester-united, val 0).** Spel 174 (Manchester United–Roma,
+Champions League 2026-11-03) låg orättat: Flashscores resultat heter "Manchester Utd"–
+"AS Roma" (3–2). `RESULTAT_ALIAS` fick `manchester united` → `manchester utd` och `roma`
+→ `as roma`; spelet rättas av nästa `ratta`, inga historiska rader ändras. Serie A:s
+`roma` (football-data och Flashscore) träffar på de råa namnen och når aldrig aliaset.
+
 **Matcher över svensk midnatt (2026-10-25, beslut
 livekassa-saknat-resultat-nyrb-miami-2026-10-25, val 0).** Spel 111 (New York Red
 Bulls–Inter Miami CF, MLS, avspark 2026-10-24 21:30Z enligt Flashscore) låg orättat

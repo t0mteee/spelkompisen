@@ -456,6 +456,22 @@ class ResultatAliasTests(Base):
         found = livekassa._resultat(self.store, match)  # noqa: SLF001
         self.assertEqual((0, 1), (found["hg"], found["ag"]))
 
+    def test_spel_174_hittar_flashscore_raden(self):
+        # Beslut drift-2026-11-04-alias-manchester-united.
+        self.resultat("champions_league", "2026-11-03", "manchester utd", "as roma",
+                      3, 2, source="flashscore")
+        match = {"league": "champions_league", "home": "Manchester United",
+                 "away": "Roma", "start": "2026-11-03T20:00:00Z"}
+        found = livekassa._resultat(self.store, match)  # noqa: SLF001
+        self.assertEqual((3, 2), (found["hg"], found["ag"]))
+
+    def test_serie_a_roma_traffar_utan_alias(self):
+        self.resultat("serie_a", "2026-11-01", "roma", "lazio", 1, 1)
+        match = {"league": "serie_a", "home": "Roma", "away": "Lazio",
+                 "start": "2026-11-01T19:45:00Z"}
+        found = livekassa._resultat(self.store, match)  # noqa: SLF001
+        self.assertEqual((1, 1), (found["hg"], found["ag"]))
+
     def test_raa_namn_vinner_fore_aliaset(self):
         # Cupresultat bär ofta det långa namnet: aliaset får inte ta över.
         self.resultat("champions_league", "2026-10-10", "atletico madrid", "inter", 2, 0,
