@@ -957,3 +957,48 @@ samlas in om den dyker upp igen men mäts inte (inga nivåer, inga missar).
 * **Missat:** fönster som öppnade efter `facit_start_big9` (2026-10-24T12:14:54Z).
   Omgång 517:s 6h-fönster öppnade 08:00Z och räknas inte; dess 30m-fönster
   (13:25–13:30Z) var det första som kunde frysas.
+
+### 19.2 Bara fulla system (2026-11-04)
+
+Beslut 2026-11-04-big9-fullt-system (Koordinatorn, Samans val 0). Saman
+kontrollerade ATG:s Big 9-kupong: det går inte att reducera eller ladda upp egna
+rader. Det som finns är Harry Boy, andelsspel och **Spela enskilda utfall**, där
+man markerar valfria av de sex cellerna `1O 1U XO XU 2O 2U` per match. Standarden
+`big9-varderader-v1-sp96-b256-medel` valde 512 enskilda rader, ett reducerat urval
+som inte går att lämna in.
+
+* **Fullt system.** En cellmängd (1–6 celler) per match. Raderna är hela
+  korsprodukten, och antalet (produkten av mängdernas storlek) är högst nivån /
+  0,50 kr: 256 kr ⇒ ≤ 512 rader, t.ex. 2⁹, 4·4·2⁵ eller 3·1·3·1·3·2·3·1·3 = 486.
+* **Från omgång 554** (`nivaer.FULLT_SYSTEM_FRAN = {"sp96": 554}`). Omgång 546:s
+  6h-fönster öppnade 13:45Z, minuter efter driftsättningen, utan tid för agenten
+  att ställa om sin strategi. Hela 546 körs därför under de gamla reglerna, och
+  ingen omgång byter mitt i. Historiska frysta rader ändras inte.
+* **Standarden** har nyckeln `big9-fullsystem-v1-sp96-b256-medel` och versionen
+  `big9-fullsystem-v1` (`big9_builder.build_full_system`). Sannolikheter, folk,
+  potter, EV och score (P(rad)^k · EV(rad), medel k = 1) är desamma som förut.
+  Systemets värde är summan över dess rader. Grovsteget utgår från att
+  toppgruppens utdelning ≈ pott / (fält · Q(rad)). Då faktoriserar summan till
+  Π Σ p^(k+1)/q, och för en given storlek per match är de främsta cellerna på
+  p^(k+1)/q bäst. Varje maximal storleksvektor (ingen match kan växa inom budgeten)
+  rankas så, och likaså på ren täckning (Π Σ p), eftersom 6–8 rätt belönar
+  täckning. De bästa kandidaterna ur båda rankningarna (högst 120 vardera, färre vid
+  stor budget) värderas med full EV över alla rader, och högst summa vinner.
+  Bygget tar ≈ 0,8 s vid 256 kr. SP96 536 (6h) gav 1·2·4·3·3·3·1·3·1 = 486 rader,
+  EV 541 kr; de gamla värderaderna (512 rader) gav 514 kr. Båda valen rankas på
+  score, inte på EV, så EV-skillnaden är ingen kvalitetsjämförelse. Jämför aldrig
+  `big9-fullsystem-v1-*` och `big9-varderader-v1-*` som en och samma serie.
+* **Agentens förslag** har oförändrat format `rows` (nio tokens per rad). Från
+  omgång 554 godtas de bara om raderna är **exakt hela korsprodukten** av en
+  cellmängd per match (`big9_builder.full_system_cells`). Annars blir förslaget
+  `ogiltigt` med orsaken "… rader är inget fullt system: … cellerna per match ger
+  a·b·… = N rader". Paketet säger det i `rader.fullt_system` (true) och i
+  `rader.format`. Schemat heter `spelai-indata-big9-v3`; 546:s paket bär
+  `fullt_system: false`.
+* **Appen** (Poolspel → Big 9) bygger med samma `build_full_system`.
+  `/api/big9/system` svarar med `cells` och `form`. Vyn visar **kupongen att
+  markera hos ATG**: sex rutor per match med de valda ifyllda, och formeln
+  "a × b × … = N rader à 0,50 kr". Texten (en rad per match) går att kopiera.
+  Raderna (korsprodukten) visas som kontroll; ATG tar ingen radfil. Gamla BIG9 med
+  Wild Card byggs inte.
+* **Rättningen** är oförändrad: ett fullt system rättas rad för rad som förut.

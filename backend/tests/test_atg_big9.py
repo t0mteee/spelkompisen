@@ -6,6 +6,7 @@ Card, 6–9 rätt) den mätta produkten; gamla BIG9 samlas bara in. BIG9:s Wild
 Card-regler prövas kvar i byggaren och rättningen, som inte beror på vad som mäts."""
 import datetime as dt
 import json
+import math
 import sqlite3
 import sys
 import tempfile
@@ -212,7 +213,7 @@ class NivaTests(unittest.TestCase):
 
     def test_giltiga_rader(self):
         form = nivaer.validera("sp96", 256, {"format": "rows",
-                                             "rows": [self.rad96(), self.rad96("XU")]})
+                                             "rows": [self.rad96(), self.rad96(first="XU")]})
         self.assertEqual(2, form["n_rows"])
         self.assertEqual(1.0, form["cost_kr"])
         self.assertEqual((256,), nivaer.nivaer_for("sp96"))
@@ -245,6 +246,32 @@ class NivaTests(unittest.TestCase):
             nivaer.validera("sp96", 512, {"format": "rows", "rows": [self.rad96()]})
         with self.assertRaises(nivaer.Ogiltigt):     # gamla BIG9 har inga nivåer
             nivaer.validera("big9", 256, {"format": "rows", "rows": [self.rad()]})
+
+    def test_bara_fulla_system_fran_forsta_omgangen(self):
+        """Beslut 2026-11-04-big9-fullt-system: ATG tar bara hela korsprodukten."""
+        first = nivaer.FULLT_SYSTEM_FRAN["sp96"]
+        self.assertTrue(nivaer.fullt_system("sp96"))
+        self.assertTrue(nivaer.fullt_system("sp96", first))
+        self.assertFalse(nivaer.fullt_system("sp96", first - 1))
+        self.assertFalse(nivaer.fullt_system("big9", 10_000))
+        # 4 · 2 · 1⁷ = 8 rader, i valfri ordning
+        system = big9_builder.system_rows([["1O", "1U", "XU", "2O"], ["XO", "2U"]]
+                                          + [["1O"]] * 7)
+        self.assertEqual(8, len(system))
+        form = nivaer.validera("sp96", 256, {"format": "rows",
+                                             "rows": list(reversed(system))})
+        self.assertEqual(8, form["n_rows"])
+        # en rad borttagen eller två rader som skiljer på två matcher: reducerat urval
+        for rows in (system[:-1], [self.rad96(), self.rad96("XU", first="XU")]):
+            with self.assertRaises(nivaer.Ogiltigt) as ctx:
+                nivaer.validera("sp96", 256, {"format": "rows", "rows": rows})
+            self.assertIn("inget fullt system", str(ctx.exception))
+            # äldre omgångar valideras som förut
+            nivaer.validera("sp96", 256, {"format": "rows", "rows": rows},
+                            draw_number=first - 1)
+        self.assertIsNone(big9_builder.full_system_cells(system[:-1], 9))
+        self.assertEqual([["1O", "1U", "XU", "2O"], ["XO", "2U"]] + [["1O"]] * 7,
+                         big9_builder.full_system_cells(system, 9))
 
 
 class ByggareTests(unittest.TestCase):
@@ -295,6 +322,44 @@ class ByggareTests(unittest.TestCase):
                                                if k != 6}))
 
 
+    def test_fullt_system_inom_budget(self):
+        rnd = self.runda(False, atg.PRODUCTS["sp96"]["splits"])
+        for budget, cap in ((256.0, 512), (16.0, 32), (1.0, 2)):
+            system = big9_builder.build_full_system(rnd, budget)
+            sizes = [len(c) for c in system.cells]
+            self.assertEqual(system.n_rows, math.prod(sizes))
+            self.assertLessEqual(system.n_rows, cap)
+            # maximalt: ingen match kan få en cell till inom budgeten
+            self.assertTrue(all(s == 6 or system.n_rows // s * (s + 1) > cap
+                                for s in sizes))
+            self.assertEqual(sorted(system.rows),
+                             sorted(big9_builder.system_rows(system.cells)))
+            self.assertEqual(system.cells,
+                             big9_builder.full_system_cells(system.rows, 9))
+            self.assertIn("big9-fullsystem-v1", system.note)
+        # deterministiskt, och säker väljer på samma sätt inom samma budget
+        self.assertEqual(big9_builder.build_full_system(rnd, 256.0).rows,
+                         big9_builder.build_full_system(rnd, 256.0).rows)
+        self.assertLessEqual(big9_builder.build_full_system(rnd, 256.0, 0.2).n_rows, 512)
+        with self.assertRaises(ValueError):          # Wild Card: inget fullt system
+            big9_builder.build_full_system(
+                self.runda(True, atg.PRODUCTS["big9"]["splits"]), 256.0)
+
+    def test_fullt_system_ar_minst_lika_bra_som_varje_storleksvektors_basta(self):
+        """Den grova faktoriseringen väljer de främsta cellerna per match; den
+        fulla värderingen ska aldrig ge ett sämre system än det grovt bästa."""
+        rnd = self.runda(False, atg.PRODUCTS["sp96"]["splits"])
+        system = big9_builder.build_full_system(rnd, 16.0)
+        pools = big9_builder.prize_pools(rnd)
+
+        def value(cells):
+            return sum(math.prod(m.p[t] for m, t in zip(rnd.matches, row.split()))
+                       * big9_builder.row_ev(rnd, tuple(row.split()), pools)
+                       for row in big9_builder.system_rows(cells))
+        alt = [["1O", "2O"]] * 5 + [["1O"]] * 4
+        self.assertGreaterEqual(value(system.cells), value(alt) - 1e-9)
+
+
 class AterbetalningTests(unittest.TestCase):
     def test_andelen_ur_potterna_och_reserv_till_uttaget(self):
         ratio, source = big9.payout_ratio(record(), "sp96")
@@ -332,15 +397,18 @@ class FrysningTests(_Base):
         rows = self.proposals()
         std = rows["standard"]
         self.assertEqual("fryst", std["status"])
-        self.assertEqual("big9-varderader-v1-sp96-b256-medel", std["config_key"])
-        self.assertEqual(512, std["n_rows"])
-        self.assertEqual(256.0, std["cost_kr"])
+        self.assertEqual("big9-fullsystem-v1-sp96-b256-medel", std["config_key"])
+        self.assertLessEqual(std["n_rows"], 512)
+        self.assertEqual(std["n_rows"] * 0.5, std["cost_kr"])
         lines = std["rows_text"].splitlines()
         self.assertTrue(all(len(line.split()) == 9 and "W" not in line.split()
                             for line in lines))
         self.assertIn("återbetalning 72.75% (atg_potter)", std["reason"])
         self.assertEqual(len(lines), len(set(lines)))
-        self.assertIn("big9-varderader-v1", std["reason"])
+        self.assertIsNotNone(big9_builder.full_system_cells(lines, 9))
+        self.assertIn("big9-fullsystem-v1", std["reason"])
+        self.assertTrue(self.payload()["rader"]["fullt_system"])
+        self.assertEqual("spelai-indata-big9-v3", self.payload()["schema"])
         self.assertEqual("ogiltigt", rows["agent"]["status"])
         self.assertIn("tokens", rows["agent"]["reason"])
         # samma paket ⇒ samma rader (deterministisk)
@@ -349,7 +417,8 @@ class FrysningTests(_Base):
 
     def test_agentens_big9_rader_fryses(self):
         def svar(payload, levels, timeout):
-            rows = [" ".join("XU" if i == w else "1O" for i in range(9)) for w in range(9)]
+            rows = big9_builder.system_rows([["1O", "XU", "2O"], ["1O", "XU", "2O"]]
+                                            + [["1O"]] * 7)
             return AgentSvar("ok", data={"version": "agent-big9-v1", "forslag": {
                 "256": {"format": "rows", "rows": rows}}})
         self.freeze(svar)
@@ -357,6 +426,35 @@ class FrysningTests(_Base):
         self.assertEqual("fryst", agent["status"])
         self.assertEqual(9, agent["n_rows"])
         self.assertEqual(4.5, agent["cost_kr"])
+
+    def test_agentens_reducerade_urval_ar_ogiltigt(self):
+        def svar(payload, levels, timeout):
+            rows = [" ".join("XU" if i == w else "1O" for i in range(9)) for w in range(9)]
+            return AgentSvar("ok", data={"version": "agent-big9-v1", "forslag": {
+                "256": {"format": "rows", "rows": rows}}})
+        self.freeze(svar)
+        agent = self.proposals()["agent"]
+        self.assertEqual("ogiltigt", agent["status"])
+        self.assertIn("inget fullt system", agent["reason"])
+
+    def test_aldre_omgang_behaller_gamla_standarden(self):
+        """En omgång före FULLT_SYSTEM_FRAN fryses med den gamla nyckeln och
+        de gamla valideringsreglerna — ingen omgång byter mitt i."""
+        serial = nivaer.FULLT_SYSTEM_FRAN["sp96"] - 1
+        at = CLOSE - dt.timedelta(minutes=33)
+        self.fetch([record(serial=serial)], at)
+
+        def svar(payload, levels, timeout):
+            rows = [" ".join("XU" if i == w else "1O" for i in range(9)) for w in range(9)]
+            return AgentSvar("ok", data={"version": "agent-big9-v1", "forslag": {
+                "256": {"format": "rows", "rows": rows}}})
+        frysning.process_inputs(self.conn, svar, clock=Klocka(at))
+        rows = self.proposals()
+        self.assertEqual("big9-varderader-v1-sp96-b256-medel",
+                         rows["standard"]["config_key"])
+        self.assertEqual(512, rows["standard"]["n_rows"])
+        self.assertEqual("fryst", rows["agent"]["status"])
+        self.assertFalse(self.payload()["rader"]["fullt_system"])
 
     def test_api_andelar_och_matchnamn(self):
         self.freeze()

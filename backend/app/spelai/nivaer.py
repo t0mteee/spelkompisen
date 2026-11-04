@@ -11,6 +11,12 @@ Big 9 (ATG, beslut driften-2026-10-24-big9-atg): bara 256 kr, radpris 0,50 kr
 (nya Big 9, utan Wild Card: `W` är ogiltigt); gamla BIG9 har inga nivåer
 (`atg.MEASURED`).
 
+FULLT SYSTEM (beslut 2026-11-04-big9-fullt-system, val 0): ATG tar bara fulla
+system ("Spela enskilda utfall"). Från omgången i `FULLT_SYSTEM_FRAN` godtas
+Big 9-rader bara om de är EXAKT hela korsprodukten av en cellmängd per match
+(antalet rader = produkten av mängdernas storlek ≤ nivån / 0,50 kr). Formatet
+är oförändrat `rows`; äldre omgångar valideras som förut.
+
 Två format:
 * `rows`    — lista av strängar, ett tecken (1/X/2) per match i omgångens
               matchordning, högst nivån rader och inga dubbletter.
@@ -21,10 +27,12 @@ from __future__ import annotations
 
 import hashlib
 import itertools
+import math
 from typing import Iterable, Optional
 
 from .. import atg
-from ..big9_builder import CELLS as ATG_CELLS, TOKENS as ATG_TOKENS, WILDCARD
+from ..big9_builder import (CELLS as ATG_CELLS, TOKENS as ATG_TOKENS, WILDCARD,
+                           full_system_cells)
 from ..svenskaspel import GAME_GROUPS, PRODUCTS
 
 RADPRIS_KR = 1.0
@@ -46,6 +54,18 @@ class Ogiltigt(ValueError):
 
 
 ATG_NIVAER = (256,)
+# Första omgången per ATG-spel där bara fulla system godtas (och standarden är
+# `big9-fullsystem-v1`). SP96 546:s 6h-fönster öppnade 13:45Z samma dag som
+# beslutet driftsattes, utan tid för agenten att ställa om; 554 är nästa hela omgång.
+FULLT_SYSTEM_FRAN = {"sp96": 554}
+
+
+def fullt_system(product: str, draw_number: Optional[int] = None) -> bool:
+    """Kräver omgången ett fullt system? Utan omgångsnummer: den nya regeln."""
+    first = FULLT_SYSTEM_FRAN.get(product)
+    if first is None:
+        return False
+    return draw_number is None or int(draw_number) >= first
 
 
 def ar_atg(product: str) -> bool:
@@ -110,7 +130,8 @@ def _norm_mangd(value, index: int) -> str:
 
 
 def validera(product: str, level: int, forslag: dict,
-             n_matches: Optional[int] = None) -> dict:
+             n_matches: Optional[int] = None,
+             draw_number: Optional[int] = None) -> dict:
     """Validera ETT förslag för en nivå. Returnerar normaliserad form:
     {format, rows (lista av strängar), tecken (msystem) | None, n_rows,
     cost_kr, rows_hash, motivering}. Kastar `Ogiltigt` med tydlig orsak."""
@@ -136,7 +157,8 @@ def validera(product: str, level: int, forslag: dict,
     motivering = (motivering or "")[:MOTIVERING_MAX] or None
 
     if ar_atg(product):
-        return _validera_atg(product, level, forslag, n_matches, motivering)
+        return _validera_atg(product, level, forslag, n_matches, motivering,
+                             fullt_system(product, draw_number))
     if fmt == "rows":
         rows = forslag.get("rows")
         if not isinstance(rows, list) or not rows:
@@ -189,8 +211,9 @@ def atg_tokens(row: str) -> list[str]:
 
 
 def _validera_atg(product: str, level: int, forslag: dict, n_matches: int,
-                  motivering: Optional[str]) -> dict:
-    """Big 9-rader: nio tokens, högst nivån / 0,50 kr rader, inga dubbletter."""
+                  motivering: Optional[str], system: bool = False) -> dict:
+    """Big 9-rader: nio tokens, högst nivån / 0,50 kr rader, inga dubbletter;
+    med `system` dessutom exakt hela korsprodukten av en cellmängd per match."""
     price = radpris(product)
     wildcard = bool(atg.PRODUCTS[product]["wildcard"])
     tokens_ok = atg_symboler(product)
@@ -221,6 +244,13 @@ def _validera_atg(product: str, level: int, forslag: dict, n_matches: int,
             raise Ogiltigt(f"rad {index + 1} ({text}) är en dubblett")
         seen.add(text)
         norm_rows.append(text)
+    if system and full_system_cells(norm_rows, n_matches) is None:
+        mangder = [sorted({atg_tokens(r)[i] for r in norm_rows}) for i in range(n_matches)]
+        storlek = "·".join(str(len(m)) for m in mangder)
+        raise Ogiltigt(
+            f"{len(norm_rows)} rader är inget fullt system: ATG tar bara hela "
+            f"korsprodukten av en cellmängd per match, och cellerna per match ger "
+            f"{storlek} = {math.prod(len(m) for m in mangder)} rader")
     return {"format": "rows", "rows": norm_rows, "tecken": None,
             "n_rows": len(norm_rows), "cost_kr": len(norm_rows) * price,
             "rows_hash": rows_hash(norm_rows), "motivering": motivering}

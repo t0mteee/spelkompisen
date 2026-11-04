@@ -15,6 +15,13 @@ poolspel (indata → frysning → rättning), men med ATG:s omgång som underlag
 * Standard: `big9_builder.build_rows`, strategi medel, budgeten = nivån, en
   `config_key` per spelform (`STANDARD_KEYS`). Återbetalningsandelen läses ur
   omgångens publicerade potter (`payout_ratio`), annars 1 − uttag.
+* Fullt system (beslut 2026-11-04-big9-fullt-system, val 0): ATG tar bara
+  fulla system ("Spela enskilda utfall"). Från `nivaer.FULLT_SYSTEM_FRAN` är
+  standarden `big9_builder.build_full_system` med nyckeln
+  `big9-fullsystem-v1-sp96-b256-medel`, agentens rader godtas bara som hela
+  korsprodukten av en cellmängd per match, och paketet säger det
+  (`rader.fullt_system`, schema `spelai-indata-big9-v3`). Äldre omgångar
+  behåller den gamla nyckeln och valideringen.
 * Rättning: ATG:s FINALIZED-post. En match räknas bara med `status DECIDED`;
   struken match (`CANCELED`/`canceledAt`) är rätt för alla; Wild Card är rätt.
   Utdelning per egen vinnande rad = potten / (publicerade vinnande enheter +
@@ -36,11 +43,13 @@ from .. import atg, big9_builder
 from . import indata, nivaer, schema, tillstand
 from .tillstand import iso, utc
 
-SCHEMA_VERSION = "spelai-indata-big9-v2"
+SCHEMA_VERSION = "spelai-indata-big9-v3"
 SETTLEMENT_VERSION = "spelai-big9-v1"
 # En nyckel per spelform: SP96 och BIG9 har olika regler och mäts aldrig ihop.
 STANDARD_KEYS = {"big9": {256: "big9-varderader-v1-b256-medel"},
                  "sp96": {256: "big9-varderader-v1-sp96-b256-medel"}}
+# Fullt system (ATG:s "enskilda utfall") från `nivaer.FULLT_SYSTEM_FRAN`.
+SYSTEM_KEYS = {"sp96": {256: "big9-fullsystem-v1-sp96-b256-medel"}}
 # Potterna för de lägre vinstgrupperna får skilja högst så mycket i
 # återbetalningsandel för att andelen ska läsas ur potterna.
 RATIO_TOLERANCE = 0.005
@@ -55,8 +64,10 @@ def galler(product: str) -> bool:
     return product in atg.MEASURED
 
 
-def standard_key(product: str, level) -> Optional[str]:
-    return STANDARD_KEYS.get(product, {}).get(int(level))
+def standard_key(product: str, level, draw_number: Optional[int] = None) -> Optional[str]:
+    """Standardens nyckel; utan omgångsnummer gäller den nya regeln."""
+    keys = SYSTEM_KEYS if nivaer.fullt_system(product, draw_number) else STANDARD_KEYS
+    return keys.get(product, {}).get(int(level))
 
 
 def payout_ratio(record: dict, product: str) -> tuple[float, str]:
@@ -137,11 +148,13 @@ def build_payload(conn, product: str, obs: dict, horizon: str,
     # horisontfönster. Facitsidans paket har alltid en horisont.
     window = indata.window(close, horizon) if horizon else None
     observed = obs["observed_at"]
+    serial = int(record["serialNumber"])
+    system = nivaer.fullt_system(product, serial)
     return {
         "schema": SCHEMA_VERSION,
         "spel": "atg",
         "product": product,
-        "draw_number": int(record["serialNumber"]),
+        "draw_number": serial,
         "horizon": horizon,
         "observed_at": iso(observed),
         "captured_at": iso(now),
@@ -154,10 +167,15 @@ def build_payload(conn, product: str, obs: dict, horizon: str,
         "rader": {"radpris_kr": cfg["row_price"],
                   "tokens": list(nivaer.atg_symboler(product)),
                   "wildcard": cfg["wildcard"],
+                  "fullt_system": system,
                   "format": ("nio tokens med mellanslag i matchordning; cell = "
                              "1X2 + O/U (över/under 2,5)"
                              + (", W = Wild Card (exakt ett per rad)"
-                                if cfg["wildcard"] else "; inget Wild Card"))},
+                                if cfg["wildcard"] else "; inget Wild Card")
+                             + ("; FULLT SYSTEM: välj en mängd celler per match och "
+                                "lämna hela korsprodukten som rader (antal = "
+                                "produkten av mängdernas storlek ≤ nivån / radpris); "
+                                "ATG tar inga reducerade urval" if system else ""))},
         "omgang": {
             "id": record.get("id"), "game_type": record.get("gameType"),
             "namn": record.get("name"), "status": record.get("status"),
@@ -263,11 +281,13 @@ def round_from_payload(payload: dict) -> big9_builder.Big9Round:
 
 def build_standard(payload: dict, level: int, rnd=None) -> dict:
     rnd = rnd or round_from_payload(payload)
-    system = big9_builder.build_rows(rnd, float(level), value_weight=0.5)
-    out = nivaer.validera(payload["product"], level,
-                          {"format": "rows", "rows": system.rows},
-                          n_matches=len(rnd.matches))
-    out["config_key"] = standard_key(payload["product"], level)
+    product, draw = payload["product"], int(payload["draw_number"])
+    build = (big9_builder.build_full_system if nivaer.fullt_system(product, draw)
+             else big9_builder.build_rows)
+    system = build(rnd, float(level), value_weight=0.5)
+    out = nivaer.validera(product, level, {"format": "rows", "rows": system.rows},
+                          n_matches=len(rnd.matches), draw_number=draw)
+    out["config_key"] = standard_key(product, level, draw)
     out["note"] = system.note
     return out
 

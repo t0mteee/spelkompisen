@@ -178,7 +178,8 @@ def _agent_rows(payload: dict, svar: AgentSvar) -> dict[int, Rad]:
             continue
         try:
             form = nivaer.validera(payload["product"], level, item,
-                                   n_matches=payload["n_matches"])
+                                   n_matches=payload["n_matches"],
+                                   draw_number=payload["draw_number"])
         except nivaer.Ogiltigt as exc:
             out[level] = Rad("ogiltigt", str(exc), version=version)
             continue
@@ -264,7 +265,8 @@ def process_inputs(conn, runner, *, clock: Clock, code_version: str = "dev") -> 
                 except Exception as exc:  # noqa: BLE001 — en nivå får inte stoppa resten
                     rad = Rad("saknas", f"standarden kunde inte byggas: "
                                         f"{type(exc).__name__}: {exc}"[:500],
-                              config_key=(big9.standard_key(product, level) if atg_spel
+                              config_key=(big9.standard_key(product, level, draw_number)
+                                          if atg_spel
                                           else STANDARD_CONFIGS.get(level)))
             _insert(conn, payload, level, horizon, "standard", rad,
                     frozen_at=clock(), input_row=payload, code_version=code_version)

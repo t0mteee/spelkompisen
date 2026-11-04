@@ -12,6 +12,11 @@ hämtar aldrig själv. Underlaget är facitsidans paket
 `big9_builder.build_rows` via `spelai.big9.round_from_payload` — samma väg som
 standarden, aldrig en parallell byggare. Strategi medel med 256 kr är
 standardens inställning; säker är värdevikt 0,2 som PH3:s `dr1-*-saker`.
+
+Beslut 2026-11-04-big9-fullt-system (val 0): ATG tar bara fulla system
+("Spela enskilda utfall"), så byggaren är `big9_builder.build_full_system`
+och svaret bär cellmängden per match (`cells`) — kupongen att markera hos
+ATG. Raderna är hela korsprodukten. BIG9 med Wild Card byggs inte.
 """
 from __future__ import annotations
 
@@ -144,7 +149,7 @@ def round_view(conn, product: str, serial: int, *, now: dt.datetime) -> Optional
 
 def build_system(conn, product: str, serial: int, *, budget: int, strategy: str,
                  now: dt.datetime) -> dict:
-    """Bygg värderader för en öppen omgång. Kastar LookupError (okänd omgång),
+    """Bygg ett fullt system för en öppen omgång. Kastar LookupError (okänd omgång),
     Stangd (inte spelbar) eller ValueError (ogiltigt val/underlag)."""
     if product not in atg.PRODUCTS:
         raise LookupError(f"okänd produkt {product!r}")
@@ -153,6 +158,9 @@ def build_system(conn, product: str, serial: int, *, budget: int, strategy: str,
                          f"(tillåtna: {', '.join(map(str, BUDGETS))})")
     if strategy not in STRATEGY_VALUE_WEIGHT:
         raise ValueError(f"okänd strategi {strategy!r}")
+    if atg.PRODUCTS[product]["wildcard"]:
+        raise ValueError(f"{atg.namn(product)} har Wild Card — byggaren gör bara "
+                         "fulla system för Big 9 utan Wild Card")
     if not atg.tables_exist(conn):
         raise LookupError("atg-tabellerna saknas")
     obs = atg.latest_observation(conn, product, serial)
@@ -163,18 +171,20 @@ def build_system(conn, product: str, serial: int, *, budget: int, strategy: str,
     payload = spelai_big9.build_payload(conn, product, obs, None, now)
     rnd = spelai_big9.round_from_payload(payload)
     value_weight = STRATEGY_VALUE_WEIGHT[strategy]
-    system = big9_builder.build_rows(rnd, float(budget), value_weight=value_weight)
-    tokens = big9_builder.TOKENS if rnd.wildcard else big9_builder.CELLS
-    coverage = [{c: 0 for c in tokens} for _ in rnd.matches]
+    system = big9_builder.build_full_system(rnd, float(budget),
+                                            value_weight=value_weight)
+    coverage = [{c: 0 for c in big9_builder.CELLS} for _ in rnd.matches]
     for text in system.rows:
         for i, token in enumerate(text.split()):
             coverage[i][token] += 1
     matches = payload["omgang"]["matches"]
-    standard_key = spelai_big9.standard_key(product, budget)
+    standard_key = spelai_big9.standard_key(product, budget, serial)
     return {
         "product": product, "serial": int(serial), "budget": int(budget),
         "strategy": strategy, "value_weight": value_weight,
-        "version": big9_builder.VERSION,
+        "version": big9_builder.SYSTEM_VERSION,
+        "cells": system.cells,
+        "form": "·".join(str(len(c)) for c in system.cells),
         "rows": system.rows, "n_rows": system.n_rows, "cost": system.cost,
         "ev_total": round(system.ev_total, 2), "note": system.note,
         "row_price": rnd.row_price, "turnover_used": rnd.turnover,

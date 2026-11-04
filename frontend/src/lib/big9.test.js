@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   BIG9_CELLS, cellLabel, cellShort, valueClass, pctText, rowTokens, rowsText, fileName,
-  coverageCells, roundOptions, roundKey, fmtSwedish,
+  coverageCells, roundOptions, roundKey, fmtSwedish, systemCells, systemFormula, couponText,
 } from './big9.js'
 import { POOL_GAMES, POOL_TABS } from './labels.js'
 
@@ -52,4 +52,16 @@ test('ATG:s UTC-tider visas i svensk tid', () => {
   assert.match(fmtSwedish('2026-11-04T19:45:00Z'), /20:45/)
   assert.equal(fmtSwedish(null), '–')
   assert.equal(fmtSwedish('nej'), '–')
+})
+
+test('fullt system: cellmängd per match och antalet rader', () => {
+  const system = {
+    cells: [['1O', 'XU', '2O'], ['1O']],
+    matches: [{ event_number: 1, home: 'A', away: 'B' }, { event_number: 2, home: 'C', away: 'D' }],
+  }
+  assert.deepEqual(systemFormula(system.cells), { sizes: [3, 1], rows: 3, text: '3 × 1 = 3 rader' })
+  assert.equal(couponText(system), '1. A – B: 1 Ö, X U, 2 Ö\n2. C – D: 1 Ö\n3 × 1 = 3 rader\n')
+  // äldre svar utan `cells`: mängden ur täckningen
+  assert.deepEqual(systemCells({ coverage: [{ '1O': 2, XU: 0, '2U': 1 }] }), [['1O', '2U']])
+  assert.equal(couponText({ matches: [], cells: [] }), '')
 })

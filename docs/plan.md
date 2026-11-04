@@ -1,12 +1,24 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-11-04 — Big 9 i appen (Poolspel → Big 9); pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-11-04 — Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
 `docs/overlamningar/overlamning-2026-10-13-agentbeslut.md`.
 
 **Nytt 2026-11-04:**
+- **Big 9: bara fulla system** (beslut 2026-11-04-big9-fullt-system, val 0). ATG tar
+  inga reducerade urval och ingen radfil, bara "Spela enskilda utfall": valfria av de
+  sex cellerna per match. Från **SP96 omgång 554** (`nivaer.FULLT_SYSTEM_FRAN`) gäller:
+  standarden är `big9-fullsystem-v1-sp96-b256-medel`
+  (`big9_builder.build_full_system`: en cellmängd per match, rader = korsprodukten ≤
+  512), och agentens rader godtas bara som exakt hela korsprodukten (annars
+  `ogiltigt`). Paketet säger det (`rader.fullt_system`, schema
+  `spelai-indata-big9-v3`). Appens byggare bygger samma fulla system och visar
+  **kupongen att markera hos ATG** (sex rutor per match, formel a × b × … = N rader).
+  Omgång 546 (6h-fönstret 13:45Z, minuter efter driftsättningen) körs helt under de gamla reglerna;
+  frysta rader är orörda och rättningen är oförändrad. Serierna `big9-varderader-v1-*`
+  och `big9-fullsystem-v1-*` jämförs aldrig som en serie. `docs/spelai-facit.md` § 19.2.
 - **Big 9 i appen** (beslut 2026-11-04-big9-i-byggaren, val 0): Poolspel har fliken
   **Big 9** (`src/big9/Big9View.jsx`, `POOL_TABS`) med ATG-omgångarna (öppna först,
   annars de senaste stängda), matcherna med ATG:s odds (1X2 + Ö/U 2,5), vår sannolikhet

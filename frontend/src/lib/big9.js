@@ -1,7 +1,8 @@
 // Big 9 (ATG) i Poolspel — ren logik utan React (beslut 2026-11-04-big9-i-byggaren).
 // En rad är nio tokens i matchordning; en token är 1X2 + Ö/U 2,5 (`1O` = hemma
-// och över). ATG:s radfilsformat är inte verifierat, så raderna lämnas som
-// text och kupongbild att lägga in för hand på atg.se.
+// och över). ATG tar bara fulla system ("Spela enskilda utfall", beslut
+// 2026-11-04-big9-fullt-system): byggaren lämnar en cellmängd per match, och
+// kupongen visar vilka av de sex rutorna som ska markeras hos ATG.
 
 export const BIG9_CELLS = ['1O', '1U', 'XO', 'XU', '2O', '2U']
 export const BIG9_VALUE_GREEN = 1.08
@@ -72,4 +73,27 @@ export function fmtSwedish(iso) {
     timeZone: 'Europe/Stockholm', weekday: 'short', day: 'numeric', month: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
+}
+
+// Fullt system: cellmängd per match (`system.cells`), annars ur täckningen.
+export function systemCells(system, cells = BIG9_CELLS) {
+  if (Array.isArray(system?.cells)) return system.cells
+  return (system?.coverage || []).map((counts) => cells.filter((c) => (counts?.[c] || 0) > 0))
+}
+
+// "3 × 1 × 3 … = 486 rader": antalet rader är produkten av mängdernas storlek.
+export function systemFormula(cells) {
+  const sizes = (cells || []).map((c) => c.length)
+  const rows = sizes.reduce((acc, n) => acc * n, sizes.length ? 1 : 0)
+  return { sizes, rows, text: `${sizes.join(' × ')} = ${rows} rader` }
+}
+
+// Kupongen som text: en rad per match med cellerna att markera hos ATG.
+export function couponText(system, cells = systemCells(system)) {
+  const lines = (system?.matches || []).map((m, i) => {
+    const marked = (cells[i] || []).map(cellShort).join(', ')
+    return `${m.event_number}. ${m.home} – ${m.away}: ${marked}`
+  })
+  const { text } = systemFormula(cells)
+  return lines.join('\n') + (lines.length ? `\n${text}\n` : '')
 }

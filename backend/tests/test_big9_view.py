@@ -72,9 +72,15 @@ class Big9ViewTests(unittest.TestCase):
     def test_byggaren_ar_standardens_byggare(self):
         out = big9_view.build_system(self.conn, "sp96", 600, budget=256,
                                      strategy="medel", now=self.now)
-        self.assertEqual(512, out["n_rows"])
-        self.assertEqual(256.0, out["cost"])
-        self.assertEqual(big9.STANDARD_KEYS["sp96"][256], out["standard_key"])
+        self.assertLessEqual(out["n_rows"], 512)
+        self.assertEqual(out["n_rows"] * 0.5, out["cost"])
+        self.assertEqual(big9.SYSTEM_KEYS["sp96"][256], out["standard_key"])
+        self.assertEqual(big9_builder.SYSTEM_VERSION, out["version"])
+        # kupongen att markera hos ATG: cellmängd per match, raderna = korsprodukten
+        self.assertEqual(9, len(out["cells"]))
+        self.assertEqual(out["form"], "·".join(str(len(c)) for c in out["cells"]))
+        self.assertEqual(sorted(out["rows"]),
+                         sorted(big9_builder.system_rows(out["cells"])))
         # samma rader som facitsidans standard ur samma paket
         obs = atg.latest_observation(self.conn, "sp96", 600)
         payload = big9.build_payload(self.conn, "sp96", obs, None, self.now)
@@ -83,12 +89,12 @@ class Big9ViewTests(unittest.TestCase):
         nivaer.validera("sp96", 256, {"format": "rows", "rows": out["rows"]})
         self.assertEqual(9, len(out["coverage"]))
         self.assertNotIn("W", out["coverage"][0])
-        self.assertTrue(all(sum(c.values()) == 512 for c in out["coverage"]))
+        self.assertTrue(all(sum(c.values()) == out["n_rows"] for c in out["coverage"]))
 
     def test_strategi_och_budget(self):
         safe = big9_view.build_system(self.conn, "sp96", 600, budget=16,
                                       strategy="säker", now=self.now)
-        self.assertEqual(32, safe["n_rows"])
+        self.assertLessEqual(safe["n_rows"], 32)
         self.assertEqual(0.2, safe["value_weight"])
         self.assertIsNone(safe["standard_key"])
         with self.assertRaises(ValueError):
@@ -97,6 +103,9 @@ class Big9ViewTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             big9_view.build_system(self.conn, "sp96", 600, budget=256,
                                    strategy="tuff", now=self.now)
+        with self.assertRaises(ValueError):       # Wild Card: inget fullt system
+            big9_view.build_system(self.conn, "big9", 600, budget=256,
+                                   strategy="medel", now=self.now)
 
     def test_stangd_och_okand_omgang(self):
         with self.assertRaises(big9_view.Stangd):

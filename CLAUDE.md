@@ -145,17 +145,22 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       `MEASURED` = bara sp96: SP96 ("Premiär!") ÄR Big 9 sedan
                       2026-10-24 (beslut 2026-10-24-sp96-ar-big9, val 0); gamla BIG9
                       samlas in om den dyker upp igen men mäts inte
-  app/big9_builder.py Big 9-byggaren (värderader medel, sex celler 1X2×Ö/U; BIG9 med Wild
-                      Card och 7–9 rätt, SP96 utan Wild Card och 6–9 rätt; minsta
-                      utdelning ur posten) — standarden på facitsidan
+  app/big9_builder.py Big 9-byggaren (sex celler 1X2×Ö/U; BIG9 med Wild Card och 7–9
+                      rätt, SP96 utan Wild Card och 6–9 rätt; minsta utdelning ur
+                      posten) — standarden på facitsidan. **ATG tar bara FULLA system**
+                      ("Spela enskilda utfall", beslut 2026-11-04-big9-fullt-system):
+                      `build_full_system` väljer en cellmängd per match, raderna är hela
+                      korsprodukten ≤ budget/0,50 kr. `build_rows` (enskilda värderader)
+                      står kvar för BIG9/historiken men är inget spelbart ATG-system
   app/big9_view.py    Big 9 i APPEN (Poolspel → Big 9, beslut 2026-11-04-big9-i-byggaren):
                       `/api/big9/rounds|round|system`, rena läsningar av ATG-tabellerna.
                       Bygger via `spelai.big9.build_payload(horizon=None)` +
-                      `round_from_payload` + `big9_builder.build_rows` — samma väg som
-                      standarden, aldrig en parallell byggare. Strategi medel (0,5) /
-                      säker (0,2), budget 16–1 024 kr, bara öppna omgångar (409 annars).
-                      Raderna som text/kupongbild; ATG:s radfilsformat är overifierat,
-                      Saman lägger in raderna själv på atg.se/sport/big9
+                      `round_from_payload` + `big9_builder.build_full_system` — samma väg
+                      som standarden, aldrig en parallell byggare. Strategi medel (0,5) /
+                      säker (0,2), budget 16–1 024 kr, bara öppna omgångar (409 annars),
+                      inget BIG9 med Wild Card. Svaret bär `cells` (mängd per match);
+                      appen visar KUPONGEN att markera under "Spela enskilda utfall" på
+                      atg.se/sport/big9 (ATG tar ingen radfil)
   app/betsson.py      Publik Betsson-bootstrap (ej inkopplad; events-table CloudFront-
                       blockerad utanför browser; KRÄVER brotli, se transportregeln)
   app/analysis.py     fair_prob (power-metod), värde, taggar, speltyp, mover-flagga
@@ -238,9 +243,12 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       livepriser (`hamta_resultat_alla`, bara `oddset_results`)
                       `big9.py` (2026-10-24): Big 9 från ATG som produkt, nivå 256 kr
                       (512 rader à 0,50 kr, nio tokens `1O`…`2U`, `W` bara i gamla
-                      BIG9), mäter SP96 (`big9-varderader-v1-sp96-b256-medel`, åter-
-                      betalningsandel ur potterna), rättad mot ATG:s publicerade
-                      potter; räknas separat (`per_niva_atg`). facit § 19
+                      BIG9), mäter SP96, återbetalningsandel ur potterna, rättad mot
+                      ATG:s publicerade potter; räknas separat (`per_niva_atg`). Från
+                      `nivaer.FULLT_SYSTEM_FRAN` (SP96 554) är standarden
+                      `big9-fullsystem-v1-sp96-b256-medel` och agentens rader godtas BARA
+                      som fullt system (hela korsprodukten); äldre omgångar behåller
+                      `big9-varderader-v1-sp96-b256-medel`. facit § 19
   app/live_radar.py   shadow-radar för pågående matcher: Flashscore ankare, FotMob sekundär,
                       Sofascore URKOPPLAD ur radarn (kvar för resultat/frånvaro)
   app/live_signal_ledger.py append-only-journal över första Följer/Stark per match,

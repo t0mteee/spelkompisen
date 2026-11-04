@@ -33,6 +33,24 @@ Metoden är `builder.build_ev_system`s (värderader), överförd till sex celler
   `REFINE_CAP` (minst 2 × budgetens rader), därefter de bästa på score.
 SvS-byggarens X-skydd (`pool-draw-risk-v1`) gäller inte: det kräver Pinnacles
 total och är kalibrerat för 1X2-pooler.
+
+FULLT SYSTEM (beslut 2026-11-04-big9-fullt-system, val 0): ATG tar bara fulla
+system — "Spela enskilda utfall", valfri mängd av de sex cellerna per match —
+inga reducerade urval och ingen radfil. `build_full_system` väljer därför en
+cellmängd per match; raderna är hela korsprodukten och antalet (produkten av
+mängdernas storlek) är högst budget / radpris. Samma sannolikheter, folk, potter
+och score (P(rad)^k · EV(rad)) som `build_rows`; systemets värde är summan över
+dess rader:
+* Grovt: med toppgruppens utdelning ≈ pott / (fält · Q(rad)) faktoriserar
+  summan till Π_match Σ_{c ∈ mängd} p_c^(k+1) / q_c, så för en given storlek
+  per match är den bästa mängden de främsta cellerna på p^(k+1)/q. Varje
+  maximal storleksvektor (ingen match kan växa inom budgeten) rankas så, och
+  likaså med ren täckning (de främsta cellerna på p, värde Π Σ p) eftersom de
+  lägre vinstgrupperna belönar täckning.
+* Fullt: de bästa kandidaterna ur båda rankningarna (`SYSTEM_REFINE`, färre
+  vid stor budget) värderas med full EV över alla rader; högst summa vinner.
+`build_rows` (enskilda rader) står kvar för BIG9 med Wild Card och för
+historikens nyckel `big9-varderader-v1-*`, men ger inget spelbart ATG-system.
 """
 from __future__ import annotations
 
@@ -45,6 +63,7 @@ from typing import Optional
 from .analysis import _power_probs
 
 VERSION = "big9-varderader-v1"
+SYSTEM_VERSION = "big9-fullsystem-v1"
 CELLS = ("1O", "1U", "XO", "XU", "2O", "2U")
 WILDCARD = "W"
 TOKENS = CELLS + (WILDCARD,)
@@ -54,6 +73,8 @@ Q_FLOOR = 0.001
 UNIVERSE_CAP = 60_000
 REFINE_CAP = 4_000
 MAX_GOALS = 15
+SYSTEM_REFINE = 120          # kandidatsystem per grovrankning
+SYSTEM_EVAL_ROWS = 160_000   # tak för fullt värderade rader per rankning
 
 
 @dataclass
@@ -86,6 +107,7 @@ class Big9System:
     cost: float
     note: str
     ev_total: float
+    cells: Optional[list] = None     # fullt system: cellmängd per match
 
 
 # ── sannolikheter ────────────────────────────────────────────────────────
@@ -327,3 +349,131 @@ def build_rows(rnd: Big9Round, budget: float, value_weight: float = 0.5) -> Big9
         note += "; " + "; ".join(rnd.notes)
     return Big9System(rows=rows, n_rows=len(rows), cost=cost, note=note,
                       ev_total=ev_total)
+
+
+# ── fullt system (ATG:s "enskilda utfall") ───────────────────────────────
+
+def system_rows(cells: list) -> list[str]:
+    """Cellmängd per match → hela korsprodukten som rader (CELLS-ordning)."""
+    ordered = [[c for c in CELLS if c in chosen] for chosen in cells]
+    return [row_text(row) for row in itertools.product(*ordered)]
+
+
+def _size_vectors(n: int, cap: int) -> list[tuple[int, ...]]:
+    """Alla maximala storleksvektorer: produkt ≤ cap och ingen match kan växa."""
+    out: list[tuple[int, ...]] = []
+    sizes = [1] * n
+
+    def rec(i: int, prod: int) -> None:
+        if i == n:
+            if all(s == len(CELLS) or prod // s * (s + 1) > cap for s in sizes):
+                out.append(tuple(sizes))
+            return
+        for s in range(1, len(CELLS) + 1):
+            if prod * s > cap:
+                break
+            sizes[i] = s
+            rec(i + 1, prod * s)
+        sizes[i] = 1
+
+    rec(0, 1)
+    return out
+
+
+def _coarse_systems(ranked: list[list[str]], values: list[list[float]],
+                    vectors: list, keep: int) -> list[tuple]:
+    """De `keep` bästa storleksvektorerna på Σ log(Σ värde över mängden)."""
+    logs = []
+    for vals in values:
+        acc, cum = 0.0, []
+        for v in vals:
+            acc += v
+            cum.append(math.log(acc) if acc > 0 else -math.inf)
+        logs.append(cum)
+    scored = ((sum(logs[i][s - 1] for i, s in enumerate(vec)), vec) for vec in vectors)
+    best = heapq.nlargest(keep, scored)
+    return [tuple(tuple(sorted(ranked[i][:s], key=CELLS.index))
+                  for i, s in enumerate(vec)) for _score, vec in best]
+
+
+def build_full_system(rnd: Big9Round, budget: float,
+                      value_weight: float = 0.5) -> Big9System:
+    """Ett fullt system: cellmängd per match, rader = korsprodukten ≤ budget."""
+    if rnd.wildcard:
+        raise ValueError("fullt system byggs bara för Big 9 utan Wild Card")
+    if rnd.turnover <= 0:
+        raise ValueError("Big 9-byggaren kräver en omsättning")
+    if any(not m.p or not m.q for m in rnd.matches):
+        raise ValueError("Big 9-byggaren kräver sannolikheter för alla matcher")
+    cap = max(1, int(round(budget / rnd.row_price, 6)))
+    k = 2.0 * (1.0 - max(0.0, min(1.0, value_weight)))
+    pools = prize_pools(rnd)
+    vectors = _size_vectors(len(rnd.matches), cap)
+    keep = max(10, min(SYSTEM_REFINE, SYSTEM_EVAL_ROWS // cap))
+    candidates: dict[tuple, None] = {}
+    rankings = (lambda m, c: m.p[c] ** (k + 1.0) / m.q[c],   # värde (toppgruppen)
+                lambda m, c: m.p[c])                         # täckning
+    for metric in rankings:
+        ranked, values = [], []
+        for m in rnd.matches:
+            order = sorted(CELLS, key=lambda c: (-metric(m, c), CELLS.index(c)))
+            ranked.append(order)
+            values.append([metric(m, c) for c in order])
+        for system in _coarse_systems(ranked, values, vectors, keep):
+            candidates.setdefault(system, None)
+    cache: dict[tuple, tuple[float, float]] = {}
+
+    def row_value(row: tuple) -> tuple[float, float]:
+        hit = cache.get(row)
+        if hit is None:
+            p_row = math.prod(m.p[t] for m, t in zip(rnd.matches, row))
+            ev = row_ev(rnd, row, pools)
+            hit = cache[row] = ((p_row ** k) * ev, ev)
+        return hit
+
+    best = None
+    for system in candidates:
+        score = ev = 0.0
+        for row in itertools.product(*system):
+            s, e = row_value(row)
+            score += s
+            ev += e
+        n_rows = math.prod(len(c) for c in system)
+        item = (score, ev, n_rows, system)
+        if best is None or item[:2] > best[:2] or (
+                item[:2] == best[:2] and item[3] < best[3]):
+            best = item
+    _score, ev_total, n_rows, system = best
+    cells = [list(c) for c in system]
+    rows = system_rows(cells)
+    cost = len(rows) * rnd.row_price
+    n = len(rnd.matches)
+    odds_matches = sum(1 for m in rnd.matches if m.p_source == "odds")
+    form = "·".join(str(len(c)) for c in cells)
+    note = (f"{SYSTEM_VERSION}: fullt system {form} = {len(rows)} rader à "
+            f"{rnd.row_price:.2f} kr ur {len(candidates)} kandidatsystem; odds på "
+            f"{odds_matches}/{n} matcher (övriga folkets fördelning); EV "
+            f"{ev_total:.0f} kr mot insats {cost:.0f} kr")
+    if rnd.notes:
+        note += "; " + "; ".join(rnd.notes)
+    return Big9System(rows=rows, n_rows=len(rows), cost=cost, note=note,
+                      ev_total=ev_total, cells=cells)
+
+
+def full_system_cells(rows: list[str], n_matches: int) -> Optional[list[list[str]]]:
+    """Cellmängd per match om raderna är EXAKT hela korsprodukten, annars None.
+
+    Raderna förutsätts unika och med `n_matches` tokens; de är då hela
+    korsprodukten precis när antalet är produkten av mängdernas storlek."""
+    sets = [set() for _ in range(n_matches)]
+    for row in rows:
+        tokens = row.split()
+        if len(tokens) != n_matches:
+            return None
+        for i, token in enumerate(tokens):
+            if token not in CELLS:
+                return None
+            sets[i].add(token)
+    if math.prod(len(s) for s in sets) != len(rows):
+        return None
+    return [[c for c in CELLS if c in s] for s in sets]

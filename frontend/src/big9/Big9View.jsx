@@ -1,14 +1,16 @@
 // Big 9 (ATG) under Poolspel (beslut 2026-11-04-big9-i-byggaren): omgångarna,
 // matcherna med ATG:s odds och folkets streck för de sex cellerna och
 // byggaren (backend/app/big9_view.py → big9_builder, samma byggare som
-// facitsidans standard). Raderna lämnas som text eller kupongbild — Saman
-// lägger in dem själv på atg.se. Inga spel läggs härifrån.
+// facitsidans standard). ATG tar bara fulla system (beslut
+// 2026-11-04-big9-fullt-system): byggaren väljer en cellmängd per match och
+// kupongen visar vilka rutor Saman markerar under "Spela enskilda utfall" på
+// atg.se. Inga spel läggs härifrån.
 import { useEffect, useRef, useState } from 'react'
 import { getDetail } from '../lib/api.js'
 import { kr } from '../lib/format.js'
 import {
   BIG9_CELLS, cellLabel, cellShort, valueClass, pctText, rowTokens, rowsText, fileName,
-  coverageCells, roundOptions, roundKey, fmtSwedish,
+  roundOptions, roundKey, fmtSwedish, systemCells, systemFormula, couponText,
 } from '../lib/big9.js'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui.jsx'
 
@@ -64,32 +66,49 @@ function MatchTable({ round }) {
   )
 }
 
-function CouponImage({ system, cells }) {
+// Kupongen att markera hos ATG: de sex rutorna per match, valda rutor ifyllda.
+function AtgCoupon({ system }) {
+  const chosen = systemCells(system)
+  const formula = systemFormula(chosen)
+  return (
+    <>
+      <h3>Kupong att markera hos ATG</h3>
+      <p className="big9-hint">På atg.se/sport/big9: välj <b>Spela enskilda utfall</b> och
+        markera de ifyllda rutorna per match. ATG räknar hela systemet:{' '}
+        <b>{formula.text}</b> à {system.row_price.toFixed(2).replace('.', ',')} kr = <b>{kr(system.cost)}</b>.</p>
+      <div className="big9-scroll">
+        <table className="big9-table big9-cover">
+          <thead><tr><th>#</th><th>Match</th>{BIG9_CELLS.map((c) => <th key={c}>{cellShort(c)}</th>)}<th>Utfall</th></tr></thead>
+          <tbody>
+            {system.matches.map((m, i) => {
+              const set = new Set(chosen[i] || [])
+              return (
+                <tr key={m.event_number}>
+                  <td>{m.event_number}</td>
+                  <td className="big9-match">{m.home} – {m.away}</td>
+                  {BIG9_CELLS.map((c) => (
+                    <td key={c} className={set.has(c) ? 'big9-mark' : 'big9-empty'}
+                      title={`${cellLabel(c)}: ${set.has(c) ? 'markera' : 'lämna tom'}`}>
+                      {set.has(c) ? '✓' : ''}
+                    </td>
+                  ))}
+                  <td>{set.size}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
+}
+
+function RowList({ system }) {
   const [all, setAll] = useState(false)
   const shown = all ? system.rows : system.rows.slice(0, SHOW_ROWS)
   return (
     <>
-      <h3>Täckning per match</h3>
-      <div className="big9-scroll">
-        <table className="big9-table big9-cover">
-          <thead><tr><th>#</th><th>Match</th>{cells.map((c) => <th key={c}>{cellShort(c)}</th>)}</tr></thead>
-          <tbody>
-            {coverageCells(system.coverage, cells).map((row, i) => (
-              <tr key={system.matches[i]?.event_number ?? i}>
-                <td>{system.matches[i]?.event_number}</td>
-                <td className="big9-match">{system.matches[i]?.home} – {system.matches[i]?.away}</td>
-                {row.map((c) => (
-                  <td key={c.cell} className={c.marked ? 'big9-mark' : 'big9-empty'}
-                    title={`${cellLabel(c.cell)} på ${c.count} av ${system.n_rows} rader`}>
-                    {c.marked ? c.count : ''}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <h3>Raderna</h3>
+      <h3>Raderna i systemet</h3>
       <div className="big9-scroll">
         <table className="big9-table big9-rows">
           <thead><tr><th>Rad</th>{system.matches.map((m) => <th key={m.event_number} title={`${m.home} – ${m.away}`}>{m.event_number}</th>)}</tr></thead>
@@ -112,23 +131,25 @@ function CouponImage({ system, cells }) {
   )
 }
 
-function SystemResult({ system, round }) {
-  const [mode, setMode] = useState('bild')
+function SystemResult({ system }) {
+  const [mode, setMode] = useState('kupong')
   const [copied, setCopied] = useState(false)
-  const text = rowsText(system.rows)
-  const cells = round.wildcard ? [...BIG9_CELLS, 'W'] : BIG9_CELLS
-  const copy = async () => {
+  const coupon = couponText(system)
+  const rows = rowsText(system.rows)
+  const copy = async (text) => {
     try { await navigator.clipboard.writeText(text); setCopied(true) } catch { setCopied(false) }
   }
   const download = () => {
-    const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }))
+    const url = URL.createObjectURL(new Blob([rows], { type: 'text/plain' }))
     const a = document.createElement('a')
     a.href = url; a.download = fileName(system.product, system.serial); a.click()
     URL.revokeObjectURL(url)
   }
+  const pick = (next) => { setMode(next); setCopied(false) }
   return (
     <div className="big9-result">
       <div className="big9-kpis">
+        <span>fullt system <b>{system.form ?? systemFormula(systemCells(system)).sizes.join('·')}</b></span>
         <span><b>{system.n_rows}</b> rader</span>
         <span>insats <b>{kr(system.cost)}</b></span>
         <span title="Byggarens förväntade utdelning mot prognosomsättningen">EV <b className={system.ev_total >= system.cost ? 'pos' : ''}>{kr(system.ev_total)}</b></span>
@@ -137,22 +158,25 @@ function SystemResult({ system, round }) {
       </div>
       <p className="big9-note">{system.note}</p>
       <div className="big9-actions">
-        <button className={`big9-btn ${mode === 'bild' ? 'on' : ''}`} onClick={() => setMode('bild')}>Kupongbild</button>
-        <button className={`big9-btn ${mode === 'text' ? 'on' : ''}`} onClick={() => setMode('text')}>Text</button>
+        <button className={`big9-btn ${mode === 'kupong' ? 'on' : ''}`} onClick={() => pick('kupong')}>Kupong</button>
+        <button className={`big9-btn ${mode === 'rader' ? 'on' : ''}`} onClick={() => pick('rader')}>Rader</button>
+        <button className={`big9-btn ${mode === 'text' ? 'on' : ''}`} onClick={() => pick('text')}>Text</button>
         <a className="big9-btn big9-atg" href={ATG_URL} target="_blank" rel="noopener noreferrer">Spela på ATG →</a>
       </div>
-      {mode === 'text' ? (
+      {mode === 'kupong' && <AtgCoupon system={system} />}
+      {mode === 'rader' && <RowList system={system} />}
+      {mode === 'text' && (
         <>
-          <textarea className="big9-text" readOnly value={text} rows={Math.min(16, system.rows.length + 1)} />
+          <textarea className="big9-text" readOnly value={coupon} rows={Math.min(16, system.matches.length + 2)} />
           <div className="big9-actions">
-            <button className="big9-btn" onClick={copy}>{copied ? 'Kopierat ✓' : 'Kopiera raderna'}</button>
-            <button className="big9-btn" onClick={download}>Ladda ned .txt</button>
+            <button className="big9-btn" onClick={() => copy(coupon)}>{copied ? 'Kopierat ✓' : 'Kopiera kupongen'}</button>
+            <button className="big9-btn" onClick={download}>Ladda ned raderna (.txt)</button>
           </div>
-          <p className="big9-hint">En rad per kupongrad, en token per match i matchordning
-            (1O = hemmaseger och över 2,5). ATG:s radfilsformat är inte verifierat — lägg in
-            raderna själv hos ATG.</p>
+          <p className="big9-hint">En rad per match med rutorna att markera under Spela
+            enskilda utfall. Radfilen är hela korsprodukten (en token per match, 1O =
+            hemmaseger och över 2,5) — ATG tar ingen radfil, den är bara för kontroll.</p>
         </>
-      ) : <CouponImage system={system} cells={cells} />}
+      )}
     </div>
   )
 }
@@ -272,7 +296,10 @@ export function Big9View() {
           <section className="buildbar">
             <h2>Bygg Big 9-system</h2>
             {round.open ? (
-              <>
+              round.wildcard ? (
+                <p className="big9-hint">{round.name} har Wild Card — byggaren gör bara fulla
+                  system för Big 9 utan Wild Card.</p>
+              ) : <>
                 <div className="controls">
                   {strategies.map((s) => (
                     <label key={s} className={strategy === s ? 'active' : ''}>
@@ -287,12 +314,14 @@ export function Big9View() {
                     </select>
                   </label>
                   <button className="big9-btn primary" onClick={build} disabled={building}>
-                    {building ? 'Bygger…' : 'Bygg värderader'}
+                    {building ? 'Bygger…' : 'Bygg fullt system'}
                   </button>
                 </div>
-                <p className="big9-hint">Värderader med samma byggare som facitsidans standard
-                  (medel, 256 kr). Säker väger träffchans tyngre (värdevikt 0,2).</p>
-                {system && <SystemResult system={system} round={round} />}
+                <p className="big9-hint">ATG tar bara fulla system: byggaren väljer de
+                  rutor per match (av sex) som ger högst värde, och antalet rader är produkten
+                  av rutorna per match — högst budgeten / 0,50 kr. Samma byggare som facitsidans
+                  standard (medel, 256 kr). Säker väger träffchans tyngre (värdevikt 0,2).</p>
+                {system && <SystemResult system={system} />}
               </>
             ) : <p className="big9-hint">Omgången är stängd ({round.status}) — byggaren gäller bara öppna omgångar.</p>}
           </section>
