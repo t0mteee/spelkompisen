@@ -1,12 +1,24 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-11-05 — Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-11-05 — Big 9: egen kupong i appen; Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
 `docs/overlamningar/overlamning-2026-10-13-agentbeslut.md`.
 
 **Nytt 2026-11-05:**
+- **Big 9: egen kupong** (beslut 2026-11-04-big9-lagg-till-i-kupong-omforsok, val 0).
+  Poolspel → Big 9 har sektionen **Egen kupong** (öppna omgångar utan Wild Card): tryck
+  på en ruta (1 Ö … 2 U) per match för att lägga till eller ta bort; varje ruta visar
+  folkets streck och modellens % (ATG:s odds utan marginal), en vald ruta även kvoten
+  modell/streck (grön över 1, röd under 1). Kupongen visar form (4·2·1…), rader,
+  kostnad, chans för 9 rätt enligt modellen (produkten av valda rutors sannolikhet,
+  struken match = rätt) och folkets andel för samma rader (produkten av strecken,
+  matcherna oberoende); saknas modell eller streck visas `–`, aldrig en gissning.
+  Byggarens system läses in som start ("Läs in byggarens system"/"Ändra i egen kupong")
+  och sparas per öppen omgång i `localStorage` (`big9_kupong`). Ren frontend
+  (`lib/big9.js`: `couponStats`, `toggleCell`, `couponFromSystem`), samma API-svar som
+  förut; backend, insamling, standard och facitsidans mätning orörda. Inga spel läggs.
 - **Big 9 på 512 kr** (beslut 2026-11-04-big9-niva-512-omforsok, val 0). Facitsidan
   mäter SP96 även på 512 kr = högst 1 024 rader, från omgång **554** (samma som fulla
   system; `nivaer.ATG_NIVAER_FRAN`, `nivaer_for(produkt, omgång)`). Standard

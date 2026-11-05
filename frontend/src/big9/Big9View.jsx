@@ -4,22 +4,116 @@
 // facitsidans standard). ATG tar bara fulla system (beslut
 // 2026-11-04-big9-fullt-system): byggaren väljer en cellmängd per match och
 // kupongen visar vilka rutor Saman markerar under "Spela enskilda utfall" på
-// atg.se. Inga spel läggs härifrån.
+// atg.se. Egen kupong (beslut 2026-11-04-big9-lagg-till-i-kupong-omforsok):
+// Saman trycker på rutorna själv och ser streck, modell och kvot per vald ruta;
+// byggarens system kan läsas in som start. Inga spel läggs härifrån.
 import { useEffect, useRef, useState } from 'react'
 import { getDetail } from '../lib/api.js'
 import { kr } from '../lib/format.js'
 import {
   BIG9_CELLS, cellLabel, cellShort, valueClass, pctText, rowTokens, rowsText, fileName,
   roundOptions, roundKey, fmtSwedish, systemCells, systemFormula, couponText,
+  ratioClass, emptyCoupon, toggleCell, couponFromSystem, restoreCoupon, couponStats, smallPct, oneIn,
 } from '../lib/big9.js'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui.jsx'
 
 const ATG_URL = 'https://www.atg.se/sport/big9'
 const SHOW_ROWS = 20
 const SAVED_KEY = 'big9_state'
+const COUPON_KEY = 'big9_kupong'
 
-function readSaved() {
-  try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '{}') || {} } catch { return {} }
+function readSaved(name = SAVED_KEY) {
+  try { return JSON.parse(localStorage.getItem(name) || '{}') || {} } catch { return {} }
+}
+
+// Egen kupong: tryck på en ruta för att lägga till eller ta bort den.
+function OwnCoupon({ round, coupon, setCoupon, system }) {
+  const [copied, setCopied] = useState(false)
+  const stats = couponStats(round.matches, coupon, round.row_price)
+  const text = couponText({ matches: round.matches }, coupon)
+  const change = (next) => { setCoupon(next); setCopied(false) }
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(text); setCopied(true) } catch { setCopied(false) }
+  }
+  const picked = stats.sizes.some(Boolean)
+  return (
+    <section className="big9-own">
+      <h2>Egen kupong</h2>
+      <p className="big9-hint">Tryck på en ruta för att lägga till eller ta bort den. Varje ruta
+        visar folkets streck och modellens sannolikhet (ATG:s odds utan marginal); en vald ruta
+        visar även kvoten modell/streck — grön över 1, röd under 1.</p>
+      <div className="big9-actions">
+        <button className="big9-btn" disabled={!system}
+          title={system ? 'Ersätt kupongen med byggarens fulla system' : 'Bygg ett system nedan först'}
+          onClick={() => change(couponFromSystem(system, round.matches))}>Läs in byggarens system</button>
+        <button className="big9-btn" disabled={!picked} onClick={() => change(emptyCoupon(round.matches.length))}>Töm</button>
+        <a className="big9-btn big9-atg" href={ATG_URL} target="_blank" rel="noopener noreferrer">Spela på ATG →</a>
+      </div>
+      <div className="big9-scroll">
+        <table className="big9-table big9-pick">
+          <thead><tr><th>#</th><th>Match</th>{BIG9_CELLS.map((c) => <th key={c} title={cellLabel(c)}>{cellShort(c)}</th>)}<th>Rutor</th></tr></thead>
+          <tbody>
+            {round.matches.map((m, i) => {
+              const set = coupon[i] || []
+              return (
+                <tr key={m.event_number}>
+                  <td>{m.event_number}</td>
+                  <td className="big9-match">{m.home} – {m.away}{m.cancelled && <small>struken — rätt för alla</small>}</td>
+                  {m.cells.map((c) => {
+                    const on = set.includes(c.cell)
+                    const streck = m.streck ? `${Math.round(m.streck[c.cell])} %` : '–'
+                    return (
+                      <td key={c.cell} className="big9-pickcell">
+                        <button type="button" className={`big9-pickbtn ${on ? 'on' : ''}`} aria-pressed={on}
+                          onClick={() => change(toggleCell(coupon, i, c.cell))}
+                          title={`${cellLabel(c.cell)}: streck ${m.streck ? `${m.streck[c.cell].toFixed(1)} %` : '–'}, modell ${pctText(c.p)}, kvot ${c.value ?? '–'} — ${on ? 'tryck för att ta bort' : 'tryck för att lägga till'}`}>
+                          <span>{streck}</span>
+                          <small>{pctText(c.p, 0)}</small>
+                          {on && <b className={ratioClass(c.value)}>{c.value != null ? c.value.toFixed(2).replace('.', ',') : '–'}</b>}
+                        </button>
+                      </td>
+                    )
+                  })}
+                  <td>{set.length}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="big9-hint">Övre siffran i rutan är folkets streck, undre modellens
+        sannolikhet; den fetstilta under en vald ruta är kvoten modell/streck.</p>
+      <div className="big9-kpis">
+        <span>form <b>{stats.form}</b></span>
+        <span><b>{stats.rows}</b> rader</span>
+        <span>kostnad <b>{kr(stats.cost)}</b></span>
+        <span title="Produkten av modellens sannolikhet för de valda rutorna (struken match = rätt)">
+          chans 9 rätt <b>{smallPct(stats.chance)}</b>{oneIn(stats.chance) && ` (${oneIn(stats.chance)})`}</span>
+        <span title="Andelen av folkets rader som ligger i samma kupong: produkten av strecken, matcherna som oberoende">
+          folkets andel <b>{smallPct(stats.folk)}</b></span>
+        {stats.ratio != null && <span title="Chans för 9 rätt delat med folkets andel">
+          kvot <b className={ratioClass(stats.ratio)}>{stats.ratio.toFixed(2).replace('.', ',')}</b></span>}
+      </div>
+      {stats.missing.length > 0 && picked && (
+        <p className="big9-hint">Välj minst en ruta i match {stats.missing.join(', ')} — ATG räknar hela systemet.</p>
+      )}
+      {stats.unpriced.length > 0 && (
+        <p className="big9-hint">Modellen saknar odds i match {stats.unpriced.join(', ')} — chansen visas inte.</p>
+      )}
+      {stats.unstreck.length > 0 && (
+        <p className="big9-hint">Streck saknas i match {stats.unstreck.join(', ')} — folkets andel visas inte.</p>
+      )}
+      {stats.rows > 0 && (
+        <>
+          <p className="big9-hint">På atg.se/sport/big9: välj <b>Spela enskilda utfall</b> och markera
+            de valda rutorna: <b>{systemFormula(coupon).text}</b> à {round.row_price.toFixed(2).replace('.', ',')} kr.</p>
+          <div className="big9-actions">
+            <button className="big9-btn" onClick={copy}>{copied ? 'Kopierat ✓' : 'Kopiera kupongen'}</button>
+          </div>
+        </>
+      )}
+    </section>
+  )
 }
 
 function MatchTable({ round }) {
@@ -131,7 +225,7 @@ function RowList({ system }) {
   )
 }
 
-function SystemResult({ system }) {
+function SystemResult({ system, onEdit }) {
   const [mode, setMode] = useState('kupong')
   const [copied, setCopied] = useState(false)
   const coupon = couponText(system)
@@ -161,6 +255,7 @@ function SystemResult({ system }) {
         <button className={`big9-btn ${mode === 'kupong' ? 'on' : ''}`} onClick={() => pick('kupong')}>Kupong</button>
         <button className={`big9-btn ${mode === 'rader' ? 'on' : ''}`} onClick={() => pick('rader')}>Rader</button>
         <button className={`big9-btn ${mode === 'text' ? 'on' : ''}`} onClick={() => pick('text')}>Text</button>
+        <button className="big9-btn" onClick={onEdit} title="Läs in systemet i Egen kupong och ändra rutorna">Ändra i egen kupong ↑</button>
         <a className="big9-btn big9-atg" href={ATG_URL} target="_blank" rel="noopener noreferrer">Spela på ATG →</a>
       </div>
       {mode === 'kupong' && <AtgCoupon system={system} />}
@@ -189,6 +284,8 @@ export function Big9View() {
   const [strategy, setStrategy] = useState(saved.strategy || 'medel')
   const [budget, setBudget] = useState(saved.budget || 256)
   const [system, setSystem] = useState(null)
+  const [coupon, setCoupon] = useState([])
+  const ownRef = useRef(null)
   const [building, setBuilding] = useState(false)
   const [err, setErr] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -199,12 +296,16 @@ export function Big9View() {
   const loadRound = (nextKey) => {
     setKey(nextKey)
     const id = ++sequence.current
-    setErr(null); setRound(null); setSystem(null)
+    setErr(null); setRound(null); setSystem(null); setCoupon([])
     if (!nextKey) { setLoading(false); return }
     setLoading(true)
     const [product, serial] = nextKey.split('|')
     getDetail(`/api/big9/round?product=${product}&serial=${serial}`, 'Big 9-omgång')
-      .then((data) => { if (id === sequence.current) setRound(data) })
+      .then((data) => {
+        if (id !== sequence.current) return
+        setRound(data)
+        setCoupon(restoreCoupon(readSaved(COUPON_KEY)[nextKey], data.matches.length))
+      })
       .catch((e) => { if (id === sequence.current) setErr(String(e.message || e)) })
       .finally(() => { if (id === sequence.current) setLoading(false) })
   }
@@ -224,6 +325,23 @@ export function Big9View() {
   useEffect(() => {
     try { localStorage.setItem(SAVED_KEY, JSON.stringify({ key, strategy, budget })) } catch { /* ok */ }
   }, [key, strategy, budget])
+
+  // Den egna kupongen sparas per omgång (bara öppna omgångar behålls).
+  useEffect(() => {
+    if (!round || roundKey(round) !== key || coupon.length !== round.matches.length) return
+    const open = new Set((list?.open || []).map(roundKey))
+    const all = readSaved(COUPON_KEY)
+    const next = Object.fromEntries(Object.entries(all).filter(([k]) => open.has(k)))
+    if (coupon.some((set) => set.length)) next[key] = coupon
+    else delete next[key]
+    try { localStorage.setItem(COUPON_KEY, JSON.stringify(next)) } catch { /* ok */ }
+  }, [round, key, coupon, list])
+
+  const editSystem = () => {
+    if (!round || !system) return
+    setCoupon(couponFromSystem(system, round.matches))
+    ownRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const build = async () => {
     if (!round || building) return
@@ -293,6 +411,12 @@ export function Big9View() {
             <MatchTable round={round} />
           </section>
 
+          {round.open && !round.wildcard && coupon.length === round.matches.length && (
+            <div ref={ownRef}>
+              <OwnCoupon round={round} coupon={coupon} setCoupon={setCoupon} system={system} />
+            </div>
+          )}
+
           <section className="buildbar">
             <h2>Bygg Big 9-system</h2>
             {round.open ? (
@@ -321,7 +445,7 @@ export function Big9View() {
                   rutor per match (av sex) som ger högst värde, och antalet rader är produkten
                   av rutorna per match — högst budgeten / 0,50 kr. Samma byggare som facitsidans
                   standard (medel, 256 kr). Säker väger träffchans tyngre (värdevikt 0,2).</p>
-                {system && <SystemResult system={system} />}
+                {system && <SystemResult system={system} onEdit={editSystem} />}
               </>
             ) : <p className="big9-hint">Omgången är stängd ({round.status}) — byggaren gäller bara öppna omgångar.</p>}
           </section>

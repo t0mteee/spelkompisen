@@ -276,6 +276,10 @@ frontend/ React + Vite, mörkt tema.
   src/labb/LabbV3.jsx  Labb = 100 % odds
   src/big9/Big9View.jsx  Poolspel → Big 9 (ATG) + lib/big9.js; fliken ligger i `POOL_TABS`,
                       INTE i `POOL_GAMES` (Idag/produktetiketterna läser den mot SvS)
+                      Egen kupong (beslut 2026-11-04-big9-lagg-till-i-kupong-omforsok):
+                      rutor per match med streck/modell/kvot (grön > 1, röd < 1),
+                      `couponStats` = rader, kostnad, P(9 rätt) och folkets andel ur
+                      rundans `cells` — null när underlag saknas, aldrig en gissning
   src/App.jsx + App.css  KOMPONENTBIBLIOTEKET (AnalysisTable, SystemView, CouponPanel,
                       PlayRec m.fl.) — re-exporterar även allt nedan
   src/lib/            ren logik utan React, testad med node --test: format.js,

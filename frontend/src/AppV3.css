@@ -1189,3 +1189,17 @@
   .big9-table th, .big9-table td { padding: 3px 4px; }
 }
 .big9 .controls .big9-btn { flex: 0 0 auto; width: auto; }
+/* Big 9: egen kupong — beslut 2026-11-04-big9-lagg-till-i-kupong-omforsok */
+.big9-pick td.big9-pickcell { padding: 2px 3px; }
+.big9-pickbtn {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; width: 100%; min-width: 46px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px; color: var(--text);
+  padding: 4px 2px; cursor: pointer; font-size: 12px; font-variant-numeric: tabular-nums;
+}
+.big9-pickbtn small { color: var(--muted); font-size: 11px; }
+.big9-pickbtn.on { background: var(--panel2); border-color: var(--v3acc); box-shadow: inset 0 0 0 1px var(--v3acc); }
+.big9-pickbtn.on span { color: var(--v3acc); font-weight: 700; }
+.big9-kpis b.neg { color: #e06b6b; }
+@media (max-width: 760px) {
+  .big9-pickbtn { min-width: 38px; padding: 3px 1px; }
+}

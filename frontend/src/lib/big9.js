@@ -97,3 +97,85 @@ export function couponText(system, cells = systemCells(system)) {
   const { text } = systemFormula(cells)
   return lines.join('\n') + (lines.length ? `\n${text}\n` : '')
 }
+
+// ── Egen kupong (beslut 2026-11-04-big9-lagg-till-i-kupong-omforsok) ─────────
+// Saman väljer själv rutor per match; varje vald ruta visar folkets streck,
+// modellens sannolikhet (ATG:s odds utan marginal) och kvoten modell/streck.
+// Kupongen är ett fullt system som byggarens: rader = produkten av rutorna.
+
+// Kvoten modell/streck: grön över 1, röd under 1 (beslutets gränser, inte
+// värdefärgens 1,08/0,92).
+export function ratioClass(ratio) {
+  if (ratio == null) return ''
+  if (ratio > 1) return 'pos'
+  if (ratio < 1) return 'neg'
+  return ''
+}
+
+export const emptyCoupon = (n) => Array.from({ length: n }, () => [])
+
+// Lägg till eller ta bort en ruta; mängden hålls i cellordningen 1O … 2U.
+export function toggleCell(coupon, index, cell) {
+  return coupon.map((set, i) => {
+    if (i !== index) return set
+    const next = set.includes(cell) ? set.filter((c) => c !== cell) : [...set, cell]
+    return BIG9_CELLS.filter((c) => next.includes(c))
+  })
+}
+
+// Byggarens system som start: mängden per match, parad på matchnumret.
+export function couponFromSystem(system, matches) {
+  const cells = systemCells(system)
+  const byEvent = new Map((system?.matches || []).map((m, i) => [m.event_number, cells[i] || []]))
+  return (matches || []).map((m) => BIG9_CELLS.filter((c) => (byEvent.get(m.event_number) || []).includes(c)))
+}
+
+// En sparad kupong godtas bara om den passar omgångens matcher och celler.
+export function restoreCoupon(saved, n) {
+  if (!Array.isArray(saved) || saved.length !== n) return emptyCoupon(n)
+  return saved.map((set) => (Array.isArray(set) ? BIG9_CELLS.filter((c) => set.includes(c)) : []))
+}
+
+// Kupongens nyckeltal. Chansen för 9 rätt är produkten av modellens
+// sannolikhet för de valda rutorna, folkets andel produkten av strecken
+// (matcherna som oberoende) — samma rader. Struken match är rätt för alla.
+// Saknas modell eller streck i en vald match blir talet null, aldrig en gissning.
+export function couponStats(matches, coupon, rowPrice) {
+  const list = matches || []
+  const sizes = list.map((_, i) => (coupon?.[i] || []).length)
+  const missing = list.filter((_, i) => !sizes[i]).map((m) => m.event_number)
+  const rows = list.length && !missing.length ? sizes.reduce((a, n) => a * n, 1) : 0
+  let chance = rows ? 1 : null
+  let folk = rows ? 1 : null
+  const unpriced = []
+  const unstreck = []
+  list.forEach((m, i) => {
+    if (!rows || m.cancelled) return
+    const chosen = (m.cells || []).filter((c) => coupon[i].includes(c.cell))
+    if (chosen.some((c) => c.p == null)) unpriced.push(m.event_number)
+    else if (chance != null) chance *= chosen.reduce((a, c) => a + c.p, 0)
+    if (chosen.some((c) => c.q == null)) unstreck.push(m.event_number)
+    else if (folk != null) folk *= chosen.reduce((a, c) => a + c.q, 0)
+  })
+  if (unpriced.length) chance = null
+  if (unstreck.length) folk = null
+  return {
+    sizes, form: sizes.join('·'), rows, missing, unpriced, unstreck,
+    cost: rows * (rowPrice || 0), chance, folk,
+    ratio: chance != null && folk ? chance / folk : null,
+  }
+}
+
+// Små sannolikheter med två värdesiffror: "0,042 %", "12,3 %".
+export function smallPct(share) {
+  if (share == null) return '–'
+  const pct = share * 100
+  const text = pct >= 1 ? pct.toFixed(1) : pct.toPrecision(2)
+  return `${text.replace('.', ',')} %`
+}
+
+// "1 på 240" för chanser under 50 %.
+export function oneIn(share) {
+  if (!share || share >= 0.5) return ''
+  return `1 på ${Math.round(1 / share).toLocaleString('sv-SE')}`
+}
