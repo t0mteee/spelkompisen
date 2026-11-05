@@ -160,7 +160,9 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       Bygger via `spelai.big9.build_payload(horizon=None)` +
                       `round_from_payload` + `big9_builder.build_full_system` — samma väg
                       som standarden, aldrig en parallell byggare. Strategi medel (0,5) /
-                      säker (0,2), budget 16–1 024 kr, bara öppna omgångar (409 annars),
+                      säker (0,2) / hög EV (1,0, "färre rätt, sällsynta stora vinster",
+                      aldrig standard, mäts inte på facitsidan; beslut 2026-11-04-big9-
+                      hog-ev-i-appen-omforsok), budget 16–1 024 kr, bara öppna omgångar (409 annars),
                       inget BIG9 med Wild Card. Svaret bär `cells` (mängd per match);
                       appen visar KUPONGEN att markera under "Spela enskilda utfall" på
                       atg.se/sport/big9 (ATG tar ingen radfil)

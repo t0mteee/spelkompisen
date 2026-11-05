@@ -1,12 +1,18 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-11-05 — Big 9: egen kupong i appen; Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-11-05 — Big 9: valet hög EV i appen; egen kupong i appen; Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
 `docs/overlamningar/overlamning-2026-10-13-agentbeslut.md`.
 
 **Nytt 2026-11-05:**
+- **Big 9: valet hög EV** (beslut 2026-11-04-big9-hog-ev-i-appen-omforsok, val 0).
+  Byggaren i Poolspel → Big 9 har ett tredje val, **hög EV** = värdevikt 1,0 (celler på
+  p/q, max EV, samma `build_full_system`), märkt "färre rätt, sällsynta stora vinster".
+  Medel förblir standard; ett hög EV-bygge bär aldrig `standard_key`. Facitsidan mäter
+  inte hög EV (ingen ny nyckel eller frysning) — skuggan per SP96-omgång följer
+  Forskaren i agentens repo. `docs/spelai-facit.md` § 19.4.
 - **Big 9: egen kupong** (beslut 2026-11-04-big9-lagg-till-i-kupong-omforsok, val 0).
   Poolspel → Big 9 har sektionen **Egen kupong** (öppna omgångar utan Wild Card): tryck
   på en ruta (1 Ö … 2 U) per match för att lägga till eller ta bort; varje ruta visar

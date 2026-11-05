@@ -114,6 +114,29 @@ class Big9ViewTests(unittest.TestCase):
             big9_view.build_system(self.conn, "big9", 600, budget=256,
                                    strategy="medel", now=self.now)
 
+    def test_hog_ev_ar_tredje_valet_men_aldrig_standard(self):
+        # beslut 2026-11-04-big9-hog-ev-i-appen-omforsok (val 0)
+        listing = big9_view.rounds(self.conn, now=self.now)
+        self.assertEqual(["säker", "medel", "hög EV"], listing["strategies"])
+        self.assertEqual("medel", listing["default"]["strategy"])
+        self.assertEqual("färre rätt, sällsynta stora vinster",
+                         listing["strategy_notes"]["hög EV"])
+        out = big9_view.build_system(self.conn, "sp96", 600, budget=256,
+                                     strategy="hög EV", now=self.now)
+        self.assertEqual(1.0, out["value_weight"])
+        self.assertEqual("färre rätt, sällsynta stora vinster", out["strategy_note"])
+        self.assertIsNone(out["standard_key"])
+        self.assertLessEqual(out["n_rows"], 512)
+        self.assertEqual(sorted(out["rows"]),
+                         sorted(big9_builder.system_rows(out["cells"])))
+        # samma byggare med värdevikt 1,0, ingen parallell väg
+        obs = atg.latest_observation(self.conn, "sp96", 600)
+        rnd = big9.round_from_payload(big9.build_payload(self.conn, "sp96", obs,
+                                                         None, self.now))
+        self.assertEqual(big9_builder.build_full_system(rnd, 256.0,
+                                                        value_weight=1.0).rows,
+                         out["rows"])
+
     def test_stangd_och_okand_omgang(self):
         with self.assertRaises(big9_view.Stangd):
             big9_view.build_system(self.conn, "sp96", 500, budget=256,

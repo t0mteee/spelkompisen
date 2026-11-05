@@ -1025,3 +1025,20 @@ Nivån 1 024 kr mäts inte.
   `ogiltigt` bara för den nivån.
 * **Facit** räknas per nivå i `per_niva_atg`; 256 och 512 jämförs aldrig som en serie.
   Appens byggare märker ett bygge med strategi medel på 512 kr som standarden.
+
+### 19.4 Valet "hög EV" i appen (2026-11-05)
+
+Beslut 2026-11-04-big9-hog-ev-i-appen-omforsok (Koordinatorn, Samans val 0; första
+försöket stoppades av veckotaket och gjordes aldrig). Appens Big 9-byggare har ett
+tredje val, **hög EV** = värdevikt 1,0 (`big9_view.STRATEGY_VALUE_WEIGHT`): cellerna
+rankas på p/q och systemet väljs på ren EV, med samma `build_full_system`. Märkt
+**"färre rätt, sällsynta stora vinster"** (`STRATEGY_NOTES`, i `/api/big9/rounds`
+och i byggsvaret). Retroaktivt (11 BIG9 + 2 SP96, slutstreck och slutodds) gav det
+1,6–2,0 färre rätt i snitt än medel; ingen förbättring påstås.
+
+* **Medel förblir standard** i appen och på facitsidan. Ett hög EV-bygge bär aldrig
+  `standard_key`.
+* **Facitsidan mäter inte hög EV**: ingen ny nyckel, ingen frysning, standarden och
+  agentens nivåer är orörda. Skuggan på varje SP96-omgång följer **Forskaren** i
+  agentens eget repo (beslutets text); Spelkompisen bakfyller inget och räknar inte
+  in den i `per_niva_atg`.

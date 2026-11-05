@@ -21,6 +21,9 @@ const ATG_URL = 'https://www.atg.se/sport/big9'
 const SHOW_ROWS = 20
 const SAVED_KEY = 'big9_state'
 const COUPON_KEY = 'big9_kupong'
+// beslut 2026-11-04-big9-hog-ev-i-appen-omforsok: tredje valet, aldrig standard
+const HIGH_EV = 'hög EV'
+const STRATEGY_NOTES = { [HIGH_EV]: 'färre rätt, sällsynta stora vinster' }
 
 function readSaved(name = SAVED_KEY) {
   try { return JSON.parse(localStorage.getItem(name) || '{}') || {} } catch { return {} }
@@ -247,7 +250,7 @@ function SystemResult({ system, onEdit }) {
         <span><b>{system.n_rows}</b> rader</span>
         <span>insats <b>{kr(system.cost)}</b></span>
         <span title="Byggarens förväntade utdelning mot prognosomsättningen">EV <b className={system.ev_total >= system.cost ? 'pos' : ''}>{kr(system.ev_total)}</b></span>
-        <span>strategi <b>{system.strategy}</b></span>
+        <span>strategi <b>{system.strategy}</b>{system.strategy_note && system.strategy === HIGH_EV && <> ({system.strategy_note})</>}</span>
         {system.standard_key && <span title={system.standard_key}>= standardens inställning</span>}
       </div>
       <p className="big9-note">{system.note}</p>
@@ -361,7 +364,8 @@ export function Big9View() {
 
   const options = roundOptions(list)
   const budgets = list?.budgets || [16, 32, 64, 128, 256, 512, 1024]
-  const strategies = list?.strategies || ['säker', 'medel']
+  const strategies = list?.strategies || ['säker', 'medel', 'hög EV']
+  const strategyNotes = list?.strategy_notes || STRATEGY_NOTES
   const turnover = round?.turnover
 
   return (
@@ -426,9 +430,10 @@ export function Big9View() {
               ) : <>
                 <div className="controls">
                   {strategies.map((s) => (
-                    <label key={s} className={strategy === s ? 'active' : ''}>
+                    <label key={s} className={strategy === s ? 'active' : ''} title={strategyNotes[s]}>
                       <input type="radio" name="big9strategy" checked={strategy === s}
                         onChange={() => { setStrategy(s); setSystem(null) }} />{s}
+                      {s === HIGH_EV && <small className="big9-strat-note">{strategyNotes[s]}</small>}
                     </label>
                   ))}
                   <label className="budget">
@@ -444,7 +449,9 @@ export function Big9View() {
                 <p className="big9-hint">ATG tar bara fulla system: byggaren väljer de
                   rutor per match (av sex) som ger högst värde, och antalet rader är produkten
                   av rutorna per match — högst budgeten / 0,50 kr. Samma byggare som facitsidans
-                  standard (medel, 256 kr). Säker väger träffchans tyngre (värdevikt 0,2).</p>
+                  standard (medel, 256 kr). Säker väger träffchans tyngre (värdevikt 0,2).
+                  Hög EV väljer rutorna på ren värdekvot (värdevikt 1,0): färre rätt, sällsynta
+                  stora vinster — en lottsedel, ingen visad förbättring.</p>
                 {system && <SystemResult system={system} onEdit={editSystem} />}
               </>
             ) : <p className="big9-hint">Omgången är stängd ({round.status}) — byggaren gäller bara öppna omgångar.</p>}

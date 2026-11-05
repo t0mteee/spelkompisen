@@ -17,6 +17,11 @@ Beslut 2026-11-04-big9-fullt-system (val 0): ATG tar bara fulla system
 ("Spela enskilda utfall"), så byggaren är `big9_builder.build_full_system`
 och svaret bär cellmängden per match (`cells`) — kupongen att markera hos
 ATG. Raderna är hela korsprodukten. BIG9 med Wild Card byggs inte.
+
+Beslut 2026-11-04-big9-hog-ev-i-appen-omforsok (val 0): tredje valet
+"hög EV" = värdevikt 1,0 (celler på p/q, max EV), märkt "färre rätt,
+sällsynta stora vinster" (`STRATEGY_NOTES`). Medel förblir standard; hög EV
+är aldrig standardens inställning och mäts inte på facitsidan.
 """
 from __future__ import annotations
 
@@ -27,7 +32,10 @@ from . import atg, big9_builder
 from .spelai import big9 as spelai_big9, nivaer
 
 ATG_URL = "https://www.atg.se/sport/big9"
-STRATEGY_VALUE_WEIGHT = {"säker": 0.2, "medel": 0.5}
+STRATEGY_VALUE_WEIGHT = {"säker": 0.2, "medel": 0.5, "hög EV": 1.0}
+STRATEGY_NOTES = {"säker": "träffchans väger tyngre",
+                  "medel": "standard",
+                  "hög EV": "färre rätt, sällsynta stora vinster"}
 BUDGETS = (16, 32, 64, 128, 256, 512, 1024)
 DEFAULT_BUDGET = 256
 DEFAULT_STRATEGY = "medel"
@@ -72,6 +80,7 @@ def rounds(conn, *, now: dt.datetime) -> dict:
     return {"available": True, "open": open_, "recent": closed[:RECENT_CLOSED],
             "atg_url": ATG_URL, "budgets": list(BUDGETS),
             "strategies": list(STRATEGY_VALUE_WEIGHT),
+            "strategy_notes": dict(STRATEGY_NOTES),
             "default": {"budget": DEFAULT_BUDGET, "strategy": DEFAULT_STRATEGY}}
 
 
@@ -182,6 +191,7 @@ def build_system(conn, product: str, serial: int, *, budget: int, strategy: str,
     return {
         "product": product, "serial": int(serial), "budget": int(budget),
         "strategy": strategy, "value_weight": value_weight,
+        "strategy_note": STRATEGY_NOTES[strategy],
         "version": big9_builder.SYSTEM_VERSION,
         "cells": system.cells,
         "form": "·".join(str(len(c)) for c in system.cells),
