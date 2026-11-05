@@ -4,8 +4,9 @@
 512, 5 000, 20 000 och 39 366 kr bara för Stryktipset och Europatipset.
 Radpriset är 1 kr för alla produkter, så nivån i kronor = högsta radantal.
 
-Big 9 (ATG, beslut driften-2026-10-24-big9-atg): bara 256 kr, radpris 0,50 kr
-(512 rader). En rad är nio tokens med mellanslag — cell `1O`/`1U`/`XO`/`XU`/
+Big 9 (ATG, beslut driften-2026-10-24-big9-atg): 256 kr, radpris 0,50 kr
+(512 rader); från SP96 omgång 554 även 512 kr (1 024 rader, beslut
+2026-11-04-big9-niva-512-omforsok, `ATG_NIVAER_FRAN`). En rad är nio tokens med mellanslag — cell `1O`/`1U`/`XO`/`XU`/
 `2O`/`2U` (1X2 + över/under 2,5) eller `W` (Wild Card) — och i BIG9 exakt ett
 `W` per rad. Sedan 2026-10-24 (beslut 2026-10-24-sp96-ar-big9) mäts bara SP96
 (nya Big 9, utan Wild Card: `W` är ogiltigt); gamla BIG9 har inga nivåer
@@ -54,6 +55,10 @@ class Ogiltigt(ValueError):
 
 
 ATG_NIVAER = (256,)
+# Nivåer som tillkommer från en viss omgång: {spel: {nivå: första omgång}}. En
+# omgång har samma nivåer i båda horisonterna; 512 kr kräver fullt system
+# (1 024 rader) och följer därför `FULLT_SYSTEM_FRAN`.
+ATG_NIVAER_FRAN = {"sp96": {512: 554}}
 # Första omgången per ATG-spel där bara fulla system godtas (och standarden är
 # `big9-fullsystem-v1`). SP96 546:s 6h-fönster öppnade 13:45Z samma dag som
 # beslutet driftsattes, utan tid för agenten att ställa om; 554 är nästa hela omgång.
@@ -80,9 +85,12 @@ def produktnamn(product: str) -> str:
     return atg.namn(product) or PRODUCTS.get(product, {}).get("name", product)
 
 
-def nivaer_for(product: str) -> tuple[int, ...]:
+def nivaer_for(product: str, draw_number: Optional[int] = None) -> tuple[int, ...]:
+    """Nivåerna för en omgång; utan omgångsnummer: de som gäller nu."""
     if product in atg.MEASURED:
-        return ATG_NIVAER
+        extra = [level for level, first in ATG_NIVAER_FRAN.get(product, {}).items()
+                 if draw_number is None or int(draw_number) >= first]
+        return tuple(sorted({*ATG_NIVAER, *extra}))
     if product in STORA_PRODUKTER:
         return NIVAER_STORA
     if product in TOPPTIPSET_FAMILJ:
@@ -141,9 +149,10 @@ def validera(product: str, level: int, forslag: dict,
         level = int(level)
     except (TypeError, ValueError):
         raise Ogiltigt(f"nivån {level!r} är inte ett heltal") from None
-    if level not in nivaer_for(product):
+    tillatna = nivaer_for(product, draw_number)
+    if level not in tillatna:
         raise Ogiltigt(f"nivån {level} kr finns inte för {product} "
-                       f"(tillåtna: {', '.join(map(str, nivaer_for(product)))})")
+                       f"(tillåtna: {', '.join(map(str, tillatna))})")
     if not isinstance(forslag, dict):
         raise Ogiltigt("förslaget måste vara ett JSON-objekt")
     n_matches = n_matches or antal_matcher(product)

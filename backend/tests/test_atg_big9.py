@@ -174,7 +174,7 @@ class InsamlingTests(_Base):
                                  "FROM spelai_input").fetchall()
         self.assertEqual([("sp96", 600, "30m", atg.iso(at))], [tuple(r) for r in rows])
         payload = self.payload()
-        self.assertEqual([256], payload["nivaer"])
+        self.assertEqual([256, 512], payload["nivaer"])
         self.assertEqual(list(range(1, 10)), payload["events_order"])
         self.assertEqual(list(big9_builder.CELLS), payload["rader"]["tokens"])
         self.assertFalse(payload["rader"]["wildcard"])
@@ -216,7 +216,7 @@ class NivaTests(unittest.TestCase):
                                              "rows": [self.rad96(), self.rad96(first="XU")]})
         self.assertEqual(2, form["n_rows"])
         self.assertEqual(1.0, form["cost_kr"])
-        self.assertEqual((256,), nivaer.nivaer_for("sp96"))
+        self.assertEqual((256, 512), nivaer.nivaer_for("sp96"))
         self.assertEqual((), nivaer.nivaer_for("big9"))    # gamla BIG9 mäts inte
         self.assertIn("sp96", nivaer.produkter())
         self.assertNotIn("big9", nivaer.produkter())
@@ -243,9 +243,31 @@ class NivaTests(unittest.TestCase):
             nivaer.validera("sp96", 256, {"format": "rows", "rows": many})
         self.assertIn("över nivån", str(ctx.exception))
         with self.assertRaises(nivaer.Ogiltigt):
-            nivaer.validera("sp96", 512, {"format": "rows", "rows": [self.rad96()]})
+            nivaer.validera("sp96", 1024, {"format": "rows", "rows": [self.rad96()]})
         with self.assertRaises(nivaer.Ogiltigt):     # gamla BIG9 har inga nivåer
             nivaer.validera("big9", 256, {"format": "rows", "rows": [self.rad()]})
+
+    def test_512_kr_fran_sp96_554(self):
+        """Beslut 2026-11-04-big9-niva-512-omforsok: 512 kr (1 024 rader) från
+        omgång 554 i båda horisonterna; äldre omgångar har bara 256 kr."""
+        first = nivaer.ATG_NIVAER_FRAN["sp96"][512]
+        self.assertEqual(nivaer.FULLT_SYSTEM_FRAN["sp96"], first)
+        self.assertEqual((256, 512), nivaer.nivaer_for("sp96", first))
+        self.assertEqual((256,), nivaer.nivaer_for("sp96", first - 1))
+        self.assertEqual((), nivaer.nivaer_for("big9", first))
+        # 4 · 4 · 4 · 4 · 4 = 1 024 rader = 512 kr; ett till är över nivån
+        system = big9_builder.system_rows([["1O", "1U", "XU", "2O"]] * 5 + [["1O"]] * 4)
+        self.assertEqual(1024, len(system))
+        form = nivaer.validera("sp96", 512, {"format": "rows", "rows": system},
+                               draw_number=first)
+        self.assertEqual(512.0, form["cost_kr"])
+        with self.assertRaises(nivaer.Ogiltigt) as ctx:
+            nivaer.validera("sp96", 256, {"format": "rows", "rows": system})
+        self.assertIn("över nivån", str(ctx.exception))
+        with self.assertRaises(nivaer.Ogiltigt) as ctx:
+            nivaer.validera("sp96", 512, {"format": "rows", "rows": system[:2]},
+                            draw_number=first - 1)
+        self.assertIn("finns inte", str(ctx.exception))
 
     def test_bara_fulla_system_fran_forsta_omgangen(self):
         """Beslut 2026-11-04-big9-fullt-system: ATG tar bara hela korsprodukten."""
@@ -384,11 +406,12 @@ class FrysningTests(_Base):
             self.conn, lambda payload, levels, timeout: svar_fn(payload, levels, timeout),
             clock=Klocka(at))
 
-    def proposals(self):
+    def proposals(self, level=256):
         self.conn.row_factory = sqlite3.Row
         try:
             return {r["role"]: dict(r) for r in self.conn.execute(
-                "SELECT * FROM spelai_pool_proposal WHERE product='sp96'")}
+                "SELECT * FROM spelai_pool_proposal WHERE product='sp96' "
+                "AND level_kr=?", (level,))}
         finally:
             self.conn.row_factory = None
 
@@ -414,6 +437,37 @@ class FrysningTests(_Base):
         # samma paket ⇒ samma rader (deterministisk)
         again = big9.build_standard(self.payload(), 256)
         self.assertEqual(std["rows_hash"], again["rows_hash"])
+
+    def test_standard_och_agent_pa_512_kr(self):
+        """512 kr: standarden är fullt system ≤ 1 024 rader med egen nyckel, och
+        agenten svarar på samma nivå; ett saknat svar är ogiltigt bara där."""
+        def svar(payload, levels, timeout):
+            self.assertEqual([256, 512], levels)
+            rows = big9_builder.system_rows([["1O", "XU", "2O"]] * 2 + [["1O"]] * 7)
+            return AgentSvar("ok", data={"version": "agent-big9-v1", "forslag": {
+                "512": {"format": "rows", "rows": rows}}})
+        self.freeze(svar)
+        std = self.proposals(512)["standard"]
+        self.assertEqual("fryst", std["status"])
+        self.assertEqual("big9-fullsystem-v1-sp96-b512-medel", std["config_key"])
+        self.assertLessEqual(std["n_rows"], 1024)
+        self.assertEqual(std["n_rows"] * 0.5, std["cost_kr"])
+        self.assertIsNotNone(big9_builder.full_system_cells(
+            std["rows_text"].splitlines(), 9))
+        self.assertGreaterEqual(std["n_rows"], self.proposals()["standard"]["n_rows"])
+        self.assertEqual("fryst", self.proposals(512)["agent"]["status"])
+        self.assertEqual("ogiltigt", self.proposals()["agent"]["status"])
+        self.assertIn("nivån 256 saknas", self.proposals()["agent"]["reason"])
+
+    def test_aldre_omgang_har_bara_256(self):
+        serial = nivaer.ATG_NIVAER_FRAN["sp96"][512] - 1
+        at = CLOSE - dt.timedelta(minutes=33)
+        self.fetch([record(serial=serial)], at)
+        frysning.process_inputs(self.conn, giltigt_svar, clock=Klocka(at))
+        levels = {r[0] for r in self.conn.execute(
+            "SELECT DISTINCT level_kr FROM spelai_pool_proposal")}
+        self.assertEqual({256}, levels)
+        self.assertEqual([256], self.payload()["nivaer"])
 
     def test_agentens_big9_rader_fryses(self):
         def svar(payload, levels, timeout):
@@ -521,24 +575,25 @@ class RattaTests(_Base):
         self.fetch([record(status="FINALIZED", results=self.FACIT)],
                    CLOSE + dt.timedelta(hours=3))
         rep = ratta.settle(self.store, now=CLOSE + dt.timedelta(hours=3))
-        self.assertEqual(2, rep["rattade"])
+        self.assertEqual(4, rep["rattade"])     # två nivåer × två roller
         again = ratta.settle(self.store, now=CLOSE + dt.timedelta(hours=4))
         self.assertEqual(0, again["rattade"])
         notes = [r[0] for r in self.conn.execute(
             "SELECT settlement_version FROM spelai_pool_result")]
-        self.assertEqual([big9.SETTLEMENT_VERSION] * 2, notes)
+        self.assertEqual([big9.SETTLEMENT_VERSION] * 4, notes)
 
     def test_installd(self):
         self.freeze_both()
         self.fetch([record(status="CANCELED")], CLOSE + dt.timedelta(hours=3))
         rep = ratta.settle(self.store, now=CLOSE + dt.timedelta(hours=3))
-        self.assertEqual(2, rep["installda"])
+        self.assertEqual(4, rep["installda"])
 
     def freeze_both(self):
         def svar(payload, levels, timeout):
             rows = [" ".join("XU" if i == 0 else "1O" for i in range(9))]
             return AgentSvar("ok", data={"version": "a", "forslag": {
-                "256": {"format": "rows", "rows": rows}}})
+                "256": {"format": "rows", "rows": rows},
+                "512": {"format": "rows", "rows": rows}}})
         at = CLOSE - dt.timedelta(minutes=33)
         self.fetch([record()], at)
         frysning.process_inputs(self.conn, lambda p, lv, t: svar(p, lv, t),
@@ -551,7 +606,7 @@ class MissatTests(_Base):
                      close=BIG9_START - dt.timedelta(days=7))
         self.fetch([record(), old], CLOSE - dt.timedelta(days=1))
         rep = frysning.mark_missed(self.conn, now=CLOSE + dt.timedelta(minutes=10))
-        self.assertEqual(4, rep["missat"])     # 600: två horisonter × två roller
+        self.assertEqual(8, rep["missat"])     # 600: två horisonter × två nivåer × två roller
         serials = {r[0] for r in self.conn.execute(
             "SELECT DISTINCT draw_number FROM spelai_pool_proposal")}
         self.assertEqual({600}, serials)

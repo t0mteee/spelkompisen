@@ -10,15 +10,17 @@ poolspel (indata → frysning → rättning), men med ATG:s omgång som underlag
   [T−35, T−30]); samma fönster och frister som `indata`. `draw_number` =
   ATG:s `serialNumber`, `reg_close_time` = `startTime`. Ospelade matchers
   platshållarresultat (`result`/`score`/`liveData`) tas bort ur paketet.
-* Nivå: 256 kr = 512 rader à 0,50 kr. Format `rows`, nio tokens per rad
-  (`nivaer.atg_symboler`): i SP96 bara cellerna, i BIG9 exakt ett Wild Card.
+* Nivå: 256 kr = 512 rader à 0,50 kr; från SP96 554 även 512 kr = 1 024
+  rader (beslut 2026-11-04-big9-niva-512-omforsok, `nivaer.ATG_NIVAER_FRAN`).
+  Format `rows`, nio tokens per rad (`nivaer.atg_symboler`): i SP96 bara
+  cellerna, i BIG9 exakt ett Wild Card.
 * Standard: `big9_builder.build_rows`, strategi medel, budgeten = nivån, en
   `config_key` per spelform (`STANDARD_KEYS`). Återbetalningsandelen läses ur
   omgångens publicerade potter (`payout_ratio`), annars 1 − uttag.
 * Fullt system (beslut 2026-11-04-big9-fullt-system, val 0): ATG tar bara
   fulla system ("Spela enskilda utfall"). Från `nivaer.FULLT_SYSTEM_FRAN` är
   standarden `big9_builder.build_full_system` med nyckeln
-  `big9-fullsystem-v1-sp96-b256-medel`, agentens rader godtas bara som hela
+  `big9-fullsystem-v1-sp96-b256-medel` (och `-b512-medel`), agentens rader godtas bara som hela
   korsprodukten av en cellmängd per match, och paketet säger det
   (`rader.fullt_system`, schema `spelai-indata-big9-v3`). Äldre omgångar
   behåller den gamla nyckeln och valideringen.
@@ -49,7 +51,8 @@ SETTLEMENT_VERSION = "spelai-big9-v1"
 STANDARD_KEYS = {"big9": {256: "big9-varderader-v1-b256-medel"},
                  "sp96": {256: "big9-varderader-v1-sp96-b256-medel"}}
 # Fullt system (ATG:s "enskilda utfall") från `nivaer.FULLT_SYSTEM_FRAN`.
-SYSTEM_KEYS = {"sp96": {256: "big9-fullsystem-v1-sp96-b256-medel"}}
+SYSTEM_KEYS = {"sp96": {256: "big9-fullsystem-v1-sp96-b256-medel",
+                        512: "big9-fullsystem-v1-sp96-b512-medel"}}
 # Potterna för de lägre vinstgrupperna får skilja högst så mycket i
 # återbetalningsandel för att andelen ska läsas ur potterna.
 RATIO_TOLERANCE = 0.005
@@ -161,7 +164,7 @@ def build_payload(conn, product: str, obs: dict, horizon: str,
         "reg_close_time": iso(close),
         "window": ({"start": iso(window[0]), "end": iso(window[1])}
                    if window else None),
-        "nivaer": list(nivaer.nivaer_for(product)),
+        "nivaer": list(nivaer.nivaer_for(product, serial)),
         "n_matches": len(matches),
         "events_order": [m["event_number"] for m in matches],
         "rader": {"radpris_kr": cfg["row_price"],

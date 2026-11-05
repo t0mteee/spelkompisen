@@ -1002,3 +1002,26 @@ som inte går att lämna in.
   Raderna (korsprodukten) visas som kontroll; ATG tar ingen radfil. Gamla BIG9 med
   Wild Card byggs inte.
 * **Rättningen** är oförändrad: ett fullt system rättas rad för rad som förut.
+
+### 19.3 512 kr från omgång 554 (2026-11-05)
+
+Beslut 2026-11-04-big9-niva-512-omforsok (Koordinatorn, Samans val 0; första
+försöket stoppades av veckotaket och gjordes aldrig). Saman spelar Big 9 större än
+256 kr, så facitsidan mäter nu även **512 kr = högst 1 024 rader à 0,50 kr**.
+Nivån 1 024 kr mäts inte.
+
+* **Från omgång 554** (`nivaer.ATG_NIVAER_FRAN = {"sp96": {512: 554}}`, samma
+  omgång som `FULLT_SYSTEM_FRAN`). `nivaer.nivaer_for(produkt, omgång)` ger
+  (256, 512) från 554 och (256,) före. En omgång har samma nivåer i båda
+  horisonterna. Äldre omgångar (517, 536, 546) får ingen 512-rad i efterhand och
+  räknas inte som missade på 512.
+* **Standarden** är samma byggare (`big9_builder.build_full_system`, medel, värdevikt
+  0,5) med budgeten 512 kr och nyckeln `big9-fullsystem-v1-sp96-b512-medel`
+  (`big9.SYSTEM_KEYS`). Prov på 546:s 30m-paket: 1·3·3·3·2·3·1·2·3 = 972 rader,
+  ≈ 1,5 s (256 kr: 486 rader, ≈ 0,9 s).
+* **Agenten** får nivåerna i paketet (`nivaer: [256, 512]`) och i
+  `--nivaer 256,512`, och svarar med `forslag["512"]` på samma sätt som för 256:
+  `rows`, fullt system, högst 1 024 rader. En nivå som saknas i svaret blir
+  `ogiltigt` bara för den nivån.
+* **Facit** räknas per nivå i `per_niva_atg`; 256 och 512 jämförs aldrig som en serie.
+  Appens byggare märker ett bygge med strategi medel på 512 kr som standarden.

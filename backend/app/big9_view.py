@@ -10,8 +10,8 @@ Allt läses ur ATG-insamlingens append-only-tabeller (`app/atg.py`); modulen
 hämtar aldrig själv. Underlaget är facitsidans paket
 (`spelai.big9.build_payload` utan horisont) och byggaren är
 `big9_builder.build_rows` via `spelai.big9.round_from_payload` — samma väg som
-standarden, aldrig en parallell byggare. Strategi medel med 256 kr är
-standardens inställning; säker är värdevikt 0,2 som PH3:s `dr1-*-saker`.
+standarden, aldrig en parallell byggare. Strategi medel med 256 kr (och
+512 kr från SP96 554) är standardens inställning; säker är värdevikt 0,2 som PH3:s `dr1-*-saker`.
 
 Beslut 2026-11-04-big9-fullt-system (val 0): ATG tar bara fulla system
 ("Spela enskilda utfall"), så byggaren är `big9_builder.build_full_system`

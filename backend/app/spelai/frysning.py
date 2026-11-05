@@ -145,7 +145,7 @@ def _has_rows(conn, product: str, draw_number: int, horizon: str) -> bool:
 def _write_all(conn, head: dict, horizon: str, status: str, reason: str, *,
                now: dt.datetime, input_row: Optional[dict], code_version: str) -> int:
     n = 0
-    for level in nivaer.nivaer_for(head["product"]):
+    for level in nivaer.nivaer_for(head["product"], head["draw_number"]):
         for role in ROLES:
             n += _insert(conn, head, level, horizon, role, Rad(status, reason),
                          frozen_at=now, input_row=input_row,
@@ -155,7 +155,7 @@ def _write_all(conn, head: dict, horizon: str, status: str, reason: str, *,
 
 
 def _agent_rows(payload: dict, svar: AgentSvar) -> dict[int, Rad]:
-    levels = list(nivaer.nivaer_for(payload["product"]))
+    levels = list(nivaer.nivaer_for(payload["product"], payload["draw_number"]))
     if svar.status == "saknas":
         return {lv: Rad("saknas", svar.reason, stderr=svar.stderr) for lv in levels}
     if svar.status != "ok":
@@ -242,7 +242,7 @@ def process_inputs(conn, runner, *, clock: Clock, code_version: str = "dev") -> 
             continue
 
         # 1) standarden — fryses före agentkörningen
-        levels = list(nivaer.nivaer_for(product))
+        levels = list(nivaer.nivaer_for(product, draw_number))
         atg_spel = big9.galler(product)
         try:
             if atg_spel:     # Big 9 (ATG): egen byggare, se app/spelai/big9.py

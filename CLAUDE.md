@@ -251,7 +251,9 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       `nivaer.FULLT_SYSTEM_FRAN` (SP96 554) är standarden
                       `big9-fullsystem-v1-sp96-b256-medel` och agentens rader godtas BARA
                       som fullt system (hela korsprodukten); äldre omgångar behåller
-                      `big9-varderader-v1-sp96-b256-medel`. facit § 19
+                      `big9-varderader-v1-sp96-b256-medel`. Från SP96 554 mäts även
+                      512 kr (≤ 1 024 rader, `-b512-medel`; `nivaer.ATG_NIVAER_FRAN`,
+                      `nivaer_for(produkt, omgång)`). facit § 19
   app/live_radar.py   shadow-radar för pågående matcher: Flashscore ankare, FotMob sekundär,
                       Sofascore URKOPPLAD ur radarn (kvar för resultat/frånvaro)
   app/live_signal_ledger.py append-only-journal över första Följer/Stark per match,
