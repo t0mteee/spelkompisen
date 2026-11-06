@@ -12,6 +12,13 @@ inte per rad.
 
 ## Aktivt (2026-09-02)
 
+**Tillägg 2026-11-06, Pinnacle spärrad:** ⚖ ersättare för ankaret. Smarkets (1X2) och
+SBOBET (1X2 + handikapp) samlas och visas sedan 2026-11-06 men ankrar inget. Värdemotorn,
+CLV, steam, notiser, poolens sharp (bygge, PH3, X-skyddets total) och liveblindtestets
+Pinnacle-del står still tills Saman beslutar om ett nytt ankare (ny signalversion, för
+poolen ny datagenererande process med datumnot). Cupernas SBOBET-id beläggs vid nästa
+cupomgång. `docs/overlamningar/overlamning-2026-11-06-sbobet.md`.
+
 **Tillägg 2026-09-06 efter Samans poolutvärdering:** UI-paketet och
 read-only-auditen av Stryktipset 4969 är levererade. Nästa föreslagna
 arbete: förklara 3/13 sharp-/totalluckor (särskilt Brighton och Millwall),

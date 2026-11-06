@@ -1,10 +1,23 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-11-05 — Big 9: valet hög EV i appen; egen kupong i appen; Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-11-06 — Pinnacle spärrar Sverige; SBOBET ny referenskälla och Smarkets synlig igen; 2026-11-05 Big 9: valet hög EV i appen; egen kupong i appen; Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
-`docs/overlamningar/overlamning-2026-10-13-agentbeslut.md`.
+`docs/overlamningar/overlamning-2026-11-06-sbobet.md`.
+
+**Nytt 2026-11-06:**
+- **Pinnacle spärrar Sverige** sedan 2026-11-05 09:30Z (Cloudflare 403 på allt, även
+  www.pinnacle.com). Ingen väg runt (källgränsen). Värdemotorn, CLV, steam, poolens
+  sharp-underlag och liveblindtestets Pinnacle-del står still. Betfair lämnade Sverige
+  2025-07-16 och är stängd av samma skäl.
+- **SBOBET** (`app/sbobet.py`, i drift 2026-11-06T00:17:05Z, första djupvarv 00:30Z) samlar
+  1X2 och handikappets huvudlina ur de publika datumsidorna, sex dagar framåt, för fjorton
+  ligor med belagda liga-id:n (127 matcher i första varvet). Referenskälla i
+  `ANCHOR_SOURCES`, aldrig en bok att slå. 1X2-marginal ~15 %, handikapp ~4,7 %.
+- **Smarkets** visas igen (`UI_HIDDEN_SOURCES` tom); Smarkets och SBOBET står som
+  referensrader i Oddset-vyns matchrad. Källprovet har båda som stödkällor och Pinnacle som
+  stödkälla. Att göra någon av dem till ankare är ett eget beslut (ny signalversion).
 
 **Nytt 2026-11-05:**
 - **Big 9: valet hög EV** (beslut 2026-11-04-big9-hog-ev-i-appen-omforsok, val 0).

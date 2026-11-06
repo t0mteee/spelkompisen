@@ -33,6 +33,14 @@ bantningen 2026-09-02) — läs den när du undrar VARFÖR, inte varje session.
   första Följer/Stark. **Pinnacle får bara påverka spelet vid HTTP Age ≤ 90 s.** Linan väljs
   först (färsk Pinnacle, annars Kambi), sedan högsta Över-odds på EXAKT samma
   lina. Alla källobservationer sparas i `oddset_live_signal_quote`; priser bakfylls aldrig.
+- **Pinnacle spärrar Sverige sedan 2026-11-05 09:30Z** (Cloudflare "you have been blocked",
+  även www.pinnacle.com; Saman 2026-11-06: "Pinnacle är nog körd"). Att gå runt spärren
+  (VPN, proxy, annan IP) är STÄNGT som för Altenar. Koden och källprovet står kvar som
+  stödkälla så att vi ser om den kommer tillbaka; poolens sharp, värdemotorn, CLV och
+  liveblindtestets Pinnacle-del står still så länge. **Betfair lämnade Sverige 2025-07-16**
+  och spärrar svenska besökare — stängd av samma skäl. Ersättare: Smarkets och SBOBET som
+  REFERENSKÄLLOR (insamlade, visade, i `ANCHOR_SOURCES`, aldrig böcker att slå). Att göra
+  någon av dem till ANKARE i värdemotorn/poolen är en ny signalversion och ett eget beslut.
 - **Altenar (Ninja Casino/Betinia) är BORTTAGEN som källa helt sedan 2026-11-02** (beslut
   2026-11-02-altenar-pausa, val 1): värden svarade 403 på varje anrop från 2026-10-21, och
   att runda leverantörens skydd är stängt. Ingen insamling, inget källprov, ingen live-
@@ -166,6 +174,14 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       inget BIG9 med Wild Card. Svaret bär `cells` (mängd per match);
                       appen visar KUPONGEN att markera under "Spela enskilda utfall" på
                       atg.se/sport/big9 (ATG tar ingen radfil)
+  app/sbobet.py       SBOBET (2026-11-06): referenskälla för 1X2 och asiatiskt handikapp ur
+                      de PUBLIKA datumsidorna `/euro/football/<datum>` (od-blocket i sidans
+                      HTML; robots.txt: Crawl-delay 5, `/en/data/` och `/en/rdata/` förbjudna
+                      och används ALDRIG). Bara djupvarvet, sex dagar framåt, egen
+                      observationstid per sida, frånvaro bara inom publicerade dagar.
+                      Avspark i GMT+8; handikappets lina är vad hemmalaget GER (lagras som
+                      Pinnacle: hemmalagets handikapp). `LEAGUE_IDS` = belagda liga-id:n,
+                      aldrig gissade. 1X2-marginal ~15 % (inte skarp), handikapp ~4,7 %
   app/betsson.py      Publik Betsson-bootstrap (ej inkopplad; events-table CloudFront-
                       blockerad utanför browser; KRÄVER brotli, se transportregeln)
   app/analysis.py     fair_prob (power-metod), värde, taggar, speltyp, mover-flagga
