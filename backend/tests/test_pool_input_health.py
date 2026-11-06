@@ -70,3 +70,32 @@ class InputHealthTests(unittest.TestCase):
         self.assertEqual(["1"], r["rows"])
         self.assertEqual("error", r["input_health"]["level"])
         self.assertEqual(a.fetched_at, r["input_health"]["analysis_fetched_at"])
+
+
+class ReferensTests(unittest.TestCase):
+    """pool-reference-v1: Smarkets/SBOBET i Pinnacles ställe, bara visning."""
+
+    def test_referens_i_varje_match_utan_pinnacle_ger_info(self):
+        a, b = match(sharp=False, total=False), match(2, sharp=False, total=False)
+        a.reference_1x2 = {"smarkets": {"1": 1.5}}
+        b.reference_1x2 = {"sbobet": {"1": 1.5}}
+        r = report(analysis(a, b))
+        self.assertEqual("info", r["level"])
+        self.assertEqual(2, r["reference_1x2"])
+        self.assertEqual(["smarkets"], r["issues"][0]["reference"])
+
+    def test_en_match_utan_referens_ar_fortfarande_varning(self):
+        a, b = match(sharp=False), match(2, sharp=False)
+        a.reference_1x2 = {"smarkets": {"1": 1.5}}
+        r = report(analysis(a, b))
+        self.assertEqual("warning", r["level"])
+        self.assertEqual(1, r["reference_1x2"])
+
+    def test_referensen_raddar_inte_saknade_svs_odds(self):
+        a = match(svs=False, sharp=False)
+        a.reference_1x2 = {"smarkets": {"1": 1.5}}
+        self.assertEqual("error", report(analysis(a))["level"])
+        b = match(svs=False)
+        c = match(2, sharp=False)
+        c.reference_1x2 = {"smarkets": {"1": 1.5}}
+        self.assertEqual("warning", report(analysis(b, c))["level"])

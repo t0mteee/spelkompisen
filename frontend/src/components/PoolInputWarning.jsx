@@ -20,8 +20,10 @@ export function PoolInputWarning({ health, scope = 'Aktuell analys', compact = f
     }
   }
   return <aside className={`pool-input-warning ${health.level}`} role="status" aria-label={`Oddsvarning · ${scope}`}>
-    <strong>⚠ {compact ? 'Underlag vid systembygget: ' : ''}{title}</strong>
-    {!compact && <p>{health.missing_all > 0
+    <strong>{health.level === 'info' ? 'ℹ' : '⚠'} {compact ? 'Underlag vid systembygget: ' : ''}{title}</strong>
+    {!compact && <p>{health.level === 'info'
+      ? 'Pinnacle spärrar Sverige sedan 5/11. Smarkets (Sm) eller SBOBET (SBO) visas i Pinnacles ställe som referens; kupongen byggs som förut på SvS-odds och referensen används inte i bygget. Ö/U-stöd saknas, så X-skyddet använder 32 %-gränsen.'
+      : health.missing_all > 0
       ? 'Kontrollera underlaget innan du använder förslaget. Utan kompletta odds kan bygget använda folkets streck eller reservvärden.'
       : health.missing_sharp > 0
         ? 'SvS-odds finns som grund, men Pinnacles oberoende referens saknas för delar av kupongen.'
@@ -33,6 +35,7 @@ export function PoolInputWarning({ health, scope = 'Aktuell analys', compact = f
       <ul>{health.issues.map(m => <li key={m.event_number}>
         <b>{m.event_number}. {m.description}</b>
         <span>Saknar: {m.missing.join(' · ')}</span>
+        {m.reference?.length > 0 && <span>Referens: {m.reference.map((s) => ({ smarkets: 'Smarkets', sbobet: 'SBOBET' })[s] || s).join(' · ')} (bara visning)</span>}
         {m.reason && <span>Orsak: {m.reason}</span>}
         <span>Sannolikhetsbas: {sourceLabel(m.prob_source)}</span>
         {m.reserve_total && <span>{m.reserve_total.available

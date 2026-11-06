@@ -80,7 +80,8 @@ function Legend() {
             {' '}<span className="vpill v-yellow">~1.0</span> rätt streckad ·
             {' '}<span className="vpill v-red">≤0.92</span> överspelad.</div>
           <div><b>P</b> = Pinnacle (sharp bookmaker) odds · <b>P~</b> = härlett från handikapp när 1X2 inte öppnats ·
-            {' '}<b>P –</b> = cachat Pinnacle-pris som inte används: äldre än 90 min eller länken tappad efter priset (håll över för orsak).</div>
+            {' '}<b>P –</b> = cachat Pinnacle-pris som inte används: äldre än 90 min eller länken tappad efter priset (håll över för orsak) ·
+            {' '}<b>Sm</b>/<b>SBO</b> = Smarkets/SBOBET som referens när Pinnacle saknas (Pinnacle spärrar Sverige sedan 5/11) — visas, används inte i analysen eller bygget.</div>
           <div><b>Matchbild</b> beskriver matchen enligt marknaden — den är INTE ditt val och kan
             skilja sig från kupongen/förslaget:
             {' '}<span className="badge b-spik">Spik 1</span> stark favorit (kan singlas) ·
@@ -211,7 +212,14 @@ function OddsTip({ sign, series, x, y }) {
   )
 }
 
-function OddsCell({ o, derived, stale, picked, onToggle, valueOk, series, rowCount, rowTotal }) {
+// pool-reference-v1: första färska referensen i prioritetsordning (Smarkets, SBOBET).
+const REFERENCE_ORDER = ['smarkets', 'sbobet']
+function referenceQuote(reference) {
+  const src = REFERENCE_ORDER.find((s) => reference?.[s])
+  return src ? reference[src] : null
+}
+
+function OddsCell({ o, derived, stale, reference, picked, onToggle, valueOk, series, rowCount, rowTotal }) {
   const [tipPos, setTipPos] = useState(null)
   const hasSeries = !!series && (changePoints(series.svs).length > 0 || changePoints(series.pinnacle).length > 0)
   const cls = ['cell', 'pickcell']
@@ -227,6 +235,7 @@ function OddsCell({ o, derived, stale, picked, onToggle, valueOk, series, rowCou
     (ratio >= 1.08 ? `Marknaden tror ~${Math.round((ratio - 1) * 100)}% mer än folket — köpläge.`
       : ratio <= 0.92 ? `Folket överspelar (${Math.round((1 - ratio) * 100)}% mindre sannolik än streckad).`
         : 'Ungefär rätt streckad.')
+  const ref = referenceQuote(reference)
   const showTip = (e) => {
     if (!hasSeries) return
     const r = e.currentTarget.getBoundingClientRect()
@@ -246,8 +255,17 @@ function OddsCell({ o, derived, stale, picked, onToggle, valueOk, series, rowCou
           {derived ? 'P~' : 'P'} {fmt(o.sharp_odds)}
         </div>
       )}
+      {/* pool-reference-v1: Smarkets/SBOBET i Pinnacles ställe — bara visning */}
+      {o.sharp_odds == null && ref && (
+        <div className="sharpodds ref"
+          title={`${ref.label} (referens, bekräftat ${new Date(ref.last_seen_at).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}): ` +
+            `${Math.round((ref.fair?.[o.sign] || 0) * 100)} % utan marginal. Pinnacle spärrar Sverige; ` +
+            'referensen visas men används inte i analysen eller bygget.'}>
+          {ref.short} {fmt(ref[o.sign])}
+        </div>
+      )}
       {/* pool-sharp-freshness-v1: det cachade priset visas inte som aktuellt */}
-      {o.sharp_odds == null && stale && (
+      {o.sharp_odds == null && !ref && stale && (
         <div className="sharpodds stale"
           title={`${stale.text || 'Pinnacle-priset är inaktuellt'}. Priset används inte i analysen eller bygget.`}>
           P –
@@ -291,7 +309,7 @@ function AnalysisTable({ matches, product, drawNumber, selected, onSelect, picks
                 </td>
                 {['1', 'X', '2'].map((s) => (
                   <OddsCell key={s} o={m.outcomes[s]} derived={derived} valueOk={valueOk}
-                    stale={m.sharp_stale} picked={isPicked(m.event_number, s)}
+                    stale={m.sharp_stale} reference={m.reference_1x2} picked={isPicked(m.event_number, s)}
                     series={movement?.events?.[m.event_number]?.[s]}
                     rowCount={rowShares?.counts?.[`${m.event_number}:${s}`]}
                     rowTotal={rowShares?.total}

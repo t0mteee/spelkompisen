@@ -17,10 +17,24 @@ def _price(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value > 1
 
 
+def _level(counts: dict, issues: list) -> str:
+    """error = 1X2 saknas helt; info = Pinnacle saknas men varje sådan match har
+    en referens (pool-reference-v1) och SvS 1X2 är komplett — Ö/U-hålet är
+    då känt (ingen källa har totalen sedan Pinnacle stängde) och larmar inte
+    som varning; annars warning när något saknas."""
+    if counts["missing_all"]:
+        return "error"
+    if not issues:
+        return "ok"
+    covered = (counts["missing_svs"] == 0 and counts["missing_sharp"] > 0
+               and counts["reference_1x2"] == counts["missing_sharp"])
+    return "info" if covered else "warning"
+
+
 def report(analysis):
     issues = []
     counts = {"missing_sharp": 0, "missing_svs": 0, "missing_all": 0, "missing_total": 0,
-              "stale_sharp": 0}
+              "stale_sharp": 0, "reference_1x2": 0}
     for match in analysis.matches:
         svs = all(s in match.outcomes and _price(match.outcomes[s].odds) for s in SIGNS)
         sharp = all(s in match.outcomes and _price(match.outcomes[s].sharp_odds) for s in SIGNS)
@@ -40,6 +54,9 @@ def report(analysis):
                 missing.append(label)
         if not svs and not sharp:
             counts["missing_all"] += 1
+        reference = getattr(match, "reference_1x2", None) or None
+        if not sharp and reference:
+            counts["reference_1x2"] += 1
         if missing:
             issues.append({"event_number": match.event_number,
                            "description": match.description or f"Match {match.event_number}",
@@ -49,9 +66,11 @@ def report(analysis):
                            # Varför Pinnacle saknas när ett cachat pris fanns men
                            # inte fick användas; None = inget pris i cachen alls.
                            "reason": (stale.get("text") if stale else None),
+                           # pool-reference-v1: källorna som visas i Pinnacles ställe
+                           "reference": sorted(reference) if reference else [],
                            "sharp_stale": stale})
     return {"version": VERSION, "freshness_version": FRESHNESS_VERSION,
             "product": analysis.product, "draw_number": analysis.draw_number,
             "analysis_fetched_at": analysis.fetched_at, "n_matches": len(analysis.matches),
-            "level": "error" if counts["missing_all"] else "warning" if issues else "ok",
+            "level": _level(counts, issues),
             **counts, "issues": issues}

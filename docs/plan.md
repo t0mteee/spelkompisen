@@ -28,6 +28,10 @@ Projektets aktuella kontrakt står här; historiska statusblock finns i
   `source_version_changed`), modellens totalankring och Ö/U-sharp. `pool-strength-blend`
   manifest v2 visar `stoppad` (modellversionen bytt) — det hade ingen capture sedan
   2026-11-04 22:02Z eftersom baslinjen är Pinnacle. Poolens ankare är ett eget beslut.
+- **pool-reference-v1** (Samans val "bara visning" 2026-11-06): poolanalysen visar
+  Smarkets (`Sm`) eller SBOBET (`SBO`) där Pinnacle-raden stod, kopplat exakt på Kambi-id.
+  Underlagsvarningen blir `info` ("Pinnacle spärrad — Smarkets/SBOBET som referens i N/M")
+  när varje match utan Pinnacle har referens. Bygget, PH3, PIT, X-skyddet och CLV orörda.
 
 **Nytt 2026-11-05:**
 - **Big 9: valet hög EV** (beslut 2026-11-04-big9-hog-ev-i-appen-omforsok, val 0).

@@ -219,6 +219,12 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/pool_portfolio.py experimentell kupongtäckning: offline-screening och explicit
                       manuellt testval (högst 512 kr), ALDRIG standard/automatisk frysning;
                       scripts/prova_pool_portfolio.py använder samma väljare
+  app/pool_reference.py pool-reference-v1 (2026-11-06, Samans val "bara visning"):
+                      Smarkets/SBOBET 1X2 i Pinnacles ställe i poolanalysen (`Sm`/`SBO`),
+                      kopplat EXAKT på Kambi-id, färskt ≤ 45 min och satt före as-of.
+                      Räknas i underlagsvarningen (nivå `info` när varje match utan
+                      Pinnacle har referens), ALDRIG i sannolikhet, bygge, PH3, PIT,
+                      X-skydd, rörelser eller CLV
   app/pool_reserve.py separat SvS/Kambi-Ö/U-journal; presentation, INTE bygginput/sharp;
                       aktiveras med scripts/migrera_pool_reserve.py efter onlinebackup;
                       `pool-reserve-ou-v2` sedan 2026-09-24T19:51:01Z: gemensam kö per basvarv (`register`

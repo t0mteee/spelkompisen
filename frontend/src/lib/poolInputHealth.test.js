@@ -38,3 +38,10 @@ test('inaktuella Pinnacle-priser syns i rubriken och orsaken följer med underla
   assert.match(text, /3\. Everton – Ipswich: saknar Pinnacle 1X2\. Sannolikhetsbas: SvS-odds\. Orsak: Pinnacle-länken tappad \(tvetydig\) sedan 10:47\./)
   assert.match(text, /högst 90 min gammalt/)
 })
+
+test('pool-reference-v1: info-rubrik när Smarkets/SBOBET täcker varje match utan Pinnacle', () => {
+  const info = { ...health, level: 'info', missing_sharp: 8, reference_1x2: 8 }
+  assert.match(poolInputTitle(info), /Pinnacle spärrad — Smarkets\/SBOBET som referens i 8\/8 matcher/)
+  assert.match(poolReviewText(info), /varav 8 med referens \(Smarkets\/SBOBET, bara visning\)/)
+  assert.match(poolInputTitle({ ...info, level: 'warning', reference_1x2: 7 }), /Pinnacle 1X2 saknas i 8\/8/)
+})

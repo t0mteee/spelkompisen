@@ -250,12 +250,15 @@ def _analyze(product: str, draw_number: int | None = None,
             store, product, draw.draw_number, stale=stale)
         from .pool_reserve import read_for_draw
         reserves = read_for_draw(store, product, draw.draw_number)
+        from . import pool_reference
+        references = pool_reference.read_for_draw(store, draw, at)
     finally:
         store.close()
     analysis = analyze_draw(draw, sharp, merged)
     for match in analysis.matches:
         if match.total_line is None:
             match.reserve_total = reserves.get(match.event_number)
+        match.reference_1x2 = references.get(match.event_number)
         if match.event_number in stale:
             match.sharp_stale = {
                 **stale[match.event_number],
