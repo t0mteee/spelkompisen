@@ -138,6 +138,27 @@ def check_pinnacle() -> tuple[bool, str]:
     return _check_json(r, "")
 
 
+def check_smarkets() -> tuple[bool, str]:
+    r = httpx.get("https://api.smarkets.com/v3/events/",
+                  params={"type": "football_match", "state": "upcoming", "limit": 1},
+                  headers={"User-Agent": "Mozilla/5.0",
+                           "Accept": "application/json"}, timeout=TIMEOUT)
+    return _check_json(r, "events")
+
+
+def check_sbobet() -> tuple[bool, str]:
+    """SBOBET:s publika fotbollssida måste bära od-blocket (app/sbobet.py)."""
+    r = httpx.get("https://www.sbobet.com/euro/football",
+                  headers={"User-Agent": "Mozilla/5.0", "Accept": "text/html"},
+                  timeout=TIMEOUT)
+    if r.status_code != 200:
+        return False, f"status {r.status_code}"
+    if "onUpdate('od'" not in r.text:
+        encoding = r.headers.get("content-encoding", "-")
+        return False, f"200 men od-blocket saknas (content-encoding: {encoding})"
+    return True, "od-blocket ok"
+
+
 def check_kambi() -> tuple[bool, str]:
     r = httpx.get("https://eu-offering-api.kambicdn.com/offering/v2018"
                   "/svenskaspel/listView/football/sweden/allsvenskan.json",
@@ -244,8 +265,14 @@ def check_flashscore() -> tuple[bool, str, bool | None]:
 CHECKS = (
     ("svenskaspel", check_svenskaspel, True,
      "poolspelen: omgångar, streck, omsättning, resultat"),
-    ("pinnacle", check_pinnacle, True,
-     "sharp-ankaret: hela värdemotorn, CLV-facitet och steam"),
+    # Pinnacle spärrar Sverige sedan 2026-11-05 (403 från Cloudflare). Provet
+    # står kvar som stöd så att vi ser om den kommer tillbaka.
+    ("pinnacle", check_pinnacle, False,
+     "sharp-ankaret: värdemotorn, CLV-facitet och steam (spärrad sedan 2026-11-05)"),
+    ("smarkets", check_smarkets, False,
+     "referenspris 1X2 (börs) i Oddset-delen"),
+    ("sbobet", check_sbobet, False,
+     "referenspris 1X2 och asiatiskt handikapp i Oddset-delen (sedan 2026-11-06)"),
     ("kambi", check_kambi, True,
      "SvS Oddset-priser: det vi faktiskt kan spela"),
     ("flashscore", check_flashscore, True,

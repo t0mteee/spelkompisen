@@ -428,7 +428,7 @@ class CollectionPresenceTests(unittest.TestCase):
                         "hidden", source, {"1": 2.0, "X": 3.5, "2": 4.0}, at)
                 api = oddset.matches_payload(
                     store, light=True, compact_movement=True,
-                    hide_sources=oddset.UI_HIDDEN_SOURCES)
+                    hide_sources=frozenset({"smarkets"}))
                 internal = oddset.matches_payload(
                     store, light=True, compact_movement=True)
             finally:
@@ -444,6 +444,9 @@ class CollectionPresenceTests(unittest.TestCase):
 
         # Säkerhetsspärren är en HELT annan sak än visningen.
         self.assertIn("smarkets", ANCHOR_SOURCES)
+        self.assertIn("sbobet", ANCHOR_SOURCES)
+        # Sedan 2026-11-06 visas referenskällorna igen (Pinnacle stängt Sverige).
+        self.assertFalse({"smarkets", "sbobet"} & oddset.UI_HIDDEN_SOURCES)
 
     def test_compact_list_omits_raw_points_and_client_unused_presence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

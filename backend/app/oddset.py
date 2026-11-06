@@ -652,6 +652,63 @@ def _observe_pair_markets(store: Storage, mid: str, source: str,
     return n
 
 
+def _collect_sbobet(store: Storage, league: str, pages: list[dict],
+                    cands: list[dict], resolver, report: dict) -> tuple[int, int]:
+    """SBOBET:s 1X2 och huvudlina i handikapp för en liga. (matcher, rader).
+
+    Varje rad sparas med sin sidas observationstid. En match som redan
+    startat sparas aldrig (sidorna utesluter pågående matcher, men en match
+    kan hinna starta under varvet). Frånvaro markeras BARA för matcher vars
+    avspark ligger inom en dag som SBOBET publicerat — en opublicerad dag är
+    ingen observation (observationstidsregeln p.6).
+    """
+    from . import sbobet
+    ids = sbobet.LEAGUE_IDS[league]
+    rows = [(e, page["observed_at"]) for page in pages for e in page["rows"]
+            if e["league_id"] in ids]
+    store.oddset_record_source_health(
+        "sbobet", league, "1x2", pages[0]["observed_at"], True, len(rows), None)
+    seen: set[str] = set()
+    claims: dict[str, str] = {}
+    saved = 0
+    for e, observed in rows:
+        ex = resolver(cands, e["home"], e["away"], e["start"])
+        if not ex or (e.get("start") or "9") <= observed:
+            continue   # referensen skapar ALDRIG matchidentiteter
+        claim = str(e["id"])
+        if ex["id"] in claims and claims[ex["id"]] != claim:
+            report["errors"].append(
+                f"sbobet identity collision {league}: {claims[ex['id']]} och "
+                f"{claim} -> {ex['id']}")
+            continue
+        claims[ex["id"]] = claim
+        if e.get("odds"):
+            saved += store.oddset_save_odds(ex["id"], "sbobet", e["odds"], observed)
+        else:
+            store.oddset_mark_market_unavailable(ex["id"], "sbobet", "1x2")
+        line = sbobet.main_line(e.get("ah") or [])
+        if line:
+            saved += store.oddset_save_market(
+                ex["id"], "sbobet", "ah",
+                {"H": {"odds": line["H"], "line": line["line"]},
+                 "A": {"odds": line["A"], "line": line["line"]}}, observed)
+        else:
+            store.oddset_mark_market_unavailable(ex["id"], "sbobet", "ah")
+        seen.add(ex["id"])
+    spans = [(sbobet.day_span_utc(page["date"]), page["observed_at"])
+             for page in pages if page["published"]]
+    for c in cands:
+        start = c.get("start") or ""
+        if c["id"] in seen:
+            continue
+        for (lo, hi), observed in spans:
+            if lo <= start < hi and start > observed:
+                store.oddset_mark_market_unavailable(c["id"], "sbobet", "1x2")
+                store.oddset_mark_market_unavailable(c["id"], "sbobet", "ah")
+                break
+    return len(seen), saved
+
+
 def collect(store: Storage, leagues: Optional[list[dict]] = None,
             deep: bool = True) -> dict:
     """Hämta odds för alla ligor från båda källorna. Returnerar rapport per liga.
@@ -698,6 +755,21 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
     matchbook_events: Optional[list[dict]] = None
     matchbook_tried = False
     matchbook_at = at   # sätts om EFTER lyckad hämtning (observationstidsregeln)
+    # SBOBET (2026-11-06, Samans beslut efter att Pinnacle stängt Sverige):
+    # referenskälla för 1X2 och asiatiskt handikapp ur de publika datumsidorna.
+    # Bara på djupvarvet (var 30:e min): sex sidor med robots.txt:s fem
+    # sekunder mellan anropen. Varje sida bär sin EGEN observationstid. Ligger
+    # i ANCHOR_SOURCES (aldrig en bok att slå) och skapar aldrig identiteter.
+    from . import sbobet
+    sbobet_pages: Optional[list[dict]] = None
+    if deep:
+        try:
+            with sbobet.Sbobet() as sbobet_client:
+                sbobet_pages = sbobet_client.week()
+        except Exception as exc:  # noqa: BLE001
+            report["errors"].append(f"sbobet: {exc}")
+            store.oddset_record_source_health(
+                "sbobet", "-", "events", at, False, 0, str(exc))
     try:
         for lg in (LEAGUES if leagues is None else leagues):
             research_only = bool(lg.get("research_only"))
@@ -1054,6 +1126,12 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
             # skapa flaggor, notiser, CLV, steam eller matchidentiteter.
             # >= 28 dagar ren skugga innan någon runtimeroll ens prövas; tunn
             # likviditet får aldrig bekräfta/underkänna en edge.
+            n_sbobet = 0
+            if sbobet_pages is not None and lg["key"] in sbobet.LEAGUE_IDS:
+                n_sbobet, saved = _collect_sbobet(
+                    store, lg["key"], sbobet_pages, cands, resolver, report)
+                rows_saved += saved
+
             n_matchbook = 0
             if lg["key"] in matchbook.LEAGUE_TAGS:
                 fast_cands = [c for c in cands
@@ -1120,7 +1198,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
 
             report["leagues"][lg["key"]] = {
                 "pinnacle": n_pin, "kambi": n_kambi, "books": n_books,
-                "smarkets": n_anchor, "matchbook": n_matchbook,
+                "smarkets": n_anchor, "matchbook": n_matchbook, "sbobet": n_sbobet,
                 "saved_rows": rows_saved,
                 "pinnacle_cache_age_s": pin_cache_age_s if pin_ok else None,
                 "pinnacle_observed_at": pin_observed_at if pin_ok else None}
@@ -1267,7 +1345,11 @@ def _next_round_for_empty_leagues(store: Storage, windowed: list[dict],
 # `docs/tva-ankare-2026-07-25.md`, och `attach_value` räknar sitt anchor2-skugg-
 # mått FÖRE strippningen. Därför sätts flaggan bara av API:t — den INTERNA
 # payloaden till WP5-ledgern fryser oförändrat innehåll.
-UI_HIDDEN_SOURCES = frozenset({"smarkets"})
+#
+# 2026-11-06 (Samans beslut efter att Pinnacle stängt Sverige): Smarkets och
+# SBOBET visas igen som REFERENSPRISER i matchraden. Mekanismen står kvar för
+# en framtida källa som ska samlas men inte visas.
+UI_HIDDEN_SOURCES: frozenset[str] = frozenset()
 
 
 def matches_payload(store: Storage, light: bool = False,

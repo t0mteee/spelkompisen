@@ -71,7 +71,10 @@ PRICE_MAX_AGE_MIN = 45 # pris måste ha bekräftats i ett lyckat svar inom detta
 # 184 av 476 sharp-flaggor felaktigt Smarkets-rader (126 i tunna
 # träningsmatcher, snitt-edge 13,2 %) och började förorena CLV-facitet.
 # BOOKS i oddset.py styr insamlingen; denna spärr styr VÄRDERINGEN — båda behövs.
-ANCHOR_SOURCES = frozenset({"smarkets"})
+ANCHOR_SOURCES = frozenset({"smarkets", "sbobet"})
+# SBOBET (2026-11-06): referenskälla efter att Pinnacle stängt Sverige. Spelas
+# inte från Sverige och har ~15 % marginal på 1X2 — som "bok" hade den gett
+# skräpflaggor. Samma spärr som Smarkets: insamlas, värderas aldrig som bok.
 
 # ANDRA ANKARET — ren skuggmätning (2026-07-25). Projektets djupaste metodproblem
 # är att devigmetodens val rör ~3 pp medan flaggtröskeln är 2 pp: vi kan i dag

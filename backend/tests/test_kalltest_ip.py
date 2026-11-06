@@ -49,10 +49,11 @@ class KalltestReportTests(unittest.TestCase):
     def test_report_requires_every_source(self):
         with tempfile.TemporaryDirectory() as temp:
             log = Path(temp) / "log.jsonl"
-            self._write_log(log, missing="pinnacle")
+            # Kambi är kritisk; Pinnacle är stödkälla sedan spärren 2026-11-05.
+            self._write_log(log, missing="kambi")
             code, output = self._report(log)
         self.assertEqual(1, code)
-        self.assertIn("pinnacle", output)
+        self.assertIn("kambi", output)
         self.assertIn("saknas helt", output)
 
     def test_missing_support_source_does_not_block_critical_use(self):

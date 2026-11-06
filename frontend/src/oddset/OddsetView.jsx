@@ -13,6 +13,13 @@ import { summarizeSourceHealth } from '../sourceHealth.js'
 // (Kambi) + sharp (Pinnacle) för Allsvenskan, Eliteserien och träningsmatcher.
 // Rörelse-konvention (från vm): röd ↓ = oddset NER (ökad vinstchans), grön ↑ = UPP.
 export const ODDSET_HIDDEN_KEY = 'svs_oddset_hidden'
+// Referenspriser (2026-11-06, efter att Pinnacle stängt Sverige): visas som
+// Pinnacle men är aldrig böcker att slå — backendens ANCHOR_SOURCES spärrar dem
+// i värdemotorn. Smarkets har bara 1X2, SBOBET 1X2 och handikapp.
+const REFERENCE_SOURCES = [
+  ['smarkets', 'Sm', 'Smarkets (börs, referens)'],
+  ['sbobet', 'SBO', 'SBOBET (asiatisk bok, referens — spelas inte från Sverige)'],
+]
 export function OddsetLegend() {
   const [open, setOpen] = useStoredBool('svs_ui_oddset_legend')
   return (
@@ -684,6 +691,18 @@ export function OddsetView({ focus = null } = {}) {
             P{pin.derived ? '~' : ''} {pin[sign].toFixed(2)}{arrow(mvP)}{priceStamp(pin)}
           </div>
         )}
+        {REFERENCE_SOURCES.map(([src, tag, label]) => {
+          // Referenspriser (2026-11-06): börsen Smarkets och asiatiska SBOBET.
+          // Visas som Pinnacle, värderas aldrig som bok (ANCHOR_SOURCES).
+          const ro = m.odds?.[src]?.['1x2']
+          const mvR = m.movement?.[src]?.['1x2']?.[sign]
+          return ro?.[sign] ? (
+            <div className={quoteClass('p', ro)} key={src}
+              title={mvR?.pts?.length > 1 ? `${label}:\n${serie(mvR)}` : label}>
+              {tag} {ro[sign].toFixed(2)}{arrow(mvR)}{priceStamp(ro)}
+            </div>
+          ) : null
+        })}
         {showBooks && [['expekt', 'E', 'Expekt']].map(([bk, tag, label]) => {
           const bo = m.odds?.[bk]?.['1x2']
           const mvB = m.movement?.[bk]?.['1x2']?.[sign]
@@ -737,6 +756,17 @@ export function OddsetView({ focus = null } = {}) {
           {edgePill(v1?.book === 'svenskaspel' ? v1 : null)
             || edgePill(v2?.book === 'svenskaspel' ? v2 : null)}
         </div>
+        {REFERENCE_SOURCES.map(([src, tag, label]) => {
+          const ro = m.odds?.[src]?.[market]
+          if (!ro?.[k1] || !ro?.[k2]) return null
+          const mvR1 = m.movement?.[src]?.[market]?.[k1]
+          const mvR2 = m.movement?.[src]?.[market]?.[k2]
+          return (
+            <div className={quoteClass('p', ro)} key={src} title={`${label} · ${MARKET_LABEL[market]}`}>
+              {tag} {fmtL(ro.line)} · {ro[k1].toFixed(2)}{arrowAtLine(mvR1, ro.line)} / {ro[k2].toFixed(2)}{arrowAtLine(mvR2, ro.line)}{priceStamp(ro)}
+            </div>
+          )
+        })}
         {pinPair && <div className={quoteClass('p', pin)}>P {fmtL(pin.line)} · {pin[k1].toFixed(2)}{arrowAtLine(mvP1, pin.line)} / {pin[k2].toFixed(2)}{arrowAtLine(mvP2, pin.line)}{shiftBadge(mvP1, 'Pinnacle')}{priceStamp(pin)}</div>}
         {showBooks && [['expekt', 'E', 'Expekt']].map(([bk, tag, label]) => {
           const bo = m.odds?.[bk]?.[market]
@@ -831,7 +861,7 @@ export function OddsetView({ focus = null } = {}) {
   const healthDefs = [
     ['pinnacle', 'markets', 'P'], ['svenskaspel', '1x2', 'SvS'],
     ['svenskaspel', 'deep', 'SvS djup'], ['expekt', '1x2', 'E'],
-    ['smarkets', '1x2', 'Smarkets'],
+    ['smarkets', '1x2', 'Smarkets'], ['sbobet', '1x2', 'SBOBET'],
     ['flashscore', 'live', 'Live Flashscore'],
     ['fotmob', 'live', 'Live FotMob'],
     ['sofascore', 'live', 'Live Sofascore'],
