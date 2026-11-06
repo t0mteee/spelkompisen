@@ -447,6 +447,9 @@ RESULTAT_ALIAS = {
     # "Aarhus"/"Braga" 0–0. "S.C. Braga" normaliseras till "s c braga".
     "agf aarhus": "aarhus",
     "s c braga": "braga",
+    # Spel 190: FC Köpenhamn–Iberia 1999 2026-11-05 (Conference League), Flashscore
+    # "Copenhagen" 2–1. norm_team tar bort FC: "FC Köpenhamn" blir "kopenhamn".
+    "kopenhamn": "copenhagen",
 }
 
 
