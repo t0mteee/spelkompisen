@@ -225,11 +225,16 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       Räknas i underlagsvarningen (nivå `info` när varje match utan
                       Pinnacle har referens), ALDRIG i sannolikhet, bygge, PH3, PIT,
                       X-skydd, rörelser eller CLV
-  app/pool_reserve.py separat SvS/Kambi-Ö/U-journal; presentation, INTE bygginput/sharp;
+  app/pool_reserve.py separat SvS/Kambi-Ö/U-journal; aldrig sharp, PIT eller CLV;
                       aktiveras med scripts/migrera_pool_reserve.py efter onlinebackup;
                       `pool-reserve-ou-v2` sedan 2026-09-24T19:51:01Z: gemensam kö per basvarv (`register`
                       i produktloopen, `run_queue` efter): aldrig kontrollerad → äldst →
-                      närmast spelstopp, 3 anrop, 15 min cooldown, inget efter spelstopp
+                      närmast spelstopp, 15 min cooldown, inget efter spelstopp.
+                      **v3 (2026-11-06, pool-draw-risk-v2):** 12 anrop per basvarv, och
+                      när en frysning väntar (`freeze_pending`/spelai `capture_pending`)
+                      hämtar `refresh_for_build` omgångens linor FÖRE frysningens klocka
+                      (5 min återanvändning, ≤ 40 anrop/12 s per varv). `build_totals`
+                      (as-of, ≤ 90 min) är ENDA läsningen bygget får använda
   app/vakt.py         DRIFTVAKTEN vakt-v5 (2026-10-01; `cli.py vakt`, launchd
                       `com.saman.spelkompisen.vakt` var 30:e min): källprov, jobb, append-only-
                       insamling, backendloggar, driftkopia mot GitHub, nattlig testsvit i
@@ -377,6 +382,10 @@ docs/claude-md-bakgrund-2026-09-02.md  evidensen bakom reglerna i den här filen
   **Andra datumnoten samma dag, 2026-09-24T19:51:01Z:** omsättningsprognosen tp2 (värderingsomsättningen)
   och rörelsen per match (SvS-serien för matcher utan färsk Pinnacle-serie) ändrar
   radvalet för `dr1-*` och poolopt-v1. Nycklarna är oförändrade.
+  **Datumnot 2026-11-06 (pool-draw-risk-v2):** från första poolticken efter
+  driftsättningen styr Kambis Ö/U-lina X-skyddet där Pinnacle-totalen saknas (Pinnacle
+  spärrar Sverige sedan 2026-11-05). Ändrar radvalet för alla X-skyddade nycklar;
+  nycklarna är oförändrade, frysningens `build_note` visar regimen — redovisa den vid skörd.
 - **SANNOLIKHETSBAS (2026-09-02):** `build_ev_system(prob_base=)` — `"svs"` (SvS-odds
   först, Pinnacle reserv) är byte-identisk standard i appen; `"sharp"` mäts ENBART som
   utmanaren `dr1-b256-medel-sharp` (8-matchsspelen, pensionerad 2026-10-18). En ändrad bas är en ny nyckel,
@@ -732,8 +741,13 @@ notiser; promotion sker bara enligt `docs/tva-ankare-2026-07-25.md`.
   (Träffsäkrare, Radform v1, Täckningstest v1) och Två kompletterande kuponger erbjuds inte.
   Backend och `builder.py` bygger allt som förut (delad kod med max-systemen); `ROW_MODELS`
   står kvar för historiska kupongers etiketter.
-- **X-skydd (`pool-draw-risk-v1`):** vid Pinnacle-total ≤ 2,25 skyddas X från 29,5 %
+- **X-skydd (`pool-draw-risk-v2`):** vid total ≤ 2,25 skyddas X från 29,5 %
   (32 % utan total) i ALLA automatiska systembyggen. Totalen sparas point-in-time.
+  **v2 (Samans beslut 2026-11-06, "X-skydd via Kambi"):** Pinnacles total först; saknas
+  den styr Svenska Spels/Kambis Ö/U-lina (`pool_reserve.build_totals` vid byggets as-of,
+  `builder.apply_reserve_totals` — samma i appen, PH3 och spelai-paketets
+  `reserve_totals`). Trösklarna är oförändrade; `total_source` säger källan och PH3:s
+  byggnot "X-skyddets Ö/U från SvS/Kambi i N matcher". Smarkets halva linor används inte.
 - **RLM**: folket och devigad sharp åt olika håll (◆ smart pengar / ⚠ fadea).
 - **Streck-allokering** (`_size_to_budget`): värde/kostnads-girig per Δlog(täckt sannolikhet)/Δlog(rader).
 - **Steam** (`app/steam.py`): devigade sannolikhetsskift (pp) över 6/24/72 h; 🔥 på

@@ -360,7 +360,7 @@ class InputHealthTextTests(unittest.TestCase):
         self.assertEqual("pool-sharp-freshness-v1", health["freshness_version"])
         issue = health["issues"][0]
         self.assertEqual(2, issue["event_number"])
-        self.assertEqual(["Pinnacle 1X2", "Pinnacle Ö/U"], issue["missing"])
+        self.assertEqual(["Pinnacle 1X2", "Ö/U"], issue["missing"])
         self.assertEqual("Pinnacle-priset äldre än 90 min (senast 10:17)", issue["reason"])
 
 

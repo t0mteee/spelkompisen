@@ -54,7 +54,11 @@ MAX_MATH_ROWS = (3 ** MAX_MATH_FULL_GUARDS
 # radval. `prob_base="svs"` är byte-identisk med tidigare beteende och
 # förblir standard; `"sharp"` mäts som PH3-utmanare under egen config_key.
 PROB_BASES = ("svs", "sharp")
-DRAW_RISK_VERSION = "pool-draw-risk-v1"
+# v2 (Samans beslut 2026-11-06, "X-skydd via Kambi"): när Pinnacle-totalen
+# saknas får Svenska Spels/Kambis Ö/U-lina ur Ö/U-reservens journal styra
+# samma regel (≤ 2,25). Trösklarna är oförändrade; bara totalens källa är ny.
+# Pinnacle går alltid först. Se apply_reserve_totals och pool_reserve.build_totals.
+DRAW_RISK_VERSION = "pool-draw-risk-v2"
 DRAW_RISK_TOTAL_MAX = 2.25
 DRAW_RISK_X_MIN = 0.295
 DRAW_RISK_X_STRONG = 0.32
@@ -180,10 +184,35 @@ def draw_risk_values(probability: float,
 
 def draw_risk_context(m: MatchAnalysis) -> dict:
     """Det frysta, gemensamma X-skyddet för alla automatiska byggare."""
-    return draw_risk_values(
+    out = draw_risk_values(
         _selection_probability(m, "X"),
         getattr(m, "total_line", None),
     )
+    out["total_source"] = getattr(m, "total_source", None)
+    return out
+
+
+def apply_reserve_totals(analysis, totals: Optional[dict]) -> int:
+    """pool-draw-risk-v2: fyll totalen ur Ö/U-reserven där Pinnacle saknas.
+
+    `totals` = pool_reserve.build_totals(...) för SAMMA as-of som bygget:
+    {event_number: {line, over_odds, under_odds, observed_at, source}}.
+    En match med Pinnacle-total rörs aldrig. Returnerar antalet ifyllda
+    matcher (till byggnoten). Samma funktion i appen, PH3 och spelai."""
+    filled = 0
+    for m in analysis.matches:
+        if m.total_line is not None or m.cancelled:
+            continue
+        quote = (totals or {}).get(m.event_number) or (totals or {}).get(
+            str(m.event_number))
+        if not quote or quote.get("line") is None:
+            continue
+        m.total_line = float(quote["line"])
+        m.total_over_odds = quote.get("over_odds")
+        m.total_under_odds = quote.get("under_odds")
+        m.total_source = quote.get("source") or "svenskaspel_kambi"
+        filled += 1
+    return filled
 
 
 def _pick_signs(m: MatchAnalysis, count: int, cfg: StrategyConfig,

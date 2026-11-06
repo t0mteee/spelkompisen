@@ -21,6 +21,13 @@ class ReserveTests(unittest.TestCase):
     now = dt.datetime(2026,9,21,15,tzinfo=dt.timezone.utc)
     start = "2026-09-21T17:00:00Z"
 
+    def setUp(self):
+        # Köns ordning och budget prövas med tre anrop per varv (taket är
+        # MAX_CALLS sedan v3; logiken är densamma).
+        calls = patch.object(r, 'MAX_CALLS', 3)
+        calls.start()
+        self.addCleanup(calls.stop)
+
     def payload(self):
         return {"events":[{"id":1,"start":self.start,"sport":"FOOTBALL",
                            "state":"NOT_STARTED","homeName":"Home","awayName":"Away"}],
@@ -68,7 +75,9 @@ class ReserveTests(unittest.TestCase):
         insert('source_error','2026-09-21T14:55:00+00:00')
         q=r.read_for_draw(store,'topptipset',1,self.now)[1]
         self.assertTrue(q['available']);self.assertTrue(q['source_error']);self.assertFalse(q['used_by_builder'])
-        self.assertFalse(r.read_for_draw(store,'topptipset',1,self.now+dt.timedelta(hours=1))[1]['available'])
+        # Färskheten är BUILD_MAX_AGE_S (90 min) sedan pool-draw-risk-v2.
+        self.assertTrue(r.read_for_draw(store,'topptipset',1,self.now+dt.timedelta(hours=1))[1]['available'])
+        self.assertFalse(r.read_for_draw(store,'topptipset',1,self.now+dt.timedelta(minutes=101))[1]['available'])
         insert('no_market','2026-09-21T14:59:00+00:00')
         self.assertFalse(r.read_for_draw(store,'topptipset',1,self.now)[1]['available'])
 
@@ -155,6 +164,9 @@ class ReserveQueueTests(unittest.TestCase):
         self.conn.executescript(r.SCHEMA)
         self.addCleanup(self.conn.close)
         self.store = SimpleNamespace(conn=self.conn, get_sharp=lambda *args: {})
+        calls = patch.object(r, 'MAX_CALLS', 3)
+        calls.start()
+        self.addCleanup(calls.stop)
         self.fetch = patch.object(r, 'fetch_quote', side_effect=self.quote)
         self.fetched = self.fetch.start()
         self.addCleanup(self.fetch.stop)
@@ -220,7 +232,7 @@ class ReserveQueueTests(unittest.TestCase):
                                    "WHERE product='topptipsetstryk' AND provider_event_id='1'").fetchone()
         self.assertEqual((self.at(-5).isoformat(),) * 2, tuple(shared))
 
-    def test_aldrig_fler_an_tre_anrop_per_varv(self):
+    def test_aldrig_fler_an_max_calls_anrop_per_varv(self):
         varv = SimpleNamespace()
         for n, product in enumerate(('stryktipset', 'europatipset', 'topptipset')):
             r.register(self.store, product, self.draw([10 * n + i for i in range(1, 5)],

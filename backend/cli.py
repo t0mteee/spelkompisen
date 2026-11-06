@@ -193,7 +193,8 @@ def cmd_snapshot(product: str,
                 clv.resolve(store, ss)                # + sätt stängning/facit där det går
                 _pool_pit_freeze(
                     store, ss, product, draw,
-                    sharp_result=sharp_result)   # PH2-serie + PH3-frysning
+                    sharp_result=sharp_result,
+                    varv=varv)   # PH2-serie + PH3-frysning
             finally:
                 store.close()
             if draw.reg_close_time:
@@ -297,7 +298,8 @@ def _settle_played(store: Storage, product: str) -> int:
 
 def _pool_pit_freeze(store: Storage, ss: SvenskaSpel, product: str, draw,
                      sharp_result: Optional[dict] = None,
-                     now: Optional[dt.datetime] = None) -> None:
+                     now: Optional[dt.datetime] = None,
+                     varv=None) -> None:
     """PH2: omsättnings-/jackpottserie. PH3: frys benchmarksystem när ett
     horisontfönster (T−3 h / T−20 min) öppnats. Får aldrig fälla varvet.
 
@@ -337,6 +339,26 @@ def _pool_pit_freeze(store: Storage, ss: SvenskaSpel, product: str, draw,
         pool_dataset.record_draw_snapshot(
             store, product, draw.draw_number, draw.net_sale, jackpot,
             jackpot_source=jackpot_source)
+        # pool-draw-risk-v2: väntar en frysning (PH3 eller spelai) hämtas
+        # Kambis Ö/U för matcherna utan Pinnacle-total FÖRE frysningens klocka,
+        # så att observationen ligger före as-of. Egen try: reserven får
+        # aldrig stoppa frysningen (den bygger då med 32 %-gränsen).
+        try:
+            from app import pool_reserve
+            from app.spelai import indata as spelai_pending
+            pre_now = now or dt.datetime.now(dt.timezone.utc)
+            if (pool_system_ledger.freeze_pending(store, product, draw, pre_now)
+                    or spelai_pending.capture_pending(store, product, draw)):
+                pre_sharp, _ = pool_sharp_freshness.fresh_sharp(
+                    store, product, draw.draw_number, pre_now)
+                refreshed = pool_reserve.refresh_for_build(
+                    store, product, draw, pre_sharp, varv=varv, now=pre_now)
+                if refreshed["calls"] or refreshed["unserved"]:
+                    print(f"{product} omg {draw.draw_number}: Ö/U inför bygget "
+                          f"{refreshed}")
+        except Exception as e:  # noqa: BLE001
+            print(f"{product} omg {draw.draw_number}: Ö/U inför bygget FEL "
+                  f"{type(e).__name__}: {e}")
         # Frysningens klocka: SAMMA tid bedömer sharp-färskheten och stämplar
         # frysningen (frozen_at/lag). Läses där freeze_due tidigare läste den.
         freeze_now = now or dt.datetime.now(dt.timezone.utc)
@@ -344,6 +366,13 @@ def _pool_pit_freeze(store: Storage, ss: SvenskaSpel, product: str, draw,
         # observerats tappad efter priset får inte in i PH3-bygget.
         sharp, stale = pool_sharp_freshness.fresh_sharp(
             store, product, draw.draw_number, freeze_now)
+        try:
+            from app import pool_reserve
+            reserve_totals = pool_reserve.build_totals(
+                store, product, draw.draw_number, freeze_now)
+        except Exception as e:  # noqa: BLE001
+            print(f"{product}: Ö/U-reserven kunde inte läsas ({e})")
+            reserve_totals = {}
         movement = steam_mod.movement_with_steam(
             store, product, draw.draw_number, stale=stale)
         # spel-ai-kompisen: spara indatapaketet (samma färska draw, sharp,
@@ -356,7 +385,7 @@ def _pool_pit_freeze(store: Storage, ss: SvenskaSpel, product: str, draw,
             spelai = spelai_indata.capture_due(
                 store, product, draw, sharp, movement, jackpot=jackpot,
                 jackpot_source=jackpot_source, now=freeze_now,
-                sharp_stale=stale)
+                sharp_stale=stale, reserve_totals=reserve_totals)
             if spelai.get("captured"):
                 print(f"{product} omg {draw.draw_number}: spelai-indata "
                       f"{', '.join(spelai['captured'])}.")
@@ -366,7 +395,7 @@ def _pool_pit_freeze(store: Storage, ss: SvenskaSpel, product: str, draw,
         rep = pool_system_ledger.freeze_due(
             store, product, draw, sharp, movement, jackpot=jackpot,
             jackpot_source=jackpot_source, now=freeze_now,
-            sharp_stale=stale,
+            sharp_stale=stale, reserve_totals=reserve_totals,
             code_version=pool_settlement._git_hash())  # noqa: SLF001
         if rep.get("frozen"):
             print(f"{product} omg {draw.draw_number}: "

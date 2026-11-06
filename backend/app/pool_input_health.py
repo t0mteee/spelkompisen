@@ -34,13 +34,16 @@ def _level(counts: dict, issues: list) -> str:
 def report(analysis):
     issues = []
     counts = {"missing_sharp": 0, "missing_svs": 0, "missing_all": 0, "missing_total": 0,
-              "stale_sharp": 0, "reference_1x2": 0}
+              "stale_sharp": 0, "reference_1x2": 0, "total_kambi": 0}
     for match in analysis.matches:
         svs = all(s in match.outcomes and _price(match.outcomes[s].odds) for s in SIGNS)
         sharp = all(s in match.outcomes and _price(match.outcomes[s].sharp_odds) for s in SIGNS)
         line = match.total_line
         total = (isinstance(line, (int, float)) and math.isfinite(line) and line > 0
                  and _price(match.total_over_odds) and _price(match.total_under_odds))
+        # pool-draw-risk-v2: Kambis lina räknas som Ö/U-underlag för X-skyddet.
+        if total and getattr(match, "total_source", None) == "svenskaspel_kambi":
+            counts["total_kambi"] += 1
         stale = getattr(match, "sharp_stale", None)
         if stale:
             counts["stale_sharp"] += 1
@@ -48,7 +51,7 @@ def report(analysis):
         for key, missing_value, label in (
                 ("missing_svs", not svs, "SvS 1X2"),
                 ("missing_sharp", not sharp, "Pinnacle 1X2"),
-                ("missing_total", not total, "Pinnacle Ö/U")):
+                ("missing_total", not total, "Ö/U")):
             if missing_value:
                 counts[key] += 1
                 missing.append(label)
@@ -63,6 +66,7 @@ def report(analysis):
                            "missing": missing, "no_complete_1x2": not svs and not sharp,
                            "prob_source": match.prob_source,
                            "reserve_total": getattr(match, "reserve_total", None),
+                           "total_source": getattr(match, "total_source", None),
                            # Varför Pinnacle saknas när ett cachat pris fanns men
                            # inte fick användas; None = inget pris i cachen alls.
                            "reason": (stale.get("text") if stale else None),

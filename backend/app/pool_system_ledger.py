@@ -24,7 +24,8 @@ from typing import Optional
 from . import pool_settlement
 from .analysis import DrawAnalysis, _normalize_odds, analyze_draw
 from .builder import (build_ev_system, build_max_math_system,
-                      draw_risk_values, ev_candidate_signs)
+                      draw_risk_values, ev_candidate_signs,
+                      apply_reserve_totals, DRAW_RISK_VERSION)
 from .storage import Storage
 from .svenskaspel import Draw, family_of
 
@@ -640,17 +641,40 @@ def build_config_rows(analysis: DrawAnalysis, bench: dict, horizon: str,
     return rows, n_rows, cost, build_note
 
 
+def freeze_pending(store: Storage, product: str, draw: Draw,
+                   now: dt.datetime) -> bool:
+    """Väntar en X-skyddad frysning på den här omgången just nu? Samma
+    horisonter och nycklar som freeze_due, ingen skrivning. Styr bara när
+    Ö/U-reserven hämtar inför bygget (pool_reserve.refresh_for_build)."""
+    close = _parse(draw.reg_close_time)
+    if close is None or close <= now:
+        return False
+    for horizon, (minutes, _tol) in FREEZE_HORIZONS.items():
+        if now < close - dt.timedelta(minutes=minutes):
+            continue
+        for bench in (*benchmarks_for(product),
+                      *research_configs_for(product, draw.draw_number)):
+            if (bench.get("draw_risk", True)
+                    and not _frozen(store, product, draw.draw_number,
+                                    horizon, bench["key"])):
+                return True
+    return False
+
+
 def freeze_due(store: Storage, product: str, draw: Draw,
                sharp: Optional[dict] = None, movement: Optional[dict] = None,
                jackpot: Optional[float] = None,
                jackpot_source: str = "missing",
                now: Optional[dt.datetime] = None,
                code_version: str = "dev",
-               sharp_stale: Optional[dict] = None) -> dict:
+               sharp_stale: Optional[dict] = None,
+               reserve_totals: Optional[dict] = None) -> dict:
     """Frys benchmarksystem för en öppen omgång vars horisontfönster öppnats.
     draw = varvets färska Draw-objekt (point-in-time). `sharp` ska redan ha
     passerat pool-sharp-freshness-v1; `sharp_stale` (det som togs bort)
-    skrivs bara som revisionsnot i build_note."""
+    skrivs bara som revisionsnot i build_note. `reserve_totals` =
+    pool_reserve.build_totals vid samma klocka (pool-draw-risk-v2): Kambis
+    Ö/U-lina styr X-skyddet där Pinnacle-totalen saknas."""
     now = now or dt.datetime.now(dt.timezone.utc)
     stale_note = _freshness_note(sharp_stale)
     close = _parse(draw.reg_close_time)
@@ -671,6 +695,7 @@ def freeze_due(store: Storage, product: str, draw: Draw,
                 continue
             if analysis is None:
                 analysis = analyze_draw(draw, sharp or {}, movement or {})
+                n_reserve_total = apply_reserve_totals(analysis, reserve_totals)
                 turnover_used, basis = _valuation_turnover(
                     store, product, analysis.turnover or 0.0,
                     close_iso=close.isoformat())
@@ -684,6 +709,11 @@ def freeze_due(store: Storage, product: str, draw: Draw,
             if stale_note:
                 build_note = (f"{build_note} {stale_note}"
                               if build_note else stale_note)
+            if n_reserve_total and bench.get("draw_risk", True):
+                total_note = (f"X-skyddets Ö/U från SvS/Kambi i {n_reserve_total} "
+                              f"matcher ({DRAW_RISK_VERSION}).")
+                build_note = (f"{build_note} {total_note}"
+                              if build_note else total_note)
             if "method" in bench:
                 research_target = max(
                     1, int(bench["budget"] / (analysis.row_price or 1.0)))
@@ -1236,6 +1266,21 @@ def system_detail(store: Storage, product: str, draw_number: int,
     total_at_freeze = _total_at(store, product, draw_number, frozen_at)
     stale_at_freeze = _sharp_stale_at_freeze(
         store, product, draw_number, frozen_at)
+    # pool-draw-risk-v2: byggnoten säger när Kambis lina styrde X-skyddet;
+    # samma läsning som bygget (build_totals), vid frysningen. frozen_at är
+    # avrundad till sekund medan journalens tider har mikrosekunder, därav +1 s.
+    if build_note and "SvS/Kambi" in build_note:
+        from .pool_reserve import build_totals
+        frozen_dt = _parse(frozen_at)
+        kambi = (build_totals(store, product, draw_number,
+                              frozen_dt + dt.timedelta(seconds=1))
+                 if frozen_dt else {})
+        for event_number, quote in kambi.items():
+            if event_number in stale_at_freeze or event_number not in total_at_freeze:
+                total_at_freeze[event_number] = {
+                    "line": quote["line"], "O": quote["over_odds"],
+                    "U": quote["under_odds"], "observed_at": quote["observed_at"],
+                    "source": quote["source"]}
 
     events = []
     ordered_outcomes = []

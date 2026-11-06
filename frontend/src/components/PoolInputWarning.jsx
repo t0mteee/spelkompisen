@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { poolInputTitle, poolReviewText, sourceLabel } from '../lib/poolInputHealth.js'
+import { poolInputTitle, poolReviewText, sourceLabel, xSkyddText } from '../lib/poolInputHealth.js'
 
 export function PoolInputWarning({ health, scope = 'Aktuell analys', compact = false }) {
   const [copyState, setCopyState] = useState('')
@@ -22,7 +22,7 @@ export function PoolInputWarning({ health, scope = 'Aktuell analys', compact = f
   return <aside className={`pool-input-warning ${health.level}`} role="status" aria-label={`Oddsvarning · ${scope}`}>
     <strong>{health.level === 'info' ? 'ℹ' : '⚠'} {compact ? 'Underlag vid systembygget: ' : ''}{title}</strong>
     {!compact && <p>{health.level === 'info'
-      ? 'Pinnacle spärrar Sverige sedan 5/11. Smarkets (Sm) eller SBOBET (SBO) visas i Pinnacles ställe som referens; kupongen byggs som förut på SvS-odds och referensen används inte i bygget. Ö/U-stöd saknas, så X-skyddet använder 32 %-gränsen.'
+      ? 'Pinnacle spärrar Sverige sedan 5/11. Smarkets (Sm) eller SBOBET (SBO) visas i Pinnacles ställe som referens; kupongen byggs som förut på SvS-odds och referensen används inte i bygget. ' + xSkyddText(health)
       : health.missing_all > 0
       ? 'Kontrollera underlaget innan du använder förslaget. Utan kompletta odds kan bygget använda folkets streck eller reservvärden.'
       : health.missing_sharp > 0
@@ -39,7 +39,7 @@ export function PoolInputWarning({ health, scope = 'Aktuell analys', compact = f
         {m.reason && <span>Orsak: {m.reason}</span>}
         <span>Sannolikhetsbas: {sourceLabel(m.prob_source)}</span>
         {m.reserve_total && <span>{m.reserve_total.available
-          ? `${m.reserve_total.label}: Ö/U ${m.reserve_total.line} · Över ${m.reserve_total.over_odds} / Under ${m.reserve_total.under_odds}. Observerat ${new Date(m.reserve_total.observed_at).toLocaleString('sv-SE')}. Visas som reservunderlag, används ännu inte av byggaren.`
+          ? `${m.reserve_total.label}: Ö/U ${m.reserve_total.line} · Över ${m.reserve_total.over_odds} / Under ${m.reserve_total.under_odds}. Observerat ${new Date(m.reserve_total.observed_at).toLocaleString('sv-SE')}. ${m.reserve_total.used_by_builder ? 'Styr X-skyddet (Pinnacle saknas).' : 'Visas som underlag; för gammal för X-skyddet.'}`
           : `Ö/U-reserv: ${m.reserve_total.status === 'source_error' ? 'källan kunde inte läsas' : 'inget färskt verifierat pris'}.`}</span>}
       </li>)}</ul>
       <p>Visar underlaget för {scope.toLowerCase()}. Ett cachat Pinnacle-pris används bara om det

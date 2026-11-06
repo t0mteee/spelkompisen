@@ -32,6 +32,11 @@ Projektets aktuella kontrakt står här; historiska statusblock finns i
   Smarkets (`Sm`) eller SBOBET (`SBO`) där Pinnacle-raden stod, kopplat exakt på Kambi-id.
   Underlagsvarningen blir `info` ("Pinnacle spärrad — Smarkets/SBOBET som referens i N/M")
   när varje match utan Pinnacle har referens. Bygget, PH3, PIT, X-skyddet och CLV orörda.
+- **pool-draw-risk-v2** (Samans val "X-skydd via Kambi" 2026-11-06): där Pinnacle-totalen
+  saknas styr Svenska Spels/Kambis Ö/U-lina X-skyddet (samma ≤ 2,25-regel) i appen, PH3
+  och spelai-standarden. Inför varje frysning hämtas omgångens linor direkt (~0,1 s/anrop);
+  läsningen är as-of med 90 min färskhet. Datumnot i PH3, nycklarna oförändrade. SBOBET:s
+  publika sidor saknar Ö/U; Smarkets Ö/U (bara halva linor) blir visning.
 
 **Nytt 2026-11-05:**
 - **Big 9: valet hög EV** (beslut 2026-11-04-big9-hog-ev-i-appen-omforsok, val 0).

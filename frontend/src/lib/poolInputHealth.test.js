@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { poolInputTitle, poolReviewText, sourceLabel } from './poolInputHealth.js'
+import { poolInputTitle, poolReviewText, sourceLabel, xSkyddText } from './poolInputHealth.js'
 
 const health = { version: 'pool-input-health-v1', product: 'topptipsetstryk', draw_number: 981,
   analysis_fetched_at: '2026-09-21T10:00:00Z', n_matches: 8, level: 'warning',
@@ -44,4 +44,11 @@ test('pool-reference-v1: info-rubrik när Smarkets/SBOBET täcker varje match ut
   assert.match(poolInputTitle(info), /Pinnacle spärrad — Smarkets\/SBOBET som referens i 8\/8 matcher/)
   assert.match(poolReviewText(info), /varav 8 med referens \(Smarkets\/SBOBET, bara visning\)/)
   assert.match(poolInputTitle({ ...info, level: 'warning', reference_1x2: 7 }), /Pinnacle 1X2 saknas i 8\/8/)
+})
+
+test('pool-draw-risk-v2: X-skyddets text säger var Kambis Ö/U-lina används', () => {
+  assert.match(xSkyddText({ n_matches: 8, total_kambi: 8, missing_total: 0 }), /Svenska Spels Ö\/U-lina \(Kambi\) i 8\/8 matcher\.$/)
+  assert.match(xSkyddText({ n_matches: 8, total_kambi: 6, missing_total: 2 }), /i 6\/8 matcher; 2 saknar Ö\/U och får 32 %-gränsen/)
+  assert.match(xSkyddText({ n_matches: 8, total_kambi: 0, missing_total: 3 }), /Ö\/U saknas i 3\/8 matcher/)
+  assert.equal(xSkyddText({ n_matches: 8, total_kambi: 0, missing_total: 0 }), '')
 })

@@ -248,16 +248,22 @@ def _analyze(product: str, draw_number: int | None = None,
         # Inaktuella matcher får SvS-serien i stället för en stannad sharp.
         merged = steam_mod.movement_with_steam(
             store, product, draw.draw_number, stale=stale)
-        from .pool_reserve import read_for_draw
+        from .pool_reserve import build_totals, read_for_draw
         reserves = read_for_draw(store, product, draw.draw_number)
+        # pool-draw-risk-v2: samma as-of som bygget (PH3 läser vid frysningen).
+        reserve_totals = build_totals(store, product, draw.draw_number, at)
         from . import pool_reference
         references = pool_reference.read_for_draw(store, draw, at)
     finally:
         store.close()
     analysis = analyze_draw(draw, sharp, merged)
+    from .builder import apply_reserve_totals
+    apply_reserve_totals(analysis, reserve_totals)
     for match in analysis.matches:
-        if match.total_line is None:
-            match.reserve_total = reserves.get(match.event_number)
+        if match.total_source != "pinnacle" and match.event_number in reserves:
+            match.reserve_total = {
+                **reserves[match.event_number],
+                "used_by_builder": match.total_source == "svenskaspel_kambi"}
         match.reference_1x2 = references.get(match.event_number)
         if match.event_number in stale:
             match.sharp_stale = {

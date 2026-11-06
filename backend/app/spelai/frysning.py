@@ -27,6 +27,7 @@ from typing import Callable, Optional
 
 from .. import pool_system_ledger as ph3
 from ..analysis import analyze_draw
+from ..builder import apply_reserve_totals
 from . import big9, indata, nivaer, tillstand
 from .sandbox import AgentSvar, TIMEOUT_S
 from .tillstand import iso, utc
@@ -63,6 +64,8 @@ def analysis_from_payload(payload: dict):
     draw = indata.draw_from_payload(payload["draw"])
     analysis = analyze_draw(draw, indata.decode_sharp(payload.get("sharp")),
                             indata.decode_movement(payload.get("movement")))
+    # pool-draw-risk-v2: paket före 2026-11-06 saknar nyckeln ⇒ ingen reserv.
+    apply_reserve_totals(analysis, indata.decode_sharp(payload.get("reserve_totals")))
     used = float((payload.get("turnover") or {}).get("used") or 0.0)
     if used > (analysis.turnover or 0.0):
         analysis.turnover = used

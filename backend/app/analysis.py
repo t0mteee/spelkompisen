@@ -83,6 +83,10 @@ class MatchAnalysis:
     total_line: Optional[float] = None
     total_over_odds: Optional[float] = None
     total_under_odds: Optional[float] = None
+    # pool-draw-risk-v2: varifrån totalen kom — "pinnacle" (färsk sharp) eller
+    # "svenskaspel_kambi" (Ö/U-reservens journal, satt av anroparen med
+    # builder.apply_reserve_totals när Pinnacle saknas). None = ingen total.
+    total_source: Optional[str] = None
 
 
 # --- trösklar (lätt att tweaka) ---
@@ -454,6 +458,7 @@ def analyze_match(m: Match, sharp: Optional[dict] = None,
         total_line=total.get("line"),
         total_over_odds=total.get("O"),
         total_under_odds=total.get("U"),
+        total_source=("pinnacle" if total.get("line") is not None else None),
     )
 
 

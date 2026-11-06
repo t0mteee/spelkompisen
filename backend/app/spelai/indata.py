@@ -98,7 +98,8 @@ def _latest_sharp_observation(store, product: str, draw_number: int,
 def build_payload(store, product: str, draw: Draw, horizon: str,
                   sharp: Optional[dict], movement: Optional[dict],
                   jackpot: Optional[float], jackpot_source: str,
-                  sharp_stale: Optional[dict], now: dt.datetime) -> dict:
+                  sharp_stale: Optional[dict], now: dt.datetime,
+                  reserve_totals: Optional[dict] = None) -> dict:
     from .. import pool_system_ledger
     close = utc(draw.reg_close_time)
     observed = utc(draw.fetched_at)
@@ -121,6 +122,9 @@ def build_payload(store, product: str, draw: Draw, horizon: str,
         "draw": draw_to_payload(draw),
         "sharp": encode_sharp(sharp),
         "sharp_stale_events": sorted(int(e) for e in (sharp_stale or {})),
+        # pool-draw-risk-v2: Kambis Ö/U-linor vid samma klocka som PH3 (bara
+        # X-skyddet läser dem, och bara där Pinnacle-totalen saknas).
+        "reserve_totals": encode_sharp(reserve_totals),
         "movement": encode_movement(movement),
         "turnover": {"live": live, "used": used, "basis": basis},
         "jackpot": {"value": jackpot, "source": jackpot_source},
@@ -133,11 +137,30 @@ def build_payload(store, product: str, draw: Draw, horizon: str,
     }
 
 
+def capture_pending(store, product: str, draw: Draw) -> bool:
+    """Skulle capture_due spara ett paket för draw nu? Ingen skrivning.
+    Styr bara när Ö/U-reserven hämtar inför paketet (pool-draw-risk-v2)."""
+    if not nivaer.nivaer_for(product) or not schema.tables_exist(
+            store.conn, ("spelai_input",)):
+        return False
+    close, observed = utc(draw.reg_close_time), utc(draw.fetched_at)
+    if close is None or observed is None or observed >= close:
+        return False
+    for horizon in HORIZONS:
+        start, end = window(close, horizon)
+        if start <= observed <= end and not store.conn.execute(
+                "SELECT 1 FROM spelai_input WHERE product=? AND draw_number=? "
+                "AND horizon=?", (product, draw.draw_number, horizon)).fetchone():
+            return True
+    return False
+
+
 def capture_due(store, product: str, draw: Draw, sharp: Optional[dict] = None,
                 movement: Optional[dict] = None, jackpot: Optional[float] = None,
                 jackpot_source: str = "missing",
                 now: Optional[dt.datetime] = None,
-                sharp_stale: Optional[dict] = None) -> dict:
+                sharp_stale: Optional[dict] = None,
+                reserve_totals: Optional[dict] = None) -> dict:
     """Spara indatapaket för de horisonter vars fönster draw observerades i.
 
     Anropas i poolvarvet direkt efter PH3:s underlag. Får aldrig fälla
@@ -164,7 +187,8 @@ def capture_due(store, product: str, draw: Draw, sharp: Optional[dict] = None,
                 "AND horizon=?", (product, draw.draw_number, horizon)).fetchone():
             continue
         payload = build_payload(store, product, draw, horizon, sharp, movement,
-                                jackpot, jackpot_source, sharp_stale, now)
+                                jackpot, jackpot_source, sharp_stale, now,
+                                reserve_totals=reserve_totals)
         text = json.dumps(payload, ensure_ascii=False, sort_keys=True)
         cur = store.conn.execute(
             "INSERT OR IGNORE INTO spelai_input (product, draw_number, horizon, "
