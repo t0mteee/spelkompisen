@@ -131,7 +131,18 @@ AREAS = ("jobb", "kallor", "backend", "drift", "tester", "server", "experiment")
 # Tom sedan 2026-10-14: Sofascores tre kvitteringar (beslut 20) ersattes av
 # beslut koordinatorn-2026-10-14-sofascore-larm (val 0), som tog Sofascore ur
 # källprovet och lade det i ett tyst veckoprov (L).
-KANDA_FEL: tuple[dict, ...] = ()
+# 2026-11-06: Pinnacle spärrar Sverige (Cloudflare 403 sedan 2026-11-05 09:30Z).
+# Saman 2026-11-06: "Pinnacle är nog körd"; att gå runt spärren är stängt
+# (källgränsen). Värdemotorn ankras av Smarkets/SBOBET (anchor-v1). Källprovet
+# fortsätter så att vi ser om den kommer tillbaka; kvitteringen löper en månad.
+KANDA_FEL: tuple[dict, ...] = (
+    {"kind": "kalla_nere", "key": "pinnacle", "text": "403",
+     "varfor": "Pinnacle spärrar svenska IP-adresser sedan 2026-11-05 09:30Z "
+               "(Cloudflare 403, även www.pinnacle.com).",
+     "beslut": "Saman 2026-11-06: Pinnacle är nog körd. Ingen väg runt spärren; "
+               "Smarkets och SBOBET ankrar värdemotorn (anchor-v1).",
+     "kvitterad": "2026-11-06", "till": "2026-12-06"},
+)
 
 Runner = Callable[..., tuple[int, str, str]]
 

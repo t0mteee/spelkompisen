@@ -723,7 +723,18 @@ class SofascoreVeckoprovTests(Base):
 
     def test_kontrollen_ingar_i_vakten_och_sofascore_ar_inte_kand(self):
         self.assertIn(("sofascore", "kallor", vakt.check_sofascore), vakt.CHECKS)
-        self.assertEqual((), vakt.KANDA_FEL)
+        self.assertNotIn("sofascore", {r["key"] for r in vakt.KANDA_FEL})
+
+    def test_pinnacles_sparr_ar_kand_men_bara_med_403(self):
+        now = dt.datetime(2026, 11, 6, 2, 0, tzinfo=dt.timezone.utc)
+        fynd = [{"level": "error", "kind": "kalla_nere", "key": "pinnacle",
+                 "message": "pinnacle har fallerat i 3 källprov i rad: status 403"},
+                {"level": "error", "kind": "kalla_nere", "key": "pinnacle",
+                 "message": "pinnacle har fallerat i 3 källprov i rad: ConnectError"}]
+        vakt.markera_kanda(fynd, now)
+        self.assertIn("kand", fynd[0])
+        self.assertNotIn("kand", fynd[1])
+        self.assertEqual("error", fynd[0]["level"])
 
 
 class DriftTests(Base):

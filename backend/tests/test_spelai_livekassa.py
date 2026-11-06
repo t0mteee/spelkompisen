@@ -465,6 +465,14 @@ class ResultatAliasTests(Base):
         found = livekassa._resultat(self.store, match)  # noqa: SLF001
         self.assertEqual((3, 2), (found["hg"], found["ag"]))
 
+    def test_spel_186_hittar_flashscore_raden(self):
+        self.resultat("conference_league", "2026-11-05", "aarhus", "braga", 0, 0,
+                      source="flashscore")
+        match = {"league": "conference_league", "home": "AGF Aarhus",
+                 "away": "S.C. Braga", "start": "2026-11-05T17:45:00Z"}
+        found = livekassa._resultat(self.store, match)  # noqa: SLF001
+        self.assertEqual((0, 0), (found["hg"], found["ag"]))
+
     def test_serie_a_roma_traffar_utan_alias(self):
         self.resultat("serie_a", "2026-11-01", "roma", "lazio", 1, 1)
         match = {"league": "serie_a", "home": "Roma", "away": "Lazio",

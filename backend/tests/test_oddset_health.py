@@ -47,9 +47,11 @@ class OddsetHealthTests(unittest.TestCase):
         self.assertEqual(len(oddset_health.core_sources()), len(payload["sources"]))
 
     def test_karnkallorna_ar_ankaret_svs_och_bockerna(self):
-        self.assertIn("pinnacle", oddset_health.core_sources())
+        # anchor-v1: ankarna är Smarkets och SBOBET; Pinnacle ankrar inget
+        self.assertIn("smarkets", oddset_health.core_sources())
+        self.assertIn("sbobet", oddset_health.core_sources())
         self.assertIn("svenskaspel", oddset_health.core_sources())
-        self.assertNotIn("smarkets", oddset_health.core_sources())
+        self.assertNotIn("pinnacle", oddset_health.core_sources())
         self.assertNotIn("matchbook", oddset_health.core_sources())
 
     def test_tyst_oddsetvarv_larmar(self):
@@ -79,15 +81,15 @@ class OddsetHealthTests(unittest.TestCase):
 
     def test_kalla_utan_kontroll_pa_ett_dygn_larmar(self):
         self.store.conn.execute(
-            "DELETE FROM oddset_source_health_log WHERE source='pinnacle'")
+            "DELETE FROM oddset_source_health_log WHERE source='smarkets'")
         self.assertIn("source_never", self.kinds())
 
     def test_kalla_som_fragas_men_aldrig_svarar_larmar(self):
         # Kontrollerna är färska men alla misslyckade sedan två timmar.
         self.store.conn.execute(
-            "DELETE FROM oddset_source_health_log WHERE source='pinnacle'")
+            "DELETE FROM oddset_source_health_log WHERE source='smarkets'")
         for m in (100, 60, 30, 5):
-            self._check("pinnacle", m, ok=False, error="ConnectError")
+            self._check("smarkets", m, ok=False, error="ConnectError")
         payload = oddset_health.report(self.store, now=NOW)
         failing = [i for i in payload["issues"] if i["kind"] == "source_failing"]
         self.assertEqual(1, len(failing))
@@ -95,11 +97,11 @@ class OddsetHealthTests(unittest.TestCase):
         self.assertNotIn("source_silent", self.kinds())
 
     def test_ett_enstaka_fel_larmar_inte(self):
-        self._check("pinnacle", 2, ok=False, error="TimeoutException")
+        self._check("smarkets", 2, ok=False, error="TimeoutException")
         self.assertEqual([], self.kinds())
 
     def test_diagnostikkalla_larmar_inte(self):
-        self._check("smarkets", 600, ok=False)
+        self._check("pinnacle", 600, ok=False)
         self.assertEqual([], self.kinds())
 
     def test_tyst_livekalla_larmar_med_egen_grans(self):
@@ -111,9 +113,9 @@ class OddsetHealthTests(unittest.TestCase):
     def test_liveraden_far_inte_lasas_som_oddsetkontroll(self):
         # En livekälla har bara live-scope; en kärnkälla bedöms bara på
         # sina icke-live-scopes.
-        self._check("pinnacle", 1, scope="live")
+        self._check("smarkets", 1, scope="live")
         self.store.conn.execute(
-            "DELETE FROM oddset_source_health_log WHERE source='pinnacle' AND scope='1x2'")
+            "DELETE FROM oddset_source_health_log WHERE source='smarkets' AND scope='1x2'")
         self.assertIn("source_never", self.kinds())
 
     def test_format_report_namner_varje_fel(self):

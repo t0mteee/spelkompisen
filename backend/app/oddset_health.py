@@ -44,15 +44,20 @@ LOOKBACK_H = 24
 
 
 def core_sources() -> tuple[str, ...]:
-    """Källor vars tystnad bryter värde/CLV: ankaret, SvS och BOOKS.
+    """Källor vars tystnad bryter värde/CLV: ankarna, SvS och BOOKS.
 
-    Smarkets (dold, samlas bara för promotionsregeln) och Matchbook (skugga
-    med gles ligatäckning) är diagnostik och larmar inte — ett larm på en
-    källa ingen agerar på är brus, och brus är det som får riktiga larm att
-    ignoreras. Lazy import: `oddset` är tungt och får inte dras in av health.
+    Ankarna är `oddset_value.ANCHOR_BY_MARKET` (Smarkets och SBOBET sedan
+    anchor-v1, 2026-11-06). Pinnacle spärrar Sverige och ankrar inget: den
+    provas fortfarande men larmar inte här (driftvakten bär den som känt fel).
+    Matchbook (skugga med gles ligatäckning) är diagnostik och larmar inte —
+    ett larm på en källa ingen agerar på är brus, och brus är det som får
+    riktiga larm att ignoreras. Lazy import: `oddset` är tungt och får inte
+    dras in av health.
     """
     from .oddset import BOOKS
-    return ("pinnacle", "svenskaspel") + tuple(b["key"] for b in BOOKS)
+    from .oddset_value import ANCHOR_BY_MARKET
+    anchors = tuple(dict.fromkeys(ANCHOR_BY_MARKET.values()))
+    return anchors + ("svenskaspel",) + tuple(b["key"] for b in BOOKS)
 
 
 def _issue(issues: list[dict], source: str, kind: str, message: str) -> None:

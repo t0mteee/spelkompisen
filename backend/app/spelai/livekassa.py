@@ -443,6 +443,10 @@ RESULTAT_ALIAS = {
     # Flashscore) träffar på de råa namnen och når aldrig aliaset.
     "manchester united": "manchester utd",
     "roma": "as roma",
+    # Spel 186: AGF Aarhus–S.C. Braga 2026-11-05 (Conference League), Flashscore
+    # "Aarhus"/"Braga" 0–0. "S.C. Braga" normaliseras till "s c braga".
+    "agf aarhus": "aarhus",
+    "s c braga": "braga",
 }
 
 
