@@ -1373,3 +1373,5 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   background: #3a1f1f33; border: 1px solid #7d3d3d66; border-radius: 7px;
   color: #e0a0a0;
 }
+/* Ö/U-raden under poolmatchen (pool-draw-risk-v2 + Smarkets-referens) */
+.grid.analysis .league.ou-line { color: #8fb3d9; }

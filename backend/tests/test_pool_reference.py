@@ -60,3 +60,25 @@ class ReferensTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OuReferensTests(ReferensTests):
+    def save_ou(self, minutes_before, line=2.5, odds=(1.62, 2.61)):
+        self.store.oddset_save_market(
+            "svs:111", "smarkets", "ou",
+            {"O": {"odds": odds[0], "line": line}, "U": {"odds": odds[1], "line": line}},
+            _iso(AT - dt.timedelta(minutes=minutes_before)))
+
+    def test_smarkets_ou_huvudlina(self):
+        self.save_ou(10)
+        out = pool_reference.read_ou_for_draw(self.store, self.draw, AT)
+        self.assertEqual({1}, set(out))
+        self.assertEqual((2.5, 1.62, 2.61), (out[1]["line"], out[1]["O"], out[1]["U"]))
+        self.assertAlmostEqual(1.0, sum(out[1]["fair"].values()), places=3)
+
+    def test_gammal_ou_visas_inte_och_1x2_bar_ingen_lina(self):
+        self.save_ou(60)
+        self.save("smarkets", 5)
+        self.assertEqual({}, pool_reference.read_ou_for_draw(self.store, self.draw, AT))
+        self.assertNotIn("line", pool_reference.read_for_draw(
+            self.store, self.draw, AT)[1]["smarkets"])

@@ -224,7 +224,10 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       kopplat EXAKT på Kambi-id, färskt ≤ 45 min och satt före as-of.
                       Räknas i underlagsvarningen (nivå `info` när varje match utan
                       Pinnacle har referens), ALDRIG i sannolikhet, bygge, PH3, PIT,
-                      X-skydd, rörelser eller CLV
+                      X-skydd, rörelser eller CLV. Smarkets Ö/U-huvudlina
+                      (`read_ou_for_draw`; börsens halva linor, båda kontrakten
+                      med spread ≤ 4 pp, `smarkets.OU_MAX_SPREAD_BP`) visas under
+                      matchen bredvid X-skyddets lina (P/SvS) — också bara visning
   app/pool_reserve.py separat SvS/Kambi-Ö/U-journal; aldrig sharp, PIT eller CLV;
                       aktiveras med scripts/migrera_pool_reserve.py efter onlinebackup;
                       `pool-reserve-ou-v2` sedan 2026-09-24T19:51:01Z: gemensam kö per basvarv (`register`

@@ -1113,6 +1113,16 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     rows_saved += store.oddset_save_odds(
                         ex["id"], "smarkets", e["odds"], anchor_at)
                     present.add((ex["id"], "smarkets", "1x2"))   # 1X2-ankaret
+                    # Ö/U (2026-11-06): referens för poolens visning; inget
+                    # ankare (ANCHOR_BY_MARKET saknar ou), aldrig en bok.
+                    if e.get("ou"):
+                        line = e["ou"]["line"]
+                        rows_saved += store.oddset_save_market(
+                            ex["id"], "smarkets", "ou",
+                            {"O": {"odds": e["ou"]["O"], "line": line},
+                             "U": {"odds": e["ou"]["U"], "line": line}}, anchor_at)
+                    elif not e.get("ou_error"):
+                        store.oddset_mark_market_unavailable(ex["id"], "smarkets", "ou")
                     anchor_seen.add(ex["id"])
                     n_anchor += 1
                 if anchor_ok:
@@ -1121,6 +1131,8 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                             continue
                         store.oddset_mark_market_unavailable(
                             c["id"], "smarkets", "1x2")
+                        store.oddset_mark_market_unavailable(
+                            c["id"], "smarkets", "ou")
 
             # TREDJE MARKNADSREFERENSEN (2026-07-27): Matchbook-börsen, ENDAST
             # skugginsamling i snabbfönstret enligt den förregistrerade planen

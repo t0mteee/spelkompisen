@@ -202,3 +202,66 @@ class SmarketsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def _fake_ou(path, params=None):
+    """1X2 + fulltidens Ö/U 1.5/2.5/3.5 och en hörnmarknad (2026-11-06)."""
+    if path.startswith("/events/") and path.endswith("/markets/") and path != "/events/":
+        return {"markets": [
+            {"id": "m1", "event_id": "1", "name": "Full-time result", "state": "open"},
+            {"id": "o15", "event_id": "1", "name": "Over/under 1.5", "state": "open"},
+            {"id": "o25", "event_id": "1", "name": "Over/under 2.5", "state": "open"},
+            {"id": "o35", "event_id": "1", "name": "Over/under 3.5", "state": "open"},
+            {"id": "k85", "event_id": "1", "name": "Over/under 8.5 corners", "state": "open"},
+            {"id": "h15", "event_id": "1", "name": "First half over/under 1.5", "state": "open"},
+        ]}
+    if path.endswith("/contracts/"):
+        ids = path.split("/")[2].split(",")
+        if "m1" in ids:
+            return _fake_get(path)
+        return {"contracts": [{"id": f"{m}-{s}", "market_id": m, "slug": s}
+                              for m in ids for s in ("over", "under")]}
+    if path.endswith("/quotes/"):
+        ids = path.split("/")[2].split(",")
+        if "m1" in ids:
+            return _fake_get(path)
+        book = {  # (bid, offer) i baspunkter sannolikhet
+            "o15-over": (7400, 7600), "o15-under": (2400, 2600),
+            "o25-over": (5000, 5200), "o25-under": (4800, 5000),   # balanserad
+            "o35-over": (2000, 3000), "o35-under": (7000, 8000),   # för bred
+            "k85-over": (5000, 5100), "k85-under": (4900, 5000),
+            "h15-over": (5000, 5100), "h15-under": (4900, 5000),
+        }
+        return {c: {"bids": [{"price": b}], "offers": [{"price": o}]}
+                for c, (b, o) in book.items() if c.split("-")[0] in ids}
+    return _fake_get(path, params)
+
+
+class SmarketsOuTests(unittest.TestCase):
+    def setUp(self):
+        self.client = smarkets.Smarkets.__new__(smarkets.Smarkets)
+        self.client._get = _fake_ou   # noqa: SLF001
+
+    def test_mest_balanserade_fulltidslinan_med_smal_bok(self):
+        row = self.client.league_events("allsvenskan", strict=True)[0]
+        self.assertEqual(2.5, row["ou"]["line"])
+        self.assertAlmostEqual(10000 / 5100, row["ou"]["O"], places=3)
+        self.assertAlmostEqual(10000 / 4900, row["ou"]["U"], places=3)
+        self.assertFalse(row["ou_error"])
+
+    def test_bred_bok_ger_ingen_lina(self):
+        with mock.patch.object(smarkets, "OU_MAX_SPREAD_BP", 100):
+            row = self.client.league_events("allsvenskan", strict=True)[0]
+        self.assertIsNone(row["ou"])
+        self.assertFalse(row["ou_error"])
+
+    def test_ou_fel_faller_inte_1x2(self):
+        def boom(path, params=None):
+            if path.endswith("/contracts/") and "m1" not in path:
+                raise RuntimeError("nät")
+            return _fake_ou(path, params)
+        self.client._get = boom   # noqa: SLF001
+        row = self.client.league_events("allsvenskan", strict=True)[0]
+        self.assertEqual({"1", "X", "2"}, set(row["odds"]))
+        self.assertIsNone(row["ou"])
+        self.assertTrue(row["ou_error"])

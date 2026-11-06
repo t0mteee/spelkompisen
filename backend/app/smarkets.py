@@ -31,6 +31,7 @@ för att lita på den. Se docs/forbattringar.md.
 from __future__ import annotations
 
 import datetime as dt
+import re
 import urllib.parse
 from typing import Optional
 
@@ -41,6 +42,14 @@ HEADERS = {"User-Agent": "spelkompisen/1.0 (personligt analysverktyg)",
            "Accept": "application/json"}
 MARKET_1X2 = "Full-time result"
 SIGN_BY_SLUG = {"home": "1", "draw": "X", "away": "2"}
+# Ö/U (2026-11-06): fulltidens målmarknader heter exakt "Over/under N.5"
+# (slug over-under-N.5; hörnor/halvlek/lag har andra namn). Kontrakten heter
+# over/under. Börsen har BARA halva linor. En lina används bara när båda
+# kontrakten har tvåsidig bok med spread ≤ OU_MAX_SPREAD_BP (pris i
+# baspunkter sannolikhet: 1429 = 14,29 %) — en tunn bok ger inget mittpris.
+OU_NAME_RE = re.compile(r"^Over/under (\d+\.5)$")
+OU_SIGN_BY_SLUG = {"over": "O", "under": "U"}
+OU_MAX_SPREAD_BP = 400
 EVENT_LIMIT = 1000  # begärd sidstorlek; Smarkets ger högst 50 sedan 2026-09-19
 MAX_PAGES = 60      # tak för bläddringen; 2026-10-03 räckte 19 sidor (916 event)
 BATCH = 40          # max id:n per batchat anrop — håll URL:en rimlig
@@ -149,6 +158,51 @@ class Smarkets:
             out.update(self._get(f"/markets/{chunk}/quotes/") or {})
         return out
 
+    def _ou_main_lines(self, markets: list[dict]):
+        """Huvudlinan per event för fulltidens Ö/U: {event_id: {line, O, U}}.
+
+        Huvudlina = den mest balanserade (Överns mittsannolikhet närmast 50 %)
+        bland linorna med smal tvåsidig bok på båda kontrakten. Ett fel här
+        returnerar None i stället för att fälla 1X2 (som har egen hälsa)."""
+        try:
+            ou = {}
+            for m in markets:
+                hit = OU_NAME_RE.match(m.get("name") or "")
+                if hit and m.get("state") == "open":
+                    ou[m["id"]] = (m.get("event_id"), float(hit.group(1)))
+            if not ou:
+                return {}
+            ids = list(ou)
+            contracts = self._batched("/markets/{ids}/contracts/", ids, "contracts")
+            quotes = self._quotes(ids)
+            by_market: dict[str, dict] = {}
+            for contract in contracts:
+                sign = OU_SIGN_BY_SLUG.get(contract.get("slug"))
+                if sign:
+                    by_market.setdefault(contract["market_id"], {})[sign] = contract["id"]
+            best: dict[str, tuple] = {}
+            for market_id, (event_id, line) in ou.items():
+                signs = by_market.get(market_id) or {}
+                if set(signs) != {"O", "U"}:
+                    continue
+                mids = {}
+                for sign, contract_id in signs.items():
+                    book = quotes.get(str(contract_id)) or {}
+                    bid = max((b["price"] for b in book.get("bids") or []), default=None)
+                    offer = min((o["price"] for o in book.get("offers") or []), default=None)
+                    if not bid or not offer or offer - bid > OU_MAX_SPREAD_BP:
+                        break
+                    mids[sign] = (bid + offer) / 2.0
+                if len(mids) != 2:
+                    continue
+                balance = abs(mids["O"] / 10000.0 - 0.5)
+                row = {"line": line, "O": _decimal(mids["O"]), "U": _decimal(mids["U"])}
+                if event_id not in best or (balance, line) < best[event_id][0]:
+                    best[event_id] = ((balance, line), row)
+            return {event_id: row for event_id, (_key, row) in best.items()}
+        except Exception:  # noqa: BLE001 — Ö/U får aldrig fälla 1X2
+            return None
+
     def upcoming_events(self) -> list[dict]:
         """Alla kommande fotbollsevent, sida för sida (delas mellan ligorna).
 
@@ -203,6 +257,7 @@ class Smarkets:
                    if m.get("name") == MARKET_1X2 and m.get("state") == "open"]
             if not ftr:
                 return []
+            ou_by_event = self._ou_main_lines(markets)
             market_ids = [m["id"] for m in ftr]
             contracts = self._batched("/markets/{ids}/contracts/",
                                       market_ids, "contracts")
@@ -240,6 +295,11 @@ class Smarkets:
                     "id": event["id"], "home": home, "away": away,
                     "start": _iso(event.get("start_datetime")),
                     "odds": mid, "back": back, "lay": lay,
+                    # None = ingen läsbar Ö/U-bok; "error" = Ö/U-anropet föll
+                    # (1X2 står kvar, frånvaro får då inte markeras).
+                    "ou": (ou_by_event.get(event["id"])
+                           if isinstance(ou_by_event, dict) else None),
+                    "ou_error": not isinstance(ou_by_event, dict),
                 })
             out.sort(key=lambda r: r.get("start") or "9")
             return out

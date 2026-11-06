@@ -254,6 +254,7 @@ def _analyze(product: str, draw_number: int | None = None,
         reserve_totals = build_totals(store, product, draw.draw_number, at)
         from . import pool_reference
         references = pool_reference.read_for_draw(store, draw, at)
+        references_ou = pool_reference.read_ou_for_draw(store, draw, at)
     finally:
         store.close()
     analysis = analyze_draw(draw, sharp, merged)
@@ -265,6 +266,7 @@ def _analyze(product: str, draw_number: int | None = None,
                 **reserves[match.event_number],
                 "used_by_builder": match.total_source == "svenskaspel_kambi"}
         match.reference_1x2 = references.get(match.event_number)
+        match.reference_ou = references_ou.get(match.event_number)
         if match.event_number in stale:
             match.sharp_stale = {
                 **stale[match.event_number],

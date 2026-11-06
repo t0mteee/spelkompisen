@@ -75,6 +75,8 @@ class MatchAnalysis:
     # pool-reference-v1 (2026-11-06): Smarkets/SBOBET 1X2 per källa, bara visning
     # och underlagsvarning — aldrig sannolikhet, bygge, PH3, PIT eller CLV.
     reference_1x2: Optional[dict] = None
+    # Smarkets Ö/U-huvudlina (pool_reference.read_ou_for_draw) — bara visning.
+    reference_ou: Optional[dict] = None
     # pool-sharp-freshness-v1: varför ett cachat Pinnacle-pris INTE användes
     # (reason/last_seen/status…, se pool_sharp_freshness). Sätts av anroparen.
     sharp_stale: Optional[dict] = None

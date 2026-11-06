@@ -1,5 +1,6 @@
 import { selectionReason } from './lib/couponView.js'
 import { sharpPanelStatus } from './lib/sharpPanel.js'
+import { poolTotalParts, poolTotalTitle } from './lib/poolTotals.js'
 import { SystemComposition } from './components/SystemComposition.jsx'
 import { Fragment, useEffect, useState } from 'react'
 import './App.css'
@@ -306,6 +307,7 @@ function AnalysisTable({ matches, product, drawNumber, selected, onSelect, picks
                   onClick={() => onSelect(selected === m.event_number ? null : m.event_number)}>
                   {m.description}
                   <div className="league">🕑 {fmtStart(m.match_start)} · {m.league}{derived ? ' · sharp härledd' : ''}</div>
+                  {poolTotalParts(m).length > 0 && <div className="league ou-line" title={poolTotalTitle(m)}>{poolTotalParts(m).join(' · ')}</div>}
                 </td>
                 {['1', 'X', '2'].map((s) => (
                   <OddsCell key={s} o={m.outcomes[s]} derived={derived} valueOk={valueOk}
