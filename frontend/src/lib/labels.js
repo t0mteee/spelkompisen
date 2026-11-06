@@ -190,6 +190,7 @@ export const LABB_MARKET = {
 export const LABB_BOOK = {
   svenskaspel: 'SvS', expekt: 'Expekt', ninjacasino: 'Ninja/Altenar',
   pinnacle: 'Pinnacle', smarkets: 'Smarkets', sbobet: 'SBOBET', bet365: 'bet365',
+  betfair_ex: 'Betfair Exchange', betinasia: 'BetInAsia',
 }
 // Avslutade/pågående forskningsspår utan eget API — daterade kort med källdok.
 // Ytgränsen (2026-08-05) gäller även dessa: odds-spåren bor här, pool-spåren

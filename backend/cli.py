@@ -15,6 +15,7 @@ Användning (från backend/ med aktiverat venv):
     python cli.py v2audit [backfill] # PIT-dataset/coverage; backfill är ej promotion
     python cli.py v2backtest [proxy] # nested ridge; proxy kan aldrig promovera
     python cli.py v22audit          # ny Allsv-shadow; identitetskontroll/gate
+    python cli.py betexplorer-matning [--sedan ISO]  # Betfair Ex/BetInAsia mot Smarkets/SBOBET
     python cli.py vakt [--tester-nu] # driftvakten (docs/vakt.md), launchd var 30:e min
     python cli.py spelai-tick       # facitsidan för spel-ai-kompisen (docs/spelai-facit.md)
     python cli.py spelai-roller     # agentens rollkörningar, spegel, skärmbilder (fas F)
@@ -1286,8 +1287,10 @@ def _print_oddset_report(rep: dict) -> None:
     be = rep.get("betexplorer")
     if be:
         stop = f", stopp: {be['stopped']}" if be.get("stopped") else ""
-        print(f"bet365 (Betexplorer): {be['matches']} av {be['due']} matcher, "
-              f"{be['fixtures']} fixtursidor, {be['calls']} anrop{stop}")
+        listed = ", ".join(f"{k} {n}" for k, n in (be.get("listed") or {}).items())
+        print(f"Betexplorer: {be['matches']} av {be['due']} matcher, "
+              f"{be['fixtures']} fixtursidor, {be['calls']} anrop{stop}"
+              + (f" (1X2 listad: {listed})" if listed else ""))
     for err in rep["errors"]:
         print(f"  ⚠ {err}")
 
@@ -1675,6 +1678,17 @@ def main() -> None:
         try:
             timmar = next((int(a) for a in rest if a.isdigit()), 24)
             print(format_link_gaps(store, hours=timmar))
+        finally:
+            store.close()
+    elif cmd == "betexplorer-matning":
+        # Beslut driften-2026-11-06-betexplorer-per-bok: beskrivande mätning,
+        # läser bara (mode=ro), beslutar inget.
+        from app import betexplorer_matning
+        since = next((rest[i + 1] for i, a in enumerate(rest[:-1]) if a == "--sedan"), None)
+        store = Storage(read_only=True)
+        try:
+            print(betexplorer_matning.format_report(
+                betexplorer_matning.compare(store, since=since)))
         finally:
             store.close()
     elif cmd == "v22audit":

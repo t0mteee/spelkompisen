@@ -214,8 +214,9 @@ def passive_sources() -> frozenset[str]:
     ett sharp-avbrott.
 
     * `matchbook` är per förregistrering ren skuggjämförelse (SHADOW_SOURCES).
-    * `bet365` (REFERENCE_BOOKS) är en mjuk referensbok: visas, aldrig bok
-      att slå eller ankare.
+    * `bet365`, `betfair_ex` och `betinasia` (REFERENCE_BOOKS) är
+      referensböcker via Betexplorer: visas och mäts, aldrig bok att slå
+      eller ankare.
     * `smarkets` är kvar i ANCHOR_SOURCES som SÄKERHETSSPÄRR — utan den blir
       den en spelbar bok igen (184 av 476 felaktiga flaggor 2026-07-25) — men
       andra ankaret är bortkopplat sedan 2026-08-07 och `anchor2_*` skrivs som
@@ -226,7 +227,7 @@ def passive_sources() -> frozenset[str]:
     KONSUMTION, inte om huruvida källan får vara en bok.
     """
     from .oddset_value import ANCHOR2_SOURCE, REFERENCE_BOOKS, SHADOW_SOURCES
-    # Referensböckerna (bet365, 2026-11-06) visas men matar inget beslut.
+    # Referensböckerna (bet365, Betfair Exchange, BetInAsia) matar inget beslut.
     return frozenset(set(SHADOW_SOURCES) | {ANCHOR2_SOURCE} | set(REFERENCE_BOOKS))
 
 
@@ -720,34 +721,45 @@ def _collect_sbobet(store: Storage, league: str, pages: list[dict],
 def _collect_betexplorer(store: Storage, report: dict, client=None,
                          clock=time.monotonic,
                          now: Optional[dt.datetime] = None) -> dict:
-    """bet365 via Betexplorer som REFERENSBOK (beslut 2026-11-06-betexplorer-bet365).
+    """Referensböckerna via Betexplorer: bet365 (beslut 2026-11-06-betexplorer-
+    bet365), Betfair Exchange och BetInAsia (beslut driften-2026-11-06-
+    betexplorer-per-bok).
 
-    1X2, Ö/U och handikapp (huvudlinan = den mest balanserade) för matcher
-    inom `betexplorer.DAYS_AHEAD` dygn i de belagda ligorna. Varje svar
-    sparas med sin EGEN observationstid och en rad i presence-ledgern
-    (`oddset_betexplorer_capture`), även när boken saknades. Ligornas
-    fixtursidor läses bara när en match som ska frågas saknar känt event-id.
-    Referensen skapar ALDRIG matchidentiteter, och en match som hunnit starta
-    sparas aldrig. `bet365` ligger i ANCHOR_SOURCES: aldrig en bok att slå,
-    aldrig ett ankare. Returnerar en summering för rapporten."""
+    1X2, Ö/U (bet365 huvudlinan, de andra exakt 2,5) och handikapp
+    (huvudlinan = den mest balanserade) för matcher inom
+    `betexplorer.DAYS_AHEAD` dygn i de belagda ligorna. Ett anrop per match och
+    marknad bär ALLA böcker i `betexplorer.BOOKS`; högst ett per timme
+    (`REFRESH_MIN`). Varje bok sparas med svarets EGEN observationstid och en
+    rad i presence-ledgern (`oddset_betexplorer_capture`), även när boken
+    saknades. Ligornas fixtursidor läses bara när en match som ska frågas
+    saknar känt event-id. Referensen skapar ALDRIG matchidentiteter, och en
+    match som hunnit starta sparas aldrig. Böckerna ligger i ANCHOR_SOURCES:
+    aldrig en bok att slå, aldrig ett ankare. Returnerar en summering."""
     from . import betexplorer as be
-    book = "bet365"
-    bookie = be.BOOKS[book]
+    books = dict(be.BOOKS)
     now = now or dt.datetime.now(dt.timezone.utc)
     at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     until = (now + dt.timedelta(days=be.DAYS_AHEAD)).strftime("%Y-%m-%dT%H:%M:%SZ")
     summary = {"due": 0, "fixtures": 0, "matches": 0, "calls": 0,
-               "stopped": None}
+               "listed": {b: 0 for b in books}, "stopped": None}
     upcoming = [m for m in store.oddset_matches(since=at)
                 if m["league"] in be.LEAGUE_PATHS
                 and at < (m.get("start") or "") <= until]
-    state = store.oddset_betexplorer_state([m["id"] for m in upcoming], book)
-    due = [m for m in upcoming
-           if be.refresh_due(m["start"], (state.get(m["id"]) or {}).get("asked_at"), now)]
+    ids = [m["id"] for m in upcoming]
+    # Ett anrop bär alla böcker, så takten styrs av det SENASTE anropet om
+    # matchen oavsett bok (bet365 har historik före de andra).
+    asked: dict[str, str] = {}
+    event_ids: dict[str, str] = {}
+    for book in books:
+        for mid, st in store.oddset_betexplorer_state(ids, book).items():
+            if st.get("asked_at") and st["asked_at"] > asked.get(mid, ""):
+                asked[mid] = st["asked_at"]
+            if st.get("event_id"):
+                event_ids.setdefault(mid, st["event_id"])
+    due = [m for m in upcoming if be.refresh_due(m["start"], asked.get(m["id"]), now)]
     summary["due"] = len(due)
     if not due:
         return summary
-    event_ids = {mid: st["event_id"] for mid, st in state.items() if st.get("event_id")}
     need = sorted({m["league"] for m in due if m["id"] not in event_ids})
     by_league: dict[str, list[dict]] = {}
     for m in upcoming:
@@ -757,7 +769,13 @@ def _collect_betexplorer(store: Storage, report: dict, client=None,
     client = client or be.Betexplorer()
     failures = 0
     league_ok: dict[str, bool] = {}
-    league_n: dict[str, int] = {}
+    league_n: dict[tuple[str, str], int] = {}
+
+    def health_fail(lg: str, exc: Exception) -> None:
+        for book in books:
+            store.oddset_record_source_health(
+                book, lg, "1x2", _now_iso(), False, 0, str(exc))
+
     try:
         for lg in need:
             if clock() - started > be.BUDGET_S:
@@ -769,8 +787,7 @@ def _collect_betexplorer(store: Storage, report: dict, client=None,
                 failures += 1
                 league_ok[lg] = False
                 report["errors"].append(f"betexplorer {lg}: {exc}")
-                store.oddset_record_source_health(
-                    book, lg, "1x2", _now_iso(), False, 0, str(exc))
+                health_fail(lg, exc)
                 if failures >= be.MAX_FAILURES:
                     summary["stopped"] = "fel"
                     break
@@ -804,19 +821,20 @@ def _collect_betexplorer(store: Storage, report: dict, client=None,
             if not eid:
                 continue
             referer = f"{be.BASE}{be.LEAGUE_PATHS[m['league']]}"
-            listed_1x2 = False
+            listed_1x2: set[str] = set()
             for bt in be.BET_TYPES:
                 if clock() - started > be.BUDGET_S:
                     summary["stopped"] = "budget"
                     break
                 try:
-                    res = client.odds(eid, bt, bookie, referer)
+                    res = client.odds(eid, bt, books, referer)
                 except Exception as exc:  # noqa: BLE001
                     failures += 1
                     league_ok[m["league"]] = False
                     report["errors"].append(f"betexplorer {m['league']} {eid} {bt}: {exc}")
-                    store.oddset_save_betexplorer_capture(
-                        m["id"], eid, book, bt, _now_iso(), False, error=str(exc))
+                    for book in books:
+                        store.oddset_save_betexplorer_capture(
+                            m["id"], eid, book, bt, _now_iso(), False, error=str(exc))
                     if failures >= be.MAX_FAILURES:
                         summary["stopped"] = "fel"
                         break
@@ -825,36 +843,14 @@ def _collect_betexplorer(store: Storage, report: dict, client=None,
                 observed = res["observed_at"]
                 if m["start"] <= observed:
                     break       # matchen har startat — livepriser sparas aldrig
-                parsed = res["parsed"]
-                if bt == "1x2":
-                    if parsed:
-                        store.oddset_save_odds(m["id"], book, parsed["odds"], observed)
-                        listed_1x2 = True
-                    else:
-                        store.oddset_mark_market_unavailable(m["id"], book, "1x2")
-                    store.oddset_save_betexplorer_capture(
-                        m["id"], eid, book, bt, observed, True, listed=bool(parsed),
-                        prices=(parsed or {}).get("odds"),
-                        changed_at=(parsed or {}).get("changed"))
-                    continue
-                k1, k2 = be.PAIR_KEYS[bt]
-                lines = (parsed or {}).get("lines") or []
-                line = be.main_line(lines, k1, k2)
-                if line:
-                    store.oddset_save_market(
-                        m["id"], book, bt,
-                        {k1: {"odds": line[k1], "line": line["line"]},
-                         k2: {"odds": line[k2], "line": line["line"]}}, observed)
-                else:
-                    store.oddset_mark_market_unavailable(m["id"], book, bt)
-                store.oddset_save_betexplorer_capture(
-                    m["id"], eid, book, bt, observed, True, listed=bool(line),
-                    line=line["line"] if line else None, n_lines=len(lines),
-                    prices={k1: line[k1], k2: line[k2]} if line else None,
-                    changed_at=line["changed"] if line else None)
+                for book in books:
+                    _save_betexplorer_book(store, m["id"], eid, book, bt, observed,
+                                           (res["parsed"] or {}).get(book), listed_1x2)
             summary["matches"] += 1
             league_ok.setdefault(m["league"], True)
-            league_n[m["league"]] = league_n.get(m["league"], 0) + int(listed_1x2)
+            for book in listed_1x2:
+                summary["listed"][book] += 1
+                league_n[(m["league"], book)] = league_n.get((m["league"], book), 0) + 1
     finally:
         summary["calls"] = getattr(client, "calls", 0)
         if own:
@@ -862,9 +858,44 @@ def _collect_betexplorer(store: Storage, report: dict, client=None,
     checked = _now_iso()
     for lg, ok in league_ok.items():
         if ok:
-            store.oddset_record_source_health(
-                book, lg, "1x2", checked, True, league_n.get(lg, 0), None)
+            for book in books:
+                store.oddset_record_source_health(
+                    book, lg, "1x2", checked, True, league_n.get((lg, book), 0), None)
     return summary
+
+
+def _save_betexplorer_book(store: Storage, match_id: str, eid: str, book: str,
+                           bt: str, observed: str, parsed: Optional[dict],
+                           listed_1x2: set) -> None:
+    """En boks del av ett lyckat Betexplorer-svar: pris i oddset_odds (eller
+    unavailable när boken saknades) och alltid en presence-rad."""
+    from . import betexplorer as be
+    if bt == "1x2":
+        if parsed:
+            store.oddset_save_odds(match_id, book, parsed["odds"], observed)
+            listed_1x2.add(book)
+        else:
+            store.oddset_mark_market_unavailable(match_id, book, "1x2")
+        store.oddset_save_betexplorer_capture(
+            match_id, eid, book, bt, observed, True, listed=bool(parsed),
+            prices=(parsed or {}).get("odds"),
+            changed_at=(parsed or {}).get("changed"))
+        return
+    k1, k2 = be.PAIR_KEYS[bt]
+    lines = (parsed or {}).get("lines") or []
+    line = be.pick_line(lines, bt, book)
+    if line:
+        store.oddset_save_market(
+            match_id, book, bt,
+            {k1: {"odds": line[k1], "line": line["line"]},
+             k2: {"odds": line[k2], "line": line["line"]}}, observed)
+    else:
+        store.oddset_mark_market_unavailable(match_id, book, bt)
+    store.oddset_save_betexplorer_capture(
+        match_id, eid, book, bt, observed, True, listed=bool(line),
+        line=line["line"] if line else None, n_lines=len(lines),
+        prices={k1: line[k1], k2: line[k2]} if line else None,
+        changed_at=line["changed"] if line else None)
 
 
 def collect(store: Storage, leagues: Optional[list[dict]] = None,
@@ -1450,7 +1481,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
     except Exception as e:  # noqa: BLE001 — ledgern får inte fälla insamlingen
         report["errors"].append(f"prediction-ledger: {e}")
     if deep:
-        # bet365 via Betexplorer (beslut 2026-11-06-betexplorer-bet365): referensbok,
+        # Referensböckerna via Betexplorer (bet365, Betfair Exchange, BetInAsia):
         # bara djupvarvet, egen tidsbudget. SIST i varvet så att dess upp till
         # fyra minuter aldrig försenar ledgerns horisontfrysningar eller
         # notisvakten. Fel här fäller aldrig insamlingen.

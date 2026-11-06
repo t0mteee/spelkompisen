@@ -1,4 +1,11 @@
-"""Betexplorer — bet365 som REFERENSBOK (beslut 2026-11-06-betexplorer-bet365, val 0).
+"""Betexplorer — bet365, Betfair Exchange och BetInAsia som REFERENSBÖCKER.
+
+bet365: beslut 2026-11-06-betexplorer-bet365, val 0 (mjuk bok, för jämförelse).
+Betfair Exchange och BetInAsia: beslut driften-2026-11-06-betexplorer-per-bok,
+val 0 (börs och sharp-lik mäklare, MÄTS mot Smarkets/SBOBET innan något ankare
+ändras). Alla tre läses ur SAMMA svar: ett anrop per match och marknad ger alla
+böcker, så de två nya böckerna kostar inga egna anrop. Betfair själv spärrar
+Sverige; här läses bara Betexplorers publika sammanställning av börspriset.
 
 Verifierat 2026-11-06 från serverns svenska IP (källgränsen i CLAUDE.md: en
 publik sida som svarar med data utan utmaning eller session är öppen; robots.txt
@@ -16,7 +23,9 @@ Ingen nyckel, ingen cookie, ingen utmaning. `/archive-odds/` (prishistoriken per
 bok) används ALDRIG: historiska priser bakfylls inte (observationstidsregeln).
 
 FORMAT (uppmätt 2026-11-06, Everton–Coventry):
-  bokrad     <tr data-bid="16" ...> med bokens namn; bet365 = data-bookie="bet365".
+  bokrad     <tr data-bid="16" ...> med bokens namn; bet365 = data-bookie="bet365",
+             Betfair Exchange = data-bookie="betfair exchange" (ej att förväxla
+             med sportboken "betfair"), BetInAsia = data-bookie="betinasia".
   priscell   <td class="... table-main__detail-odds ..." data-odd="1.67"
              data-created="06,11,2026,10,46"> — data-created är när BOKEN
              senast ändrade priset, i svensk tid (UTC+1 i november: 10:46 =
@@ -29,15 +38,19 @@ FORMAT (uppmätt 2026-11-06, Everton–Coventry):
              "01.01.2027 21:00" i svensk tid; en tom cell (&nbsp;) betyder samma
              tid som raden ovanför. Everton–Coventry "Today 21:00" = 20:00Z.
 
-TAKT: minst CRAWL_DELAY_S mellan anropen (robots.txt anger ingen; Driften
+TAKT: högst ett anrop per match och marknad och timme (REFRESH_MIN, beslut
+driften-2026-11-06-betexplorer-per-bok; svaren bär själva max-age=3600) och
+minst CRAWL_DELAY_S mellan anropen (robots.txt anger ingen; Driften
 provade med 2 s). Svaren bär `max-age=3600, max-age=1` och Age: 0; Age dras
 ändå av före observationstiden (observationstidsregeln p.2), som sätts EFTER
 varje anrop (p.3).
 
-ROLL: referensbok. `bet365` ligger i oddset_value.ANCHOR_SOURCES (via
+ROLL: referensböcker. Alla tre ligger i oddset_value.ANCHOR_SOURCES (via
 REFERENCE_BOOKS): aldrig en bok att hitta värde hos, aldrig ett ankare
-(ANCHOR_BY_MARKET), skapar aldrig matchidentiteter. Den visas i Oddset-vyn
-för jämförelse mot Svenska Spel och de skarpa referenserna.
+(ANCHOR_BY_MARKET), skapar aldrig matchidentiteter. De visas i Oddset-vyn för
+jämförelse; `app/betexplorer_matning.py` mäter Betfair Exchange och BetInAsia
+mot Smarkets (1X2, Ö/U) och SBOBET (handikapp). Ett nytt ankare är ett eget
+beslut och en ny signalversion.
 """
 from __future__ import annotations
 
@@ -57,7 +70,14 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
            "Accept-Language": "en"}
 CRAWL_DELAY_S = 3.0
 SOURCE_TZ = ZoneInfo("Europe/Stockholm")
-BOOKS = {"bet365": "bet365"}           # vår källnyckel → Betexplorers data-bookie
+# Vår källnyckel → Betexplorers data-bookie (exakt sträng, se FORMAT).
+BOOKS = {"bet365": "bet365",
+         "betfair_ex": "betfair exchange",     # beslut driften-2026-11-06-betexplorer-per-bok
+         "betinasia": "betinasia"}             # samma beslut
+# Ö/U-linan per bok: saknas boken här sparas huvudlinan (mest balanserad), annars
+# EXAKT den linan (beslutet: "Ö/U 2,5") — saknas den hos boken är marknaden
+# frånvarande i svaret, aldrig en annan lina.
+OU_FIXED_LINE = {"betfair_ex": 2.5, "betinasia": 2.5}
 BET_TYPES = ("1x2", "ou", "ah")
 PAIR_KEYS = {"ou": ("O", "U"), "ah": ("H", "A")}
 
@@ -90,13 +110,16 @@ LEAGUE_PATHS: dict[str, str] = {
 # TAKT. Bara djupvarvet (var 30:e min), bara matcher inom DAYS_AHEAD dygn,
 # och en match frågas igen först när dess intervall gått (närmare avspark =
 # tätare). Passet stoppar NYA anrop efter BUDGET_S sekunder och efter
-# MAX_FAILURES transportfel i rad. Tre anrop per match (1X2, Ö/U, AH).
+# MAX_FAILURES transportfel i rad. Tre anrop per match (1X2, Ö/U, AH), som
+# bär alla böcker i BOOKS. Kortaste intervallet är 60 min: högst ett anrop per
+# match och marknad och timme (beslut driften-2026-11-06-betexplorer-per-bok;
+# bet365:s första takt var 25 min inom 3 h).
 DAYS_AHEAD = 7
 BUDGET_S = 240.0
 MAX_FAILURES = 3
-REFRESH_MIN = ((3.0, 25), (24.0, 115), (None, 715))   # (timmar kvar ≤, minuter)
+REFRESH_MIN = ((3.0, 60), (24.0, 115), (None, 715))   # (timmar kvar ≤, minuter)
 # Uppmätt 2026-11-06: ~3,7 s per anrop (Ö/U- och AH-svaren är ~1,2 MB), alltså
-# ~22 matcher per pass. Behovet med intervallen ovan är ~40 matcher i timmen.
+# ~22 matcher per pass.
 
 _ROW_SPLIT = re.compile(r"<tr[\s>]")
 _FIXTURE_RE = re.compile(
@@ -212,12 +235,8 @@ def _line_value(text: str) -> Optional[float]:
     return round(sum(parts) / len(parts), 2) if parts else None
 
 
-def parse_odds(body: str, bet_type: str, bookie: str, observed_at: str) -> Optional[dict]:
-    """En boks priser ur ett /match-odds/-svar. None = boken saknas i svaret.
-
-    1x2: {"odds": {1,X,2}, "changed": {tecken: UTC}} (ofullständig rad ⇒ None).
-    ou/ah: {"lines": [{"line", k1, k2, "changed": {...}}]} med bara kompletta
-    linor. Ett svar som inte är JSON med "odds" ger ValueError (källfel)."""
+def _page(body: str) -> str:
+    """HTML:en ur ett /match-odds/-svar. Annat än JSON med "odds" ⇒ ValueError."""
     try:
         data = json.loads(body)
         page = data["odds"]
@@ -225,6 +244,27 @@ def parse_odds(body: str, bet_type: str, bookie: str, observed_at: str) -> Optio
         raise ValueError(f"betexplorer: oväntat svar ({exc})") from exc
     if not isinstance(page, str):
         raise ValueError("betexplorer: odds-fältet är inte HTML")
+    return page
+
+
+def parse_odds(body: str, bet_type: str, bookie: str, observed_at: str) -> Optional[dict]:
+    """En boks priser ur ett /match-odds/-svar. None = boken saknas i svaret.
+
+    1x2: {"odds": {1,X,2}, "changed": {tecken: UTC}} (ofullständig rad ⇒ None).
+    ou/ah: {"lines": [{"line", k1, k2, "changed": {...}}]} med bara kompletta
+    linor. Ett svar som inte är JSON med "odds" ger ValueError (källfel)."""
+    return _parse_page(_page(body), bet_type, bookie, observed_at)
+
+
+def parse_books(body: str, bet_type: str, books: dict[str, str],
+                observed_at: str) -> dict[str, Optional[dict]]:
+    """Flera böcker ur SAMMA svar: {vår källnyckel: parse_odds-resultat}."""
+    page = _page(body)
+    return {book: _parse_page(page, bet_type, bookie, observed_at)
+            for book, bookie in books.items()}
+
+
+def _parse_page(page: str, bet_type: str, bookie: str, observed_at: str) -> Optional[dict]:
     if bet_type == "1x2":
         row = _book_row(page, bookie)
         if row is None:
@@ -285,6 +325,16 @@ def main_line(lines: list[dict], k1: str, k2: str) -> Optional[dict]:
     return min(lines, key=lambda r: (abs(r[k1] - r[k2]), abs(r["line"])))
 
 
+def pick_line(lines: list[dict], bet_type: str, book: str) -> Optional[dict]:
+    """Linan som sparas för boken: Ö/U-linan i OU_FIXED_LINE om boken har en
+    sådan (exakt, annars None), i övrigt huvudlinan."""
+    fixed = OU_FIXED_LINE.get(book) if bet_type == "ou" else None
+    if fixed is not None:
+        return next((r for r in lines if r["line"] == fixed), None)
+    k1, k2 = PAIR_KEYS[bet_type]
+    return main_line(lines, k1, k2)
+
+
 class Betexplorer:
     def __init__(self, timeout: float = 20.0,
                  sleep: Callable[[float], None] = time.sleep,
@@ -330,10 +380,11 @@ class Betexplorer:
         r.raise_for_status()
         return {"rows": parse_fixtures(r.text, self._now()), "observed_at": observed}
 
-    def odds(self, event_id: str, bet_type: str, bookie: str,
+    def odds(self, event_id: str, bet_type: str, books: dict[str, str],
              referer: Optional[str] = None) -> dict:
-        """En match och marknad: {parsed, observed_at}. parsed None = boken
-        saknas i ett lyckat svar (en observation, inte ett källfel)."""
+        """En match och marknad, alla `books` ur samma svar:
+        {parsed: {bok: ...}, observed_at}. parsed[bok] None = boken saknas i
+        ett lyckat svar (en observation, inte ett källfel)."""
         self._polite()
         headers = {"X-Requested-With": "XMLHttpRequest",
                    "Accept": "application/json, text/javascript, */*; q=0.01"}
@@ -343,5 +394,5 @@ class Betexplorer:
                              params={"lang": "en"}, headers=headers)
         observed = self._observed(r)
         r.raise_for_status()
-        return {"parsed": parse_odds(r.text, bet_type, bookie, observed),
+        return {"parsed": parse_books(r.text, bet_type, books, observed),
                 "observed_at": observed}

@@ -1,12 +1,23 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-11-06 — bet365 via Betexplorer som referensbok i Oddset-vyn; Pinnacle spärrar Sverige; Smarkets och SBOBET ankrar värdemotorn (anchor-v1); SBOBET ny referenskälla och Smarkets synlig igen; 2026-11-05 Big 9: valet hög EV i appen; egen kupong i appen; Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-11-06 — Betfair Exchange och BetInAsia via Betexplorer som mätta referensböcker; bet365 via Betexplorer som referensbok i Oddset-vyn; Pinnacle spärrar Sverige; Smarkets och SBOBET ankrar värdemotorn (anchor-v1); SBOBET ny referenskälla och Smarkets synlig igen; 2026-11-05 Big 9: valet hög EV i appen; egen kupong i appen; Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
-`docs/overlamningar/overlamning-2026-11-06-betexplorer-bet365.md`.
+`docs/overlamningar/overlamning-2026-11-06-betexplorer-per-bok.md`.
 
 **Nytt 2026-11-06:**
+- **Betfair Exchange och BetInAsia som referensböcker** (beslut
+  driften-2026-11-06-betexplorer-per-bok, val 0; `app/betexplorer.py`). Samma
+  Betexplorer-svar som bet365 bär båda böckerna, så de kostar inga egna anrop: 1X2,
+  Ö/U exakt 2,5 och handikappets huvudlina, källor `betfair_ex`/`betinasia` i
+  `oddset_odds` och presence-ledgern. Takten är gemensam och högst ett anrop per match
+  och marknad och timme (bet365:s 25 min inom 3 h blev 60 min). I `REFERENCE_BOOKS`
+  (aldrig bok att slå, aldrig ankare, signalversionerna oförändrade); Oddset-vyn visar
+  raderna `BFX`/`BIA`. **Mätningen:** `cli.py betexplorer-matning [--sedan ISO]` parar
+  varje capture med Smarkets (1X2, Ö/U 2,5) och SBOBET (handikapp, samma lina) som de
+  var vid observationen (≤ 45 min bekräftelse, inget senare pris) och visar avvikelse,
+  snedhet, marginal och bokens prisålder. Beskrivande — ett ankarbyte är ett eget beslut.
 - **bet365 som referensbok** (beslut 2026-11-06-betexplorer-bet365, val 0;
   `app/betexplorer.py`). Betexplorers publika fixtursidor och sidans egen
   `/match-odds/`-JSON ger bet365:s 1X2, Ö/U och handikapp (huvudlinan = mest balanserad)
@@ -16,7 +27,7 @@ Projektets aktuella kontrakt står här; historiska statusblock finns i
   bredvid Sm/SBO och tooltipen när bet365 senast ändrade priset. I `ANCHOR_SOURCES` via
   `REFERENCE_BOOKS`: aldrig bok att slå, aldrig ankare; signalversionerna oförändrade.
   Europa/Conference League beläggs när vi har matcher där. Betfair Exchange/BetInAsia
-  (beslut driften-2026-11-06-betexplorer-per-bok) ingår inte i detta.
+  läses sedan samma dag ur samma svar (punkten ovan).
 - **Pinnacle spärrar Sverige** sedan 2026-11-05 09:30Z (Cloudflare 403 på allt, även
   www.pinnacle.com). Ingen väg runt (källgränsen). Värdemotorn, CLV, steam, poolens
   sharp-underlag och liveblindtestets Pinnacle-del står still. Betfair lämnade Sverige

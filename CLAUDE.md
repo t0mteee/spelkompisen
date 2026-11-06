@@ -47,6 +47,14 @@ bantningen 2026-09-02) — läs den när du undrar VARFÖR, inte varje session.
   Den ligger i `ANCHOR_SOURCES` via `oddset_value.REFERENCE_BOOKS` — aldrig en bok att
   slå, aldrig ett ankare, inte i signalversionen. `/archive-odds/` (prishistoriken) används
   ALDRIG: priser bakfylls inte.
+- **Betfair Exchange (`betfair_ex`) och BetInAsia (`betinasia`) är REFERENSBÖCKER via
+  SAMMA Betexplorer-svar sedan 2026-11-06** (beslut driften-2026-11-06-betexplorer-per-bok,
+  val 0): 1X2, Ö/U EXAKT 2,5 och handikapp (huvudlinan), inga egna anrop — ett anrop per
+  match och marknad bär alla böcker, högst ett per timme. Betfair själv är fortfarande
+  stängd; här läses Betexplorers publika sammanställning. I `REFERENCE_BOOKS`, aldrig bok
+  att slå, aldrig ankare. `cli.py betexplorer-matning` MÄTER dem mot Smarkets (1X2, Ö/U)
+  och SBOBET (handikapp, samma lina) as-of observationen — beskrivande, beslutar inget;
+  att göra någon av dem till ankare är ett eget beslut och en ny signalversion.
 - **Altenar (Ninja Casino/Betinia) är BORTTAGEN som källa helt sedan 2026-11-02** (beslut
   2026-11-02-altenar-pausa, val 1): värden svarade 403 på varje anrop från 2026-10-21, och
   att runda leverantörens skydd är stängt. Ingen insamling, inget källprov, ingen live-
@@ -191,12 +199,20 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
   app/betexplorer.py  bet365 som REFERENSBOK (2026-11-06, beslut 2026-11-06-betexplorer-
                       bet365): ligans publika fixtursida ger Betexplorers event-id,
                       `/match-odds/<id>/0/<1x2|ou|ah>/odds/` (sidans egen JSON, robots
-                      tillåter) bet365:s priser. Bara djupvarvet och SIST i det (efter
+                      tillåter) priserna för ALLA böcker i `BOOKS` ur samma svar:
+                      bet365, Betfair Exchange och BetInAsia (beslut driften-2026-11-06-
+                      betexplorer-per-bok; Ö/U för de två senare exakt 2,5, `OU_FIXED_LINE`;
+                      `data-bookie="betfair exchange"`, aldrig sportboken "betfair").
+                      Bara djupvarvet och SIST i det (efter
                       ledgern), ≤ 240 s och 3 s mellan anropen, matcher inom 7 dygn,
-                      takt 25 min/≤ 3 h, 115 min/≤ 24 h, 715 min annars. Tider på sidan
+                      takt 60 min/≤ 3 h, 115 min/≤ 24 h, 715 min annars (högst ett
+                      anrop per match och marknad och timme; takten är gemensam för
+                      böckerna). Tider på sidan
                       är svensk tid. `LEAGUE_PATHS` = belagda ligasidor (15), aldrig
                       gissade. Presence-ledger `oddset_betexplorer_capture` (en rad per
-                      anrop och marknad, även när boken saknas)
+                      anrop, marknad och bok, även när boken saknas).
+                      `app/betexplorer_matning.py` (`cli.py betexplorer-matning`):
+                      Betfair Ex/BetInAsia mot Smarkets/SBOBET, as-of, ≤ 45 min färskhet
   app/betsson.py      Publik Betsson-bootstrap (ej inkopplad; events-table CloudFront-
                       blockerad utanför browser; KRÄVER brotli, se transportregeln)
   app/analysis.py     fair_prob (power-metod), värde, taggar, speltyp, mover-flagga

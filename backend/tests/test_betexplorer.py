@@ -1,8 +1,13 @@
-"""bet365 via Betexplorer som referensbok (beslut 2026-11-06-betexplorer-bet365, val 0).
+"""Referensböckerna via Betexplorer: bet365 (beslut 2026-11-06-betexplorer-bet365,
+val 0), Betfair Exchange och BetInAsia (beslut driften-2026-11-06-betexplorer-per-bok,
+val 0).
 
 Fixturerna är verkliga utdrag ur Betexplorers publika svar 2026-11-06 ~09:57Z:
 Premier Leagues fixtursida och /match-odds/ för Everton–Coventry (OUYQUF9b,
 avspark 20:00Z) med bet365 och en annan bok kvar per tabell.
+`betexplorer_books_*.json` är samma match ~11:28Z med bet365, sportboken
+Betfair, Betfair Exchange och BetInAsia kvar (Ö/U: linorna 1, 2,25, 2,5, 2,75;
+handikapp: −1,25 … −0,5 och +1).
 """
 import datetime as dt
 import json
@@ -18,6 +23,9 @@ from app.storage import Storage
 FIX = Path(__file__).parent / "fixtures"
 FIXTURES = (FIX / "betexplorer_fixtures.html").read_text()
 BODY = {bt: (FIX / f"betexplorer_{bt}.json").read_text() for bt in be.BET_TYPES}
+BOOKS_BODY = {bt: (FIX / f"betexplorer_books_{bt}.json").read_text()
+              for bt in be.BET_TYPES}
+OBS2 = "2026-11-06T11:28:00Z"
 NOW = dt.datetime(2026, 11, 6, 9, 57, tzinfo=dt.timezone.utc)
 OBS = "2026-11-06T09:57:00Z"
 
@@ -81,14 +89,43 @@ class ParseTests(unittest.TestCase):
         main = be.main_line(p["lines"], "O", "U")
         self.assertEqual((2.75, 1.93, 1.93), (main["line"], main["O"], main["U"]))
 
+    def test_betfair_exchange_och_betinasia_ur_samma_svar(self):
+        p = be.parse_books(BOOKS_BODY["1x2"], "1x2", be.BOOKS, OBS2)
+        self.assertEqual({"1": 1.69, "X": 3.95, "2": 5.09}, p["betfair_ex"]["odds"])
+        self.assertEqual({"1": 1.72, "X": 4.05, "2": 5.1}, p["betinasia"]["odds"])
+        self.assertEqual({"1": 1.67, "X": 4.0, "2": 5.0}, p["bet365"]["odds"])
+        # Sportboken "betfair" (1,67/3,90/5,00) förväxlas aldrig med börsen.
+        self.assertEqual("2026-11-06T11:17:00Z", p["betfair_ex"]["changed"]["1"])
+
+    def test_ou_exakt_2_5_for_de_nya_bockerna_och_huvudlina_for_bet365(self):
+        p = be.parse_books(BOOKS_BODY["ou"], "ou", be.BOOKS, OBS2)
+        bf = be.pick_line(p["betfair_ex"]["lines"], "ou", "betfair_ex")
+        self.assertEqual((2.5, 1.77, 2.14), (bf["line"], bf["O"], bf["U"]))
+        bia = be.pick_line(p["betinasia"]["lines"], "ou", "betinasia")
+        self.assertEqual((2.5, 1.77, 2.16), (bia["line"], bia["O"], bia["U"]))
+        self.assertEqual(2.75, be.pick_line(p["bet365"]["lines"], "ou", "bet365")["line"])
+        # Saknas 2,5 hos boken sparas ingen annan lina.
+        no25 = [r for r in p["betfair_ex"]["lines"] if r["line"] != 2.5]
+        self.assertIsNone(be.pick_line(no25, "ou", "betfair_ex"))
+
+    def test_handikapp_huvudlinan_for_de_nya_bockerna(self):
+        p = be.parse_books(BOOKS_BODY["ah"], "ah", be.BOOKS, OBS2)
+        bf = be.pick_line(p["betfair_ex"]["lines"], "ah", "betfair_ex")
+        self.assertEqual((-0.75, 1.88, 1.99), (bf["line"], bf["H"], bf["A"]))
+        bia = be.pick_line(p["betinasia"]["lines"], "ah", "betinasia")
+        self.assertEqual((-0.75, 1.95, 2.04), (bia["line"], bia["H"], bia["A"]))
+
     def test_takten_tatnar_mot_avspark(self):
         def due(hours_left, minutes_ago):
             start = _iso(NOW + dt.timedelta(hours=hours_left))
             asked = _iso(NOW - dt.timedelta(minutes=minutes_ago))
             return be.refresh_due(start, asked, NOW)
         self.assertTrue(be.refresh_due(_iso(NOW), None, NOW))     # aldrig frågad
-        self.assertTrue(due(2, 30))
-        self.assertFalse(due(2, 10))
+        # Högst ett anrop per match och marknad och timme, även nära avspark
+        # (beslut driften-2026-11-06-betexplorer-per-bok).
+        self.assertTrue(due(2, 60))
+        self.assertFalse(due(2, 59))
+        self.assertFalse(due(2, 30))
         self.assertFalse(due(10, 60))
         self.assertTrue(due(10, 120))
         self.assertFalse(due(72, 120))
@@ -108,12 +145,14 @@ class ClientTests(unittest.TestCase):
                        raise_for_status=lambda: None)
         with mock.patch.object(client._client, "get", side_effect=[fx, od]) as get:
             f = client.fixtures("/football/england/premier-league/")
-            o = client.odds("OUYQUF9b", "1x2", "bet365",
+            o = client.odds("OUYQUF9b", "1x2", be.BOOKS,
                             referer="https://www.betexplorer.com/football/england/premier-league/")
         client.close()
         self.assertEqual([be.CRAWL_DELAY_S - 1.0], sleeps)
         self.assertEqual("2026-11-06T09:49:50Z", f["observed_at"])   # 430 s Age
         self.assertEqual(OBS, o["observed_at"])
+        self.assertEqual(1.67, o["parsed"]["bet365"]["odds"]["1"])
+        self.assertIsNone(o["parsed"]["betfair_ex"])   # saknas i det utdraget
         url = get.call_args_list[1].args[0]
         self.assertTrue(url.endswith("/match-odds/OUYQUF9b/0/1x2/odds/"))
         headers = get.call_args_list[1].kwargs["headers"]
@@ -129,10 +168,11 @@ class ClientTests(unittest.TestCase):
 
 
 class _FakeClient:
-    """Svarar med fixturerna; `missing` = marknader där bet365 saknas."""
+    """Svarar med fixturerna; `missing` = marknader där ingen bok finns."""
 
-    def __init__(self, observed: str, missing=(), fail=()):
+    def __init__(self, observed: str, missing=(), fail=(), body=None):
         self.observed, self.missing, self.fail = observed, set(missing), set(fail)
+        self.body = body or BODY
         self.log = []
         self.calls = 0
 
@@ -141,13 +181,13 @@ class _FakeClient:
         self.log.append(("fixtures", path))
         return {"rows": be.parse_fixtures(FIXTURES, NOW), "observed_at": self.observed}
 
-    def odds(self, event_id, bet_type, bookie, referer=None):
+    def odds(self, event_id, bet_type, books, referer=None):
         self.calls += 1
         self.log.append((event_id, bet_type))
         if bet_type in self.fail:
             raise RuntimeError("503")
-        parsed = (None if bet_type in self.missing
-                  else be.parse_odds(BODY[bet_type], bet_type, bookie, self.observed))
+        parsed = ({b: None for b in books} if bet_type in self.missing
+                  else be.parse_books(self.body[bet_type], bet_type, books, self.observed))
         return {"parsed": parsed, "observed_at": self.observed}
 
 
@@ -179,7 +219,7 @@ class CollectTests(unittest.TestCase):
         self.assertEqual((-0.75, 1.85), (latest["ah"]["line"], latest["ah"]["H"]))
         caps = self.store.conn.execute(
             "SELECT market, listed, line, changed_at FROM oddset_betexplorer_capture "
-            "ORDER BY id").fetchall()
+            "WHERE book='bet365' ORDER BY id").fetchall()
         self.assertEqual(["1x2", "ou", "ah"], [c["market"] for c in caps])
         self.assertEqual({"1": "2026-11-06T09:46:00Z", "X": "2026-11-04T00:19:00Z",
                           "2": "2026-11-06T09:46:00Z"}, json.loads(caps[0]["changed_at"]))
@@ -205,7 +245,7 @@ class CollectTests(unittest.TestCase):
         self.assertTrue(latest["ou"]["available"])
         last = self.store.conn.execute(
             "SELECT ok, listed FROM oddset_betexplorer_capture WHERE market='1x2' "
-            "ORDER BY id DESC LIMIT 1").fetchone()
+            "AND book='bet365' ORDER BY id DESC LIMIT 1").fetchone()
         self.assertEqual((1, 0), (last["ok"], last["listed"]))
 
     def test_transportfel_bokfors_utan_att_markera_franvaro(self):
@@ -216,8 +256,45 @@ class CollectTests(unittest.TestCase):
         self.assertTrue(latest["ou"]["available"])      # källfel ≠ frånvaro
         self.assertEqual(1, len(self.report["errors"]))
         failed = self.store.conn.execute(
-            "SELECT COUNT(*) FROM oddset_betexplorer_capture WHERE ok=0").fetchone()[0]
-        self.assertEqual(1, failed)
+            "SELECT book FROM oddset_betexplorer_capture WHERE ok=0").fetchall()
+        self.assertEqual(sorted(be.BOOKS), sorted(r["book"] for r in failed))
+
+    def test_ett_anrop_per_marknad_bar_alla_tre_bockerna(self):
+        client = _FakeClient(OBS2, body=BOOKS_BODY)
+        summary = self._run(client)
+        self.assertEqual(["1x2", "ou", "ah"], [c[1] for c in client.log if c[0] != "fixtures"])
+        self.assertEqual({"bet365": 1, "betfair_ex": 1, "betinasia": 1}, summary["listed"])
+        latest = self.store.oddset_latest(["pin:1"])["pin:1"]
+        self.assertEqual(1.69, latest["betfair_ex"]["1x2"]["1"])
+        self.assertEqual((2.5, 2.16), (latest["betinasia"]["ou"]["line"],
+                                       latest["betinasia"]["ou"]["U"]))
+        self.assertEqual(-0.75, latest["betfair_ex"]["ah"]["line"])
+        self.assertEqual(2.75, latest["bet365"]["ou"]["line"])
+        n = self.store.conn.execute(
+            "SELECT book, COUNT(*) AS n FROM oddset_betexplorer_capture "
+            "GROUP BY book").fetchall()
+        self.assertEqual({"bet365": 3, "betfair_ex": 3, "betinasia": 3},
+                         {r["book"]: r["n"] for r in n})
+
+    def test_takten_ar_gemensam_for_bockerna(self):
+        # bet365 frågades för 30 min sedan (före de nya böckerna): inget nytt
+        # anrop bara för att Betfair Exchange/BetInAsia saknar historik.
+        late = dt.datetime(2026, 11, 6, 18, 0, tzinfo=dt.timezone.utc)
+        self.store.oddset_save_betexplorer_capture(
+            "pin:1", "OUYQUF9b", "bet365", "1x2", "2026-11-06T17:30:00Z", True)
+        client = _FakeClient("2026-11-06T18:00:00Z", body=BOOKS_BODY)
+        self.assertEqual(0, self._run(client, now=late)["due"])
+        self.assertEqual([], client.log)
+
+    def test_saknad_ny_bok_markeras_men_bet365_sparas(self):
+        self._run(_FakeClient(OBS))      # det äldre utdraget har bara bet365
+        latest = self.store.oddset_latest(["pin:1"])["pin:1"]
+        self.assertNotIn("betfair_ex", latest)
+        rows = self.store.conn.execute(
+            "SELECT market, ok, listed FROM oddset_betexplorer_capture "
+            "WHERE book='betinasia' ORDER BY id").fetchall()
+        self.assertEqual([("1x2", 1, 0), ("ou", 1, 0), ("ah", 1, 0)],
+                         [tuple(r) for r in rows])
 
     def test_startad_match_sparas_aldrig(self):
         late = dt.datetime(2026, 11, 6, 19, 55, tzinfo=dt.timezone.utc)
@@ -242,15 +319,32 @@ class CollectTests(unittest.TestCase):
 
 
 class RollTests(unittest.TestCase):
-    """bet365 är en referensbok: aldrig bok att slå, aldrig ankare."""
+    """Referensböckerna: aldrig bok att slå, aldrig ankare, ingen ny version."""
 
     def test_sparrad_i_vardemotorn_och_aldrig_ankare(self):
-        self.assertIn("bet365", oddset_value.REFERENCE_BOOKS)
-        self.assertIn("bet365", oddset_value.ANCHOR_SOURCES)
-        self.assertNotIn("bet365", oddset_value.ANCHOR_BY_MARKET.values())
-        self.assertNotIn("bet365", {b["key"] for b in oddset.BOOKS})
-        self.assertIn("bet365", oddset.passive_sources())
-        self.assertNotIn("bet365", json.dumps(oddset_value.sharp_params()))
+        for book in be.BOOKS:
+            self.assertIn(book, oddset_value.REFERENCE_BOOKS)
+            self.assertIn(book, oddset_value.ANCHOR_SOURCES)
+            self.assertNotIn(book, oddset_value.ANCHOR_BY_MARKET.values())
+            self.assertNotIn(book, {b["key"] for b in oddset.BOOKS})
+            self.assertIn(book, oddset.passive_sources())
+            self.assertNotIn(book, json.dumps(oddset_value.sharp_params()))
+        # anchor-v1 står orörd tills ett eget beslut ändrar den.
+        self.assertEqual({"1x2": "smarkets", "ah": "sbobet"},
+                         dict(oddset_value.ANCHOR_BY_MARKET))
+
+    def test_betfair_exchange_ger_aldrig_vardeflagga(self):
+        now = dt.datetime.now(dt.timezone.utc)
+        seen = now - dt.timedelta(minutes=5)
+        mk = lambda v: {**v, "available": True, "last_seen_at": _iso(seen),  # noqa: E731
+                        "fetched_at": _iso(seen)}
+        m = {"id": "m1", "home": "A", "away": "B", "league": "mls",
+             "start": _iso(now + dt.timedelta(hours=30)),
+             "odds": {"smarkets": {"1x2": mk({"1": 2.0, "X": 3.6, "2": 4.0})},
+                      "betfair_ex": {"1x2": mk({"1": 3.0, "X": 3.6, "2": 4.0})},
+                      "betinasia": {"1x2": mk({"1": 3.0, "X": 3.6, "2": 4.0})}}}
+        oddset_value.attach_value([m])
+        self.assertNotIn("1x2", m.get("value") or {})
 
     def test_bet365_ger_aldrig_vardeflagga(self):
         now = dt.datetime.now(dt.timezone.utc)
