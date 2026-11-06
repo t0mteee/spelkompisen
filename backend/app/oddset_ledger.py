@@ -108,8 +108,9 @@ def _best_book(odds: dict, market: str, sign: str,
     candidates = []
     target_key = _line_key(line)
     for source, markets in odds.items():
-        if source == "pinnacle":
-            continue
+        if (source == "pinnacle" or source in oddset_value.ANCHOR_SOURCES
+                or source in oddset_value.SHADOW_SOURCES):
+            continue      # sharp, ankare och skugga är aldrig spelbara böcker
         price = (markets or {}).get(market)
         if not price or not price.get(sign):
             continue
@@ -148,11 +149,16 @@ def _row(market: str, sign: str, line: Optional[float], fair: float,
 
 
 def _sharp_rows(match: dict) -> list[dict]:
+    """Sharp-prediktionerna = ankarets devigade pris per marknad
+    (oddset_value.ANCHOR_BY_MARKET sedan anchor-v1, 2026-11-06). En marknad
+    utan ankare ger ingen sharp-prediktion."""
     odds = match.get("odds") or {}
-    pin = odds.get("pinnacle") or {}
     rows = []
     for market, signs in oddset_value._MARKET_SIGNS.items():
-        price = pin.get(market)
+        anchor = oddset_value.ANCHOR_BY_MARKET.get(market)
+        if not anchor:
+            continue
+        price = (odds.get(anchor) or {}).get(market)
         if not price:
             continue
         fair = oddset_value._devig(price, signs)
@@ -165,7 +171,7 @@ def _sharp_rows(match: dict) -> list[dict]:
         for sign in signs:
             rows.append(_row(
                 market, sign, line, fair[sign],
-                "derived" if derived else "pinnacle", available, fresh,
+                "derived" if derived else anchor, available, fresh,
                 odds, eligible=bool(not derived and fresh)))
     return rows
 
@@ -488,7 +494,7 @@ def _model_close_cases(rows: list[dict]) -> tuple[list[dict], dict]:
             row["signal_version"], row["captured_at"],
         )
         if (row.get("tier") == "sharp"
-                and row.get("fair_source") == "pinnacle"
+                and row.get("fair_source") in ("pinnacle", *oddset_value.ANCHOR_SOURCES)
                 and row.get("fair_available") and row.get("fair_fresh")
                 and row.get("closing_fair") is not None):
             sharp_groups.setdefault(common, {})[row["sign"]] = row

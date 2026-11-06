@@ -10,6 +10,24 @@ from app.pinnacle import Pinnacle, cache_adjusted_iso
 from app.storage import Storage
 
 
+# Pinnacle-perioden (sharp v8): testerna här prövar beräkningen med Pinnacle som
+# ankare. Sedan anchor-v1 (2026-11-06) är det en konfiguration som ger exakt den
+# gamla beräkningen och signalversionen; de nya ankarna prövas i test_ankare_v1.py.
+_PINNACLE_ANKARE = None
+
+
+def setUpModule():
+    global _PINNACLE_ANKARE
+    from unittest import mock as _mock
+    from app import oddset_value as _ov
+    _PINNACLE_ANKARE = _mock.patch.object(_ov, "ANCHOR_BY_MARKET", _ov.LEGACY_ANCHORS)
+    _PINNACLE_ANKARE.start()
+
+
+def tearDownModule():
+    _PINNACLE_ANKARE.stop()
+
+
 class _Pin:
     def __init__(self, age_s: int = 0) -> None:
         self.last_age_s = age_s

@@ -653,7 +653,8 @@ def _observe_pair_markets(store: Storage, mid: str, source: str,
 
 
 def _collect_sbobet(store: Storage, league: str, pages: list[dict],
-                    cands: list[dict], resolver, report: dict) -> tuple[int, int]:
+                    cands: list[dict], resolver, report: dict,
+                    present: Optional[set] = None) -> tuple[int, int]:
     """SBOBET:s 1X2 och huvudlina i handikapp för en liga. (matcher, rader).
 
     Varje rad sparas med sin sidas observationstid. En match som redan
@@ -684,6 +685,8 @@ def _collect_sbobet(store: Storage, league: str, pages: list[dict],
         claims[ex["id"]] = claim
         if e.get("odds"):
             saved += store.oddset_save_odds(ex["id"], "sbobet", e["odds"], observed)
+            if present is not None:
+                present.add((ex["id"], "sbobet", "1x2"))
         else:
             store.oddset_mark_market_unavailable(ex["id"], "sbobet", "1x2")
         line = sbobet.main_line(e.get("ah") or [])
@@ -692,6 +695,8 @@ def _collect_sbobet(store: Storage, league: str, pages: list[dict],
                 ex["id"], "sbobet", "ah",
                 {"H": {"odds": line["H"], "line": line["line"]},
                  "A": {"odds": line["A"], "line": line["line"]}}, observed)
+            if present is not None:
+                present.add((ex["id"], "sbobet", "ah"))   # handikappets ankare
         else:
             store.oddset_mark_market_unavailable(ex["id"], "sbobet", "ah")
         seen.add(ex["id"])
@@ -1107,6 +1112,7 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
                     anchor_claims[ex["id"]] = claim
                     rows_saved += store.oddset_save_odds(
                         ex["id"], "smarkets", e["odds"], anchor_at)
+                    present.add((ex["id"], "smarkets", "1x2"))   # 1X2-ankaret
                     anchor_seen.add(ex["id"])
                     n_anchor += 1
                 if anchor_ok:
@@ -1129,7 +1135,8 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
             n_sbobet = 0
             if sbobet_pages is not None and lg["key"] in sbobet.LEAGUE_IDS:
                 n_sbobet, saved = _collect_sbobet(
-                    store, lg["key"], sbobet_pages, cands, resolver, report)
+                    store, lg["key"], sbobet_pages, cands, resolver, report,
+                    present)
                 rows_saved += saved
 
             n_matchbook = 0

@@ -9,6 +9,24 @@ from app import oddset_model, oddset_value
 from app.storage import Storage
 
 
+# Pinnacle-perioden (sharp v8): testerna här prövar beräkningen med Pinnacle som
+# ankare. Sedan anchor-v1 (2026-11-06) är det en konfiguration som ger exakt den
+# gamla beräkningen och signalversionen; de nya ankarna prövas i test_ankare_v1.py.
+_PINNACLE_ANKARE = None
+
+
+def setUpModule():
+    global _PINNACLE_ANKARE
+    from unittest import mock as _mock
+    from app import oddset_value as _ov
+    _PINNACLE_ANKARE = _mock.patch.object(_ov, "ANCHOR_BY_MARKET", _ov.LEGACY_ANCHORS)
+    _PINNACLE_ANKARE.start()
+
+
+def tearDownModule():
+    _PINNACLE_ANKARE.stop()
+
+
 def _market(values: dict, seen: dt.datetime, available: bool = True) -> dict:
     market = {**values, "available": available,
               "last_seen_at": seen.strftime("%Y-%m-%dT%H:%M:%SZ")}
@@ -301,9 +319,9 @@ class ClosingDriftTests(unittest.TestCase):
 
     def test_justeringen_ingar_i_signalversionen(self) -> None:
         """Selektionen ändras ⇒ facitet MÅSTE börja om."""
-        self.assertIn("closing_drift", oddset_value.SHARP_PARAMS)
+        self.assertIn("closing_drift", oddset_value.sharp_params())
         self.assertEqual("band-v8",
-                         oddset_value.SHARP_PARAMS["closing_drift"])
+                         oddset_value.sharp_params()["closing_drift"])
 
     def test_sannolikheter_haller_sig_inom_intervallet(self) -> None:
         extrem = {"1": 0.9995, "X": 0.0004, "2": 0.0001}
@@ -416,9 +434,9 @@ class AnchorSourceTests(unittest.TestCase):
         """Ändras urvalet av ankare 2 MÅSTE signal_version bumpas — annars
         blandas två olika signaler i samma facitgrupp. Så länge mätningen är
         skugga får den inte finnas i SHARP_PARAMS."""
-        self.assertNotIn("anchor2", oddset_value.SHARP_PARAMS)
+        self.assertNotIn("anchor2", oddset_value.sharp_params())
         self.assertNotIn(oddset_value.ANCHOR2_SOURCE,
-                         str(oddset_value.SHARP_PARAMS))
+                         str(oddset_value.sharp_params()))
 
 
 if __name__ == "__main__":

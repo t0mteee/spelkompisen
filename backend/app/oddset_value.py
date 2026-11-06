@@ -54,9 +54,13 @@ def signal_versions(store: Storage) -> dict[str, str]:
         except ValueError:
             cal[lg] = None
     data_v = oddset_data.DATA_VERSION
-    return {"sharp": _fingerprint("s", {**SHARP_PARAMS, "data": data_v}),
+    closing = ({} if ANCHOR_BY_MARKET == LEGACY_ANCHORS
+               else {"closing_anchors": sorted(ANCHOR_BY_MARKET.items())})
+    return {"sharp": _fingerprint("s", {**sharp_params(), "data": data_v}),
             "model": _fingerprint("m", {**oddset_model.MODEL_PARAMS,
                                         "cal_t": cal, "data": data_v,
+                                        # modellflaggorna stängs mot ankaret
+                                        **closing,
                                         "price_max_age_min": PRICE_MAX_AGE_MIN,
                                         "price_presence": PRICE_PRESENCE_VERSION})}
 
@@ -134,17 +138,51 @@ DRIFT_OUT_P = 0.25
 DRIFT_EARLY = {"fav": -0.0060, "mid": 0.0, "out": +0.0030}
 DRIFT_LATE = {"fav": -0.0012, "mid": 0.0, "out": +0.0007}
 
-SHARP_PARAMS = {"devig": "power", "edge_log": EDGE_LOG,
-                "same_line": True, "best_book": True,
-                "price_max_age_min": PRICE_MAX_AGE_MIN,
-                "price_presence": PRICE_PRESENCE_VERSION,
+# ANKARE PER MARKNAD (anchor-v1, Samans beslut 2026-11-06). Pinnacle spärrar
+# Sverige sedan 2026-11-05 09:30Z. Smarkets (börs, 1X2, overround ~2 %) ankrar
+# 1X2 och SBOBET (asiatisk bok, huvudlina, marginal ~4,7 %) ankrar handikapp.
+# Ö/U och hörnor har INGET ankare: SBOBET:s datumsidor saknar Ö/U och Smarkets
+# har bara 1X2, så de marknaderna ger inga sharp-flaggor. Pinnacle är inget
+# ankare i den här versionen — kommer den tillbaka är det ett nytt beslut, aldrig
+# en tyst blandning i samma facit. Driftjusteringen (band-v8) är uppmätt på
+# Pinnacles stängning och gäller inte för andra källor: den används inte.
+# SBOBET har inga alt-linjer, så samma-linje-regeln kräver huvudlinan.
+ANCHOR_BY_MARKET = {"1x2": "smarkets", "ah": "sbobet"}
+# Pinnacle-perioden (sharp v8 t.o.m. 2026-11-05): samma kod med denna
+# konfiguration ger exakt den gamla beräkningen OCH den gamla signalversionen
+# (drift band-v8 och alt-linjer gäller bara när ankaret är Pinnacle). Används
+# av testerna för den perioden och om Saman beslutar att Pinnacle ska tillbaka.
+LEGACY_ANCHORS = {"1x2": "pinnacle", "ah": "pinnacle", "ou": "pinnacle",
+                  "cor": "pinnacle"}
+ANCHOR_LABEL = {"smarkets": "Smarkets", "sbobet": "SBOBET", "pinnacle": "Pinnacle"}
+# Flaggor loggade från och med denna tid värderades mot ANCHOR_BY_MARKET och
+# stängs mot samma källa; äldre flaggor stängs mot Pinnacle som förut.
+ANCHOR_SWITCH_AT = "2026-11-06T00:48:00Z"
+
+def sharp_params(anchors: Optional[dict] = None) -> dict:
+    """Sharp-tierns signalparametrar för en ankarkonfiguration.
+
+    Pinnacle-konfigurationen ger ORDAGRANT de gamla parametrarna, alltså samma
+    fingeravtryck (s-2f14f9a6 med dagens DATA_VERSION). Varje annan
+    konfiguration bär ankarna i fingeravtrycket: ankaret byter selektion och
+    stängning, alltså MÅSTE signalversionen byta och facitet börja om."""
+    anchors = ANCHOR_BY_MARKET if anchors is None else anchors
+    base = {"devig": "power", "edge_log": EDGE_LOG,
+            "same_line": True, "best_book": True,
+            "price_max_age_min": PRICE_MAX_AGE_MIN,
+            "price_presence": PRICE_PRESENCE_VERSION}
+    if anchors == LEGACY_ANCHORS:
+        return {**base,
                 "alt_lines": True,   # samma-linje via sharpens alt-linjer (2026-07-20)
-                # ingår i fingeravtrycket: selektionen ändras, alltså MÅSTE
-                # signalversionen byta och facitet börja om
                 "closing_drift": "band-v8",
                 "drift_early": sorted(DRIFT_EARLY.items()),
                 "drift_late": sorted(DRIFT_LATE.items()),
                 "drift_split_h": DRIFT_EARLY_H}
+    return {**base, "anchors": sorted(anchors.items()),
+            "alt_lines": False, "closing_drift": None}
+
+
+SHARP_PARAMS = sharp_params()   # dagens konfiguration (läs sharp_params() i ny kod)
 
 
 def drift_adjust(fair: dict[str, float], hours_to_start: Optional[float]
@@ -269,10 +307,11 @@ def _held_after_sharp_change(sharp: dict, book: dict) -> bool:
 
 
 def attach_value(matches: list[dict]) -> None:
-    """Sätter m['value'] = {market: {sign: {edge, fair, odds, book}}} (in place).
-    Fair = devigad Pinnacle; edge räknas mot BÄSTA odds bland övriga böcker
-    (svenskaspel, expekt, ...) — posten säger vilken bok. AH/ÖU/hörnor kräver
-    samma linje som sharpen. Startade matcher hoppas över (live-odds ljuger)."""
+    """Sätter m['value'] = {market: {sign: {edge, fair, odds, book, anchor}}}.
+    Fair = devigat ankarpris (ANCHOR_BY_MARKET: Smarkets för 1X2, SBOBET för
+    handikapp); edge räknas mot BÄSTA odds bland de spelbara böckerna —
+    posten säger vilken bok och vilket ankare. Handikappet kräver samma lina
+    som ankaret. Startade matcher hoppas över (live-odds ljuger)."""
     now_dt = dt.datetime.now(dt.timezone.utc)
     attach_price_status(matches, now_dt)
     now = now_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -284,7 +323,6 @@ def attach_value(matches: list[dict]) -> None:
         if (m.get("start") or "9") <= now:
             continue
         odds = m.get("odds") or {}
-        pin = odds.get("pinnacle") or {}
         # Böcker vi letar värde HOS = allt utom Pinnacle, ankarkällorna OCH
         # skuggkällorna (Smarkets är sharp-referens, Matchbook ren skugga —
         # ingen av dem är en spelbar mjuk bok).
@@ -292,8 +330,7 @@ def attach_value(matches: list[dict]) -> None:
                  if src != "pinnacle" and src not in ANCHOR_SOURCES
                  and src not in SHADOW_SOURCES}
         alt = m.get("sharp_alt") or {}
-        # Timmar kvar till avspark styr vilken driftregim som gäller. Saknas
-        # starttid görs ingen justering alls — hellre oförändrad än gissad.
+        # Timmar kvar till avspark styr driftregimen (bara Pinnacle-ankaret).
         hours_left = None
         if m.get("start"):
             try:
@@ -303,13 +340,19 @@ def attach_value(matches: list[dict]) -> None:
             except ValueError:
                 hours_left = None
         for market, signs in _MARKET_SIGNS.items():
-            p = pin.get(market)
+            anchor = ANCHOR_BY_MARKET.get(market)
+            if not anchor:
+                continue          # inget ankare för marknaden ⇒ inga flaggor
+            p = (odds.get(anchor) or {}).get(market)
             if not p or not p.get("fresh"):
                 continue
             fair_main = _devig(p, signs)
             if not fair_main:
                 continue
-            fair_main = drift_adjust(fair_main, hours_left)
+            pinnacle_anchor = anchor == "pinnacle"
+            if pinnacle_anchor:
+                # band-v8 är uppmätt på Pinnacles stängning och gäller bara där.
+                fair_main = drift_adjust(fair_main, hours_left)
             for sign in signs:
                 # bästa EDGE över böckerna: samma-linje-regeln uppfylls antingen
                 # via huvudlinan eller via sharpens alt-linje på BOKENS lina —
@@ -323,7 +366,7 @@ def attach_value(matches: list[dict]) -> None:
                     via_alt = False
                     if market == "1x2" or p.get("line") == s.get("line"):
                         fair_here = fair_main
-                    else:
+                    elif pinnacle_anchor:
                         # Alt-linjen är samma sorts sharp-pris och driftar
                         # likadant — den måste justeras med, annars vore
                         # huvudlinan och alt-linan olika estimand.
@@ -332,6 +375,8 @@ def attach_value(matches: list[dict]) -> None:
                         if fair_here:
                             fair_here = drift_adjust(fair_here, hours_left)
                         via_alt = fair_here is not None
+                    else:
+                        continue      # bara Pinnacle har alt-linjer: samma lina krävs
                     if not fair_here:
                         continue
                     edge = fair_here[sign] * s[sign] - 1.0
@@ -344,7 +389,7 @@ def attach_value(matches: list[dict]) -> None:
                 entry = {
                     "edge": round(edge, 4), "fair": round(fp, 4),
                     "q": round(edge / max(o - 1.0, 0.01), 4),  # Kelly-kvalitet
-                    "odds": o, "book": bk,
+                    "odds": o, "book": bk, "anchor": anchor,
                     "line": line, "derived": bool(p.get("derived"))}
                 if via_alt:
                     entry["alt_line"] = True
@@ -388,17 +433,18 @@ def _probs_at(pts: dict[str, list], signs: tuple, t: dt.datetime,
 
 
 def attach_steam(matches: list[dict]) -> None:
-    """Sätter m['steam'] = {sign: {'h6': pp, 'h24': pp}} ur Pinnacles 1X2-serie.
-    Positivt = sannolikheten UPP (oddset kortas) sedan dess."""
+    """Sätter m['steam'] = {sign: {'h6': pp, 'h24': pp}} ur 1X2-ankarets serie
+    (Smarkets sedan anchor-v1). Positivt = sannolikheten UPP sedan dess."""
     now = dt.datetime.now(dt.timezone.utc)
     signs = _MARKET_SIGNS["1x2"]
+    anchor = ANCHOR_BY_MARKET["1x2"]
     for m in matches:
         if m.get("data_conflict"):
             continue
-        current = ((m.get("odds") or {}).get("pinnacle") or {}).get("1x2") or {}
+        current = ((m.get("odds") or {}).get(anchor) or {}).get("1x2") or {}
         if not current.get("fresh"):
             continue
-        mv = ((m.get("movement") or {}).get("pinnacle") or {}).get("1x2") or {}
+        mv = ((m.get("movement") or {}).get(anchor) or {}).get("1x2") or {}
         pts = {}
         for s in signs:
             pl = []
@@ -453,7 +499,7 @@ def log_and_notify(store: Storage, matches: list[dict],
         if present is None:
             return True
         return ((mid, book, market) in present
-                and (mid, "pinnacle", market) in present)
+                and (mid, ANCHOR_BY_MARKET.get(market), market) in present)
     for m in matches:
         if m.get("data_conflict"):
             continue
@@ -487,7 +533,9 @@ def log_and_notify(store: Storage, matches: list[dict],
                                                          (v.get("book") or "?").title())
                         title = f"Värde: {desc}"
                         msg = (f"{MARKET_LABEL[market]}{lt} {sign} @ {v['odds']:.2f} hos {bok}"
-                               f" — fair {1 / v['fair']:.2f} (Pinnacle) = {_fmt_pct(v['edge'])} edge")
+                               f" — fair {1 / v['fair']:.2f} "
+                               f"({ANCHOR_LABEL.get(v.get('anchor'), v.get('anchor'))})"
+                               f" = {_fmt_pct(v['edge'])} edge")
                         # trigga alltid (historiken i UI); pusha bara med NTFY_TOPIC
                         sent = notify.enabled() and notify.push(title, msg, tags="moneybag")
                         store.meta_set(key, json.dumps(
@@ -529,13 +577,13 @@ def log_and_notify(store: Storage, matches: list[dict],
             pp = sh.get("h6")
             if pp is None or abs(pp) < STEAM_NOTIFY_PP:
                 continue
-            if present is not None and (m["id"], "pinnacle", "1x2") not in present:
+            if present is not None and (m["id"], ANCHOR_BY_MARKET["1x2"], "1x2") not in present:
                 n_gated += 1   # steam-siffran bygger på en serie som inte
                 continue       # bekräftades i detta varv — larma inte
             key = f"oddset_ntfy_steam:{m['id']}:{sign}"
             if not store.meta_get(key):
                 title = f"Steam: {desc}"
-                msg = (f"Pinnacle har flyttat {sign} {pp:+.1f} pp på 6 h — "
+                msg = (f"{ANCHOR_LABEL[ANCHOR_BY_MARKET['1x2']]} har flyttat {sign} {pp:+.1f} pp på 6 h — "
                        f"kolla om SvS/andra böcker hängt med")
                 sent = notify.enabled() and notify.push(title, msg, tags="fire")
                 store.meta_set(key, json.dumps(
@@ -565,8 +613,12 @@ def closing_snapshot(store: Storage, row: dict) -> dict:
     signs = _MARKET_SIGNS.get(hist_market)
     if not signs:
         return {"fair": None, "odds": None, "note": "okänd sharp-marknad"}
+    sources = closing_sources(row, hist_market)
+    if not sources:
+        return {"fair": None, "odds": None, "note": "inget ankare för marknaden"}
+    legacy = sources == ("pinnacle", "derived")
     rows = store.oddset_history_before(
-        row["match_id"], hist_market, row["match_start"])
+        row["match_id"], hist_market, row["match_start"], sources=sources)
     last: dict[str, dict] = {}
     for price in rows:
         last[price["sign"]] = price
@@ -605,8 +657,8 @@ def closing_snapshot(store: Storage, row: dict) -> dict:
         same_line_fresh = (len(target) == len(signs)
                            and all(_seen_after(price, fresh_after)
                                    for price in target.values()))
-        if not same_line_fresh:
-            # alt-linjelagret: sharpens pris på FLAGGANS lina kan finnas där
+        if not same_line_fresh and legacy:
+            # alt-linjelagret (bara Pinnacle har alt-linjer): sharpens pris på FLAGGANS lina kan finnas där
             # även när huvudlinan flyttat — färskt exakt-line-close utan censur
             alt_target: dict[str, dict] = {}
             for price in store.oddset_sharp_alt_before(
@@ -625,7 +677,9 @@ def closing_snapshot(store: Storage, row: dict) -> dict:
 
     fair = (_devig({s: target[s]["odds"] for s in signs}, signs)
             if len(target) == len(signs) and note is None else None)
-    a2_close = _anchor2_closing(store, row, hist_market, signs, fresh_after)
+    # Andra ankaret är meningslöst när Smarkets själv är ankaret.
+    a2_close = (_anchor2_closing(store, row, hist_market, signs, fresh_after)
+                if legacy else None)
     if not fair:
         return {"fair": None, "odds": None,
                 "note": note or "ingen sharp-stängning på flaggans lina",
@@ -635,6 +689,25 @@ def closing_snapshot(store: Storage, row: dict) -> dict:
             "odds": target[row["sign"]]["odds"], "note": None,
             "closing_line": closing_line, "line_delta": line_delta,
             "line_move_score": move_score, "anchor2_fair": a2_close}
+
+
+def closing_sources(row: dict, market: str) -> tuple[str, ...]:
+    """Källorna en flagga stängs mot: samma ankare som värderade den.
+
+    Flaggor loggade före ANCHOR_SWITCH_AT värderades mot Pinnacle och stängs
+    mot Pinnacle (inkl. härledd); senare mot ANCHOR_BY_MARKET. Tom tupel =
+    marknaden har inget ankare (Ö/U och hörnor i anchor-v1). En prediktion
+    som bär sitt ankare (`fair_source`) stängs mot just det ankaret."""
+    own = row.get("fair_source")
+    if own in ("pinnacle", "derived"):
+        return ("pinnacle", "derived")
+    if own in ANCHOR_SOURCES:
+        return (own,)
+    first = row.get("first_at") or row.get("captured_at") or row.get("at") or ""
+    anchor = "pinnacle" if first < ANCHOR_SWITCH_AT else ANCHOR_BY_MARKET.get(market)
+    if anchor == "pinnacle":
+        return ("pinnacle", "derived")
+    return (anchor,) if anchor else ()
 
 
 def _anchor2_closing(store: Storage, row: dict, hist_market: str, signs: tuple,
@@ -667,7 +740,7 @@ def _anchor2_closing(store: Storage, row: dict, hist_market: str, signs: tuple,
 
 
 def resolve_closings(store: Storage) -> int:
-    """Stäng flaggor mot färsk Pinnacle-marknad strax före avspark."""
+    """Stäng flaggor mot färskt ankarpris strax före avspark (closing_sources)."""
     now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     n = 0
     for flag in store.oddset_unresolved_closings(now):

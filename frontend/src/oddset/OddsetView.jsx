@@ -9,6 +9,14 @@ import { InfoDot, useStoredBool, LoadingState, EmptyState, ErrorState } from '..
 import { SortableTable } from '../components/SortableTable.jsx'
 import { summarizeSourceHealth } from '../sourceHealth.js'
 
+/* Värderingens ankare per marknad (anchor-v1, 2026-11-06): varje värdepost bär
+   `anchor` från backenden. Smarkets ankrar 1X2, SBOBET handikapp; Ö/U och hörnor
+   har inget ankare sedan Pinnacle stängde Sverige. */
+const ANCHOR_NAME = { pinnacle: 'Pinnacle', smarkets: 'Smarkets', sbobet: 'SBOBET' }
+const anchorName = (v) => ANCHOR_NAME[v?.anchor] || 'Pinnacle'
+const STEAM_ANCHOR = 'smarkets'
+const LINE_ANCHOR = 'sbobet'
+
 // Oddset-delen (Etapp 1 i docs/plan.md): matchlista i tidsordning med Svenska Spel-odds
 // (Kambi) + sharp (Pinnacle) för Allsvenskan, Eliteserien och träningsmatcher.
 // Rörelse-konvention (från vm): röd ↓ = oddset NER (ökad vinstchans), grön ↑ = UPP.
@@ -36,7 +44,7 @@ export function OddsetLegend() {
             <b> M</b> = vår egen modell (amber, se nedan). Slå på <b>+ Fler odds</b>
             för att visa de spelbara sidoböckerna.</div>
           <div><b>Värde</b> = när en spelbar bok betalar MER än det sharpa priset.
-            Vi räknar bort Pinnacles marginal (power-devig) och får en "fair" sannolikhet;
+            Vi räknar bort ankarets marginal (power-devig) — Smarkets för 1X2, SBOBET för handikapp sedan Pinnacle stängde Sverige 2026-11-05 och får en "fair" sannolikhet;
             edge = fair sannolikhet × bokens odds − 1.
             {' '}<span className="epill">+5%</span> = grön pill = <b>sharp-ankrat värde ≥2 %</b> —
             den starkaste signalen härinne, loggas i facitet. Samlas även i 💰-listan.
@@ -53,14 +61,14 @@ export function OddsetLegend() {
             hemmalaget −0,5 mål). Pilar = prisrörelse på NUVARANDE linje;
             {' '}<span className="lshift">⇄↑</span> = själva LINJEN har flyttats (ofta starkare signal
             än priset — hovra för hela serien med linjer). Värde räknas ENDAST när boken och
-            Pinnacle har samma linje. Hörnor prissätts av Pinnacle först nära avspark.
+            ankaret (SBOBET) har samma linje; Ö/U och hörnor har inget ankare och ger ingen sharp-värdesignal. Hörnor prissätts av Pinnacle först nära avspark.
             Med modellen på visas <b>M-rad</b> även här: fair vid SvS-linjen (push/kvartslinjer
             hanterade) — AH bär modellens egen styrkebedömning, ÖU ligger nära sharpen när
             totalen är ankrad. Amber-pillsen forward-loggas per marknad i facitet.</div>
           <div><b>Pilar</b> = oddsrörelse sedan första notering: <span className="mv down">↓5%</span> =
             oddset har SJUNKIT (marknaden tror mer på utfallet — hann du före är det bra tecken) ·
             <span className="mv up"> ↑5%</span> = stigit. Hovra för hela serien med tidsstämplar.
-            {' '}<b>🔥</b> = steam: Pinnacles devigade sannolikhet har flyttat ≥3,5 procentenheter
+            {' '}<b>🔥</b> = steam: Smarkets devigade sannolikhet har flyttat ≥3,5 procentenheter
             på 6/24 h — typiskt lineup-nyheter. Kolla då direkt om någon spelbar bok står kvar
             på gamla oddset (det är träningsmatch-caset).</div>
           <div><b>M-raden (modellen)</b> — xG-viktad Poisson-styrkefit per liga, med
@@ -612,7 +620,7 @@ export function OddsetView({ focus = null } = {}) {
     if (!v || v.edge < 0.02 || (v.q ?? 0) < 0.0075) return null
     return (
       <span className="epill"
-        title={`Devigad Pinnacle: ${(v.fair * 100).toFixed(1)}% (fair odds ${(1 / v.fair).toFixed(2)})\nBoken betalar ${v.odds.toFixed(2)} → ${(v.edge * 100).toFixed(1)}% övervärde\nKvalitet (Kelly-andel): ${((v.q ?? 0) * 100).toFixed(1)}% — samma edge är skörare ju högre odds${v.derived ? '\n(P~ = härlett ur handikapp — ta med en nypa salt)' : ''}`}>
+        title={`Devigad ${anchorName(v)}: ${(v.fair * 100).toFixed(1)}% (fair odds ${(1 / v.fair).toFixed(2)})\nBoken betalar ${v.odds.toFixed(2)} → ${(v.edge * 100).toFixed(1)}% övervärde\nKvalitet (Kelly-andel): ${((v.q ?? 0) * 100).toFixed(1)}% — samma edge är skörare ju högre odds${v.derived ? '\n(P~ = härlett ur handikapp — ta med en nypa salt)' : ''}`}>
         {prefix && `${prefix} `}+{Math.round(v.edge * 100)}%{v.derived ? '°' : ''}
       </span>
     )
@@ -646,7 +654,7 @@ export function OddsetView({ focus = null } = {}) {
     const strong = Object.values(st).some((sh) =>
       Math.abs(sh.h6 || 0) >= 6 || Math.abs(sh.h24 || 0) >= 6)
     return <span className={strong ? 'steam strong' : 'steam'}
-      title={`Sharp-steam (devigad Pinnacle-sannolikhet):\n${parts.join('\n')}\nPositivt = tecknet kortas — kolla om SvS hängt med`}>🔥</span>
+      title={`Sharp-steam (devigad Smarkets-sannolikhet):\n${parts.join('\n')}\nPositivt = tecknet kortas — kolla om SvS hängt med`}>🔥</span>
   }
 
   const pct = (value) => value == null ? '–' : (value * 100).toFixed(1)
@@ -837,7 +845,7 @@ export function OddsetView({ focus = null } = {}) {
         <span className={`rekpill ${tier.cls}`}
           title={[
             `${tier.label} — matchens bästa värdeselektion (samma motor och nivåer som 💰-korten; ren visning, loggar inget).`,
-            `Devigad Pinnacle: ${(v.fair * 100).toFixed(1)} % (fair ${(1 / v.fair).toFixed(2)}) — ${BOOK_NAME[v.book] || v.book} betalar ${v.odds.toFixed(2)} = +${(v.edge * 100).toFixed(1)} % övervärde.`,
+            `Devigad ${anchorName(v)}: ${(v.fair * 100).toFixed(1)} % (fair ${(1 / v.fair).toFixed(2)}) — ${BOOK_NAME[v.book] || v.book} betalar ${v.odds.toFixed(2)} = +${(v.edge * 100).toFixed(1)} % övervärde.`,
             `Kvalitet (Kelly-andel): ${((v.q ?? 0) * 100).toFixed(1)} % — nivån sätts på kvalitet, inte rå edge.`,
             v.derived ? '° = sharp-priset är härlett ur handikapp — ta med en nypa salt.' : null,
           ].filter(Boolean).join('\n')}>
@@ -904,7 +912,7 @@ export function OddsetView({ focus = null } = {}) {
       if (Object.values(m.model?.[mk]?.edges || {}).some((e) => e >= 0.05)) return true
     }
     for (const mk of ['ah', 'ou', 'cor']) {
-      const mv = m.movement?.pinnacle?.[mk]
+      const mv = m.movement?.[mk === 'ah' ? LINE_ANCHOR : 'pinnacle']?.[mk]
       if (mv && lineShift(mv.H || mv.O)) return true
     }
     return false
@@ -1151,11 +1159,11 @@ export function OddsetView({ focus = null } = {}) {
       const stpp = st && (Math.abs(st.h6 ?? 0) >= Math.abs(st.h24 ?? 0) ? st.h6 : st.h24)
       if (stpp != null && stpp >= 1.5) support.push([
         '⚡ sharpen kortar',
-        `Pinnacle har flyttat ${sg} ${stpp > 0 ? '+' : ''}${stpp} pp åt spelets håll`,
+        `Smarkets har flyttat ${sg} ${stpp > 0 ? '+' : ''}${stpp} pp åt spelets håll`,
       ])
     } else {
-      const sh = lineShift(m.movement?.pinnacle?.[mk]?.[sg])
-      if (sh) support.push(['⇄ sharp-linjen flyttad', `Pinnacle har flyttat linjen ${sh.from} → ${sh.to}`])
+      const sh = lineShift(m.movement?.[LINE_ANCHOR]?.[mk]?.[sg])
+      if (sh) support.push(['⇄ sharp-linjen flyttad', `SBOBET har flyttat linjen ${sh.from} → ${sh.to}`])
     }
     return support
   }
@@ -1195,7 +1203,7 @@ export function OddsetView({ focus = null } = {}) {
           <span className="hint">{fmtDay(m.start)} {fmtTime(m.start)}</span>
         </div>
         <div className="tipwhy hint">
-          Devigad Pinnacle {(v.fair * 100).toFixed(1)} % · ¼-Kelly <b>{kelly(v)} kr</b>
+          Devigad {anchorName(v)} {(v.fair * 100).toFixed(1)} % · ¼-Kelly <b>{kelly(v)} kr</b>
           {v.held_after_sharp && <span className="heldchip">bekräftat kvar</span>}
         </div>
         {support.length > 0 && <div className="tipsupport">
@@ -1213,7 +1221,7 @@ export function OddsetView({ focus = null } = {}) {
     { key: 'movement', label: 'Rörelse', value: (r) => r.pp },
     { key: 'window', label: 'Fönster', value: (r) => r.win },
     { key: 'edge', label: 'Edge', value: (r) => r.m.value?.['1x2']?.[r.sg]?.edge ?? null },
-    { key: 'price', label: 'Pinnacle', value: (r) => r.m.movement?.pinnacle?.['1x2']?.[r.sg]?.last ?? null },
+    { key: 'price', label: 'Smarkets', value: (r) => r.m.movement?.[STEAM_ANCHOR]?.['1x2']?.[r.sg]?.last ?? null },
     { key: 'book', label: 'Bokstatus', value: (r) => r.m.value?.['1x2']?.[r.sg]?.held_after_sharp ? 2 : 1 },
   ]
   const moverStatus = ({ m, sg, pp: movement }) => {
@@ -1227,7 +1235,7 @@ export function OddsetView({ focus = null } = {}) {
   }
   const renderMoverRow = (row) => {
     const { m, sg, pp: movement, win } = row
-    const mvP = m.movement?.pinnacle?.['1x2']?.[sg]
+    const mvP = m.movement?.[STEAM_ANCHOR]?.['1x2']?.[sg]
     const v = m.value?.['1x2']?.[sg]
     return (
       <tr key={`${m.id}-${sg}`} className="clickable"
@@ -1246,7 +1254,7 @@ export function OddsetView({ focus = null } = {}) {
   }
   const renderMoverCard = (row) => {
     const { m, sg, pp: movement, win } = row
-    const mvP = m.movement?.pinnacle?.['1x2']?.[sg]
+    const mvP = m.movement?.[STEAM_ANCHOR]?.['1x2']?.[sg]
     return (
       <div key={`${m.id}-${sg}`} className="mover-card clickable"
         onClick={() => toggleDetail(m.id, true)}>
@@ -1255,7 +1263,7 @@ export function OddsetView({ focus = null } = {}) {
           <span className="hint">{fmtDay(m.start)} {fmtTime(m.start)}</span></div>
         <b>{selLabel(m, '1x2', sg)}</b>
         <span>{m.home} – {m.away}</span>
-        <span className="hint">{mvP ? `P ${mvP.first.toFixed(2)} → ${mvP.last.toFixed(2)}` : ''}</span>
+        <span className="hint">{mvP ? `Sm ${mvP.first.toFixed(2)} → ${mvP.last.toFixed(2)}` : ''}</span>
         <div>{moverStatus(row)}</div>
       </div>
     )
@@ -1367,12 +1375,12 @@ export function OddsetView({ focus = null } = {}) {
                 label={sg === '1' ? `1 · ${m.home}` : sg === '2' ? `2 · ${m.away}` : 'X · Kryss'}
                 series={[
                   { color: 'var(--green)', pts: detailedMovement(m)?.svenskaspel?.['1x2']?.[sg]?.pts },
-                  { color: '#5b9bd5', pts: detailedMovement(m)?.pinnacle?.['1x2']?.[sg]?.pts },
+                  { color: '#5b9bd5', pts: detailedMovement(m)?.[STEAM_ANCHOR]?.['1x2']?.[sg]?.pts },
                 ]} />
             ))}
           </div>
           <div className="dmeta hint">
-            <span><b style={{ color: 'var(--green)' }}>●</b> SvS · <b style={{ color: '#5b9bd5' }}>●</b> Pinnacle</span>
+            <span><b style={{ color: 'var(--green)' }}>●</b> SvS · <b style={{ color: '#5b9bd5' }}>●</b> Smarkets</span>
             {['ah', 'ou', 'cor'].map((mk) => {
               const mv = m.movement?.pinnacle?.[mk]
               const sgn = mk === 'ah' ? 'H' : 'O'
@@ -1579,7 +1587,7 @@ export function OddsetView({ focus = null } = {}) {
       {oddsetTab === 'varde' && (
         <div className="tab-panel valuelist" id="oddset-varde">
           <div className="valhead"><b>💰 Värdespel just nu</b>
-            <InfoDot text={'Bok-odds över devigad Pinnacle (sharp-ankrat = den spelbara signalen).\n° = härlett sharp-pris · ★ = flera oberoende signaler pekar åt samma håll.\n¼-Kelly räknas på fair-sannolikheten och din bank.\nEtt kort per match: den bästa selektionen (högst kvalitetsviktad edge).'} />
+            <InfoDot text={'Bok-odds över devigat ankare — Smarkets för 1X2, SBOBET för handikapp (sharp-ankrat = den spelbara signalen).\n° = härlett sharp-pris · ★ = flera oberoende signaler pekar åt samma håll.\n¼-Kelly räknas på fair-sannolikheten och din bank.\nEtt kort per match: den bästa selektionen (högst kvalitetsviktad edge).'} />
             <span className="spacer" />
             <span className="hint">bank</span>
             <input className="bankin" type="number" value={bank} min="0"
