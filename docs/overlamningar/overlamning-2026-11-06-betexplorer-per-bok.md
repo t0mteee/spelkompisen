@@ -71,3 +71,20 @@ inget: referensen skapar aldrig matchidentiteter.
   att lägga till dem där är ett eget val.
 - Första mätningen kan läsas först när djupvarven samlat captures (de nya böckerna har
   ingen historik före driftsättningen; inget bakfylls).
+
+## Första djupvarvet i drift (12:00Z, `cli.py betexplorer-matning`)
+
+22 matcher × 3 marknader = 66 anrop, alla tre böckerna ur samma svar: 1X2 listad 22/22
+för båda, Ö/U 2,5 22/22, handikapp BetInAsia 22/22 och Betfair Exchange 12/22.
+
+- **1X2 mot Smarkets, 20 par:** BetInAsia |Δp| 0,57 pp (max 2,9), marginal 5,2 %, median
+  prisålder 57 min. Betfair Exchange |Δp| 2,14 pp, max **50,5 pp**, marginal 11,2 %:
+  Raufoss–Egersund (OBOS) stod 1,11/3,57/1,60 hos Betfair Exchange (summa 1/odds ≈ 1,8)
+  mot Smarkets 4,52/4,40/1,90 — ett tunt börspris i Betexplorers återgivning. Inget filtreras
+  bort (radera på omöjlighet, aldrig osannolikhet); just sådant ska mätningen visa.
+- **Ö/U, 0 par:** Smarkets sparar bara sin huvudlina, och i de första matcherna (MLS m.fl.)
+  var den 3,5. Paren kommer när Smarkets huvudlina är 2,5.
+- **Handikapp, 0 par:** SBOBET har **inte listat en enda match sedan ~04:00Z**
+  (källhälsan ok med 0 event varje djupvarv, senaste pris 04:00:14Z). Det är ett eget fel i
+  SBOBET-insamlingen, inte i Betexplorer, och betyder också att handikappankaret i
+  anchor-v1 står still — bör utredas separat.
