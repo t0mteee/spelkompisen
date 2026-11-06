@@ -37,8 +37,12 @@ sharpen nya versioner (`s-dbe6089a`/`s-2bd0ddd1`) och modellen ny version
 
 Inga rader ändrade. V2.2 v10: 1 611 rader, 1 250 eligible (2026-08-22 –
 2026-11-05 20:02Z; de fem raderna efter 09:30Z är alla oanvändbara —
-`direct_fresh_sharp_1x2_missing`). Poolstyrkan v2: 3 088 captures, senaste
-2026-11-04 22:02Z. Ingen av dem nådde sin träningsgrind; ingen skörd görs.
+`direct_fresh_sharp_1x2_missing`). V2.2:s träningsgrind var NÅDD vid avslutet
+(`cli.py gater`: `underlag klart` på h24/h3/m20, 408–419 avgjorda matcher mot 300,
+73–74 dagar mot 42) — underlaget står kvar fryst, men en träning eller skörd är ett
+eget beslut och ingick inte här. Poolstyrkan v2: 2 419 captures/545 eligible i
+rapporten (177–184 avgjorda per horisont mot 300), senaste 2026-11-04 22:02Z —
+grinden nåddes inte.
 
 ## Står kvar
 

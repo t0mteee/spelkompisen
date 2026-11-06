@@ -11,8 +11,9 @@ Projektets aktuella kontrakt står här; historiska statusblock finns i
   2026-11-06-v22-manifest-pinnacle, val 0). Båda var frysta mot Pinnacle, som spärrar
   Sverige; missat är missat. `ENDED_COHORTS` i `oddset_v22`/`pool_strength_shadow`
   (nyckel = shadow_version `v22-fed39cbd`/`ps-8cbcf320`; manifestfilerna orörda): ingen
-  ny capture, inga rader ändrade (V2.2 1 611 rader/1 250 eligible, poolstyrkan 3 088
-  captures, senaste 2026-11-04 22:02Z). Idag larmar inte längre för V2.2
+  ny capture, inga rader ändrade (V2.2 1 611 rader/1 250 eligible med träningsgrinden
+  NÅDD — `underlag klart` står kvar, en skörd är ett eget beslut; poolstyrkan 2 419
+  captures/545 eligible, under grinden, senaste 2026-11-04 22:02Z). Idag larmar inte längre för V2.2
   (`/api/health` → `v22.status = ended`) eller styrkeshadowen; `cli.py gater` och
   Tester visar `avslutad`, Poolstyrka ligger i testarkivet, Labb visar V2.2 som avslutad.
   Ny kohort mot anchor-v1 bara efter ett eget förregistrerat beslut. "För lite färsk
