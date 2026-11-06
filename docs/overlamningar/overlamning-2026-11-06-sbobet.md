@@ -73,3 +73,26 @@ frontend omstartade, push genom kroken (allt grönt).
   en ny signalversion, och för poolen en ny datagenererande process med datumnot. Det är
   inte gjort.
 - Cupernas SBOBET-id beläggs när nästa cupomgång syns på datumsidorna före avspark.
+
+## Tillägg: anchor-v1 (samma natt, i drift 2026-11-06T00:52:15Z)
+
+Saman: "Ja, gör Smarkets och SBOBET till ankare". Commit 69deb77.
+
+- `oddset_value.ANCHOR_BY_MARKET = {"1x2": "smarkets", "ah": "sbobet"}`. Ö/U och hörnor
+  har inget ankare (Smarkets har bara 1X2, SBOBET:s datumsidor saknar Ö/U) och ger inga
+  sharp-flaggor.
+- `attach_value`: drift band-v8 och alt-linjer bara om ankaret är Pinnacle; annars krävs
+  samma lina. Posten bär `anchor`. `attach_steam` läser Smarkets serie. Notisvakten kräver
+  ankaret i `present` (oddset.py lägger till smarkets/sbobet där).
+- Stängning: `closing_sources(row, market)` — `fair_source` först (ledgern), annars
+  tid mot `ANCHOR_SWITCH_AT = 2026-11-06T00:48:00Z`. Före = Pinnacle (+ derived), efter =
+  ankaret, ingen = "inget ankare för marknaden". Alt-lager och anchor2 bara för Pinnacle.
+- Versioner: sharp `s-2bd0ddd1`, modell `m-d3d8e5d0`. `sharp_params(LEGACY_ANCHORS)` ger
+  de gamla parametrarna ordagrant; testerna för Pinnacle-perioden patchar
+  `ANCHOR_BY_MARKET` till `LEGACY_ANCHORS` på modulnivå. Nya tester: `test_ankare_v1.py`.
+- UI: tooltips och korten säger ankarets namn (`anchorName(v)`); rörelselistan och
+  matchdetaljens graf visar Smarkets, handikappets linjeskift läses ur SBOBET.
+- Sidoeffekter: V2.2 vägrar (`sharp_source_version_changed`, avsiktligt — nytt manifest
+  är Samans beslut). `pool-strength-blend` v2 visar `stoppad`; spåret hade ändå ingen
+  capture sedan 2026-11-04 22:02Z (Pinnacle är dess baslinje).
+- Kvar på Pinnacle och stilla: poolens sharp-sida och liveblindtestets Pinnacle-del.

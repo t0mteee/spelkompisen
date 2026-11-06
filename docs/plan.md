@@ -1,6 +1,6 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-11-06 — Pinnacle spärrar Sverige; SBOBET ny referenskälla och Smarkets synlig igen; 2026-11-05 Big 9: valet hög EV i appen; egen kupong i appen; Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-11-06 — Pinnacle spärrar Sverige; Smarkets och SBOBET ankrar värdemotorn (anchor-v1); SBOBET ny referenskälla och Smarkets synlig igen; 2026-11-05 Big 9: valet hög EV i appen; egen kupong i appen; Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
@@ -17,7 +17,17 @@ Projektets aktuella kontrakt står här; historiska statusblock finns i
   `ANCHOR_SOURCES`, aldrig en bok att slå. 1X2-marginal ~15 %, handikapp ~4,7 %.
 - **Smarkets** visas igen (`UI_HIDDEN_SOURCES` tom); Smarkets och SBOBET står som
   referensrader i Oddset-vyns matchrad. Källprovet har båda som stödkällor och Pinnacle som
-  stödkälla. Att göra någon av dem till ankare är ett eget beslut (ny signalversion).
+  stödkälla.
+- **anchor-v1** (Samans beslut 2026-11-06, i drift 00:52:15Z, `ANCHOR_SWITCH_AT`
+  00:48Z): Smarkets ankrar 1X2 och SBOBET handikappets huvudlina i värdemotorn, steam,
+  notisvakten, CLV-stängningen och WP5-ledgern. Ö/U och hörnor har inget ankare. Ingen
+  driftjustering (band-v8 är Pinnacle-kalibrerad). Ny sharp-version `s-2bd0ddd1` och
+  modellversion `m-d3d8e5d0` — facitet börjar om. Första API-svaret: 462 1X2-poster mot
+  Smarkets, 144 handikapp mot SBOBET. **Står kvar på Pinnacle (stilla):** poolens sharp
+  (bygge, PH3, pit-v4, X-skyddets total, m20-reserven), V2.2 (fryst manifest, vägrar med
+  `source_version_changed`), modellens totalankring och Ö/U-sharp. `pool-strength-blend`
+  manifest v2 visar `stoppad` (modellversionen bytt) — det hade ingen capture sedan
+  2026-11-04 22:02Z eftersom baslinjen är Pinnacle. Poolens ankare är ett eget beslut.
 
 **Nytt 2026-11-05:**
 - **Big 9: valet hög EV** (beslut 2026-11-04-big9-hog-ev-i-appen-omforsok, val 0).

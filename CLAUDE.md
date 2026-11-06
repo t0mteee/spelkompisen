@@ -617,13 +617,26 @@ VÄRDERINGEN. Båda behövs. Lägger du till en sharp-referens (börs, andra sha
 MÅSTE den in i `ANCHOR_SOURCES`, annars förorenar den CLV-facitet. Spärren är låst av
 `tests/test_oddset_value.py::AnchorSourceTests`.
 
-**CLOSING-DRIFT (sharp v8):** `fair` är inte Pinnacles pris NU utan en skattning av
+**ANKARE PER MARKNAD (anchor-v1, Samans beslut 2026-11-06, i drift 2026-11-06T00:52Z):**
+`oddset_value.ANCHOR_BY_MARKET` = Smarkets för 1X2, SBOBET för handikapp (huvudlinan,
+SAMMA lina krävs — inga alt-linjer). Ö/U och hörnor har INGET ankare och ger inga
+sharp-flaggor. Varje värdepost bär `anchor`; steam läser 1X2-ankarets serie,
+notisvakten kräver ankaret i `present`, WP5-ledgerns sharp-rader bär ankaret som
+`fair_source`. Stängning: `closing_sources` — prediktioner stängs mot sin `fair_source`,
+flaggor före `ANCHOR_SWITCH_AT` mot Pinnacle, senare mot ankaret. Sharp `s-2bd0ddd1`,
+modell `m-d3d8e5d0` (stängningsankaret ingår). `LEGACY_ANCHORS` ger Pinnacle-periodens
+beräkning OCH version ordagrant (testerna för den perioden patchar in den). Pinnacle
+tillbaka som ankare är ett NYTT beslut, aldrig en tyst blandning. Poolens sharp-sida
+(sharp_service, PH3, pit-v4, X-skyddets total, m20-reserven), V2.2 och modellens
+totalankring är fortfarande Pinnacle-baserade och står still.
+
+**CLOSING-DRIFT (sharp v8, BARA Pinnacle-ankaret):** `fair` är inte Pinnacles pris NU utan en skattning av
 var det STÄNGER. `drift_adjust` korrigerar per band (favoriter ned, outsiders upp) i två
 tidsregimer; bandet sätts på den OJUSTERADE sannolikheten (annars cirkulärt) och summan
 normaliseras INTE om. Detta är INTE momentum. Förregistrering:
 `docs/closing-drift-v8-forregistrering-2026-08-07.md`.
 
-Andra ankaret (Smarkets) är BORTKOPPLAT 2026-08-07. **Spärren i `ANCHOR_SOURCES` står
+Andra ankaret (Smarkets som skuggmätning bredvid Pinnacle) är BORTKOPPLAT 2026-08-07. **Spärren i `ANCHOR_SOURCES` står
 kvar** — en SÄKERHETSSPÄRR, inte en användning: utan den blir Smarkets en spelbar bok
 igen. `anchor2_*`-kolumnerna är historik och får ALDRIG påverka urval, edge, q eller
 notiser; promotion sker bara enligt `docs/tva-ankare-2026-07-25.md`.
