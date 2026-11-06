@@ -159,6 +159,19 @@ def check_sbobet() -> tuple[bool, str]:
     return True, "od-blocket ok"
 
 
+def check_betexplorer() -> tuple[bool, str]:
+    """Betexplorers publika fixtursida måste bära fixturtabellen (app/betexplorer.py)."""
+    r = httpx.get("https://www.betexplorer.com/football/england/premier-league/fixtures/",
+                  headers={"User-Agent": "Mozilla/5.0", "Accept": "text/html"},
+                  timeout=TIMEOUT)
+    if r.status_code != 200:
+        return False, f"status {r.status_code}"
+    if "table-main--leaguefixtures" not in r.text:
+        encoding = r.headers.get("content-encoding", "-")
+        return False, f"200 men fixturtabellen saknas (content-encoding: {encoding})"
+    return True, "fixturtabellen ok"
+
+
 def check_kambi() -> tuple[bool, str]:
     r = httpx.get("https://eu-offering-api.kambicdn.com/offering/v2018"
                   "/svenskaspel/listView/football/sweden/allsvenskan.json",
@@ -273,6 +286,8 @@ CHECKS = (
      "referenspris 1X2 (börs) i Oddset-delen"),
     ("sbobet", check_sbobet, False,
      "referenspris 1X2 och asiatiskt handikapp i Oddset-delen (sedan 2026-11-06)"),
+    ("betexplorer", check_betexplorer, False,
+     "bet365 som referensbok (1X2, Ö/U, handikapp) i Oddset-delen (sedan 2026-11-06)"),
     ("kambi", check_kambi, True,
      "SvS Oddset-priser: det vi faktiskt kan spela"),
     ("flashscore", check_flashscore, True,

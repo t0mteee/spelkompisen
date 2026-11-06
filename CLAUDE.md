@@ -41,6 +41,12 @@ bantningen 2026-09-02) — läs den när du undrar VARFÖR, inte varje session.
   och spärrar svenska besökare — stängd av samma skäl. Ersättare: Smarkets och SBOBET som
   REFERENSKÄLLOR (insamlade, visade, i `ANCHOR_SOURCES`, aldrig böcker att slå). Att göra
   någon av dem till ANKARE i värdemotorn/poolen är en ny signalversion och ett eget beslut.
+- **bet365 är en REFERENSBOK via Betexplorer sedan 2026-11-06** (beslut
+  2026-11-06-betexplorer-bet365, val 0): 1X2, Ö/U och handikapp (huvudlinan) samlas och
+  VISAS i Oddset-vyn (`365`), med bokens egen ändringstid per tecken (`book_changed_at`).
+  Den ligger i `ANCHOR_SOURCES` via `oddset_value.REFERENCE_BOOKS` — aldrig en bok att
+  slå, aldrig ett ankare, inte i signalversionen. `/archive-odds/` (prishistoriken) används
+  ALDRIG: priser bakfylls inte.
 - **Altenar (Ninja Casino/Betinia) är BORTTAGEN som källa helt sedan 2026-11-02** (beslut
   2026-11-02-altenar-pausa, val 1): värden svarade 403 på varje anrop från 2026-10-21, och
   att runda leverantörens skydd är stängt. Ingen insamling, inget källprov, ingen live-
@@ -182,6 +188,15 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       Avspark i GMT+8; handikappets lina är vad hemmalaget GER (lagras som
                       Pinnacle: hemmalagets handikapp). `LEAGUE_IDS` = belagda liga-id:n,
                       aldrig gissade. 1X2-marginal ~15 % (inte skarp), handikapp ~4,7 %
+  app/betexplorer.py  bet365 som REFERENSBOK (2026-11-06, beslut 2026-11-06-betexplorer-
+                      bet365): ligans publika fixtursida ger Betexplorers event-id,
+                      `/match-odds/<id>/0/<1x2|ou|ah>/odds/` (sidans egen JSON, robots
+                      tillåter) bet365:s priser. Bara djupvarvet och SIST i det (efter
+                      ledgern), ≤ 240 s och 3 s mellan anropen, matcher inom 7 dygn,
+                      takt 25 min/≤ 3 h, 115 min/≤ 24 h, 715 min annars. Tider på sidan
+                      är svensk tid. `LEAGUE_PATHS` = belagda ligasidor (15), aldrig
+                      gissade. Presence-ledger `oddset_betexplorer_capture` (en rad per
+                      anrop och marknad, även när boken saknas)
   app/betsson.py      Publik Betsson-bootstrap (ej inkopplad; events-table CloudFront-
                       blockerad utanför browser; KRÄVER brotli, se transportregeln)
   app/analysis.py     fair_prob (power-metod), värde, taggar, speltyp, mover-flagga

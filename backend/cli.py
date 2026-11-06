@@ -1283,6 +1283,11 @@ def _print_oddset_report(rep: dict) -> None:
         gated = f", {v['gated']} stoppade av notisvakten" if v.get("gated") else ""
         print(f"värde: {v.get('logged', 0)} loggade, {v.get('pushed', 0)} pushade, "
               f"{v.get('closings', 0)} stängda{gated}")
+    be = rep.get("betexplorer")
+    if be:
+        stop = f", stopp: {be['stopped']}" if be.get("stopped") else ""
+        print(f"bet365 (Betexplorer): {be['matches']} av {be['due']} matcher, "
+              f"{be['fixtures']} fixtursidor, {be['calls']} anrop{stop}")
     for err in rep["errors"]:
         print(f"  ⚠ {err}")
 

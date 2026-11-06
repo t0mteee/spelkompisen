@@ -214,6 +214,8 @@ def passive_sources() -> frozenset[str]:
     ett sharp-avbrott.
 
     * `matchbook` är per förregistrering ren skuggjämförelse (SHADOW_SOURCES).
+    * `bet365` (REFERENCE_BOOKS) är en mjuk referensbok: visas, aldrig bok
+      att slå eller ankare.
     * `smarkets` är kvar i ANCHOR_SOURCES som SÄKERHETSSPÄRR — utan den blir
       den en spelbar bok igen (184 av 476 felaktiga flaggor 2026-07-25) — men
       andra ankaret är bortkopplat sedan 2026-08-07 och `anchor2_*` skrivs som
@@ -223,8 +225,9 @@ def passive_sources() -> frozenset[str]:
     Spärren och användningen hålls alltså isär: den här listan säger något om
     KONSUMTION, inte om huruvida källan får vara en bok.
     """
-    from .oddset_value import ANCHOR2_SOURCE, SHADOW_SOURCES
-    return frozenset(set(SHADOW_SOURCES) | {ANCHOR2_SOURCE})
+    from .oddset_value import ANCHOR2_SOURCE, REFERENCE_BOOKS, SHADOW_SOURCES
+    # Referensböckerna (bet365, 2026-11-06) visas men matar inget beslut.
+    return frozenset(set(SHADOW_SOURCES) | {ANCHOR2_SOURCE} | set(REFERENCE_BOOKS))
 
 
 DEEP_MARKETS_DAYS = 7      # Kambi AH/ÖU per event bara för matcher inom N dygn
@@ -712,6 +715,156 @@ def _collect_sbobet(store: Storage, league: str, pages: list[dict],
                 store.oddset_mark_market_unavailable(c["id"], "sbobet", "ah")
                 break
     return len(seen), saved
+
+
+def _collect_betexplorer(store: Storage, report: dict, client=None,
+                         clock=time.monotonic,
+                         now: Optional[dt.datetime] = None) -> dict:
+    """bet365 via Betexplorer som REFERENSBOK (beslut 2026-11-06-betexplorer-bet365).
+
+    1X2, Ö/U och handikapp (huvudlinan = den mest balanserade) för matcher
+    inom `betexplorer.DAYS_AHEAD` dygn i de belagda ligorna. Varje svar
+    sparas med sin EGEN observationstid och en rad i presence-ledgern
+    (`oddset_betexplorer_capture`), även när boken saknades. Ligornas
+    fixtursidor läses bara när en match som ska frågas saknar känt event-id.
+    Referensen skapar ALDRIG matchidentiteter, och en match som hunnit starta
+    sparas aldrig. `bet365` ligger i ANCHOR_SOURCES: aldrig en bok att slå,
+    aldrig ett ankare. Returnerar en summering för rapporten."""
+    from . import betexplorer as be
+    book = "bet365"
+    bookie = be.BOOKS[book]
+    now = now or dt.datetime.now(dt.timezone.utc)
+    at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    until = (now + dt.timedelta(days=be.DAYS_AHEAD)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    summary = {"due": 0, "fixtures": 0, "matches": 0, "calls": 0,
+               "stopped": None}
+    upcoming = [m for m in store.oddset_matches(since=at)
+                if m["league"] in be.LEAGUE_PATHS
+                and at < (m.get("start") or "") <= until]
+    state = store.oddset_betexplorer_state([m["id"] for m in upcoming], book)
+    due = [m for m in upcoming
+           if be.refresh_due(m["start"], (state.get(m["id"]) or {}).get("asked_at"), now)]
+    summary["due"] = len(due)
+    if not due:
+        return summary
+    event_ids = {mid: st["event_id"] for mid, st in state.items() if st.get("event_id")}
+    need = sorted({m["league"] for m in due if m["id"] not in event_ids})
+    by_league: dict[str, list[dict]] = {}
+    for m in upcoming:
+        by_league.setdefault(m["league"], []).append(m)
+    started = clock()
+    own = client is None
+    client = client or be.Betexplorer()
+    failures = 0
+    league_ok: dict[str, bool] = {}
+    league_n: dict[str, int] = {}
+    try:
+        for lg in need:
+            if clock() - started > be.BUDGET_S:
+                summary["stopped"] = "budget"
+                break
+            try:
+                fx = client.fixtures(be.LEAGUE_PATHS[lg])
+            except Exception as exc:  # noqa: BLE001
+                failures += 1
+                league_ok[lg] = False
+                report["errors"].append(f"betexplorer {lg}: {exc}")
+                store.oddset_record_source_health(
+                    book, lg, "1x2", _now_iso(), False, 0, str(exc))
+                if failures >= be.MAX_FAILURES:
+                    summary["stopped"] = "fel"
+                    break
+                continue
+            failures = 0
+            summary["fixtures"] += 1
+            league_ok.setdefault(lg, True)
+            claims: dict[str, str] = {}
+            clash: set[str] = set()
+            for r in fx["rows"]:
+                ex = _resolve(by_league.get(lg, []), r["home"], r["away"], r["start"])
+                if not ex:
+                    continue    # referensen skapar ALDRIG matchidentiteter
+                if ex["id"] in claims and claims[ex["id"]] != r["event_id"]:
+                    report["errors"].append(
+                        f"betexplorer identity collision {lg}: {claims[ex['id']]} "
+                        f"och {r['event_id']} -> {ex['id']}")
+                    clash.add(ex["id"])
+                    continue
+                claims[ex["id"]] = r["event_id"]
+            for mid, eid in claims.items():
+                if mid not in clash:
+                    event_ids[mid] = eid
+                else:
+                    event_ids.pop(mid, None)
+        due.sort(key=lambda m: m["start"])     # närmast avspark först
+        for m in due:
+            if summary["stopped"]:
+                break
+            eid = event_ids.get(m["id"])
+            if not eid:
+                continue
+            referer = f"{be.BASE}{be.LEAGUE_PATHS[m['league']]}"
+            listed_1x2 = False
+            for bt in be.BET_TYPES:
+                if clock() - started > be.BUDGET_S:
+                    summary["stopped"] = "budget"
+                    break
+                try:
+                    res = client.odds(eid, bt, bookie, referer)
+                except Exception as exc:  # noqa: BLE001
+                    failures += 1
+                    league_ok[m["league"]] = False
+                    report["errors"].append(f"betexplorer {m['league']} {eid} {bt}: {exc}")
+                    store.oddset_save_betexplorer_capture(
+                        m["id"], eid, book, bt, _now_iso(), False, error=str(exc))
+                    if failures >= be.MAX_FAILURES:
+                        summary["stopped"] = "fel"
+                        break
+                    continue
+                failures = 0
+                observed = res["observed_at"]
+                if m["start"] <= observed:
+                    break       # matchen har startat — livepriser sparas aldrig
+                parsed = res["parsed"]
+                if bt == "1x2":
+                    if parsed:
+                        store.oddset_save_odds(m["id"], book, parsed["odds"], observed)
+                        listed_1x2 = True
+                    else:
+                        store.oddset_mark_market_unavailable(m["id"], book, "1x2")
+                    store.oddset_save_betexplorer_capture(
+                        m["id"], eid, book, bt, observed, True, listed=bool(parsed),
+                        prices=(parsed or {}).get("odds"),
+                        changed_at=(parsed or {}).get("changed"))
+                    continue
+                k1, k2 = be.PAIR_KEYS[bt]
+                lines = (parsed or {}).get("lines") or []
+                line = be.main_line(lines, k1, k2)
+                if line:
+                    store.oddset_save_market(
+                        m["id"], book, bt,
+                        {k1: {"odds": line[k1], "line": line["line"]},
+                         k2: {"odds": line[k2], "line": line["line"]}}, observed)
+                else:
+                    store.oddset_mark_market_unavailable(m["id"], book, bt)
+                store.oddset_save_betexplorer_capture(
+                    m["id"], eid, book, bt, observed, True, listed=bool(line),
+                    line=line["line"] if line else None, n_lines=len(lines),
+                    prices={k1: line[k1], k2: line[k2]} if line else None,
+                    changed_at=line["changed"] if line else None)
+            summary["matches"] += 1
+            league_ok.setdefault(m["league"], True)
+            league_n[m["league"]] = league_n.get(m["league"], 0) + int(listed_1x2)
+    finally:
+        summary["calls"] = getattr(client, "calls", 0)
+        if own:
+            client.close()
+    checked = _now_iso()
+    for lg, ok in league_ok.items():
+        if ok:
+            store.oddset_record_source_health(
+                book, lg, "1x2", checked, True, league_n.get(lg, 0), None)
+    return summary
 
 
 def collect(store: Storage, leagues: Optional[list[dict]] = None,
@@ -1296,6 +1449,15 @@ def collect(store: Storage, leagues: Optional[list[dict]] = None,
         oddset_ledger.prediction_report(store, update_states=True)
     except Exception as e:  # noqa: BLE001 — ledgern får inte fälla insamlingen
         report["errors"].append(f"prediction-ledger: {e}")
+    if deep:
+        # bet365 via Betexplorer (beslut 2026-11-06-betexplorer-bet365): referensbok,
+        # bara djupvarvet, egen tidsbudget. SIST i varvet så att dess upp till
+        # fyra minuter aldrig försenar ledgerns horisontfrysningar eller
+        # notisvakten. Fel här fäller aldrig insamlingen.
+        try:
+            report["betexplorer"] = _collect_betexplorer(store, report)
+        except Exception as exc:  # noqa: BLE001
+            report["errors"].append(f"betexplorer: {exc}")
     return report
 
 
@@ -1371,6 +1533,25 @@ def _next_round_for_empty_leagues(store: Storage, windowed: list[dict],
 UI_HIDDEN_SOURCES: frozenset[str] = frozenset()
 
 
+def _attach_book_changed(store: Storage, latest: dict, ids: list[str]) -> None:
+    """Referensböckernas EGEN ändringstid per tecken (`book_changed_at`), ur
+    senaste lyckade Betexplorer-svaret — bara när det svaret bar just det pris
+    och den lina som visas. Vår observationstid är fortfarande last_seen_at."""
+    for book in oddset_value.REFERENCE_BOOKS:
+        state = store.oddset_betexplorer_state(ids, book)
+        for mid, st in state.items():
+            markets = (latest.get(mid) or {}).get(book) or {}
+            for market, cap in st["markets"].items():
+                price = markets.get(market)
+                if not price or not cap["listed"] or not cap["changed_at"]:
+                    continue
+                if market != "1x2" and price.get("line") != cap["line"]:
+                    continue
+                if price.get("last_seen_at") and cap["observed_at"] < price["last_seen_at"]:
+                    continue
+                price["book_changed_at"] = cap["changed_at"]
+
+
 def matches_payload(store: Storage, light: bool = False,
                     include_research: bool = False,
                     compact_movement: bool = False,
@@ -1402,6 +1583,7 @@ def matches_payload(store: Storage, light: bool = False,
         ms.extend(_next_round_for_empty_leagues(store, ms, now))
     ids = [m["id"] for m in ms]
     latest = store.oddset_latest(ids)
+    _attach_book_changed(store, latest, ids)
     movement = store.oddset_movement(ids)
     alt = store.oddset_sharp_alt_latest(ids)
     conflicts = store.oddset_identity_conflicts(ids)

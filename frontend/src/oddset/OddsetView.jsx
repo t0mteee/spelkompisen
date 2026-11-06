@@ -4,7 +4,7 @@
 // Bruten ur App.jsx 2026-09-02; monteras i AppV3 via App.jsx export.
 import { Fragment, useEffect, useRef, useState } from 'react'
 import '../App.css'
-import { timeAgo } from '../lib/format.js'
+import { timeAgo, bookChangedTitle } from '../lib/format.js'
 import { InfoDot, useStoredBool, LoadingState, EmptyState, ErrorState } from '../components/ui.jsx'
 import { SortableTable } from '../components/SortableTable.jsx'
 import { summarizeSourceHealth } from '../sourceHealth.js'
@@ -23,10 +23,14 @@ const LINE_ANCHOR = 'sbobet'
 export const ODDSET_HIDDEN_KEY = 'svs_oddset_hidden'
 // Referenspriser (2026-11-06, efter att Pinnacle stängt Sverige): visas som
 // Pinnacle men är aldrig böcker att slå — backendens ANCHOR_SOURCES spärrar dem
-// i värdemotorn. Smarkets har bara 1X2, SBOBET 1X2 och handikapp.
+// i värdemotorn. Smarkets har bara 1X2, SBOBET 1X2 och handikapp. bet365
+// (beslut 2026-11-06-betexplorer-bet365) är en MJUK referensbok via
+// Betexplorer med 1X2, Ö/U och handikapp — aldrig ankare, aldrig bok att slå;
+// `book_changed_at` är bokens egen ändringstid per tecken.
 const REFERENCE_SOURCES = [
   ['smarkets', 'Sm', 'Smarkets (börs, referens)'],
   ['sbobet', 'SBO', 'SBOBET (asiatisk bok, referens — spelas inte från Sverige)'],
+  ['bet365', '365', 'bet365 (mjuk bok, referens via Betexplorer — aldrig ankare)'],
 ]
 export function OddsetLegend() {
   const [open, setOpen] = useStoredBool('svs_ui_oddset_legend')
@@ -41,6 +45,9 @@ export function OddsetLegend() {
             <b> P</b> = Pinnacle, världens skarpaste bok = vår referens för
             "sant" pris (<b>P~</b> = härlett ur handikapp när 1X2 inte öppnats) ·
             <b> E</b> = Expekt ·
+            <b> Sm</b>/<b>SBO</b>/<b>365</b> = referenspriser från Smarkets, SBOBET och bet365
+            (bet365 är en mjuk bok via Betexplorer, för jämförelse med Svenska Spel; hovra för
+            när bet365 senast ändrade priset) — visas, men är aldrig en bok att slå ·
             <b> M</b> = vår egen modell (amber, se nedan). Slå på <b>+ Fler odds</b>
             för att visa de spelbara sidoböckerna.</div>
           <div><b>Värde</b> = när en spelbar bok betalar MER än det sharpa priset.
@@ -706,7 +713,8 @@ export function OddsetView({ focus = null } = {}) {
           const mvR = m.movement?.[src]?.['1x2']?.[sign]
           return ro?.[sign] ? (
             <div className={quoteClass('p', ro)} key={src}
-              title={mvR?.pts?.length > 1 ? `${label}:\n${serie(mvR)}` : label}>
+              title={(mvR?.pts?.length > 1 ? `${label}:\n${serie(mvR)}` : label)
+                + bookChangedTitle(label.split(' ')[0], ro.book_changed_at, [sign])}>
               {tag} {ro[sign].toFixed(2)}{arrow(mvR)}{priceStamp(ro)}
             </div>
           ) : null
@@ -770,7 +778,8 @@ export function OddsetView({ focus = null } = {}) {
           const mvR1 = m.movement?.[src]?.[market]?.[k1]
           const mvR2 = m.movement?.[src]?.[market]?.[k2]
           return (
-            <div className={quoteClass('p', ro)} key={src} title={`${label} · ${MARKET_LABEL[market]}`}>
+            <div className={quoteClass('p', ro)} key={src}
+              title={`${label} · ${MARKET_LABEL[market]}${bookChangedTitle(label.split(' ')[0], ro.book_changed_at, [k1, k2])}`}>
               {tag} {fmtL(ro.line)} · {ro[k1].toFixed(2)}{arrowAtLine(mvR1, ro.line)} / {ro[k2].toFixed(2)}{arrowAtLine(mvR2, ro.line)}{priceStamp(ro)}
             </div>
           )
@@ -870,6 +879,7 @@ export function OddsetView({ focus = null } = {}) {
     ['pinnacle', 'markets', 'P'], ['svenskaspel', '1x2', 'SvS'],
     ['svenskaspel', 'deep', 'SvS djup'], ['expekt', '1x2', 'E'],
     ['smarkets', '1x2', 'Smarkets'], ['sbobet', '1x2', 'SBOBET'],
+    ['bet365', '1x2', 'bet365'],
     ['flashscore', 'live', 'Live Flashscore'],
     ['fotmob', 'live', 'Live FotMob'],
     ['sofascore', 'live', 'Live Sofascore'],

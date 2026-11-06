@@ -31,6 +31,12 @@ export function fmtStart(iso) {
     })
   } catch { return '' }
 }
+// Referensbokens EGEN ändringstid per tecken (bet365 via Betexplorer,
+// `book_changed_at`) som tooltiprad. Tom sträng när tiden saknas — aldrig en gissning.
+export function bookChangedTitle(name, changed, signs) {
+  const parts = (signs || []).filter((s) => changed?.[s]).map((s) => `${s} ${fmtFetched(changed[s])}`)
+  return parts.length ? `\n${name} ändrade priset senast: ${parts.join(' · ')}` : ''
+}
 export const kr = (v) => (v == null ? '–' : Math.round(v).toLocaleString('sv-SE') + ' kr')
 
 /* ---------- Svenska Spel "Egna rader"-export (filuppladdning) ----------

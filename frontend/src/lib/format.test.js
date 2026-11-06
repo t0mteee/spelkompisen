@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { fmt, kr, pct, timeAgo, fmtClose } from './format.js'
+import { fmt, kr, pct, timeAgo, fmtClose, bookChangedTitle } from './format.js'
 
 test('fmt visar två decimaler och streck för saknat', () => {
   assert.equal(fmt(2.5), '2.50')
@@ -22,4 +22,12 @@ test('timeAgo ger relativ text utan att kasta', () => {
   assert.equal(typeof timeAgo(nyss), 'string')
   assert.equal(typeof timeAgo(null), 'string')
   assert.equal(typeof fmtClose('2026-09-05T13:59:00Z'), 'string')
+})
+
+test('bookChangedTitle: bokens ändringstid per tecken, tomt utan underlag', () => {
+  const t = bookChangedTitle('bet365', { 1: '2026-11-06T09:46:00Z', X: '2026-11-04T00:19:00Z' }, ['1', 'X', '2'])
+  assert.match(t, /^\nbet365 ändrade priset senast: 1 .+ · X .+$/)
+  assert.doesNotMatch(t, / 2 /)
+  assert.equal(bookChangedTitle('bet365', undefined, ['1']), '')
+  assert.equal(bookChangedTitle('bet365', {}, ['O', 'U']), '')
 })

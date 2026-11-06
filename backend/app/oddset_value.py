@@ -75,7 +75,14 @@ PRICE_MAX_AGE_MIN = 45 # pris måste ha bekräftats i ett lyckat svar inom detta
 # 184 av 476 sharp-flaggor felaktigt Smarkets-rader (126 i tunna
 # träningsmatcher, snitt-edge 13,2 %) och började förorena CLV-facitet.
 # BOOKS i oddset.py styr insamlingen; denna spärr styr VÄRDERINGEN — båda behövs.
-ANCHOR_SOURCES = frozenset({"smarkets", "sbobet"})
+# REFERENSBÖCKER (beslut 2026-11-06-betexplorer-bet365, val 0): mjuka böcker
+# som samlas och VISAS för jämförelse mot Svenska Spel och de skarpa
+# referenserna, men aldrig är en bok att slå och aldrig ett ankare
+# (ANCHOR_BY_MARKET). bet365 via Betexplorer (app/betexplorer.py). Spärren
+# nedan är densamma som för Smarkets/SBOBET; ingen ingår i signalversionen,
+# så att lägga till en referensbok ändrar inget urval och ingen version.
+REFERENCE_BOOKS = frozenset({"bet365"})
+ANCHOR_SOURCES = frozenset({"smarkets", "sbobet"}) | REFERENCE_BOOKS
 # SBOBET (2026-11-06): referenskälla efter att Pinnacle stängt Sverige. Spelas
 # inte från Sverige och har ~15 % marginal på 1X2 — som "bok" hade den gett
 # skräpflaggor. Samma spärr som Smarkets: insamlas, värderas aldrig som bok.

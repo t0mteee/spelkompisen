@@ -18,6 +18,9 @@ poolens sharp (bygge, PH3, pit-v4, X-skyddets total — kräver en total, som va
 eller SBOBET:s datumsidor har), V2.2 (nytt manifest), pool-strength-blend (nytt manifest)
 och liveblindtestets Pinnacle-del. Alla står still tills dess. Cupernas SBOBET-id beläggs vid nästa
 cupomgång. `docs/overlamningar/overlamning-2026-11-06-sbobet.md`.
+bet365 via Betexplorer är referensbok sedan 2026-11-06 (Oddset-vyn); Europa och
+Conference Leagues sökvägar beläggs när matcherna listas hos oss
+(`docs/overlamningar/overlamning-2026-11-06-betexplorer-bet365.md`).
 
 **Tillägg 2026-09-06 efter Samans poolutvärdering:** UI-paketet och
 read-only-auditen av Stryktipset 4969 är levererade. Nästa föreslagna

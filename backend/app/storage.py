@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import contextlib
 import datetime as dt
+import json
 import os
 import sqlite3
 from pathlib import Path
@@ -931,6 +932,36 @@ CREATE INDEX IF NOT EXISTS idx_oddset_matchbook_liq
     ON oddset_matchbook_liquidity (match_id, sign, seen_at);
 """
 
+BETEXPLORER_SCHEMA = """
+-- Betexplorer (beslut 2026-11-06-betexplorer-bet365, val 0): bet365 som
+-- REFERENSBOK. Priset ligger i oddset_odds (source='bet365', vår
+-- observationstid); denna append-only-tabell är presence-ledgern: EN rad per
+-- anrop och marknad, även när boken saknades (`listed`=0) eller anropet föll
+-- (`ok`=0) — rule 7: utan den går "vi frågade och fick tomt" inte att skilja
+-- från "vi frågade aldrig". `changed_at` är BOKENS egen ändringstid per tecken
+-- enligt Betexplorer (JSON), aldrig vår observationstid; historiska priser
+-- (/archive-odds/) hämtas aldrig. `event_id` är Betexplorers ogenomskinliga
+-- sträng-id.
+CREATE TABLE IF NOT EXISTS oddset_betexplorer_capture (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    match_id     TEXT NOT NULL,
+    event_id     TEXT NOT NULL,
+    book         TEXT NOT NULL,          -- vår källnyckel ('bet365')
+    market       TEXT NOT NULL,          -- 1x2 | ou | ah
+    observed_at  TEXT NOT NULL,          -- efter anropet, minus HTTP Age
+    ok           INTEGER NOT NULL,       -- 0 = transport-/parsefel
+    listed       INTEGER NOT NULL DEFAULT 0,
+    line         REAL,                   -- vald huvudlina (ou/ah)
+    n_lines      INTEGER,
+    prices       TEXT,                   -- JSON {tecken: odds} på huvudlinan
+    changed_at   TEXT,                   -- JSON {tecken: UTC} bokens ändringstid
+    error        TEXT,
+    UNIQUE (match_id, book, market, observed_at)
+);
+CREATE INDEX IF NOT EXISTS idx_oddset_betexplorer_capture
+    ON oddset_betexplorer_capture (match_id, book, market, observed_at);
+"""
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS draws (
     product       TEXT NOT NULL,
@@ -1171,7 +1202,7 @@ CREATE TABLE IF NOT EXISTS oddset_value_log (
     outcome_key  TEXT,
     PRIMARY KEY (match_id, market, sign, line_key, model_version)
 );
-""" + RESULT_STATS_SCHEMA + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + V22_SHADOW_SCHEMA + TEAM_EVENT_SCHEMA + POOL_SETTLEMENT_SCHEMA + POOL_PIT_SCHEMA + POOL_STRENGTH_SHADOW_SCHEMA + LIVE_RADAR_SCHEMA + MATCHBOOK_SCHEMA
+""" + RESULT_STATS_SCHEMA + PREDICTION_SCHEMA + ABSENCE_SCHEMA + ELO_SCHEMA + V2_FEATURE_SCHEMA + V22_SHADOW_SCHEMA + TEAM_EVENT_SCHEMA + POOL_SETTLEMENT_SCHEMA + POOL_PIT_SCHEMA + POOL_STRENGTH_SHADOW_SCHEMA + LIVE_RADAR_SCHEMA + MATCHBOOK_SCHEMA + BETEXPLORER_SCHEMA
 
 
 class Storage:
@@ -2205,6 +2236,52 @@ class Storage:
             n += 1
         self._commit()
         return n
+
+    def oddset_save_betexplorer_capture(
+            self, match_id: str, event_id: str, book: str, market: str,
+            observed_at: str, ok: bool, listed: bool = False,
+            line: Optional[float] = None, n_lines: Optional[int] = None,
+            prices: Optional[dict] = None, changed_at: Optional[dict] = None,
+            error: Optional[str] = None) -> None:
+        """En rad per Betexplorer-anrop och marknad (BETEXPLORER_SCHEMA).
+        Append-once per observationstid: en omkörning dubblerar aldrig."""
+        self.conn.execute(
+            "INSERT OR IGNORE INTO oddset_betexplorer_capture(match_id, event_id, "
+            "book, market, observed_at, ok, listed, line, n_lines, prices, "
+            "changed_at, error) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+            (match_id, str(event_id), book, market, observed_at, int(ok),
+             int(listed), line, n_lines,
+             json.dumps(prices, sort_keys=True) if prices else None,
+             json.dumps(changed_at, sort_keys=True) if changed_at else None,
+             (error or "")[:240] or None))
+        self._commit()
+
+    def oddset_betexplorer_state(self, match_ids: list[str], book: str) -> dict:
+        """Senaste anrop per match: {match_id: {"event_id", "asked_at",
+        "markets": {marknad: {"observed_at", "listed", "line", "changed_at"}}}}.
+        `asked_at` = senaste försöket (även misslyckat) och styr insamlarens
+        takt; marknaderna bär bara lyckade svar."""
+        where, args = self._oddset_ids_clause(match_ids)
+        out: dict[str, dict] = {}
+        for r in self.conn.execute(
+                f"SELECT match_id, MAX(observed_at) AS asked_at FROM "
+                f"oddset_betexplorer_capture WHERE {where} AND book=? "
+                f"GROUP BY match_id", [*args, book]).fetchall():
+            out[r["match_id"]] = {"asked_at": r["asked_at"], "markets": {}}
+        for r in self.conn.execute(
+                f"SELECT match_id, event_id, market, observed_at, listed, line, "
+                f"changed_at FROM oddset_betexplorer_capture WHERE id IN ("
+                f"SELECT MAX(id) FROM oddset_betexplorer_capture WHERE {where} "
+                f"AND book=? AND ok=1 GROUP BY match_id, market)",
+                [*args, book]).fetchall():
+            st = out.setdefault(r["match_id"], {"asked_at": r["observed_at"],
+                                                "markets": {}})
+            st["event_id"] = r["event_id"]
+            st["markets"][r["market"]] = {
+                "observed_at": r["observed_at"], "listed": bool(r["listed"]),
+                "line": r["line"],
+                "changed_at": json.loads(r["changed_at"]) if r["changed_at"] else {}}
+        return out
 
     @staticmethod
     def _oddset_ids_clause(ids: list[str]) -> tuple[str, list]:
