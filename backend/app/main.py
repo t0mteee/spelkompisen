@@ -292,7 +292,8 @@ def health():
         # Tystnad i Oddset-varvet, liveradarn eller pooltick-jobbet: samma
         # änd-till-änd-princip som poolhälsan, helt lokalt utan anrop.
         oddset = oddset_health.report(store)
-        healthy = (pools["status"] == "ok" and v22["status"] == "ok"
+        # En avslutad V2.2-kohort ("ended") samlar inte och larmar inte.
+        healthy = (pools["status"] == "ok" and v22["status"] in ("ok", "ended")
                    and oddset["status"] == "ok")
         return {"status": "ok" if healthy else "degraded",
                 "pools": pools, "v22": v22, "oddset": oddset, "vakt": vakt}

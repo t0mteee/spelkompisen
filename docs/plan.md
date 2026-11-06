@@ -1,12 +1,22 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-11-06 — Betfair Exchange och BetInAsia via Betexplorer som mätta referensböcker; bet365 via Betexplorer som referensbok i Oddset-vyn; Pinnacle spärrar Sverige; Smarkets och SBOBET ankrar värdemotorn (anchor-v1); SBOBET ny referenskälla och Smarkets synlig igen; 2026-11-05 Big 9: valet hög EV i appen; egen kupong i appen; Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-11-06 — V2.2 v10 och poolstyrkan avslutade per 2026-11-05 09:30Z; Betfair Exchange och BetInAsia via Betexplorer som mätta referensböcker; bet365 via Betexplorer som referensbok i Oddset-vyn; Pinnacle spärrar Sverige; Smarkets och SBOBET ankrar värdemotorn (anchor-v1); SBOBET ny referenskälla och Smarkets synlig igen; 2026-11-05 Big 9: valet hög EV i appen; egen kupong i appen; Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
-`docs/overlamningar/overlamning-2026-11-06-betexplorer-per-bok.md`.
+`docs/overlamningar/overlamning-2026-11-06-v22-poolstyrka-avslutade.md`.
 
 **Nytt 2026-11-06:**
+- **V2.2 v10 och poolstyrkans manifest v2 AVSLUTADE per 2026-11-05 09:30Z** (beslut
+  2026-11-06-v22-manifest-pinnacle, val 0). Båda var frysta mot Pinnacle, som spärrar
+  Sverige; missat är missat. `ENDED_COHORTS` i `oddset_v22`/`pool_strength_shadow`
+  (nyckel = shadow_version `v22-fed39cbd`/`ps-8cbcf320`; manifestfilerna orörda): ingen
+  ny capture, inga rader ändrade (V2.2 1 611 rader/1 250 eligible, poolstyrkan 3 088
+  captures, senaste 2026-11-04 22:02Z). Idag larmar inte längre för V2.2
+  (`/api/health` → `v22.status = ended`) eller styrkeshadowen; `cli.py gater` och
+  Tester visar `avslutad`, Poolstyrka ligger i testarkivet, Labb visar V2.2 som avslutad.
+  Ny kohort mot anchor-v1 bara efter ett eget förregistrerat beslut. "För lite färsk
+  Pinnacle" på poolomgångarna står kvar — poolens sharp är ett eget beslut.
 - **Betfair Exchange och BetInAsia som referensböcker** (beslut
   driften-2026-11-06-betexplorer-per-bok, val 0; `app/betexplorer.py`). Samma
   Betexplorer-svar som bet365 bär båda böckerna, så de kostar inga egna anrop: 1X2,
@@ -45,10 +55,10 @@ Projektets aktuella kontrakt står här; historiska statusblock finns i
   driftjustering (band-v8 är Pinnacle-kalibrerad). Ny sharp-version `s-2bd0ddd1` och
   modellversion `m-d3d8e5d0` — facitet börjar om. Första API-svaret: 462 1X2-poster mot
   Smarkets, 144 handikapp mot SBOBET. **Står kvar på Pinnacle (stilla):** poolens sharp
-  (bygge, PH3, pit-v4, X-skyddets total, m20-reserven), V2.2 (fryst manifest, vägrar med
-  `source_version_changed`), modellens totalankring och Ö/U-sharp. `pool-strength-blend`
-  manifest v2 visar `stoppad` (modellversionen bytt) — det hade ingen capture sedan
-  2026-11-04 22:02Z eftersom baslinjen är Pinnacle. Poolens ankare är ett eget beslut.
+  (bygge, PH3, pit-v4, X-skyddets total, m20-reserven), modellens totalankring och
+  Ö/U-sharp. V2.2 v10 och `pool-strength-blend` manifest v2 (ingen capture sedan
+  2026-11-04 22:02Z, baslinjen är Pinnacle) är avslutade (punkten överst). Poolens
+  ankare är ett eget beslut.
 - **pool-reference-v1** (Samans val "bara visning" 2026-11-06): poolanalysen visar
   Smarkets (`Sm`) eller SBOBET (`SBO`) där Pinnacle-raden stod, kopplat exakt på Kambi-id.
   Underlagsvarningen blir `info` ("Pinnacle spärrad — Smarkets/SBOBET som referens i N/M")
@@ -290,7 +300,7 @@ frontend 5175. Launchd och `tools/tjanster.sh` gäller; ny tjänst `backup`
 till en temporär fil så att testerna aldrig öppnar produktionsdatabasen.
 
 **Kontrakt oförändrade:** live-radar chance-gap-shadow-v14 (cupernas ligafas hos Flashscore, 2026-10-15T22:00Z), V2.2 manifest
-v10/sharp s-2f14f9a6, amber-modell, powerrank-v2. Poolens champion
+v10/sharp s-2f14f9a6 (AVSLUTAD per 2026-11-05 09:30Z, ingen ny kohort), amber-modell, powerrank-v2. Poolens champion
 dr1-b256-medel, radprofiler, pool-draw-risk-v1, matematiskt max v2 och
 reducerat max v2 oförändrade (PH3-utmanarna städade 2026-10-18, se ovan).
 Inga modellpromotioner.

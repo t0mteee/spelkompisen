@@ -13,18 +13,25 @@ from app.storage import Storage
 # Pinnacle-perioden (sharp v8): testerna här prövar beräkningen med Pinnacle som
 # ankare. Sedan anchor-v1 (2026-11-06) är det en konfiguration som ger exakt den
 # gamla beräkningen och signalversionen; de nya ankarna prövas i test_ankare_v1.py.
+# Kohorten v10 är avslutad sedan 2026-11-06 (ENDED_COHORTS); testerna här prövar
+# den löpande mekaniken och tömmer därför avslutslistan. Avslutet prövas i
+# test_kohort_avslutad.py.
 _PINNACLE_ANKARE = None
+_INGEN_AVSLUTAD = None
 
 
 def setUpModule():
-    global _PINNACLE_ANKARE
+    global _PINNACLE_ANKARE, _INGEN_AVSLUTAD
     from unittest import mock as _mock
     from app import oddset_value as _ov
     _PINNACLE_ANKARE = _mock.patch.object(_ov, "ANCHOR_BY_MARKET", _ov.LEGACY_ANCHORS)
     _PINNACLE_ANKARE.start()
+    _INGEN_AVSLUTAD = _mock.patch.object(oddset_v22, "ENDED_COHORTS", {})
+    _INGEN_AVSLUTAD.start()
 
 
 def tearDownModule():
+    _INGEN_AVSLUTAD.stop()
     _PINNACLE_ANKARE.stop()
 
 

@@ -30,6 +30,15 @@ export function PoolmodellCard({ product = 'alla' }) {
           80/20 visas som ett känslighetstest. Det här ändrar inga system eller
           spel medan mätningen pågår.
         </span>
+        {strength?.ended && (
+          // Avslutad genom beslut (2026-11-06-v22-manifest-pinnacle): baslinjen
+          // är Pinnacle, som spärrar Sverige. Inget samlas; raderna står kvar.
+          <div className="v3note" role="status" style={{ marginTop: 12 }}>
+            <b>Avslutad:</b> {strength.ended.text}. Missat är missat — redan
+            insamlade rader räknas som förut. En ny kohort startar bara efter
+            ett eget förregistrerat beslut.
+          </div>
+        )}
         {strength?.stopped && (
           // Spårets egen spärr (capture_due) vägrar samla när modellens
           // signalversion inte längre är manifestets. Det ska synas här i
@@ -85,7 +94,8 @@ export function PoolmodellCard({ product = 'alla' }) {
                         {delta(diagnostic.mean_delta_logloss)}</td>
                       <td>{row.data_ready
                         ? <b className="v3pos">mängdkrav nått</b>
-                        : <span className="v3hint">{strength.stopped ? 'stoppad' : 'samlar'}</span>}</td>
+                        : <span className="v3hint">{strength.ended ? 'avslutad'
+                          : strength.stopped ? 'stoppad' : 'samlar'}</span>}</td>
                     </tr>
                   )
                 })}

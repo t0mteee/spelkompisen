@@ -250,6 +250,8 @@ def capture_predictions(store: Storage, matches: list[dict],
     versions = prediction_versions(store)
     result = {"captures": 0, "rows": 0, "empty": 0}
     v22_builder = None
+    from . import oddset_v22
+    v22_open = not oddset_v22.ended()
     for match in matches:
         if not match.get("start"):
             continue
@@ -265,8 +267,8 @@ def capture_predictions(store: Storage, matches: list[dict],
                 continue
             rows = _sharp_rows(match) if tier == "sharp" else _model_rows(match)
             capture = _capture_meta(match, horizon, tier, version, now)
-            from . import oddset_v22
-            if tier == "sharp" and match.get("league") in oddset_v22.SCOPE_LEAGUES:
+            if (v22_open and tier == "sharp"
+                    and match.get("league") in oddset_v22.SCOPE_LEAGUES):
                 # V2.2 utgår från sharp-capturen, inte den ordinarie amber-
                 # modellens ledgeridentitet. Det håller forskningsligorna helt
                 # utanför produktens modellversion/facit. Feature + sharp +

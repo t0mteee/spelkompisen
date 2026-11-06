@@ -52,6 +52,22 @@ MANIFEST_PATH = (
     Path(__file__).resolve().parents[2] / "docs" /
     "model-v2.2-multileague-forward-manifest-v10.json"
 )
+# Avslutade kohorter, nyckel = shadow_version (manifestets hash). Manifestfilen
+# rörs aldrig — en ändring i den vore en ny kohort. v10 (v22-fed39cbd) avslutades
+# när Pinnacle spärrade Sverige: sharpen fick nya versioner med anchor-v1 och
+# manifestets change_policy kräver ett nytt manifest. Beslut
+# 2026-11-06-v22-manifest-pinnacle, val 0: avsluta som den är (missat är
+# missat), inga rader ändras, ingen ny kohort utan ett eget förregistrerat
+# beslut. En avslutad kohort samlar inte, och hälsan larmar inte om den.
+ENDED_COHORTS = {
+    "v22-fed39cbd": {
+        "ended_at": "2026-11-05T09:30:00Z",
+        "decision": "2026-11-06-v22-manifest-pinnacle",
+        "reason": ("Pinnacle spärrar Sverige sedan 2026-11-05 09:30Z; manifestet "
+                   "v10 är fryst mot Pinnacles sharpversioner. Ny kohort mot "
+                   "anchor-v1 kräver ett eget förregistrerat beslut."),
+    },
+}
 REQUIRED_BASE_FEATURES = (
     "attack_log_ratio", "defence_log_ratio", "home_adv_log",
     "effective_n_home", "effective_n_away", "data_age_home_days",
@@ -89,6 +105,11 @@ def load_manifest() -> dict:
 
 def shadow_version() -> str:
     return f"v22-{_hash(load_manifest())[:8]}"
+
+
+def ended() -> Optional[dict]:
+    """Avslutsbeskedet för den aktiva manifestets kohort, annars None."""
+    return ENDED_COHORTS.get(shadow_version())
 
 
 def model_source_version(store: Storage) -> str:
@@ -425,6 +446,8 @@ def due_matches(store: Storage, matches: list[dict],
     """Matcher vars aktuella fasta horisont ännu saknar V2.2-shadowrad."""
     from .oddset_ledger import horizon_at
 
+    if ended():
+        return []
     now = now or dt.datetime.now(dt.timezone.utc)
     existing = {
         (row["match_id"], row["horizon"])
@@ -502,7 +525,9 @@ def audit(store: Storage) -> dict:
         "experiment": load_manifest()["experiment"],
         "shadow_version": shadow_version(),
         "feature_version": feature_version(store),
-        "phase": "identity_control_until_training_gate",
+        "phase": ("ended" if ended() else
+                  "identity_control_until_training_gate"),
+        "ended": ended(),
         "actionable": False, "notifications": False,
         "regular_ui": False,
         "scope_leagues": list(SCOPE_LEAGUES),
@@ -526,6 +551,19 @@ def health(store: Storage) -> dict:
 
     manifest = load_manifest()
     frozen = manifest["source_versions_at_freeze"]
+    end = ended()
+    if end:
+        # Avslutad kohort: kontraktet ska inte längre matcha runtime, så ett
+        # versionsbyte är inget fel att larma om. Raderna redovisas oförändrade.
+        rows = store.oddset_v22_shadows(shadow_version())
+        return {
+            "status": "ended",
+            "experiment": manifest["experiment"],
+            "shadow_version": shadow_version(),
+            "rows": len(rows),
+            "eligible_rows": sum(bool(row.get("eligible")) for row in rows),
+            "ended": end, "versions": {"frozen": frozen}, "issues": [],
+        }
     sharp = oddset_ledger.prediction_versions(store)["sharp"]
     current = {
         "sharp_signal_version": sharp["signal_version"],
@@ -585,6 +623,9 @@ def format_audit(report: dict) -> str:
     lines = [
         f"V2.2 {report['shadow_version']} · {report['phase']} · "
         f"{report['rows']} rader/{report['unique_matches']} matcher",
+        *([f"AVSLUTAD {report['ended']['ended_at']} (beslut "
+           f"{report['ended']['decision']}) — samlar inte längre"]
+          if report.get("ended") else []),
         f"actionable nej · notiser nej · identity max |Δp| "
         f"{report['identity_max_abs']:.3g}",
     ]

@@ -98,6 +98,7 @@ def _wp5_ledger(store: Storage) -> list[dict]:
 def _v22(store: Storage) -> list[dict]:
     from .oddset_v22 import audit
     rep = audit(store)
+    ended = rep.get("ended")
     out = []
     for horizon, h in rep["horizons"].items():
         thin = [lg for lg, v in h["by_league"].items()
@@ -105,14 +106,17 @@ def _v22(store: Storage) -> list[dict]:
         ready = (h["settled_eligible_unique_matches"] >= h["training_min_matches"]
                  and h["span_days"] >= h["training_min_span_days"] and not thin)
         out.append(_row("v2.2", f"träningsgate {horizon}",
-                        "underlag klart" if ready else "samlar",
+                        "underlag klart" if ready else
+                        "avslutad" if ended else "samlar",
                         n=h["settled_eligible_unique_matches"], krav=h["training_min_matches"],
                         dagar=h["span_days"], dagar_krav=h["training_min_span_days"],
                         anm=(f"under {h['training_min_per_league']}/liga: {', '.join(thin)}"
                              if thin else "alla ligor över per-liga-kravet")))
     out.append(_row("v2.2", f"identitet ({rep['shadow_version']})",
                     "ok" if rep["identity_max_abs"] < 1e-9 else "AVVIKER",
-                    n=rep["rows"], anm=f"max|p_v22−p_sharp| = {rep['identity_max_abs']:.2e}"))
+                    n=rep["rows"], anm=f"max|p_v22−p_sharp| = {rep['identity_max_abs']:.2e}"
+                    + (f" · AVSLUTAD {ended['ended_at']} (beslut {ended['decision']})"
+                       if ended else "")))
     return out
 
 
@@ -207,20 +211,24 @@ def _strength(store: Storage) -> list[dict]:
     rep = report(store)
     gate = rep["gate"]
     stopped = rep.get("stopped")
+    ended = rep.get("ended")
     anm = f"{rep['captured']} captures · {rep['eligible']} eligible"
-    if stopped:
+    if ended:
+        anm = f"AVSLUTAD {ended['ended_at']} (beslut {ended['decision']}) · {anm}"
+    elif stopped:
         # Spårets EGEN stoppsignal (capture_due vägrar vid bytt modellversion);
         # ingen ny regel här, bara att den syns i stället för "samlar".
         anm = f"STOPPAD: {stopped['text']} · {anm}"
     out = [_row("poolstyrka", f"{rep['experiment']} ({rep['shadow_version']})",
-                {"candidate": "kandidat", "samlar": "samlar",
-                 "stoppad": "stoppad"}.get(rep["status"], rep["status"]),
+                {"candidate": "kandidat", "samlar": "samlar", "stoppad": "stoppad",
+                 "avslutad": "avslutad"}.get(rep["status"], rep["status"]),
                 n=rep["settled"], anm=anm)]
     for horizon, h in rep["horizons"].items():
         represented = sum(n >= gate["minimum_settled_per_league"]
                           for n in h["league_counts"].values())
         out.append(_row("poolstyrka", f"horisont {horizon}",
                         "underlag klart" if h["data_ready"] else
+                        "avslutad" if ended else
                         "stoppad" if stopped else "samlar",
                         n=h["settled"], krav=gate["minimum_settled_events_per_horizon"],
                         dagar=h["span_days"], dagar_krav=gate["minimum_span_days"],

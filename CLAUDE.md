@@ -71,6 +71,11 @@ bantningen 2026-09-02) — läs den när du undrar VARFÖR, inte varje session.
   `MODEL_DATA_VERSION` är en ändrad datagenererande process ⇒ nytt manifest. Äldre manifest
   blandas aldrig in. Det är inte en tränad modell och får inte påverka tips, notiser eller
   CLV. Före träningsgaten måste `p_v22 == p_sharp` exakt.
+  **Kohorten v10 (`v22-fed39cbd`) är AVSLUTAD per 2026-11-05 09:30Z** (beslut
+  2026-11-06-v22-manifest-pinnacle, val 0: Pinnacle spärrar Sverige, manifestet är fryst
+  mot Pinnacles sharp). `oddset_v22.ENDED_COHORTS` (nyckel = shadow_version, manifestfilen
+  rörs aldrig): ingen capture, hälsan `ended` utan larm, gater `avslutad`. Missat är missat;
+  raderna ändras inte. Ny kohort mot anchor-v1 bara efter ett eget förregistrerat beslut.
 - **Bakfyllning är tillåten för RESULTATSTATISTIK** (ett avgjort resultat och dess xG är
   settlade fakta) **men aldrig för priser, live-signaler eller presence**, där
   observationstiden är en del av mätningen.
@@ -93,6 +98,9 @@ bantningen 2026-09-02) — läs den när du undrar VARFÖR, inte varje session.
   poolhälsan — varje ny modelliga eller omkalibrering stoppar spåret igen.
   `/api/pool/strength-shadow` tar `family=1` (en familjenyckel är
   ett giltigt PRODUKTnamn men filtrerar exakt).
+  **Manifest v2 är AVSLUTAT per 2026-11-05 09:30Z** (samma beslut som V2.2 ovan; baslinjen
+  är Pinnacle): `pool_strength_shadow.ENDED_COHORTS` stoppar `capture_due`, status
+  `avslutad` (ingen `strength_shadow_stopped`-varning), Poolstyrka ligger i testarkivet.
 - Powerranken (`powerrank-v2`) mäter poäng, mål och xPts på EXAKT samma matchmängd — de med
   xG; lag utan xG-matcher visas inte. `MIN_MATCHES` prövas mot hela historiken.
 

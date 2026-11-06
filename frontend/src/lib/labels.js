@@ -166,6 +166,7 @@ export const LABB_STATUS = {
   pass: ['GATE-PASS', 'Den förregistrerade grinden är passerad — se dokumentet för hela beslutet.'],
   fals: ['FALSIFIERAD', 'Hypotesen föll mot facit — spåret byggs inte vidare som tips.'],
   stoppad: ['STOPPAD', 'Insamlingen står still: spårets egen spärr vägrar samla (t.ex. bytt modellversion). Insamlade rader räknas som förut; nytt manifest krävs för att samla vidare.'],
+  avslutad: ['AVSLUTAD', 'Spåret är avslutat genom ett beslut och samlar inte längre. Insamlade rader ligger kvar oförändrade; en ny kohort kräver ett eget förregistrerat beslut.'],
 }
 // Primärgrupperna för sharp-CLV (speglar backend PRIMARY_LEAGUES × 1X2 × sharp)
 export const LABB_PRIMARY = ['allsvenskan', 'superettan', 'eliteserien', 'obosligaen', 'mls']
@@ -202,9 +203,9 @@ export const LABB_RESEARCH = [
   { icon: '🔮', title: 'Close-drift v1', date: '2026-07-26', status: 'fals',
     text: 'Momentum FALSIFIERAD; tidiga AH/Ö/U-skift reverserar.',
     doc: 'docs/close-drift-facit-2026-07-26.md' },
-  { icon: '🔬', title: 'V2.2 flerliga-shadow', status: 'samlar',
-    text: 'Ren shadow, manifest v4 från 2026-08-01 21:20Z — inga tips, notiser eller CLV.',
-    doc: 'docs/model-v2.2-multileague-forward-manifest-v4.json' },
+  { icon: '🔬', title: 'V2.2 flerliga-shadow', date: '2026-11-06', status: 'avslutad',
+    text: 'Manifest v10 avslutat per 2026-11-05 09:30Z: Pinnacle spärrar Sverige och kohorten var fryst mot Pinnacles sharp. Missat är missat; ny kohort mot anchor-v1 bara efter ett eget förregistrerat beslut. Aldrig tips, notiser eller CLV.',
+    doc: 'docs/model-v2.2-multileague-forward-manifest-v10.json' },
 ]
 // Poolens forskningsspår — visas i Historik (Historik = pool, Labb = odds).
 export const HISTORIK_RESEARCH = [

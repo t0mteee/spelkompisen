@@ -27,6 +27,19 @@ ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = ROOT / "docs" / "pool-strength-forward-manifest-v2.json"
 SIGNS = ("1", "X", "2")
 COL = {"1": "1", "X": "x", "2": "2"}
+# Avslutade kohorter, nyckel = shadow_version. Manifestfilen rörs aldrig.
+# Manifest v2 (ps-8cbcf320) har Pinnacle som baslinje och avslutades när
+# Pinnacle spärrade Sverige (beslut 2026-11-06-v22-manifest-pinnacle, val 0:
+# missat är missat). Insamlade rader räknas som förut; ny kohort kräver ett
+# eget förregistrerat beslut och ett nytt manifest.
+ENDED_COHORTS = {
+    "ps-8cbcf320": {
+        "ended_at": "2026-11-05T09:30:00Z",
+        "decision": "2026-11-06-v22-manifest-pinnacle",
+        "text": ("avslutad 2026-11-05 09:30Z: Pinnacle spärrar Sverige och "
+                 "baslinjen är Pinnacle"),
+    },
+}
 
 # Svenska Spels liganamn -> målmodellens explicita liganyckel. Ingen fuzzy
 # ligamatchning: en okänd cup/landskamp ska vara synlig som coverage-bortfall.
@@ -70,6 +83,11 @@ def model_signal_version(store: Storage) -> str:
     return oddset_value.signal_versions(store)["model"]
 
 
+def ended() -> Optional[dict]:
+    """Avslutsbeskedet för det aktiva manifestets kohort, annars None."""
+    return ENDED_COHORTS.get(shadow_version())
+
+
 def stop_status(store: Storage, manifest: Optional[dict] = None) -> dict:
     """Står insamlingen still? Billig (ingen fit/bootstrap) — pool_health läser den.
 
@@ -91,9 +109,12 @@ def stop_status(store: Storage, manifest: Optional[dict] = None) -> dict:
         except (TypeError, ValueError):
             continue
         last = at if last is None or at > last else last
-    stopped = current != expected
+    # En avslutad kohort står inte still av misstag — den är klar, och
+    # poolhälsan ska inte larma om den.
+    end = ended()
+    stopped = current != expected and not end
     return {
-        "stopped": stopped,
+        "stopped": stopped, "ended": end,
         "reason": "model_source_version_changed" if stopped else None,
         "expected_model_signal_version": expected,
         "current_model_signal_version": current,
@@ -171,6 +192,9 @@ def capture_due(store: Storage, product: str, draw, sharp_result: Optional[dict]
     horizon = pool_dataset.horizon_window_open(draw.reg_close_time, now=now)
     report = {"horizon": horizon, "captured": 0, "eligible": 0}
     if not horizon:
+        return report
+    if ended():
+        report["error"] = "cohort_ended"
         return report
     if (not sharp_result or sharp_result.get("skipped") or
             sharp_result.get("pinnacle_error")):
@@ -369,12 +393,14 @@ def report(store: Storage, product: Optional[str] = None,
     # att växa. Nådd datagrind (candidate) står kvar — underlaget är redan
     # insamlat och prövningen får köras; stoppet redovisas ändå i `stopped`.
     status = ("candidate" if ready else
+              "avslutad" if stop["ended"] else
               "stoppad" if stop["stopped"] else "samlar")
     return {
         "experiment": manifest["experiment"], "shadow_version": version,
         "model_signal_version": manifest["source_versions"]["model_signal_version"],
         "starts_at": manifest["collection"]["starts_at"],
         "status": status, "stopped": stop if stop["stopped"] else None,
+        "ended": stop["ended"],
         "actionable": False, "affects_systems": False,
         "product": product, "products": products,
         "captured": len(rows), "eligible": len(eligible),

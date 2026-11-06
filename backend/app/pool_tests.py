@@ -40,8 +40,10 @@ CATALOG: tuple[dict, ...] = (
                 "championen på Topptipset-familjen. Ligger kvar för revision.",
      "doc": "docs/poolopt-v1-forward-2026-09-02.md", "coupons": "research"},
     {"id": "poolstyrka", "title": "Poolstyrka", "icon": "🧬", "kind": "strength",
-     "purpose": "Förbättrar 90 % Pinnacle + 10 % lagstyrka Pinnacles 1X2-prognos på poolmatcher? "
-                "Logloss per horisont, aldrig systeminput.",
+     "archived": True,
+     "purpose": "Avslutad 2026-11-05 09:30Z (Pinnacle spärrar Sverige): förbättrade 90 % "
+                "Pinnacle + 10 % lagstyrka Pinnacles 1X2-prognos på poolmatcher? Logloss "
+                "per horisont, aldrig systeminput. Ligger kvar för revision.",
      "doc": "docs/pool-strength-forward-manifest-v2.json", "coupons": None},
     {"id": "total", "title": "Ö/U-totalen", "icon": "📏", "kind": "total",
      "purpose": "Bär Pinnacles huvudtotal information om oavgjort utöver X-priset? Först då vet vi "
@@ -73,6 +75,12 @@ DECISIONS: dict[str, dict] = {
                         "stada-poolvarianter): armarna fryses inte längre, historiken ligger "
                         "kvar. Avläsningen vid 40 (2026-09-24) passerade ingen cell.",
                 "doc": "docs/poolopt-v1-avlasning-2026-09-24.md"},
+    "poolstyrka": {"date": "2026-11-06", "verdict": "avslutad",
+                   "text": "Manifest v2 avslutat som det är per 2026-11-05 09:30Z, när Pinnacle "
+                           "spärrade Sverige (baslinjen är Pinnacle). Missat är missat; inga "
+                           "rader ändras. Ny kohort mot anchor-v1 bara efter ett eget "
+                           "förregistrerat beslut (beslut 2026-11-06-v22-manifest-pinnacle).",
+                   "doc": "docs/pool-strength-forward-manifest-v2.json"},
     "standard": {"date": "2026-10-18", "verdict": "städad",
                  "text": "Bara 256 kr medel (champion) och 512 kr medel syns; 256 kr säker fryses "
                          "dold. Tuff på alla budgetar, 144 och 1 024 kr, 512 kr säker och "

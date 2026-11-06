@@ -103,9 +103,10 @@ export function OddsetLegend() {
             grupp. <b>📒 Signal-loggen</b> visar i stället vad som faktiskt flaggades.
             Båda faciten finns samlade i <b>Labb</b>. Lita på ledgerfacitet, inte på känsla.</div>
           <div><b>🔬 Forskningsliga</b> (Premier League, Serie A, La Liga, Bundesliga) —
-            visas med odds, prisålder och rörelser medan V2.2-experimentet samlar sitt
-            forwardunderlag. Inga värdesignaler, Kelly-förslag, notiser eller
-            facit-loggning här ännu: synlig liga är inte samma sak som spelbar signal.</div>
+            visas med odds, prisålder och rörelser. V2.2-experimentet som samlade
+            forwardunderlag för dem avslutades 2026-11-05 (Pinnacle spärrar Sverige).
+            Inga värdesignaler, Kelly-förslag, notiser eller facit-loggning här:
+            synlig liga är inte samma sak som spelbar signal.</div>
         </div>
       )}
     </div>
@@ -1453,7 +1454,7 @@ export function OddsetView({ focus = null } = {}) {
             <button key={l.key}
               className={`${hidden.includes(l.key) ? 'lg off' : 'lg'}${l.research ? ' research' : ''}`}
               onClick={() => toggleLeague(l.key)}
-              title={`${l.research ? 'Forskningsliga — V2.2 samlar data. Odds, prisålder och rörelser visas, men inga värdesignaler, Kelly, notiser eller facit ännu.\n' : ''}${hidden.includes(l.key) ? 'Visa ligan' : 'Dölj ligan'}`}>
+              title={`${l.research ? 'Forskningsliga — odds, prisålder och rörelser visas, men inga värdesignaler, Kelly, notiser eller facit (V2.2 avslutad 2026-11-05).\n' : ''}${hidden.includes(l.key) ? 'Visa ligan' : 'Dölj ligan'}`}>
               {l.research ? '🔬 ' : ''}{l.name} {counts[l.key] ? `(${counts[l.key]})` : '(0)'}
             </button>
           ))}
