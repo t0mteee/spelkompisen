@@ -104,7 +104,7 @@ def _ratio(a: str, b: str) -> float:
 # Poolens egna bekräftade kortnamn. Ändra inte Oddsets/modellens globala
 # alias för att rätta poolmatcharen. Evidens: täckningsrapport 2026-09-13
 # och NameRuleTests (Svenska Spel ↔ Pinnacle).
-POOL_MATCH_VERSION = "pool-name-v12"
+POOL_MATCH_VERSION = "pool-name-v13"
 _POOL_TEAM_ALIASES = {
     "leeds": "leeds united",
     "nottingham": "nottingham forest",
@@ -213,7 +213,18 @@ _POOL_CONTEXT_ALIASES = {("estudiantes", "lanus"): "estudiantes de la plata",
                          ("rosario", "banfield"): "rosario central",
                          # Independiente Medellin–Independiente Santa Fe 2026-10-06
                          # 00:00Z, id 1637185133.
-                         ("santa fe", "independiente medellin"): "independiente santa fe"}
+                         ("santa fe", "independiente medellin"): "independiente santa fe",
+                         # pool-name-v13 (beslut driften-2026-11-07-topptipset-4433-
+                         # sarmiento-alias, val 0): Topptipset 4433 match 2 Tigre–
+                         # Sarmiento 2026-11-07 01:00Z mot Pinnacles "CA Tigre –
+                         # Sarmiento de Junin" vid exakt avspark (pool_match_diagnostic:
+                         # sidopoäng 0,0/0,0). Sarmiento ensamt är tvetydigt (Junín och
+                         # Resistencia), därför bara mot Tigre. Pinnacle skriver
+                         # motparten "CA Tigre": se _POOL_CONTEXT_OPPONENTS.
+                         ("sarmiento", "tigre"): "sarmiento de junin"}
+# pool-name-v13: Pinnacles egen form av kontextaliasets motpart, när den inte
+# är SvS-namnet. Gäller BARA paret i nyckeln; "ca tigre" blir inget alias.
+_POOL_CONTEXT_OPPONENTS = {("sarmiento", "tigre"): "ca tigre"}
 _SQUAD_MARKERS = frozenset({"b", "ii", "reserve", "reserves", "academy",
                             "youth", "women", "damer"})
 # pool-name-v7: damformer i SvS EGNA lagnamn. SvS skriver damlandslag med
@@ -333,8 +344,9 @@ def pool_side_score(candidates: list[str], target: str, opponent: str,
     other = _norm_team(opponent)
     canonical = _POOL_CONTEXT_ALIASES.get((name, other))
     if canonical:
+        opponent_forms = {other, _POOL_CONTEXT_OPPONENTS.get((name, other), other)}
         return float(gap_h is not None and gap_h <= 0.25
-                     and _norm_team(target_opponent) == other
+                     and _norm_team(target_opponent) in opponent_forms
                      and _norm_team(target) == canonical)
     return _best_side(candidates, target)
 

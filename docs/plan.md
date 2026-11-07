@@ -1,10 +1,22 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-11-06 — V2.2 v10 och poolstyrkan avslutade per 2026-11-05 09:30Z; Betfair Exchange och BetInAsia via Betexplorer som mätta referensböcker; bet365 via Betexplorer som referensbok i Oddset-vyn; Pinnacle spärrar Sverige; Smarkets och SBOBET ankrar värdemotorn (anchor-v1); SBOBET ny referenskälla och Smarkets synlig igen; 2026-11-05 Big 9: valet hög EV i appen; egen kupong i appen; Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-11-07 — pool-name-v13 Sarmiento mot Tigre; 2026-11-06 V2.2 v10 och poolstyrkan avslutade per 2026-11-05 09:30Z; Betfair Exchange och BetInAsia via Betexplorer som mätta referensböcker; bet365 via Betexplorer som referensbok i Oddset-vyn; Pinnacle spärrar Sverige; Smarkets och SBOBET ankrar värdemotorn (anchor-v1); SBOBET ny referenskälla och Smarkets synlig igen; 2026-11-05 Big 9: valet hög EV i appen; egen kupong i appen; Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
 `docs/overlamningar/overlamning-2026-11-06-v22-poolstyrka-avslutade.md`.
+
+**Nytt 2026-11-07:**
+- **pool-name-v13** (beslut driften-2026-11-07-topptipset-4433-sarmiento-alias, val 0):
+  kontextaliaset Sarmiento → Sarmiento de Junin, BARA när SvS-motparten är Tigre.
+  Topptipset 4433 match 2 (Tigre–Sarmiento, 2026-11-07 01:00Z) fick ingen Pinnacle och
+  vakten larmade `pool_pinnacle_saknas`: "CA Tigre – Sarmiento de Junin" vid exakt avspark
+  gav sidopoäng 0,0/0,0. Sarmiento ensamt är tvetydigt (Junín och Resistencia), därför
+  inget globalt alias. Pinnacle skriver motparten "CA Tigre", så kontextaliaset bär
+  Pinnacles egen motpartsform (`_POOL_CONTEXT_OPPONENTS`, bara för paret); med det länkas
+  paret på nivå D (Tigre-sidan är ett icke-generiskt delnamn). Ingen ny regel i övrigt;
+  4418 Sarmiento–Rosario länkas fortfarande inte. Omgång 4433 är stängd och Pinnacle
+  spärrar Sverige, så ändringen verkar först när Pinnacle svarar igen. Inget bakfyllt.
 
 **Nytt 2026-11-06:**
 - **V2.2 v10 och poolstyrkans manifest v2 AVSLUTADE per 2026-11-05 09:30Z** (beslut

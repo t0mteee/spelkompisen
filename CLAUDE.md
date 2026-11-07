@@ -163,6 +163,10 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       **v12 (beslut drift-2026-11-04-topptipset-4429-alajuelense-alias,
                       val 0):** poolaliaset LD Alajuelense → Alajuelense (Topptipset
                       4429). Inga regeländringar.
+                      **v13 (beslut driften-2026-11-07-topptipset-4433-sarmiento-alias,
+                      val 0):** kontextaliaset Sarmiento → Sarmiento de Junin bara mot
+                      Tigre (Topptipset 4433); `_POOL_CONTEXT_OPPONENTS` bär Pinnacles
+                      form av motparten (CA Tigre) för just det paret.
   app/sharp_service.py Pinnacle för poolen: `VarvIndex` = ETT index per basvarv delat av
                       alla produkter och omgångar; avslag bokförs i `pool_match_diagnostic`
   app/pool_capture_refresh.py m20-reserv för PIT: exakt Pinnacle-id, färsk 1X2 + total
