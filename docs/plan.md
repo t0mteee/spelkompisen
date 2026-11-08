@@ -1,10 +1,23 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-11-07 — pool-name-v13 Sarmiento mot Tigre; 2026-11-06 V2.2 v10 och poolstyrkan avslutade per 2026-11-05 09:30Z; Betfair Exchange och BetInAsia via Betexplorer som mätta referensböcker; bet365 via Betexplorer som referensbok i Oddset-vyn; Pinnacle spärrar Sverige; Smarkets och SBOBET ankrar värdemotorn (anchor-v1); SBOBET ny referenskälla och Smarkets synlig igen; 2026-11-05 Big 9: valet hög EV i appen; egen kupong i appen; Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-11-08 — pool-name-v14 apostrofer och Instituto mot Newell's; 2026-11-07 pool-name-v13 Sarmiento mot Tigre; 2026-11-06 V2.2 v10 och poolstyrkan avslutade per 2026-11-05 09:30Z; Betfair Exchange och BetInAsia via Betexplorer som mätta referensböcker; bet365 via Betexplorer som referensbok i Oddset-vyn; Pinnacle spärrar Sverige; Smarkets och SBOBET ankrar värdemotorn (anchor-v1); SBOBET ny referenskälla och Smarkets synlig igen; 2026-11-05 Big 9: valet hög EV i appen; egen kupong i appen; Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
 `docs/overlamningar/overlamning-2026-11-06-v22-poolstyrka-avslutade.md`.
+
+**Nytt 2026-11-08:**
+- **pool-name-v14** (beslut driften-2026-11-07-topptipset-4436-instituto-newells-alias,
+  val 0): poolmatcharen tar bort apostroferna ´ (U+00B4) och ’ (U+2019) före
+  jämförelsen, som ' redan togs bort (`odds_provider._POOL_APOSTROPHES`, bara i
+  `_norm_team`; Oddsets globala `norm_team` är orörd), plus kontextaliaset Instituto de
+  Cordoba → Instituto, BARA när SvS-motparten är Newells Old Boys. Topptipset 4436 match 8
+  (Instituto de Cordoba–Newell´s Old Boys, 2026-11-08 01:00Z) fick ingen Pinnacle och
+  vakten larmade `pool_pinnacle_saknas`: "Instituto – Newells Old Boys" vid exakt avspark
+  gav sidopoäng 0,0/0,97 (SvS skriver "Newell´s"). Med ändringen länkas paret på nivå A.
+  Instituto mot andra motparter prövas som förut (v8:s nivå D kräver exakt motpart).
+  Pinnacle spärrar Sverige, så ändringen verkar först när Pinnacle svarar igen; larmet
+  kan återkomma av spärren. Inget bakfyllt.
 
 **Nytt 2026-11-07:**
 - **pool-name-v13** (beslut driften-2026-11-07-topptipset-4433-sarmiento-alias, val 0):

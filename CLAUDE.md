@@ -167,6 +167,10 @@ backend/  Python 3.13 + FastAPI + httpx (venv i backend/.venv — INTE uv)
                       val 0):** kontextaliaset Sarmiento → Sarmiento de Junin bara mot
                       Tigre (Topptipset 4433); `_POOL_CONTEXT_OPPONENTS` bär Pinnacles
                       form av motparten (CA Tigre) för just det paret.
+                      **v14 (beslut driften-2026-11-07-topptipset-4436-instituto-newells-
+                      alias, val 0):** apostroferna ´ och ’ tas bort före jämförelsen
+                      (Newell´s = Newells), och kontextaliaset Instituto de Cordoba →
+                      Instituto bara mot Newells Old Boys (Topptipset 4436).
   app/sharp_service.py Pinnacle för poolen: `VarvIndex` = ETT index per basvarv delat av
                       alla produkter och omgångar; avslag bokförs i `pool_match_diagnostic`
   app/pool_capture_refresh.py m20-reserv för PIT: exakt Pinnacle-id, färsk 1X2 + total

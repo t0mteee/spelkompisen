@@ -46,8 +46,8 @@ class VerkligaFallTests(unittest.TestCase):
             "CS Herediano", "LD Alajuelense", [clasico], "2026-11-08T02:00:00+01:00")))
 
     def test_versionen(self):
-        self.assertEqual("pool-name-v13", op.POOL_MATCH_VERSION)
-        self.assertEqual("pool-name-v13", v12(
+        self.assertEqual("pool-name-v14", op.POOL_MATCH_VERSION)
+        self.assertEqual("pool-name-v14", v12(
             "CD Escorpiones Belen", "LD Alajuelense", [ESCORPIONES],
             SVS_4429)["match_version"])
 

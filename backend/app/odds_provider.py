@@ -104,7 +104,7 @@ def _ratio(a: str, b: str) -> float:
 # Poolens egna bekräftade kortnamn. Ändra inte Oddsets/modellens globala
 # alias för att rätta poolmatcharen. Evidens: täckningsrapport 2026-09-13
 # och NameRuleTests (Svenska Spel ↔ Pinnacle).
-POOL_MATCH_VERSION = "pool-name-v13"
+POOL_MATCH_VERSION = "pool-name-v14"
 _POOL_TEAM_ALIASES = {
     "leeds": "leeds united",
     "nottingham": "nottingham forest",
@@ -221,7 +221,14 @@ _POOL_CONTEXT_ALIASES = {("estudiantes", "lanus"): "estudiantes de la plata",
                          # sidopoäng 0,0/0,0). Sarmiento ensamt är tvetydigt (Junín och
                          # Resistencia), därför bara mot Tigre. Pinnacle skriver
                          # motparten "CA Tigre": se _POOL_CONTEXT_OPPONENTS.
-                         ("sarmiento", "tigre"): "sarmiento de junin"}
+                         ("sarmiento", "tigre"): "sarmiento de junin",
+                         # pool-name-v14 (beslut driften-2026-11-07-topptipset-4436-
+                         # instituto-newells-alias, val 0): Topptipset 4436 match 8
+                         # Instituto de Cordoba–Newell´s Old Boys 2026-11-08 01:00Z mot
+                         # Pinnacles "Instituto – Newells Old Boys" vid exakt avspark
+                         # (pool_match_diagnostic: sidopoäng 0,0/0,97). Instituto ensamt
+                         # kan vara en annan klubb, därför bara mot Newells Old Boys.
+                         ("instituto de cordoba", "newells old boys"): "instituto"}
 # pool-name-v13: Pinnacles egen form av kontextaliasets motpart, när den inte
 # är SvS-namnet. Gäller BARA paret i nyckeln; "ca tigre" blir inget alias.
 _POOL_CONTEXT_OPPONENTS = {("sarmiento", "tigre"): "ca tigre"}
@@ -237,6 +244,10 @@ _WOMEN_TOKENS = frozenset({
     "women", "womens", "woman", "ladies", "lfc", "wfc", "dam", "damer",
     "damerna", "kvinnor", "frauen", "femenino", "femenil", "feminin",
     "feminine", "femminile", "feminino", "feminina"})
+# pool-name-v14: SvS skriver apostrofen som ´ (U+00B4) eller ’ (U+2019),
+# Pinnacle som ' eller inte alls ("Newell´s" / "Newells"). Båda tas bort före
+# jämförelsen, som oddset.norm_team gör med '. Bara i poolmatcharen.
+_POOL_APOSTROPHES = str.maketrans({"\u00b4": "", "\u2019": ""})
 _norm_cache: dict[str, str] = {}
 _rejected_pairs: set[frozenset] | None = None
 
@@ -245,7 +256,7 @@ def _norm_team(name: str) -> str:
     cached = _norm_cache.get(name)
     if cached is None:
         from .oddset import norm_team      # lat: oddset importerar pinnacle
-        cached = norm_team(name)
+        cached = norm_team(name.translate(_POOL_APOSTROPHES))
         # SC kan skilja klubbar åt (Barcelona / Barcelona SC). Global
         # suffixstrippning får inte göra dem identiska i poolmatcharen.
         raw_tokens = re.findall(r"[a-z0-9]+", name.casefold())

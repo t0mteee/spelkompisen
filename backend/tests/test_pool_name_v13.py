@@ -46,8 +46,8 @@ class VerkligaFallTests(unittest.TestCase):
             "Sarmiento", "Tigre", [home], SVS_4433)))
 
     def test_versionen(self):
-        self.assertEqual("pool-name-v13", op.POOL_MATCH_VERSION)
-        self.assertEqual("pool-name-v13", v13(
+        self.assertEqual("pool-name-v14", op.POOL_MATCH_VERSION)
+        self.assertEqual("pool-name-v14", v13(
             "Tigre", "Sarmiento", [TIGRE], SVS_4433)["match_version"])
 
 
