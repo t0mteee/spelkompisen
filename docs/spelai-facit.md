@@ -688,6 +688,16 @@ Champions League 2026-11-03) låg orättat: Flashscores resultat heter "Manchest
 → `as roma`; spelet rättas av nästa `ratta`, inga historiska rader ändras. Serie A:s
 `roma` (football-data och Flashscore) träffar på de råa namnen och når aldrig aliaset.
 
+**Råa providernamn sist (2026-11-23, beslut driften-2026-11-23-livespel-245-orattat,
+val 0).** Spel 245 (Racing Santander–Real Sociedad, La Liga 2026-11-22, under 4,5) låg
+orättat fast Flashscores rad fanns (3–2) med EXAKT Oddsets namn: `merged_results`
+kanoniserar namnen mot football-data ("santander"/"sociedad"), och radarns strikta
+`_same_team` når inte dit. `_resultat` prövar nu som SISTA steg, efter kanon och alias,
+resultatradernas egna `home_raw`/`away_raw` med samma `_result_for` (samma namnregel,
+samma ±1-dygnsfönster och samma tvetydighetsspärr). Inget alias behövs när providern
+redan skriver Oddsets namn. Spelet rättas av nästa `ratta` (−50 kr); inga historiska
+rader ändras och radarns namnregel är orörd.
+
 **Matcher över svensk midnatt (2026-10-25, beslut
 livekassa-saknat-resultat-nyrb-miami-2026-10-25, val 0).** Spel 111 (New York Red
 Bulls–Inter Miami CF, MLS, avspark 2026-10-24 21:30Z enligt Flashscore) låg orättat

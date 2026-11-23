@@ -463,11 +463,19 @@ def _resultat(store, match: dict) -> Optional[dict]:
                     for name in (match["home"], match["away"]))
     if aliased != names[0]:
         names.append(aliased)
-    for home, away in names:
-        found = _result_for({"start_at": match["start"], "captured_at": match["start"],
-                             "home": home, "away": away}, results)
-        if found:
-            return found[0]
+    # Beslut driften-2026-11-23-livespel-245-orattat: merged_results kanoniserar
+    # namnen mot football-data ("Racing Santander"–"Real Sociedad" blev
+    # "santander"–"sociedad") och radarns strikta namnregel når inte dit. Sist
+    # prövas därför radens egna providernamn (`home_raw`/`away_raw`) med SAMMA
+    # regel och samma tvetydighetsspärr — aldrig före kanon eller alias.
+    raa = [{**r, "home": r.get("home_raw") or r.get("home"),
+            "away": r.get("away_raw") or r.get("away")} for r in results]
+    for rows, pairs in ((results, names), (raa, names[:1])):
+        for home, away in pairs:
+            found = _result_for({"start_at": match["start"], "captured_at": match["start"],
+                                 "home": home, "away": away}, rows)
+            if found:
+                return found[0]
     return None
 
 

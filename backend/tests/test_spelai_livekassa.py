@@ -497,6 +497,28 @@ class ResultatAliasTests(Base):
         self.assertEqual((2, 0), tuple(livekassa._resultat(self.store, match)[k]  # noqa: SLF001
                                        for k in ("hg", "ag")))
 
+    def test_spel_245_hittar_raden_pa_raa_namn(self):
+        # Beslut driften-2026-11-23-livespel-245-orattat: kanon "santander"/"sociedad",
+        # råa namnen är Oddsets egna.
+        self.store.oddset_save_result({
+            "league": "la_liga", "date": "2026-11-22", "home": "santander",
+            "away": "sociedad", "home_raw": "Racing Santander",
+            "away_raw": "Real Sociedad", "hg": 3, "ag": 2, "source": "flashscore"})
+        match = {"league": "la_liga", "home": "Racing Santander", "away": "Real Sociedad",
+                 "start": "2026-11-22T15:15:00Z"}
+        found = livekassa._resultat(self.store, match)  # noqa: SLF001
+        self.assertEqual((3, 2), (found["hg"], found["ag"]))
+
+    def test_raa_namn_tvetydigt_ger_inget(self):
+        for home, away in (("santander", "sociedad"), ("santander b", "sociedad b")):
+            self.store.oddset_save_result({
+                "league": "la_liga", "date": "2026-11-22", "home": home, "away": away,
+                "home_raw": "Racing Santander", "away_raw": "Real Sociedad",
+                "hg": 1, "ag": 0, "source": "flashscore"})
+        match = {"league": "la_liga", "home": "Racing Santander", "away": "Real Sociedad",
+                 "start": "2026-11-22T15:15:00Z"}
+        self.assertIsNone(livekassa._resultat(self.store, match))  # noqa: SLF001
+
     def test_utan_resultat_ingen_gissning(self):
         match = {"league": "la_liga", "home": "Alaves", "away": "Atlético Madrid",
                  "start": "2026-10-10T14:15:00Z"}
