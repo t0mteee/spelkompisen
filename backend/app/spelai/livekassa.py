@@ -520,6 +520,50 @@ def ratta(store, *, now: dt.datetime,
     return report
 
 
+def ratta_manuellt(store, bet_id: int, hg: int, ag: int, *, beslut: str,
+                   now: dt.datetime) -> dict:
+    """Rätta en matchs öppna livespel på ett slutresultat som Saman verifierat
+    (beslut driften-2026-11-26-livespel-257-orattat, val 2).
+
+    Bara när insamlingen saknar resultatet: samma `ou_utfall` och `_nasta_pris`
+    som `ratta`, och alla öppna spel på spelets match rättas på resultatet.
+    `oddset_results` rörs inte — ett manuellt resultat är ingen källobservation.
+    Journalen bär `kalla: manuellt` och beslutets id. Vägrar före förväntat
+    slut, när spelet redan är rättat och när beslutet saknas."""
+    if not beslut:
+        raise ValueError("beslutets id krävs")
+    if hg < 0 or ag < 0:
+        raise ValueError(f"ogiltigt resultat {hg}–{ag}")
+    conn = store.conn
+    spel = _spel(conn, "WHERE b.id=?", (bet_id,))
+    if not spel:
+        raise ValueError(f"spel {bet_id} finns inte")
+    if spel[0]["outcome"] is not None:
+        raise ValueError(f"spel {bet_id} är redan rättat ({spel[0]['outcome']})")
+    ref = spel[0]["match_ref"]
+    match = _match_for_ref(conn, ref)
+    start = utc(match["start"]) if match else None
+    if start is None or start + RATTAS_EFTER > now:
+        raise ValueError(f"spel {bet_id}: matchen är inte färdigspelad ({ref})")
+    oppna = _spel(conn, "WHERE b.match_ref=? AND r.bet_id IS NULL", (ref,))
+    rattade = []
+    for bet in oppna:
+        utfall, netto = ou_utfall(hg + ag, float(bet["line"]), bet["sign"],
+                                  float(bet["odds"]), float(bet["stake_kr"]))
+        nasta_odds, nasta_at = _nasta_pris(conn, bet)
+        conn.execute(
+            "INSERT OR IGNORE INTO spelai_live_result (bet_id, outcome, net_kr, "
+            "settled_at, next_price_odds, next_price_observed_at) VALUES (?,?,?,?,?,?)",
+            (bet["id"], utfall, netto, iso(now), nasta_odds, nasta_at))
+        rattade.append({"id": bet["id"], "utfall": utfall, "netto_kr": netto})
+    conn.commit()
+    tillstand.logga(conn, "live_rattat", ref, {
+        "mal": f"{hg}–{ag}", "spel": len(rattade), "kalla": "manuellt",
+        "beslut": beslut}, now=now, dedup_key=f"live_rattat:{ref}")
+    return {"match": f"{match['home']}–{match['away']}", "mal": f"{hg}–{ag}",
+            "rattade": rattade}
+
+
 # ── API ──────────────────────────────────────────────────────────────────
 
 def _visning(bet: dict, namn: dict) -> dict:

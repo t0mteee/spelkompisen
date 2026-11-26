@@ -330,6 +330,42 @@ class RattningTests(Base):
         self.assertTrue(refresh.call_args.kwargs["force"])
 
 
+class ManuellRattningTests(Base):
+    """Beslut driften-2026-11-26-livespel-257-orattat, val 2: Saman verifierar
+    slutresultatet när insamlingen saknar det."""
+    BESLUT = "driften-2026-11-26-livespel-257-orattat"
+
+    def test_rattar_matchens_oppna_spel_och_loggar_kallan(self):
+        self.lagg_in(line=4.5, sign="O")
+        self.lagg_in(line=1.5, sign="O")
+        efter = AVSPARK + dt.timedelta(hours=3)
+        rep = livekassa.ratta_manuellt(self.store, 1, 2, 0, beslut=self.BESLUT, now=efter)
+        self.assertEqual([("forlust", -50.0), ("vinst", 50.0)],
+                         [(b["outcome"], b["net_kr"]) for b in self.bets()])
+        self.assertEqual("2–0", rep["mal"])
+        detalj = self.events("live_rattat")[0][1]
+        self.assertIn('"kalla": "manuellt"', detalj)
+        self.assertIn(self.BESLUT, detalj)
+        self.assertEqual(0, self.conn.execute(
+            "SELECT COUNT(*) FROM oddset_results").fetchone()[0])
+        # ratta har inget kvar att göra
+        self.assertEqual({}, livekassa.ratta(self.store, now=efter,
+                                             resultat_kalla=lambda s, m, n: None))
+
+    def test_vagrar_rattat_spel_tidig_match_och_saknat_beslut(self):
+        self.lagg_in(net=-50.0)
+        self.lagg_in()
+        efter = AVSPARK + dt.timedelta(hours=3)
+        with self.assertRaises(ValueError):
+            livekassa.ratta_manuellt(self.store, 1, 2, 0, beslut=self.BESLUT, now=efter)
+        with self.assertRaises(ValueError):
+            livekassa.ratta_manuellt(self.store, 2, 2, 0, beslut=self.BESLUT,
+                                     now=AVSPARK + dt.timedelta(minutes=60))
+        with self.assertRaises(ValueError):
+            livekassa.ratta_manuellt(self.store, 2, 2, 0, beslut="", now=efter)
+        self.assertIsNone(self.bets()[1]["outcome"])
+
+
 class ResultatAllaTests(Base):
     """Beslut forskaren-2026-10-15-resultat-alla-livematcher, val 0: resultat
     för alla matcher med livepriser, inte bara de med spel."""

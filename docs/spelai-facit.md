@@ -698,6 +698,15 @@ samma ±1-dygnsfönster och samma tvetydighetsspärr). Inget alias behövs när 
 redan skriver Oddsets namn. Spelet rättas av nästa `ratta` (−50 kr); inga historiska
 rader ändras och radarns namnregel är orörd.
 
+**Manuell rättning (2026-11-26, beslut driften-2026-11-26-livespel-257-orattat, val 2).**
+När insamlingen aldrig får ett resultat rättas spelet på ett slutresultat som Saman
+verifierat: `livekassa.ratta_manuellt` via `scripts/ratta_livespel_manuellt.py`
+(torrkörning som standard, backup före `--skarp`, post i `docs/db-atgarder.md`). Samma
+`ou_utfall` och `_nasta_pris` som `ratta`; alla öppna spel på matchen rättas, journalens
+`live_rattat` bär `kalla: manuellt` och beslutets id. Vägrar före förväntat slut, för
+redan rättade spel och utan beslut. `oddset_results` rörs inte. Första gången: spel 257
+(Atlético Madrid–Viking Stavanger 2–0, över 4,5) → förlust −50 kr.
+
 **Matcher över svensk midnatt (2026-10-25, beslut
 livekassa-saknat-resultat-nyrb-miami-2026-10-25, val 0).** Spel 111 (New York Red
 Bulls–Inter Miami CF, MLS, avspark 2026-10-24 21:30Z enligt Flashscore) låg orättat

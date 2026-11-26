@@ -8,6 +8,27 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-11-26 — Livespel 257 rättat på Samans verifierade resultat (körd 2026-11-26T06:23:00Z)
+
+**Bakgrund.** Beslut driften-2026-11-26-livespel-257-orattat, val 2 ("Saman verifierar
+slutresultatet och beslutar hur spelet rättas", kommentar "2-0"). Spel 257
+(Atlético Madrid–Viking Stavanger, Champions League 2026-11-25 20:00Z, Kambi-id
+1028943176, över 4,5 @ 2,65, 50 kr) låg orättat: matchen saknades i `oddset_results`
+och stod `pending` i `oddset_matches`. Kambis sista livepriser (21:47Z: över 2,5 @ 3,65,
+21:50Z @ 15,0) stämmer med två mål.
+
+**Skript:** `backend/scripts/ratta_livespel_manuellt.py --spel 257 --resultat 2-0
+--beslut driften-2026-11-26-livespel-257-orattat` (torrkörning gav förlust −50 kr), sedan
+`--skarp`. **Backup** (backup-API):
+`backend/data/backups/stryktips-2026-11-26T062300Z-fore-manuell-liverattning.db`.
+**Utfall:** en rad i `spelai_live_result` (257, `forlust`, −50,0, settled_at
+2026-11-26T06:23:00Z, nästa pris 2,8 @ 2026-11-25T20:23:08Z) och journalhändelsen
+`live_rattat` (ref 1028943176, `kalla: manuellt`, beslutets id). Inga andra tabeller
+ändrade; `oddset_results` orörd. Öppna livespel efteråt: 0. `PRAGMA integrity_check`:
+**ok**.
+
+---
+
 ## 2026-10-24 — ATG-insamlingens tabeller för Big 9 (körd 2026-10-24T12:14:54Z)
 
 **Bakgrund.** Beslut driften-2026-10-24-big9-atg (val 0): samla in Big 9 från ATG
