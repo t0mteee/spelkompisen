@@ -8,6 +8,30 @@ förbjudet. Automatisk upptäckt av kända felmönster: `cli.py modeldata`
 
 ---
 
+## 2026-11-27 — Livespel 275 rättat på resultat ur öppna källor (körd 2026-11-27T01:08:24Z)
+
+**Bakgrund.** Beslut driften-2026-11-27-livespel-275-saknar-resultat, val 1 ("Rätta spel
+275 manuellt med resultatet från en öppen källa"). Spel 275 (Inter Club d'Escaldes–FC
+Köpenhamn, Conference League 2026-11-26 20:00Z, Kambi-id 1028946453, under 2,5 @ 1,91,
+50 kr, lagt vid minut 57 och 1–0) låg orättat och vakten larmade `livespel_orattat`:
+`oddset_results` hade 17 Conference League-resultat för dagen men inte det här.
+**Slutresultat 2–0** enligt ESPN (gameId 401915738), Flashscores matchrapport
+(`/news/soccer-conference-league-inter-escaldes-fc-copenhagen-report-26-11-2026/CAKiuTYP/`)
+och 365scores. Det stämmer med 1–0 vid spelet och med Kambis sista livepris (21:47:05Z:
+under 2,5 @ 1,04, över @ 9,0, alltså två mål).
+
+**Skript:** `backend/scripts/ratta_livespel_manuellt.py --spel 275 --resultat 2-0
+--beslut driften-2026-11-27-livespel-275-saknar-resultat` (torrkörning gav vinst
++45,50 kr), sedan `--skarp`. **Backup** (backup-API):
+`backend/data/backups/stryktips-2026-11-27T010824Z-fore-manuell-liverattning.db`.
+**Utfall:** en rad i `spelai_live_result` (275, `vinst`, +45,5, settled_at
+2026-11-27T01:08:24Z, nästa pris 3,0 @ 2026-11-26T21:17:26Z) och journalhändelsen
+`live_rattat` (ref 1028946453, `kalla: manuellt`, beslutets id). Inga andra tabeller
+ändrade; `oddset_results` orörd. Öppna livespel efteråt: 0. `PRAGMA integrity_check`:
+**ok**.
+
+---
+
 ## 2026-11-26 — Livespel 257 rättat på Samans verifierade resultat (körd 2026-11-26T06:23:00Z)
 
 **Bakgrund.** Beslut driften-2026-11-26-livespel-257-orattat, val 2 ("Saman verifierar

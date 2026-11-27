@@ -1,10 +1,22 @@
 # Spelkompisen — färdplan
 
-## STATUS (2026-11-26 — livespel 257 rättat manuellt på Samans verifierade 2–0; 2026-11-23 — livekassan rättar på råa providernamn; 2026-11-08 — pool-name-v14 apostrofer och Instituto mot Newell's; 2026-11-07 pool-name-v13 Sarmiento mot Tigre; 2026-11-06 V2.2 v10 och poolstyrkan avslutade per 2026-11-05 09:30Z; Betfair Exchange och BetInAsia via Betexplorer som mätta referensböcker; bet365 via Betexplorer som referensbok i Oddset-vyn; Pinnacle spärrar Sverige; Smarkets och SBOBET ankrar värdemotorn (anchor-v1); SBOBET ny referenskälla och Smarkets synlig igen; 2026-11-05 Big 9: valet hög EV i appen; egen kupong i appen; Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
+## STATUS (2026-11-27 — livespel 275 rättat manuellt på 2–0 ur öppna källor; 2026-11-26 — livespel 257 rättat manuellt på Samans verifierade 2–0; 2026-11-23 — livekassan rättar på råa providernamn; 2026-11-08 — pool-name-v14 apostrofer och Instituto mot Newell's; 2026-11-07 pool-name-v13 Sarmiento mot Tigre; 2026-11-06 V2.2 v10 och poolstyrkan avslutade per 2026-11-05 09:30Z; Betfair Exchange och BetInAsia via Betexplorer som mätta referensböcker; bet365 via Betexplorer som referensbok i Oddset-vyn; Pinnacle spärrar Sverige; Smarkets och SBOBET ankrar värdemotorn (anchor-v1); SBOBET ny referenskälla och Smarkets synlig igen; 2026-11-05 Big 9: valet hög EV i appen; egen kupong i appen; Big 9 mäts även på 512 kr från SP96 554; 2026-11-04 Big 9 bara fulla system (ATG:s enskilda utfall) från SP96 554; Big 9 i appen (Poolspel → Big 9); pool-name-v12 LD Alajuelense; pool-name-v11 Slavia/Sparta Prag; livekassans alias Sporting Lissabon och Manchester United/Roma; 2026-11-02 Altenar borttagen som källa; 2026-10-25 livekassans resultat för matcher över svensk midnatt; 2026-10-24 Big 9 från ATG på facitsidan, SP96 mäts som Big 9; 2026-10-18 livekassan till 0 kr, byggaren och poolvarianterna städade, pool-name-v10; 2026-10-16 färre poolnotiser; 2026-10-15 livesidan för poolspelen)
 
 Projektets aktuella kontrakt står här; historiska statusblock finns i
 `docs/status-historik.md`. Senaste överlämning:
 `docs/overlamningar/overlamning-2026-11-06-v22-poolstyrka-avslutade.md`.
+
+**Nytt 2026-11-27:**
+- **Livespel 275 rättat manuellt** (beslut driften-2026-11-27-livespel-275-saknar-resultat,
+  val 1: rätta med resultatet från en öppen källa). Inter Club d'Escaldes–FC Köpenhamn
+  (Conference League 2026-11-26 20:00Z, under 2,5 @ 1,91, 50 kr) saknades i
+  `oddset_results` (17 av dagens 18 CL-resultat fanns) och vakten larmade
+  `livespel_orattat`. Slutresultatet 2–0 enligt ESPN, Flashscores matchrapport och
+  365scores, i linje med Kambis sista livepris. Rättat med den befintliga
+  `scripts/ratta_livespel_manuellt.py` 2026-11-27T01:08:24Z: vinst +45,50 kr, 0 öppna
+  livespel. Ingen kodändring; `oddset_results` orörd. Varför Flashscore-hämtningen missar
+  enstaka europacupmatcher (andra gången på två dygn) är fortfarande inte utrett (val 0
+  valdes inte). `docs/db-atgarder.md`, `docs/spelai-facit.md` § 16.
 
 **Nytt 2026-11-26:**
 - **Livespel 257 rättat manuellt** (beslut driften-2026-11-26-livespel-257-orattat,

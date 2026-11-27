@@ -705,7 +705,10 @@ verifierat: `livekassa.ratta_manuellt` via `scripts/ratta_livespel_manuellt.py`
 `ou_utfall` och `_nasta_pris` som `ratta`; alla öppna spel på matchen rättas, journalens
 `live_rattat` bär `kalla: manuellt` och beslutets id. Vägrar före förväntat slut, för
 redan rättade spel och utan beslut. `oddset_results` rörs inte. Första gången: spel 257
-(Atlético Madrid–Viking Stavanger 2–0, över 4,5) → förlust −50 kr.
+(Atlético Madrid–Viking Stavanger 2–0, över 4,5) → förlust −50 kr. Andra gången: spel 275
+(Inter Club d'Escaldes–FC Köpenhamn 2–0, under 2,5, beslut
+driften-2026-11-27-livespel-275-saknar-resultat, val 1) på resultatet ur öppna källor
+(ESPN, Flashscores matchrapport, 365scores) → vinst +45,50 kr.
 
 **Matcher över svensk midnatt (2026-10-25, beslut
 livekassa-saknat-resultat-nyrb-miami-2026-10-25, val 0).** Spel 111 (New York Red
